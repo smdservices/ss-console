@@ -30,13 +30,13 @@ engine authors that, not this skill.
 ```markdown
 # Draft routed - <matter descriptor> - <response-set> - matter <id> - YYYY-MM-DD
 
-**Decision:** finished draft observed in the matter; filed in <location> and routed to <responsible attorney> to review. Not edited, not finalized.
-**Draft:** <file> (observed via get_files_on_matter)
-**Routed via:** create_task assigned to <personResponsibleStaffId>, keyed to <matter>/<response-set>
+**Decision:** finished draft observed in the matter; left in place and routed to <responsible attorney> to review. Not moved, not edited, not finalized.
+**Draft:** <file> (observed via get_files_on_matter; identified by diffing against the staged input set)
+**Routed via:** create_task assigned to <personResponsibleStaffId>, keyed to <matter>/<response-set>, **confirmed present via list_tasks/get_task**. dueDateOnly = <near-term confirm-by date, distinct from any legal deadline>.
 
 ## Internal log (create_memo body)
 
-> <response-set> draft picked up and routed to <attorney> for review. The skill did not author or edit it.
+> <response-set> draft picked up and routed to <attorney> for review; review task confirmed created. The skill did not move, author, or edit it.
 ```
 
 ## Shape C - Surface to a human (target/convention unknown, write unconfirmed, ambiguous candidate)
@@ -44,8 +44,8 @@ engine authors that, not this skill.
 ```markdown
 # ⚠ Staging - needs a human - <matter descriptor> - matter <id> - YYYY-MM-DD
 
-**Situation:** <staging target / folder convention not established - proposing <candidate> to confirm | a write did not confirm (add_file/create_folder error or no follow-up-read match) | returned-draft candidate cannot be matched to the response-set with confidence>
-**Decision:** surfaced for a person. Nothing asserted as staged. This is a judgment the skill does not make on its own.
+**Situation:** <staging target / folder convention not established - proposing <candidate> to confirm | a write did not confirm (add_file/create_folder/create_task/create_memo error or no confirming-read match) | draft present in the matter but the review task could not be confirmed created | returned-draft candidate cannot be matched to the response-set with confidence>
+**Decision:** surfaced for a person. Nothing asserted as staged or routed. This is a judgment the skill does not make on its own.
 **Proposed (if applicable):** stage into <candidate folder> - confirm this is where <engine> draws from before I write.
 ```
 
@@ -61,5 +61,9 @@ engine authors that, not this skill.
    confirm, never as a completed placement.
 4. **A returned draft is routed (Shape B), never finalized.** The skill does not edit,
    complete, or mark a draft final; the attorney reviews and finalizes.
-5. The decision and its reason are always stated, so the placement and the routing are
+5. **Shape B is reachable only when the review task is confirmed by a read.** A
+   `create_task` call that returned but was not confirmed via `list_tasks` / `get_task`
+   is Shape C ("draft present, review task not confirmed"), never Shape B. Routing is
+   in-place: the task points at the draft where it sits; the draft is never moved.
+6. The decision and its reason are always stated, so the placement and the routing are
    auditable.

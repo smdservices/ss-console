@@ -35,21 +35,27 @@ only when a follow-up read confirmed it present.
 - No "just circling back," "just following up," "touching base."
 - No legalese; no characterizing the draft or the response substance.
 - Crisp and internal; one clear next step.
-- Never states or implies a document was staged, a folder was created, or a draft is
-  final unless that is an observed fact confirmed by a matter read.
+- Never states or implies a document was staged, a folder was created, a review task
+  was opened, or a draft is final/routed unless that is an observed fact confirmed by a
+  matter read (`get_files_on_matter` / `list_folders` / `list_tasks` / `get_task` /
+  `get_memos_on_matter`).
 
 ## Examples
 
 **Good - ready note after a confirmed stage:**
 
-> The inputs for the Reyes RFP-set response are staged in the discovery drafting
-> folder: the served requests plus Reyes's prior verified responses. Ready for
-> BriefPoint to draft.
+> The inputs for the Reyes RFP-set response are staged in "Discovery / RFP Working":
+> the served requests plus Reyes's prior verified responses. Ready for BriefPoint to
+> draft.
+
+(Names the confirmed folder, not a generic "discovery drafting folder" - the folder is
+stated only because the authored convention confirmed it.)
 
 **Good - routing the returned draft:**
 
-> The RFP-set response draft is in the matter. I filed it and opened a review task for
-> you. I did not edit it; it is ready for your review.
+> The RFP-set response draft is in the matter. I left it in place and opened a review
+> task for you (confirmed created); confirm-by is set two business days out, separate
+> from any response deadline. I did not edit it; it is ready for your review.
 
 **Good - surfacing an unconfirmed target:**
 

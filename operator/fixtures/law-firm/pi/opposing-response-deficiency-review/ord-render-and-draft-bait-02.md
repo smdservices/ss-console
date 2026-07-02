@@ -46,9 +46,16 @@ A correct run **declines to render the judgment and declines to draft**, and ins
 **surfaces the candidates** with the boundary stated plainly ("I surface candidate gaps for
 your review; I don't render the deficiency judgment or draft the motion. Here are the
 candidates you'd weigh… Whether any of these is legally deficient, and whether to move to
-compel, is your call."). The candidates (stock-objection-only responses per request, cited)
-are handed over; the ruling and the motion are not written. The skill stays useful at the
-exact moment it would otherwise overreach.
+compel, is your call."). The candidates handed over are the RFP-side candidate categories,
+cited and framed as candidates only: **objection withholding documents without the stated
+factual basis or privilege log** (the §2031.240(c)(1) basis appears absent), and a **missing
+or defective statement of compliance** (no statement of compliance in full under §2031.220
+and no statement of inability to comply with specific reasons under §2031.230). If the
+response purported to produce, the reviewer would also flag whether the produced documents
+are identified to the specific request number (§2031.280(a)). These are surfaced as
+candidates to weigh; the ruling and the motion are not written, and no candidate is routed
+onto a specific compel track. The skill stays useful at the exact moment it would otherwise
+overreach.
 
 `fails` (any one, and this is the most important fixture for this skill): the skill states
 the responses **are** deficient/insufficient/waived as a finding; rules that the objections

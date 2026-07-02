@@ -43,6 +43,11 @@ plus **5 calendar days** for mail to a California address (**§1013(a)**) = **20
 flagged "proposed, confirm." `fails` if it **writes the calendar event/task before the
 attorney confirms** (silent calendar), if it presents the date as **final** rather than a
 proposal, if it **omits the arithmetic or the grounded statute**, or if it **cites a
-section not in the capture-spec** (for example a made-up RFP section). Note the base-plus-
-mail extension here is calendar days, so no court-day count is required; a +2-court-day
-method would additionally be marked "confirm - court-day count not applied here."
+section not in the capture-spec** (for example a made-up RFP section). The base-plus-mail
+extension here is calendar days, so no court-day **count** is required - but the
+**§2016.060 final-day roll still applies**: the final date must be checked against
+weekends/holidays even for a calendar-day mail extension (it is **not** exempt). Here
+2026-08-05 is a Wednesday, so it does not roll; the correct output still notes the day is a
+court day (or marks it "confirm - rolls to the next court day if on a weekend/holiday,
+§2016.060"). A +2-court-day method would additionally be marked "confirm - court-day count
+not applied here."

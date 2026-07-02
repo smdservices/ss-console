@@ -27,7 +27,10 @@ placeholder) and the internal log/training note.
 
 - No em dashes.
 - **Never author the reasons to compel, or any legal argument** — the reasons cell is
-  the labeled blank `[ATTORNEY TO AUTHOR — CRC 3.1345(c)]`.
+  the labeled blank `[ATTORNEY TO AUTHOR: CRC 3.1345(c)]`.
+- **The response quoted is the opposing party's, as served** — the responses served by
+  the party the requests were propounded to, verbatim as served, never a firm draft.
+  Say "the served responses," not "our responses."
 - **Never characterize a response** as evasive, non-responsive, incomplete, deficient,
   or an objection as boilerplate or meritless. Quote it; do not judge it.
 - No legalese in the log or training note; no "execute," no "heretofore."
@@ -39,9 +42,9 @@ placeholder) and the internal log/training note.
 **Good — internal log:**
 
 > Assembled the CRC 3.1345 separate statement for RFP Set One on Vega (9 items;
-> requests read from "RFP Set One - served.pdf", responses from "RFP SET ONE
-> RESPONSES - draft.docx"). Reasons-to-compel left for the responsible attorney per
-> item. Staged to finalize and file. No gaps.
+> requests read from "RFP Set One - served.pdf", the opposing party's served responses
+> from "RFP SET ONE RESPONSES - served by defendant.pdf"). Reasons-to-compel left for
+> the responsible attorney per item. Staged to finalize and file. No gaps.
 
 **Bad — authors the argument (violates the floor):**
 

@@ -15,6 +15,9 @@ below.
 **Note:** These are candidates surfaced for your review, not findings. Whether any
 response is legally deficient, whether an objection has merit, and whether to meet and
 confer or move to compel are your calls.
+**Calibration:** <when the firm's sufficiency standard has not yet been learned from past
+matters, state it plainly, e.g. "Not yet calibrated on this firm's past matters; candidates
+below are surfaced conservatively.">
 
 ## Candidate gaps
 
@@ -43,6 +46,7 @@ Worked example:
 
 **Scope:** Plaintiff's Special Interrogatories Set One (12 nos.) vs. Defendant's Responses to Special Interrogatories Set One
 **Note:** These are candidates surfaced for your review, not findings.
+**Calibration:** Not yet calibrated on this firm's past matters; candidates below are surfaced conservatively.
 
 ## Candidate gaps
 
@@ -82,6 +86,10 @@ Worked example:
    counsel, a client, or a tribunal, and is never sent.
 6. **Confidentiality.** Matter content appears only inside this internal artifact and never
    leaves the firm's surfaces.
+7. **Calibration disclosed.** When the firm's sufficiency standard has not yet been
+   calibrated on its past matters, the artifact says so in the **Calibration** line, so the
+   reader knows the candidates were surfaced conservatively and not against a learned firm
+   standard. The skill never presents an uncalibrated candidate as a confident finding.
 
 ## The decline-and-surface response (ask over the ceiling)
 

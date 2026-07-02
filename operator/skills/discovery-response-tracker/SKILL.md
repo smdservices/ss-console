@@ -9,9 +9,11 @@ description: >
   the capture-spec's grounded windows (30-day base plus service-method extension) and surfaces
   that to confirm. Either way the date is never final without attorney confirmation and never
   calendared silently. OUTBOUND (discovery we propound): records the opposing response deadline,
-  watches it across open matters, and when the other side runs late or answers thinly it flags
-  the meet-and-confer point and starts the motion-to-compel clock, bringing the decision to the
-  attorney. Never computes a deadline as final, never invents a tool or a statute section, never
+  watches it across open matters, and when the other side runs past due or answers thinly it
+  surfaces which track applies (no/late-or-unverified response vs. a thin but verified response)
+  and brings the decision to the attorney, coupled with a check that no extension is on file.
+  Never computes a deadline as final, never asserts "late" over a possible extension, never
+  asserts the compel statute or day-count, never invents a tool or a statute section, never
   sends to another party, and never drafts or sends the meet-and-confer letter itself.
 version: 0.1.0
 author: SMD Services
@@ -104,9 +106,14 @@ can confirm, branch-aware:
 
 **Branch 1 - court-rules engine active.** Read the engine's computed date (it posts into
 the Smokeball matter as a calendar event / task, observed via `list_events` /
-`list_tasks`). Surface it for one-click confirm. **Do not recompute.** If the engine has
-not yet produced a date, surface that it is pending the engine, not a number of the
-skill's own making.
+`list_tasks`). **`list_events` returns ALL events on the matter, not just the discovery
+deadline** - how the engine's discovery-response event is identified (its title pattern,
+category, or a source tag it carries) is a **firm-configuration fact confirmed at connect**,
+not guessed. Surface the identified engine date for one-click confirm. **Do not recompute.**
+If the engine has not yet produced a date, surface that it is pending the engine, not a
+number of the skill's own making. **If more than one event could be the discovery-response
+deadline, or none can be identified with confidence, the skill does not guess - it fails
+closed to Shape D** and surfaces the ambiguity for a person.
 
 **Branch 2 - firm computes by hand.** Compute the deadline from the capture-spec's
 grounded windows and present it flagged "proposed, confirm":
@@ -122,6 +129,13 @@ grounded windows and present it flagged "proposed, confirm":
   the +2-court-day methods); where court-day counting is required it shows the base date
   and the extension and marks the court-day roll as **for the attorney/engine to
   confirm**, rather than asserting a day it cannot count reliably.
+- **Final-day roll (CCP §2016.060) applies to EVERY discovery deadline, not only the
+  +2-court-day methods.** When the final computed date lands on a Saturday, Sunday, or
+  court holiday, it rolls to the next court day. Because the skill does not implement the
+  court/holiday calendar, it marks the final day **"confirm - rolls to the next court day
+  if on a weekend/holiday (§2016.060)"** on **both** the calendar-day mail methods
+  (+5 / +10 / +20) **and** the +2-court-day methods. A calendar-day mail extension is
+  **not** exempt from this roll; the skill flags the roll, it never computes the rolled day.
 - Local / department rules that shorten or add to the timeline are **not** applied until
   A&P's venues are configured; where one might govern, it is surfaced as a flag, not
   computed around.
@@ -132,37 +146,67 @@ the calendar silently**. On confirm, the skill writes the calendar event and mat
 (`create_event`, `create_task`) and logs it (`create_memo`). Nothing is written before
 the confirm.
 
-## OUTBOUND - track propounded discovery, flag the meet-and-confer / compel point
+## OUTBOUND - track propounded discovery, surface the compel track for a decision
 
 When the firm serves discovery, this skill records the **opposing side's response
-deadline** for that set (same grounded windows / engine read as inbound, from the firm's
-service date and method, present for confirm the same way), opens a tracked task keyed to
+deadline** for that set from the firm's service date and method, present for confirm the
+same way as inbound, opens a tracked task keyed to
 `(matter, discovery-set, direction=outbound)`, and a scheduled job watches it across open
 matters (`list_matters(updatedSince)`, `list_tasks(is_completed=false)`).
 
-When the deadline passes with **no response**, or a response comes back that appears
-**thin** (boilerplate objections, non-answers, missing responses to numbered items), the
-skill does not decide the legal sufficiency and does not write the letter. It **flags the
-decision to the responsible attorney**:
+**Direction asymmetry - outbound normally uses the by-hand branch.** A court-rules engine
+calendars the **firm's own** obligations (the deadlines the firm must meet), not the
+opposing party's response deadline. So the engine read that governs inbound is normally
+**inapplicable** to the opposing side's deadline outbound; the skill computes the opposing
+deadline from the grounded windows (present for confirm) rather than reading it from the
+engine. Whether the firm's engine also posts opposing-party deadlines is a
+**firm-configuration fact confirmed at connect**; until confirmed, outbound uses the
+by-hand branch.
 
-- names the matter, the set, and which trigger fired (late, or appears thin - a surfaced
-  observation, not a legal sufficiency ruling),
-- states plainly that this is the **meet-and-confer point** and that the **window to move
-  to compel is now running**,
-- routes the decision, because the firm handles meet-and-confer informally first
-  sometimes: the attorney decides informal-first vs. a letter; if a letter, the
-  `meet-and-confer-drafter` skill drafts it (that skill owns the letter and the specific
-  compel-window citation),
-- for a **late RFA response specifically**, raises the severity: a party that fails to
-  respond to requests for admission in time is exposed to having the matters **deemed
-  admitted** (**CCP §2033.280**), which can be case-dispositive, so this is a
-  higher-priority flag.
+**Before flagging anything as past due, check for a recorded extension.** Extensions and
+stipulations are this firm's **top source of slippage**, and they are usually granted
+informally **by email, not entered into the record**. A recorded extension (a memo,
+stipulation, or task note in the matter - `get_memos_on_matter`, `list_tasks`)
+**overrides the computed date**; the skill re-anchors to it and does not flag. Because an
+unrecorded email extension cannot be seen from the record, the skill **never asserts
+"late" as an established fact** off a passed computed date alone. It couples every past-due
+observation with **"the response window has passed UNLESS an extension was granted - confirm
+none is on file."** If an extension cannot be ruled out from the record, that is a "late
+cannot be established" case → **Shape D**, not a late flag. Whether the firm reliably papers
+extensions in the matter is confirmed at connect.
 
-The skill **starts the compel clock** in the sense of surfacing that the window is now
-open and putting the decision in front of the attorney. It does **not** assert the exact
-number of days or the compel statute section - the meet-and-confer / motion-to-compel
-window and its governing section belong to `meet-and-confer-drafter` and the attorney, and
-are confirmed at connect against A&P's venues. This skill does not invent that number.
+When the deadline has passed (extension check clear) with **no response**, or a response
+comes back that appears **thin** (boilerplate objections, non-answers, missing responses to
+numbered items), the skill does not decide legal sufficiency and does not write the letter.
+It surfaces **which track applies** to the responsible attorney, as an observation, without
+asserting the compel statute section or the day-count (those belong to
+`meet-and-confer-drafter` and the attorney):
+
+- **No response, a late response, or an UNVERIFIED response** - a "thin" response served
+  without the required party verification is, by **CCP §2030.250** and _Appleton v.
+  Superior Court_, treated as **no response**. This is the **no-response track**: a party
+  that fails to respond in time generally **waives its objections**, and a motion to compel
+  initial responses has **no meet-and-confer prerequisite and no 45-day clock**. The skill
+  surfaces this as the applicable track; it does **not** assert the operative motion section
+  (that is the drafter's) beyond the grounded observations here.
+- **A thin but VERIFIED response.** This is the **compel-further track**: it requires a
+  **meet-and-confer declaration**, and the compel-further window runs **from service of the
+  verified response** (the skill names that trigger; it does **not** compute the day). The
+  operative compel-further section belongs to `meet-and-confer-drafter`.
+- **A late RFA response specifically** raises severity on the no-response track: a party
+  that fails to respond to requests for admission in time is exposed to having the matters
+  **deemed admitted** (**CCP §2033.280**), which can be case-dispositive. There is no
+  meet-and-confer prerequisite and no 45-day compel-further clock for the deemed-admitted
+  motion; the exposure itself is the reason for the higher-priority flag.
+
+In every case the skill **routes the decision** to the attorney (the firm sometimes handles
+meet-and-confer informally first): informal-first vs. a letter; if a letter, the
+`meet-and-confer-drafter` skill drafts it and owns the specific compel section and window
+citation. The skill surfaces that a compel path is open and puts the decision in front of
+the attorney. It does **not** assert the exact number of days or the compel statute section;
+it names only the grounded observations above (§2030.250 verification, §2033.280 RFA
+deemed-admitted) and hands the compel citation to `meet-and-confer-drafter`, confirmed at
+connect against A&P's venues.
 
 ## Boundaries (never)
 
@@ -176,10 +220,14 @@ are confirmed at connect against A&P's venues. This skill does not invent that n
   second number.
 - **Never send to another party, and never draft or send the meet-and-confer letter.** It
   flags the decision point; `meet-and-confer-drafter` and the attorney own the letter.
-- **Never invent a tool or a statute section.** It cites only the grounded response-window
-  and service statutes (§2030.260 / §2031.260 / §2033.250; §1013; §1010.6; §2033.280 for
-  the RFA deemed-admitted exposure). Any section not grounded is surfaced as "confirm,"
-  not asserted.
+- **Never invent a tool or a statute section, and never assert the compel section.** It
+  cites only grounded statutes: the response-window and service statutes (§2030.260 /
+  §2031.260 / §2033.250; §1013; §1010.6), the final-day roll (§2016.060), the RFA
+  deemed-admitted exposure (§2033.280), and the verification rule (§2030.250 / _Appleton_).
+  The compel-initial and compel-further sections (§2030.290 / §2031.300; §2030.300 /
+  §2031.310 / §2033.290) are **real, not invented, but they belong to
+  `meet-and-confer-drafter`** - this skill names the track, not the section, and never
+  computes the day-count. Any section not grounded is surfaced as "confirm," not asserted.
 - **Never judge sufficiency.** "Appears thin" is a surfaced observation for the attorney,
   not a legal ruling that a response is inadequate.
 
@@ -187,11 +235,20 @@ are confirmed at connect against A&P's venues. This skill does not invent that n
 
 - Proof of service missing / ambiguous / unreadable, or type unclear → surface and ask;
   never guess the date, method, or type.
-- Deadline mode (engine vs. by-hand) unconfigured → surface to ask; never pick one and
-  never compute-and-calendar.
-- Court-day counting or a possible local rule in play → show the base + extension and mark
-  the final day "confirm"; never assert a day it cannot count.
+- Deadline mode (engine vs. by-hand) unconfigured → surface to ask (Shape D); never pick
+  one and never compute-and-calendar.
+- Engine active but the discovery-response event cannot be identified, or more than one
+  event could be it → surface (Shape D); never guess which event is the deadline, and never
+  fall back to recomputing where the engine is active.
+- Court-day counting, the §2016.060 final-day roll (final date on a weekend/holiday), or a
+  possible local rule in play → show the base + extension and mark the final day "confirm -
+  rolls to the next court day if on a weekend/holiday (§2016.060)"; never assert a day it
+  cannot count. This roll applies to **every** deadline, including calendar-day mail
+  extensions.
 - No attorney confirm observed → the date stays a proposal; nothing is calendared.
+- Outbound: a computed deadline has passed but an extension cannot be ruled out from the
+  record → surface "past due unless an extension is on file" (Shape D); never assert "late."
+  A recorded extension overrides the computed date.
 - "Appears thin" / "is late" that cannot be established from the record → surface the
   ambiguity; never fabricate a trigger.
 
@@ -221,24 +278,33 @@ Inbound:
 
 Outbound:
 
-1. **Record** the opposing response deadline at serve time (same branch/compute/read,
-   present for confirm), and open a tracked task (`create_task`, keyed
-   `(matter, set, outbound)`).
+1. **Record** the opposing response deadline at serve time (by-hand compute from the
+   grounded windows - the engine calendars the firm's own deadlines, not the opposing
+   party's, so the engine read is normally inapplicable here; present for confirm), and
+   open a tracked task (`create_task`, keyed `(matter, set, outbound)`).
 2. **Watch** across open matters on the cadence (`list_matters(updatedSince)`,
-   `list_tasks(is_completed=false)`).
-3. **Flag** late / apparently-thin to the responsible attorney with the meet-and-confer /
-   compel-window decision (RFA-late = higher severity, §2033.280), log via `create_memo`.
-   Hand the letter to `meet-and-confer-drafter` if the attorney chooses a letter.
+   `list_tasks(is_completed=false)`). Before flagging past-due, check for a recorded
+   extension (`get_memos_on_matter`, `list_tasks`); a recorded extension overrides the
+   computed date, and an extension that cannot be ruled out means "late" is unestablished
+   (Shape D).
+3. **Surface the track** to the responsible attorney - no/late/unverified response
+   (no-response track; objections waived; RFA-late = higher severity, §2033.280) vs. a
+   thin verified response (compel-further track; meet-and-confer declaration; window runs
+   from service of the verified response), coupled with "past due unless an extension is on
+   file." Never assert the compel section or day-count. Log via `create_memo`. Hand the
+   letter to `meet-and-confer-drafter` if the attorney chooses a letter.
 
 ## Training output (built into every run)
 
 Every action carries, in the matter memo and the attorney-facing surface, a short note a
 junior paralegal learns from: _what_ it did (captured/read/flagged), _why it matters_ (the
-response window and where it came from - the engine or the grounded statute; for RFAs, the
-deemed-admitted exposure under §2033.280), _what comes next_ (attorney confirms the date;
-or the attorney decides meet-and-confer informal-first vs. letter), and _when to bring the
-attorney in_ (deadline unconfirmed and near; proof of service unreadable; a response late
-or thin; a possible local rule). It cites the actual governing rule for the step, grounded,
+response window and where it came from - the engine or the grounded statute; the
+final-day roll under §2016.060; for RFAs, the deemed-admitted exposure under §2033.280),
+_what comes next_ (attorney confirms the date; or the attorney decides meet-and-confer
+informal-first vs. letter), and _when to bring the attorney in_ (deadline unconfirmed and
+near; proof of service unreadable; a response late or thin; a possible extension not on the
+record; a final date on a weekend/holiday; a possible local rule). It cites the actual
+governing rule for the step, grounded,
 never recalled-and-hoped; if a rule is uncertain it says "confirm the rule" rather than
 invent a citation.
 
@@ -258,8 +324,11 @@ hermes run discovery-response-tracker --direction outbound --action watch
 ## Escalation
 
 Red-flag to the responsible attorney (and the escalation recipients) when: a response
-deadline is unconfirmed and near; the deadline mode is unconfigured; a proof of service is
-unreadable; an opposing response is late or appears thin (RFA-late highest severity, deemed
-admissions under §2033.280); or a possible local/department rule is in play. Fail closed:
-surface and ask; never assert a deadline as final, never calendar silently, never send, and
-never write the meet-and-confer letter.
+deadline is unconfirmed and near; the deadline mode is unconfigured; the engine's
+discovery-response event cannot be identified (or multiple candidates); a proof of service
+is unreadable; a computed final date lands on a weekend/holiday (§2016.060 roll to confirm);
+an opposing response is past due unless an extension is on file, or appears thin (RFA-late
+highest severity, deemed admissions under §2033.280; thin verified response = compel-further
+track). Fail closed: surface and ask; never assert a deadline as final, never assert "late"
+over a possible extension, never assert the compel section, never calendar silently, never
+send, and never write the meet-and-confer letter.

@@ -10,12 +10,15 @@ is crisp, factual, and carries a single action.
 Direct, factual, one clear action. States the captured facts and asks for
 confirmation.
 
-The surface MAY: name the matter, the discovery type, and the service date + method as
-read off the proof of service (with the POS located); note that the type carries a
-response-verification requirement unless objections-only; note whether the deadline is
-the rules engine's to read or a by-hand base window flagged "proposed, confirm"; flag
-anything needing judgment (POS unreadable, type unclear, matter unmatched, an RFA
-served).
+The surface MAY: name the matter, the discovery type with its descriptor (Form vs
+Special interrogatories, set number as stated), and the service date + method as read
+off the proof of service (with the POS located); note that the type carries a
+response-verification requirement unless objections-only; when a deposition notice
+carries an embedded document demand, name both facets (calendar/prep and the
+document-production objection window); note whether the deadline is the rules engine's
+to read or a by-hand base window flagged "proposed, confirm"; flag anything needing
+judgment (POS unreadable, POS states more than one method, type unclear, a depo notice
+with a document rider, matter unmatched, an RFA served).
 
 The surface MAY NOT: characterize whether the requests are proper, burdensome, or
 answerable; draft or suggest a response; compute or assert a **final** deadline;
@@ -48,6 +51,20 @@ claims about timing (only the POS governs the date/method).
 > Requests for admission were served on Nguyen. Per the proof of service: served
 > 2026-06-28 by mail (California address). Confirm the type, date, and method for the
 > deadline. Flagging this as an RFA so the response timing is watched closely.
+
+**Good — surface both facets (records deposition notice carrying a document demand):**
+
+> A deposition notice was served on Okafor, and it carries a document demand (a records
+> deposition). Two things ride it: the deposition itself, for calendar and prep
+> (deponent and date on the notice), and a document-production objection window
+> separate from the deposition date. Confirm the type and service so both get set. I
+> have not calendared either.
+
+**Good — surface-and-ask (POS shows more than one method):**
+
+> Special interrogatories were served on Delgado, but the proof of service marks two
+> methods, mail and electronic service, and the extension differs by method. Confirm
+> which method governs so the input is right. I have not picked one or set a date.
 
 **Good — surface-and-ask (POS unreadable):**
 
