@@ -4,6 +4,7 @@ import { getQuoteForEntity } from '../../../../../lib/db/quotes'
 import { getPdf } from '../../../../../lib/storage/r2'
 import { getSOWStateForQuote } from '../../../../../lib/sow/service'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * GET /api/portal/quotes/:id/sow
@@ -16,25 +17,16 @@ import { env } from 'cloudflare:workers'
 export const GET: APIRoute = async ({ locals, params }) => {
   const quoteId = params.id
   if (!quoteId) {
-    return new Response(JSON.stringify({ error: 'Quote ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Quote ID required')
   }
 
   // Resolve client via Clerk identity bridge
   const portalData = await getPortalClient(env.DB, locals)
   if (!portalData) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(401, 'Unauthorized')
   }
   if (!portalData.client) {
-    return new Response(JSON.stringify({ error: 'Client not found' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(403, 'Client not found')
   }
 
   // Get quote scoped to this client
@@ -45,30 +37,21 @@ export const GET: APIRoute = async ({ locals, params }) => {
     quoteId
   )
   if (!quote) {
-    return new Response(JSON.stringify({ error: 'Quote not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(404, 'Quote not found')
   }
 
   const sowState = await getSOWStateForQuote(env.DB, portalData.user.org_id, quote.id)
   const revision = sowState.downloadableRevision
 
   if (!revision) {
-    return new Response(JSON.stringify({ error: 'SOW not available' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(404, 'SOW not available')
   }
 
   // Stream PDF from R2
   const key = revision.signed_storage_key ?? revision.unsigned_storage_key
   const object = await getPdf(env.STORAGE, key)
   if (!object) {
-    return new Response(JSON.stringify({ error: 'SOW file not found in storage' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(404, 'SOW file not found in storage')
   }
 
   return new Response(object.body, {

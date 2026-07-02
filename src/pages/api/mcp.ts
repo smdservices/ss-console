@@ -1,10 +1,8 @@
 import type { APIRoute } from 'astro'
+import { jsonResponse } from '../../lib/api/helpers'
 
 const gone = (): Response =>
-  new Response(JSON.stringify({ error: 'gone', detail: 'use the customer-specific MCP URL' }), {
-    status: 410,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  jsonResponse(410, { error: 'gone', detail: 'use the customer-specific MCP URL' })
 
 export const POST: APIRoute = gone
 export const GET: APIRoute = gone

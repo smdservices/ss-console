@@ -36,3 +36,12 @@ export function jsonResponse(status: number, data: unknown): Response {
     headers: { 'Content-Type': 'application/json' },
   })
 }
+
+/**
+ * Standard error response: a JSON body of `{ error: message }` at the given
+ * status. The single canonical shape for API-route error bodies, so error
+ * responses across `src/pages/api/**` are uniform (code review 2026-07-02 §1.7).
+ */
+export function errorResponse(status: number, message: string): Response {
+  return jsonResponse(status, { error: message })
+}

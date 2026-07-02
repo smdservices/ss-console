@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { SignWellWebhookPayload } from '../../../lib/signwell/types'
 import { handleDocumentCompleted } from '../../../lib/webhooks/signwell-handler'
 import { env } from 'cloudflare:workers'
+import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 
 /**
  * POST /api/webhooks/signwell
@@ -82,10 +83,7 @@ const SignWellVerificationFieldsSchema = z.object({
 
 /** JSON error response shorthand used by every reject branch below. */
 function jsonError(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, error)
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -155,10 +153,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Acknowledge all other events without processing
-  return new Response(JSON.stringify({ ok: true, event: payload.event.type }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(200, { ok: true, event: payload.event.type })
 }
 
 /**

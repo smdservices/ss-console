@@ -3,6 +3,7 @@ import { getEngagement } from '../../../../../../lib/db/engagements'
 import { streamDocument } from '../../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../../lib/api/helpers'
 
 export const GET: APIRoute = async ({ locals, params }) => {
   const auth = requireAdminSession(locals)
@@ -11,26 +12,17 @@ export const GET: APIRoute = async ({ locals, params }) => {
   const engagementId = params.id
   const keyPath = params.key
   if (!engagementId || !keyPath) {
-    return new Response(JSON.stringify({ error: 'Missing parameters' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Missing parameters')
   }
   try {
     const engagement = await getEngagement(env.DB, session.orgId, engagementId)
     if (!engagement) {
-      return new Response(JSON.stringify({ error: 'Engagement not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(404, 'Engagement not found')
     }
     const fullKey = `${session.orgId}/engagements/${engagementId}/docs/${keyPath}`
     const obj = await streamDocument(env.STORAGE, fullKey)
     if (!obj) {
-      return new Response(JSON.stringify({ error: 'File not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(404, 'File not found')
     }
     const filename = keyPath.split('/').pop() ?? 'download'
     const contentType = obj.httpMetadata?.contentType ?? 'application/octet-stream'
@@ -43,9 +35,6 @@ export const GET: APIRoute = async ({ locals, params }) => {
     })
   } catch (err) {
     console.error('[api/admin/engagements/[id]/deliverables/[...key]] Stream error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Internal server error')
   }
 }

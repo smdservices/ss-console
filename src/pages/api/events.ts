@@ -1,5 +1,6 @@
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../lib/api/helpers'
 
 /**
  * POST /api/events
@@ -113,18 +114,12 @@ async function handlePost({ request }: APIContext): Promise<Response> {
   try {
     body = await request.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Invalid JSON')
   }
 
   const rawEvents = Array.isArray(body.events) ? body.events : null
   if (!rawEvents || rawEvents.length === 0) {
-    return new Response(JSON.stringify({ error: 'events array required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'events array required')
   }
 
   const { sessionId, needSetCookie } = resolveSessionId(request, body)
@@ -162,10 +157,7 @@ async function handlePost({ request }: APIContext): Promise<Response> {
     await persistEventRows(rows, eventCtx)
   } catch (err) {
     console.error('[api/events] D1 insert failed:', err)
-    return new Response(JSON.stringify({ error: 'Failed to persist events' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Failed to persist events')
   }
 
   return buildResponse(204, cookieSidOrNull, request)

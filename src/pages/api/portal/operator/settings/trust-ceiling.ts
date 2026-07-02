@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * Retired scalar trust-ceiling endpoint.
@@ -7,8 +8,4 @@ import type { APIRoute } from 'astro'
  * This legacy endpoint no longer records changes because doing so would create
  * audit rows the runtime cannot enforce.
  */
-export const POST: APIRoute = () =>
-  new Response(JSON.stringify({ error: 'Scalar trust ceiling is retired' }), {
-    status: 410,
-    headers: { 'Content-Type': 'application/json' },
-  })
+export const POST: APIRoute = () => errorResponse(410, 'Scalar trust ceiling is retired')
