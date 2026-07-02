@@ -29,12 +29,10 @@ import {
   streamInterviewerCompletion,
   type OpenAIChatMessage,
 } from '../../../lib/claude/assessment-llm'
+import { jsonResponse } from '../../../lib/api/helpers'
 
 function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 /** Normalize OpenAI content, which may arrive as a string OR an array of parts (ElevenLabs/OpenAI multimodal). */

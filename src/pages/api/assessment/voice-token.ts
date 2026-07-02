@@ -9,15 +9,13 @@
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
+import { jsonResponse } from '../../../lib/api/helpers'
 
 const RATE_LIMIT_PER_HOUR = 60
 const SIGNED_URL_ENDPOINT = 'https://api.elevenlabs.io/v1/convai/conversation/get-signed-url'
 
 function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 export const GET: APIRoute = async ({ clientAddress }: APIContext) => {

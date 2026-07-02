@@ -10,6 +10,7 @@ import { sendEmail } from '../../../../lib/email/resend'
 import { invoiceSentEmailHtml } from '../../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/invoices/:id
@@ -186,10 +187,7 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
 
   const invoiceId = params.id
   if (!invoiceId) {
-    return new Response(JSON.stringify({ error: 'Invoice ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Invoice ID required')
   }
 
   try {

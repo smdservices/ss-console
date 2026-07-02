@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../../../lib/api/helpers'
 
 /**
  * POST /api/portal/operator/promotion-cards/[skill]/dismiss
@@ -63,10 +64,7 @@ function resolveReturnTarget(raw: FormDataEntryValue | null): string {
 }
 
 function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 export const POST: APIRoute = async ({ params, request, locals }) => {

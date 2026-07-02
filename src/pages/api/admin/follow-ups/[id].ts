@@ -6,6 +6,7 @@ import type { FollowUpEmailData } from '../../../../lib/email/follow-up-template
 import { sendEmail } from '../../../../lib/email/resend'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 interface EntityRow {
   id: string
@@ -72,10 +73,7 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
 
   const followUpId = params.id
   if (!followUpId) {
-    return new Response(JSON.stringify({ error: 'Follow-up ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Follow-up ID required')
   }
 
   try {

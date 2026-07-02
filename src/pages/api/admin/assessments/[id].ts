@@ -9,6 +9,7 @@ import { uploadTranscript, getTranscript } from '../../../../lib/storage/r2'
 import { extractAssessment } from '../../../../lib/claude/extract'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 type Redirect = APIContext['redirect']
 
@@ -127,10 +128,7 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
 
   const assessmentId = params.id
   if (!assessmentId) {
-    return new Response(JSON.stringify({ error: 'Assessment ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Assessment ID required')
   }
 
   try {

@@ -3,6 +3,7 @@ import { getTimeEntry, updateTimeEntry, deleteTimeEntry } from '../../../../lib/
 import { getEngagement } from '../../../../lib/db/engagements'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/time-entries/:id
@@ -52,10 +53,7 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
 
   const entryId = params.id
   if (!entryId) {
-    return new Response(JSON.stringify({ error: 'Time entry ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Time entry ID required')
   }
 
   try {

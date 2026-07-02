@@ -3,6 +3,7 @@ import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import { applySkillToggle } from '../../../../../lib/portal/operator/config-governance'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/portal/operator/settings/skill-toggle
@@ -29,10 +30,7 @@ function redirectWithStatus(status: string): Response {
 }
 
 function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 export const POST: APIRoute = async ({ locals, request }) => {

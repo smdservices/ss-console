@@ -13,16 +13,14 @@ import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { draftFindings, type Turn } from '../../../lib/claude/assessment'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
+import { jsonResponse } from '../../../lib/api/helpers'
 
 const RATE_LIMIT_PER_HOUR = 40
 const MAX_TURNS = 60
 const MAX_TURN_CHARS = 4000
 
 function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 function parseTurns(body: unknown): Turn[] | null {

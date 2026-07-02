@@ -25,6 +25,7 @@ import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { verifyMachineRequest } from '../../../lib/auth/machine-key'
 import type { SummaryStatus } from '../../../lib/admin/runtime-summary'
+import { jsonResponse } from '../../../lib/api/helpers'
 
 const STATUSES: ReadonlySet<string> = new Set(['green', 'yellow', 'red', 'unknown'])
 
@@ -37,10 +38,7 @@ interface SummaryBody {
 }
 
 function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 function nonNegInt(v: unknown): number | null {

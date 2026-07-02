@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { constantTimeEqual } from '../../lib/auth/constant-time'
+import { jsonResponse } from '../../lib/api/helpers'
 
 /**
  * Health check endpoint. GET /api/health
@@ -46,8 +47,5 @@ export const GET: APIRoute = async ({ request }) => {
     body.timestamp = new Date().toISOString()
   }
 
-  return new Response(JSON.stringify(body), {
-    status: dbOk ? 200 : 503,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(dbOk ? 200 : 503, body)
 }

@@ -46,6 +46,7 @@
  */
 
 import type { APIRoute } from 'astro'
+import { jsonResponse } from '../../../../lib/api/helpers'
 import { env } from 'cloudflare:workers'
 import { verifyHealthReadKey } from '../../../../lib/auth/health-read-key'
 
@@ -72,10 +73,7 @@ interface HealthRow {
 }
 
 function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 const VALID_STATUSES = new Set(['green', 'yellow', 'red', 'unknown'])

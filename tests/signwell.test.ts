@@ -252,7 +252,8 @@ describe('signwell: webhook route', () => {
   it('acknowledges non-completed events with 200', () => {
     const code = source()
     expect(code).toContain('payload.event.type')
-    expect(code).toContain('status: 200')
+    // Responses now go through the shared jsonResponse(status, data) helper.
+    expect(code).toContain('jsonResponse(200')
   })
 
   it('uses constant-time comparison for hash check', () => {
