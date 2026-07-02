@@ -259,6 +259,15 @@ declare namespace Cloudflare {
      * which is a write credential. Generated with `openssl rand -hex 32`.
      */
     OPERATOR_HEALTH_READ_KEY?: string
+
+    /**
+     * Optional bearer secret that unlocks binding-level detail on the public
+     * `GET /api/health` endpoint. When unset (the default), the endpoint returns
+     * only a bare `{ status }` and the detail path is fail-closed. Set it with
+     * `wrangler secret put HEALTH_DETAIL_TOKEN` when an internal monitor needs
+     * the binding breakdown. Not required for the liveness probe itself.
+     */
+    HEALTH_DETAIL_TOKEN?: string
   }
 }
 
