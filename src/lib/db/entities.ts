@@ -28,11 +28,8 @@ export interface Entity {
   website: string | null
   stage: EntityStage
   stage_changed_at: string
-  pain_score: number | null
   vertical: string | null
   area: string | null
-  employee_count: number | null
-  tier: EntityTier | null
   summary: string | null
   next_action: string | null
   next_action_at: string | null
@@ -52,7 +49,6 @@ export interface Entity {
 
 // prettier-ignore
 export type EntityStage = 'signal' | 'prospect' | 'meetings' | 'proposing' | 'engaged' | 'delivered' | 'ongoing' | 'lost'
-export type EntityTier = 'hot' | 'warm' | 'cool' | 'cold'
 // prettier-ignore
 export type EntityVertical = 'home_services' | 'professional_services' | 'contractor_trades' | 'retail_salon' | 'restaurant_food' | 'other'
 
@@ -97,7 +93,6 @@ export interface EntityFilters {
   stage?: EntityStage
   stages?: EntityStage[]
   vertical?: string
-  tier?: EntityTier
   source_pipeline?: string
 }
 
@@ -116,7 +111,6 @@ export interface UpdateEntityData {
   website?: string | null
   next_action?: string | null
   next_action_at?: string | null
-  tier?: EntityTier | null
   summary?: string | null
 }
 
@@ -177,11 +171,6 @@ export async function listEntities(
     params.push(filters.vertical)
   }
 
-  if (filters?.tier) {
-    conditions.push('tier = ?')
-    params.push(filters.tier)
-  }
-
   if (filters?.source_pipeline) {
     conditions.push('source_pipeline = ?')
     params.push(filters.source_pipeline)
@@ -189,10 +178,7 @@ export async function listEntities(
 
   const where = conditions.join(' AND ')
   const sql = `SELECT * FROM entities WHERE ${where}
-    ORDER BY
-      CASE tier WHEN 'hot' THEN 0 WHEN 'warm' THEN 1 WHEN 'cool' THEN 2 WHEN 'cold' THEN 3 ELSE 4 END,
-      pain_score DESC,
-      updated_at DESC`
+    ORDER BY updated_at DESC`
 
   const result = await db
     .prepare(sql)
@@ -411,7 +397,6 @@ export async function updateEntity(
   append('website', data.website)
   append('next_action', data.next_action)
   append('next_action_at', data.next_action_at)
-  append('tier', data.tier)
   append('summary', data.summary)
 
   if (fields.length === 0) return existing
