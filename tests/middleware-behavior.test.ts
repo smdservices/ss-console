@@ -279,6 +279,53 @@ describe('middleware runtime: behavior', () => {
     })
   })
 
+  // ---- Extracted legacy-redirect table (src/lib/routing/legacy-redirects) --
+  // Behavioral coverage of the redirect rules moved out of middleware.ts (code
+  // review 2026-07-02 §1.3). Drives the real onRequest so the extraction is
+  // proven behavior-preserving, not just structurally present.
+  describe('legacy redirects (rule table)', () => {
+    it('301s the /ai-employee product rename to /operator (before subdomain rewrite)', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/ai-employee/pricing' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/operator/pricing')
+    })
+
+    it('301s a portal-relative /products/ai-employee path to /products/operator', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/products/ai-employee' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/products/operator')
+    })
+
+    it('301s a legacy auth path to the unified sign-in, preserving the query', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/auth/login?status=signed_out' })
+      expect(res.status).toBe(301)
+      const loc = new URL(res.headers.get('Location')!)
+      expect(loc.pathname).toBe('/auth/sign-in')
+      expect(loc.searchParams.get('status')).toBe('signed_out')
+    })
+
+    it('301s a retired marketing route (/scan) to home', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/scan' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/')
+    })
+
+    it('301s /why to /operator#compare', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/why' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/operator#compare')
+    })
+
+    it('301s bare /get-started to home but leaves /get-started?booked=1 alone', async () => {
+      const retired = await invoke({ url: 'https://smd.services/get-started' })
+      expect(retired.res.status).toBe(301)
+      expect(retired.res.headers.get('Location')).toBe('/')
+
+      const booked = await invoke({ url: 'https://smd.services/get-started?booked=1' })
+      expect(booked.res.status).not.toBe(301)
+    })
+  })
+
   // ---- Admin auth enforcement -------------------------------------------
   describe('admin auth enforcement', () => {
     it('redirects an unauthenticated admin PAGE request to /auth/sign-in', async () => {

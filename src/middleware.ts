@@ -5,6 +5,11 @@ import { clerkMiddleware } from '@clerk/astro/server'
 import { resolveAdminSessionFromClerk } from './lib/auth/admin-session-shim'
 import { parseSessionToken, validateSession, renewSession } from './lib/auth/session'
 import { withSentryRequestHandler } from './lib/observability/sentry'
+import {
+  PRE_REWRITE_REDIRECTS,
+  POST_REWRITE_REDIRECTS,
+  firstRedirect,
+} from './lib/routing/legacy-redirects'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -113,116 +118,6 @@ function handleSubdomainRewrite(
   return null
 }
 
-function redirectToAdminHost(
-  context: APIContext,
-  hostname: string,
-  pathname: string
-): Response | null {
-  if (hostname !== 'smd.services') return null
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    const newUrl = new URL(context.url)
-    newUrl.hostname = 'admin.smd.services'
-    return context.redirect(newUrl.toString(), 301)
-  }
-  return null
-}
-
-/**
- * Legacy auth-path 301 redirects. Old URLs from the dual-auth era keep
- * working so external links (Clerk invitation emails, bookmarks, prior
- * code review docs) don't break.
- */
-function redirectLegacyAuthPaths(context: APIContext, pathname: string): Response | null {
-  const target = legacyAuthRedirectTarget(pathname)
-  if (!target) return null
-  const newUrl = new URL(context.url)
-  newUrl.pathname = target
-  // Preserve query string (status=signed_out, etc.)
-  return context.redirect(newUrl.toString(), 301)
-}
-
-function legacyAuthRedirectTarget(pathname: string): string | null {
-  if (pathname === '/auth/login') return '/auth/sign-in'
-  if (pathname === '/auth/portal-sign-in') return '/auth/sign-in'
-  if (pathname === '/auth/portal-sign-up') return '/auth/sign-up'
-  if (pathname === '/auth/portal-login') return '/auth/sign-in'
-  return null
-}
-
-/**
- * Product renamed "AI Employee" → "Operator" (ADR 0034). Permanent (301)
- * redirects from the pre-rename `/ai-employee` URLs to `/operator` so old
- * bookmarks and indexed links keep working. Runs before the subdomain rewrite,
- * so it must handle both the canonical paths and the subdomain-relative forms
- * the rewrite would prepend. The SOURCES are the legacy `/ai-employee` paths —
- * do not rename them to `/operator` (that would self-redirect into a loop).
- */
-function redirectLegacyOperatorPaths(
-  context: APIContext,
-  hostname: string,
-  pathname: string
-): Response | null {
-  // Marketing product page: smd.services/ai-employee → /operator.
-  // Also covers admin.smd.services/ai-employee (rewrites to /admin/operator
-  // after the redirect lands on the operator path).
-  if (pathname === '/ai-employee' || pathname.startsWith('/ai-employee/'))
-    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
-
-  // Portal product surface: canonical (/portal/products/ai-employee) and the
-  // portal-subdomain-relative form (/products/ai-employee).
-  for (const oldPath of ['/portal/products/ai-employee', '/products/ai-employee']) {
-    if (pathname === oldPath || pathname.startsWith(`${oldPath}/`))
-      return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
-  }
-
-  // Admin surface: canonical /admin/ai-employee (the admin-subdomain-relative
-  // /ai-employee form is already handled by the marketing rule above).
-  if (pathname === '/admin/ai-employee' || pathname.startsWith('/admin/ai-employee/'))
-    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
-
-  return null
-}
-
-// Retired marketing routes → 301 to the surviving surface that absorbed them.
-// Marketing consolidated 2026-06-29 (firm-with-flagship structure, 5 page types):
-// the comparison argument moved onto /operator; firm breadth onto the home + the
-// assessment; the /ai toe-dip page is retired now that the firm is all-in on AI.
-// Also folds the older lead-magnet retirements (/scan, /scorecard, /outside-view,
-// the cold /get-started). The SOURCES here are the retired paths — do not rename
-// them (that would self-redirect).
-//
-// NOTE: /contact is NOT retired. Captain decision 2026-06-30 restored it as the
-// quiet general-inquiry channel (a real form, not a published email). See
-// docs/marketing/positioning-spine.md change-control log.
-function redirectRetiredMarketingPaths(context: APIContext, pathname: string): Response | null {
-  const exactToHome = new Set(['/scan', '/consulting', '/ai'])
-  if (exactToHome.has(pathname)) return context.redirect('/', 301)
-
-  const prefixToHome = ['/scorecard', '/outside-view', '/consulting/', '/ai/']
-  if (prefixToHome.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p)))
-    return context.redirect('/', 301)
-
-  if (pathname === '/why' || pathname.startsWith('/why/'))
-    return context.redirect('/operator#compare', 301)
-  if (pathname === '/get-started' && !context.url.searchParams.has('booked'))
-    return context.redirect('/', 301)
-  return null
-}
-
-function handleLegacyRedirects(
-  context: APIContext,
-  hostname: string,
-  pathname: string
-): Response | null {
-  const adminRedirect = redirectToAdminHost(context, hostname, pathname)
-  if (adminRedirect) return adminRedirect
-  const authRedirect = redirectLegacyAuthPaths(context, pathname)
-  if (authRedirect) return authRedirect
-  if (pathname === '/book/thanks' || pathname.startsWith('/book/thanks/'))
-    return context.redirect('/get-started?booked=1', 301)
-  return redirectRetiredMarketingPaths(context, pathname)
-}
-
 function enforceAdminAuth(context: APIContext, isAdminApiRoute: boolean): Response | null {
   const auth = context.locals.auth()
   if (!auth.userId) {
@@ -284,17 +179,21 @@ function enforceAuth(context: APIContext, pathname: string): Response | null {
 async function handleRequest(context: APIContext, next: NextFn): Promise<Response> {
   const { pathname } = context.url
   const hostname = context.url.hostname
+  const redirectCtx = { hostname, pathname, url: context.url }
 
-  // Product renamed "Operator" → "Operator" (ADR 0034). 301 old paths
-  // before the subdomain rewrite, since the rewrite terminates the chain.
-  const operatorRename = redirectLegacyOperatorPaths(context, hostname, pathname)
-  if (operatorRename) return operatorRename
+  // Legacy redirects that must run BEFORE the subdomain rewrite terminates the
+  // chain (the /ai-employee → /operator product rename, ADR 0034). Rule table
+  // lives in src/lib/routing/legacy-redirects.ts.
+  const preRewrite = firstRedirect(PRE_REWRITE_REDIRECTS, redirectCtx)
+  if (preRewrite) return context.redirect(preRewrite.location, preRewrite.status)
 
   const subdomainRewrite = handleSubdomainRewrite(context, hostname, pathname)
   if (subdomainRewrite) return subdomainRewrite
 
-  const legacyRedirect = handleLegacyRedirects(context, hostname, pathname)
-  if (legacyRedirect) return legacyRedirect
+  // Legacy redirects that run after the rewrite (admin-host canonicalization,
+  // legacy auth paths, retired marketing surfaces).
+  const postRewrite = firstRedirect(POST_REWRITE_REDIRECTS, redirectCtx)
+  if (postRewrite) return context.redirect(postRewrite.location, postRewrite.status)
 
   context.locals.session = null
   await resolveAdminSession(context, pathname)
