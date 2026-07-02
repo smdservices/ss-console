@@ -85,7 +85,6 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 **Tests linked to this policy**
 
 - `tests/forbidden-strings.test.ts` - historical Pattern A/B phrases, user-facing style-marker checks, and portal registry guardrails
-- `tests/enrichment-prompt-contracts.test.ts` - source-level prompt-contract checks for dossier, review-analysis, and deep-website
 - `tests/intake-questionnaire.test.ts` - shared-surface regression coverage for the canonical intake questionnaire
 
 ## Tone & Positioning Standard
