@@ -67,19 +67,18 @@ Bulk select and bulk actions are offered only on the `signal`, `prospect`, and `
 
 ### Lead detail (`/admin/entities/[id]`)
 
-The decision surface for one business. It shows an identity strip (name, stage, tier, pain score out of ten, vertical, area), an enrichment summary (pain observations, address, when it was generated, and which enrichment module produced it), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form. A right-hand decision rail carries the stage-appropriate actions and surfaces missing-data warnings (no pain score, no contacts) and stale-outreach-draft warnings.
+The decision surface for one business. It shows an identity strip (name, stage, tier, pain score out of ten, vertical, area), an enrichment summary rendered from any enrichment data left on legacy entity rows (pain observations, address, when it was generated), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form. A right-hand decision rail carries the stage-appropriate actions and surfaces missing-data warnings (no pain score, no contacts) and stale-outreach-draft warnings.
 
 The actions on the rail each hit an endpoint under `src/pages/api/admin/entities/[id]/`:
 
-- **Promote** (`promote`) - moves signal to prospect, dispatches enrichment, and schedules the follow-up cadence.
-- **Re-enrich** (`dossier`) - runs the reviews-and-news enrichment mode in the background.
+- **Promote** (`promote`) - moves signal to prospect and schedules the follow-up cadence.
 - **Send booking link** (`send-booking-link`) - creates a meeting, transitions prospect to meetings, and sends the booking email.
 - **Draft quote** (`quotes`) - creates an empty draft quote shell (preconditions: not already engaged, no open quote, a prior meeting exists).
 - **Add note** (`context`) - appends a note to the timeline.
 - **Stage change** (`stage`) - transitions stage against a valid-transition table, optionally recording a lost reason and detail.
 - **Merge** (`merge`) - folds a duplicate entity into this one.
 
-Enrichment itself is a background pipeline; the per-module retry and full-run endpoints live under `entities/[id]/enrichment/`. The enrichment model and what it may infer are bounded by the extractive prompt-contract policy in `/admin/playbook/security-trust`.
+The automated enrichment pipeline that used to populate the enrichment summary (the `entities/[id]/enrichment/` and `dossier` endpoints, the Re-enrich action) was retired with the lead-gen machine on 2026-07-01 (PRs #1610/#1616); only enrichment data already stored on legacy rows still renders.
 
 ### Meeting detail (`/admin/entities/[id]/meetings/[meetingId]`)
 
