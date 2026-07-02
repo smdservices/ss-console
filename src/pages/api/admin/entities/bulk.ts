@@ -7,6 +7,7 @@ import {
   type BulkActionResult,
 } from '../../../../lib/db/entities-bulk'
 import { isLostReasonCode } from '../../../../lib/db/lost-reasons'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/entities/bulk
@@ -32,10 +33,9 @@ import { isLostReasonCode } from '../../../../lib/db/lost-reasons'
  * Admin-only. Org-scoped. Validates every id belongs to the session org.
  */
 async function handlePost({ request, locals }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   let body: unknown
   try {

@@ -18,6 +18,7 @@ import { jsonResponse } from '../../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { acknowledgeAlert, snoozeAlert } from '../../../../../../lib/admin/cost-anomaly'
+import { requireAdminSession } from '../../../../../../lib/auth/admin-session'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/
@@ -49,10 +50,9 @@ function parseIdentity(body: unknown): AlertIdentity | { error: string } {
 }
 
 async function handlePost(ctx: APIContext): Promise<Response> {
-  const session = ctx.locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(ctx.locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const action = ctx.params.action
   if (action !== 'snooze' && action !== 'acknowledge') {

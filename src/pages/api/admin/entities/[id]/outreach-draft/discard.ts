@@ -1,5 +1,6 @@
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../../lib/auth/admin-session'
 
 interface OutreachDraftRow {
   id: string
@@ -17,13 +18,9 @@ function parseMetadata(raw: string | null): Record<string, unknown> {
 }
 
 async function handlePost({ params, locals, redirect }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) return redirect('/admin/entities?error=missing', 302)

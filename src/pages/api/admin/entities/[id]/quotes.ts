@@ -3,6 +3,7 @@ import { getEntity } from '../../../../../lib/db/entities'
 import { listAssessments } from '../../../../../lib/db/assessments'
 import { createQuote, getQuote, hasOpenQuoteForEntity } from '../../../../../lib/db/quotes'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/entities/[id]/quotes
@@ -39,13 +40,9 @@ const ELIGIBLE_STAGES = ['signal', 'prospect', 'meetings', 'proposing']
 const DEFAULT_RATE = 175
 
 export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) {

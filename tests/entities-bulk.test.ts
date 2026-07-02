@@ -92,7 +92,7 @@ describe('api/admin/entities/bulk: endpoint', () => {
   })
 
   it('requires admin role', () => {
-    expect(source()).toContain("session.role !== 'admin'")
+    expect(source()).toContain('requireAdminSession')
   })
 
   it('rejects empty id arrays', () => {

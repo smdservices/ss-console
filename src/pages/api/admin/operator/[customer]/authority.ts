@@ -30,22 +30,17 @@ import {
 } from '../../../../../lib/admin/authority-write'
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import { resolveDomainAuthority, isSwitchableDomain } from '../../../../../lib/operator/authority'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 function redirectWithStatus(slug: string, status: string): Response {
   const target = `/admin/operator/${encodeURIComponent(slug)}/authority?status=${encodeURIComponent(status)}`
   return new Response(null, { status: 303, headers: { Location: target } })
 }
 
-function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
 async function handlePost(ctx: APIContext): Promise<Response> {
-  const session = ctx.locals.session
-  if (!session || session.role !== 'admin') return jsonError(401, 'Unauthorized')
+  const auth = requireAdminSession(ctx.locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const slug = ctx.params.customer ?? ''
   const entityId = await resolveEntityIdBySlug(env.DB, slug)

@@ -3,6 +3,7 @@ import { getMeeting } from '../../../../../../../lib/db/meetings'
 import { getEntity, transitionStage } from '../../../../../../../lib/db/entities'
 import { createQuote, type LineItem } from '../../../../../../../lib/db/quotes'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../../../lib/auth/admin-session'
 
 /** Default hourly rate at launch (per Decision Stack #16, evolved). */
 const DEFAULT_RATE = 175
@@ -24,13 +25,9 @@ const DEFAULT_RATE = 175
  * Protected by auth middleware (requires admin role).
  */
 export const POST: APIRoute = async ({ locals, redirect, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   const meetingId = params.meetingId
