@@ -176,5 +176,5 @@ name = "ss-web-staging"
 #
 # Bulk-load from Infisical:
 #   infisical export --env=prod --path=/ss --format=dotenv \
-#     | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|NEW_BUSINESS_|JOB_MONITOR_|REVIEW_MINING_|PUBLIC_)' \
+#     | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|PUBLIC_)' \
 #     | npx wrangler secret bulk
