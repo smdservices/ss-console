@@ -199,8 +199,12 @@ describe('migration 0026: rename stage assessing → meetings', () => {
     const files = discoverNumericMigrations(migrationsDir)
     const basename = (f: { name?: string } | string) =>
       typeof f === 'string' ? (f.split('/').pop() ?? f) : (f.name ?? '')
-    // Run every migration EXCEPT 0026.
-    const pre = files.filter((f) => !basename(f).startsWith('0026_'))
+    // Build the true pre-0026 state: every migration NUMERICALLY BEFORE 0026,
+    // in order. (Applying later migrations first — e.g. 0081, which drops
+    // columns 0026 rewrites — would be a false out-of-order scenario that never
+    // occurs in prod, where migrations run strictly in sequence.)
+    const migrationNum = (f: { name?: string } | string) => parseInt(basename(f).slice(0, 4), 10)
+    const pre = files.filter((f) => migrationNum(f) < 26)
     await runMigrations(isolated, { files: pre })
     await seedOrg(isolated)
 

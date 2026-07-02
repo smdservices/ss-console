@@ -73,13 +73,6 @@ function meetingSubstateBadgeClass(s: string): string {
           )
         }
         {
-          e.tier && (
-            <span class={`text-xs px-1.5 py-0.5 rounded bg-border-subtle text-text-secondary`}>
-              {e.tier}
-            </span>
-          )
-        }
-        {
           r.rowSubstate && r.rowSubstate !== 'other' && (
             <span
               class={`text-xs px-1.5 py-0.5 rounded ${meetingSubstateBadgeClass(r.rowSubstate)}`}
