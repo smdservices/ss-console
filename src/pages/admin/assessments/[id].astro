@@ -15,19 +15,13 @@
  * New admin UI routes all flow through the meeting page.
  */
 
+import { getAssessmentRedirectTarget } from '../../../lib/admin/assessment-redirect'
 import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
 const assessmentId = Astro.params.id!
 
-// The meetings table backfill (migration 0025) preserved IDs, so the same
-// ID lookup works. If nothing matches (e.g. an unmigrated pre-0010 row),
-// fall back to the entities list.
-const meeting = await env.DB.prepare(
-  'SELECT id, entity_id FROM meetings WHERE id = ? AND org_id = ?'
-)
-  .bind(assessmentId, session.orgId)
-  .first<{ id: string; entity_id: string }>()
+const meeting = await getAssessmentRedirectTarget(env.DB, session.orgId, assessmentId)
 
 if (!meeting) {
   return Astro.redirect('/admin/entities?error=not_found', 301)

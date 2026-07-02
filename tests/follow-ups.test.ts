@@ -263,7 +263,7 @@ describe('follow-ups: dashboard page', () => {
   it('displays client name for each follow-up', () => {
     const code = source()
     expect(code).toContain('clientMap')
-    expect(code).toContain('row.name')
+    expect(code).toContain('listFollowUpEntityNames')
   })
 
   it('displays follow-up type label', () => {
