@@ -26,9 +26,9 @@ This page walks the row from first contact to handoff. For the business meaning 
 
 ## 1. Lead capture - stage `signal`
 
-A lead enters as a `signal`. Lead-generation pipelines feed this stage automatically; the entity list filters by `source_pipeline` across `review_mining`, `job_monitor`, `new_business`, and `social_listening` (`src/pages/admin/entities/index.astro`). Each signal carries the evidence that produced it (a latest pipeline signal context entry plus a last-activity timestamp), surfaced inline on the Signal tab so the operator can judge it without clicking through.
+A lead enters as a `signal`. The automated lead-generation pipelines that used to feed this stage were retired 2026-07-01 (PRs #1610/#1616); current lead generation is hand-personalized outreach (ADR 0059). The entity list still filters by `source_pipeline` across `review_mining`, `job_monitor`, `new_business`, and `social_listening` (`src/pages/admin/entities/index.astro`) for signals already in the system. Each signal carries the evidence that produced it (a latest signal context entry plus a last-activity timestamp), surfaced inline on the Signal tab so the operator can judge it without clicking through.
 
-- **Surface:** `/admin/entities?stage=signal` (the Leads "Signal" tab). Pipelines are managed from `/admin/generators`.
+- **Surface:** `/admin/entities?stage=signal` (the Leads "Signal" tab).
 - **Data objects:** `entities` row (stage `signal`), `context` entries (the signal evidence).
 
 A signal that is not worth pursuing is dismissed. One that is gets promoted to `prospect`.

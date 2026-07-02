@@ -55,16 +55,9 @@ This is the inventory of external services the platform touches and what each is
 | **Google Calendar OAuth** | The booking system (the Calendly replacement): availability and event creation. | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `BOOKING_ENCRYPTION_KEY` in `wrangler.toml`; `src/lib/booking/google-calendar.ts`. |
 | **Google Workspace (managed mailbox)** | On the Operator plane, the operator manages a principal's mailbox via per-operation domain-wide-delegation, with the workspace broker as the authorization boundary. OAuth tokens live on the customer's Machine volume, not the console. | `operator/workspace_broker/`; ADR 0010. See `/admin/playbook/connectors-channels`. |
 
-## Lead-generation data providers
+## Lead-generation data providers (retired)
 
-The four lead-gen Workers under `workers/` call external data sources, configured by env in `wrangler.toml`:
-
-- **Google Places** (`GOOGLE_PLACES_API_KEY`) - business profile enrichment.
-- **Outscraper** (`OUTSCRAPER_API_KEY`) - business profile and email enrichment.
-- **SerpAPI** (`SERPAPI_API_KEY`) - Google Search for news and press enrichment.
-- **Proxycurl** (`PROXYCURL_API_KEY`) - LinkedIn company data (optional, Tier 4 dossier).
-
-These feed the admin Generators surface; the generator Worker endpoints are themselves declared as env URLs (`NEW_BUSINESS_WORKER_URL` and siblings) and Bearer-authed with `LEAD_INGEST_API_KEY`.
+The automated lead-gen pipelines that called external data sources (Google Places, Outscraper, SerpAPI, Proxycurl) were retired root-and-branch on 2026-07-01 (PRs #1610/#1616): the Workers, the `NEW_BUSINESS_WORKER_URL`-style env URLs, the `LEAD_INGEST_API_KEY` ingest path, and the admin Generators surface are all gone. Some provider API keys (`GOOGLE_PLACES_API_KEY`, `OUTSCRAPER_API_KEY`, `SERPAPI_API_KEY`) may still linger in the Infisical vault and on the Worker; they are now unused. Current lead generation is hand-personalized outreach from the Captain's mailbox (ADR 0059), not an ingestion pipeline.
 
 ## Operator-plane and enterprise tooling
 
