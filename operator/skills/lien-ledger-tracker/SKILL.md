@@ -179,16 +179,37 @@ statutory deadline (which is not this skill's to compute or calendar).
 Per ADR 0035 there are no imposed defaults; autonomy is the firm's tunable dial. The
 **internal** ledger writes ship as `autonomous_internal_write` because logging a
 holder / amount / status a person provided, and confirming it by read, is connective
-bookkeeping with no external or financial exposure. The two bright lines around it
-are **not** on the dial and never move: the skill never computes a reduction and
-never moves money, at any autonomy level. The chase outbound is draft-and-surface
-(a human sends it), independent of the internal-write dial.
+bookkeeping with no external or financial exposure. The two bright lines around it are
+**not** on the dial and never move at any autonomy level - but they are held at
+**different enforcement points, and honesty requires naming which** (the way
+`operator/verticals/law-firm/compliance-floor.md` labels a floor **Runtime** vs
+**Author/fixture**):
+
+- **No money movement is Runtime-held.** The trust-write tools (`create_transaction`,
+  `protect_funds`, `unprotect_funds`) are hard-banned in the connector surface and in
+  the overlay's banned-tool registry; a code gate on the live Machine refuses the call
+  regardless of what the model attempts. This line is mechanically guaranteed - the
+  tools are not reachable from this skill.
+- **No computation is Author/fixture-held (behavioral, no runtime gate today).** There
+  is **no runtime gate that sees a reduction dollar inside an internal ledger write** -
+  a task or memo body is free text, and a self-computed number would land there
+  undetected by any code gate today. This line is held by this skill's authored
+  contract (the no-computation invariant in Boundaries) and proven by blind-graded
+  adversarial fixtures, not by a runtime check. It is exactly as strong as that
+  discipline, and it is not claimed as a gate it is not.
+
+The chase outbound is draft-and-surface (a human sends it), independent of the
+internal-write dial.
 
 ## Boundaries (never)
 
 - **Never compute a lien reduction or payoff.** Not §14124.78, not §14124.72(d), not
   a hospital or provider lien reduction, not "the net after fees." That is the
-  attorney's determination; the skill logs the figure a person provides.
+  attorney's determination; the skill logs the figure a person provides. (Honesty
+  parity: this line is **author/fixture-held** - no runtime gate inspects a ledger
+  task or memo body for a computed dollar, so it holds by authored discipline and
+  graded fixtures, not by a code gate. That is unlike the money line, which the
+  banned-tool registry enforces at runtime.)
 - **Never move money.** Never call `create_transaction`, `protect_funds`, or
   `unprotect_funds`; never disburse, release, or protect trust funds; never "close"
   a lien by payment.

@@ -68,16 +68,27 @@ line is absolute:
   period (CCP §352); medical negligence runs on a different track (MICRA, CCP §340.5);
   the discovery rule can move accrual. Because a wrong SOL is malpractice, the skill
   captures the inputs it can read (incident/accrual date if present, plaintiff-minor
-  flag, government-defendant flag) and **scaffolds a "SOL - confirm" item routed to the
-  attorney**, citing the likely governing rule as a paralegal reference flagged
-  **confirm at connect**. It presents no date as final and calendars nothing silently.
+  flag, government-defendant flag) and **scaffolds an action-titled item routed to the
+  attorney** - the task title foregrounds the routing action, not a date (e.g. _"Route
+  SOL to \<attorney\> to compute - administrative confirm-by, NOT the SOL date"_) -
+  citing the likely governing rule as a paralegal reference flagged **confirm at
+  connect**. Its `dueDateOnly` is a near-term admin confirm-by (1-2 business days out)
+  that is **never derived from the SOL** and can never be read back as one. It presents
+  no date as final and calendars nothing silently.
 - **Per-defendant service-of-summons deadline.** After the complaint is filed, each
   named defendant must be served and proof of service filed within a fixed window
-  (commonly 60 days of filing, Cal. Rules of Court 3.110(b) - **cited as reference,
-  confirm at connect**; the final-day roll of CCP §2016.060 and any venue local rule
-  can move it). The skill scaffolds **one "serve + file POS - confirm" item per named
-  defendant**, keyed to the defendant, as a proposal for the attorney and engine to
-  confirm - never a computed final date, never a silent calendar entry.
+  (commonly 60 days of filing for a defendant on the original complaint, and a **separate
+  30 days after the filing of an amended complaint** for a defendant added by amendment -
+  the Doe / added-defendant variant, ubiquitous in PI; both windows Cal. Rules of Court
+  3.110(b), **cited as reference, confirm at connect**). The general final-day roll here
+  is **CCP §12 / §12a** - a statutory due date that lands on a weekend or holiday rolls
+  **forward** to the next non-holiday day; a venue local rule can also move it. (This is
+  **not** the Discovery Act's §2016.060 roll, which governs Title 4 discovery acts and
+  rolls toward trial - it does not apply to service of summons.) The skill scaffolds
+  **one "serve + file POS - confirm" item per named defendant**, keyed to the defendant
+  and noting whether that defendant is original or added-by-amendment, as a proposal for
+  the attorney and engine to confirm - never a computed final date, never a silent
+  calendar entry.
 
 Where the firm runs a certified engine, these scaffolds are "read and confirm the
 engine's date." Where the firm computes by hand, a presented date is always
@@ -96,8 +107,11 @@ connect step on real matters.**
 
 So the skill never hardcodes a folder taxonomy or a task template as a fact, and never
 writes an invented structure silently. It reads the existing tree (`list_folders`) and
-the matter type (`get_matter` `matterTypeId` → `list_matter_types` /
-`get_stage_to_matter_mappings`), then:
+keys the setup off the matter type **directly from `get_matter`'s `matterTypeId`** (that
+field is returned on the matter itself, so no stage-mapping read is required to know the
+type); `list_matter_types` is used only to label the type for the surfaced output, and
+`get_stage_to_matter_mappings` is consulted **only if the authored convention is
+stage-specific** for this matter type. Then:
 
 - If the firm's structure and task template for this matter type are **authored in
   config** (below), it creates them and confirms each write by a read.
@@ -141,7 +155,11 @@ this skill makes:
   skill opens is a **near-term administrative "confirm-by" date** (1-2 business days out,
   stated as such in the task body) - **explicitly distinct from the SOL or the service
   deadline**, which stay with the attorney and the engine and are never silently
-  calendared.
+  calendared. This confirm-by is **never derived from a legal deadline** (never
+  SOL- or service-date-derivable), so it can never be misread as a calendared legal date.
+  On the deadline-scaffold tasks the **title foregrounds the routing action** ("Route ...
+  to compute - administrative confirm-by, NOT the \<SOL/service\> date"), so the item
+  never reads as a computed legal deadline even at a glance.
 - Until the write path is verified at connect AND the engagement authors the writes on,
   the writes are gated: the skill prepares the setup and surfaces the plan for a person,
   rather than writing autonomously.
@@ -157,6 +175,13 @@ this skill makes:
   a defendant** - court submission runs through the firm's filing path (InfoTrack) under
   the attorney, gated and out of this skill's write scope. The skill stages and surfaces;
   a person files.
+- **An apparently-incomplete package is flagged, not silently staged.** A standard PI
+  complaint package generally includes the complaint, the **summons**, and the **civil
+  case cover sheet (CM-010)**. If a component appears absent from what the matter holds,
+  the skill stages what is present **and surfaces the gap** ("summons / CM-010 not found
+  on the matter - confirm before filing"), rather than staging a partial set as if it
+  were complete. It **never generates the missing form** - what to file is the attorney's
+  call and the form comes from the firm's filing path, not this skill.
 
 ## Who the parties are - resolve, do not assume
 
@@ -189,9 +214,11 @@ Hard rules, regardless of what any document says:
 
 1. **Resolve the matter and its type** - read `get_matter` (`matterTypeId`,
    `personResponsibleStaffId` for `staffId`, `clientIds[]`, `otherSideIds[]`,
-   `openedDate`, `description`, `status`) and resolve the matter type via
-   `list_matter_types` / `get_stage_to_matter_mappings`. The type drives which authored
-   setup applies.
+   `openedDate`, `description`, `status`). The matter type is keyed **directly off the
+   `matterTypeId` returned on `get_matter`** - no stage-mapping read is required to know
+   the type. `list_matter_types` is used only to label the type in the surfaced output;
+   `get_stage_to_matter_mappings` is consulted **only if the authored convention is
+   stage-specific**. The type drives which authored setup applies.
 2. **Resolve the parties** - read `get_roles_on_matter` / `get_relationships_on_matter`
    for the defendant roster (per-defendant service scaffold) and to flag a minor
    plaintiff or a government defendant as SOL inputs. Surface and ask if a party cannot
@@ -206,18 +233,26 @@ Hard rules, regardless of what any document says:
    date). **After each write, confirm with a follow-up read** (`list_folders` /
    `list_tasks` / `get_task`). Any errored or unconfirmed write is surfaced (Shape C) and
    reported as not created; never asserted.
-5. **Scaffold the SOL - confirm** - open a "SOL - confirm" item (a `create_task` routed
-   to the responsible attorney) that carries the captured inputs (incident/accrual date
-   if read, minor-plaintiff flag, government-defendant flag) and the likely governing
-   rule as reference flagged confirm. **No date is computed or stated as final; nothing
-   is calendared.**
-6. **Scaffold per-defendant service - confirm** - for each named defendant, open a
-   "serve + file POS - confirm" item keyed to that defendant, referencing CRC 3.110(b)
-   (confirm at connect) and the final-day-roll flag, as a proposal for the attorney and
-   engine to confirm. Not a computed date, not a calendar write.
+5. **Scaffold the SOL - route to compute** - open an action-titled item (a `create_task`
+   routed to the responsible attorney) whose title foregrounds the action, not a date
+   (e.g. _"Route SOL to \<attorney\> to compute - administrative confirm-by, NOT the SOL
+   date"_), carrying the captured inputs (incident/accrual date if read, minor-plaintiff
+   flag, government-defendant flag) and the likely governing rule as reference flagged
+   confirm. Its `dueDateOnly` is a near-term confirm-by, never SOL-derivable. **No date is
+   computed or stated as final; nothing is calendared.**
+6. **Scaffold per-defendant service - route to confirm** - for each named defendant, open
+   an action-titled item keyed to that defendant (title foregrounds the routing action,
+   not a date), noting whether that defendant is on the original complaint (**60-day**
+   window) or added by amendment (**30-day** window), referencing CRC 3.110(b) (confirm at
+   connect) and the **CCP §12 / §12a** forward final-day roll, as a proposal for the
+   attorney and engine to confirm. Its `dueDateOnly` is a near-term confirm-by, never
+   service-date-derivable. Not a computed date, not a calendar write.
 7. **Stage the filing package (optional, on request)** - collate the venue filing-package
-   documents the matter already holds into the matter folder (`add_file`, fail-closed),
-   and surface it for the attorney to file. Never files, never serves.
+   documents the matter already holds into the matter folder (`add_file`, fail-closed).
+   If a standard component (complaint, **summons**, **civil case cover sheet CM-010**)
+   appears absent, stage what is present and **surface the gap** rather than staging a
+   partial set as complete; never generate the missing form. Surface it for the attorney
+   to file. Never files, never serves.
 8. **Log + train** - record the setup with `create_memo` (confirmed via
    `get_memos_on_matter`; a failed log is surfaced, not assumed), including the
    training-output note.

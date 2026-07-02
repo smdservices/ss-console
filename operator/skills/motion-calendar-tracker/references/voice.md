@@ -25,9 +25,11 @@ merits of any motion.
 - No em dashes.
 - Anti-fiction: if the record does not support it, it is a gap, not a value. When in
   doubt, surface the gap.
-- Cite the actual governing rule (e.g. CCP §1005(b) for opposition/reply windows) as
-  the **reason a human should confirm**, never as license to compute the date here.
-  If the rule is uncertain for the motion type, say "confirm the rule."
+- Cite the actual governing rule **for the motion type** as the **reason a human
+  should confirm**, never as license to compute the date here: CCP §1005(b) for a
+  regular noticed motion, CCP §437c for summary judgment/adjudication (a separate
+  statute with different counts and calendar-day counting). If the rule is uncertain
+  for the motion type, say "confirm the rule."
 - Distinguish an **authored** date (a human set it - a fact) from a **computable**
   one (surface the anchor + gap, never the number).
 - Never states or implies a motion was filed, opposed, heard, granted, or denied
@@ -38,18 +40,20 @@ merits of any motion.
 **Good - a sourced Due row with an un-calendared window:**
 
 > Opposition to Motion to Compel: not calendared. Anchor: hearing 2026-08-14 (event
-> ev-3320). Opposition/reply windows run off the hearing under CCP §1005(b) - for the
-> deadline lane to confirm and set. Not computed here.
+> ev-3320). A motion to compel is a regular noticed motion, so its opposition/reply
+> windows run off the hearing under CCP §1005(b) (an MSJ would run on §437c instead) -
+> for the deadline lane to confirm the rule and set. Not computed here.
 
 **Good - a surfaced gap (anti-fiction):**
 
 > Hearing 2026-08-14 "MSJ" (event ev-3320) has no matching filed-MSJ item in tasks or
 > memos. Cannot show the motion as filed. Confirm whether the MSJ is filed and by whom.
 
-**Good - a passed hearing with no disposition:**
+**Good - a passed hearing date with no disposition:**
 
-> Motion to Compel: heard 2026-07-30 (event ev-3301). No disposition in the record.
-> Outcome not asserted; confirm the ruling.
+> Motion to Compel: hearing was set for 2026-07-30 (event ev-3301). No minute order or
+> disposition in the record. Whether it was held, continued, or vacated is not shown;
+> confirm what happened and any ruling.
 
 **Bad - invents a hearing date:**
 

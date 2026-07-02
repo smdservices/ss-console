@@ -15,32 +15,39 @@ hearing date is attorney-supplied, never invented.
 **Motion:** <the motion the attorney flagged>; drafting-tool routing per config (not hardcoded).
 **Source components:** each present component listed with the document + folder it was read from.
 
-## Component checklist (statewide baseline: rule 3.1112, rule 3.1110; rule 3.1345 for a discovery motion)
+## Component checklist (statewide baseline: rule 3.1112, rule 3.1110, rule 3.1113; rule 3.1345 or rule 3.1350 / CCP §437c(b)(1) for the separate statement)
 
-| #   | Component                                                                         | Status                       | Read from       |
-| --- | --------------------------------------------------------------------------------- | ---------------------------- | --------------- |
-| 1   | Notice of motion and motion                                                       | present / MISSING (surfaced) | <file + folder> |
-| 2   | Memorandum of points and authorities                                              | present / MISSING (surfaced) | <file + folder> |
-| 3   | Supporting declaration(s) + exhibits                                              | present / MISSING (surfaced) | <file + folder> |
-| 4   | Separate statement (CRC 3.1345, discovery motions)                                | present / MISSING / n/a      | <file + folder> |
-| 5   | [Proposed] order                                                                  | present / MISSING (surfaced) | <file + folder> |
-| 6   | Proof of service                                                                  | present / MISSING (surfaced) | <file + folder> |
-| +   | <any additional component the attorney flagged, e.g. request for judicial notice> | ...                          | ...             |
+| #   | Component                                                                           | Status                       | Read from       |
+| --- | ----------------------------------------------------------------------------------- | ---------------------------- | --------------- |
+| 1   | Notice of motion and motion                                                         | present / MISSING (surfaced) | <file + folder> |
+| 2   | Memorandum of points and authorities                                                | present / MISSING (surfaced) | <file + folder> |
+| 3   | Supporting declaration(s) + exhibits                                                | present / MISSING (surfaced) | <file + folder> |
+| 4   | Separate statement (CRC 3.1345 discovery; CRC 3.1350 / CCP §437c(b)(1) for MSJ/MSA) | present / MISSING / n/a      | <file + folder> |
+| 5   | [Proposed] order                                                                    | present / MISSING (surfaced) | <file + folder> |
+| 6   | Proof of service                                                                    | present / MISSING (surfaced) | <file + folder> |
+| +   | <any additional component the attorney flagged, e.g. request for judicial notice>   | ...                          | ...             |
 
 ## Filing order (present components, in the order the department requires)
 
 <the present components listed in filing order. The order and any department-specific
 placement is surfaced below as an attorney-confirm prompt, not asserted here as fact.>
 
-## Format - attorney to confirm (not asserted; county-local is confirm-at-connect)
+## Format
+
+**Statewide baseline (held and stated, not asked):** per rule 3.1113, no opening or
+responding memorandum exceeds 15 pages (20 for a summary-judgment or summary-adjudication
+motion), no reply exceeds 10 pages; a memorandum over 10 pages includes a table of contents
+and a table of authorities, and one over 15 pages includes an opening summary of argument.
+
+**Departmental variances - attorney to confirm (not asserted; confirm-at-connect):**
 
 - Filing order for this department: <confirm>
-- Page limit(s) and any department-specific memo/brief limit: <confirm>
-- Courtesy-copy / chambers-copy rule: <confirm>
+- Any standing-order courtesy-copy / chambers-copy requirement: <confirm>
 - Electronic bookmarking of exhibits and specifics beyond the statewide rule: <confirm>
-- Any other department-specific formatting: <confirm>
+- Any other department-specific formatting variance: <confirm>
 
-The skill does not state a specific court or department's rules as fact. Local rules are
+The skill holds the statewide rule 3.1113 page limits as the citable baseline and does not
+state a specific court or department's local variances as fact. Departmental variances are
 confirmed with the attorney once the venue is authored on the matter.
 
 ## Hearing - staged from the attorney-supplied reservation
@@ -96,9 +103,13 @@ component, format, hearing date, or tentative ruling was fabricated to fill the 
 2. **Every present component is a document read** from the matter, listed with its source.
    No paraphrase, no reconstruction. A component that cannot be sourced is not shown as
    present; it is surfaced as missing.
-3. **The department format is confirmed, never asserted.** Only the statewide baseline
-   (rule 3.1112, rule 3.1110, rule 3.1345) is stated; the department-specific format is an
-   attorney-confirm prompt. Never bake an invented court or department format.
+3. **The statewide baseline is held; only departmental variances are confirmed.** The
+   statewide baseline (rule 3.1112; rule 3.1110; rule 3.1113 page limits - 15/20/10 - and
+   its TOC/TOA and summary-of-argument thresholds; rule 3.1345 or rule 3.1350 / CCP
+   §437c(b)(1) for the separate statement) is stated as fact. Genuine department-specific
+   variances (filing order, standing-order courtesy copies, bookmarking beyond the
+   statewide rule) are an attorney-confirm prompt. Never bake an invented court or
+   department format.
 4. **The hearing date is attorney-supplied.** The skill records the reserved date, time,
    and department a human reserved; it never invents, chooses, or reserves one. A missing
    reservation is a gap, not a fabricated date.

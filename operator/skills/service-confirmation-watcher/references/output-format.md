@@ -19,8 +19,8 @@ Every capture is keyed to `(matter, defendant, service-confirmation)`.
 **Service (read off the proof of service of summons):** <served date> by <method: personal | substituted | mail w/ acknowledgment | electronic | publication> — POS located at <page/section>, quoted below
 **Responsive-pleading window:** 30 days after service of summons (§412.20(a)(3); demurrer likewise, §430.40(a))
 **Deadline:** <the rules engine's date is to be read and confirmed> OR
-<proposed, confirm — 30 days from the effective served date; NOT final>
-**Method flags (surface, do not resolve):** <substituted service is deemed complete on the 10th day after mailing, §415.20 — effective date differs from delivery date; confirm which governs> / <whether a §1013 mail or §1010.6 electronic extension stacks on the summons response time is confirm-at-connect>
+<proposed, confirm — 30 days from the effective served date; NOT final; final day rolls to the next court day if it lands on a weekend/holiday, §12 / §12a — attorney/engine confirms>
+**Method flags (surface, do not resolve):** <effective date defers from delivery: substituted service deemed complete on the 10th day after mailing, §415.20; service by mail with acknowledgment complete on the date the acknowledgment is executed, §415.30; service by publication complete per publication, not delivery, §415.50 — confirm which governs> / <the §1013 mail extension does NOT extend the summons response window (settled, §413.20); whether the §1010.6 electronic extension reaches it is confirm-at-connect>
 
 ## Proof of service (as read)
 
@@ -71,8 +71,8 @@ deadline. Each is surfaced for the attorney to confirm; neither is calendared he
 
 **Situation:** <proof of service missing / illegible / blank / ambiguous served date or method
 | document is not clearly a proof of service of summons | served defendant cannot be resolved to
-a single defendant on the matter | substituted-service effective date unclear (delivery vs 10th day
-after mailing, §415.20)>
+a single defendant on the matter | an effective date that defers from delivery is unclear (substituted, 10th day
+after mailing, §415.20; mail with acknowledgment, §415.30; publication, §415.50)>
 **What was readable:** <only the facts actually read — never a filled-in guess>
 **Decision:** surfaced for a person. Nothing captured as fact, nothing calendared. The
 served date / method / defendant is not guessed.
@@ -87,9 +87,11 @@ served date / method / defendant is not guessed.
 2. **The responsive-pleading deadline is never final here.** Shape A shows either
    "engine's date to be read and confirmed" or a "proposed, confirm" 30-day window with
    the statute cited — never a silently calendared or asserted-final date.
-3. **The method flags are surfaced, never resolved.** A substituted-service effective
-   date (§415.20) and whether a §1013 / §1010.6 extension stacks are surfaced "confirm,"
-   never silently applied.
+3. **The method flags are surfaced, never resolved.** An effective date that defers from
+   delivery (substituted §415.20, acknowledgment §415.30, publication §415.50) and whether
+   the §1010.6 electronic extension reaches the summons response window are surfaced
+   "confirm," never silently applied; §1013's mail extension does not extend that window
+   (§413.20) and is never stacked onto it.
 4. **Multiple defendants are Shape B — one clock per defendant.** Never a single collapsed
    clock; never one defendant's served date applied to another.
 5. **An unreadable POS, a document that is not a service confirmation, or a defendant that
@@ -97,8 +99,10 @@ served date / method / defendant is not guessed.
    guessed or defaulted date, method, or defendant.
 6. **No responsive pleading is filed, drafted, or characterized** anywhere.
 7. Statutes cited come **only** from the verified set (§412.20(a)(3), §430.40(a),
-   §415.20; and §1013 / §1010.6 named **only** as a confirm-at-connect stacking flag,
-   never applied). Never invent or assert a section number.
+   §415.20, §415.30, §415.50; §12 / §12a for the weekend/holiday final-day roll; §413.20
+   for the settled point that §1013's mail extension does **not** extend the summons
+   response window; and §1010.6 named **only** as a confirm-at-connect flag, never
+   applied). Never invent or assert a section number.
 8. **A document/filename is never the identity.** The confirmation is identified from its
    contents (a proof of service of summons), not from a filename; the defendant from the
    matter's roles, not from a name typed in the body.

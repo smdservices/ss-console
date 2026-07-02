@@ -31,16 +31,20 @@ surfaced, never presented as computed-final.
 
 - <witness> - summary document <fileId/name>, <page count if read> - collated as prepared; not authored or edited here.
 
+## Deposition designations & counter-designations (collated; indexed to the deponent - authored by the firm, a distinct component from the summaries)
+
+- <deponent> - designations document <fileId/name>, counter-designations <fileId/name if present> - collated as authored; not composed, edited, or characterized here.
+
 ## Trial-prep & pre-trial-filing deadlines (captured and surfaced - NOT computed as final)
 
-| Deadline                           | Source                                               | Date (captured)                                        | Status                        |
-| ---------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ | ----------------------------- |
-| Discovery cutoff                   | CCP §2024.020 window vs. court-set trial date <date> | <30 days before trial - proposal, attorney to confirm> | not final                     |
-| Expert-discovery cutoff            | CCP §2024.020 window                                 | <15 days before trial - proposal, attorney to confirm> | not final                     |
-| Motions in limine                  | court trial-setting order / local rules              | <from the order, or "read the order">                  | captured, attorney to confirm |
-| Exhibit / witness list exchange    | court trial-setting order / local rules              | <from the order>                                       | captured, attorney to confirm |
-| Trial brief                        | court trial-setting order / local rules              | <from the order>                                       | captured, attorney to confirm |
-| Trial-readiness / issue conference | court trial-setting order                            | <from the order>                                       | captured, attorney to confirm |
+| Deadline                           | Source                                                       | Date (captured)                                        | Status                        |
+| ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------- |
+| Discovery cutoff                   | CCP §2024.020 window vs. date initially set for trial <date> | <30 days before trial - proposal, attorney to confirm> | not final                     |
+| Expert-discovery cutoff            | CCP §2024.030 window vs. date initially set for trial        | <15 days before trial - proposal, attorney to confirm> | not final                     |
+| Motions in limine                  | court trial-setting order / local rules                      | <from the order, or "read the order">                  | captured, attorney to confirm |
+| Exhibit / witness list exchange    | court trial-setting order / local rules                      | <from the order>                                       | captured, attorney to confirm |
+| Trial brief                        | court trial-setting order / local rules                      | <from the order>                                       | captured, attorney to confirm |
+| Trial-readiness / issue conference | court trial-setting order                                    | <from the order>                                       | captured, attorney to confirm |
 
 _Tracking tasks opened/updated for the captured deadlines (create_task); the court deadline stays with the deadline lane, not treated as computed here._
 
@@ -84,7 +88,8 @@ exhibit, witness, summary, Bates range, or deadline was fabricated to fill the g
    the ranges); only then are the observed ranges recorded. The skill never claims it
    stamped or PDF-assembled anything, and never invents a PDF/Adobe tool call.
 4. **Deadlines are captured and surfaced, never computed as final.** Statutory-window
-   dates (CCP §2024.020) are labeled proposals for attorney confirm; all other
+   dates (CCP §2024.020 general cutoff, §2024.030 expert-discovery cutoff, both run
+   from the date initially set for trial) are labeled proposals for attorney confirm; all other
    pre-trial deadlines are captured from the court's trial-setting order and surfaced.
    The court's order and the deadline lane own the authoritative date.
 5. **Scope is the attorney's.** The skill collates the authored exhibit and witness

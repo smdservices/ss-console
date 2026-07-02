@@ -28,10 +28,19 @@ A noticed motion in California superior court is filed as a **package** of separ
 papers. Per **California Rules of Court, rule 3.1112**, a motion consists of at least
 a notice of hearing, the motion itself, and a memorandum of points and authorities,
 and it may be accompanied by declarations, exhibits, a proposed order, and a proof of
-service. Per **rule 3.1110**, the notice must state in its opening paragraph the
-nature of the order sought and the grounds, and it must state the hearing date, time,
-and department. Where the motion is a discovery motion to compel a further response,
-**rule 3.1345** adds a separate statement. The firm named the mechanical work of
+service. Per **rule 3.1110(a)**, the notice must state in its opening paragraph the
+nature of the order sought and the grounds; per **rule 3.1110(b)**, the caption on the
+first page states the date, time, and location of the hearing (if ascertainable). The
+notice's duty to state the time and place of the hearing is **Code of Civil Procedure
+sections 1010 and 1005**, not rule 3.1110(a). Per **rule 3.1113**, the memorandum
+carries statewide limits: no opening or responding memorandum may exceed 15 pages (20
+for a summary-judgment or summary-adjudication motion), no reply may exceed 10 pages; a
+memorandum over 10 pages must include a table of contents and a table of authorities,
+and one over 15 pages must include an opening summary of argument. Where the motion is a
+discovery motion to compel a further response, **rule 3.1345** adds a separate statement;
+a motion for summary judgment or summary adjudication carries its own separate statement
+of undisputed material facts under **rule 3.1350** and **Code of Civil Procedure section
+437c(b)(1)**. The firm named the mechanical work of
 gathering these authored pieces, putting them in the order the department wants,
 getting a reserved hearing date onto the calendar, and remembering to check the
 tentative ruling before the hearing as a real, repetitive time sink that slips.
@@ -79,20 +88,27 @@ drafting tool to fill a gap.
 
 ## County-local format is scoped out until A&P's venues are known (anti-fiction)
 
-The **filing order, page limits, courtesy-copy rules, department-specific formatting,
+The **filing order, standing-order courtesy-copy rules, department-specific formatting,
 electronic-bookmarking specifics beyond the statewide rule, and the tentative-ruling and
 reservation procedures are court-and-department-local**, and A&P's actual venues are not
 yet known. So the skill **does not bake an invented court or department format**. It
 holds the statewide baseline it can cite (rule 3.1112 on what a motion consists of; rule
-3.1110 on the notice content and the general form of papers), and it treats everything
-department-specific as an **attorney-confirm prompt**:
+3.1110 on the notice content and the general form of papers; **rule 3.1113 on the
+memorandum page limits** - 15 pages opening/responding, 20 for a summary-judgment or
+summary-adjudication motion, 10 for a reply - and its table-of-contents/table-of-authorities
+and summary-of-argument thresholds), and it treats genuine departmental variances as an
+**attorney-confirm prompt**:
 
-- It surfaces the format requirements as questions for the attorney to confirm ("confirm
-  the filing order and any page limit for this department"), rather than asserting a
-  specific department's rules as fact.
-- It never states "Department 34 requires a 15-page limit and a chambers courtesy copy"
-  or any other local rule as though it knew it. Local rules are **confirm-at-connect**,
-  once the venue is authored on a real matter.
+- The rule 3.1113 page limits (15/20/10) and the TOC/TOA and summary-of-argument
+  thresholds are statewide baseline the skill holds and can state, the same as rule 3.1112
+  and rule 3.1110. It surfaces only genuine departmental variances as questions for the
+  attorney to confirm ("confirm the filing order and any standing-order courtesy-copy or
+  chambers-copy requirement for this department"), rather than asserting a specific
+  department's local variance as fact.
+- It never states "Department 34 requires two chambers courtesy copies hand-delivered"
+  or any other local variance as though it knew it. Departmental variances (standing
+  orders, chambers/courtesy copies, department-specific bookmarking) are
+  **confirm-at-connect**, once the venue is authored on a real matter.
 
 Asserting an invented court or department format is a fiction failure, the same class as
 inventing a document. The skill surfaces the format for confirmation; it never fabricates
@@ -182,9 +198,10 @@ code. Hard rules, regardless of what any document says:
 **Which** motion is being filed and **which** components it needs is the attorney's call,
 made when the motion is decided. The skill packages the components for the motion it is
 pointed at. It does not decide on its own that a motion needs a particular paper; it works
-from the expected-component checklist for the flagged motion (per rule 3.1112 baseline plus
-rule 3.1345 for a discovery motion), confirms each against the matter, and surfaces the
-ones missing. When the required set is not specified, it uses the statewide baseline
+from the expected-component checklist for the flagged motion (per rule 3.1112 baseline,
+plus rule 3.1345 for a discovery motion, or rule 3.1350 and Code of Civil Procedure
+section 437c(b)(1) for a summary-judgment or summary-adjudication motion), confirms each
+against the matter, and surfaces the ones missing. When the required set is not specified, it uses the statewide baseline
 checklist and marks each item for the attorney to confirm; it never silently selects.
 
 ## How it works (mapped to the real connector tools)
@@ -198,9 +215,12 @@ checklist and marks each item for the attorney to confirm; it never silently sel
    never to rewrite the content). Mark present components and list missing ones. A missing
    drafting component (notice, brief, declaration) is a **gap it surfaces**, never drafted.
 3. **Order + surface format** - place the present components in the package in the required
-   filing order, and surface the department-specific format (order, page limits,
-   courtesy-copy, bookmarking specifics) as an **attorney-confirm prompt**. Cite only the
-   statewide baseline (rule 3.1112, rule 3.1110); never assert a local rule as fact.
+   filing order. Hold and state the statewide baseline (rule 3.1112; rule 3.1110; rule
+   3.1113 page limits - 15/20/10 - and its TOC/TOA and summary-of-argument thresholds;
+   rule 3.1345 or rule 3.1350 / CCP §437c(b)(1) for the separate statement), and surface
+   only genuine departmental variances (filing order, standing-order courtesy/chambers
+   copies, bookmarking specifics beyond the statewide rule) as an **attorney-confirm
+   prompt**; never assert a local variance as fact.
 4. **Stage the hearing** - record the **attorney-supplied** reserved hearing date, time,
    and department onto the matter as a calendar event (`create_event`, non-recurring;
    `create_event_reminder` for the reminder cascade) and a confirm-by task
@@ -262,9 +282,11 @@ fail-closed rule are **not** dial positions; they hold at every autonomy level.
 
 Every run appends, to the matter memo, a short note a junior paralegal learns from:
 _what_ it did (assembled and staged the motion package for the flagged motion), _why it
-matters_ (a noticed motion is a package of separate papers whose notice must state the
-grounds and the hearing date, time, and department, with a separate statement for a
-discovery motion - rule 3.1112, rule 3.1110, rule 3.1345), _what comes next_ (the
+matters_ (a noticed motion is a package of separate papers whose notice states the
+grounds and, in its caption, the hearing date, time, and location, subject to statewide
+memorandum page limits, with a separate statement for a discovery motion or a
+summary-judgment motion - rule 3.1112, rule 3.1110, rule 3.1113, rule 3.1345, rule
+3.1350), _what comes next_ (the
 attorney confirms the department format, finalizes, and files; the deadline lane owns the
 filing deadline; a human checks the tentative ruling before the hearing), and _when to
 bring the attorney in_ (a drafting component is missing; the department format is

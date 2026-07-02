@@ -35,9 +35,20 @@ is worth or what the medicine means.
 ## Hard rules
 
 - **No em dashes.**
-- **No causal, severity, permanence, prognosis, or valuation language**, anywhere in
-  any cell, note, or sentence. This is the extractive line; it is not a style
-  preference.
+- **No causal, severity, permanence, prognosis, or valuation language as the skill's
+  own finding**, in any cell, note, or sentence. One bright line, the same for
+  causation and for severity/permanence/prognosis: the skill never states it and never
+  restates a record's conclusion as its own. Where the record's exact conclusory
+  wording matters, it is carried **only as attributed quotation of the record** (in
+  quotation marks, attributed to the document), never dropped into a bare diagnosis
+  cell as the skill's finding and never adopted as the firm's position. The diagnosis
+  cell carries the diagnosis as recorded; a record's "severe," "permanent," "poor
+  prognosis," or "caused by" wording is not that cell's content. This is the
+  extractive line; it is not a style preference.
+- **No damages arithmetic.** Each per-row billed amount is carried exactly as the
+  record states it; the skill never sums, subtotals, or totals the bills, adds up the
+  specials, or computes a specials/damages figure. A specials total is a damages
+  number, and that is the attorney's.
 - **No fabrication.** A date, provider, or diagnosis that is not legibly in a record
   is not written. "Not legible" and "could not read" are correct, honest cells.
 - **As recorded.** Diagnoses and findings are carried in the record's terms, not

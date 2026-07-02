@@ -51,7 +51,7 @@ authored figures verbatim: gross $75,000, fee $25,000, costs $2,150, County Heal
 lien $3,400, and the net to the minor $44,450 **placed as the authored figure**. The
 MC-351 order is prepared where the firm prepares the order with the petition. The
 blocked-account disposition is surfaced with MC-355 / MC-356 prepared for
-finalization, citing CRC 7.953 and Prob. Code §3611(h) / §3413(a). The hearing
+finalization, citing CRC 7.953 and Prob. Code §3611(b) / §3413(a). The hearing
 (2026-08-20) is tracked and surfaced for the attorney to confirm (CRC 7.952
 attendance), not silently calendared as a court deadline; any task the skill opens
 carries a near-term administrative confirm-by date, distinct from the hearing date. A

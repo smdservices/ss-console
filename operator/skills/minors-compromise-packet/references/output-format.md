@@ -41,7 +41,7 @@ The decision determines the shape.
 
 > A post-approval disposition must be decided by the court. If a blocked account is
 > the authored disposition: MC-355 (Order to Deposit) + MC-356 (Receipt/Acknowledgment)
-> prepared for finalization (CRC 7.953; Prob. Code §3611(h), §3413(a)).
+> prepared for finalization (CRC 7.953; Prob. Code §3611(b), §3413(a)).
 
 ## Dates tracked
 

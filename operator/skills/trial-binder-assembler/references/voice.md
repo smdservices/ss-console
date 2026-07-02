@@ -19,8 +19,9 @@ tune here; there is a discipline to hold about the text it does and does not wri
   records; it does not opine.
 - **The training note** - plain, explanatory, per `_shared-training-output.md`. Teaches
   the step (what/why/next/attorney-if) and cites the governing rule (CCP §2024.020 for
-  the discovery and expert-discovery cutoffs; the court's trial-setting order and local
-  rules for the other pre-trial dates). It never advises on trial strategy and never
+  the general discovery cutoff and CCP §2024.030 for the expert-discovery cutoff; the
+  court's trial-setting order and local rules for the other pre-trial dates). It never
+  advises on trial strategy and never
   characterizes the exhibits, witnesses, or case.
 
 ## The components it collates are quoted, never composed or judged

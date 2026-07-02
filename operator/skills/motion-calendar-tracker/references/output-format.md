@@ -15,16 +15,16 @@ internal log.
 
 ## Filed
 
-| Motion                                        | Filed by | Filed (source) | Status (source)                |
-| --------------------------------------------- | -------- | -------------- | ------------------------------ | ------ | ------- | --------- | ---------------------------------------- |
-| <e.g. Motion to Compel Further RFP Responses> | <firm    | opposing>      | <date> (task <id> / memo <id>) | <filed | opposed | submitted | heard - each from a record item, or "-"> |
+| Motion                                        | Filed by        | Filed (source)                 | Status (source)                                                         |
+| --------------------------------------------- | --------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| <e.g. Motion to Compel Further RFP Responses> | firm / opposing | <date> (task <id> / memo <id>) | <filed / opposed / submitted / heard - each from a record item, or "-"> |
 
 ## Due
 
-| Item                     | Date   | Source                 | Note                                                                                                   |
-| ------------------------ | ------ | ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| <e.g. Opposition to MTC> | <date> | task <id> / event <id> | authored by a human                                                                                    |
-| <e.g. Reply to MSJ>      | -      | -                      | not calendared - anchor: hearing <date> (event <id>); §1005(b) window for the deadline lane to confirm |
+| Item                     | Date   | Source                 | Note                                                                                                                       |
+| ------------------------ | ------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| <e.g. Opposition to MTC> | <date> | task <id> / event <id> | authored by a human                                                                                                        |
+| <e.g. Reply to MSJ>      | -      | -                      | not calendared - anchor: hearing <date> (event <id>); MSJ runs on §437c (not §1005(b)) - deadline lane to confirm the rule |
 
 ## Hearings
 
@@ -66,8 +66,9 @@ judgment the skill does not make on its own.
 >
 > **What:** refreshed the motion-calendar surface for this matter from the record.
 > **Why:** an un-calendared opposition window or a mis-linked hearing is how a motion
-> slips; opposition/reply windows run off the hearing under CCP §1005(b) - confirm the
-> rule for the motion type and service manner.
+> slips; opposition/reply windows run off the hearing under a rule that depends on the
+> motion type (§1005(b) for a regular noticed motion; §437c for MSJ/MSA) - confirm the
+> governing rule for the motion type.
 > **Next:** the deadline lane / attorney confirms and calendars any un-authored
 > windows; the drafter prepares the opposition/reply.
 > **Attorney if:** a hearing has no filed motion, a motion has no hearing, a window is
@@ -85,8 +86,12 @@ judgment the skill does not make on its own.
    lane, never as a stated date.
 4. **A missing hearing date or motion status is a Gap**, surfaced with what the record
    does and does not show - never a plausible fill.
-5. **A hearing outcome appears only if the record states it.** A passed hearing date
-   with no disposition in the record is "heard <date>; no disposition in the record,"
-   never "granted"/"denied."
+5. **A hearing outcome appears only if the record states it, and occurrence is never
+   inferred from a passed date.** The record shows a hearing was _set_ for a date, not
+   that it was held - hearings get continued, vacated, or taken off calendar. A passed
+   hearing date with no minute order or disposition in the record is "hearing was set
+   for <date> (event <id>); no minute order or disposition in the record - confirm
+   whether it was held, continued, or vacated," never "heard <date>" and never
+   "granted"/"denied."
 6. **A reported-but-unstructured status is surfaced as "reported in <source>,
    unconfirmed,"** never re-asserted in the skill's own voice.

@@ -118,9 +118,10 @@ court-specific. Per the pack's deadline discipline and ADR 0037, the skill
   attorney confirm. It does not recompute them.
 - **Where a date is anchored to a grounded statutory window**, the skill may surface
   the window as a **proposal for attorney confirm, clearly labeled as not final** -
-  for example the discovery cutoff of 30 days before the trial date and the
-  expert-discovery cutoff of 15 days before (CCP §2024.020), read against the
-  court-set trial date. Every other pre-trial deadline (in-limine filing, list
+  for example the discovery cutoff of 30 days before the date initially set for
+  trial (CCP §2024.020) and the expert-discovery cutoff of 15 days before (CCP
+  §2024.030), both read against the date initially set for trial (a continuance
+  does not reopen discovery). Every other pre-trial deadline (in-limine filing, list
   exchange, trial brief, readiness conference) comes from the **court's trial-setting
   order and local rules**, which the skill captures from the order in the matter and
   surfaces; it never derives them from memory and never calendars them autonomously.
@@ -168,17 +169,19 @@ surfaces** (Shape B), not a set it composes.
 
 1. **Locate** - read the matter (`get_matter` for `personResponsibleStaffId` and
    context) and the trial-prep documents (`list_folders`, `get_files_on_matter`):
-   the exhibit list, the witness list, the deposition summaries, the exhibit files,
-   and the trial-setting order. If the core components cannot be located, surface
-   (Shape B) and stop.
+   the exhibit list, the witness list, the deposition summaries, the deposition
+   designations and counter-designations, the exhibit files, and the trial-setting
+   order. If the core components cannot be located, surface (Shape B) and stop.
 2. **Read the components** - pull the authored exhibit list, witness list, and each
    deposition summary (`get_download_url` / `get_file`), verbatim as prepared. The
    skill quotes and orders them; it does not rewrite them.
 3. **Collate the binder index** - lay the components into an ordered binder index:
    the exhibit list (each exhibit keyed to its file and its intended exhibit number,
    with a Bates column marked "to be stamped in the firm's PDF tool"), the witness
-   list in order, and the deposition summaries indexed to their witnesses. Every entry
-   traces to a document read.
+   list in order, the deposition summaries indexed to their witnesses, and the
+   deposition designations and counter-designations collated as authored (a distinct
+   component from the summaries), indexed to their deponents. Every entry traces to a
+   document read.
 4. **Route the Bates/PDF step** - surface the Bates-stamping and PDF exhibit assembly
    as a step routed to the firm's PDF tool (confirmed at connect), with the exhibit
    ordering ready for stamping. It never invents a Bates range or a PDF tool call.
@@ -208,6 +211,10 @@ surfaces** (Shape B), not a set it composes.
 - **Never invent a PDF, Bates, or Adobe tool call**, and never claim it Bates-stamped
   or PDF-assembled anything - that step is routed to the firm's own PDF tool, confirmed
   at connect.
+- **Even if a `build:` PDF adapter is ever wired** (per the addon connector map), the
+  Bates-stamping and exhibit-assembly step still routes as an attorney-confirmed step;
+  the skill never makes an autonomous Operator stamping call. A wired adapter changes
+  where the step runs, not who confirms it.
 - **Never compute a deadline as final** - it captures and surfaces the court-set and
   statutory-window dates for confirm; the deadline lane and the court's order own the
   authoritative date.
@@ -221,7 +228,8 @@ Every run appends, to the matter memo, a short note a junior paralegal learns fr
 _what_ it did (assembled the trial binder index from the authored components and
 captured the trial-prep deadlines), _why it matters_ (the binder must be complete and
 ordered for trial, and the pre-trial deadlines - discovery cutoff 30 days before
-trial and expert-discovery cutoff 15 days before, CCP §2024.020, plus the
+the date initially set for trial (CCP §2024.020) and expert-discovery cutoff 15
+days before (CCP §2024.030), plus the
 court-ordered in-limine/list-exchange/trial-brief dates - are hard dates the court
 sets), _what comes next_ (the exhibits are Bates-stamped and PDF-assembled in the
 firm's PDF tool; the attorney writes the brief and finalizes the binder), and _when to

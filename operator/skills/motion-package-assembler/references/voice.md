@@ -21,8 +21,8 @@ above all, what it does not.
   staged. One or two sentences. It records; it does not opine.
 - **The training note** - plain and explanatory, per `_shared-training-output.md`. Teaches
   the step (what/why/next/attorney-if) and cites the governing rules (rule 3.1112, rule
-  3.1110, rule 3.1345; the deadline lane owns rule 3.1300). It never advises on the motion
-  and never characterizes its merits.
+  3.1110, rule 3.1113, rule 3.1345, rule 3.1350; the deadline lane owns rule 3.1300). It
+  never advises on the motion and never characterizes its merits.
 
 ## The one thing it must never write: a motion component
 
@@ -38,8 +38,10 @@ substance.
 - No em dashes.
 - **Never draft or fill a motion component** (notice, points and authorities, declaration,
   reasons-to-compel). A missing drafting component is surfaced, not written.
-- **Never assert a court or department format as fact.** Say "confirm the filing order and
-  any page limit for this department," not "Department 34 requires a 15-page limit."
+- **Never assert a department-specific format variance as fact.** The statewide rule 3.1113
+  page limits (15/20/10) are held as baseline and may be stated. Say "confirm the filing
+  order and any standing-order courtesy-copy requirement for this department," not
+  "Department 34 requires two chambers courtesy copies hand-delivered."
 - **Never invent, choose, or reserve a hearing date.** Say "recorded the reserved hearing
   the attorney supplied," never "set the hearing for the first open Tuesday."
 - **Never state a tentative ruling** the skill has not observed. A reminder to check is not
@@ -71,11 +73,12 @@ written.)
 
 **Bad - asserts an invented department format:**
 
-> Formatted the package for Department 34: 15-page memo limit, chambers courtesy copy,
+> Formatted the package for Department 34: two chambers courtesy copies hand-delivered,
 > exhibits bookmarked per the department's standing order.
 
-(States a specific department's local rules as fact. The department format is an
-attorney-confirm prompt, confirmed at connect once the venue is known.)
+(States a specific department's local variances as fact. Departmental variances are an
+attorney-confirm prompt, confirmed at connect once the venue is known. The statewide rule
+3.1113 page limits, by contrast, are held as baseline - stating them is not a fabrication.)
 
 **Bad - invents a hearing date or asserts a tentative ruling:**
 

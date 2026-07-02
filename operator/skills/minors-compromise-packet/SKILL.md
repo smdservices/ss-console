@@ -65,17 +65,17 @@ not listed here, the skill says "confirm the form/section" rather than inventing
 - **MC-351** — Order Approving Compromise of Claim or Action or Disposition of
   Proceeds of Judgment (the order the court signs). Verified: courts.ca.gov.
 - **MC-350EX** — Expedited Petition, available in non-death cases where the total
-  proceeds are less than $50,000 and are not placed in a trust; no hearing required
+  proceeds are $50,000 or less and are not placed in a trust; no hearing required
   when the nine conditions of **CRC 7.950.5** are met. Verified. Whether a matter
   qualifies for the expedited path is the **attorney's** call, not the skill's.
-- **MC-355** — Order to Deposit Money Into Blocked Account, and **MC-356** — Receipt
-  and Acknowledgment of Order for the Deposit of Money Into Blocked Account.
+- **MC-355** — Order to Deposit Money Into Blocked Account, and **MC-356** —
+  Acknowledgment of Receipt of Order and Funds for Deposit in Blocked Account.
   Submitted with the order when funds go to a blocked account. Verified.
 - **Probate Code §3500** — who may compromise a minor's disputed claim (a parent with
   custody, or the Guardian ad Litem the court orders). Verified.
 - **Probate Code §3600 through §3601** — court approval of the compromise; §3601 is
   the authority for the court to approve and allow the attorney fee. Verified.
-- **Probate Code §3611(h)** and **§3413(a)** — disposition of the funds, including
+- **Probate Code §3611(b)** and **§3413(a)** — disposition of the funds, including
   deposit into a blocked, federally insured account held in California. Verified.
 - **CRC 7.950** (petition), **7.950.5** (expedited), **7.951** (attorney's disclosure
   of interest in the compromise), **7.952** (attendance at the hearing), **7.953**
@@ -161,7 +161,7 @@ and never fills the disclosure with a number the lienholder has not provided.
 On approval, the court orders how the funds are held. The common disposition is a
 **blocked account** at a federally insured institution in California, from which no
 money may be withdrawn without a further court order (**CRC 7.953**; **Probate Code
-§3611(h)** and **§3413(a)**), documented by the **MC-355** order and the **MC-356**
+§3611(b)** and **§3413(a)**), documented by the **MC-355** order and the **MC-356**
 receipt. Other authored dispositions exist (a trust, a structured annuity, or the
 Uniform Transfers to Minors Act custodianship). The skill **surfaces** that a
 fund-handling disposition must be decided and, if the attorney has authored one,

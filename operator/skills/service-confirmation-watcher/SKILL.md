@@ -31,7 +31,7 @@ metadata:
     action_class: read + internal_write # reads the service confirmation + matter; writes an internal memo (log) + a confirm task; no external send
     content_ceiling: surface_only # emits a factual captured input (served date, method, defendant) + an internal log; never files or drafts a responsive pleading, never authors the deadline computation
     connectors:
-      - smokeball # PracticeManagement — get_matter (responsible attorney + defendants via otherSideIds[]), get_roles_on_matter/get_relationships_on_matter (resolve which defendant), get_files_on_matter/get_file/get_download_url (find + read the proof of service of summons InfoTrack synced in), get_memos_on_matter (dedup a prior capture + confirm create_memo landed), create_memo (internal log), create_task (surface to the attorney to confirm), list_tasks/get_task (confirm create_task landed). No InfoTrack tool: InfoTrack's service confirmation is observed as it syncs INTO the Smokeball matter, never read from an InfoTrack endpoint (there is none in smokeball-surface.md).
+      - smokeball # PracticeManagement — get_matter (responsible attorney + defendants via otherSideIds[]), get_roles_on_matter/get_relationships_on_matter (resolve which defendant), get_files_on_matter/get_file/get_download_url (find + read the proof of service of summons InfoTrack synced in), get_memos_on_matter (dedup a prior capture + confirm create_memo landed), create_memo (internal log), create_task (surface to the attorney to confirm), list_tasks/get_task (confirm create_task landed). No InfoTrack surface is read here: the service confirmation is observed through the Smokeball sync because that is the read shape pinned in smokeball-surface.md (no infotrack-surface.md exists) — a surface-scope decision, not a claim that InfoTrack lacks an endpoint (the pack connector map lists mcp:infotrack as verified for the serve toolset).
 ---
 
 # Service Confirmation Watcher
@@ -62,9 +62,13 @@ into the Smokeball matter, so the Operator observes it through Smokeball without
 direct integration). So:
 
 - The skill observes the service confirmation **only through Smokeball reads**
-  (`get_files_on_matter`, `get_file` / `get_download_url`). **There is no InfoTrack
-  tool in the Smokeball surface (`smokeball-surface.md`), and the skill never invents
-  one.** It does not call an InfoTrack status endpoint, because none is in the surface.
+  (`get_files_on_matter`, `get_file` / `get_download_url`). This is a **deliberate
+  surface-scope choice**: the Smokeball sync is the read shape that is pinned
+  (`smokeball-surface.md`), and there is **no `infotrack-surface.md`** to read against —
+  so the skill does not call an InfoTrack endpoint here. Not because InfoTrack has none
+  (the pack connector map lists `mcp:infotrack` as verified for the serve toolset), but
+  because the pinned read is the Smokeball sync. The skill never invents an InfoTrack
+  surface it does not have.
 - The proof of service that landed in the matter is the authoritative statement of
   the served date and method. The skill reads it there.
 
@@ -82,23 +86,31 @@ It never treats a computed date as final:
 - Where the firm confirms this is computed **by hand today**, the skill may present
   the base window (30 days after service of summons, §412.20(a)(3); demurrer likewise
   30 days, §430.40(a)) always flagged **"proposed, confirm"** and **never** calendared
-  silently or treated as final.
+  silently or treated as final. The by-hand base date also carries the note that **the
+  final day rolls to the next court day if it lands on a weekend or holiday (§12 / §12a);
+  the attorney/engine confirms** — the skill surfaces the roll as a flag, it does not
+  compute the rolled date.
 
 Two facts make the **effective served date itself a judgment**, which is why it is
 surfaced and not asserted final:
 
 - **The service method changes when service is deemed complete.** Personal service is
-  complete on the day of delivery, but **substituted service** is deemed complete on
-  the **10th day after mailing** (§415.20), and service by mail with acknowledgment
-  turns on the acknowledgment date. So "the date the process server handed it over" is
-  not always the date the clock runs from. The skill reads the method and the date off
-  the POS and surfaces both; it does not silently resolve which effective date governs.
-- **Method extensions may or may not stack on the summons response time.** Whether the
-  §1013 mail (+5 calendar days) or §1010.6 electronic (+2 court days) extension applies
-  on top of the 30-day summons response window is **confirm-at-connect** — service of a
-  summons has its own completion rules (§415.x) distinct from service of ordinary
-  papers, and this skill does **not** compute around that. It surfaces the method as a
-  flag for the attorney/engine to resolve.
+  complete on the day of delivery, but **any method whose completion defers from
+  delivery** runs the clock from a different date: **substituted service** is deemed
+  complete on the **10th day after mailing** (§415.20), **service by mail with
+  acknowledgment** turns on the date the acknowledgment is executed (§415.30), and
+  **service by publication** turns on publication rather than delivery (§415.50). So "the
+  date the process server handed it over" is not always the date the clock runs from. The
+  skill reads the method and the date off the POS and surfaces both; it does not silently
+  resolve which effective date governs.
+- **Method extensions and the summons response time.** The **§1013 mail extension (+5
+  calendar days) does not extend the summons response window** — that is settled: the
+  time to respond to a summons runs under the service-of-summons rules (§413.20 et seq.),
+  not the extension §1013 grants for service of ordinary papers by mail. What is genuinely
+  **confirm-at-connect** is whether the **§1010.6 electronic** service extension (+2 court
+  days) reaches the summons response window. This skill does **not** compute around either;
+  it surfaces the method as a flag for the attorney/engine to resolve, and it **never**
+  applies §1013 to the summons clock.
 
 The deadline computation and the calendar write belong to the rules engine and the
 attorney, not here.
@@ -176,10 +188,11 @@ document says:
    acknowledgment, electronic, publication) as stated on the POS. Quote/locate the text
    you read. If the POS is missing, illegible, blank, or the date/method cannot be read
    with confidence, **surface and ask** (Shape C); never guess (a smudged date is not a
-   date). If the method is one whose **effective date differs from the delivery date**
-   (substituted service, deemed complete on the 10th day after mailing, §415.20),
-   surface both the delivery date and that the effective date turns on the method — do
-   **not** silently pick one.
+   date). If the method is one whose **completion defers from the delivery date** —
+   substituted service (deemed complete on the 10th day after mailing, §415.20), service
+   by mail with acknowledgment (complete on the date the acknowledgment is executed,
+   §415.30), or service by publication (§415.50) — surface both the delivery date and that
+   the effective date turns on the method — do **not** silently pick one.
 5. **Resolve the responsible attorney.** `get_matter` → `personResponsibleStaffId` is
    the attorney the capture is surfaced to.
 6. **Surface for confirmation (both writes are unverified — confirm by read).** Write an
@@ -210,17 +223,22 @@ and **method** as read off the POS (POS located), a note that the responsive-ple
 window is **30 days after service of summons** (§412.20(a)(3); demurrer likewise,
 §430.40(a)) and either a **"proposed, confirm"** base date **only if** the firm
 computes by hand, or a note that the engine's date is to be read and confirmed — plus
-the two judgment flags where they apply (a substituted-service effective date under
-§415.20; whether a §1013 / §1010.6 method extension stacks, confirm-at-connect). When a
-matter has more than one defendant served on different dates, it surfaces **one capture
-per defendant**, never a single collapsed clock. See `references/output-format.md`.
+the judgment flags where they apply (an effective date that defers from delivery —
+substituted §415.20, acknowledgment §415.30, publication §415.50; a weekend/holiday
+final-day roll on a by-hand base date, §12 / §12a; and whether the §1010.6 electronic
+extension reaches the summons response window, confirm-at-connect, noting §1013's mail
+extension does not, §413.20). When a matter has more than one defendant served on
+different dates, it surfaces **one capture per defendant**, never a single collapsed
+clock. See `references/output-format.md`.
 
 ## Boundaries (never)
 
 - **Never invent or infer a served date or method.** If the POS is missing, illegible,
   blank, or ambiguous, surface and ask. A smudged date is not a date.
-- **Never invent an InfoTrack tool or status call.** The confirmation is observed as it
-  syncs into Smokeball; there is no InfoTrack endpoint in the surface.
+- **Never invent an InfoTrack tool or status call.** The confirmation is observed
+  through the Smokeball sync because that read shape is the one pinned in the surface (no
+  `infotrack-surface.md` exists) — not because InfoTrack lacks an endpoint. Do not reach
+  for an InfoTrack surface this skill does not have.
 - **Never collapse multiple defendants into one clock, or apply one defendant's served
   date to another.** One capture per defendant per service; ambiguous defendant is
   surface-and-ask.

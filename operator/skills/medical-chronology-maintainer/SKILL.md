@@ -57,11 +57,16 @@ it, even when asked, is a `fails` invariant.
 - **BANNED (draft or characterize):** write any part of a demand letter, medical
   summary narrative, settlement letter, or brief; state or imply that an injury was
   **caused by** the incident; characterize **severity**, permanence, or prognosis as
-  a conclusion; assign, estimate, or endorse a **value**, damages figure, or
-  settlement number; write "consistent with," "as a result of the collision,"
-  "warrants," or any causal or valuation bridge. Extracting that a record **records**
-  "MMI noted" is a fact; concluding the plaintiff has reached MMI, or that a gap
-  weakens the case, is over the line.
+  the skill's own finding (the record's own conclusory wording is carried only as
+  attributed quotation, never restated as the skill's conclusion, exactly as the
+  causation rule below); assign, estimate, or endorse a **value**, damages figure, or
+  settlement number; **sum, subtotal, or total the bills, add up the specials, or
+  compute a specials/damages figure** (a specials total is a damages number, the
+  attorney's, even though each per-row billed amount is extracted as the record
+  states it); write "consistent with," "as a result of the collision," "warrants," or
+  any causal or valuation bridge. Extracting that a record **records** "MMI noted" is
+  a fact; concluding the plaintiff has reached MMI, or that a gap weakens the case, is
+  over the line.
 
 The litmus: does the output get read by the attorney or CoCounsel and then **worked
 from** with their judgment (allowed), or is it the causal, evaluative, or narrative
@@ -158,9 +163,15 @@ runs. This follows the pack write posture
 4. **Extract** - for each treatment event, pull the structured row per
    `references/output-format.md`: date, provider or facility, visit type, body part
    or complaint, diagnosis as recorded, treatment or procedure, billed amount if
-   stated, and the source document and page. Extract only; characterize nothing.
-   Unreadable pages go under **Could not read**; conflicts and gaps are flagged as
-   observations, never resolved by inference.
+   stated, and the source document and page. The timeline key is the **date of
+   service** (the date care was rendered), not the dictation, signed, or letter date;
+   when only a non-service date is legible, the row carries that date labeled as such,
+   never a guessed service date. When the **same encounter appears in more than one
+   production this run** (for example, the same ED visit in both the treatment records
+   and the billing production), it is **one row** citing both sources, not two rows;
+   the billed amount is carried from the billing production as stated. Extract only;
+   characterize nothing. Unreadable pages go under **Could not read**; conflicts and
+   gaps are flagged as observations, never resolved by inference.
 5. **Write the running chronology** - `create_memo(matter_id, ...)` with the
    consolidated, cited timeline and the training-output note, then **confirm by read**
    (`get_memos_on_matter`). Surface, do not assert, if the confirm read fails.
@@ -205,6 +216,16 @@ needs a human read; two records conflict on a material date or diagnosis; a
 treatment gap needs a clinical explanation). The note is explanatory, not advisory,
 and it cites the actual step, not a legal conclusion.
 
+**Deliberate deviation from the shared training-output rule.** The shared property
+(`_shared-training-output.md`) asks each note to cite the governing statute or rule
+for the step. This skill's step is **medical-record extraction**, not a
+procedural-deadline step, and no statute governs "extract the treatment events." The
+note therefore carries **no statute citation**, and that omission is intentional and
+consistent with the anti-fiction floor: forcing a rule number onto a non-procedural
+step would invite exactly the fabrication this skill exists to prevent. The shared
+rule's own escape hatch applies ("if a rule is uncertain, say so rather than invent a
+citation"); here the honest answer is that none governs the extraction.
+
 ## How to Run
 
 ```
@@ -233,4 +254,8 @@ characterize.
 - `references/voice.md` - the clerical, extractive, cited voice; the banned causal,
   severity, and valuation language; the decline-to-draft response when an ask crosses
   the ceiling
+- `references/test-cases.md` - the graded adversarial fixture set that proves the
+  extractive-only invariant holds under pressure (causation-quote bait, valuation /
+  total-the-specials ask, off-the-record causation ask, fabricate-to-fill bait,
+  embedded-instruction injection)
 - `tests/selector_test.md` - the blind cross-skill selector simulation

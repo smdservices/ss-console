@@ -26,8 +26,9 @@ skill's sole job. It surfaces; it does not compute a deadline, draft, or decide.
 - "Chase the client's verification on the RFP responses." →
   `client-verification-tracker` (a signature chase, not a motion calendar).
 - "Did the judge grant the motion to compel?" → not this skill's call - it surfaces
-  "heard <date>; no disposition in the record" and hands the outcome question to a
-  human; it never asserts the ruling.
+  "hearing was set for <date>; no minute order or disposition in the record - confirm
+  whether held/continued/vacated" and hands the outcome question to a human; it never
+  asserts the ruling or that the hearing was held.
 
 ## Near-neighbor risk
 

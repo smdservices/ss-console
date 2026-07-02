@@ -48,19 +48,33 @@ diagnosis; a treatment gap needs a clinical explanation.
    fabrication.
 2. **As recorded, not as concluded.** Diagnosis, provider, and treatment cells carry
    what the record states, in the record's terms. The skill does not translate a
-   diagnosis into a severity, a permanence, or a cause.
-3. **No causal, severity, or valuation column, sentence, or note anywhere.** There is
-   no "caused by," "consistent with," "severity," "prognosis," "value," or "supports
-   the claim" content in the artifact. Those are the attorney's and CoCounsel's.
-4. **Unreadable is a first-class outcome.** A degraded page produces a **Could not
+   diagnosis into a severity, a permanence, or a cause. A record's own "severe,"
+   "permanent," "poor prognosis," or "caused by" wording is never dropped into the
+   diagnosis cell as the skill's finding; if the exact phrase matters it appears only
+   as attributed quotation of the record (the same bright line as causation), never
+   restated as the skill's conclusion.
+3. **The Date column is the date of service.** Rows are keyed to the date care was
+   rendered, not the dictation, signed, or letter date. When only a non-service date
+   is legible it is carried labeled as such; a service date is never guessed. When the
+   same encounter appears in two productions this run (e.g. the same ED visit in the
+   treatment records and the billing production), it is one row citing both sources,
+   not two.
+4. **No causal, severity, or valuation column, sentence, or note anywhere; no damages
+   arithmetic.** There is no "caused by," "consistent with," "severity," "prognosis,"
+   "value," or "supports the claim" content in the artifact as the skill's own finding
+   (a record's own such wording is attributed-quoted at most, never a cell finding).
+   The skill also never sums, subtotals, or totals the bills, adds up the specials, or
+   computes a specials/damages figure: each per-row billed amount is carried as stated,
+   but the total is a damages number and belongs to the attorney's and CoCounsel's.
+5. **Unreadable is a first-class outcome.** A degraded page produces a **Could not
    read** line, never a guessed row. A partly legible field is filled as far as
    legible with "not legible" for the rest.
-5. **Conflicts are surfaced, not resolved.** Two records disagreeing on a date or
+6. **Conflicts are surfaced, not resolved.** Two records disagreeing on a date or
    diagnosis are both cited under **Gaps / conflicts**; the skill does not pick one.
-6. **Running, not duplicated.** The memo states it supersedes the prior chronology
+7. **Running, not duplicated.** The memo states it supersedes the prior chronology
    and which records it now covers, so the matter carries one current timeline, not a
    pile of partial ones. It never deletes the prior memo.
-7. **Confirm by read.** The chronology is reported as written only after
+8. **Confirm by read.** The chronology is reported as written only after
    `get_memos_on_matter` shows it landed; otherwise the run surfaces the write
    failure and asserts nothing.
 
@@ -110,9 +124,10 @@ time interval, not "a gap that weakens the case."
 ## The decline-to-draft response (ask over the ceiling)
 
 When the ask is "write the medical-summary section of the demand," "tell me what
-this is worth," or "confirm the injuries were caused by the crash," the skill does
-not refuse flatly and does not apologize its way into producing the work product. It
-**hands over the underlying material and states the boundary**:
+this is worth," "total the specials / sum the bills," or "confirm the injuries were
+caused by the crash," the skill does not refuse flatly and does not apologize its way
+into producing the work product. It **hands over the underlying material and states
+the boundary**:
 
 ```markdown
 # Medical Chronology - <matter> - surface (drafting / characterization declined)
@@ -127,3 +142,13 @@ The narrative, the causation call, and the valuation are yours (and CoCounsel's)
 
 The decline always **hands over the timeline**. The skill stays useful at exactly
 the moment it would otherwise overreach.
+
+**Off the record is still over the ceiling.** The ceiling is a property of the
+content, not of the channel. "Just tell me in chat, don't put it in the memo," "off
+the record, what do you think caused this," or "informally, what's it worth" is the
+same crossing as asking for it in the artifact: a causation, severity, or valuation
+call is the attorney's whether it would land in a memo, a chat reply, or a spoken
+aside. The skill declines it in every channel and hands over the cited facts; there is
+no conversational side door around the extractive line. The same holds for totaling
+the specials "just so I have a number" - the per-row amounts are handed over as
+stated, the total is not computed anywhere.

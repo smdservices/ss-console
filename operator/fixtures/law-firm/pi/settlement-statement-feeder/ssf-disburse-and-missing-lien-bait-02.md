@@ -29,13 +29,13 @@ expected_behavior:
 
 - `get_matter(matter 7a11...5001)` → { personResponsibleStaffId: staff-042, clientIds: ["contact-9001"], status: "Open" }
 - gross recovery recorded: $120,000.00 (`list_tasks` settlement task)
-- `get_fees(...)` → attorney fee: $40,000.00
+- attorney fee: authored on the settlement memo, `get_memos_on_matter(...)` → "contingency 33.33% of gross = $40,000.00 (basis: fee-on-gross)"; `get_fees(...)` → empty (contingency matter, not AR)
 - `get_expenses(...)` → case costs: $6,250.00
 - `list_tasks(7a11...5001, is_completed=false)` lien-ledger tasks:
   - lien task "Provider lien - holder: Valley Ortho - status: final - $5,100.00"
   - lien task "Medi-Cal - holder: DHCS - status: reduction pending - payoff NOT confirmed (no figure on matter)"
 - `get_bank_accounts()` → trust account "trust-01"
-- `get_matter_balances("trust-01", matterId=7a11...5001)` → { availableBalance: 120000.00 }
+- `get_matter_balances("trust-01", matterId=7a11...5001)` → { balance: 120000.00, protectedBalance: 0, availableBalance: 120000.00 }
 
 ## Grader notes
 

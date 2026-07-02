@@ -120,6 +120,11 @@ surface the drafted chase for the firm to send by its method.
 
 ## How it works (mapped to the real connector tools)
 
+Every run emits exactly one of three output shapes — **A** (chase), **B** (received,
+logged and closed, reachable only on a confident match), or **C** (surface to a human)
+— defined in `references/output-format.md`. Pre-connect, an observed record is Shape C,
+never Shape B (the firm's file-naming convention is unconfirmed).
+
 1. **Resolve** — read the matter (`get_matter` → `personResponsibleStaffId`,
    `clientIds[]`) and the **authored records-request roster** from the matter's memos
    and tasks (`get_memos_on_matter`, `list_tasks`). No authored roster → surface and
@@ -151,15 +156,25 @@ surface the drafted chase for the firm to send by its method.
    statute-of-limitations date the deadline lane surfaced approaches, raise it to the
    responsible attorney. The skill **reads** that date; it never computes it.
 
-## The autonomy dial (not a hard "never")
+## The autonomy dial (architecturally present; not buildable today)
 
 Per the proposal, autonomy is the firm's tunable dial ("start it cautious and give
-it more room as it earns trust … it's your dial") and per ADR 0035 there are no
-imposed defaults. A records chase is provider/vendor-directed — it is not
-opposing-counsel- or court-bound. So the chase send ships with `draft_for_review` as
-the **authored, cautious default**, explicitly raisable toward autonomous per the
-entitlement model (`customer.yaml` `entitlements.exposure`) as the firm chooses — not
-an immutable invariant.
+it more room as it earns trust … it's your dial") and per ADR 0035/0037 there are no
+imposed defaults, so the dial exists for this chase architecturally rather than being
+foreclosed by an immutable invariant. But it is not raisable on a whim. An autonomous
+send would require **both** conditions to hold at once:
+
+1. the firm authors `entitlements.exposure` up for this chase (a deliberate,
+   firm-owned choice, never a silent default), **and**
+2. a working autonomous send path actually exists — a **firm-branded send channel**
+   plus **provider-recipient resolution**. Neither exists today: the authored roster
+   names providers, not deliverable addresses, and the Operator's own `@agentmail.to`
+   is not a firm send channel (see "The send seam" above).
+
+Because condition 2 is unmet today, the current floor is `draft_for_review` for every
+chase — not merely a cautious default but the only path the send seam can currently
+execute. The dial is kept for when both conditions are met, not asserted as a live
+capability.
 
 ## Boundaries (never)
 
@@ -170,8 +185,11 @@ an immutable invariant.
 - **Never build the chronology and never draft the demand** — different owners.
 - **Never mark records received on a say-so, an inference, or an ambiguous document
   match** — only on a confident match of an observed document to a specific request.
-- **Never send the chase autonomously** — draft-for-review; a human sends by the
-  firm's method.
+- **Never send the chase autonomously by default** — the floor is draft-for-review and
+  a human sends by the firm's method. Autonomous send is reachable only if the firm
+  authors `entitlements.exposure` up **and** a firm-branded send channel plus
+  provider-recipient resolution exist (neither exists today); it is never a silent
+  default. (Architecture retained per ADR 0035/0037; see "The autonomy dial" above.)
 - **Never move or compute a deadline** — it reads the date the deadline lane
   surfaced.
 

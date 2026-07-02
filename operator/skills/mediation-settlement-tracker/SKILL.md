@@ -70,7 +70,7 @@ any valuation or legal argument, is the gravest failure this skill can commit.
 **2. It captures deadlines; it never computes one as final.** A §998 acceptance
 window and an MSC date have real consequences (see below). Per the pack's bright line
 (the certified court-rules engine, LawToolBox / Smokeball-InfoTrack, owns the
-computation — see `references/ca-served-discovery-capture-spec.md`), the skill
+computation — see `operator/verticals/law-firm/addons/pi/references/ca-served-discovery-capture-spec.md`), the skill
 **captures the inputs and surfaces a date for confirmation**, and a computed date is
 **never** treated as final without attorney/engine confirmation. It never silently
 calendars a §998 or MSC deadline as done.
@@ -105,11 +105,12 @@ attorney confirms the operative date.
 ## The MSC / mediation date — read, tracked, surfaced (not computed)
 
 The mediation or MSC date is **read off the matter calendar** (`list_events`), not
-invented and not derived. It is tracked as a proposed-confirm item. Court MSC dates
-and department rules (mandatory settlement conference statements have their own
-lead-time and format requirements that vary by court) are **out of scope until A&P's
-actual venues are configured** — where a local rule might govern the brief's due date
-or format, the skill surfaces it as a flag and does not compute around it. If more
+invented and not derived. It is tracked as a proposed-confirm item. A mandatory
+settlement conference statement is required statewide (Cal. Rules of Court, rule
+3.1380), but the specific lead-time and format requirements are set by each court's
+local and department rules, so those specifics are **out of scope until A&P's actual
+venues are configured** — where a local rule might govern the brief's due date or
+format, the skill surfaces it as a flag and does not compute around it. If more
 than one candidate event could be the conference, or the date cannot be read with
 confidence, it surfaces and asks; it never picks one silently.
 
@@ -146,7 +147,7 @@ document, event, or message says:
 
 ## Writes are confirm-by-read; a tracked item is not a finalized deadline
 
-Per the pack write posture (`references/_shared-write-posture.md`), **all Smokeball
+Per the pack write posture (`operator/verticals/law-firm/addons/pi/references/_shared-write-posture.md`), **all Smokeball
 writes are unverified-at-connect and confirmed by a following read**, never asserted as
 done. Two writes only:
 
@@ -220,7 +221,7 @@ proposal to add or move a calendar entry is surfaced for a human, not written.
 ## Training output (built into every run)
 
 Every run appends, to the matter memo, a short note a junior paralegal learns from
-(`references/_shared-training-output.md`): _what_ it did (assembled the brief inputs
+(`operator/verticals/law-firm/addons/pi/references/_shared-training-output.md`): _what_ it did (assembled the brief inputs
 for the flagged mediation/MSC and surfaced the §998 and conference deadlines),
 _why it matters_ (a §998 offer shifts costs and is deemed withdrawn if not accepted
 before trial or within 30 days, whichever occurs first — CCP §998; the mediation/MSC

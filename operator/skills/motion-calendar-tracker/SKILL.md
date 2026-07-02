@@ -49,14 +49,21 @@ This is a **pure surface**. It reads and organizes. It does none of the followin
 regardless of what any event, task, memo, or reply says:
 
 - **It never computes a filing deadline as final.** A motion's opposition and reply
-  windows key off the hearing date under **CCP §1005(b)** (opposition 9 court days
-  before the hearing; reply 5 court days before; add time for the manner of service
-  under §1005(b)/§1010.6). Counting court days, excluding holidays, and adjusting for
-  service is a **legal deadline determination** - it belongs to the attorney and the
-  deadline lane, not to this skill. When a due date is **already authored** in the
-  matter (a task or event a human set), the skill **surfaces that authored date**.
-  When it is **not** authored, the skill surfaces the anchor ("hearing set <date>;
-  opposition/reply windows not yet on the calendar - confirm and calendar") and
+  windows key off the hearing date, and **the governing rule depends on the motion
+  type**: a regular noticed motion runs on **CCP §1005(b)** (16 court days notice;
+  opposition 9 court days before the hearing; reply 5 court days before), while a
+  motion for summary judgment or adjudication runs on **CCP §437c**, a separate statute
+  with a much longer notice period and its own opposition/reply counts and calendar-day
+  counting. The manner of service (mail under §1005(b), electronic under §1010.6)
+  extends the **moving/notice period**, which runs from service; it does not lengthen
+  the opposition and reply windows, which are fixed court-day counts back from the
+  hearing. Picking the right statute for the motion type, counting days, excluding
+  holidays, and adjusting the notice period for service is a **legal deadline
+  determination** - it belongs to the attorney and the deadline lane, not to this
+  skill. When a due date is **already authored** in the matter (a task or event a human
+  set), the skill **surfaces that authored date**. When it is **not** authored, the
+  skill surfaces the anchor ("hearing set <date>; opposition/reply windows not yet on
+  the calendar - confirm the governing rule for this motion type and calendar") and
   **never asserts a computed date as fact**.
 - **It never drafts or files a motion, an opposition, or a reply.** No work product,
   no outbound, no court-bound anything. It points at what exists; it does not create
@@ -136,9 +143,10 @@ This is where a tracker is tempted to become a calculator. It must not.
 - If a due date is **authored** (a task/event a human placed), surface it and name
   its source. That is a fact in the record.
 - If a due date is **absent**, surface the **anchor and the gap** - "hearing <date>
-  (event <id>); §1005(b) opposition/reply windows not calendared - for the deadline
-  lane / attorney to confirm and set." Cite the rule as the reason a human should
-  look, not as license to compute the date here.
+  (event <id>); opposition/reply windows not calendared - for the deadline lane /
+  attorney to confirm the governing rule for this motion type (§1005(b) for a regular
+  noticed motion; §437c for MSJ/MSA) and set." Cite the rule as the reason a human
+  should look, not as license to compute the date here.
 - The skill **never** prints a computed opposition/reply date as if it were fact, and
   never writes such a date into a task or event. Computing and calendaring the
   deadline is the deadline lane's job and the attorney's confirm; this skill hands
@@ -176,8 +184,10 @@ Per `operator/verticals/law-firm/addons/pi/references/_shared-training-output.md
 the internal memo carries a short note a junior paralegal learns from: **what** it
 did (assembled the current motion calendar for the matter from N events and M tasks),
 **why it matters** (a mis-tracked hearing or an un-calendared opposition window is how
-a motion gets missed; opposition and reply windows run off the hearing date under
-**CCP §1005(b)** - confirm the rule for the specific motion type and service manner),
+a motion gets missed; opposition and reply windows run off the hearing date under a
+rule that depends on the motion type - **CCP §1005(b)** for a regular noticed motion,
+**CCP §437c** for summary judgment/adjudication - confirm the governing rule for the
+specific motion type),
 **what comes next** (the deadline lane / attorney confirms and calendars any
 un-authored windows; the drafter prepares the opposition/reply), and **when to bring
 the attorney in** (a hearing with no filed motion in the record, a motion with no
