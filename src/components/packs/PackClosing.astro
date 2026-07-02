@@ -6,6 +6,7 @@
 // every pack gets a uniform, accurate FAQPage (AEO) with no per-pack authoring.
 import CtaButton from '../CtaButton.astro'
 import { ctaPricingLine, packFaqs } from '../../lib/operator-packs/shared'
+import { serializeJsonLd } from '../../lib/seo/json-ld'
 
 interface Props {
   slug: string
@@ -29,7 +30,7 @@ const faqSchema = {
   faqs.length > 0 && (
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+        <script is:inline type="application/ld+json" set:html={serializeJsonLd(faqSchema)} />
         <p class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]">
           Common Questions
         </p>
