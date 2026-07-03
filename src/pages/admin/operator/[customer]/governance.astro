@@ -43,7 +43,7 @@ const STATUS_MESSAGES: Record<string, { text: string; ok: boolean }> = {
   malformed: { text: 'Config projection is malformed.', ok: false },
 }
 const banner = status ? STATUS_MESSAGES[status] : null
-const formAction = `/admin/operator/${encodeURIComponent(slug)}/governance`
+const formAction = `/api/admin/operator/${encodeURIComponent(slug)}/governance`
 ---
 
 <AdminLayout

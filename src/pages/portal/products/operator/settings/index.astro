@@ -1,0 +1,186 @@
+---
+import '../../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../../lib/config/brand'
+import { getPortalClient } from '../../../../../lib/portal/session'
+import { getProductSubscription } from '../../../../../lib/portal/product-access'
+import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../../components/SkipToMain.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — settings hub.
+ *
+ * URL: portal.smd.services/portal/products/operator/settings
+ *
+ * The landing surface for Operator settings, and the redirect target for
+ * the customer-facing OAuth connect flow (oauth/[connector]/callback.ts →
+ * `?status=connected` on success, `?status=failed&reason=<short>` on
+ * failure) plus the initiate-failure path. Before this page existed those
+ * flows 404'd — a client who connected a system landed on a missing page.
+ *
+ * Access gate: Clerk session (middleware) + an active Operator
+ * subscription. No role gate here — the hub is a read-only landing; each
+ * sub-surface (Users, Advanced) enforces its own principal/operable gate.
+ *
+ * This page owns no mutations. It renders the connect-status banner and
+ * links to the settings sub-surfaces.
+ */
+
+const PRODUCT_SLUG = 'operator'
+
+const portalData = await getPortalClient(env.DB, Astro.locals)
+if (!portalData) {
+  return Astro.redirect('/auth/sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
+}
+
+const { client } = portalData
+
+const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
+if (!subscription) {
+  return Astro.redirect('/portal/products/operator')
+}
+
+// Connect-status banner — set by the OAuth callback / initiate on redirect.
+const status = Astro.url.searchParams.get('status')
+const reason = Astro.url.searchParams.get('reason')
+
+type Banner = { text: string; tone: 'success' | 'error' | 'info' }
+
+// Actionable reason copy for `status=failed`. Unknown reasons collapse to a
+// generic retry message rather than leaking a raw reason code to the client.
+const FAILED_REASONS: Record<string, string> = {
+  missing_refresh_token:
+    'The connection completed but did not return offline access. Remove the connection and reconnect, approving offline access when prompted.',
+  denied: 'The permission request was declined. Reconnect and approve access to finish.',
+  scope_mismatch:
+    'The permissions granted did not match what the connection needs. Reconnect and approve the full set.',
+}
+
+function resolveBanner(status: string | null, reason: string | null): Banner | null {
+  if (!status) return null
+  if (status === 'connected') return { text: 'System connected.', tone: 'success' }
+  if (status === 'failed') {
+    const specific = reason ? FAILED_REASONS[reason] : null
+    return {
+      text:
+        specific ??
+        'We could not complete the connection. Try again, or contact us if the problem persists.',
+      tone: 'error',
+    }
+  }
+  return null
+}
+
+const banner = resolveBanner(status, reason)
+
+// The settings sub-surfaces. Each links to an existing page; the hub is
+// purely navigational so a client (or an OAuth redirect) always lands
+// somewhere real.
+const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: string }> = [
+  {
+    href: '/portal/products/operator/connections',
+    label: 'Connections',
+    description:
+      'The systems your Operator works with. Connect a new one or review what is linked.',
+  },
+  {
+    href: '/portal/products/operator/settings/users',
+    label: 'Team access',
+    description: 'Who can see and manage this Operator, and what each person can do.',
+  },
+  {
+    href: '/portal/products/operator/settings/advanced',
+    label: 'Advanced',
+    description: 'Persona, escalation, business hours, and scope configuration.',
+  },
+]
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>Operator · Settings | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name} />
+
+    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/products/operator"
+        crumbLabel="Operator"
+        tag="Settings"
+        h1="Overview"
+      />
+
+      {
+        banner && (
+          <div
+            role="status"
+            class:list={[
+              'mt-6 px-4 py-3 border-[3px] text-sm',
+              banner.tone === 'success'
+                ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+                : banner.tone === 'error'
+                  ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+                  : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+            ]}
+          >
+            {banner.text}
+          </div>
+        )
+      }
+
+      <section class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)]">
+        {
+          SETTINGS_LINKS.map((link, idx) => (
+            <a
+              href={link.href}
+              class:list={[
+                'block px-5 py-5 md:px-6 md:py-6 group hover:bg-[color:var(--ss-color-border-subtle)] transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+                idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+              ]}
+            >
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col gap-1 min-w-0">
+                  <span class="font-['Archivo'] text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                    {link.label}
+                  </span>
+                  <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                    {link.description}
+                  </span>
+                </div>
+                <span
+                  aria-hidden="true"
+                  class="font-['Archivo'] text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
+                >
+                  →
+                </span>
+              </div>
+            </a>
+          ))
+        }
+      </section>
+    </main>
+  </body>
+</html>
