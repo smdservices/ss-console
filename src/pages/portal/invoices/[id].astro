@@ -70,7 +70,6 @@ const { invoice, lineItems, engagement } = invoiceDetail
 
 // Money — invoices.amount is dollars (REAL); convert to cents for display.
 const amountCents = Math.round(invoice.amount * 100)
-const lineItemsTotalCents = lineItems.reduce((sum, li) => sum + li.amount_cents, 0)
 // Show the invoice's own amount as Total so rounding always matches the CTA.
 const totalCents = amountCents
 
@@ -152,16 +151,11 @@ if (isPaid) {
   else pillLabel = `Due in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`
 }
 
-// Deposit note: surface when this is a completion invoice with a dollar delta
-// from the line-items sum (common when a deposit has already been taken).
-const depositNote =
-  invoice.type === 'completion' && lineItemsTotalCents > amountCents
-    ? `Deposit of ${((lineItemsTotalCents - amountCents) / 100).toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
-      })} already received.`
-    : null
+// A "deposit already received" note must come from an authoritative payment
+// record, never inferred from the line-items/amount delta — asserting a payment
+// fact from arithmetic is a fabrication (Pattern B). Left null until a real
+// deposit-payment source exists to render it from.
+const depositNote = null
 ---
 
 <!doctype html>
