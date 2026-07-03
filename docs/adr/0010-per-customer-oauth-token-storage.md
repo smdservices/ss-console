@@ -18,7 +18,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/878
 
 **Customer-side OAuth tokens (Gmail, MS Graph, QuickBooks, Clio, etc.) are stored on the customer's per-Machine Fly volume at `/opt/data/oauth/<provider>.json`. They are never stored in Infisical, never copied to a shared store, and never readable from outside the customer's Machine.**
 
-Shared SMD-side secrets (Anthropic API key, Composio API key, AgentMail API key, Fly deploy tokens) remain in Infisical and are pushed to each customer's Fly secrets at provision time by `bin/provision-customer.sh`. The distinction is data ownership: SMD owns the Anthropic API key; the customer owns their Gmail OAuth token.
+Shared SMD-side secrets (Anthropic API key, AgentMail API key, Fly deploy tokens) remain in Infisical and are pushed to each customer's Fly secrets at provision time by `bin/provision-customer.sh`. The distinction is data ownership: SMD owns the Anthropic API key; the customer owns their Gmail OAuth token. _(Revision note 2026-07-03: the original text also listed a Composio API key here — Composio was dropped entirely by the [ADR 0020](./0020-connector-strategy.md) revision of 2026-05-30, so no Composio secret is provisioned.)_
 
 ## Storage shape
 
@@ -60,7 +60,7 @@ The `survives Machine destroy` row is the only one that favors Infisical. We acc
 Unchanged from current practice:
 
 - `ANTHROPIC_API_KEY` — SMD-owned
-- `COMPOSIO_API_KEY` — SMD-owned (Composio per-connection isolation enforced separately, issue #850)
+- ~~`COMPOSIO_API_KEY`~~ — retired with Composio ([ADR 0020](./0020-connector-strategy.md) revision, 2026-05-30); the per-connection isolation work (issue #850) was retired with it
 - `AGENTMAIL_API_KEY` — SMD-owned
 - `FLY_API_TOKEN` — SMD-owned (used by `bin/provision-customer.sh`)
 - Cloudflare Workers secrets for ss-console portal/admin — SMD-owned
