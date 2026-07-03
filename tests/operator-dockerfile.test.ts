@@ -191,9 +191,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // Smokeball matter.updated reached the agent as an email-draft instruction (it
     // tried agentmail create_draft instead of running matter-memo-on-update). The
     // AgentMail email-reply channel keeps the email prompt; MCP route untouched.
-    // Range 2b694947..9b20a1ac touched only translate.py + test_mcp_channel.py; all
-    // four tracked twins verified unchanged. Superset of 2b694947.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9b20a1ac1d185aeb76e1defd670128cefc3f5001"')
+    // 8db15f0 (#119): console-sole Claude door — the Machine retires the direct
+    // public /mcp door (POST /mcp → 410; stub-bearer + Clerk-direct auth removed)
+    // and adds the authenticated /mcp/turn console-proxy endpoint; the console is
+    // now the sole public Claude door and enforces the ADR 0057 grant kill-switch
+    // per request. Range 9b20a1ac..8db15f0 touched only webhook_gate.py +
+    // test_mcp_channel.py + consumes.yaml; all four tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8db15f064d60f6c07fea905ab5ba3cef6e1b14aa"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
