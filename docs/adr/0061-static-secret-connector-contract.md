@@ -7,7 +7,11 @@ related-adr: 0042-operator-credential-custody.md, 0036-oauth-token-relay-fly-sec
 related-spec: docs/design/operator/00-foundations.md
 ---
 
-# ADR 0044 — Static-Secret Connector Contract
+# ADR 0061 — Static-Secret Connector Contract
+
+> **Renumbered 2026-07-03.** Originally authored as ADR 0044 (2026-06-09), colliding with
+> [0044-r2-authoritative-live-reconfig.md](./0044-r2-authoritative-live-reconfig.md)
+> (accepted 2026-06-14, the canonical 0044). Renumbered to the next free slot; content unchanged.
 
 **Status: PROPOSED.** This ADR captures the design for relaying a client-entered
 **static secret** (a raw API key, not an OAuth token) to a connector's per-customer

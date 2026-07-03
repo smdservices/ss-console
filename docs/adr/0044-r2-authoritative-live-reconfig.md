@@ -3,7 +3,7 @@ title: R2-Authoritative Live Reconfiguration — Broker-Owned Apply
 date: 2026-06-14
 status: accepted
 captain: Scott Durgan
-related-adr: docs/adr/0012-customer-yaml-storage.md, docs/adr/0026-control-plane-data-plane.md, docs/adr/0043-operator-runtime-read-path.md, docs/adr/0007-per-customer-machine-isolation.md
+related-adr: docs/adr/0012-customer-yaml-storage.md, docs/adr/0026-config-surface-is-a-security-boundary.md, docs/adr/0043-operator-runtime-read-path.md, docs/adr/0007-per-customer-machine-isolation.md
 amends: docs/adr/0012-customer-yaml-storage.md
 ---
 
