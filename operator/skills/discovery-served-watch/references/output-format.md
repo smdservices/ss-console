@@ -24,10 +24,17 @@ Every capture is keyed to `(matter, served-document, type)`.
 
 > <the POS text located and read — the source of the date + method; nothing inferred>
 
-## Surfaced to <responsible attorney> (confirm task)
+## Surfaced to <responsible attorney> (confirm task — the EMAIL-SAFE block)
 
-> Served <type> captured on <case>. Service <date> by <method> (POS located).
-> Confirm the type, service date, and method so the deadline is set. <RFA: flag deemed-admissions exposure.>
+When the surface goes out by email (create_draft), the draft carries ONLY this
+block, written citation-free (see SKILL.md "Delivery channels + refusal
+fallback"): the governing rule in plain words, never a section number. The full
+capture record above (header + POS quote, with citations) is the matter-internal
+artifact, never the email body.
+
+> Served <type> captured on <case>. Service <date> by <method> (proof of service located).
+> Proposed response deadline <date>: <plain words, e.g. "30 days from service by mail plus five calendar days for mail service">. Not final until you confirm.
+> Confirm the type, service date, and method so the deadline is set. <RFA: flag in plain words that an unanswered set risks the requests being deemed admitted.>
 
 ## Internal log (create_memo body)
 

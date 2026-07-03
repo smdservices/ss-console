@@ -332,3 +332,23 @@ highest severity, deemed admissions under §2033.280; thin verified response = c
 track). Fail closed: surface and ask; never assert a deadline as final, never assert "late"
 over a possible extension, never assert the compel section, never calendar silently, never
 send, and never write the meet-and-confer letter.
+
+## Delivery channels + refusal fallback (pack rule)
+
+Email is a citation-free channel. Any output delivered by email (create_draft,
+a reply, a chase, an attorney-confirm note) states the governing rule in plain
+words ("responses are due 30 days from service by mail, plus five calendar
+days for mail service; confirm before relying") and never as a citation: no
+section numbers, no "CCP"/"CRC" references, no rule-format strings. The mail
+channel enforces the legal-citation filter and will refuse the draft. Statute
+citations belong only in matter-internal artifacts (memos, internal notes,
+tasks). The derivation itself still comes only from this skill's verified
+statute set; the email states it in words, the internal record cites it.
+
+If a delivery tool refuses a draft or write (citation filter, banned-typography
+gate, or any other content gate): do not retry the same content, and do not
+drop the work. Redraft once with the flagged content class removed (citations
+to plain words; banned punctuation to plain punctuation). If refused again,
+deliver a minimal factual note (matter, document or work item, date and method
+read, where the detail lives) so a person always learns the work happened. A
+capture or chase that reaches no human is a failure, whatever refused it.
