@@ -80,7 +80,10 @@ users:
 personas:
   - slug: quinn
     status: active
-    name: Quinn
+    # Neutral display identity (Captain call 2026-07-02): SMD proposes no
+    # persona name. The firm authors a name at onboarding if it wants one at
+    # all (ADR 0035, no imposed defaults). The slug is internal plumbing only.
+    name: Operator
     title: AI Case Coordinator
     tone:
       - plainspoken

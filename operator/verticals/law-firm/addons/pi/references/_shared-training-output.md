@@ -23,7 +23,10 @@ A short, plain note carrying four things:
   not recalled-and-hoped. If a rule is uncertain, say "confirm the rule" rather than
   invent a citation.
 - It lives in the internal/matter-facing output (memo, internal note), so the
-  reasoning sits next to the work — not in client-facing sends.
+  reasoning sits next to the work — not in client-facing sends, and not in ANY
+  emailed output: the mail channel enforces the legal-citation filter, so an
+  emailed note states the rule in plain words and the citation stays in the
+  matter-internal artifact (see `_shared-delivery-channels.md`).
 - Keep it short. A paralegal learns from a clear sentence, not a treatise.
 
 ## Example (on a verification prepared for a minor)
