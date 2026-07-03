@@ -96,6 +96,15 @@ top_level:
       shared/gate_inbound_cap.resolve_inbound_cap (safety.sticky_stop.inbound_daily_cap ->
       the webhook-gate wake cap). Unauthored => platform defaults (5000 cents / 200 wakes),
       integrity control per ADR 0035/0062 — never fail-open.
+  business_hours:
+    status: implemented
+    materializer: >-
+      bootstrap.sh SEAT_TIMEZONE extraction -> `export HERMES_TIMEZONE` before the
+      gateway exec. Hermes' clock (hermes_time.now(), highest-priority env source)
+      and therefore the cron engine's due-computation run in the seat's IANA
+      timezone; unauthored = UTC (container clock, the prior behavior). days/start/
+      end are authored-but-inert today (future business-hours-aware behavior);
+      timezone is the load-bearing field.
   escalation:
     status: implemented
     materializer: translate _persona_config (config.yaml escalation)
