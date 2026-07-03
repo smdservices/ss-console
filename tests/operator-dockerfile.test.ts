@@ -215,7 +215,16 @@ describe('Operator customer Machine Dockerfile', () => {
     // once at boot and a PARTIAL contract is a loud ERROR naming the missing
     // vars. Range 22eecbea..d97eb27f changed only the mirror plugin + its
     // tests; all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d97eb27f5642ce0b90ac38e8b51eba729f275a7e"')
+    // a6c8e3fb (#124): cost circuit breaker + inbound wake guard (ADR 0062,
+    // ss-console #1661) — vendored sticky_stop twin, cost_breaker glue
+    // (Machine-local sqlite + broker-ledger audit sink), job-path exact-cents
+    // cap (HARD_STOP dead-letters needs_review), webhook-gate InboundWakeGuard
+    // (parks at HARD_STOP / authored inbound_daily_cap), heartbeat gains
+    // sticky_stop_level. Range d97eb27f..a6c8e3fb changed shared/{sticky_stop,
+    // cost_breaker,gate_inbound_cap}[new] + job_* + webhook_gate + heartbeat +
+    // customer_config + consumes.yaml + tests; all four tracked twins verified
+    // unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a6c8e3fb1c322a064124b0649c61c87a110a374b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

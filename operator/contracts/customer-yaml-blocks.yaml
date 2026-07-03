@@ -87,6 +87,15 @@ top_level:
       authorizes the recipient-locked autonomous reply to a rostered inbound
       sender. Live-writable (config_applier), so authoring the roster takes
       effect with no restart.
+  safety:
+    status: implemented
+    materializer: >-
+      overlay runtime live-read (ADR 0044 posture), not translate: CustomerConfig.sticky_stop
+      (overlay shared/customer_config.py) feeds shared/cost_breaker.thresholds_from_config
+      (safety.sticky_stop.cost_cap_daily_cents -> the job-path daily ladder) and
+      shared/gate_inbound_cap.resolve_inbound_cap (safety.sticky_stop.inbound_daily_cap ->
+      the webhook-gate wake cap). Unauthored => platform defaults (5000 cents / 200 wakes),
+      integrity control per ADR 0035/0062 — never fail-open.
   escalation:
     status: implemented
     materializer: translate _persona_config (config.yaml escalation)
