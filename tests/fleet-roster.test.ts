@@ -217,6 +217,15 @@ describe('rosterHealth', () => {
     expect(rosterHealth('yellow', '3m ago', null).color).toBe('yellow')
     expect(rosterHealth('gray', 'no signal yet', null).color).toBe('gray')
   })
+
+  it('a green summary never paints an un-heartbeating (gray) Machine green', () => {
+    // The regression: no liveness signal must not read calmer than reality.
+    // A stale/green summary can only leave the gray verdict standing, never
+    // upgrade it — only a yellow/red summary escalates.
+    expect(rosterHealth('gray', 'no signal yet', 'green').color).toBe('gray')
+    expect(rosterHealth('gray', 'no signal yet', 'red').color).toBe('red')
+    expect(rosterHealth('gray', 'no signal yet', 'yellow').color).toBe('yellow')
+  })
 })
 
 describe('rosterHealthDotClass', () => {

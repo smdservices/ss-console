@@ -124,7 +124,7 @@ const banner = status ? STATUS_MESSAGES[status] : null
                       <span class={badge.classes}>{badge.label}</span>
                       <form
                         method="post"
-                        action={`/admin/operator/${encodeURIComponent(slug)}/authority`}
+                        action={`/api/admin/operator/${encodeURIComponent(slug)}/authority`}
                       >
                         <input type="hidden" name="domain" value={d.domain} />
                         <input type="hidden" name="new_holder" value={target} />
