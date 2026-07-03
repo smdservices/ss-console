@@ -206,13 +206,14 @@ personas:
       - himalaya
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude) ----
-# Enabled so translate.py emits the core /webhooks/mcp route (fail-closed: needs
-# enabled:true AND WEBHOOK_SECRET_MCP set). That route carries the SMD operator's
-# go-live verification turn (the post-connect smoke read: auth_status →
-# list_matters against A&P's real Smokeball) via the transitional stub bearer
-# (SMD_MCP_STUB_TOKEN), and the Clerk-gated bridge below once Clerk env is set.
-# Access here is the SMD operator ONLY (Scott's Clerk subjects). The FIRM's Claude
-# bridge — Chris's second ask — is a deliberate later step: it is scoped to Chris
+# Console-sole door (ADR 0057 amendment). Claude reaches this Operator ONLY through
+# the console (smd.services/api/operator/<slug>/mcp), which authenticates the caller
+# and enforces the ADR 0057 grant kill-switch per request, then proxies the turn to
+# the Machine's authenticated /mcp/turn endpoint. The Machine no longer exposes a
+# direct public MCP door (stub bearer + Clerk-direct path retired). The access[]
+# entry below seeds console-side authorization and is read by the console, not the
+# Machine. Access here is the SMD operator ONLY (Scott's Clerk subjects). The FIRM's
+# Claude bridge — Chris's second ask — is a deliberate later step: scoped to Chris
 # first, the per-user confidentiality walls are an unsolved-hard problem, and his
 # Clerk subject is unknown until he signs into the portal. Not granted at go-live.
 mcp_connector:
