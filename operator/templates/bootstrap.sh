@@ -438,6 +438,12 @@ log "Disabled skill guard passed"
 # startup so disabled bundled skills are removed again after that sync without
 # mutating the overlay's profile `skills` list shape.
 (
+  # SEC-23: strip the account-wide R2 key from THIS subshell's environ. The
+  # subshell is forked here, ~300 lines before the parent's `unset` (below), so
+  # without this its /proc/<pid>/environ would expose the account-wide key to a
+  # same-uid code-executing agent for the ~30s it lives. ensure-disabled-skills.py
+  # operates on local HERMES_HOME skill dirs and never needs R2.
+  unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
   for _ in 1 2 3 4 5 6; do
     sleep 5
     /opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py "${CUSTOMER_YAML}" "${HERMES_HOME}" \
@@ -788,6 +794,14 @@ fi
 
 # (R2 account-wide key already stripped above, before the webhook-gate launch —
 # OP-P2-1. No same-uid child holds it.)
+
+# SEC-28: strip the runtime-read seam key from the AGENT (hermes gateway) env.
+# The seam is served + validated by the webhook gate (launched above, which keeps
+# its inherited copy); the agent has no reason to hold it, and leaving it in the
+# gateway env lets a code-executing agent mint its own read-seam bearer. Stripped
+# AFTER the webhook-gate fork and BEFORE the gateway exec, so the gate still
+# authenticates the seam while the agent cannot self-issue.
+unset OPERATOR_RUNTIME_READ_KEY
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
 exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run

@@ -22,10 +22,16 @@ on:
       - 'operator/bin/**'
       - 'operator/safety-substrate/**'
       - 'operator/connectors/**'
+      # EFF-05: a customer.yaml-only change must trigger the block-conformance
+      # gate (test_customer_yaml_block_conformance.py) — otherwise an unclassified
+      # top-level block added to only a customer.yaml merges without the gate.
+      - 'operator/customers/**'
       - 'operator/contracts/overlay-pairs.json'
       - 'operator/contracts/runtime-controls.yaml'
       - 'operator/contracts/overlay-hook-surface.json'
+      - 'operator/contracts/customer-yaml-blocks.yaml'
       - 'operator/templates/Dockerfile'
+      - 'operator/templates/bootstrap.sh'
       - '.github/workflows/operator-substrate.yml'
   push:
     branches: [main]
