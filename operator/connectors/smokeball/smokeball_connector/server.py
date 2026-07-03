@@ -78,7 +78,12 @@ def list_matters(
 ) -> Any:
     """List matters/leads. status=Open|Pending|Closed|Deleted|Cancelled;
     is_lead splits leads vs matters. updated_since is passed verbatim (the
-    .NET-ticks vs ISO format is confirmed at connect)."""
+    .NET-ticks vs ISO format is confirmed at connect).
+
+    `search` here is a PLAIN full-text keyword (live-verified 2026-07-03:
+    "Johnson" matches the matter title; field-scoped syntax like
+    "name:*Johnson*" is NOT an error but silently returns zero results —
+    the opposite of the /contacts contract)."""
     return _get_client().get(
         "/matters",
         Status=status,
@@ -118,20 +123,45 @@ def get_stage_to_matter_mappings() -> Any:
     return _get_client().get("/stages")
 
 
+def _contact_search_terms(search: str | list[str] | None) -> list[str] | None:
+    """Normalize `search` for the /contacts endpoint, whose contract (Smokeball
+    "Searching" docs, live-verified 2026-07-03) is STRICT field:operator:value
+    expressions — a bare term like "Johnson" is a 400 ("Invalid search term"),
+    and three of those in a row trip the whole MCP breaker (#1642). A bare term
+    is auto-wrapped as a case-insensitive name contains-search (name:*term*),
+    which is what a caller almost always means; structured terms pass through.
+    Multiple terms combine with AND on the API side."""
+    if search is None:
+        return None
+    terms = [search] if isinstance(search, str) else list(search)
+    out: list[str] = []
+    for term in terms:
+        term = str(term).strip()
+        if not term:
+            continue
+        out.append(term if ":" in term else f"name:*{term}*")
+    return out or None
+
+
 # ---- Contacts -------------------------------------------------------------
 @server.tool()
 def get_contacts(
-    search: str | None = None,
+    search: str | list[str] | None = None,
     type: str | None = None,
     updated_since: str | None = None,
     sort: str | None = None,
     limit: int = 500,
     offset: int = 0,
 ) -> Any:
-    """Search/list contacts (intake dedupe + conflict cross-check)."""
+    """Search/list contacts (intake dedupe + conflict cross-check).
+
+    `search` uses Smokeball's field:operator:value syntax, e.g. "name:*johnson*"
+    (case-insensitive contains). A bare term is auto-wrapped as name:*term*.
+    Pass a list for multiple terms (combined with AND). Unlike list_matters,
+    a plain keyword is NOT valid on this endpoint's API."""
     return _get_client().get(
         "/contacts",
-        Search=search,
+        Search=_contact_search_terms(search),
         Type=type,
         UpdatedSince=updated_since,
         Sort=sort,
