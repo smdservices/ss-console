@@ -209,7 +209,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // were built but nothing phoned home. Range d7ce7cc7..22eecbea changed
     // heartbeat.py [new] + webhook_gate.py + consumes.yaml + tests; all four
     // tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="22eecbea08c594b5e5e6fcd069857fe68703f6d9"')
+    // d97eb27f (#123): memory-mirror lane silence (ss-console#1643) — the
+    // unconfigured Honcho lane (ADR 0016 Phase 2 deferred) no longer logs a
+    // per-session 'degraded' WARNING; register() classifies the env contract
+    // once at boot and a PARTIAL contract is a loud ERROR naming the missing
+    // vars. Range 22eecbea..d97eb27f changed only the mirror plugin + its
+    // tests; all four tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d97eb27f5642ce0b90ac38e8b51eba729f275a7e"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
