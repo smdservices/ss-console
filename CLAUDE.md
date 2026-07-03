@@ -62,7 +62,7 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 - **Pattern A (committed template sentences that imply uncontracted commitments).** Hardcoded sentences in source, even ones that interpolate authored values, that promise specific business behavior the engagement has not contracted. Real examples from the 2026-04-15 audit:
   - `'We'll reach out to schedule kickoff.'` (`src/lib/portal/states.ts:138`)
   - `'Work begins within two weeks of signing.'` (`src/pages/portal/quotes/[id].astro:72`)
-  - `'Replies within 1 business day.'` (`src/components/portal/ConsultantBlock.astro:136`)
+  - `'Replies within 1 business day.'` (`src/components/portal/ConsultantBlock.astro:136` — file since removed)
   - `'A 2-week stabilization period follows the final handoff.'` (`src/lib/pdf/sow-template.tsx:529`)
 
 - **Pattern B (runtime fabrication from non-authoritative fields).** Values rendered from sources never authored as client-facing content: placeholder defaults, parsed or derived text, brief-borrowed copy. Real examples from the audit:
@@ -72,7 +72,7 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 
 **If authored data is missing:** render nothing or an explicit "TBD in SOW" marker. See `docs/style/empty-state-pattern.md`. Never invent plausible content.
 
-**Visual + component patterns:** see `docs/style/UI-PATTERNS.md`. Six rules covering status display, redundancy, button hierarchy, heading skip, typography scale, and spacing rhythm — authored to raise UI quality to professional level. Same enforcement shape as empty-state-pattern: narrow, cited to NN/g / Material 3 / WCAG 2.2, anti-patterns with file paths, merge gate per shipped rule. Produced by `.agents/skills/ui-drift-audit/` which emits a surfaces × rules matrix at `.stitch/audits/ui-drift-{date}.md`.
+**Visual + component patterns:** see `docs/style/UI-PATTERNS.md`. Six rules covering status display, redundancy, button hierarchy, heading skip, typography scale, and spacing rhythm — authored to raise UI quality to professional level. Same enforcement shape as empty-state-pattern: narrow, cited to NN/g / Material 3 / WCAG 2.2, anti-patterns with file paths, merge gate per shipped rule. Produced by the `ui-drift-audit` skill (run by `.github/workflows/ui-drift-audit.yml`), which emits a surfaces × rules matrix at `.stitch/audits/ui-drift-{date}.md`.
 
 **Enforcement.** Violations are P0. Merge gate is `.github/workflows/scope-deferred-todo.yml` (blocks TODO-deferred ACs without the `scope-deferred` label). Issue-close gate is `.github/workflows/unmet-ac-on-close.yml` (reopens issues closed with unchecked ACs).
 
@@ -176,7 +176,7 @@ No dollar ranges are attached to solution categories. Pricing comes from scope e
 - Team training and enablement on AI tools
 - Non-AI workflow automation (scripts, integrations that don't require AI)
 
-**Taxonomy two-layer model.** Resolved in [ADR 0001](docs/adr/0001-taxonomy-two-layer-model.md) (Captain decision 2026-04-27, [#591](https://github.com/venturecrane/ss-console/issues/591)). The six-category list above is the **delivery taxonomy** — what engagements we offer. It is the marketing and doctrinal source of truth. Lead-generation code uses a separate five-category **observation taxonomy** (`process_design`, `tool_systems`, `data_visibility`, `customer_pipeline`, `team_operations` — defined in `src/portal/assessments/extraction-schema.ts`) — what operational pain we detect from public data. The two layers are deliberately distinct: outreach speaks observation, marketing speaks delivery, and the assessment call is where the consultant translates between them. Agents editing either side must not silently change the other. Doctrine changes here do not retroactively rewrite extraction prompts; lead-gen changes there do not dictate the external taxonomy.
+**Taxonomy two-layer model.** Resolved in [ADR 0001](docs/adr/0001-taxonomy-two-layer-model.md) (Captain decision 2026-04-27, [#591](https://github.com/venturecrane/ss-console/issues/591)); the observation half was retired with the automated lead-gen machine by [ADR 0060](docs/adr/0060-retire-automated-lead-gen-machine.md) (2026-07-01). The six-category list above is the **delivery taxonomy** — what engagements we offer. It is the marketing and doctrinal source of truth. The five-category schema (`process_design`, `tool_systems`, `data_visibility`, `customer_pipeline`, `team_operations` — defined in `src/portal/assessments/extraction-schema.ts`) survives repurposed as the **client-assessment extraction taxonomy**: it structures what the assessment call captures, consumed by the assessment extraction and assessment-to-quote flows, not by outreach. The two layers remain deliberately distinct: assessments speak the extraction taxonomy internally, marketing speaks delivery, and the consultant translates between them. Agents editing either side must not silently change the other.
 
 ### Pain Clusters by Vertical
 
@@ -235,7 +235,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 - [ ] Vertical selection for initial targeting (pick ONE vertical to start)
 - [ ] Outreach strategy (how to find and reach first 5 prospects; includes Vistage, EO Arizona, local networking)
-- [ ] Landing page (smd.services, credibility-focused, guide positioning)
+- [x] Landing page — smd.services live; rebuilt to the firm-with-flagship structure 2026-06 (home, `/operator`, `/about`, `/industries`, `/patterns`, `/contact`)
 - [x] ~~**Outside View**~~ — retired 2026-05-04 in PR #702 (user-visible surface) and #703 (infrastructure). Public-footprint scraping turned out not to surface anything useful. ADR 0002 is superseded. The lead-magnet surfaces (`/scan`, `/scorecard`, `/get-started`, `/outside-view`) middleware-301 to home for permanent-bookmark backwards compat.
 - [ ] Pipeline math (how many conversations to sustain profitability)
 - [ ] Phased geographic approach (Phoenix in-person first, remote-capable after proof of model)
@@ -252,12 +252,12 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 - [x] Payment terms (50% deposit at signing, 50% at completion; 3-milestone for 40+ hr engagements)
 - [ ] Paid assessment entry point ($250 applied toward engagement, first 3 free)
 - [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-operator-offering.md) (productized Operator SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
-- [ ] Client data management system (D1 or similar for assessments, quotes, engagements, invoicing)
+- [x] Client data management system — the D1-backed admin console exists (`src/pages/admin/`: clients, assessments, quotes, engagements, billing)
 
 ## Domain Context
 
 - **Geography:** Phoenix metro (Phase 1, in-person default), remote-capable
-- **Target:** Established, owner-led businesses with real operational load and the ability to pay for a solution. No revenue-band gate — we work with any business that can pay and benefit, and qualification happens in conversation, not by filtering on a guessed revenue figure (the operational layer already dropped this gate — see ADR 0003 and `tests/lead-gen-revenue-gate.test.ts`). The "too big for one person, too small for a COO" framing still captures the shape of the buyer. For the Operator specifically, the target profiles are defined by the vertical packs in `operator/verticals/`.
+- **Target:** Established, owner-led businesses with real operational load and the ability to pay for a solution. No revenue-band gate — we work with any business that can pay and benefit, and qualification happens in conversation, not by filtering on a guessed revenue figure (see ADR 0003; the automated pipeline that once enforced a gate was retired entirely by ADR 0060). The "too big for one person, too small for a COO" framing still captures the shape of the buyer. For the Operator specifically, the target profiles are defined by the vertical packs in `operator/verticals/`.
 - **Buyer:** The owner. Sometimes the office manager, but the owner writes the check.
 - **Competition:** Traditional consultancies ($15-50k+ engagements, slow), fractional CTOs/COOs (ongoing cost, no bounded deliverable), EOS implementers (framework-locked), managed IT providers (technical only). Nobody does assessment + implementation + handoff as bounded, scope-priced engagements.
 - **Referral sources:** Vistage, EO Arizona, fractional CFOs, local networking groups (BNI, chamber of commerce), accountants/bookkeepers, commercial insurance agents, SBA/SCORE
@@ -340,7 +340,7 @@ Typed via augmenting `Cloudflare.Env` in `src/env.d.ts`.
 
 ```bash
 infisical export --env=prod --path=/ss --format=dotenv \
-  | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|NEW_BUSINESS_|JOB_MONITOR_|REVIEW_MINING_|PUBLIC_)' \
+  | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|PUBLIC_)' \
   | npx wrangler secret bulk
 ```
 
@@ -407,7 +407,7 @@ Load these ADRs before any Operator architectural work:
 
 Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `synthetic:` (no_pm substrate). Composio is dropped (ADR 0020, 2026-05-30 revision) — we connect to MCPs directly, and long-tail vendors with no first-party MCP get a `build:` adapter.
 
-The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. New BUILD adapters land in `venturecrane/hermes-smd-overlay`, not this tree.
+The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. Author-built connectors we must write ourselves (no vendor/community MCP exists) are MCP servers living in `operator/connectors/` in this tree, per ADR 0053 — Smokeball is the first. The overlay repo (`venturecrane/hermes-smd-overlay`) stays substrate-only.
 
 ## Venture Handbook
 
@@ -419,8 +419,8 @@ The franchise operations manual lives in `docs/handbook/` and renders in the adm
 
 ## Key Reference
 
-- **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
-- **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0035-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
+- **Decision Stack:** `docs/adr/decision-stack.md` (36 active decisions across 6 layers, numbered through #49 — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
+- **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0061-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
 
