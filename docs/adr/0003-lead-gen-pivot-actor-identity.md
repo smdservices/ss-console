@@ -12,6 +12,13 @@ related-plan: ~/.claude/plans/indexed-squishing-dongarra.md
 
 **Status:** Accepted (Captain decision, 2026-05-07, audit conversation on contractor mis-classification).
 
+> **Context note (2026-07-03).** The automated lead-gen machine these rules governed was retired
+> wholesale by [ADR 0060](./0060-retire-automated-lead-gen-machine.md) (2026-07-01), which
+> deliberately did not supersede this ADR. The mechanism-specific rules (pipeline filters, machine
+> drafting posture) are moot with the machine gone; the principles — actor identity over
+> permit-filer identity, no revenue-band gate, no fabricated pre-knowledge of a prospect's
+> business — remain venture doctrine for manual and Operator-drafted outreach.
+
 **Source:** Audit on 2026-05-07 walked through the `/admin/entities` Signal queue. Five of the six top rows were licensed contractors (sign companies, general contractors) being treated as the operating business that filed the permit. Outreach drafts narrated each prospect's business state and offered a fabricated "one-page breakdown." A hardcoded $750k–$5M revenue gate and Phoenix-only geography filter excluded prospects we'd actually take.
 
 ---
