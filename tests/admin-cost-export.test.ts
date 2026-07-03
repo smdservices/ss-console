@@ -8,13 +8,16 @@
  *   - Bad date format → 400
  *   - start >= end → 400
  *   - Unknown customer → 404
- *   - Customer without per-customer D1 → 409
- *   - Worker env missing CF tokens → 503
+ *
+ * The CSV rows come from the CENTRAL cost_telemetry table via the D1
+ * binding (ADR 0062) — the per-customer-D1 / CF-token preconditions
+ * (409/503) are gone with the HTTP fan-out.
  *
  * Architecture note: the same `buildContext` shape used by other admin
  * cross-org tests applies here. The handler imports `env` from the
  * vitest-aliased `cloudflare:workers` stub; we populate it with a
- * minimal D1 mock that satisfies the customer enumeration query.
+ * minimal D1 mock that satisfies the customer enumeration and
+ * cost_telemetry queries.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
@@ -52,10 +55,20 @@ interface FakeD1Result<T> {
   results: T[]
 }
 
+interface FakeCostRow {
+  customer_slug: string
+  date: string
+  driver: string
+  amount_cents: number
+  units: number | null
+  unit_type: string | null
+}
+
 function makeMockDb(
-  configs: Array<{ customer_slug: string; entity_id: string; connectors_json: string | null }>,
+  configs: Array<{ customer_slug: string; entity_id: string }>,
   subs: Array<{ entity_id: string; status: string; settings_json: string | null }> = [],
-  entities: Array<{ id: string; name: string }> = []
+  entities: Array<{ id: string; name: string }> = [],
+  costRows: FakeCostRow[] = []
 ): unknown {
   return {
     prepare(sql: string) {
@@ -77,6 +90,13 @@ function makeMockDb(
             const filtered = entities.filter((e) => boundParams.some((p) => p === e.id))
             return { results: filtered as unknown as T[] }
           }
+          if (sql.includes('FROM cost_telemetry')) {
+            const [slug, start, end] = boundParams as [string, string, string]
+            const filtered = costRows.filter(
+              (r) => r.customer_slug === slug && r.date >= start && r.date < end
+            )
+            return { results: filtered as unknown as T[] }
+          }
           return { results: [] }
         },
       }
@@ -90,8 +110,6 @@ describe('GET /api/admin/operator/costs/export', () => {
     for (const k of Object.keys(testEnv)) delete (testEnv as unknown as Record<string, unknown>)[k]
     Object.assign(testEnv, {
       DB: makeMockDb([]),
-      CF_ACCOUNT_ID: 'acct',
-      CF_D1_API_TOKEN: 'tok',
     })
   })
 
@@ -154,100 +172,46 @@ describe('GET /api/admin/operator/costs/export', () => {
     expect(res.status).toBe(404)
   })
 
-  it('returns 409 when customer has no per-customer D1', async () => {
-    Object.assign(testEnv, {
-      DB: makeMockDb(
-        [{ customer_slug: 'acme', entity_id: 'ent-1', connectors_json: null }],
-        [],
-        [{ id: 'ent-1', name: 'Acme Co' }]
-      ),
-    })
-    const ctx = buildContext({
-      session: adminSession(),
-      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
-    })
-    const res = await GET(ctx)
-    expect(res.status).toBe(409)
-  })
-
-  it('returns 503 when CF env not configured', async () => {
-    Object.assign(testEnv, {
-      DB: makeMockDb(
-        [
-          {
-            customer_slug: 'acme',
-            entity_id: 'ent-1',
-            connectors_json: JSON.stringify({ per_customer_d1_database_id: 'db-id-1' }),
-          },
-        ],
-        [],
-        [{ id: 'ent-1', name: 'Acme Co' }]
-      ),
-    })
-    delete (testEnv as unknown as Record<string, unknown>).CF_ACCOUNT_ID
-    delete (testEnv as unknown as Record<string, unknown>).CF_D1_API_TOKEN
-    const ctx = buildContext({
-      session: adminSession(),
-      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
-    })
-    const res = await GET(ctx)
-    expect(res.status).toBe(503)
-  })
-
   it('returns CSV with proper headers on happy path', async () => {
     Object.assign(testEnv, {
       DB: makeMockDb(
+        [{ customer_slug: 'acme', entity_id: 'ent-1' }],
+        [],
+        [{ id: 'ent-1', name: 'Acme Co' }],
         [
           {
             customer_slug: 'acme',
-            entity_id: 'ent-1',
-            connectors_json: JSON.stringify({ per_customer_d1_database_id: 'db-id-1' }),
+            date: '2026-05-01',
+            driver: 'fly_machine_minutes',
+            amount_cents: 30,
+            units: 30,
+            unit_type: 'minutes',
           },
-        ],
-        [],
-        [{ id: 'ent-1', name: 'Acme Co' }]
+          // Another customer's rows must not leak into acme's export.
+          {
+            customer_slug: 'globex',
+            date: '2026-05-01',
+            driver: 'fly_machine_minutes',
+            amount_cents: 99,
+            units: 99,
+            unit_type: 'minutes',
+          },
+        ]
       ),
-      CF_ACCOUNT_ID: 'acct',
-      CF_D1_API_TOKEN: 'tok',
     })
 
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          success: true,
-          result: [
-            {
-              results: [
-                {
-                  date: '2026-05-01',
-                  driver: 'fly_machine_minutes',
-                  amount_cents: 30,
-                  units: 30,
-                  unit_type: 'minutes',
-                },
-              ],
-            },
-          ],
-        }),
-        { status: 200 }
-      )
-
-    try {
-      const ctx = buildContext({
-        session: adminSession(),
-        url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme&start=2026-05-01&end=2026-05-15',
-      })
-      const res = await GET(ctx)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('Content-Type')).toContain('text/csv')
-      expect(res.headers.get('Content-Disposition')).toContain('attachment')
-      expect(res.headers.get('Content-Disposition')).toContain('acme')
-      const text = await res.text()
-      expect(text).toContain('customer_slug,date,driver,amount_cents,units,unit_type')
-      expect(text).toContain('acme,2026-05-01,fly_machine_minutes,30,30,minutes')
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+    const ctx = buildContext({
+      session: adminSession(),
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme&start=2026-05-01&end=2026-05-15',
+    })
+    const res = await GET(ctx)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toContain('text/csv')
+    expect(res.headers.get('Content-Disposition')).toContain('attachment')
+    expect(res.headers.get('Content-Disposition')).toContain('acme')
+    const text = await res.text()
+    expect(text).toContain('customer_slug,date,driver,amount_cents,units,unit_type')
+    expect(text).toContain('acme,2026-05-01,fly_machine_minutes,30,30,minutes')
+    expect(text).not.toContain('globex')
   })
 })

@@ -1,16 +1,19 @@
-# Cost Telemetry Worker — nightly cost-driver ingest for Operator
-# Per docs/specs/operator/cost-telemetry-events.md "Nightly Captain job".
+# Cost Telemetry Worker — nightly cost-driver ingest for Operator (ADR 0062)
 #
-# The worker iterates every active Operator customer once per day at
-# 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage,
-# computes cents via the hardcoded pricing JSON files at
-# operator/adapter/cost_telemetry/, and UPSERTs one or more rows into
-# the customer's per-customer cost_telemetry D1 table.
+# Once per day at 02:00 UTC the worker pulls yesterday's org-wide Anthropic
+# usage from the Admin usage-report API, grouped by (workspace_id, model),
+# computes cents via the pricing JSON at operator/adapter/cost_telemetry/,
+# and UPSERTs per-seat rows into the CENTRAL cost_telemetry table in
+# ss-console-db (migration 0083; customer_slug tenant column).
 #
-# The per-customer D1 database id is read from the central
-# customer_configs table (column lookup in src/index.ts). Per ADR 0009,
-# every customer has their own D1 database — there is no cross-customer
-# cost_telemetry table.
+# Per-seat attribution: one Anthropic workspace per customer seat, mapped
+# via customer_configs.anthropic_workspace_id (authored by Captain — see
+# docs/runbooks/operator/cost-telemetry-enable.md). Unmapped workspace
+# usage lands under '_unmapped'; the org total is written under '_org' as
+# a reconciliation row.
+#
+# The per-customer-D1 write path (and its CF_ACCOUNT_ID / CF_D1_API_TOKEN
+# secrets) is retired: those databases were never provisioned (ADR 0062).
 #
 # Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
 # validation-spike result documented in operator/adapter/cost_ingest.py.
@@ -22,8 +25,7 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Same central D1 database as ss-web — needed to enumerate customers
-# from customer_configs.
+# Central D1 — customer_configs (workspace mapping) + cost_telemetry writes.
 [[d1_databases]]
 binding = "DB"
 database_name = "ss-console-db"
@@ -33,10 +35,10 @@ database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
 [triggers]
 crons = ["0 2 * * *"]
 
-# Secrets (set via `wrangler secret put` after first deploy):
-#   CF_ACCOUNT_ID       — Cloudflare account id for per-customer D1 HTTP API
-#   CF_D1_API_TOKEN     — Token with D1:Edit scope across customer DBs
-#   ANTHROPIC_API_KEY   — Org-level key (per-customer keys would shift to
-#                         a per-customer secret lookup; v1 uses the org key
-#                         since billing rolls up at the org level)
+# Secrets (set via `wrangler secret put`):
+#   ANTHROPIC_ADMIN_KEY — Anthropic ADMIN API key (sk-ant-admin...), minted at
+#                         https://console.anthropic.com/settings/admin-keys.
+#                         The usage-report API rejects regular runtime keys.
+#                         When missing, the run logs one error and exits 0
+#                         (no crashloop while enablement is pending).
 #   COST_INGEST_BEARER  — Bearer token for manual /run invocations

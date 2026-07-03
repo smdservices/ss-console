@@ -175,20 +175,6 @@ declare namespace Cloudflare {
      */
     FLY_API_TOKEN?: string
     /**
-     * Cloudflare account id and D1 HTTP API token, used by the Captain
-     * cost dashboard (issue #885) to read per-customer `cost_telemetry`
-     * rows over HTTP. Per ADR 0009 each customer has their own D1
-     * database; declaring N per-customer bindings at deploy time does
-     * not scale, so the dashboard goes through the same HTTP path the
-     * `ss-cost-telemetry` worker uses to write those tables.
-     *
-     * The token requires D1:Read scope across customer databases. When
-     * unset the dashboard renders an explicit configuration warning
-     * rather than fabricating zero-cost data.
-     */
-    CF_ACCOUNT_ID?: string
-    CF_D1_API_TOKEN?: string
-    /**
      * Shared bearer secret for the per-customer Operator Machine
      * heartbeat path (`POST /api/internal/heartbeat`). Wave 1 uses a
      * single shared key authenticating ANY Machine; the X-Tenant-Slug

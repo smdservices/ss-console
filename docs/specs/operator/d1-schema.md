@@ -131,6 +131,10 @@ CREATE TABLE draft_queue (
 CREATE INDEX idx_draft_pending ON draft_queue(status, priority, created_at) WHERE status = 'pending';
 
 -- 6. Cost telemetry (per-day rollup; see cost-telemetry-events.md)
+-- AMENDED 2026-07-03 (ADR 0062, #1660): tables 6 and 6a moved to the CENTRAL
+-- ss-console D1 (migrations/0083_central_cost_telemetry.sql) with a
+-- customer_slug tenant column. The per-customer copies below are historical
+-- record; no new consumer may be designed against them.
 CREATE TABLE cost_telemetry (
   date          TEXT NOT NULL,              -- YYYY-MM-DD
   driver        TEXT NOT NULL,
