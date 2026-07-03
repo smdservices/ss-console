@@ -6,15 +6,17 @@ The `ss-cost-telemetry` worker ingests the Anthropic usage report nightly (02:00
 
 ## Step 1: Mint and stage the Anthropic Admin key
 
+**Status: DONE 2026-07-03** (key vaulted in `/ss`, value live-verified against the usage API, worker secret set on `ss-cost-telemetry`). Kept as the rotation procedure.
+
 The usage-report API (`/v1/organizations/usage_report/messages`) requires an ADMIN API key. The runtime `ANTHROPIC_API_KEY` is rejected with `authentication_error` (verified live 2026-07-03).
 
-1. Mint an Admin API key at <https://console.anthropic.com/settings/admin-keys> (key starts with `sk-ant-admin`).
+1. Mint an Admin API key at <https://platform.claude.com/settings/admin-keys> (key starts with `sk-ant-admin`). The page exists only for team organizations: an individual Console org 404s here until it is converted (Settings → Organization → "Convert to team organization" — done for SMDurgan, LLC 2026-07-03).
 2. Store it in Infisical, path `/ss`, environment `prod`, as `ANTHROPIC_ADMIN_KEY`. Copy the value to the clipboard and use `crane_secret_set` so the value never enters a transcript.
-3. Stage it on the worker:
+3. Stage it on the worker. Do NOT use `infisical secrets get --plain |` (blocked by the secrets hook — single-value reads leak into the transcript); inject via the process env instead:
 
    ```bash
-   cd ~/dev/ss-console && infisical secrets get ANTHROPIC_ADMIN_KEY --env=prod --path=/ss --plain \
-     | npx wrangler secret put ANTHROPIC_ADMIN_KEY --name ss-cost-telemetry
+   cd ~/dev/ss-console && infisical run --env=prod --path=/ss --silent -- \
+     sh -c 'printf "%s" "$ANTHROPIC_ADMIN_KEY" | npx wrangler secret put ANTHROPIC_ADMIN_KEY --name ss-cost-telemetry'
    ```
 
 4. Verify with a live call (manual run against yesterday):
@@ -29,7 +31,7 @@ The usage-report API (`/v1/organizations/usage_report/messages`) requires an ADM
 
 Per-seat attribution comes from per-customer Anthropic workspaces (ADR 0062 decision 2). Usage stays org-level until each Machine's spend is isolated in its own workspace.
 
-1. Create one workspace per live seat at <https://console.anthropic.com/settings/workspaces>. Name it after the customer slug (for example `op-ashton-price`).
+1. Create one workspace per live seat at <https://platform.claude.com/settings/workspaces>. Name it after the customer slug (for example `op-ashton-price`).
 2. Move each Machine's Anthropic spend into its workspace: mint a workspace-scoped API key inside the new workspace, stage it to that Machine as its `ANTHROPIC_API_KEY`, and reprovision the Machine (reprovision requires explicit Captain authorization per standing rule). Existing org-default keys cannot be moved between workspaces; a new key per workspace is the path.
 3. Author the workspace id (the `wrkspc_...` value shown in the Console) into the central database:
 
