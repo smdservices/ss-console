@@ -197,7 +197,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // now the sole public Claude door and enforces the ADR 0057 grant kill-switch
     // per request. Range 9b20a1ac..8db15f0 touched only webhook_gate.py +
     // test_mcp_channel.py + consumes.yaml; all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8db15f064d60f6c07fea905ab5ba3cef6e1b14aa"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d7ce7cc7f6abec054ed187f1c563b4e64a7b69dd"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
