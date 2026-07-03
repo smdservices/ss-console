@@ -82,3 +82,68 @@ export function createMachineWebhookTransport(env: MachineWebhookEnv): MachineWe
     },
   }
 }
+
+/**
+ * Synchronous console→Machine turn request (ADR 0057 amendment, Phase 3). The
+ * console is the sole public Claude door; it has already enforced the grant
+ * kill-switch for the principal before calling this, and forwards the identity
+ * so the Machine turn is attributed. The Machine's turn endpoint accepts only
+ * this authenticated console-proxy bearer — it is not a public door.
+ */
+export interface OperatorTurnRequest {
+  message: string
+  thread_id?: string
+  principal_subject: string
+  from_email: string
+  from_profile: string
+}
+
+export interface OperatorTurnReply {
+  reply: string
+  thread_id?: string
+}
+
+export interface MachineTurnTransport {
+  driveTurn(customerSlug: string, req: OperatorTurnRequest): Promise<OperatorTurnReply>
+}
+
+/**
+ * Construct the production console→Machine synchronous turn transport. Posts to
+ * the Machine's authenticated `/mcp/turn` endpoint (bearer
+ * `HMAC-SHA256(OPERATOR_MCP_WEBHOOK_SECRET, slug)`, same derivation as the
+ * handoff path) and returns the Operator's reply. Throws on transport failure or
+ * a non-2xx so the caller maps it to a fail-closed `delivery_failed`. A Worker
+ * has no wall-clock cap on an HTTP-triggered request, so the turn is awaited
+ * synchronously; the async handoff path remains the fallback for long work.
+ */
+export function createMachineTurnTransport(env: MachineWebhookEnv): MachineTurnTransport {
+  return {
+    driveTurn: async (customerSlug, req) => {
+      if (!isWebhookConfigured(env)) {
+        throw new Error('MCP turn transport not configured (OPERATOR_MCP_WEBHOOK_SECRET unset)')
+      }
+      const app = resolveCustomerFlyApp(customerSlug)
+      if (!app) throw new Error(`turn transport: unknown customer ${customerSlug}`)
+
+      const baseUrl = machineBaseUrl(env.OPERATOR_RUNTIME_READ_URL!, app)
+      const bearer = await deriveRuntimeReadKey(env.OPERATOR_MCP_WEBHOOK_SECRET!, customerSlug)
+
+      const resp = await fetch(`${baseUrl}/mcp/turn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${bearer}`,
+          'X-Tenant-Slug': customerSlug,
+        },
+        body: JSON.stringify(req),
+      })
+      if (!resp.ok) throw new Error(`turn delivery failed: ${resp.status}`)
+
+      const data = await resp.json<{ reply?: unknown; thread_id?: unknown }>()
+      return {
+        reply: typeof data.reply === 'string' ? data.reply : '',
+        thread_id: typeof data.thread_id === 'string' ? data.thread_id : undefined,
+      }
+    },
+  }
+}
