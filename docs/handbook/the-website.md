@@ -6,6 +6,8 @@ summary: One Astro app, one Cloudflare Worker, three custom domains - routed ent
 sources:
   - label: src/middleware.ts - subdomain routing, cookie boundaries, legacy 301s
     href: https://github.com/venturecrane/ss-console/blob/main/src/middleware.ts
+  - label: src/lib/routing/legacy-redirects.ts - the declarative 301 rule table
+    href: https://github.com/venturecrane/ss-console/blob/main/src/lib/routing/legacy-redirects.ts
   - label: src/lib/config/app-url.ts - the *_BASE_URL env vars
     href: https://github.com/venturecrane/ss-console/blob/main/src/lib/config/app-url.ts
   - label: CLAUDE.md - Three-Subdomain Architecture
@@ -52,10 +54,10 @@ Session cookies are **per-host** - they carry no `Domain` attribute. The consequ
 
 ## Backwards-compat 301s
 
-The middleware keeps old URLs working with permanent (301) redirects, so bookmarks and indexed links do not break:
+The middleware keeps old URLs working with permanent (301) redirects, so bookmarks and indexed links do not break. The rules live as a declarative table in `src/lib/routing/legacy-redirects.ts` (each rule is a predicate plus a target builder; the middleware evaluates the list in order and issues the first match), split into pre-rewrite and post-rewrite lists because the subdomain rewrite terminates the chain:
 
-- **Admin host move:** on `smd.services`, any `/admin` or `/admin/*` path 301s to `admin.smd.services` (`redirectToAdminHost`).
-- **Legacy auth paths:** `/auth/login`, `/auth/portal-sign-in`, `/auth/portal-sign-up`, `/auth/portal-login` all 301 to the unified `/auth/sign-in` or `/auth/sign-up` (`legacyAuthRedirectTarget`).
+- **Admin host move:** on `smd.services`, any `/admin` or `/admin/*` path 301s to `admin.smd.services` (the `admin-host-canonicalize` rule).
+- **Legacy auth paths:** `/auth/login`, `/auth/portal-sign-in`, `/auth/portal-sign-up`, `/auth/portal-login` all 301 to the unified `/auth/sign-in` or `/auth/sign-up` (the `legacy-auth-paths` rule).
 - **Operator rename (ADR 0034):** the product was renamed "AI Employee" to "Operator." Every `/ai-employee` path - marketing, portal product surface, admin - 301s to the `/operator` equivalent. The redirect SOURCES are the legacy `/ai-employee` paths; renaming them would self-redirect into a loop.
 - **Retired lead-magnet surfaces:** `/scan`, `/scorecard`, `/outside-view`, and bare `/get-started` 301 to home. These were the Outside View surfaces, retired 2026-05-04 (PR #702/#703); they are gone, not merely hidden.
 

@@ -40,7 +40,7 @@ The original portal schema (migration `0001_create_tables.sql`) modeled a busine
 | Table | Purpose |
 |---|---|
 | `organizations` | Top-level tenant. Every row in almost every table carries `org_id`. Holds branding and the `settings` JSON (default rate, deposit pct, payment terms, milestone threshold). |
-| `entities` | One row per business, with a lifecycle `stage` state machine (`signal` -> `prospect` -> `meetings` -> `proposing` -> `engaged` -> `delivered` -> `ongoing` / `lost`, per `EntityStage` in `src/lib/db/entities.ts`) and cached attributes (pain score, vertical, tier). The CRM spine. |
+| `entities` | One row per business, with a lifecycle `stage` state machine (`signal` -> `prospect` -> `meetings` -> `proposing` -> `engaged` -> `delivered` -> `ongoing` / `lost`, per `EntityStage` in `src/lib/db/entities.ts`) and classification columns (`vertical`, `area`, `source_pipeline`). The machine-scoring columns (pain score, tier, employee count, revenue range) were dropped by migration 0081 with the lead-gen retirement (ADR 0060). The CRM spine. |
 | `context` | Append-only log of everything learned about an entity (migration 0008). Feeds the cached attributes on `entities`. |
 | `clients` | Legacy business record from the original schema. Superseded by `entities` for new work; see the rename above. |
 | `contacts` | People at a business (name, email, phone, role). |
