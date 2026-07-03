@@ -204,6 +204,30 @@ def test_runtime_read_key_stripped_from_agent_before_gateway_exec() -> None:
     )
 
 
+def test_heartbeat_secrets_stripped_from_agent_before_gateway_exec() -> None:
+    """ADR 0023: MACHINE_HEARTBEAT_KEY (shared fleet bearer) and
+    HEALTHCHECKS_PING_URL must be stripped from the agent (hermes gateway) env —
+    AFTER the webhook-gate launch (whose emitter holds the inherited copies) and
+    BEFORE the gateway exec. The shared key + attacker-controlled X-Tenant-Slug
+    would otherwise let a code-executing agent forge cross-tenant heartbeats
+    (ADR 0023 locked-decision #10); the ping URL would let it spoof liveness."""
+    lines = _code_lines(_BOOTSTRAP)
+    gate_idx = _first_index(lines, r"hermes-smd-webhook-gate")
+    gateway_idx = _first_index(lines, r"\bexec\b.*\bhermes\b.*\bgateway\s+run\b")
+    assert gateway_idx != -1, "could not find the `exec ... hermes ... gateway run` line"
+    for var in ("MACHINE_HEARTBEAT_KEY", "HEALTHCHECKS_PING_URL"):
+        strip_idx = _first_index(lines, rf"\bunset\b.*\b{var}\b")
+        assert strip_idx != -1, f"{var} is never unset in bootstrap.sh (ADR 0023 agent strip)"
+        assert strip_idx < gateway_idx, (
+            f"{var} must be unset BEFORE the gateway exec so the agent env does not "
+            "carry the heartbeat secret (ADR 0023)."
+        )
+        assert gate_idx == -1 or strip_idx > gate_idx, (
+            f"{var} strip must run AFTER the webhook-gate launch — the gate's emitter "
+            "needs it; only the agent loses it (ADR 0023)."
+        )
+
+
 # ---------------------------------------------------------------------------
 # entrypoint.sh: root config-applier must launch BEFORE the gateway exec-drop
 # ---------------------------------------------------------------------------

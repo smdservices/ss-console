@@ -254,7 +254,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # AgentMail email-reply channel keeps the email prompt; MCP route untouched. Not a
 # tracked pair (bootstrap/translate.py); all 4 tracked twins unchanged across
 # 2b694947→9b20a1ac, overlaySha256 stable. Superset of 33b58ad.
-ARG OVERLAY_REF="d7ce7cc7f6abec054ed187f1c563b4e64a7b69dd"
+ARG OVERLAY_REF="22eecbea08c594b5e5e6fcd069857fe68703f6d9"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -284,6 +284,10 @@ ARG OVERLAY_REPO
 ARG OVERLAY_REF
 
 ENV CUSTOMER_SLUG=${CUSTOMER_SLUG}
+# ADR 0023 Wave 1: expose the baked overlay ref at runtime so the gate's
+# heartbeat emitter reports it as the fleet-view `version` — the boot-time
+# overlay refresh pins /opt/data to this exact ref, so it is the running code.
+ENV SMD_OVERLAY_REF=${OVERLAY_REF}
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data

@@ -197,7 +197,19 @@ describe('Operator customer Machine Dockerfile', () => {
     // now the sole public Claude door and enforces the ADR 0057 grant kill-switch
     // per request. Range 9b20a1ac..8db15f0 touched only webhook_gate.py +
     // test_mcp_channel.py + consumes.yaml; all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d7ce7cc7f6abec054ed187f1c563b4e64a7b69dd"')
+    // d7ce7cc7 (#121): fabrication-gate + self-approval hardening (EFF-01/03,
+    // SEC-36/16) — autonomous EXTERNAL_SEND routed through the fabrication/citation
+    // gate, Unicode-normalized citation scan, forgeable _current_turn_approval
+    // stripped. Changed outbound.py/__init__.py/relay.py/citation_filter.py/tests;
+    // all four tracked twins verified unchanged.
+    // 22eecbea (#122): Machine-side heartbeat emitter (ADR 0023 Wave 1) — new
+    // shared/heartbeat.py runs a fail-soft ticker in the webhook-gate that POSTs
+    // to the apex console /api/internal/heartbeat and pings healthchecks.io,
+    // closing the gap where the console receiver + fleet_status + admin columns
+    // were built but nothing phoned home. Range d7ce7cc7..22eecbea changed
+    // heartbeat.py [new] + webhook_gate.py + consumes.yaml + tests; all four
+    // tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="22eecbea08c594b5e5e6fcd069857fe68703f6d9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
