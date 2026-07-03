@@ -226,6 +226,21 @@ describe('rosterHealth', () => {
     expect(rosterHealth('gray', 'no signal yet', 'red').color).toBe('red')
     expect(rosterHealth('gray', 'no signal yet', 'yellow').color).toBe('yellow')
   })
+
+  it('the cost breaker escalates: SOFT_STOP → yellow, HARD_STOP → red (ADR 0062)', () => {
+    expect(rosterHealth('green', '5s ago', null, 'HARD_STOP').color).toBe('red')
+    expect(rosterHealth('green', '5s ago', null, 'HARD_STOP').note).toMatch(/hard stop/)
+    expect(rosterHealth('green', '5s ago', null, 'SOFT_STOP').color).toBe('yellow')
+    expect(rosterHealth('green', '5s ago', null, 'SOFT_STOP').note).toMatch(/soft stop/)
+    // OK / WARN / unknown / absent never change the dot.
+    expect(rosterHealth('green', '5s ago', null, 'OK').color).toBe('green')
+    expect(rosterHealth('green', '5s ago', null, 'WARN').color).toBe('green')
+    expect(rosterHealth('green', '5s ago', null, 'unknown').color).toBe('green')
+    // The breaker can never CALM a dot (a red heartbeat stays red at OK).
+    expect(rosterHealth('red', 'stale 9m', null, 'OK').color).toBe('red')
+    // Breaker note wins over the summary note when both fire.
+    expect(rosterHealth('green', '5s ago', 'yellow', 'HARD_STOP').note).toMatch(/hard stop/)
+  })
 })
 
 describe('rosterHealthDotClass', () => {

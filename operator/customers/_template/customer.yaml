@@ -159,6 +159,16 @@ escalation:
   failure_recipients:
     - '[PRINCIPAL EMAIL]'
 
+# ---- SAFETY (ADR 0062 cost breaker; optional — platform defaults apply) ----
+# Integrity controls protecting SMD's own spend (ADR 0035: unauthored means
+# the platform default, never fail-open). Live-read from the volume per use.
+# safety:
+#   sticky_stop:
+#     cost_cap_daily_cents: 5000   # job-path daily ladder base ($50/day):
+#                                  # warn 80% / soft-stop 100% / hard-stop 200%
+#     inbound_daily_cap: 200       # verified webhook wakes routed per UTC day;
+#                                  # overflow is parked (202 + audit, no wake)
+
 # ---- VOICE LIBRARY ----
 voice_library:
   samples_path: 'r2://vaults/[FIRM-SLUG]/voice/samples/'

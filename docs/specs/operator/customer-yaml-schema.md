@@ -428,6 +428,24 @@ Field rules:
 
 **No `alert_webhook` field in Wave 1.** Customer-configurable external destinations are deferred per ADR 0023 §"Cross-cutting calls" #9. The admin dashboard at `/admin/operator/costs/` is the always-on monitoring surface across all customers; Captain ops escalation uses the existing Resend path on `workers/cost-anomaly`. Reintroduction is a follow-on driven by real customer demand with per-destination adapters, not a single shape that doesn't fit any real webhook target.
 
+## Safety — cost breaker (ADR 0062)
+
+**Added by [ADR 0062](../../adr/0062-operator-cost-plane.md) (ss-console #1661).** Optional block; these are integrity controls protecting SMD's own spend (ADR 0035 posture: unauthored means the platform default applies — never fail-open). Live-read from the volume per use (ADR 0044 read-fresh posture), so an authored change applies without a restart.
+
+```yaml
+safety: # OPTIONAL
+  sticky_stop: # OPTIONAL
+    cost_cap_daily_cents: <int> # default 5000 ($50/day)
+    inbound_daily_cap: <int> # default 200
+```
+
+Field rules:
+
+- `sticky_stop.cost_cap_daily_cents` is the base of the Machine-wide daily spend ladder enforced on the durable-job path (real provider-reported cents): warn at 80%, soft-stop at 100% (exposure pinned to draft-for-review), hard-stop at 200% (segments refuse; jobs dead-letter to `needs_review`; the webhook gate parks inbound). Must be a positive integer; a malformed value falls back to the platform default with a logged warning.
+- `sticky_stop.inbound_daily_cap` is the maximum verified vendor-webhook deliveries routed to the agent per UTC day. Overflow is acknowledged (202), audited (`INVARIANT_VIOLATION` with `gate_inbound_park` metadata), and NOT routed — never a silent drop. Same positive-integer/fallback rule.
+- The ladder percentages (80/100/200) are platform semantics, not customer-authorable. Recovery from a hard stop is Captain `clear()` (audited `AGENT_RESUMED`), never automatic.
+- Materialization is runtime live-read (`CustomerConfig.sticky_stop` in the overlay), not a `translate.py` step — see `operator/contracts/customer-yaml-blocks.yaml` (`safety`).
+
 ## Failure modes
 
 | Condition                                                             | Validator behavior                                                                                                                                                                              |
