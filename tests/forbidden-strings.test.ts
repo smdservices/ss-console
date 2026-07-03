@@ -521,6 +521,13 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // vocabulary. The .map( iterates authored escalation recipients; subscription
   // is the SMD-only provisioning domain shown as an honest status surface.
   resolve('src/pages/portal/products/operator/account/index.astro'),
+  // `products/operator/settings/index.astro` is the settings hub — a
+  // NAVIGATION menu, not a list of records. The `.map(` iterates
+  // SETTINGS_LINKS (label + description → link) to render nav rows pointing
+  // at the sub-surfaces (Connections / Users / Advanced). Menu links are not
+  // the PortalListItem status/document record-row vocabulary; same category
+  // as the other Operator sub-pages above.
+  resolve('src/pages/portal/products/operator/settings/index.astro'),
   // `products/operator/onboarding/index.astro` (§6) renders the three
   // get-started steps as numbered guidance cards (step number, title,
   // description, honest status badge) linking to Team/Connections/Calibration —
