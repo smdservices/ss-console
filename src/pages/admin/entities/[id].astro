@@ -4,6 +4,7 @@ import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import EntityContactsPanel from '../../../components/admin/EntityContactsPanel.astro'
 import EntityIdentityStrip from '../../../components/admin/EntityIdentityStrip.astro'
 import EntitySendBookingDialog from '../../../components/admin/EntitySendBookingDialog.astro'
+import EntityStageActions from '../../../components/admin/EntityStageActions.astro'
 import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
 import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
@@ -29,6 +30,10 @@ const {
   quotes,
   invoices,
   deduplicatedTimeline,
+  transitions,
+  mostRecentDraftableMeeting,
+  showNewQuoteButton,
+  supersedeCandidates,
   promoted,
   noteAdded,
   replyLogged,
@@ -80,12 +85,22 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
   {contactDeleted && <AdminFlashNotice message="Contact deleted." />}
   {error && <AdminFlashNotice kind="error" message={decodeURIComponent(error)} />}
 
-  <a
-    href={`/admin/entities?stage=${entity.stage}`}
-    class="mb-6 inline-flex items-center gap-1 text-sm text-[color:var(--ss-color-text-secondary)] transition-colors hover:text-[color:var(--ss-color-primary)]"
-  >
-    <span>Back to {stageLabel} list</span>
-  </a>
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <a
+      href={`/admin/entities?stage=${entity.stage}`}
+      class="inline-flex items-center gap-1 text-sm text-[color:var(--ss-color-text-secondary)] transition-colors hover:text-[color:var(--ss-color-primary)]"
+    >
+      <span>Back to {stageLabel} list</span>
+    </a>
+    <EntityStageActions
+      entityId={entity.id}
+      entityStage={entity.stage}
+      transitions={transitions}
+      mostRecentDraftableMeeting={mostRecentDraftableMeeting}
+      showNewQuoteButton={showNewQuoteButton}
+      supersedeCandidates={supersedeCandidates}
+    />
+  </div>
 
   <LogReplyDialog entityId={entity.id} entityName={entity.name} />
   {entity.stage === 'prospect' && <EntitySendBookingDialog entityId={entity.id} />}
