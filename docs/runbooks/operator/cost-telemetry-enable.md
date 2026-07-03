@@ -42,6 +42,14 @@ Per-seat attribution comes from per-customer Anthropic workspaces (ADR 0062 deci
 
 4. Verify the next nightly run: the seat's slug should appear in the run summary's `slugs` list, and its rows should show on the cost dashboard at <https://admin.smd.services/admin/operator/costs>. Any workspace id still unmapped is logged by name and lands under `_unmapped`.
 
+### Current workspace state (2026-07-03)
+
+| Seat            | Workspace id                      | Key vaulted                          | Mapping authored                                                                                    |
+| --------------- | --------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| smd             | `wrkspc_01EREm6fdTwbARsru1a1rsHk` | `ANTHROPIC_API_KEY__SMD`             | yes                                                                                                 |
+| pilot-smokeball | `wrkspc_01Ajk5RBWQ7CpzRGhjf5LTyk` | `ANTHROPIC_API_KEY__PILOT_SMOKEBALL` | yes                                                                                                 |
+| ashton-price    | `wrkspc_01SyLY6WC1c1Y5PGEMdpn1NG` | `ANTHROPIC_API_KEY__ASHTON_PRICE`    | pending (no `customer_configs` row until the seat is provisioned; author this id at provision time) |
+
 ## How to read the data
 
 - `cost_telemetry` is keyed `(customer_slug, date, driver)` in the central `ss-console-db` (migration 0083).
