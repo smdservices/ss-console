@@ -111,8 +111,15 @@ REVIEWER_ID="${SMOKEBALL_CONNECT_REVIEWER_ID:-connect-script}"
 
 # Single node invocation: signs state, builds the authorize URL, prints only the
 # URL. The HMAC key is the derived per-customer key used as RAW UTF-8 bytes —
-# matching the Machine verifier (shared/oauth_callback.py key.encode()). Scopes
-# mirror SMOKEBALL_OPERATOR_SCOPES (keep in sync).
+# matching the Machine verifier (shared/oauth_callback.py key.encode()).
+#
+# No `scope` parameter: Smokeball applies the app registration's configured
+# scope set implicitly (their console-generated install URLs omit scope), and
+# an explicit list containing anything absent from the app definition bounces
+# the whole authorize with invalid_scope — which is how the 2026-07-02 connect
+# failed after the app's scope cleanup. The app definition is the single source
+# of truth for what the token carries; the connector logs granted_scopes on
+# first successful call, which is where to verify what actually came through.
 URL="$(
   CUSTOMER_SLUG="$CUSTOMER_SLUG" \
   PROVIDER="$PROVIDER" \
@@ -145,24 +152,10 @@ URL="$(
     const sigB64 = b64UrlEncode(createHmac("sha256", Buffer.from(stateKey)).update(payloadB64).digest());
     const state = `${payloadB64}.${sigB64}`;
 
-    const scopes = [
-      "matters/read", "contacts/read", "mattertypes/read", "stages/read",
-      "tasks/read", "staff/read", "roles/read", "documents/read",
-      // documents/write authorizes the connector add_file (save-back) and
-      // delete_file (Smokeball "write" = mutate, covers create + delete). Without
-      // it the firm-delegated token is read-only on documents and every upload
-      // 403s: the gap that blocked the document round-trip on pilot-smokeball.
-      "documents/write",
-      "memos/read", "memos/write", "bankaccounts/read", "bankaccountbalances/read",
-      "billingconfiguration/read", "fees/read", "expenses/read",
-      "webhooks/read", "webhooks/write",
-    ];
-
     const params = new URLSearchParams({
       response_type: "code",
       client_id,
       redirect_uri,
-      scope: scopes.join(" "),
       state,
     });
     process.stdout.write(`${auth_host}/oauth2/authorize?${params.toString()}\n`);
