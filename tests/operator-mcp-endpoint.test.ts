@@ -920,3 +920,141 @@ describe('operator_handoff_task', () => {
     expect(typeof handoffs[0].handoff_id).toBe('string')
   })
 })
+
+describe('ask_operator', () => {
+  it('lists ask_operator in tools/list', async () => {
+    const listed = await dispatchMcpRequest({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, CTX)
+    const body = await listed.json<{ result: { tools: { name: string }[] } }>()
+    expect(body.result.tools.map((t) => t.name)).toContain('ask_operator')
+  })
+
+  it('returns not_configured when driveTurn is absent', async () => {
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'ask_operator', arguments: { message: 'what is my status?' } },
+      },
+      CTX
+    )
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: false,
+      error: 'not_configured',
+    })
+  })
+
+  it('returns message_required when message is missing or empty', async () => {
+    for (const args of [{}, { message: '' }, { message: '   ' }]) {
+      const response = await dispatchMcpRequest(
+        {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: { name: 'ask_operator', arguments: args },
+        },
+        { ...CTX, driveTurn: async () => ({ reply: 'unreached' }) }
+      )
+      const body = await response.json<{ result: { content: { text: string }[] } }>()
+      expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+        ok: false,
+        error: 'message_required',
+      })
+    }
+  })
+
+  it('returns the reply and thread_id on success', async () => {
+    const calls: { message: string; thread_id?: string }[] = []
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'ask_operator',
+          arguments: { message: 'summarize the Ochoa matter', thread_id: 'thr_1' },
+        },
+      },
+      {
+        ...CTX,
+        driveTurn: async (params) => {
+          calls.push(params)
+          return { reply: 'The Ochoa matter is in discovery.', thread_id: 'thr_1' }
+        },
+      }
+    )
+    expect(calls).toHaveLength(1)
+    expect(calls[0].message).toBe('summarize the Ochoa matter')
+    expect(calls[0].thread_id).toBe('thr_1')
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: true,
+      reply: 'The Ochoa matter is in discovery.',
+      thread_id: 'thr_1',
+    })
+  })
+
+  it('returns delivery_failed when driveTurn throws', async () => {
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: { name: 'ask_operator', arguments: { message: 'anything' } },
+      },
+      {
+        ...CTX,
+        driveTurn: async () => {
+          throw new Error('machine unreachable')
+        },
+      }
+    )
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: false,
+      error: 'delivery_failed',
+    })
+  })
+
+  it('routes driveTurn through mcp-route with auth-bound identity', async () => {
+    const db: D1Database = await freshDb()
+    await seedCustomer(db)
+    const loaded = await loadMcpCustomer(db, 'smd')
+    if (!loaded) throw new Error('test customer did not load')
+
+    const turns: { message: string; auth: { subject: string; email: string; profile: string } }[] =
+      []
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'ask_operator', arguments: { message: 'status please' } },
+        }),
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer: loaded,
+        verifier: claimsVerifier(claims()),
+        readRuntime: unreachableRead,
+        driveTurn: async (auth, params) => {
+          turns.push({
+            message: params.message,
+            auth: { subject: auth.subject, email: auth.email, profile: auth.profile },
+          })
+          return { reply: 'all clear' }
+        },
+      }
+    )
+    expect(response.status).toBe(200)
+    expect(turns).toHaveLength(1)
+    expect(turns[0].message).toBe('status please')
+    expect(typeof turns[0].auth.subject).toBe('string')
+    expect(turns[0].auth.subject.length).toBeGreaterThan(0)
+  })
+})

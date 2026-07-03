@@ -83,3 +83,18 @@ When EMA supports Microsoft Entra / M365 (Okta-only at writing), identity and of
 - **Ethical screening** — a real obligation, but the **firm's**, not ours to enforce in the product (see the amended §4). If we ever surface risk to a client, it is non-blocking disclosure, decided when there is a product to sell.
 - **The optional Operator-issued sign-in ticket** — built only if email-link login proves to carry meaningful friction.
 - **SMD-staff-overseer access** (one SMD person driving multiple Operators) — a separate future decision, modeled deliberately, never by loosening the per-customer principal lookup.
+
+## Amendment (2026-07-02): Console-sole Claude door — the Machine has no direct public MCP door
+
+**Source.** A security re-audit found the kill switch (§2) governed only the console route (`smd.services/api/operator/<slug>/mcp`), while the per-customer Machine exposed a **second** public Claude door — `webhook_gate.py`'s `/mcp` (a full synchronous agent turn via `ask_operator`) — that authorized on `mcp_connector.access[]` (and, when Clerk was unconfigured, a single shared static `SMD_MCP_STUB_TOKEN`) and **never read the grant table**. So the advertised "explicit revoke cuts on the next call" did not hold on the Machine door: two doors authorized Claude and the kill switch guarded only one. On the pilot Machine, Clerk was unconfigured, so the live door was the shared static bearer.
+
+**Decision.** There is **one** public Claude door: the console. It authenticates the caller (Clerk), enforces the grant kill-switch **per request** (§2), and then proxies the turn to the Machine's authenticated **`/mcp/turn`** endpoint over the console-proxy bearer (`Bearer WEBHOOK_SECRET_MCP`, the same per-customer derivation as `/webhooks/handoff`). The Machine trusts the console's asserted `principal_subject` because the console is the party that authenticated it and checked the grant. The Machine's **direct public MCP door is retired**: the stub-bearer path and the Clerk-direct authorization path are removed, and `POST /mcp` now returns `410 Gone`. A Cloudflare Worker has no wall-clock cap on an HTTP-triggered request, so the console awaits the synchronous turn; the async `operator_handoff_task` path remains the fallback for long work.
+
+**Consequences.**
+
+- **The kill switch is now the only path.** Every Claude request passes the console's per-request grant read (`revoked_at`/`expires_at` SQL-filtered); revoke cuts on the next call end-to-end. There is no door that bypasses it.
+- **Clerk lives only on the console.** Per-Machine Clerk materialization (`SMD_MCP_CLERK_ISSUER` / `SMD_MCP_RESOURCE_URI` / `SMD_MCP_CLERK_ORG_ID`) is no longer required or read by the Machine; those consumes are retired. `SMD_MCP_STUB_TOKEN` is retired and removed from the Machines.
+- **`mcp_connector.access[]` is read by the console, not the Machine** — it seeds console-side authorization (authored principals for the grant check). Its meaning is unchanged; only its reader moved.
+- **Deferred (follow-up):** the Machine JSON-RPC `job_status` / `job_cancel` verbs, previously reachable via the direct `/mcp`, are retained in the gate but no longer publicly routed; re-expose them as console tools when a caller needs them.
+
+**Ships as:** console `ask_operator` sync-proxy tool + turn transport (ss-console); Machine `/mcp/turn` endpoint + direct-door retirement (hermes-smd-overlay). Deploy is a coordinated `OVERLAY_REF` bump + reprovision, after which the connector target is the console and `SMD_MCP_STUB_TOKEN` is unset on the Machines.

@@ -182,13 +182,14 @@ personas:
       - himalaya
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude) ----
-# Rehearsal channel: lets us drive a real agent turn on this staging rig to prove
-# the firm-delegated Smokeball read end-to-end (Allow → token file → connector →
-# list_matters). translate.py emits the core /webhooks/mcp route ONLY when this
-# block is enabled AND WEBHOOK_SECRET_MCP is set (fail-closed). Clerk is NOT
-# configured on the staging Machine, so /mcp auth falls to the transitional stub
-# bearer (SMD_MCP_STUB_TOKEN); the access[] entry below is the production shape
-# (Clerk-gated) and is inert until Clerk env is materialized.
+# Console-sole door (ADR 0057 amendment). Claude reaches this Operator ONLY
+# through the console (smd.services/api/operator/<slug>/mcp), which authenticates
+# the caller and enforces the ADR 0057 grant kill-switch per request, then proxies
+# the turn to the Machine's authenticated /mcp/turn endpoint. The Machine no longer
+# exposes a direct public MCP door (the shared stub bearer and the Clerk-direct
+# path are retired). The access[] entry below seeds console-side authorization
+# (authored principals for the grant check); it is read by the console, not the
+# Machine.
 mcp_connector:
   enabled: true
   data_posture: open
