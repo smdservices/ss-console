@@ -1,22 +1,24 @@
 /**
  * Cost Anomaly Worker — nightly per-customer cost spike detector.
  *
- * Wires on top of the data path from PR #1023 (ss-cost-telemetry, 02:00
- * UTC ingest) and the dashboard from PR #1026. Runs at 03:00 UTC daily
- * so the trailing-day data is fresh when detection runs.
+ * Wires on top of the ss-cost-telemetry data path (02:00 UTC ingest)
+ * and the dashboard from PR #1026. Runs at 03:00 UTC daily so the
+ * trailing-day data is fresh when detection runs.
  *
  * Flow:
  *   1. Enumerate Operator customers from central customer_configs.
- *   2. For each customer with a per-customer D1 id:
- *      a. Read trailing 8 days of cost_telemetry via the D1 HTTP API.
+ *   2. For each customer:
+ *      a. Read the trailing 8 days from the CENTRAL cost_telemetry
+ *         table (ADR 0062, migration 0083) via the D1 binding.
  *      b. Run detectAnomaly() on the aggregate daily series.
  *      c. On breach, identify the top-1 driver by absolute delta and
  *         UPSERT one alert row into central D1's cost_anomaly_alerts.
  *   3. Send one digest email to Captain summarizing new alerts.
  *
- * Per ADR 0009, per-customer cost data lives in per-customer D1s; this
- * worker addresses each one via the D1 HTTP API rather than declaring N
- * bindings. The same pattern the dashboard query layer uses.
+ * The per-customer-D1 HTTP fan-out is retired (ADR 0062: those
+ * databases were never provisioned). The reserved slugs '_org' and
+ * '_unmapped' are excluded by construction — they have no
+ * customer_configs row.
  *
  * Fabrication discipline (CLAUDE.md Pattern A/B): every figure in an
  * alert traces to a real cost_telemetry row. The "top driver" attribution
@@ -33,19 +35,13 @@ import {
   pickTopDriverByDelta,
   upsertAlert,
 } from '../../../src/lib/admin/cost-anomaly'
-import {
-  fetchCustomerCostRows,
-  enumerateDates,
-  type CostQueryEnv,
-} from '../../../src/lib/admin/cost-query'
+import { fetchCustomerCostRows, enumerateDates } from '../../../src/lib/admin/cost-query'
 import { listCustomers, type CustomerRow } from './customers'
 import { sendAnomalyDigest, type AlertNotificationItem } from './notify'
 import { fetchTenantErrorsLast24h, writeSentrySync, type SentrySyncResult } from './sentry-sync'
 
 export interface Env {
   DB: D1Database
-  CF_ACCOUNT_ID: string
-  CF_D1_API_TOKEN: string
   ANOMALY_THRESHOLD_BPS?: string
   ALERT_FROM_EMAIL?: string
   ALERT_TO_EMAIL?: string
@@ -66,7 +62,7 @@ export interface Env {
 
 interface PerCustomerOutcome {
   customer_slug: string
-  status: 'skipped:no-d1' | 'skipped:insufficient-history' | 'no-anomaly' | 'anomaly' | 'error'
+  status: 'skipped:insufficient-history' | 'no-anomaly' | 'anomaly' | 'error'
   reason?: string
   alert?: AlertNotificationItem
 }
@@ -124,22 +120,13 @@ function parseThreshold(v: string | undefined): number {
 
 async function processCustomer(
   env: Env,
-  costEnv: CostQueryEnv,
   customer: CustomerRow,
   window: { windowStart: string; windowEnd: string; candidateDay: string },
   thresholdBps: number
 ): Promise<PerCustomerOutcome> {
-  if (!customer.per_customer_d1_database_id) {
-    return {
-      customer_slug: customer.customer_slug,
-      status: 'skipped:no-d1',
-      reason: 'no per_customer_d1_database_id in connectors_json',
-    }
-  }
-
   const fetched = await fetchCustomerCostRows(
-    costEnv,
-    customer.per_customer_d1_database_id,
+    env.DB,
+    customer.customer_slug,
     window.windowStart,
     window.windowEnd
   )
@@ -203,15 +190,11 @@ export async function run(env: Env, now: Date = new Date()): Promise<RunSummary>
   const window = computeWindow(now)
   const thresholdBps = parseThreshold(env.ANOMALY_THRESHOLD_BPS)
   const customers = await listCustomers(env.DB)
-  const costEnv: CostQueryEnv = {
-    CF_ACCOUNT_ID: env.CF_ACCOUNT_ID,
-    CF_D1_API_TOKEN: env.CF_D1_API_TOKEN,
-  }
 
   const perCustomer: PerCustomerOutcome[] = []
   for (const customer of customers) {
     try {
-      const outcome = await processCustomer(env, costEnv, customer, window, thresholdBps)
+      const outcome = await processCustomer(env, customer, window, thresholdBps)
       perCustomer.push(outcome)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

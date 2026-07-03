@@ -30,11 +30,15 @@ import { env } from 'cloudflare:workers'
  *
  * Issue #885 (PRD §15.1).
  *
+ * Cost rows live in the CENTRAL cost_telemetry table (ADR 0062,
+ * migration 0083), read through the D1 binding — the per-customer-D1
+ * HTTP fan-out is retired.
+ *
  * Fabrication discipline (CLAUDE.md Pattern A/B): every figure on this
  * page is computed from real `cost_telemetry` rows or labelled as an
  * estimate when normalizing (e.g. 30-day COGS scaled to a monthly
- * equivalent). When the D1 HTTP API is unreachable the row renders an
- * explicit error rather than zero.
+ * equivalent). When the query fails the row renders an explicit error
+ * rather than zero.
  */
 
 const session = Astro.locals.session!
@@ -46,8 +50,6 @@ const window = defaultWindow()
 if (session.role !== 'admin') {
   return Astro.redirect('/auth/sign-in')
 }
-
-const cfConfigMissing = !env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN
 
 const customers = await listCostCustomers(env.DB)
 const openAlerts = await listOpenAlerts(env.DB)
@@ -65,47 +67,13 @@ interface CustomerCard {
   entity_name: string | null
   subscription_status: string | null
   monthly_revenue_cents: number | null
-  per_customer_d1_database_id: string | null
   summary: CustomerCostSummary | null
   error: string | null
-  skippedReason: string | null
 }
 
 const cards: CustomerCard[] = await Promise.all(
   customers.map(async (c): Promise<CustomerCard> => {
-    if (!c.per_customer_d1_database_id) {
-      return {
-        customer_slug: c.customer_slug,
-        entity_id: c.entity_id,
-        entity_name: c.entity_name,
-        subscription_status: c.subscription_status,
-        monthly_revenue_cents: c.monthly_revenue_cents,
-        per_customer_d1_database_id: c.per_customer_d1_database_id,
-        summary: null,
-        error: null,
-        skippedReason:
-          'No per-customer D1 configured yet (connectors_json missing the database id)',
-      }
-    }
-    if (cfConfigMissing) {
-      return {
-        customer_slug: c.customer_slug,
-        entity_id: c.entity_id,
-        entity_name: c.entity_name,
-        subscription_status: c.subscription_status,
-        monthly_revenue_cents: c.monthly_revenue_cents,
-        per_customer_d1_database_id: c.per_customer_d1_database_id,
-        summary: null,
-        error: null,
-        skippedReason: 'CF_ACCOUNT_ID / CF_D1_API_TOKEN not configured on this Worker',
-      }
-    }
-    const result = await fetchCustomerCostRows(
-      { CF_ACCOUNT_ID: env.CF_ACCOUNT_ID!, CF_D1_API_TOKEN: env.CF_D1_API_TOKEN! },
-      c.per_customer_d1_database_id,
-      window.start,
-      window.end
-    )
+    const result = await fetchCustomerCostRows(env.DB, c.customer_slug, window.start, window.end)
     if (result.error) {
       return {
         customer_slug: c.customer_slug,
@@ -113,10 +81,8 @@ const cards: CustomerCard[] = await Promise.all(
         entity_name: c.entity_name,
         subscription_status: c.subscription_status,
         monthly_revenue_cents: c.monthly_revenue_cents,
-        per_customer_d1_database_id: c.per_customer_d1_database_id,
         summary: null,
         error: result.error,
-        skippedReason: null,
       }
     }
     const summary = summarizeCostRows(c.customer_slug, window.start, window.end, result.rows)
@@ -126,10 +92,8 @@ const cards: CustomerCard[] = await Promise.all(
       entity_name: c.entity_name,
       subscription_status: c.subscription_status,
       monthly_revenue_cents: c.monthly_revenue_cents,
-      per_customer_d1_database_id: c.per_customer_d1_database_id,
       summary,
       error: null,
-      skippedReason: null,
     }
   })
 )
@@ -234,22 +198,6 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
         </p>
       </div>
     </header>
-
-    {
-      cfConfigMissing && (
-        <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)] bg-white p-card">
-          <h3 class="text-base font-semibold text-[color:var(--ss-color-error)] mb-2">
-            D1 HTTP API not configured
-          </h3>
-          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-            <code>CF_ACCOUNT_ID</code> and <code>CF_D1_API_TOKEN</code> are not set on this Worker.
-            Per-customer cost data lives in per-customer D1 databases (ADR 0009); without the API
-            token the dashboard cannot read them. Set both secrets via{' '}
-            <code>wrangler secret put</code> and redeploy.
-          </p>
-        </div>
-      )
-    }
 
     {
       openAlerts.length > 0 && (
@@ -391,7 +339,6 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
                       rollingAvgDailyCents={rollingAvgDailyCents}
                       monthlyEstimateCents={monthlyEstimateCents}
                       ratio={ratio}
-                      cfConfigMissing={cfConfigMissing}
                       windowStart={window.start}
                       windowEnd={window.end}
                       formatCurrency={formatCurrency}
@@ -422,22 +369,20 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
     </div>
 
     {
-      rows.some((r) => r.card.error || r.card.skippedReason) && (
+      rows.some((r) => r.card.error) && (
         <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
           <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
-            Skipped or errored customers
+            Errored customers
           </h3>
           <ul class="space-y-2 text-sm">
             {rows
-              .filter((r) => r.card.error || r.card.skippedReason)
+              .filter((r) => r.card.error)
               .map((r) => (
                 <li class="flex items-start gap-2">
                   <span class="font-medium text-[color:var(--ss-color-text-primary)] shrink-0">
                     {r.card.customer_slug}
                   </span>
-                  <span class="text-[color:var(--ss-color-text-secondary)]">
-                    {r.card.error ?? r.card.skippedReason}
-                  </span>
+                  <span class="text-[color:var(--ss-color-text-secondary)]">{r.card.error}</span>
                 </li>
               ))}
           </ul>

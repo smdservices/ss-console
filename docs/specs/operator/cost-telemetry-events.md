@@ -8,6 +8,8 @@ Per PM R7, telemetry instrumentation is a **Phase 2 scope item**, not Phase 1 â€
 
 ### Storage
 
+> **Amended 2026-07-03 (ADR 0062, #1660).** The per-customer-D1 placement below is superseded: those databases were never provisioned (see ADR 0009's wiring note), so this spec's storage clause described a store that did not exist. `cost_telemetry` and `captain_time_events` live in the **central ss-console D1** (`ss-console-db`, migration `0083_central_cost_telemetry.sql`) with a `customer_slug` tenant column, under ADR 0009's billing-reconciliation carve-out and the `fleet_status` precedent (ADR 0023). Reserved slugs: `_org` (org-level reconciliation rows under drivers `anthropic.org_total.input_tokens` / `anthropic.org_total.output_tokens`) and `_unmapped` (usage from Anthropic workspaces no seat claims). Per-seat attribution comes from per-customer Anthropic **workspaces** mapped via `customer_configs.anthropic_workspace_id` (see `docs/runbooks/operator/cost-telemetry-enable.md`). The nightly worker's writes are idempotent day totals (replace-on-conflict), because the usage-report API returns authoritative daily figures; the additive accumulate-on-conflict contract below still applies to per-event emitters such as the captain-time CLI rollup. The original text is retained below as historical record.
+
 All events land in the per-customer `cost_telemetry` D1 table per d1-schema.md:
 
 ```sql

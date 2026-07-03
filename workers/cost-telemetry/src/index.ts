@@ -1,74 +1,41 @@
 /**
- * Cost Telemetry Worker — daily cost-driver ingest.
+ * Cost Telemetry Worker — daily cost-driver ingest (ADR 0062).
  *
- * Runs at 02:00 UTC daily per `triggers.crons` in wrangler.toml. Per
- * docs/specs/operator/cost-telemetry-events.md "Nightly Captain job",
- * the worker iterates every active Operator customer, pulls
- * yesterday's Anthropic usage, and UPSERTs into each customer's
- * per-customer `cost_telemetry` D1 table.
+ * Runs at 02:00 UTC daily per `triggers.crons` in wrangler.toml. The
+ * worker pulls yesterday's org-wide Anthropic usage grouped by
+ * (workspace_id, model) via the Admin usage-report API and UPSERTs
+ * per-seat rows into the CENTRAL `cost_telemetry` table in
+ * ss-console-db (migration 0083), keyed (customer_slug, date, driver).
  *
- * Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
- * validation-spike outcome documented in
+ * Per-seat attribution comes from per-customer Anthropic workspaces:
+ * `customer_configs.anthropic_workspace_id` maps each workspace to a
+ * seat. Unmapped workspaces land under the reserved slug '_unmapped';
+ * the org total is written under '_org' as a reconciliation row. See
+ * src/ingest.ts and docs/runbooks/operator/cost-telemetry-enable.md.
+ *
+ * The per-customer-D1 enumeration this worker used to perform is gone:
+ * those databases were never provisioned (ADR 0062 context; ADR 0009's
+ * wiring note), so the old path skipped every seat.
+ *
+ * Cloudflare D1/R2/Vectorize metering remains deferred to phase 2 per
+ * the validation-spike outcome documented in
  * operator/adapter/cost_ingest.py. Token cost dominates the COGS
  * surface for v1.
- *
- * Customer enumeration: the central D1 `customer_configs` table holds
- * the list. The per-customer D1 database id is required to address
- * the right database via the D1 HTTP API. v1 reads from a metadata
- * column on `customer_configs` (`per_customer_d1_database_id` —
- * populated by the customer provisioner at create time; this worker
- * skips customers without one and logs the skip).
  */
 
-import { AnthropicHttpSource, CloudflareD1Client } from './clients'
-import {
-  runIngestForCustomer,
-  type CustomerIngestContext,
-  type CustomerIngestResult,
-} from './ingest'
+import { AnthropicHttpSource } from './clients'
+import { runIngest, type IngestResult } from './ingest'
 
 export interface Env {
   DB: D1Database
-  CF_ACCOUNT_ID: string
-  CF_D1_API_TOKEN: string
-  ANTHROPIC_API_KEY: string
+  /**
+   * Anthropic ADMIN API key (sk-ant-admin...). The usage-report API
+   * rejects regular runtime keys with authentication_error. Missing
+   * key: the run logs one clear error and exits cleanly — the cron
+   * must not crashloop while the Captain enablement step is pending.
+   */
+  ANTHROPIC_ADMIN_KEY?: string
   COST_INGEST_BEARER?: string
-}
-
-interface CustomerRow {
-  customer_slug: string
-  per_customer_d1_database_id: string | null
-}
-
-/** Read the active customer list with the per-customer D1 id resolved. */
-async function listCustomers(db: D1Database): Promise<CustomerRow[]> {
-  // `connectors_json` carries non-secret references including the
-  // per-customer Hermes database id. The projection layer denormalizes
-  // it into the JSON blob per ADR 0012. For v1 the worker uses one
-  // convention key; if not present the customer is skipped (logged,
-  // not errored).
-  const result = await db
-    .prepare('SELECT customer_slug, connectors_json FROM customer_configs')
-    .all<{ customer_slug: string; connectors_json: string | null }>()
-
-  const rows: CustomerRow[] = []
-  for (const row of result.results ?? []) {
-    let perCustomerDbId: string | null = null
-    if (row.connectors_json) {
-      try {
-        const parsed = JSON.parse(row.connectors_json) as Record<string, unknown>
-        const dbId = parsed['per_customer_d1_database_id']
-        if (typeof dbId === 'string' && dbId.length > 0) perCustomerDbId = dbId
-      } catch {
-        // Bad JSON — skip; not the worker's job to fix projection.
-      }
-    }
-    rows.push({
-      customer_slug: row.customer_slug,
-      per_customer_d1_database_id: perCustomerDbId,
-    })
-  }
-  return rows
 }
 
 function yesterdayUtc(now: Date = new Date()): string {
@@ -80,90 +47,40 @@ function yesterdayUtc(now: Date = new Date()): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-interface RunSummary {
-  day: string
-  customersTotal: number
-  customersSkipped: number
-  customersRun: number
-  customersWithFailures: number
-  totalCentsWritten: number
-  perCustomer: CustomerIngestResult[]
-  skipped: Array<{ customer_slug: string; reason: string }>
-}
-
-export async function run(env: Env, day?: string): Promise<RunSummary> {
+export async function run(env: Env, day?: string): Promise<IngestResult> {
   const targetDay = day ?? yesterdayUtc()
-  const customers = await listCustomers(env.DB)
 
-  const d1 = new CloudflareD1Client(env.CF_ACCOUNT_ID, env.CF_D1_API_TOKEN)
-  const anthropicSource = new AnthropicHttpSource()
-
-  const summary: RunSummary = {
-    day: targetDay,
-    customersTotal: customers.length,
-    customersSkipped: 0,
-    customersRun: 0,
-    customersWithFailures: 0,
-    totalCentsWritten: 0,
-    perCustomer: [],
-    skipped: [],
-  }
-
-  for (const customer of customers) {
-    if (!customer.per_customer_d1_database_id) {
-      summary.customersSkipped++
-      summary.skipped.push({
-        customer_slug: customer.customer_slug,
-        reason: 'no per_customer_d1_database_id in connectors_json',
-      })
-      console.warn(
-        `[cost-telemetry] skip ${customer.customer_slug}: no per_customer_d1_database_id`
-      )
-      continue
-    }
-
-    const ctx: CustomerIngestContext = {
-      customerSlug: customer.customer_slug,
-      perCustomerDatabaseId: customer.per_customer_d1_database_id,
-      anthropicApiKey: env.ANTHROPIC_API_KEY,
-    }
-
-    try {
-      const result = await runIngestForCustomer(ctx, d1, anthropicSource, targetDay)
-      summary.customersRun++
-      summary.perCustomer.push(result)
-      if (result.anyFailures) summary.customersWithFailures++
-      summary.totalCentsWritten += result.totalCents
-    } catch (e) {
-      summary.customersWithFailures++
-      summary.customersRun++
-      const msg = e instanceof Error ? e.message : String(e)
-      console.error(`[cost-telemetry] ${customer.customer_slug}: ${msg}`)
-      summary.perCustomer.push({
-        customerSlug: customer.customer_slug,
-        day: targetDay,
-        sources: [
-          {
-            source: 'orchestrator',
-            ok: false,
-            rowsWritten: 0,
-            centsWritten: 0,
-            reason: msg,
-          },
-        ],
-        anyFailures: true,
-        totalCents: 0,
-      })
+  if (!env.ANTHROPIC_ADMIN_KEY) {
+    const reason =
+      'ANTHROPIC_ADMIN_KEY is not set; skipping ingest. Mint an Admin API key and ' +
+      'stage it per docs/runbooks/operator/cost-telemetry-enable.md.'
+    console.error(`[cost-telemetry] ${reason}`)
+    return {
+      ok: false,
+      day: targetDay,
+      rowsWritten: 0,
+      centsWritten: 0,
+      slugs: [],
+      unmappedWorkspaceIds: [],
+      warnings: [],
+      reason,
     }
   }
 
-  console.log(
-    `[cost-telemetry] day=${summary.day} customers=${summary.customersTotal} ` +
-      `run=${summary.customersRun} skipped=${summary.customersSkipped} ` +
-      `failures=${summary.customersWithFailures} cents=${summary.totalCentsWritten}`
+  const result = await runIngest(
+    env.DB,
+    new AnthropicHttpSource(),
+    env.ANTHROPIC_ADMIN_KEY,
+    targetDay
   )
 
-  return summary
+  console.log(
+    `[cost-telemetry] day=${result.day} ok=${result.ok} rows=${result.rowsWritten} ` +
+      `cents=${result.centsWritten} slugs=${result.slugs.join(',')} ` +
+      `unmapped=${result.unmappedWorkspaceIds.join(',') || 'none'}`
+  )
+
+  return result
 }
 
 export default {
