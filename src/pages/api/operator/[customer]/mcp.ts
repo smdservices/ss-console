@@ -11,6 +11,7 @@ import {
 } from '../../../../lib/operator/mcp/mcp-route'
 import type { HandoffEnvelope } from '../../../../lib/operator/mcp/webhook-transport'
 import {
+  createMachineTurnTransport,
   createMachineWebhookTransport,
   isWebhookConfigured,
 } from '../../../../lib/operator/mcp/webhook-transport'
@@ -34,6 +35,7 @@ export const POST: APIRoute = async ({ request, url, params }) => {
 
   const transport = createMachineRuntimeTransport(env)
   const webhookTransport = isWebhookConfigured(env) ? createMachineWebhookTransport(env) : null
+  const turnTransport = isWebhookConfigured(env) ? createMachineTurnTransport(env) : null
 
   return handleMcpPost(request, url, {
     db: env.DB,
@@ -59,6 +61,16 @@ export const POST: APIRoute = async ({ request, url, params }) => {
           }
           return webhookTransport.send(customer.customerId, envelope)
         }
+      : undefined,
+    driveTurn: turnTransport
+      ? (auth, params) =>
+          turnTransport.driveTurn(customer.customerId, {
+            message: params.message,
+            thread_id: params.thread_id,
+            principal_subject: auth.subject,
+            from_email: auth.email,
+            from_profile: auth.profile,
+          })
       : undefined,
   })
 }
