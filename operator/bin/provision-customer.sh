@@ -339,7 +339,19 @@ stage_secret_from_env() {
 # This prompt was dead provisioning ceremony; customers act on real mailboxes
 # via mcp:google-gmail / ms-graph, not an agent mailbox. Re-add when a persona
 # email identity is actually wired.
-prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
+# ANTHROPIC_API_KEY: prefer the per-seat WORKSPACE key from /ss (ADR 0062 §2 —
+# per-customer Anthropic workspaces are the cost-attribution boundary; the
+# usage-report ingest groups by workspace_id). Same per-seat convention as
+# WEBHOOK_SECRET_AGENTMAIL__<CUSTOMER_ID> below. Falls back to the interactive
+# clipboard prompt when no per-seat key is vaulted (pre-workspace seats), which
+# reprovision runs answer 's' to — leaving the Machine's existing key in place.
+_ANTH_SEAT_KEY_NAME="ANTHROPIC_API_KEY__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+_ANTH_SEAT_KEY="${!_ANTH_SEAT_KEY_NAME:-}"
+if [ -n "${_ANTH_SEAT_KEY}" ]; then
+  stage_secret_from_env ANTHROPIC_API_KEY "${_ANTH_SEAT_KEY}" "per-seat Anthropic workspace key (${_ANTH_SEAT_KEY_NAME})"
+else
+  prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
+fi
 
 # R2 access for bootstrap.sh's customer.yaml fetch + customer-sync sidecar's
 # polling for non-structural config changes. R2_BUCKET_CONFIG is in fly.toml
