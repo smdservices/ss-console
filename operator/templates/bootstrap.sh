@@ -560,6 +560,34 @@ log "Active persona profile: ${ACTIVE_PROFILE}"
 # bootstrap — the boundary that selects the profile — is where it belongs.
 export HERMES_ACTIVE_PROFILE="${ACTIVE_PROFILE}"
 
+# Publish the seat's timezone on the env channel Hermes' clock resolves first
+# (hermes_time._resolve_timezone_name: HERMES_TIMEZONE env > global config.yaml
+# `timezone` > server local). The container clock is UTC, so without this every
+# authored cron expression silently ran in UTC while the customer.yaml comments
+# claimed local time — caught 2026-07-03 when the pilot's "0623 PT" morning
+# digest turned out to mean 11:23 PM Pacific and the pre-existing escalator's
+# "0700 PT" had been firing at midnight Pacific since it shipped. Source of
+# truth is customer.yaml `business_hours.timezone` (IANA, validated by the
+# console); when the block is unauthored nothing is exported and Hermes keeps
+# server-local (UTC) — the prior behavior, not a new default (ADR 0037 tenet 3).
+# An invalid IANA name is safe: hermes_time logs a warning and falls back.
+SEAT_TIMEZONE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+hours = data.get("business_hours") or {}
+tz = hours.get("timezone") if isinstance(hours, dict) else ""
+print(tz.strip() if isinstance(tz, str) else "")
+PY
+)" || SEAT_TIMEZONE=""
+if [ -n "${SEAT_TIMEZONE}" ]; then
+  export HERMES_TIMEZONE="${SEAT_TIMEZONE}"
+  log "Hermes timezone: ${SEAT_TIMEZONE} (cron + clock run in seat-local time)"
+else
+  log "Hermes timezone: unset (business_hours.timezone unauthored) — cron + clock run in UTC"
+fi
+
 PROFILE_HERMES_HOME="${HERMES_HOME}/profiles/${ACTIVE_PROFILE}"
 
 # `exec` so the gateway inherits the foreground slot under tini cleanly.
