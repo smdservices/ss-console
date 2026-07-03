@@ -2,6 +2,10 @@
 -- Migration 0006: cost attribution rollup support (issue #884)
 -- ============================================================================
 --
+-- NOTE (2026-07-03, ADR 0062): the cost tables' placement was superseded —
+-- cost_telemetry and captain_time_events now live in the central ss-console
+-- D1 (migrations/0083_central_cost_telemetry.sql). Historical record.
+--
 -- Per-customer cost attribution rollup. The daily-roll `cost_telemetry` table
 -- already exists from migration 0001 with the shape
 -- `(date, driver, amount_cents, units, unit_type) PRIMARY KEY (date, driver)`

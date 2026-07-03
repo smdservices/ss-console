@@ -3,11 +3,13 @@
  *
  * Covers the pure-function pieces — aggregation, date enumeration,
  * COGS/MRR ratio thresholds, rolling-avg fewer-than-7-days handling,
- * and CSV serialization. The D1 HTTP fetch path is exercised by
- * stubbing global fetch in a separate block.
+ * and CSV serialization. The central cost_telemetry read (ADR 0062:
+ * D1 binding against the central table, replacing the per-customer
+ * D1 HTTP fan-out) is exercised with a fake binding in a separate
+ * block.
  */
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   cogsRatio,
   categoryForDriver,
@@ -290,106 +292,73 @@ describe('rowsToCsv', () => {
   })
 })
 
-describe('fetchCustomerCostRows (D1 HTTP API)', () => {
-  const originalFetch = globalThis.fetch
+describe('fetchCustomerCostRows (central D1 binding, ADR 0062)', () => {
+  function makeDb(opts: { rows?: unknown[]; error?: Error }) {
+    const captured: { sql?: string; params?: unknown[] } = {}
+    const db = {
+      prepare(sql: string) {
+        captured.sql = sql
+        return {
+          bind(...params: unknown[]) {
+            captured.params = params
+            return {
+              async all<T>() {
+                if (opts.error) throw opts.error
+                return { results: (opts.rows ?? []) as T[] }
+              },
+            }
+          },
+        }
+      },
+    } as unknown as D1Database
+    return { db, captured }
+  }
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch
-  })
-
-  it('parses the D1 HTTP response into typed rows', async () => {
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          success: true,
-          result: [
-            {
-              results: [
-                {
-                  date: '2026-05-01',
-                  driver: 'claude_api_input_tokens',
-                  amount_cents: 100,
-                  units: 1000,
-                  unit_type: 'input_tokens',
-                },
-                {
-                  date: '2026-05-01',
-                  driver: 'fly_machine_minutes',
-                  amount_cents: 30,
-                  units: 30,
-                  unit_type: 'minutes',
-                },
-              ],
-            },
-          ],
-        }),
-        { status: 200 }
-      )
-    const result = await fetchCustomerCostRows(
-      { CF_ACCOUNT_ID: 'acct', CF_D1_API_TOKEN: 'tok' },
-      'db-id',
-      '2026-05-01',
-      '2026-06-01'
-    )
+  it('queries the central table scoped to the customer_slug and returns typed rows', async () => {
+    const { db, captured } = makeDb({
+      rows: [
+        {
+          date: '2026-05-01',
+          driver: 'claude_api_input_tokens',
+          amount_cents: 100,
+          units: 1000,
+          unit_type: 'input_tokens',
+        },
+        {
+          date: '2026-05-01',
+          driver: 'fly_machine_minutes',
+          amount_cents: 30,
+          units: 30,
+          unit_type: 'minutes',
+        },
+      ],
+    })
+    const result = await fetchCustomerCostRows(db, 'acme', '2026-05-01', '2026-06-01')
     expect(result.error).toBeNull()
     expect(result.rows).toHaveLength(2)
     expect(result.rows[0].driver).toBe('claude_api_input_tokens')
+    expect(captured.sql).toContain('customer_slug = ?')
+    expect(captured.params).toEqual(['acme', '2026-05-01', '2026-06-01'])
   })
 
-  it('returns an error string on non-2xx', async () => {
-    globalThis.fetch = async () => new Response('boom', { status: 500 })
-    const result = await fetchCustomerCostRows(
-      { CF_ACCOUNT_ID: 'acct', CF_D1_API_TOKEN: 'tok' },
-      'db-id',
-      '2026-05-01',
-      '2026-06-01'
-    )
+  it('returns an error string when the query throws', async () => {
+    const { db } = makeDb({ error: new Error('no such table: cost_telemetry') })
+    const result = await fetchCustomerCostRows(db, 'acme', '2026-05-01', '2026-06-01')
     expect(result.rows).toEqual([])
-    expect(result.error).toContain('D1 HTTP 500')
-  })
-
-  it('returns an error string on payload.success = false', async () => {
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({ success: false, errors: [{ code: 1, message: 'no such table' }] }),
-        {
-          status: 200,
-        }
-      )
-    const result = await fetchCustomerCostRows(
-      { CF_ACCOUNT_ID: 'acct', CF_D1_API_TOKEN: 'tok' },
-      'db-id',
-      '2026-05-01',
-      '2026-06-01'
-    )
-    expect(result.rows).toEqual([])
-    expect(result.error).toContain('D1 query failed')
+    expect(result.error).toContain('cost_telemetry query failed')
+    expect(result.error).toContain('no such table')
   })
 
   it('drops malformed rows without crashing', async () => {
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          success: true,
-          result: [
-            {
-              results: [
-                { date: 'good', driver: 'fly_machine_minutes', amount_cents: 1 },
-                { driver: 'missing_date', amount_cents: 1 },
-                { date: '2026-05-01', amount_cents: 1 },
-                { date: '2026-05-01', driver: 'fly_machine_minutes' },
-              ],
-            },
-          ],
-        }),
-        { status: 200 }
-      )
-    const result = await fetchCustomerCostRows(
-      { CF_ACCOUNT_ID: 'acct', CF_D1_API_TOKEN: 'tok' },
-      'db-id',
-      '2026-05-01',
-      '2026-06-01'
-    )
+    const { db } = makeDb({
+      rows: [
+        { date: 'good', driver: 'fly_machine_minutes', amount_cents: 1 },
+        { driver: 'missing_date', amount_cents: 1 },
+        { date: '2026-05-01', amount_cents: 1 },
+        { date: '2026-05-01', driver: 'fly_machine_minutes' },
+      ],
+    })
+    const result = await fetchCustomerCostRows(db, 'acme', '2026-05-01', '2026-06-01')
     expect(result.error).toBeNull()
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0].driver).toBe('fly_machine_minutes')

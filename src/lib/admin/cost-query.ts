@@ -1,25 +1,20 @@
 /**
- * Captain cost dashboard — query layer for the per-customer cost_telemetry
- * data populated by the `ss-cost-telemetry` worker (PR #1023).
+ * Captain cost dashboard — query layer for the central cost_telemetry
+ * data populated by the `ss-cost-telemetry` worker.
  *
- * Two data surfaces are involved:
+ * One data surface: central D1 (`env.DB`). It holds `customer_configs`
+ * (the customer enumeration), `subscriptions` (the delivery-status
+ * display), the `services` spine (the authoritative recurring-revenue
+ * figure, `recurring_price`, used by the COGS/MRR ratio — ADR 0046),
+ * and — since ADR 0062 (migration 0083) — the `cost_telemetry` table
+ * itself, keyed (customer_slug, date, driver).
  *
- *   1. Central D1 (`env.DB`) — holds `customer_configs` (the customer
- *      enumeration), `subscriptions` (the delivery-status display), and the
- *      `services` spine (the authoritative recurring-revenue figure,
- *      `recurring_price`, used by the COGS/MRR ratio — ADR 0046, single
- *      source of truth, no longer `subscriptions.settings_json`).
- *
- *   2. Per-customer D1 (one per customer, addressed via the Cloudflare
- *      D1 HTTP API) — holds the `cost_telemetry` table per ADR 0009.
- *      The per-customer database id is stored in
- *      `customer_configs.connectors_json.per_customer_d1_database_id`.
- *
- * Reading the per-customer DB from this Worker means we go through the
- * D1 HTTP API rather than a binding — same mechanism the telemetry
- * worker uses. This is deliberate: declaring N per-customer D1 bindings
- * in wrangler.toml at deploy time does not scale, and the dashboard is
- * a Captain-only surface where the modest extra latency is acceptable.
+ * The per-customer-D1 HTTP fan-out this module used to perform (per the
+ * original ADR 0009 storage premise) is retired: those databases were
+ * never provisioned, and ADR 0062 moved cost rows to the central store
+ * under the billing-reconciliation carve-out. Reserved slugs '_org'
+ * (org reconciliation) and '_unmapped' (workspace usage no seat claims)
+ * never appear here because the enumeration comes from customer_configs.
  *
  * Fabrication discipline (CLAUDE.md Pattern A/B): the dashboard never
  * fabricates per-skill or per-model breakdown that the underlying schema
@@ -29,16 +24,10 @@
  * data.
  */
 
-export interface CostQueryEnv {
-  CF_ACCOUNT_ID: string
-  CF_D1_API_TOKEN: string
-}
-
 export interface CustomerListRow {
   customer_slug: string
   entity_id: string | null
   entity_name: string | null
-  per_customer_d1_database_id: string | null
   subscription_status: string | null
   monthly_revenue_cents: number | null
 }
@@ -46,7 +35,6 @@ export interface CustomerListRow {
 interface CustomerConfigRow {
   customer_slug: string
   entity_id: string
-  connectors_json: string | null
 }
 
 interface SubscriptionRow {
@@ -66,9 +54,8 @@ interface EntityRow {
 
 /**
  * Enumerate every Operator customer with the data the dashboard
- * needs: the per-customer D1 id (required to read cost_telemetry), the
- * subscription status (for the COGS-vs-revenue indicator), and the
- * entity name (display).
+ * needs: the subscription status (for the COGS-vs-revenue indicator)
+ * and the entity name (display).
  *
  * The query joins customer_configs to subscriptions filtered to the
  * `operator` product slug — non-Operator customers don't apply.
@@ -76,7 +63,7 @@ interface EntityRow {
 export async function listCostCustomers(db: D1Database): Promise<CustomerListRow[]> {
   const configsResult = await db
     .prepare(
-      `SELECT customer_slug, entity_id, connectors_json
+      `SELECT customer_slug, entity_id
          FROM customer_configs
          ORDER BY customer_slug`
     )
@@ -128,13 +115,11 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
   }
 
   return configs.map((c) => {
-    const { perCustomerDbId } = parseConnectors(c.connectors_json)
     const price = priceByEntity.get(c.entity_id) ?? null
     return {
       customer_slug: c.customer_slug,
       entity_id: c.entity_id,
       entity_name: namesByEntity.get(c.entity_id) ?? null,
-      per_customer_d1_database_id: perCustomerDbId,
       subscription_status: subStatusByEntity.get(c.entity_id) ?? null,
       // Authoritative recurring revenue from the spine, in cents for the ratio math.
       monthly_revenue_cents: price == null ? null : Math.round(price * 100),
@@ -142,28 +127,8 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
   })
 }
 
-function parseConnectors(connectorsJson: string | null): {
-  perCustomerDbId: string | null
-} {
-  if (!connectorsJson) return { perCustomerDbId: null }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(connectorsJson)
-  } catch {
-    return { perCustomerDbId: null }
-  }
-  if (!parsed || typeof parsed !== 'object') {
-    return { perCustomerDbId: null }
-  }
-  const obj = parsed as Record<string, unknown>
-  const dbId = obj['per_customer_d1_database_id']
-  return {
-    perCustomerDbId: typeof dbId === 'string' && dbId.length > 0 ? dbId : null,
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Per-customer cost_telemetry reads (D1 HTTP API)
+// Central cost_telemetry reads (D1 binding, ADR 0062)
 // ---------------------------------------------------------------------------
 
 export interface CostTelemetryRow {
@@ -174,7 +139,7 @@ export interface CostTelemetryRow {
   unit_type: string | null
 }
 
-interface D1HttpResultRow {
+interface RawCostRow {
   date?: string
   driver?: string
   amount_cents?: number
@@ -182,84 +147,43 @@ interface D1HttpResultRow {
   unit_type?: string | null
 }
 
-interface D1HttpResponse {
-  success?: boolean
-  errors?: unknown
-  result?: Array<{ results?: D1HttpResultRow[] }>
-}
-
 /**
  * Read raw cost_telemetry rows for one customer over a date window
- * (inclusive `startDate`, exclusive `endDate` — both 'YYYY-MM-DD').
+ * (inclusive `startDate`, exclusive `endDate` — both 'YYYY-MM-DD')
+ * from the central table via the D1 binding.
  *
- * The half-open range matches the `(date, driver)` PK index in
- * cost_rollup.py so D1 plans this as an index scan rather than a table
- * walk. Rows come back ordered by `(date, driver)` for stable rendering.
+ * The half-open range rides the `(customer_slug, date, driver)` PK so
+ * D1 plans this as an index scan. Rows come back ordered by
+ * `(date, driver)` for stable rendering.
  *
- * Returns `{ rows: [], error: <message> }` when the database is
- * unreachable; the caller renders an explicit warning rather than
- * an empty table that looks the same as "no usage yet". See
- * docs/style/empty-state-pattern.md.
+ * Returns `{ rows: [], error: <message> }` when the query fails; the
+ * caller renders an explicit warning rather than an empty table that
+ * looks the same as "no usage yet". See docs/style/empty-state-pattern.md.
  */
 export async function fetchCustomerCostRows(
-  env: CostQueryEnv,
-  databaseId: string,
+  db: D1Database,
+  customerSlug: string,
   startDate: string,
   endDate: string
 ): Promise<{ rows: CostTelemetryRow[]; error: string | null }> {
-  const fetched = await fetchD1Payload(env, databaseId, startDate, endDate)
-  if (fetched.error !== null) return { rows: [], error: fetched.error }
-  const resultRows = fetched.payload.result?.[0]?.results ?? []
-  return { rows: validateRows(resultRows), error: null }
-}
-
-async function fetchD1Payload(
-  env: CostQueryEnv,
-  databaseId: string,
-  startDate: string,
-  endDate: string
-): Promise<{ payload: D1HttpResponse; error: null } | { payload: null; error: string }> {
-  const sql =
-    'SELECT date, driver, amount_cents, units, unit_type ' +
-    'FROM cost_telemetry ' +
-    'WHERE date >= ? AND date < ? AND amount_cents >= 0 ' +
-    'ORDER BY date, driver'
-  const url =
-    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}` +
-    `/d1/database/${databaseId}/query`
-  let response: Response
   try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.CF_D1_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ sql, params: [startDate, endDate] }),
-    })
+    const result = await db
+      .prepare(
+        'SELECT date, driver, amount_cents, units, unit_type ' +
+          'FROM cost_telemetry ' +
+          'WHERE customer_slug = ? AND date >= ? AND date < ? AND amount_cents >= 0 ' +
+          'ORDER BY date, driver'
+      )
+      .bind(customerSlug, startDate, endDate)
+      .all<RawCostRow>()
+    return { rows: validateRows(result.results ?? []), error: null }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return { payload: null, error: `D1 HTTP request failed: ${msg}` }
+    return { rows: [], error: `cost_telemetry query failed: ${msg}` }
   }
-  if (!response.ok) {
-    const text = await safeText(response)
-    return { payload: null, error: `D1 HTTP ${response.status}: ${text.slice(0, 200)}` }
-  }
-  let raw: unknown
-  try {
-    raw = await response.json()
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return { payload: null, error: `D1 response parse failed: ${msg}` }
-  }
-  const payload = raw as D1HttpResponse
-  if (!payload.success) {
-    return { payload: null, error: `D1 query failed: ${JSON.stringify(payload.errors ?? {})}` }
-  }
-  return { payload, error: null }
 }
 
-function validateRows(resultRows: D1HttpResultRow[]): CostTelemetryRow[] {
+function validateRows(resultRows: RawCostRow[]): CostTelemetryRow[] {
   const rows: CostTelemetryRow[] = []
   for (const r of resultRows) {
     if (typeof r.date !== 'string' || typeof r.driver !== 'string') continue
@@ -273,14 +197,6 @@ function validateRows(resultRows: D1HttpResultRow[]): CostTelemetryRow[] {
     })
   }
   return rows
-}
-
-async function safeText(response: Response): Promise<string> {
-  try {
-    return await response.text()
-  } catch {
-    return ''
-  }
 }
 
 // ---------------------------------------------------------------------------

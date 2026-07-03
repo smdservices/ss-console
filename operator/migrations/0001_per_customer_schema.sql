@@ -7,6 +7,11 @@
 -- enforced at the database binding layer (one binding per Machine), not at
 -- the row level — see ADR 0009 (cross-Machine query prohibition).
 --
+-- NOTE (2026-07-03, ADR 0062): the cost tables in this file (cost_telemetry,
+-- captain_time_events) had their placement superseded — they now live in the
+-- central ss-console D1 (migrations/0083_central_cost_telemetry.sql). This
+-- file stays as historical record.
+--
 -- Source spec: docs/specs/operator/d1-schema.md
 -- Applied by:  operator/adapter/run_migrations.py (invoked from
 --              bin/provision-customer.sh during customer provisioning)

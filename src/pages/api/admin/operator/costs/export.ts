@@ -54,19 +54,9 @@ async function handleGet({ request, locals }: APIContext): Promise<Response> {
   if (!customer) {
     return jsonResponse(404, { error: 'customer not found' })
   }
-  if (!customer.per_customer_d1_database_id) {
-    return jsonResponse(409, { error: 'customer has no per-customer D1 database configured' })
-  }
-  if (!env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN) {
-    return jsonResponse(503, { error: 'CF_ACCOUNT_ID / CF_D1_API_TOKEN not configured' })
-  }
 
-  const result = await fetchCustomerCostRows(
-    { CF_ACCOUNT_ID: env.CF_ACCOUNT_ID, CF_D1_API_TOKEN: env.CF_D1_API_TOKEN },
-    customer.per_customer_d1_database_id,
-    start,
-    end
-  )
+  // Central cost_telemetry read via the D1 binding (ADR 0062).
+  const result = await fetchCustomerCostRows(env.DB, customerSlug, start, end)
   if (result.error) {
     return jsonResponse(502, { error: result.error })
   }

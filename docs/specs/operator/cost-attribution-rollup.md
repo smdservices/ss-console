@@ -99,6 +99,8 @@ CREATE TABLE cost_telemetry (
 );
 ```
 
+> **Amended 2026-07-03 (ADR 0062, #1660).** The storage location moved to the central ss-console D1; see the amendment under "Privacy posture". `operator/migrations/0006` remains as historical record; the live tables are created by `migrations/0083_central_cost_telemetry.sql`.
+
 Migration `0006_cost_attribution_rollup.sql` adds:
 
 1. `captain_time_events` — the per-event Captain time table referenced by cost-telemetry-events.md "Captain time logging" but not present in migration 0001. The `crane operator log-time` CLI writes one row here per invocation and pairs that with a same-day UPSERT into `cost_telemetry` under `driver='captain_time'`.
@@ -107,6 +109,8 @@ Migration `0006_cost_attribution_rollup.sql` adds:
 Neither change touches existing rows. The migration is additive.
 
 ## Privacy posture
+
+> **Amended 2026-07-03 (ADR 0062, #1660).** Superseded for the cost tables: `cost_telemetry` and `captain_time_events` now live in the central ss-console D1 (migration `0083_central_cost_telemetry.sql`) with a `customer_slug` tenant column. Cost rows are SMD's own spend metadata, not customer content, and ADR 0009 explicitly carves out control-plane billing reconciliation. Cross-customer aggregation is therefore a single query against the central table; per-customer readers scope by `customer_slug` and must exclude the reserved `_org` / `_unmapped` slugs. The original text is retained below as historical record.
 
 Per [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md), `cost_telemetry` and `captain_time_events` live in the per-customer D1 database. No row-level `customer_id` column. No cross-customer aggregate query is possible at the database layer. The rollup module accepts a single executor bound to one customer's database; computing a cross-customer total requires N calls and an aggregation in the Captain control plane.
 
