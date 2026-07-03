@@ -70,6 +70,7 @@ behavior in the derived fixture is surface-and-ask.
 >
 > PROOF OF SERVICE
 > [the POS block is present but the service DATE is illegible / the method line is
+>
 > > blank]
 
 - Expected capture: type = interrogatories (special); method/date = **cannot read with
