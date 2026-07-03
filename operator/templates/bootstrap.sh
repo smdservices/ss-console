@@ -801,7 +801,16 @@ fi
 # gateway env lets a code-executing agent mint its own read-seam bearer. Stripped
 # AFTER the webhook-gate fork and BEFORE the gateway exec, so the gate still
 # authenticates the seam while the agent cannot self-issue.
-unset OPERATOR_RUNTIME_READ_KEY
+#
+# Same pattern for the ADR 0023 heartbeat secrets (they too are read only by the
+# gate's emitter, forked above): MACHINE_HEARTBEAT_KEY is the SHARED fleet bearer,
+# so with the attacker-controlled X-Tenant-Slug header a code-executing agent
+# holding it could forge heartbeats for ANOTHER tenant's slug — writing a false
+# "green"/uptime, or masking a dead peer (the Wave-1 shared-key weakness, ADR 0023
+# locked-decision #10). HEALTHCHECKS_PING_URL is the external dead-man ping target;
+# an agent holding it could spoof liveness at healthchecks.io. Neither has any use
+# in the agent; the gate keeps its inherited copies.
+unset OPERATOR_RUNTIME_READ_KEY MACHINE_HEARTBEAT_KEY HEALTHCHECKS_PING_URL
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
 exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run
