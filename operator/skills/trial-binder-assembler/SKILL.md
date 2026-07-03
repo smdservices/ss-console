@@ -1,6 +1,16 @@
 ---
 name: trial-binder-assembler
-description: As a matter heads to trial, assembles the trial binder by collating the authored components the firm has already prepared (the exhibit list, the witness list, the deposition summaries, and the exhibits themselves) into an organized binder index, and captures and tracks the trial-prep and pre-trial-filing deadlines. It is an assembler and a tracker, never an author: it organizes and stages, it does not write the trial brief, does not argue, does not author a deposition summary, and does not decide what goes in the binder. Bates-stamping and PDF exhibit assembly ride the firm's own PDF tool (there is no PDF tool in the Smokeball surface, so it surfaces that step as routed to the firm's tool, confirmed at connect), and it stages into Smokeball only what Smokeball can hold. Every value is traceable to a matter read; a missing component is a gap it surfaces, never a fill-in. Deadlines are captured and surfaced, never computed as final.
+description: >-
+  As a matter heads to trial, assembles the trial binder by collating the authored components the
+  firm has already prepared (the exhibit list, the witness list, the deposition summaries, and the
+  exhibits themselves) into an organized binder index, and captures and tracks the trial-prep and
+  pre-trial-filing deadlines. It is an assembler and a tracker, never an author: it organizes and
+  stages, it does not write the trial brief, does not argue, does not author a deposition summary,
+  and does not decide what goes in the binder. Bates-stamping and PDF exhibit assembly ride the
+  firm's own PDF tool (there is no PDF tool in the Smokeball surface, so it surfaces that step as
+  routed to the firm's tool, confirmed at connect), and it stages into Smokeball only what
+  Smokeball can hold. Every value is traceable to a matter read; a missing component is a gap it
+  surfaces, never a fill-in. Deadlines are captured and surfaced, never computed as final.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -10,7 +20,21 @@ prerequisites:
   commands: []
 metadata:
   hermes:
-    tags: [Law, PI, Trial, TrialBinder, ExhibitList, WitnessList, Deposition, Assembler, Deadline, Connective, DraftForReview, FailClosed]
+    tags:
+      [
+        Law,
+        PI,
+        Trial,
+        TrialBinder,
+        ExhibitList,
+        WitnessList,
+        Deposition,
+        Assembler,
+        Deadline,
+        Connective,
+        DraftForReview,
+        FailClosed,
+      ]
   smd:
     vertical: law-firm
     addon: pi

@@ -1,6 +1,16 @@
 ---
 name: separate-statement-assembler
-description: Assembles the California Rules of Court 3.1345 item-by-item separate statement for a motion to compel further responses (brought by the propounding/demanding party against the opposing party's served responses) by reading the served requests and the opposing party's served responses from the matter and collating them into the mechanical table the rule requires: each request next to the response served to it, with the definitions and instructions needed to read the request and its response. It covers written-discovery compel-further statements (interrogatories, RFPs, RFAs); each set and method gets its own statement. It is a collation, staged for the attorney to finalize and file. It authors no legal argument, drafts no substance, and leaves the reasons-to-compel cell for the attorney. Every value is traceable to a matter read; a missing component is a gap it surfaces, never a fill-in.
+description: >-
+  Assembles the California Rules of Court 3.1345 item-by-item separate statement for a motion to
+  compel further responses (brought by the propounding/demanding party against the opposing
+  party's served responses) by reading the served requests and the opposing party's served
+  responses from the matter and collating them into the mechanical table the rule requires: each
+  request next to the response served to it, with the definitions and instructions needed to read
+  the request and its response. It covers written-discovery compel-further statements
+  (interrogatories, RFPs, RFAs); each set and method gets its own statement. It is a collation,
+  staged for the attorney to finalize and file. It authors no legal argument, drafts no substance,
+  and leaves the reasons-to-compel cell for the attorney. Every value is traceable to a matter
+  read; a missing component is a gap it surfaces, never a fill-in.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -10,7 +20,18 @@ prerequisites:
   commands: []
 metadata:
   hermes:
-    tags: [Law, PI, Discovery, SeparateStatement, MotionToCompel, Assembler, Connective, DraftForReview, FailClosed]
+    tags:
+      [
+        Law,
+        PI,
+        Discovery,
+        SeparateStatement,
+        MotionToCompel,
+        Assembler,
+        Connective,
+        DraftForReview,
+        FailClosed,
+      ]
   smd:
     vertical: law-firm
     addon: pi
