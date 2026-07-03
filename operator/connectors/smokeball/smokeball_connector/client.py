@@ -183,12 +183,12 @@ class SmokeballClient:
             }
         return {"grant_type": "client_credentials", "client_id": self._client_id}
 
-    def _mint_token(self) -> int:
+    def _post_token_request(self) -> httpx.Response:
         basic = base64.b64encode(
             f"{self._client_id}:{self._client_secret}".encode()
         ).decode()
         try:
-            resp = self._http.post(
+            return self._http.post(
                 f"{self.auth_host}/oauth2/token",
                 headers={
                     "Authorization": f"Basic {basic}",
@@ -200,6 +200,32 @@ class SmokeballClient:
             raise SmokeballAuthError(
                 f"token request to {self.auth_host} failed: {exc}"
             ) from exc
+
+    def _reload_refresh_token_from_file(self) -> bool:
+        """Re-read the durable refresh-token file and adopt its token when it
+        differs from the one in memory. Returns True only when a different token
+        was adopted. The file is the canonical seam the Machine-hosted OAuth
+        callback writes on (re-)connect, so it can be newer than this process."""
+        if not (self.auth_mode == "authorization_code" and self._refresh_token_file):
+            return False
+        try:
+            val = open(self._refresh_token_file, encoding="utf-8").read().strip()
+        except OSError:
+            return False
+        if val and val != self._refresh_token:
+            self._refresh_token = val
+            return True
+        return False
+
+    def _mint_token(self) -> int:
+        resp = self._post_token_request()
+        if resp.status_code != 200 and self._reload_refresh_token_from_file():
+            # Self-heal: a rejected refresh grant in a long-running process usually
+            # means a re-connect (OAuth callback) wrote a NEW refresh token to the
+            # durable file while this process still holds the old one in memory —
+            # the MCP server's client is built once and outlives consents. Retry
+            # the mint once with the file's token before failing.
+            resp = self._post_token_request()
         if resp.status_code != 200:
             # Never include the response body verbatim — it can echo the grant.
             raise SmokeballAuthError(

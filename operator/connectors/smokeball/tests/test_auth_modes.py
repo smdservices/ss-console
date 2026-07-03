@@ -287,3 +287,70 @@ def test_build_client_from_env_constructs_and_fail_modes(tmp_path, monkeypatch) 
     monkeypatch.setenv("SMOKEBALL_AUTH_MODE", "authorization_code")
     with pytest.raises(ValueError):
         client.build_client_from_env()
+
+
+# ---- self-heal: stale in-memory refresh token vs newer token file ----------
+def test_rejected_mint_reloads_newer_token_from_file_and_retries(tmp_path) -> None:
+    """A re-connect (OAuth callback) writes a NEW refresh token to the durable
+    file while a long-running process still holds the old one in memory. The
+    mint must re-read the file on rejection and retry once with the new token —
+    the 2026-07-02 pilot-smokeball incident (stale cached MCP client → HTTP 400
+    → breaker open)."""
+    token_file = tmp_path / "refresh-token"
+    token_file.write_text("rt-new\n")
+
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        if request.url.path.endswith("/oauth2/token"):
+            form = parse_qs(request.content.decode())
+            if form["refresh_token"] == ["rt-new"]:
+                return httpx.Response(
+                    200,
+                    json={
+                        "access_token": "zzz-access-secret",
+                        "expires_in": 3600,
+                        "token_type": "Bearer",
+                    },
+                )
+            return httpx.Response(400, json={"error": "invalid_grant"})
+        return httpx.Response(200, json={"ok": True})
+
+    client = _mock_client(
+        handler,
+        auth_mode="authorization_code",
+        refresh_token="rt-stale",
+        refresh_token_file=str(token_file),
+    )
+    client.auth_status()  # must succeed via the reload-retry path
+
+    token_reqs = [r for r in captured if r.url.path.endswith("/oauth2/token")]
+    assert len(token_reqs) == 2  # rejected stale mint, then one retry
+    assert parse_qs(token_reqs[0].content.decode())["refresh_token"] == ["rt-stale"]
+    assert parse_qs(token_reqs[1].content.decode())["refresh_token"] == ["rt-new"]
+    assert client._refresh_token == "rt-new"  # adopted for future mints
+
+
+def test_rejected_mint_with_no_newer_file_token_fails_once(tmp_path) -> None:
+    """When the file holds the SAME token the process already has (a genuinely
+    dead grant), there is nothing to heal with: fail after a single attempt —
+    no blind second mint."""
+    token_file = tmp_path / "refresh-token"
+    token_file.write_text("rt-stale\n")
+
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(400, json={"error": "invalid_grant"})
+
+    client = _mock_client(
+        handler,
+        auth_mode="authorization_code",
+        refresh_token="rt-stale",
+        refresh_token_file=str(token_file),
+    )
+    with pytest.raises(SmokeballAuthError):
+        client.auth_status()
+    assert len(captured) == 1
