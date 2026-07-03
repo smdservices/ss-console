@@ -31,7 +31,8 @@ schema_version: 1
 customer_id: ashton-price
 customer_name: 'Ashton & Price LLP'
 vertical: law-firm
-addons: []
+addons:
+  - law-firm/pi@0.2.0 # the full CA PI-litigation lifecycle pack (19 skills)
 practice_areas:
   - personal-injury-plaintiff
 fly_region: sjc # Fair Oaks (Sacramento), CA — San Jose is the nearest Fly region
@@ -193,13 +194,198 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
-    # The escalator runs on Hermes-native cron; pre_run.py decides whether a
-    # deadline needs the ladder, else writes SUPPRESSED_WAKE.
+      # ---- PI litigation lifecycle (law-firm/pi@0.2.0, staged 2026-07-02) ----
+      # The 19-skill CA PI pack, adversarially gated 2026-07-01. Initiation per
+      # skill: watch/chase/track skills run on the cron block below; assemblers
+      # are person-invoked; served-discovery capture and deficiency review are
+      # webhook-initiable via the matter-inbox-router spine (inbound mail is
+      # routed onward, not triggered directly). Exposure stays governed by the
+      # persona entitlements above.
+      # discovery (deepest — the firm's named slip area)
+      - name: discovery-served-watch # served discovery routed in by the spine
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: true
+        enabled: true
+      - name: discovery-response-tracker # deadline watch, both directions
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      - name: client-verification-tracker # the firm's #1 slip; chase cadence
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      - name: separate-statement-assembler # CRC 3.1345 collation, person-invoked
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: opposing-response-deficiency-review # served responses routed in by the spine
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: true
+        enabled: true
+      - name: meet-and-confer-drafter # drafted only; attorney decides + sends
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: discovery-response-staging # person-invoked staging
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      # case initiation + service
+      - name: matter-initiation-setup # person-invoked at matter open (a matter.created
+        # trigger is a future add once that Smokeball event type is verified live)
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: service-confirmation-watcher # watches InfoTrack confirmations posting to the matter
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      # medical records + chronology
+      - name: medical-records-chaser # weekly chase of outstanding providers
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      - name: medical-chronology-maintainer # checks for newly landed records
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      # motions
+      - name: motion-calendar-tracker # keeps motion deadlines/hearings current
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      - name: motion-package-assembler # person-invoked assembly/staging
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      # minor's compromise
+      - name: minors-compromise-packet # packet assembly manual; GAL/hearing/lien-figure tracking scheduled
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      # trial preparation
+      - name: trial-binder-assembler # binder assembly manual; weekly trial-prep deadline sweep
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      # mediation, settlement, liens
+      - name: mediation-settlement-tracker # weekly conference/998 deadline sweep
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      - name: lien-ledger-tracker # weekly open-payoff chase
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+      - name: settlement-statement-feeder # person-invoked; figures from authored data only
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      # firm-wide surface
+      - name: daily-needs-you-digest # one weekday-morning batched digest
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+    # The escalator runs on Hermes-native cron (ADR 0021 Stream B): pre_run.py
+    # decides whether a deadline needs the ladder, else writes SUPPRESSED_WAKE.
+    # The PI-pack schedules below are staggered (never :00/:30) and weekday- or
+    # weekly-cadenced deliberately — every wake bills tokens, so the cadence
+    # matches how fast each item actually changes.
     cron:
       - skill: deadline-miss-escalator
         schedule: '0 7 * * *' # daily 0700 PT
         pre_run: pre_run.py
         wake_policy: pre_run_decides
+      - skill: daily-needs-you-digest
+        schedule: '23 6 * * 1-5' # weekday 0623 PT — the morning digest
+        wake_policy: always
+      - skill: discovery-response-tracker
+        schedule: '17 7 * * 1-5' # weekday 0717 PT
+        wake_policy: always
+      - skill: client-verification-tracker
+        schedule: '41 7 * * 1-5' # weekday 0741 PT
+        wake_policy: always
+      - skill: motion-calendar-tracker
+        schedule: '27 7 * * 1-5' # weekday 0727 PT
+        wake_policy: always
+      - skill: service-confirmation-watcher
+        schedule: '51 7 * * 1-5' # weekday 0751 PT
+        wake_policy: always
+      - skill: medical-chronology-maintainer
+        schedule: '33 8 * * 1-5' # weekday 0833 PT — after records imports land
+        wake_policy: always
+      - skill: medical-records-chaser
+        schedule: '9 8 * * 2' # weekly Tue 0809 PT
+        wake_policy: always
+      - skill: lien-ledger-tracker
+        schedule: '13 9 * * 2' # weekly Tue 0913 PT
+        wake_policy: always
+      - skill: mediation-settlement-tracker
+        schedule: '43 9 * * 2' # weekly Tue 0943 PT
+        wake_policy: always
+      - skill: minors-compromise-packet
+        schedule: '3 9 * * 3' # weekly Wed 0903 PT — GAL/hearing/lien-figure track
+        wake_policy: always
+      - skill: trial-binder-assembler
+        schedule: '19 9 * * 1' # weekly Mon 0919 PT — trial-prep deadline sweep
+        wake_policy: always
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
       - google-workspace
