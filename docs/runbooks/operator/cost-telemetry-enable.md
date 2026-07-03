@@ -32,7 +32,7 @@ The usage-report API (`/v1/organizations/usage_report/messages`) requires an ADM
 Per-seat attribution comes from per-customer Anthropic workspaces (ADR 0062 decision 2). Usage stays org-level until each Machine's spend is isolated in its own workspace.
 
 1. Create one workspace per live seat at <https://platform.claude.com/settings/workspaces>. Name it after the customer slug (for example `op-ashton-price`).
-2. Move each Machine's Anthropic spend into its workspace: mint a workspace-scoped API key inside the new workspace, stage it to that Machine as its `ANTHROPIC_API_KEY`, and reprovision the Machine (reprovision requires explicit Captain authorization per standing rule). Existing org-default keys cannot be moved between workspaces; a new key per workspace is the path.
+2. Move each Machine's Anthropic spend into its workspace: mint a workspace-scoped API key inside the new workspace and vault it in Infisical `/ss` prod as `ANTHROPIC_API_KEY__<SLUG>` (slug uppercased, dashes to underscores — e.g. `ANTHROPIC_API_KEY__PILOT_SMOKEBALL`) via `crane_secret_set`. `provision-customer.sh` prefers the per-seat key automatically and stages it to the Machine as its `ANTHROPIC_API_KEY`; then reprovision the Machine (reprovision requires explicit Captain authorization per standing rule). Existing org-default keys cannot be moved between workspaces; a new key per workspace is the path.
 3. Author the workspace id (the `wrkspc_...` value shown in the Console) into the central database:
 
    ```bash
