@@ -1,6 +1,11 @@
 ---
 name: motion-calendar-tracker
-description: Keeps each PI matter's motion calendar current from Smokeball - what motions are filed, what is due, and the hearing dates - reading events and tasks and surfacing one accurate, sourced picture per matter. Pure surface: it reads and organizes; it never computes a filing deadline as final (it surfaces for confirm), never drafts or files a motion, never asserts a hearing outcome, and never invents a hearing date or motion status that is not in the record.
+description: >-
+  Keeps each PI matter's motion calendar current from Smokeball - what motions are filed, what is
+  due, and the hearing dates - reading events and tasks and surfacing one accurate, sourced
+  picture per matter. Pure surface: it reads and organizes; it never computes a filing deadline as
+  final (it surfaces for confirm), never drafts or files a motion, never asserts a hearing
+  outcome, and never invents a hearing date or motion status that is not in the record.
 version: 0.1.0
 author: SMD Services
 license: MIT

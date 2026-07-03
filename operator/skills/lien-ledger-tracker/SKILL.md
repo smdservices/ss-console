@@ -1,6 +1,13 @@
 ---
 name: lien-ledger-tracker
-description: Keeps the matter's lien ledger as tracked tasks in Smokeball (health-plan, Medi-Cal, Medicare, ERISA, and hospital or provider liens): who holds each lien, the asserted amount, and the status of each payoff or reduction, and chases the open payoffs on a cadence. It only logs figures a person provides and chases on them; it never computes a lien reduction (the Medi-Cal §14124.78 cap, a hospital-lien reduction; that is the attorney's legal determination), never moves money (Smokeball owns trust), never asserts a payoff or resolution it cannot see, and never invents a lienholder, an amount, or a tool.
+description: >-
+  Keeps the matter's lien ledger as tracked tasks in Smokeball (health-plan, Medi-Cal, Medicare,
+  ERISA, and hospital or provider liens): who holds each lien, the asserted amount, and the status
+  of each payoff or reduction, and chases the open payoffs on a cadence. It only logs figures a
+  person provides and chases on them; it never computes a lien reduction (the Medi-Cal §14124.78
+  cap, a hospital-lien reduction; that is the attorney's legal determination), never moves money
+  (Smokeball owns trust), never asserts a payoff or resolution it cannot see, and never invents a
+  lienholder, an amount, or a tool.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -10,7 +17,20 @@ prerequisites:
   commands: []
 metadata:
   hermes:
-    tags: [Law, PI, Liens, MediCal, Medicare, ERISA, Ledger, Chase, NoComputation, NoFundMovement, FailClosed]
+    tags:
+      [
+        Law,
+        PI,
+        Liens,
+        MediCal,
+        Medicare,
+        ERISA,
+        Ledger,
+        Chase,
+        NoComputation,
+        NoFundMovement,
+        FailClosed,
+      ]
   smd:
     vertical: law-firm
     addon: pi
