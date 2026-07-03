@@ -10,6 +10,8 @@ sources:
     href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0021-leverage-hermes-native-primitives.md
   - label: ADR 0045 - Mediated Connector Capability Broker
     href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0045-mediated-connector-capability-broker.md
+  - label: ADR 0057 - Operator Claude-connector access model
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0057-operator-claude-connector-access-model.md
   - label: operator/README.md - connector code location
     href: https://github.com/venturecrane/ss-console/blob/main/operator/README.md
 ---
@@ -63,7 +65,7 @@ A channel carries a message in and a message out. It holds none of the worker's 
 - **Inbound email** - `crane@smd.services`, allow-list gated. Only senders on the authored allow-list can reach the worker by email; everything else is dropped. The inbound path routes the message body to the worker through the gateway.
 - **Outbound Gmail push** - event-driven outbound, so the Operator can send (under whatever send-posture the engagement authored) rather than only reply when polled.
 - **Voice** - a voice-synthesis backend plus a transform hook, so the Operator can speak in the customer's authored voice. Voice is a separate concern from the worker's personality; the channel renders, it does not decide.
-- **Conversational MCP channel** - an MCP connection with Clerk authentication supporting multi-turn conversation. This is the "just talk to it" front door: one verb, the worker on the other end. Clerk identity gates who is talking; the authored entitlements govern what the worker will do for them.
+- **Conversational MCP channel** - an MCP connection (the Claude custom connector) supporting multi-turn conversation. This is the "just talk to it" front door: one verb, the worker on the other end. Access follows the ADR 0057 model: Clerk per-user OAuth proves who is talking, but authorization is a row in the `mcp_issued_grants` table, read live on every request - the instant kill switch. An explicit revoke cuts access on the next call, and every grant carries a bounded `expires_at` (there is no forever grant). Who may connect is authored per firm in `customer.yaml` (`allowlist` by default, or verified firm-domain JIT under `open`). The §4 screening-attestation gate was ripped out by the 2026-06-29 amendment: access fails closed on authorization, never on paperwork. Per the 2026-07-02 console-sole amendment, the Machine's direct public `/mcp` door is closed (410 Gone); every Claude request flows through the console's `ask_operator` sync-proxy, which checks the grant per request and forwards the turn to the Machine's authenticated `/mcp/turn` endpoint. The authored entitlements still govern what the worker will do once a caller is through.
 
 ### The managed-mailbox capability
 

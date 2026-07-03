@@ -54,7 +54,7 @@ The core working flow is a single path: a business enters as a lead, moves throu
 
 ### Leads list (`/admin/entities`)
 
-The unified lead working view. It tabs by stage with a count badge per tab and a pipeline dropdown filter (Review Mining, Job Monitor, New Business, Social Listening). Each stage hydrates its rows differently, because what you need to see about a raw signal is not what you need to see about a lead in proposing:
+The unified lead working view. It tabs by stage with a count badge per tab and a pipeline dropdown filter (Review Mining, Job Monitor - a legacy-provenance filter over rows the retired pipelines created). Each stage hydrates its rows differently, because what you need to see about a raw signal is not what you need to see about a lead in proposing:
 
 - **signal** - the evidence from the latest pipeline signal plus a last-activity timestamp.
 - **prospect** - whether an outreach draft exists, and the first contact email.
@@ -67,18 +67,18 @@ Bulk select and bulk actions are offered only on the `signal`, `prospect`, and `
 
 ### Lead detail (`/admin/entities/[id]`)
 
-The decision surface for one business. It shows an identity strip (name, stage, tier, pain score out of ten, vertical, area), an enrichment summary rendered from any enrichment data left on legacy entity rows (pain observations, address, when it was generated), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form. A right-hand decision rail carries the stage-appropriate actions and surfaces missing-data warnings (no pain score, no contacts) and stale-outreach-draft warnings.
+The decision surface for one business. It shows an identity strip (the signal source, the business name, an actor-role chip, the vertical when one is recorded, the stage, and how long the entity has been in it - see `EntityIdentityStrip.astro`), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form, followed by collapsible rollups of the entity's meetings, engagements, quotes, and invoices.
 
-The actions on the rail each hit an endpoint under `src/pages/api/admin/entities/[id]/`:
+The mutations each hit an endpoint under `src/pages/api/admin/entities/[id]/`:
 
-- **Promote** (`promote`) - moves signal to prospect and schedules the follow-up cadence.
-- **Send booking link** (`send-booking-link`) - creates a meeting, transitions prospect to meetings, and sends the booking email.
-- **Draft quote** (`quotes`) - creates an empty draft quote shell (preconditions: not already engaged, no open quote, a prior meeting exists).
-- **Add note** (`context`) - appends a note to the timeline.
+- **Add note** (`context`) - appends a note to the timeline, from the detail page's inline form.
+- **Log reply** (`reply-log`) - records an inbound reply as a context entry.
+- **Send booking link** (`send-booking-link`) - on a prospect, creates a meeting, transitions prospect to meetings, and sends the booking email.
+- **Promote** (`promote`) and **Dismiss** (`dismiss`) - signal-stage row actions on the leads list; promote moves signal to prospect and schedules the follow-up cadence.
 - **Stage change** (`stage`) - transitions stage against a valid-transition table, optionally recording a lost reason and detail.
 - **Merge** (`merge`) - folds a duplicate entity into this one.
 
-The automated enrichment pipeline that used to populate the enrichment summary (the `entities/[id]/enrichment/` and `dossier` endpoints, the Re-enrich action) was retired with the lead-gen machine on 2026-07-01 (PRs #1610/#1616); only enrichment data already stored on legacy rows still renders.
+The automated enrichment pipeline and its detail-page surfaces (the enrichment summary, the Re-enrich action, the pain-score and tier readouts, and the missing-data warnings built on them) were retired with the lead-gen machine on 2026-07-01 (PRs #1610/#1616, ADR 0060); migration 0081 dropped the scoring columns, and the detail page no longer renders an enrichment block.
 
 ### Meeting detail (`/admin/entities/[id]/meetings/[meetingId]`)
 
