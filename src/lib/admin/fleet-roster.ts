@@ -222,20 +222,32 @@ const HEALTH_RANK: Record<RosterHealthColor, number> = { green: 0, gray: 1, yell
 export function rosterHealth(
   heartbeatColor: RosterHealthColor,
   heartbeatLabel: string,
-  summaryStatus: SummaryStatus | null
+  summaryStatus: SummaryStatus | null,
+  stickyStopLevel: string | null = null
 ): RosterHealth {
-  const escalation: RosterHealthColor | null =
+  // The cost breaker (ADR 0062, fleet_status.sticky_stop_level) escalates
+  // like the summary: SOFT_STOP -> yellow, HARD_STOP -> red. It can never
+  // calm a dot; a tripped breaker on a live-green Machine must show.
+  const breakerEscalation: RosterHealthColor | null =
+    stickyStopLevel === 'HARD_STOP' ? 'red' : stickyStopLevel === 'SOFT_STOP' ? 'yellow' : null
+  const summaryEscalation: RosterHealthColor | null =
     summaryStatus === 'red' ? 'red' : summaryStatus === 'yellow' ? 'yellow' : null
-  const color =
-    escalation && HEALTH_RANK[escalation] > HEALTH_RANK[heartbeatColor]
-      ? escalation
-      : heartbeatColor
+  let color = heartbeatColor
+  for (const escalation of [summaryEscalation, breakerEscalation]) {
+    if (escalation && HEALTH_RANK[escalation] > HEALTH_RANK[color]) color = escalation
+  }
+  // The breaker note wins when both fire: a hard-stopped operator is the
+  // more actionable fact (recovery is a Captain clear, not investigation).
   const note =
-    summaryStatus === 'red'
-      ? 'operator reports a problem'
-      : summaryStatus === 'yellow'
-        ? 'operator reports a warning'
-        : null
+    stickyStopLevel === 'HARD_STOP'
+      ? 'cost breaker hard stop'
+      : stickyStopLevel === 'SOFT_STOP'
+        ? 'cost breaker soft stop'
+        : summaryStatus === 'red'
+          ? 'operator reports a problem'
+          : summaryStatus === 'yellow'
+            ? 'operator reports a warning'
+            : null
   return { color, label: heartbeatLabel, note }
 }
 

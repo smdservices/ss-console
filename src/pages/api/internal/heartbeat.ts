@@ -17,7 +17,8 @@
  *     "last_audit_ts":           <ISO 8601 UTC>,   // optional
  *     "last_skill_ts":           <ISO 8601 UTC>,   // optional
  *     "process_uptime_seconds":  <integer>,        // optional
- *     "version":                 <string>          // optional
+ *     "version":                 <string>,         // optional
+ *     "sticky_stop_level":       <string>          // optional (ADR 0062)
  *   }
  *
  * The handler doesn't trust the Machine's `heartbeat_status` — it derives
@@ -46,7 +47,12 @@ interface HeartbeatBody {
   last_skill_ts?: string
   process_uptime_seconds?: number
   version?: string
+  sticky_stop_level?: string
 }
+
+// The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
+// Anything else is stored as NULL — never guess a level from junk input.
+const STICKY_STOP_LEVELS = new Set(['OK', 'WARN', 'SOFT_STOP', 'HARD_STOP', 'unknown'])
 
 export const POST: APIRoute = async ({ request }) => {
   const auth = await verifyMachineRequest(request, env.MACHINE_HEARTBEAT_KEY, env.DB)
@@ -71,11 +77,19 @@ export const POST: APIRoute = async ({ request }) => {
     DEFAULT_GRACE_MINUTES
   )
 
+  // sticky_stop_level overwrites every beat, INCLUDING back to NULL when the
+  // Machine stops reporting one — a stale pinned level must not outlive the
+  // signal that produced it (absence renders as unknown, never as OK).
+  const stickyStopLevel =
+    typeof body.sticky_stop_level === 'string' && STICKY_STOP_LEVELS.has(body.sticky_stop_level)
+      ? body.sticky_stop_level
+      : null
+
   await env.DB.prepare(
     `INSERT INTO fleet_status (
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
-       process_uptime_seconds, version, heartbeat_status, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       process_uptime_seconds, version, heartbeat_status, sticky_stop_level, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(entity_id) DO UPDATE SET
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
        last_audit_ts           = COALESCE(excluded.last_audit_ts, fleet_status.last_audit_ts),
@@ -83,6 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
        process_uptime_seconds  = COALESCE(excluded.process_uptime_seconds, fleet_status.process_uptime_seconds),
        version                 = COALESCE(excluded.version, fleet_status.version),
        heartbeat_status        = excluded.heartbeat_status,
+       sticky_stop_level       = excluded.sticky_stop_level,
        updated_at              = datetime('now')`
   )
     .bind(
@@ -93,7 +108,8 @@ export const POST: APIRoute = async ({ request }) => {
       body.last_skill_ts ?? null,
       typeof body.process_uptime_seconds === 'number' ? body.process_uptime_seconds : null,
       typeof body.version === 'string' ? body.version : null,
-      heartbeatStatus
+      heartbeatStatus,
+      stickyStopLevel
     )
     .run()
 

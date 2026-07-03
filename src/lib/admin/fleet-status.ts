@@ -25,6 +25,8 @@ export interface FleetStatusRow {
   process_uptime_seconds: number | null
   version: string | null
   heartbeat_status: 'green' | 'yellow' | 'red' | 'unknown'
+  /** Cost-breaker ladder level from the Machine (ADR 0062); NULL = not reported. */
+  sticky_stop_level: string | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -34,7 +36,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
   const result = await db
     .prepare(
       `SELECT entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
-              process_uptime_seconds, version, heartbeat_status,
+              process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`

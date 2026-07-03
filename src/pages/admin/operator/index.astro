@@ -84,7 +84,12 @@ const views: RosterView[] = roster.map((customer) => {
   const summary = summaryFor(customer)
   const fleet = fleetFor(customer)
   const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
-  const health = rosterHealth(hb.color, hb.label, summary?.summary_status ?? null)
+  const health = rosterHealth(
+    hb.color,
+    hb.label,
+    summary?.summary_status ?? null,
+    fleet?.sticky_stop_level ?? null
+  )
   const names = customer.personas.map((p) => p.name).filter(Boolean)
   return {
     customer,

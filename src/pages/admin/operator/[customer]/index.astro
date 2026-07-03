@@ -69,7 +69,12 @@ const subscription =
   config && entityId ? await getProductSubscription(env.DB, entityId, 'operator') : null
 
 const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
-const health = rosterHealth(hb.color, hb.label, summary?.summary_status ?? null)
+const health = rosterHealth(
+  hb.color,
+  hb.label,
+  summary?.summary_status ?? null,
+  fleet?.sticky_stop_level ?? null
+)
 const posture = config ? posturePill(config.authority) : null
 const domainRows = config ? domainAuthoritySummary(config.authority) : []
 const smdOnly = smdOnlyDomains()
