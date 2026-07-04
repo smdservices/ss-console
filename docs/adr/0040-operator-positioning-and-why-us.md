@@ -64,6 +64,22 @@ These were correct-at-the-time mechanisms or shorthand that drifted into _identi
 - Watch-list: **Clio** (incumbent on the system of record — "assistant → staff" is the canary), **Caseflood / CaseGen / LawFirmIgnite / Blueshoe** (legal entrants), **Legal Soft VA+** (managed staffing with the architecture inverted — human-operator/AI-tool), **Vendasta-armed agencies** (commoditization from below), **Anthropic** (nearest architectural neighbor and our own substrate — engine-agnosticism is the hedge).
 - The deep edges (per-customer isolation, firm voice, compounding memory) **hold on competitors' silence, not on disproof.** Making them **provable and demonstrable** — the onboarding teach-back, the employee manual on screen, the journal showing a correction holding — is the highest-leverage product work, because it converts three claims into a moat. Treat incumbents as connection targets, not rivals ([ADR 0037](./0037-operator-thesis.md) Tenet 1).
 
+## Amendment (2026-07-04) — Competitive response: managed vertical platforms (EvenUp-class)
+
+Captain decision, 2026-07-04 (issue [#1685](https://github.com/venturecrane/ss-console/issues/1685)), from the strategic-review finding that the pilot vertical acquired its first funded adjacent competitor after this ADR was written: **EvenUp** ($2B valuation, $150M Series E) launched Pre-Litigation-as-a-Service in May 2026 — AI plus their own US-based case-management staff running the PI pre-lit lifecycle (claim setup, records retrieval, demand prep, carrier negotiation, lien resolution), with more than $10M in subscriptions during early testing. "Nobody does this" is no longer sayable in PI pre-lit, and a prospect will raise them. **Eve** (nightly Auditor + drafting/chasing agents) is the closest software-only overlap; intake AI (Smith.ai, Gideon, Lawmatics) competes for one slice of the coordinator job.
+
+**The counter-story is custody, coverage, configurability — in that order:**
+
+1. **Custody.** PLAAS is a platform the firm routes matters through; the Operator is the firm's own employee inside the firm's own systems — their Smokeball, their entitlements, their audit trail, their voice, their governance. The work never leaves the firm's custody, and the memory the Operator builds belongs to the firm's seat, not to a vendor's platform (the "deep edges" above are exactly what an outsourced pre-lit vendor cannot offer).
+2. **Coverage.** PLAAS is pre-lit only. The Operator covers what pre-lit isn't: the litigation phase, calendaring, vendor chasing, intake coordination, internal ops — the connective tissue across everything the firm runs, which is the hire it replaces (ADR 0037 Tenet 1).
+3. **Configurability.** The Operator is authored per firm, not a bet on one practice-area workflow that a vertical vendor commoditizes.
+
+**The honest-broker beat is part of the answer, not a concession:** for a firm whose need is pure pre-lit demand volume, PLAAS is a reasonable buy, and we say so plainly — the Operator can work alongside it, coordinating the parts PLAAS doesn't touch. This keeps the answer in the guide's voice and out of competitor-bashing.
+
+**Where this lives (naming posture):** competitors are never named on public pages. The frame lives here and in the derived talk-track objection block (`docs/collateral/operator-law-talk-track.md`), used when a prospect raises them. The law pack page already carries the custody frame implicitly and stays as-is until the A&P proof lands — proven copy is not reworked ahead of proof.
+
+**Tripwire:** EvenUp expanding beyond pre-lit into general firm operations triggers an out-of-cycle competitive note and a re-read of this frame. The §Competitive posture watch-list is extended accordingly.
+
 ## GTM (parked here for continuity, not decided here)
 
 Getting in front of firms is a **trust-borrowing**, not an awareness, problem. The chosen first lever is **trusted intermediaries** who already serve small firms and feel their operational mess as their own (legal bookkeepers / trust-accounting specialists and Clio Certified Consultants first; fractional CFOs phase-1.5; malpractice carriers and bar practice-management advisors later). Founder-led direct outreach is right for the first cohort but should carry one degree of warmth and lead with a ten-minute live demo, not a pitch. A first-cohort intermediary target list is compiled. This track is parked; it is referenced here for continuity.

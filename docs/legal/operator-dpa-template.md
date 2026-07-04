@@ -31,7 +31,7 @@ SMD implements the measures described in its Security Overview (published at smd
 
 ## 4. Sub-processors
 
-4.1. Client authorizes the sub-processors listed in Exhibit A. SMD will notify Client at least **\_\_** days before adding or replacing a sub-processor that will process Client Data, and Client may object on reasonable grounds relating to data protection.
+4.1. Client authorizes the sub-processors listed in Exhibit A. SMD will notify Client at least **30** days before adding or replacing a sub-processor that will process Client Data, and Client may object on reasonable grounds relating to data protection. (Standard term per ADR 0065.)
 
 4.2. SMD remains responsible for its sub-processors' performance of this DPA's obligations.
 
@@ -41,13 +41,13 @@ SMD limits access to Client Data to personnel and processes that need it to deli
 
 ## 6. Incident notification
 
-SMD will notify Client without undue delay, and in any case within **\_\_** hours, after becoming aware of a security incident affecting Client Data, will provide information reasonably required for Client's own notification obligations as it becomes available, and will cooperate in the investigation and remediation.
+SMD will notify Client without undue delay, and in any case within **24** hours, after becoming aware of a security incident affecting Client Data, will provide information reasonably required for Client's own notification obligations as it becomes available, and will cooperate in the investigation and remediation. (Standard term per ADR 0064, matching SMD's standing partner-review commitment.)
 
 ## 7. Return and deletion
 
 7.1. During the term, Client may export its governance records from the client portal and may request an evidence packet at any time.
 
-7.2. On termination of the Agreement, SMD will: (a) deliver Client's audit record and the Operator's operational memory in exportable form; (b) revoke all access grants and connection credentials; (c) destroy Client's dedicated machine and volume; and (d) delete residual Client Data from the control plane, excepting records SMD must retain for legal, tax, or accounting purposes. Return and destruction are completed within **\_\_** days of termination, and SMD will confirm destruction in writing on request.
+7.2. On termination of the Agreement, SMD will: (a) deliver Client's audit record and the Operator's operational memory in exportable form, within 14 days of the termination effective date; (b) revoke all access grants and connection credentials; (c) destroy Client's dedicated machine and volume; and (d) delete residual Client Data from the control plane, excepting records SMD must retain for legal, tax, or accounting purposes. Return and destruction are completed within **30** days of termination, and SMD will confirm destruction in writing on request. (Standard terms per ADR 0065.)
 
 ## 8. Assistance and audits
 
@@ -79,4 +79,4 @@ Google Workspace appears as a sub-processor only for engagements where Client co
 
 ---
 
-**Completion checklist (per engagement, at signing):** notice period for sub-processor changes (§4.1); incident notification window (§6, keep consistent with the Security Overview commitments); return and destruction window (§7.2); governing law inherited from the Agreement.
+**Completion checklist (per engagement, at signing):** the standard terms above (30 days §4.1, 24 hours §6, 30 days §7.2) are the ADR 0064/0065 defaults; override per engagement only with a recorded reason. Governing law is inherited from the Agreement.
