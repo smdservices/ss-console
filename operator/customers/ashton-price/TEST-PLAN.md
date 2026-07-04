@@ -106,13 +106,13 @@ exercised is locked in
 `operator/connectors/smokeball/tests/test_document_writes.py`. Manual
 web-UI seeding covers a bounded starter set in the interim.
 
-**Credential handling.** App 2's rollout overwrote
-`SMOKEBALL_STAGING_CLIENT_ID/SECRET` in `/ss` (value prefix-verified
-2026-07-04) — App 1's credentials are not in the vault. Retrieve them from
-the Smokeball Developer Console and store under the separate
-`SMOKEBALL_SEED_*` keys; never write to the `SMOKEBALL_STAGING_*` /
-`SMOKEBALL_PROD_*` names App 2 depends on. Verify with a live token mint
-before relying on them (`IMPLEMENTATION-PLAN.md` M1).
+**Credential handling.** App 1's credentials live under the separate
+`SMOKEBALL_SEED_CLIENT_ID` / `SMOKEBALL_SEED_CLIENT_SECRET` keys in `/ss`
+(captured + live-verified including a full document upload, 2026-07-04 —
+`vfy_01KWQN1EYR3N41YVP5W3YYMJVX`). Never write to the `SMOKEBALL_STAGING_*` /
+`SMOKEBALL_PROD_*` names — App 2's rollout overwrote them once already and
+App 2 depends on both pairs. The US API key is account-scoped;
+`SMOKEBALL_STAGING_API_KEY` serves App 1 too (`IMPLEMENTATION-PLAN.md` M1).
 
 Seeding is test-infrastructure hydration on our own tenant. It is distinct
 from standing gate (b), which governs delivery writes on the client's
