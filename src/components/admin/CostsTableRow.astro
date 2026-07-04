@@ -27,9 +27,7 @@ export interface CostsRowCard {
   entity_name: string | null
   subscription_status: string | null
   monthly_revenue_cents: number | null
-  per_customer_d1_database_id: string | null
   error: string | null
-  skippedReason: string | null
 }
 
 interface Props {
@@ -39,7 +37,6 @@ interface Props {
   rollingAvgDailyCents: number | null
   monthlyEstimateCents: number
   ratio: CogsRatio
-  cfConfigMissing: boolean
   windowStart: string
   windowEnd: string
   formatCurrency: (cents: number) => string
@@ -54,7 +51,6 @@ const {
   rollingAvgDailyCents,
   monthlyEstimateCents,
   ratio,
-  cfConfigMissing,
   windowStart,
   windowEnd,
   formatCurrency,
@@ -63,7 +59,8 @@ const {
 } = Astro.props
 
 const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
-const exportable = card.per_customer_d1_database_id && !cfConfigMissing
+// Central table (ADR 0062): every customer is exportable unless the read errored.
+const exportable = !card.error
 const showSentry24h =
   fleet?.sentry_errors_last_24h !== null && fleet?.sentry_errors_last_24h !== undefined
 const sentryTitle = fleet ? `Synced ${relativeTimestamp(fleet.sentry_errors_synced_at)}` : ''
@@ -88,7 +85,7 @@ const sentryTitle = fleet ? `Synced ${relativeTimestamp(fleet.sentry_errors_sync
   </td>
   <td class="py-3 text-right text-[color:var(--ss-color-text-primary)]">
     {
-      card.error || card.skippedReason ? (
+      card.error ? (
         <span class="text-[color:var(--ss-color-text-muted)]">—</span>
       ) : (
         formatCurrency(cogs30dCents)
@@ -106,7 +103,7 @@ const sentryTitle = fleet ? `Synced ${relativeTimestamp(fleet.sentry_errors_sync
   </td>
   <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
     {
-      card.error || card.skippedReason ? (
+      card.error ? (
         <span class="text-[color:var(--ss-color-text-muted)]">—</span>
       ) : (
         <span title="30-day COGS scaled to a 30.4375-day month">

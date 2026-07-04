@@ -1,18 +1,38 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
-  ingestAnthropic,
-  runIngestForCustomer,
+  ORG_INPUT_DRIVER,
+  ORG_OUTPUT_DRIVER,
+  ORG_SLUG,
+  UNMAPPED_SLUG,
+  loadWorkspaceMapping,
+  runIngest,
   type AnthropicSource,
   type AnthropicUsageRow,
-  type CustomerIngestContext,
-  type D1HttpClient,
+  type CentralDb,
 } from './ingest'
 import { anthropicPricing, computeAnthropicCents } from './pricing'
+import { run, type Env } from './index'
 
-class FakeD1 implements D1HttpClient {
-  public calls: Array<{ databaseId: string; sql: string; params: unknown[] }> = []
-  async execute(databaseId: string, sql: string, params: unknown[]): Promise<void> {
-    this.calls.push({ databaseId, sql, params })
+/** In-memory fake of the central D1 binding slice the ingest uses. */
+class FakeDb implements CentralDb {
+  public mappingRows: Array<{ customer_slug: string; anthropic_workspace_id: string }> = []
+  public writes: Array<{ sql: string; params: unknown[] }> = []
+
+  prepare(sql: string) {
+    return {
+      bind: (...params: unknown[]) => ({
+        run: async () => {
+          this.writes.push({ sql, params })
+        },
+        all: async <T>() => ({ results: [] as T[] }),
+      }),
+      all: async <T>() => {
+        if (sql.includes('FROM customer_configs')) {
+          return { results: this.mappingRows as unknown as T[] }
+        }
+        return { results: [] as T[] }
+      },
+    }
   }
 }
 
@@ -27,11 +47,17 @@ class FakeAnthropic implements AnthropicSource {
   }
 }
 
+function paramsFor(db: FakeDb, slug: string, driver: string): unknown[] | undefined {
+  return db.writes.find((w) => w.params[0] === slug && w.params[2] === driver)?.params
+}
+
 describe('pricing JSON shape', () => {
   it('anthropic pricing has expected models', () => {
     expect(anthropicPricing.models['claude-opus-4-7']).toBeDefined()
     expect(anthropicPricing.models['claude-opus-4-7'].input_per_million_cents).toBe(1500)
     expect(anthropicPricing.models['claude-opus-4-7'].output_per_million_cents).toBe(7500)
+    // #1658 added claude-opus-4-8; the fleet model selection depends on it.
+    expect(anthropicPricing.models['claude-opus-4-8']).toBeDefined()
   })
 })
 
@@ -51,72 +77,154 @@ describe('cents math', () => {
   })
 })
 
-describe('ingestAnthropic', () => {
-  it('writes two rows when both token totals are positive', async () => {
-    const d1 = new FakeD1()
-    const src = new FakeAnthropic([
-      { model: 'claude-opus-4-7', inputTokens: 1_000_000, outputTokens: 500_000 },
-    ])
-    const result = await ingestAnthropic(d1, 'db-1', src, 'k', '2026-05-22')
-    expect(result.ok).toBe(true)
-    expect(result.rowsWritten).toBe(2)
-    expect(d1.calls).toHaveLength(2)
-    expect(d1.calls[0].params[1]).toBe('claude_api_input_tokens')
-    expect(d1.calls[1].params[1]).toBe('claude_api_output_tokens')
-  })
-
-  it('writes zero rows when token totals are zero', async () => {
-    const d1 = new FakeD1()
-    const src = new FakeAnthropic([])
-    const result = await ingestAnthropic(d1, 'db-1', src, 'k', '2026-05-22')
-    expect(result.ok).toBe(true)
-    expect(result.rowsWritten).toBe(0)
-    expect(d1.calls).toHaveLength(0)
-  })
-
-  it('returns ok=false when source throws', async () => {
-    const d1 = new FakeD1()
-    const src = new FakeAnthropic([], new Error('HTTP 503'))
-    const result = await ingestAnthropic(d1, 'db-1', src, 'k', '2026-05-22')
-    expect(result.ok).toBe(false)
-    expect(result.reason).toContain('503')
-    expect(d1.calls).toHaveLength(0)
+describe('loadWorkspaceMapping', () => {
+  it('maps workspace ids to customer slugs', async () => {
+    const db = new FakeDb()
+    db.mappingRows = [
+      { customer_slug: 'acme', anthropic_workspace_id: 'wrkspc_1' },
+      { customer_slug: 'globex', anthropic_workspace_id: 'wrkspc_2' },
+    ]
+    const map = await loadWorkspaceMapping(db)
+    expect(map.get('wrkspc_1')).toBe('acme')
+    expect(map.get('wrkspc_2')).toBe('globex')
+    expect(map.size).toBe(2)
   })
 })
 
-describe('runIngestForCustomer', () => {
-  it('aggregates the anthropic source outcome', async () => {
-    const d1 = new FakeD1()
-    const ctx: CustomerIngestContext = {
-      customerSlug: 'acme',
-      perCustomerDatabaseId: 'db-acme',
-      anthropicApiKey: 'k',
-    }
-    const result = await runIngestForCustomer(
-      ctx,
-      d1,
-      new FakeAnthropic([{ model: 'claude-opus-4-7', inputTokens: 100, outputTokens: 200 }]),
-      '2026-05-22'
-    )
-    const sourceNames = result.sources.map((s) => s.source)
-    expect(sourceNames).toContain('anthropic_billing')
+describe('runIngest', () => {
+  it('writes per-seat rows keyed by the mapped customer_slug', async () => {
+    const db = new FakeDb()
+    db.mappingRows = [{ customer_slug: 'acme', anthropic_workspace_id: 'wrkspc_1' }]
+    const src = new FakeAnthropic([
+      {
+        workspaceId: 'wrkspc_1',
+        model: 'claude-opus-4-7',
+        inputTokens: 1_000_000,
+        outputTokens: 500_000,
+      },
+    ])
+    const result = await runIngest(db, src, 'admin-key', '2026-07-02')
+    expect(result.ok).toBe(true)
+
+    const input = paramsFor(db, 'acme', 'claude_api_input_tokens')
+    const output = paramsFor(db, 'acme', 'claude_api_output_tokens')
+    expect(input).toBeDefined()
+    expect(output).toBeDefined()
+    expect(input![1]).toBe('2026-07-02')
+    expect(input![3]).toBe(1500) // 1M input tokens at 1500c/M
+    expect(input![4]).toBe(1_000_000)
+    expect(output![3]).toBe(3750) // 0.5M output tokens at 7500c/M
+    expect(result.centsWritten).toBe(1500 + 3750)
   })
 
-  it('captures an anthropic source failure', async () => {
-    const d1 = new FakeD1()
-    const ctx: CustomerIngestContext = {
-      customerSlug: 'acme',
-      perCustomerDatabaseId: 'db-acme',
-      anthropicApiKey: 'k',
-    }
-    const result = await runIngestForCustomer(
-      ctx,
-      d1,
+  it('aggregates multiple models within one workspace into one row pair', async () => {
+    const db = new FakeDb()
+    db.mappingRows = [{ customer_slug: 'acme', anthropic_workspace_id: 'wrkspc_1' }]
+    const src = new FakeAnthropic([
+      {
+        workspaceId: 'wrkspc_1',
+        model: 'claude-opus-4-7',
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+      },
+      {
+        workspaceId: 'wrkspc_1',
+        model: 'claude-opus-4-8',
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+      },
+    ])
+    await runIngest(db, src, 'admin-key', '2026-07-02')
+    const input = paramsFor(db, 'acme', 'claude_api_input_tokens')
+    expect(input![4]).toBe(2_000_000)
+    // acme input+output(absent) + _org pair
+    expect(db.writes.filter((w) => w.params[0] === 'acme')).toHaveLength(1)
+  })
+
+  it('routes unmapped workspace usage to _unmapped and names the workspace', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const db = new FakeDb()
+    const src = new FakeAnthropic([
+      {
+        workspaceId: 'wrkspc_ghost',
+        model: 'claude-opus-4-7',
+        inputTokens: 100_000,
+        outputTokens: 100_000,
+      },
+    ])
+    const result = await runIngest(db, src, 'admin-key', '2026-07-02')
+    expect(result.unmappedWorkspaceIds).toEqual(['wrkspc_ghost'])
+    expect(paramsFor(db, UNMAPPED_SLUG, 'claude_api_input_tokens')).toBeDefined()
+    expect(warn.mock.calls.some((c) => String(c[0]).includes('wrkspc_ghost'))).toBe(true)
+    warn.mockRestore()
+  })
+
+  it('routes default-workspace (null) usage to _unmapped', async () => {
+    const db = new FakeDb()
+    const src = new FakeAnthropic([
+      { workspaceId: null, model: 'claude-opus-4-7', inputTokens: 10_000, outputTokens: 0 },
+    ])
+    const result = await runIngest(db, src, 'admin-key', '2026-07-02')
+    expect(paramsFor(db, UNMAPPED_SLUG, 'claude_api_input_tokens')).toBeDefined()
+    expect(result.unmappedWorkspaceIds).toEqual([])
+  })
+
+  it('always writes the _org reconciliation pair, summing all workspaces', async () => {
+    const db = new FakeDb()
+    db.mappingRows = [{ customer_slug: 'acme', anthropic_workspace_id: 'wrkspc_1' }]
+    const src = new FakeAnthropic([
+      {
+        workspaceId: 'wrkspc_1',
+        model: 'claude-opus-4-7',
+        inputTokens: 1_000_000,
+        outputTokens: 0,
+      },
+      { workspaceId: null, model: 'claude-opus-4-7', inputTokens: 1_000_000, outputTokens: 0 },
+    ])
+    const result = await runIngest(db, src, 'admin-key', '2026-07-02')
+    const orgInput = paramsFor(db, ORG_SLUG, ORG_INPUT_DRIVER)
+    const orgOutput = paramsFor(db, ORG_SLUG, ORG_OUTPUT_DRIVER)
+    expect(orgInput![4]).toBe(2_000_000)
+    expect(orgInput![3]).toBe(3000)
+    expect(orgOutput![3]).toBe(0)
+    // org rows are reconciliation, not attribution: excluded from centsWritten
+    expect(result.centsWritten).toBe(3000)
+    expect(result.slugs).toContain(ORG_SLUG)
+  })
+
+  it('writes the zero _org pair even with no usage at all', async () => {
+    const db = new FakeDb()
+    const result = await runIngest(db, new FakeAnthropic([]), 'admin-key', '2026-07-02')
+    expect(result.ok).toBe(true)
+    expect(paramsFor(db, ORG_SLUG, ORG_INPUT_DRIVER)![3]).toBe(0)
+    expect(db.writes).toHaveLength(2)
+  })
+
+  it('returns ok=false without writing when the usage fetch fails', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const db = new FakeDb()
+    const result = await runIngest(
+      db,
       new FakeAnthropic([], new Error('HTTP 503')),
-      '2026-05-22'
+      'admin-key',
+      '2026-07-02'
     )
-    const byName = Object.fromEntries(result.sources.map((s) => [s.source, s]))
-    expect(byName.anthropic_billing.ok).toBe(false)
-    expect(result.anyFailures).toBe(true)
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('503')
+    expect(db.writes).toHaveLength(0)
+    err.mockRestore()
+  })
+})
+
+describe('run (worker shell)', () => {
+  it('logs one error and exits cleanly when ANTHROPIC_ADMIN_KEY is missing', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const env = { DB: new FakeDb() as unknown as D1Database } as Env
+    const result = await run(env, '2026-07-02')
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('ANTHROPIC_ADMIN_KEY')
+    expect(result.rowsWritten).toBe(0)
+    expect(err).toHaveBeenCalledTimes(1)
+    err.mockRestore()
   })
 })

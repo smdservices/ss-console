@@ -326,44 +326,45 @@ personas:
     # decides whether a deadline needs the ladder, else writes SUPPRESSED_WAKE.
     # The PI-pack schedules below are staggered (never :00/:30) and weekday- or
     # weekly-cadenced deliberately — every wake bills tokens, so the cadence
-    # matches how fast each item actually changes.
+    # matches how fast each item actually changes. All times are seat-local
+    # (business_hours.timezone -> HERMES_TIMEZONE): authored as Pacific.
     cron:
       - skill: deadline-miss-escalator
-        schedule: '0 7 * * *' # daily 0700 PT
+        schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
         pre_run: pre_run.py
         wake_policy: pre_run_decides
       - skill: daily-needs-you-digest
-        schedule: '23 6 * * 1-5' # weekday 0623 PT — the morning digest
+        schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
         wake_policy: always
       - skill: discovery-response-tracker
-        schedule: '17 7 * * 1-5' # weekday 0717 PT
+        schedule: '17 7 * * 1-5' # weekday 0717 seat-local
         wake_policy: always
       - skill: client-verification-tracker
-        schedule: '41 7 * * 1-5' # weekday 0741 PT
+        schedule: '41 7 * * 1-5' # weekday 0741 seat-local
         wake_policy: always
       - skill: motion-calendar-tracker
-        schedule: '27 7 * * 1-5' # weekday 0727 PT
+        schedule: '27 7 * * 1-5' # weekday 0727 seat-local
         wake_policy: always
       - skill: service-confirmation-watcher
-        schedule: '51 7 * * 1-5' # weekday 0751 PT
+        schedule: '51 7 * * 1-5' # weekday 0751 seat-local
         wake_policy: always
       - skill: medical-chronology-maintainer
-        schedule: '33 8 * * 1-5' # weekday 0833 PT — after records imports land
+        schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
         wake_policy: always
       - skill: medical-records-chaser
-        schedule: '9 8 * * 2' # weekly Tue 0809 PT
+        schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
         wake_policy: always
       - skill: lien-ledger-tracker
-        schedule: '13 9 * * 2' # weekly Tue 0913 PT
+        schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
         wake_policy: always
       - skill: mediation-settlement-tracker
-        schedule: '43 9 * * 2' # weekly Tue 0943 PT
+        schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
         wake_policy: always
       - skill: minors-compromise-packet
-        schedule: '3 9 * * 3' # weekly Wed 0903 PT — GAL/hearing/lien-figure track
+        schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
         wake_policy: always
       - skill: trial-binder-assembler
-        schedule: '19 9 * * 1' # weekly Mon 0919 PT — trial-prep deadline sweep
+        schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
         wake_policy: always
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
@@ -463,6 +464,19 @@ scope:
   # destructive stays taint-gated regardless of this ceiling, so an untrusted-fed
   # turn can NEVER trigger a delete. A real client seat authors its own posture
   # (a firm would typically leave destructive refused/draft).
+
+# ---- BUSINESS HOURS ----
+# Sets the seat's IANA timezone. bootstrap.sh exports it as HERMES_TIMEZONE, so
+# Hermes' clock AND this seat's cron schedules run in this timezone (DST-correct
+# via ZoneInfo). Unauthored = UTC (the container clock). Hours/days are the
+# firm's working window for future business-hours-aware behavior; the timezone
+# is the load-bearing field today.
+business_hours:
+  timezone: America/Los_Angeles
+  days: [mon, tue, wed, thu, fri]
+  start: '08:00'
+  end: '18:00'
+
 escalation:
   red_flag_recipients:
     - scott@smd.services
