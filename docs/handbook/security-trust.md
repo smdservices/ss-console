@@ -59,6 +59,10 @@ The policy is not enforced by vigilance alone; it is wired into CI and into test
 
 The content-integrity controls also feed the external story: the same fail-closed posture and no-storage architecture are what `docs/security/smd-services-security-overview.md` presents to a partner's security review.
 
+## The buyer-facing trust surface
+
+A prospect's compliance reviewer gets the same story in three client-visible artifacts (added 2026-07-04, #1680): the public security page (`src/pages/security.astro`, at smd.services/security - architecture-derived claims, the sub-processor list, and a plain statement of what we do not claim, including no SOC 2 of our own), the AI-disclosure page (`src/pages/ai-disclosure.astro` - what the Operator is, that review posture is an authored choice with no imposed default, and what it never does), and the data processing addendum template (`docs/legal/operator-dpa-template.md` - the contractual half, carrying the notification and return/destruction windows the public pages deliberately leave to paper; counsel review precedes first execution). All three derive from the security overview and the ADR spine; if a control changes, they change in the same wave.
+
 ## Operator runtime security
 
 The Operator is an autonomous agent acting on a client's live business data, so its security model is about constraining action, not just constraining output. The full analysis is `docs/security/operator-threat-model.md` - a maintained, adversarially-tested register, not a one-time design doc. Its shape:

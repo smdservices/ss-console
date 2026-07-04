@@ -1,0 +1,206 @@
+---
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+
+/**
+ * Public security page (#1680). Every claim on this page derives from
+ * committed architecture (docs/security/smd-services-security-overview.md,
+ * ADRs 0007/0009/0010/0035/0042/0057/0062) rather than aspiration. The
+ * marketing site makes strong trust claims on /operator; this page is where
+ * a buyer's compliance reviewer verifies them. Numbers that belong in paper
+ * (notification windows, retention specifics) live in the engagement
+ * agreement and DPA, not here.
+ */
+
+const H2 =
+  "mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+---
+
+<Base
+  title="Security | SMD Services"
+  description="How the Operator is secured: per-client isolation, fail-closed authority, credential custody, and a tamper-resistant audit record. Stated plainly, including what we do not claim."
+>
+  <Nav />
+  <main id="main" role="main" class="bg-[color:var(--ss-color-background)] px-6 py-20 md:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        Security
+      </h1>
+
+      <p
+        class="mt-3 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      >
+        Effective: 2026-07-04
+      </p>
+
+      <div
+        class="mt-10 space-y-10 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
+      >
+        <p>
+          The Operator works inside your business, so its security posture has to survive your
+          scrutiny, not just ours. This page describes the controls as they are actually built.
+          Where we hold no certification, we say so. Where a specific commitment belongs in your
+          agreement rather than on a marketing site, we tell you which document carries it.
+        </p>
+
+        <section>
+          <h2 class={H2}>The control that matters most</h2>
+          <p>
+            Your systems remain the system of record. The Operator reads and writes through the same
+            authorized channels a staff member would use, holds data transiently to do the task in
+            front of it, and returns the output to you or to your system. We do not warehouse copies
+            of your business data. What we do store, on infrastructure dedicated to your account
+            alone, is limited to your encrypted connection credentials, your authored configuration,
+            and the audit record of everything your Operator did.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>One client, one machine</h2>
+          <p>
+            Every client runs on a dedicated, isolated compute instance with its own private volume.
+            There is no shared application tier and no shared data store between clients. A
+            different client's data lives on a different machine entirely, so cross-client exposure
+            is prevented by architecture, not by an access check that could fail. Our own console
+            cannot query across client machines; that prohibition is enforced in code and checked in
+            our build pipeline.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Credential custody</h2>
+          <p>
+            Connection credentials for your systems are stored only on your machine's encrypted
+            volume, with file permissions restricted to the single process that needs them. They are
+            never written to logs, never placed in a shared store, and never visible to other
+            clients. The most sensitive credentials are held by a separate broker process the agent
+            itself cannot read, so even a compromised agent cannot extract them. You choose per
+            connection whether we hold credentials on your behalf or you hold them yourself.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Fail-closed authority</h2>
+          <p>
+            The Operator's permission model defaults to refusal. Consequential action classes,
+            including sending externally, making commitments, and deleting anything, are refused
+            unless you have explicitly authorized them for your account. An unconfigured Operator
+            can read and draft but cannot act on the world. Untrusted inbound content, such as an
+            email from outside your firm, is structurally fenced so instructions hidden inside it
+            cannot drive privileged actions. A content gate blocks fabricated or unsupported output
+            before any send. A spend circuit breaker halts a runaway agent and stays halted until a
+            human clears it.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>The audit record</h2>
+          <p>
+            Every action your Operator takes is written to an append-only audit log owned by a
+            privileged process the agent cannot modify. Your Operator cannot rewrite or delete its
+            own history. You can read this record in your client portal at any time, and you can
+            request an evidence packet for compliance or dispute purposes. Access granted to your
+            staff through outside tools is authorized per request against a live grant table, so
+            revoking a person's access takes effect on their next call, not at some future expiry.
+          </p>
+        </section>
+
+        <section id="data">
+          <h2 class={H2}>What we store, what we return, what we destroy</h2>
+          <p>
+            Stored on your dedicated infrastructure: encrypted connection credentials, your authored
+            configuration, the operational memory your Operator builds doing your work, and the
+            audit record. Stored on our control plane: your account records, billing records, and
+            governance summaries of Operator activity. Not stored anywhere: copies of your practice
+            or business data, which stays in your systems.
+          </p>
+          <p class="mt-4">
+            When an engagement ends, you receive your audit record and operational memory in
+            exportable form, credentials are revoked, and your dedicated infrastructure is
+            destroyed. The mechanics and windows for return and destruction are specified in your
+            agreement and data processing addendum.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Sub-processors</h2>
+          <p>
+            We keep the set of vendors that can touch your data deliberately small, and each is
+            independently audited even though we are not yet.
+          </p>
+          <ul class="mt-4 space-y-3">
+            <li>
+              <strong>Fly.io</strong> hosts your dedicated machine and its encrypted volume. SOC 2 Type
+              II.
+            </li>
+            <li>
+              <strong>Anthropic</strong> provides the language model. Task content passes through its
+              API transiently when your Operator works, and under its commercial terms is not used to
+              train models. SOC 2 Type II.
+            </li>
+            <li>
+              <strong>Cloudflare</strong> runs our control plane, the client portal, and the governance
+              record store. SOC 2 and ISO 27001 attested.
+            </li>
+            <li>
+              <strong>AgentMail</strong> provides your Operator's own mailbox when the engagement includes
+              one, so its email never mixes with your staff's accounts.
+            </li>
+            <li>
+              <strong>Stripe</strong> (billing), <strong>Clerk</strong> (portal sign-in),
+              <strong>SignWell</strong> (document signing), and <strong>Resend</strong>
+              (transactional email) handle account, identity, and commerce data, not your operational
+              business data.
+            </li>
+          </ul>
+          <p class="mt-4">
+            A current list with each vendor's role and attestations ships with your data processing
+            addendum, and we notify you before adding a sub-processor that would touch your data.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>What we do not claim</h2>
+          <p>
+            SMD Services does not currently hold ISO 27001 or SOC 2 certification of its own. We are
+            a small firm whose controls derive their strength from architecture rather than from
+            process volume, and we would rather show you the actual controls than imply a
+            certificate we do not have. Our material sub-processors are independently SOC 2 audited,
+            and we will walk your reviewer through any control on this page with supporting
+            evidence.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Development and review</h2>
+          <p>
+            Every change to the platform goes through pull-request review with automated security
+            gates: dependency vulnerability scanning, secret detection across full history, and
+            static analysis. Security reviews run on a recurring cadence against a maintained threat
+            model, and we conduct periodic in-depth adversarial audits with live exploit
+            verification and tracked remediation.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Incidents and questions</h2>
+          <p>
+            Security incidents affecting your data or access are reported to you within the
+            notification windows defined in your agreement, investigated by us within the platform,
+            and tracked to resolution with regular updates. For security questions, reviewer
+            walkthroughs, or evidence requests, write to
+            <a
+              href="mailto:team@smd.services"
+              class="underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+              >team@smd.services</a
+            >.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Base>
