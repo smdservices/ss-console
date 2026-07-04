@@ -45,6 +45,8 @@ Two commitments already exist and constrain the shape: the Smokeball security re
 
 **Heartbeat-red does not page a human.** A down Machine is visible on dashboards within minutes but generates no email or push today; detection-to-human-awareness currently depends on someone looking. That gap is named here rather than hidden, and closing it (a heartbeat-red alerter emailing team@smd.services) is filed as a follow-up issue referenced from #1683. Until it lands, SEV1 "on detection" honestly means "on dashboard observation or client report."
 
+**Update (2026-07-04, same day):** closed by #1709 — the `ss-fleet-alerts` Worker evaluates `fleet_status` every 2 minutes and emails team@smd.services on heartbeat-red and HARD_STOP transitions (edge-triggered, one alert per incident, recovery notice on green), live-verified by stopping and restarting a real Machine. SEV1 "on detection" now means the pager, worst case red-threshold plus one cron interval (~7 minutes).
+
 ## Consequences
 
 - The incident-response runbook lives in the handbook (`/admin/playbook/incident-response`): the ladder, the detection surfaces, the escalation path, and communication templates.
