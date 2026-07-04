@@ -69,6 +69,7 @@ const subscription =
   config && entityId ? await getProductSubscription(env.DB, entityId, 'operator') : null
 
 const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
+const clearStatus = Astro.url.searchParams.get('clear')
 const health = rosterHealth(
   hb.color,
   hb.label,
@@ -160,6 +161,48 @@ const personas = config?.personas ?? []
                 </div>
                 {health.note && (
                   <p class="text-xs text-[color:var(--ss-color-text-muted)] mb-2">{health.note}</p>
+                )}
+                {
+                  /* Captain clear (ADR 0062 §6): shown only when the cost
+                     breaker is tripped. Resets the ladder to OK on the Machine
+                     and records the governance action. */
+                  (fleet?.sticky_stop_level === 'HARD_STOP' ||
+                    fleet?.sticky_stop_level === 'SOFT_STOP') && (
+                    <form
+                      method="POST"
+                      action={`/api/admin/operator/${encodeURIComponent(slug)}/clear-stop`}
+                      class="mb-3 flex flex-col gap-1"
+                    >
+                      <input
+                        type="text"
+                        name="reason"
+                        required
+                        placeholder="Reason for clearing the cost stop"
+                        class="text-xs border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1 bg-surface"
+                      />
+                      <button
+                        type="submit"
+                        class="text-xs font-medium px-3 py-1 rounded-[var(--ss-radius-badge)] bg-[color:var(--ss-color-error)] text-white w-fit"
+                      >
+                        Clear cost stop
+                      </button>
+                    </form>
+                  )
+                }
+                {clearStatus === 'ok' && (
+                  <p class="text-xs text-[color:var(--ss-color-complete)] mb-2">
+                    Cost stop cleared.
+                  </p>
+                )}
+                {clearStatus === 'error' && (
+                  <p class="text-xs text-[color:var(--ss-color-error)] mb-2">
+                    Clear failed — the operator is still paused. Check the gate.
+                  </p>
+                )}
+                {clearStatus === 'invalid' && (
+                  <p class="text-xs text-[color:var(--ss-color-error)] mb-2">
+                    A reason is required to clear.
+                  </p>
                 )}
                 <dl class="text-sm space-y-1">
                   <div class="flex justify-between gap-4">
