@@ -187,6 +187,14 @@ controls:
       per-turn cents remains blocked on an upstream Hermes usage kwarg
       (ADR 0062 §4). Status unprobed: wiring + unit coverage, no live
       negative-fire trip test on a running Machine yet (ADR 0050 B3 probe tier).
+      PROBE FINDING 2026-07-04 (#1701): the live trip could not be driven —
+      the metered path (durable-job segment loop) is only reachable via the
+      start_background_job tool, which is entitled on NO live seat, and the
+      dominant spend path (interactive turns) is unmetered by design. The
+      cents cap therefore cannot fire on live traffic today; the gate
+      inbound_daily_cap is the only live interactive-spend guard. Direction
+      call in #1701. Stays unprobed (honest) until the metered path is
+      reachable and a live trip is recorded.
 
   sticky_stop_tool_failure:
     control: sticky_stop_tool_failure
