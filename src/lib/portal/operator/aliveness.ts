@@ -25,23 +25,23 @@
  *                 the Machine is down, the bridge is broken, or the
  *                 customer's agent is genuinely doing nothing.
  *
- * Data sources, when the Hermes bridge lands (#821):
+ * Data source (#1678, superseding the #821 bridge stub): this customer's
+ * `fleet_status` row — the console-side store each Machine's heartbeat
+ * emitter pushes to (ADR 0023 Wave 1). It carries `last_heartbeat_ts`,
+ * `last_audit_ts`, and the Machine-reported `sticky_stop_level`, which is
+ * everything the four-state signal needs:
  *
- *   - Latest `audit_log` row → `lastActionAt`, `currentSkill` (when the
- *     action is in flight per a future running-action marker — today
- *     we infer "running" only when the bridge explicitly says so), and
- *     the audit row drives the idle/offline split via timestamp age.
+ *   - heartbeat + audit timestamps drive the idle/offline split (freshest
+ *     wins — a quiet-but-healthy Machine heartbeats without acting);
+ *   - `sticky_stop_level` drives the sticky_stop posture (reason text is
+ *     not pushed on the heartbeat, so the chip shows the posture without
+ *     the substrate's reason string);
+ *   - no in-flight marker is pushed today, so 'running' never renders
+ *     from this source — we do not infer it from timestamps.
  *
- *   - `sticky_stop_state` (per-customer D1, schema in migration 0004)
- *     → the sticky_stop posture, reason, and the substrate condition
- *     that pinned it.
- *
- * Today the bridge is not wired. `resolveAlivenessSignal` returns null
- * and the AlivenessHeader component renders the empty-state branch
- * (no fabricated activity, per
- * `docs/style/empty-state-pattern.md`). When #821 lands, swap the body
- * of `fetchAlivenessFromHermes`; the derivation, formatters, and
- * threshold constant stay put.
+ * A customer with no `fleet_status` row resolves to null and the
+ * AlivenessHeader renders the empty-state branch (no fabricated
+ * activity, per `docs/style/empty-state-pattern.md`).
  *
  * The derivation helper `deriveAlivenessFromBridge` is exported pure
  * and tested directly. The component does not derive from raw inputs;
@@ -52,6 +52,7 @@
  * of scope — the issue AC is "per-customer status, not aggregate."
  */
 
+import type { D1Database } from '@cloudflare/workers-types'
 import type { SubscriptionRow } from '../product-access'
 
 /**
@@ -148,6 +149,16 @@ export interface AlivenessBridgeReading {
   /** ISO 8601 UTC of the most recent audit_log row, null if none. */
   lastAuditTs: string | null
   /**
+   * ISO 8601 UTC of the most recent Machine heartbeat (ADR 0023 Wave 1
+   * emitter → console `fleet_status`), null if the Machine has never
+   * reported one. A quiet-but-healthy Machine writes heartbeats without
+   * writing audit rows, so liveness (idle vs offline) is decided by the
+   * FRESHEST of heartbeat/audit — while `lastActionAt` display stays the
+   * audit timestamp (the last thing the operator *did*, not the last time
+   * it phoned home).
+   */
+  lastHeartbeatTs: string | null
+  /**
    * Slug of an in-flight skill at the moment the bridge was polled,
    * null if nothing is running. The bridge is responsible for the
    * "in-flight" determination (e.g., a started-but-not-completed
@@ -179,11 +190,16 @@ export interface AlivenessBridgeReading {
  *      pinned the agent, no other posture is interesting until Captain
  *      clears it.
  *   2. an in-flight skill → 'running'.
- *   3. lastAuditTs age compared against OFFLINE_THRESHOLD_MINUTES
- *      decides idle vs offline. No audit history at all (null ts) is
- *      treated as 'offline' too — the bridge is the authority on
- *      "agent is alive enough to write audit rows" and absence is
- *      the honest answer.
+ *   3. the FRESHEST parseable timestamp among lastHeartbeatTs /
+ *      lastAuditTs, compared against OFFLINE_THRESHOLD_MINUTES, decides
+ *      idle vs offline. Heartbeats count because a quiet-but-healthy
+ *      Machine phones home without writing audit rows; audit rows count
+ *      because a pre-heartbeat Machine (or a row that predates the
+ *      emitter) is still evidence of life. No parseable timestamp at all
+ *      is treated as 'offline' — absence is the honest answer.
+ *
+ * `lastActionAt` always carries the audit timestamp (the last thing the
+ * operator *did*), regardless of which timestamp decided liveness.
  *
  * `nowMs` is injectable for deterministic tests.
  */
@@ -209,17 +225,8 @@ export function deriveAlivenessFromBridge(
     }
   }
 
-  if (reading.lastAuditTs === null) {
-    return {
-      level: 'offline',
-      lastActionAt: null,
-      currentSkill: null,
-      stickyStopReason: null,
-    }
-  }
-
-  const lastMs = Date.parse(reading.lastAuditTs)
-  if (!Number.isFinite(lastMs)) {
+  const lastAliveMs = freshestMs(reading.lastHeartbeatTs, reading.lastAuditTs)
+  if (lastAliveMs === null) {
     return {
       level: 'offline',
       lastActionAt: reading.lastAuditTs,
@@ -228,7 +235,7 @@ export function deriveAlivenessFromBridge(
     }
   }
 
-  const ageMs = nowMs - lastMs
+  const ageMs = nowMs - lastAliveMs
   const thresholdMs = OFFLINE_THRESHOLD_MINUTES * 60_000
   if (ageMs > thresholdMs) {
     return {
@@ -245,6 +252,19 @@ export function deriveAlivenessFromBridge(
     currentSkill: null,
     stickyStopReason: null,
   }
+}
+
+/** The freshest parseable timestamp among the inputs, as epoch ms; null when
+ * none parses. Unparseable values are skipped, not treated as epoch 0. */
+function freshestMs(...timestamps: (string | null)[]): number | null {
+  let freshest: number | null = null
+  for (const ts of timestamps) {
+    if (ts === null) continue
+    const ms = Date.parse(ts)
+    if (!Number.isFinite(ms)) continue
+    if (freshest === null || ms > freshest) freshest = ms
+  }
+  return freshest
 }
 
 /**
@@ -342,34 +362,79 @@ export function needsEscalationAffordance(level: AlivenessLevel): boolean {
 }
 
 /**
- * Server-side resolver invoked by the dashboard header. Today this
- * returns null — the per-customer Hermes bridge that feeds real data
- * is tracked in #821. When the bridge lands, replace the body of
- * `fetchAlivenessFromHermes` and the typed contract above stays put.
+ * Server-side resolver invoked by the dashboard header. Reads this
+ * customer's `fleet_status` row — the console-side heartbeat store each
+ * Machine pushes to (ADR 0023 Wave 1) — and derives the signal from it
+ * (#1678 wired this; the prior revision was the #821 stub).
  *
- * IMPORTANT: do not seed a synthetic "idle" reading here. Per
+ * Source semantics:
+ *   - `sticky_stop_level` is the Machine-reported breaker ladder value;
+ *     anything outside the known non-OK set reads as 'OK' (under-reporting
+ *     beats a false "agent is stopped" chip). The reason text is not pushed
+ *     on the heartbeat, so `stickyStopReason` is null here — the chip shows
+ *     the posture; the reason lives with Captain.
+ *   - No in-flight-skill marker is pushed today, so 'running' never renders
+ *     from this source (honest: we do not infer it from timestamps).
+ *   - `last_heartbeat_ts` + `last_audit_ts` drive the idle/offline split in
+ *     the derivation above.
+ *
+ * IMPORTANT: no `fleet_status` row → null (chip renders nothing). Per
  * `docs/style/empty-state-pattern.md`, the component must render the
  * empty (silent) state until real data lands, never a fabricated
  * "agent is healthy" chip. A green chip the customer cannot trust is
- * worse than no chip at all.
+ * worse than no chip at all. A read failure degrades the same way.
  */
 export async function resolveAlivenessSignal(
+  db: D1Database,
   subscription: SubscriptionRow,
   nowMs: number = Date.now()
 ): Promise<AlivenessSignal | null> {
-  const reading = await fetchAlivenessFromHermes(subscription)
+  const reading = await fetchAlivenessFromFleetStatus(db, subscription)
   if (reading === null) return null
   return deriveAlivenessFromBridge(reading, nowMs)
 }
 
-/**
- * Hermes bridge stub. Returns null. When #821 (Hermes runtime wiring)
- * lands, replace the body with the bridge fetch — the subscription
- * row carries the customer identity needed to route to the right
- * Machine D1.
- */
-function fetchAlivenessFromHermes(
-  _subscription: SubscriptionRow
+/** Non-OK sticky-stop ladder values the Machine can report (mirrors
+ * `operator/safety-substrate/sticky_stop.py::StickyStopLevel`). */
+const NON_OK_STICKY_LEVELS: ReadonlySet<string> = new Set(['WARN', 'SOFT_STOP', 'HARD_STOP'])
+
+interface FleetStatusAlivenessRow {
+  last_heartbeat_ts: string | null
+  last_audit_ts: string | null
+  sticky_stop_level: string | null
+}
+
+/** Read exactly this customer's heartbeat row (never a fleet-wide read from
+ * the portal — ADR 0052 scopes this surface to the client's own operator). */
+async function fetchAlivenessFromFleetStatus(
+  db: D1Database,
+  subscription: SubscriptionRow
 ): Promise<AlivenessBridgeReading | null> {
-  return Promise.resolve(null)
+  let row: FleetStatusAlivenessRow | null
+  try {
+    row = await db
+      .prepare(
+        'SELECT last_heartbeat_ts, last_audit_ts, sticky_stop_level ' +
+          'FROM fleet_status WHERE entity_id = ?'
+      )
+      .bind(subscription.entity_id)
+      .first<FleetStatusAlivenessRow>()
+  } catch {
+    // A missing table (fresh environment) degrades to the silent empty state.
+    return null
+  }
+  if (!row) return null
+
+  const stickyStopLevel =
+    typeof row.sticky_stop_level === 'string' && NON_OK_STICKY_LEVELS.has(row.sticky_stop_level)
+      ? (row.sticky_stop_level as 'WARN' | 'SOFT_STOP' | 'HARD_STOP')
+      : 'OK'
+
+  return {
+    lastAuditTs: row.last_audit_ts,
+    lastHeartbeatTs: row.last_heartbeat_ts,
+    inFlightSkill: null,
+    stickyStopLevel,
+    stickyStopReason: null,
+  }
 }
