@@ -242,7 +242,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // 378fd82d..8df1992a changed interactive_cost_meter.py[new] + the audit
     // plugin + tests + vendored pricing; all four tracked twins verified
     // unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8df1992a9c456c6c46f761dc9b3650b7bef56b50"')
+    // 3b2481b8 (#129): ship anthropic_pricing.json in the wheel — the
+    // interactive cost meter was dark in prod (pricing excluded from the
+    // wheel; alarmed model_unpriced every turn). Range 8df1992a..3b2481b8
+    // changed pyproject.toml + a guard test; all four tracked twins unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3b2481b8c41e92cf7b9c41196506ab94fd8e936c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
