@@ -27,6 +27,8 @@ import sqlite3
 import time
 from datetime import UTC, datetime
 
+from workspace_broker.chain import GENESIS, compute_row_hash, legacy_anchor
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,8 +71,19 @@ CREATE_TABLE_SQL = (
     "output_digest TEXT, "
     "diff_digest TEXT, "
     "trust_ceiling TEXT, "
-    "metadata TEXT"
+    "metadata TEXT, "
+    "prev_hash TEXT, "
+    "row_hash TEXT"
     ")"
+)
+
+# Hash-chain upgrade for pre-#1686 ledgers: applied at ensure_schema, each
+# tolerated when the column already exists. Chain semantics live in chain.py
+# (a byte-identical twin of the overlay's shared/audit_chain.py, tracked in
+# operator/contracts/overlay-pairs.json).
+CHAIN_COLUMN_ALTERS: tuple[str, ...] = (
+    "ALTER TABLE audit_log ADD COLUMN prev_hash TEXT",
+    "ALTER TABLE audit_log ADD COLUMN row_hash TEXT",
 )
 CREATE_INDEX_SQL: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts)",
@@ -141,6 +154,12 @@ class LedgerWriter:
             conn.execute(CREATE_TABLE_SQL)
             for index_sql in CREATE_INDEX_SQL:
                 conn.execute(index_sql)
+            for alter_sql in CHAIN_COLUMN_ALTERS:
+                try:
+                    conn.execute(alter_sql)
+                except sqlite3.OperationalError as err:
+                    if "duplicate column" not in str(err):
+                        raise
             conn.commit()
         finally:
             conn.close()
@@ -158,14 +177,30 @@ class LedgerWriter:
         if not isinstance(action_type, str) or not action_type.strip():
             raise ValueError("audit_append: a non-empty action_type is required")
         row_id = _ulid()
-        values = [row_id, _iso_utc(), *(row.get(col) for col in _AGENT_COLUMNS)]
+        contract_values = [row_id, _iso_utc(), *(row.get(col) for col in _AGENT_COLUMNS)]
         sql = (
-            "INSERT INTO audit_log (" + ", ".join(_ALL_COLUMNS) + ") "
-            "VALUES (" + ", ".join("?" for _ in _ALL_COLUMNS) + ")"
+            "INSERT INTO audit_log (" + ", ".join(_ALL_COLUMNS) + ", prev_hash, row_hash) "
+            "VALUES (" + ", ".join("?" for _ in _ALL_COLUMNS) + ", ?, ?)"
         )
         conn = self._connect()
         try:
-            conn.execute(sql, values)
+            # BEGIN IMMEDIATE serializes tail-read + insert against any other
+            # writer (there is only this broker, but the lock makes the chain
+            # correct by construction, not by deployment assumption).
+            conn.execute("BEGIN IMMEDIATE")
+            tail = conn.execute(
+                "SELECT id, row_hash FROM audit_log ORDER BY rowid DESC LIMIT 1"
+            ).fetchone()
+            if tail is None:
+                prev_hash = GENESIS
+            elif tail[1] is not None:
+                prev_hash = str(tail[1])
+            else:
+                # Ledger predates the chain: anchor to the legacy tail so
+                # deleting pre-chain rows after the upgrade is detectable.
+                prev_hash = legacy_anchor(str(tail[0]))
+            row_hash = compute_row_hash(prev_hash, contract_values)
+            conn.execute(sql, [*contract_values, prev_hash, row_hash])
             conn.commit()
         finally:
             conn.close()

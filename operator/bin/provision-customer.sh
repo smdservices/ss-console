@@ -511,10 +511,14 @@ stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON
 
 # ---------- Step 6b-smokeball: Smokeball connector creds (ADR 0053, name remap) --
 # mcp:smokeball reads env-agnostic SMOKEBALL_CLIENT_ID/SECRET/API_KEY. The operator
-# env holds them under environment-specific names — SMOKEBALL_STAGING_* (SMD's own
-# Partner-Program STAGING app) and SMOKEBALL_PROD_* (a real firm's PRODUCTION app,
-# obtained at go-live) — so this is a NAME REMAP the manifest-driven loop below
-# can't do. The seat declares which environment it is via the smokeball connector
+# env holds them under environment-specific names — SMOKEBALL_STAGING_* (the
+# approved app's STAGING credentials; the pilot seat) and SMOKEBALL_PROD_* (its
+# PRODUCTION credentials, staged for go-live) — so this is a NAME REMAP the
+# manifest-driven loop below can't do. A third vault set, SMOKEBALL_SEED_*, is
+# App 1 (the original client_credentials staging app) and is used ONLY by the
+# rehearsal-office seeder (operator/customers/pilot-smokeball/seed/) — never by
+# provisioning, and it must never be written over the STAGING/PROD names
+# (2026-07-04: App 2's rollout once overwrote App 1's values; hence the split). The seat declares which environment it is via the smokeball connector
 # block in customer.yaml:
 #
 #   connectors:
