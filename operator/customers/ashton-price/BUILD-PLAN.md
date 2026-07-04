@@ -1,5 +1,13 @@
 # Ashton & Price Operator — Build Plan
 
+> **Superseded for sequencing (2026-07-04).** The build this plan prepared is
+> done and merged (#1637: 19 skills authored + gated + staged) and the
+> Smokeball app is approved. Active sequencing now lives in
+> **`IMPLEMENTATION-PLAN.md`**. This file remains the record of build posture,
+> the commitment → build map, and the guardrails (§3), which carry over
+> unchanged. The §9 `bin/connect-smokeball.sh` reference is stale — prod
+> connect is the client-portal OAuth flow (#1633/#1649).
+
 _Prepare the committed litigation-lifecycle Operator to the fullest extent
 possible while Christa's feedback and Smokeball app approval are pending._
 
