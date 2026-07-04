@@ -375,6 +375,44 @@ else
   log "WARNING: /app/skills absent from image; skipping catalog seed (bound skills must already be on the volume)"
 fi
 
+# Publish the seat's timezone on the env channel Hermes' clock resolves first
+# (hermes_time._resolve_timezone_name: HERMES_TIMEZONE env > global config.yaml
+# `timezone` > server local). The container clock is UTC, so without this every
+# authored cron expression silently ran in UTC while the customer.yaml comments
+# claimed local time — caught 2026-07-03 when the pilot's "0623 PT" morning
+# digest turned out to mean 11:23 PM Pacific and the pre-existing escalator's
+# "0700 PT" had been firing at midnight Pacific since it shipped. Source of
+# truth is customer.yaml `business_hours.timezone` (IANA, validated by the
+# console); when the block is unauthored nothing is exported and Hermes keeps
+# server-local (UTC) — the prior behavior, not a new default (ADR 0037 tenet 3).
+# An invalid IANA name is safe: hermes_time logs a warning and falls back.
+#
+# ORDERING (ss-console#1691): this export MUST precede step 7. Cron
+# materialization (hermes-smd bootstrap -> cron_materialize -> Hermes
+# create_job) PERSISTS each job's first next_run_at computed via
+# hermes_time.now() in the step-7 process, and hermes_time caches its timezone
+# per process at first call. When this export sat below step 7 (with the
+# step-11 gateway exports), every boot re-created every managed job with a
+# UTC-computed first fire: the gateway then fired it at the UTC-interpreted
+# time AND at the correct seat-local time after advance_next_run recomputed —
+# the 2026-07-04 escalator double-fire (midnight PT + 7:00 AM PT).
+SEAT_TIMEZONE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+hours = data.get("business_hours") or {}
+tz = hours.get("timezone") if isinstance(hours, dict) else ""
+print(tz.strip() if isinstance(tz, str) else "")
+PY
+)" || SEAT_TIMEZONE=""
+if [ -n "${SEAT_TIMEZONE}" ]; then
+  export HERMES_TIMEZONE="${SEAT_TIMEZONE}"
+  log "Hermes timezone: ${SEAT_TIMEZONE} (cron + clock run in seat-local time)"
+else
+  log "Hermes timezone: unset (business_hours.timezone unauthored) — cron + clock run in UTC"
+fi
+
 # ============================================================================
 # Step 7: hermes-smd bootstrap (customer.yaml -> per-profile config)
 # ============================================================================
@@ -560,33 +598,10 @@ log "Active persona profile: ${ACTIVE_PROFILE}"
 # bootstrap — the boundary that selects the profile — is where it belongs.
 export HERMES_ACTIVE_PROFILE="${ACTIVE_PROFILE}"
 
-# Publish the seat's timezone on the env channel Hermes' clock resolves first
-# (hermes_time._resolve_timezone_name: HERMES_TIMEZONE env > global config.yaml
-# `timezone` > server local). The container clock is UTC, so without this every
-# authored cron expression silently ran in UTC while the customer.yaml comments
-# claimed local time — caught 2026-07-03 when the pilot's "0623 PT" morning
-# digest turned out to mean 11:23 PM Pacific and the pre-existing escalator's
-# "0700 PT" had been firing at midnight Pacific since it shipped. Source of
-# truth is customer.yaml `business_hours.timezone` (IANA, validated by the
-# console); when the block is unauthored nothing is exported and Hermes keeps
-# server-local (UTC) — the prior behavior, not a new default (ADR 0037 tenet 3).
-# An invalid IANA name is safe: hermes_time logs a warning and falls back.
-SEAT_TIMEZONE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
-import sys
-import yaml
-
-data = yaml.safe_load(open(sys.argv[1])) or {}
-hours = data.get("business_hours") or {}
-tz = hours.get("timezone") if isinstance(hours, dict) else ""
-print(tz.strip() if isinstance(tz, str) else "")
-PY
-)" || SEAT_TIMEZONE=""
-if [ -n "${SEAT_TIMEZONE}" ]; then
-  export HERMES_TIMEZONE="${SEAT_TIMEZONE}"
-  log "Hermes timezone: ${SEAT_TIMEZONE} (cron + clock run in seat-local time)"
-else
-  log "Hermes timezone: unset (business_hours.timezone unauthored) — cron + clock run in UTC"
-fi
+# (HERMES_TIMEZONE is exported ABOVE step 7, not here — cron materialization at
+# step 7 persists each job's first next_run_at, so the timezone must already be
+# on the env when that process starts. See the ordering note at the export,
+# ss-console#1691.)
 
 PROFILE_HERMES_HOME="${HERMES_HOME}/profiles/${ACTIVE_PROFILE}"
 
