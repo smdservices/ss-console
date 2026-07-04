@@ -33,7 +33,7 @@ Business hours are Monday through Friday, Arizona time. Incident notification wi
 3. **Automated alerts** - retainer payment failures email team@smd.services; Sentry errors sync to the fleet view.
 4. **Client reports** - the portal change-request path and direct channels.
 
-**Named gap (honesty over polish):** heartbeat-red does not yet page a human; a down Machine is dashboard-visible within minutes but emails no one. Until the heartbeat-red alerter lands (follow-up issue on #1683), SEV1 "on detection" means "on dashboard observation or client report." Do not represent otherwise to a client.
+**The pager (#1709):** the `ss-fleet-alerts` Worker evaluates `fleet_status` every 2 minutes and emails team@smd.services on heartbeat-red (last heartbeat older than the period+grace envelope) and cost-breaker HARD_STOP transitions. Edge-triggered: one alert when a seat goes red, one recovery notice when it comes back, silence in between. Seats that have never heartbeated are provisioning-gray and never page. Worst-case detection-to-email is the red threshold plus one cron interval, about 7 minutes. The Worker only observes and emails; the response ladder stays human.
 
 ## Running an incident
 
