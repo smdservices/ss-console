@@ -97,3 +97,17 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/cost-telemetry
           command: deploy
+
+      # Fleet alerts (#1709): the heartbeat-red / HARD_STOP pager closing
+      # ADR 0064's honesty-banner gap. Secrets (RESEND_API_KEY,
+      # FLEET_ALERTS_BEARER) persist across deploys on Workers.
+      - name: Install Fleet Alerts Worker deps
+        run: cd workers/fleet-alerts && npm ci
+
+      - name: Deploy Fleet Alerts Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/fleet-alerts
+          command: deploy
