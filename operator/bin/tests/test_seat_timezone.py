@@ -61,6 +61,27 @@ def test_bootstrap_exports_seat_timezone_before_gateway() -> None:
     )
 
 
+def test_bootstrap_exports_seat_timezone_before_cron_materialization() -> None:
+    """ss-console#1691: the export must ALSO precede step 7 (`hermes-smd
+    bootstrap`), not just the gateway exec. Cron materialization persists each
+    managed job's first next_run_at computed via hermes_time.now() in the
+    step-7 process, and hermes_time caches its timezone per process — so an
+    export placed after step 7 stores UTC-computed first fires that the
+    gateway then fires at BOTH the UTC-interpreted and seat-local times (the
+    2026-07-04 escalator double-fire: midnight PT + 7:00 AM PT)."""
+    lines = _code_lines()
+    export_idx = _first_index(lines, r"export HERMES_TIMEZONE=")
+    overlay_bootstrap_idx = _first_index(lines, r"^\s*hermes-smd bootstrap\b")
+
+    assert export_idx != -1, "bootstrap.sh must export HERMES_TIMEZONE"
+    assert overlay_bootstrap_idx != -1, "could not find the hermes-smd bootstrap (step 7) line"
+    assert export_idx < overlay_bootstrap_idx, (
+        "HERMES_TIMEZONE must be exported BEFORE `hermes-smd bootstrap` — cron "
+        "materialization persists next_run_at with the timezone cached at that "
+        f"process's start (export={export_idx}, step7={overlay_bootstrap_idx})"
+    )
+
+
 def test_export_is_conditional_on_authored_timezone() -> None:
     """Unauthored business_hours must NOT export an empty/placeholder value —
     the export sits inside a non-empty guard so UTC remains the fallback."""
