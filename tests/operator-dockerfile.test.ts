@@ -235,7 +235,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // /runtime/config right after reprovision instead of as a surprise fire.
     // Range 5b4c99e1..378fd82d changed shared/config_snapshot.py + tests;
     // all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="378fd82dfb61e273cfc3fa4ebf0c013a6e5a7eee"')
+    // 8df1992a (#128): interactive-turn cost metering (option C, ADR 0062 §4
+    // amendment, #1701) — shared/interactive_cost_meter.py estimates each
+    // interactive turn's cents at the post_llm_call hook and feeds the same
+    // sticky_stop ladder, closing the gap the trip probe found. Range
+    // 378fd82d..8df1992a changed interactive_cost_meter.py[new] + the audit
+    // plugin + tests + vendored pricing; all four tracked twins verified
+    // unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8df1992a9c456c6c46f761dc9b3650b7bef56b50"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
