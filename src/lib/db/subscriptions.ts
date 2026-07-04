@@ -1,0 +1,97 @@
+/**
+ * Subscription-row helpers for the Operator billing engine (#1679).
+ *
+ * The `subscriptions` table is the product-access gate the portal reads
+ * (src/lib/portal/product-access.ts): status provisioning/active/paused/
+ * cancelled decides what a client sees. Provisioning owns row CREATION;
+ * this module only attaches/detaches Stripe billing to an existing row and
+ * mirrors billing-driven status transitions. It never inserts rows —
+ * granting portal access remains provisioning's decision, not billing's.
+ */
+
+import type { D1Database } from '@cloudflare/workers-types'
+
+export interface SubscriptionBillingRow {
+  id: string
+  org_id: string
+  entity_id: string
+  product_slug: string
+  status: string
+  stripe_subscription_id: string | null
+}
+
+const BILLING_COLUMNS = 'id, org_id, entity_id, product_slug, status, stripe_subscription_id'
+
+/** The (entity, product) subscription row, or null. */
+export async function getSubscriptionForBilling(
+  db: D1Database,
+  entityId: string,
+  productSlug: string
+): Promise<SubscriptionBillingRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT ${BILLING_COLUMNS} FROM subscriptions WHERE entity_id = ? AND product_slug = ?`
+    )
+    .bind(entityId, productSlug)
+    .first<SubscriptionBillingRow>()
+  return row ?? null
+}
+
+/** Resolve the local row a Stripe subscription event belongs to. Webhooks
+ * carry no org context; the stripe id is globally unique (partial unique
+ * index, migration 0084). */
+export async function getSubscriptionByStripeId(
+  db: D1Database,
+  stripeSubscriptionId: string
+): Promise<SubscriptionBillingRow | null> {
+  const row = await db
+    .prepare(`SELECT ${BILLING_COLUMNS} FROM subscriptions WHERE stripe_subscription_id = ?`)
+    .bind(stripeSubscriptionId)
+    .first<SubscriptionBillingRow>()
+  return row ?? null
+}
+
+/** Attach a Stripe subscription to the local row (start billing). */
+export async function attachStripeSubscription(
+  db: D1Database,
+  subscriptionRowId: string,
+  stripeSubscriptionId: string
+): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE subscriptions SET stripe_subscription_id = ?, updated_at = datetime('now') WHERE id = ?"
+    )
+    .bind(stripeSubscriptionId, subscriptionRowId)
+    .run()
+}
+
+/**
+ * Mirror a billing-driven status transition onto the local row. Restricted
+ * to the transitions billing legitimately drives — it must never resurrect
+ * a cancelled row or skip provisioning:
+ *
+ *   * `paused`    — collection paused (audit-only access)
+ *   * `active`    — collection resumed
+ *   * `cancelled` — subscription deleted at Stripe; ended_at is stamped
+ */
+export async function setSubscriptionBillingStatus(
+  db: D1Database,
+  subscriptionRowId: string,
+  status: 'active' | 'paused' | 'cancelled'
+): Promise<void> {
+  if (status === 'cancelled') {
+    await db
+      .prepare(
+        "UPDATE subscriptions SET status = 'cancelled', ended_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+      )
+      .bind(subscriptionRowId)
+      .run()
+    return
+  }
+  await db
+    .prepare(
+      "UPDATE subscriptions SET status = ?, updated_at = datetime('now') WHERE id = ? AND status != 'cancelled'"
+    )
+    .bind(status, subscriptionRowId)
+    .run()
+}
