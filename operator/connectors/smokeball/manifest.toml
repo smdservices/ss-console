@@ -1,10 +1,13 @@
 # mcp:smokeball — author-built connector for the Smokeball practice-management
 # API (the law-firm wedge system of record). ADR 0053.
 #
-# auth_model = client_credentials: for our own staging tenant the server mints
-# its own Bearer from client_id/secret (no user-consent round-trip). At go-live
-# the real firm's seat uses authorization_code (user-delegated); the connector
-# supports adding that grant without changing the tool surface.
+# auth_model = client_credentials is the manifest DEFAULT; the pilot seat runs
+# authorization_code (firm-delegated, ADR 0054) selected per-seat via
+# customer.yaml, with the refresh token minted under the approved app whose
+# STAGING credentials are the SMOKEBALL_STAGING_* vault pair. client_credentials
+# remains supported and is what the rehearsal-office seeder uses — on App 1's
+# separate SMOKEBALL_SEED_* creds (operator/customers/pilot-smokeball/seed/),
+# never this seat's pair.
 #
 # required_secrets are the RUNTIME env-var names the connector reads; the overlay
 # registry remaps them from the vault names (SMOKEBALL_STAGING_* in /ss). Every

@@ -76,8 +76,13 @@ not a separate ceremony.
 ## 3. Test data — the synthetic matter set
 
 The rehearsal office (M1) is our own firm account in Smokeball's vendor
-staging environment; every matter and document in it is authored by us. The
-set must cover, at minimum:
+staging environment; every matter and document in it is authored by us.
+The set is authored and seeded by
+`operator/customers/pilot-smokeball/seed/` (`seed_staging.py` +
+`seed_data.py`; created resources recorded in `manifest.json` — idempotent,
+re-run safe). **Seeded 2026-07-04**: 17 contacts, 7 matters
+(2026-PI-101..107), 20 documents, 3 open tasks
+(`vfy_01KWQQ2Y42TFWED7VCXK4H96RK`). The set must cover, at minimum:
 
 **Representative matters** — one per lane shape: an auto-collision matter in
 active discovery (the deep lane), a premises matter at initiation, a matter
