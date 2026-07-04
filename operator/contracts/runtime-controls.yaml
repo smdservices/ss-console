@@ -183,18 +183,17 @@ controls:
       sticky_stop_level to the fleet view. record_cost_cents()/assert_allowed()
       + the $50/day (cost_daily_cents=5000) ladder, authored per seat via
       customer.yaml safety.sticky_stop; persistence is Machine-local sqlite
-      (/opt/data/smd/sticky_stop.db) per ADR 0062 §3. Exact interactive
-      per-turn cents remains blocked on an upstream Hermes usage kwarg
-      (ADR 0062 §4). Status unprobed: wiring + unit coverage, no live
-      negative-fire trip test on a running Machine yet (ADR 0050 B3 probe tier).
-      PROBE FINDING 2026-07-04 (#1701): the live trip could not be driven —
-      the metered path (durable-job segment loop) is only reachable via the
-      start_background_job tool, which is entitled on NO live seat, and the
-      dominant spend path (interactive turns) is unmetered by design. The
-      cents cap therefore cannot fire on live traffic today; the gate
-      inbound_daily_cap is the only live interactive-spend guard. Direction
-      call in #1701. Stays unprobed (honest) until the metered path is
-      reachable and a live trip is recorded.
+      (/opt/data/smd/sticky_stop.db) per ADR 0062 §3. Interactive turns
+      (the dominant spend path) are now metered too — overlay
+      shared/interactive_cost_meter.py estimates each turn's cents at the
+      post_llm_call hook and feeds the SAME ladder (ADR 0062 §4 amendment,
+      overlay 8df1992a). Status unprobed: wiring + unit coverage on both
+      paths, no live negative-fire trip test recorded yet (ADR 0050 B3 tier).
+      PROBE HISTORY 2026-07-04 (#1701): the first probe found the cents cap
+      guarded only the durable-job path (entitled on NO live seat) while the
+      dominant interactive path was unmetered — option-C interactive metering
+      (above) was built to close that gap; a live trip on the interactive
+      path (now always reachable) flips this to enforced.
 
   sticky_stop_tool_failure:
     control: sticky_stop_tool_failure
