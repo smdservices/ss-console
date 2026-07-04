@@ -53,23 +53,23 @@ The moat claim (harness + guide + memory, ADR 0037 Tenet 4) survives with one am
 
 ## Recommendations
 
-Priority order. Each is tracked as a GitHub issue (numbers filled at filing time; see the issue tracker for the authoritative list).
+Priority order. Every recommendation is tracked as a GitHub issue.
 
-| # | Recommendation | Wave |
-|---|---|---|
-| 1a | Wire runtime-read into the portal feeds (home, activity, aliveness) | 1 |
-| 1b | Build Stripe recurring billing for the Operator retainer | 1 |
-| 1c | Ship product trust pages: security, DPA, sub-processors, AI disclosure | 1 |
-| 2 | A&P pilot: reprovision with PI v0.2.0 + live lifecycle test (merge landed in #1637) | 1 |
-| 3a | Commit the pricing + unit-economics ADR (retro-document the cost plane; refs #1659, #1661) | 2 |
-| 3b | SLA shape + incident-response runbook | 2 |
-| 3c | Offboarding doctrine: cancellation, deprovisioning, data return | 2 |
-| 4 | EvenUp counter-positioning: amend ADR 0040 frame + arm the pitch | 2 |
-| 5a | Hash-chain the audit ledger | 3 |
-| 5b | Build fabrication filter invariant #8 or downgrade the compliance-grade claim (ref closed #798) | 3 |
-| 6 | ADR hygiene wave: commit phantom 0050, resolve 0044 collision, regenerate index.md, fix overlay README | 3 |
-| 7 | Confirm `operator/skills/**` and `operator/verticals/**` trigger substrate CI | 3 |
-| 8 | Quarterly substrate watch: Anthropic Managed Agents et al. as migration candidates | 3 |
+| # | Recommendation | Wave | Issue |
+|---|---|---|---|
+| 1a | Wire runtime-read into the portal feeds (home, activity, aliveness) | 1 | #1678 |
+| 1b | Build Stripe recurring billing for the Operator retainer | 1 | #1679 |
+| 1c | Ship product trust pages: security, DPA, sub-processors, AI disclosure | 1 | #1680 |
+| 2 | A&P pilot: reprovision with PI v0.2.0 + live lifecycle test (merge landed in #1637) | 1 | #1681 |
+| 3a | Commit the pricing + unit-economics ADR (retro-document the cost plane; refs #1659, #1661) | 2 | #1682 |
+| 3b | SLA shape + incident-response runbook | 2 | #1683 |
+| 3c | Offboarding doctrine: cancellation, deprovisioning, data return | 2 | #1684 |
+| 4 | EvenUp counter-positioning: amend ADR 0040 frame + arm the pitch | 2 | #1685 |
+| 5a | Hash-chain the audit ledger | 3 | #1686 |
+| 5b | Build fabrication filter invariant #8 or downgrade the compliance-grade claim (ref closed #798) | 3 | #1687 |
+| 6 | ADR hygiene wave: commit phantom 0050, resolve 0044 collision, regenerate index.md, fix overlay README | 3 | #1689 |
+| 7 | Confirm `operator/skills/**` and `operator/verticals/**` trigger substrate CI | 3 | #1688 |
+| 8 | Quarterly substrate watch: Anthropic Managed Agents et al. as migration candidates | 3 | #1690 |
 
 **One-sentence summary:** we built the enterprise-grade back half first (correct for a liability-bearing product), but the customer-visible front half and the commercial doctrine are now the whole risk surface, and the market just produced its first funded competitor in our pilot vertical.
 
