@@ -100,6 +100,7 @@ class Api:
             data=body,
             headers={"Authorization": f"Basic {basic}", "Content-Type": "application/x-www-form-urlencoded"},
         )
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — URL is the module-constant AUTH_HOST token endpoint (https://); credentials come from Infisical-staged env, never from input.
         with urllib.request.urlopen(req, timeout=30) as r:
             self.token = json.load(r)["access_token"]
 
@@ -116,6 +117,7 @@ class Api:
             },
         )
         try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — scheme+host are the module-constant API_HOST (https://); paths are module-authored literals plus Smokeball-issued resource ids.
             with urllib.request.urlopen(req, timeout=60) as r:
                 raw = r.read()
                 return r.status, (json.loads(raw) if raw else None)
@@ -155,6 +157,7 @@ class Api:
         # Presigned S3 PUT: EMPTY Content-Type, NO auth headers (would break the
         # signature — the contract locked in connector tests/test_document_writes.py).
         u = urllib.parse.urlsplit(upload_url)
+        # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected — deliberate: the presigned S3 PUT requires an EXACTLY empty header set (no Content-Type, no auth) or the signature breaks; http.client is the only stdlib client that sends no implicit headers. Host is the Smokeball-issued presigned URL; TLS verification is the stdlib default.
         conn = http.client.HTTPSConnection(u.netloc, timeout=60)
         conn.request("PUT", f"{u.path}?{u.query}" if u.query else u.path, body=blob, headers={})
         put = conn.getresponse()
