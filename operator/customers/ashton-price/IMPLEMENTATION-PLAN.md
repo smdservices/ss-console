@@ -68,19 +68,19 @@ client's Machine.
 
 ## 2. Where we are (verified, 2026-07-04)
 
-| Fact                                                                                                                | Evidence                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 19 PI-litigation skills authored + adversarially gated + revised; every safety bright line held                     | PR #1637; `law-firm/pi` addon.yaml v0.2.0; 64 fixtures (43 adversarial)                                                                                                       |
-| Catalog selector: 19/19 blind pass over the 33-skill catalog                                                        | `../../verticals/law-firm/addons/pi/tests/catalog-selector-test.md`                                                                                                           |
-| Skills staged on `quinn` in both `pilot-smokeball` and `ashton-price` customer.yaml                                 | 2026-07-02 staging pass                                                                                                                                                       |
-| Live execution proven on `pilot-smokeball`; hardening fixes landed from that pass                                   | #1639 (catalog frontmatter), #1641/#1644 (citation-safe email, neutral persona), #1650 (Smokeball /contacts 400s), #1651 (delivery discipline v2), #1665 (seat-local cron TZ) |
-| Smokeball app **approved** for production                                                                           | Captain, 2026-07-03                                                                                                                                                           |
-| `ashton-price` seat **unprovisioned**; Anthropic workspace pre-created, config row to author at provision           | `docs/runbooks/operator/cost-telemetry-enable.md`; #1667/#1668                                                                                                                |
-| Cost plane live: per-seat workspace attribution + machine-local breaker                                             | ADR 0062; #1664/#1666                                                                                                                                                         |
-| Smokeball prod connect path = client-portal OAuth (settings hub), firm-delegated authorization_code grant           | #1633/#1649 (the `bin/connect-smokeball.sh` reference in BUILD-PLAN §9 is stale)                                                                                              |
-| Litigation-lifecycle model **not firm-confirmed** — proposal awaiting Christa's markup                              | `CLIENT-PROPOSAL.md` header; standing gate (a)                                                                                                                                |
-| Smokeball memo + document writes **fail server-side** (403); task write verified working live                       | Ticket #617858; 2026-07-03 live probe (task created + read-verified); standing gate (b)                                                                                       |
-| Original client_credentials staging app (App 1) credentials present in vault; it performed the original doc seeding | `SMOKEBALL_STAGING_*` in Infisical `/ss` (checked 2026-07-04); `operator/connectors/smokeball/manifest.toml`; upload contract locked in `tests/test_document_writes.py`       |
+| Fact                                                                                                                                                                                                                | Evidence                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 19 PI-litigation skills authored + adversarially gated + revised; every safety bright line held                                                                                                                     | PR #1637; `law-firm/pi` addon.yaml v0.2.0; 64 fixtures (43 adversarial)                                                                                                       |
+| Catalog selector: 19/19 blind pass over the 33-skill catalog                                                                                                                                                        | `../../verticals/law-firm/addons/pi/tests/catalog-selector-test.md`                                                                                                           |
+| Skills staged on `quinn` in both `pilot-smokeball` and `ashton-price` customer.yaml                                                                                                                                 | 2026-07-02 staging pass                                                                                                                                                       |
+| Live execution proven on `pilot-smokeball`; hardening fixes landed from that pass                                                                                                                                   | #1639 (catalog frontmatter), #1641/#1644 (citation-safe email, neutral persona), #1650 (Smokeball /contacts 400s), #1651 (delivery discipline v2), #1665 (seat-local cron TZ) |
+| Smokeball app **approved** for production                                                                                                                                                                           | Captain, 2026-07-03                                                                                                                                                           |
+| `ashton-price` seat **unprovisioned**; Anthropic workspace pre-created, config row to author at provision                                                                                                           | `docs/runbooks/operator/cost-telemetry-enable.md`; #1667/#1668                                                                                                                |
+| Cost plane live: per-seat workspace attribution + machine-local breaker                                                                                                                                             | ADR 0062; #1664/#1666                                                                                                                                                         |
+| Smokeball prod connect path = client-portal OAuth (settings hub), firm-delegated authorization_code grant                                                                                                           | #1633/#1649 (the `bin/connect-smokeball.sh` reference in BUILD-PLAN §9 is stale)                                                                                              |
+| Litigation-lifecycle model **not firm-confirmed** — proposal awaiting Christa's markup                                                                                                                              | `CLIENT-PROPOSAL.md` header; standing gate (a)                                                                                                                                |
+| Smokeball memo + document writes **fail server-side** (403); task write verified working live                                                                                                                       | Ticket #617858; 2026-07-03 live probe (task created + read-verified); standing gate (b)                                                                                       |
+| App 1 (original `client_credentials` staging app, performed the original doc seeding) credentials **NOT in vault** — App 2's rollout overwrote `SMOKEBALL_STAGING_CLIENT_ID/SECRET` (value prefix-verified = App 2) | vfy_01KWQKZVDVESGWY5VRDA12PK46 (2026-07-04); Captain recall; upload contract locked in `tests/test_document_writes.py`                                                        |
 
 ## 3. Milestone ladder
 
@@ -119,21 +119,28 @@ attempts), then every lane's L2 scenario suite run end-to-end. This is where
 all iteration happens until the firm's account is in play — and for as long
 as we work together, per the change-flow rule.
 
-**Seeding constraint.** Document seeding through the seat's own connector
-hits the same #617858 deny (App 2 tokens). Three paths, first two are an
-open Captain call:
+**Seeding path (decided: App 1 — Captain, 2026-07-04).** Document seeding
+through the seat's own connector hits the same #617858 deny (App 2 tokens).
+Seeding runs on **App 1**, the original `client_credentials` staging app
+that performed the original document seeding (upload contract locked in
+`operator/connectors/smokeball/tests/test_document_writes.py`). Manual
+web-UI seeding covers a bounded starter set in the interim; task and
+calendar seeding through the seat works today regardless.
 
-1. **Wait for #617858 resolution** — then the seat's normal path seeds.
-2. **App 1** — the original `client_credentials` staging app, whose
-   credentials (`SMOKEBALL_STAGING_*`) are present in `/ss` and which
-   performed the original document seeding. Test-infrastructure hydration
-   on our own tenant; not a gate (b) workaround.
-3. **Manual web-UI seeding** — works today; fine for a bounded starter set.
+**Credential handling (do not get this wrong twice).** App 2's rollout
+**overwrote** `SMOKEBALL_STAGING_CLIENT_ID/SECRET` in `/ss` — the vault
+holds App 2 values under those names (prefix-verified 2026-07-04). App 1's
+credentials must be retrieved from the **Smokeball Developer Console**
+(login created 2026-06-22; welcome email in Captain's inbox) and stored
+under **separate, purpose-named keys** — `SMOKEBALL_SEED_CLIENT_ID`,
+`SMOKEBALL_SEED_CLIENT_SECRET`, `SMOKEBALL_SEED_API_KEY` — never under the
+`SMOKEBALL_STAGING_*` / `SMOKEBALL_PROD_*` names App 2 depends on. Verify
+the retrieved values with a live `client_credentials` token mint before
+relying on them.
 
-Task and calendar seeding through the seat works today regardless.
-
-- **Blocked by:** seeding-path decision (Captain) for document-bearing
-  scenarios only; everything task/web-UI-seedable starts immediately.
+- **Blocked by:** App 1 credential retrieval + separate storage (Captain
+  holds Developer Console access) for document-bearing scenarios only;
+  everything task/web-UI-seedable starts immediately.
 - **Exit:** every lane's L2 scenario suite has a passing end-to-end run on
   the staging seat, recorded per `TEST-PLAN.md` §7.
 
@@ -299,19 +306,19 @@ Everything the plan waits on that we do not fully control, with owner and
 blast radius. Update in place; a dependency that blocks a milestone is also
 named on that milestone.
 
-| Dependency                                     | Owner                              | Blocks                                                                               | State (2026-07-04)                                        |
-| ---------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| Smokeball memo/document write defect           | Smokeball support (ticket #617858) | Gate (b): M5+ delivery paths that write docs/memos — go-live blocker, no workarounds | Open; task/calendar writes verified unaffected            |
-| Lifecycle sign-off (per-lane acceptance)       | Chris + Christa                    | Gate (a): all firm-visible activation (M5+)                                          | Proposal awaiting markup                                  |
-| Working-session scheduling                     | Christa                            | M2 → the whole firm-facing sequence (connect, shadow, activation)                    | Was out week of 2026-06-29                                |
-| Connect authorization                          | Christa or Chris                   | M3                                                                                   | Asked at the working session (M2 item 9)                  |
-| Staging seeding path (wait vs App 1 vs web UI) | Captain (+ Smokeball for path 1)   | M1 document-bearing L2 scenarios                                                     | Open Captain call; `SMOKEBALL_STAGING_*` present in `/ss` |
-| M365 tenant admin consent                      | A&P IT                             | M6                                                                                   | Not started                                               |
-| Graph DocumentStorage + mail watch build       | Us (#1055, P0)                     | M6                                                                                   | Open                                                      |
-| CoCounsel / drafting division answer           | Christa (post-TR meeting)          | Motion/response lane shape                                                           | Pending her meeting                                       |
-| Deadline fork (rules engine vs by-hand)        | Christa                            | Deadline-lane shape                                                                  | Open, M2 item 4                                           |
-| InfoTrack MCP availability                     | Us + vendor                        | M7 filing/service signals                                                            | Research                                                  |
-| Adobe backend (trial binder)                   | Us                                 | M7 trial-prep lane                                                                   | Research                                                  |
+| Dependency                                    | Owner                              | Blocks                                                                               | State (2026-07-04)                                                                                  |
+| --------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Smokeball memo/document write defect          | Smokeball support (ticket #617858) | Gate (b): M5+ delivery paths that write docs/memos — go-live blocker, no workarounds | Open; task/calendar writes verified unaffected                                                      |
+| Lifecycle sign-off (per-lane acceptance)      | Chris + Christa                    | Gate (a): all firm-visible activation (M5+)                                          | Proposal awaiting markup                                                                            |
+| Working-session scheduling                    | Christa                            | M2 → the whole firm-facing sequence (connect, shadow, activation)                    | Was out week of 2026-06-29                                                                          |
+| Connect authorization                         | Christa or Chris                   | M3                                                                                   | Asked at the working session (M2 item 9)                                                            |
+| App 1 credential retrieval + separate storage | Captain (Developer Console)        | M1 document-bearing L2 scenarios                                                     | Path decided: App 1 (2026-07-04); retrieve from Dev Console → `SMOKEBALL_SEED_*`; web-UI interim OK |
+| M365 tenant admin consent                     | A&P IT                             | M6                                                                                   | Not started                                                                                         |
+| Graph DocumentStorage + mail watch build      | Us (#1055, P0)                     | M6                                                                                   | Open                                                                                                |
+| CoCounsel / drafting division answer          | Christa (post-TR meeting)          | Motion/response lane shape                                                           | Pending her meeting                                                                                 |
+| Deadline fork (rules engine vs by-hand)       | Christa                            | Deadline-lane shape                                                                  | Open, M2 item 4                                                                                     |
+| InfoTrack MCP availability                    | Us + vendor                        | M7 filing/service signals                                                            | Research                                                                                            |
+| Adobe backend (trial binder)                  | Us                                 | M7 trial-prep lane                                                                   | Research                                                                                            |
 
 ## 7. Tracking model
 

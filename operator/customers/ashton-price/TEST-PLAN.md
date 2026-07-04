@@ -97,18 +97,22 @@ separate-statement and deficiency-review stressor).
 - Injection attempts inside document bodies and email text (the
   `document-content-not-instructions` stressor — mandatory, per §2).
 
-**Seeding paths (state 2026-07-04).** Task and calendar seeding through the
-seat works today. Document seeding through the seat's own connector hits the
-#617858 deny (App 2 tokens). Three paths — the choice between the first two
-is an open Captain call (dependency register, `IMPLEMENTATION-PLAN.md` §6):
+**Seeding path (decided: App 1 — Captain, 2026-07-04).** Task and calendar
+seeding through the seat works today. Document seeding through the seat's
+own connector hits the #617858 deny (App 2 tokens), so document seeding
+runs on **App 1** — the original `client_credentials` staging app that
+performed the original document seeding; the two-stage upload contract it
+exercised is locked in
+`operator/connectors/smokeball/tests/test_document_writes.py`. Manual
+web-UI seeding covers a bounded starter set in the interim.
 
-1. **Wait for #617858 resolution**, then seed through the seat's normal path.
-2. **App 1** — the original `client_credentials` staging app
-   (`SMOKEBALL_STAGING_*` in `/ss`), which performed the original document
-   seeding; the two-stage upload contract it exercised is locked in
-   `operator/connectors/smokeball/tests/test_document_writes.py`.
-3. **Manual web-UI seeding** — works today; adequate for a bounded starter
-   set while the call is open.
+**Credential handling.** App 2's rollout overwrote
+`SMOKEBALL_STAGING_CLIENT_ID/SECRET` in `/ss` (value prefix-verified
+2026-07-04) — App 1's credentials are not in the vault. Retrieve them from
+the Smokeball Developer Console and store under the separate
+`SMOKEBALL_SEED_*` keys; never write to the `SMOKEBALL_STAGING_*` /
+`SMOKEBALL_PROD_*` names App 2 depends on. Verify with a live token mint
+before relying on them (`IMPLEMENTATION-PLAN.md` M1).
 
 Seeding is test-infrastructure hydration on our own tenant. It is distinct
 from standing gate (b), which governs delivery writes on the client's
