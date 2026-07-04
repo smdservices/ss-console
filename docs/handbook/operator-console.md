@@ -65,9 +65,9 @@ Two domains are never a client switch and are SMD-operated in every state: `prov
 
 The design behind this model is in `docs/design/operator/` and ADR 0041; the governance it expresses is `/admin/playbook/autonomy-governance`.
 
-## Honest before it is wired
+## Honest when it has nothing to show
 
-Several surfaces read live runtime state - the activity log, calendar items, the "where is the agent right now" header, the home feeds - through the runtime read seam (ADR 0043, `/admin/playbook/architecture-map`). That seam is built and the surfaces are built, but the per-customer runtime bridge that fills them is staged work; until it is wired for a given customer, those surfaces render honest empty states rather than fabricated content. This is the same no-fabrication discipline the rest of the product holds (`/admin/playbook/security-trust`): an empty feed says "nothing needs a person," never invents one.
+Several surfaces read live runtime state through the runtime read seam (ADR 0043, `/admin/playbook/architecture-map`). The activity log, the home feeds (recent activity, escalations), the "where is the agent right now" header, and the what-needs-you count are live: activity and escalations come from the customer Machine's own audit log over the seam, the aliveness header derives from the Machine's heartbeat row (ADR 0023), and the count comes from the Machine-pushed review-queue depth (`src/lib/portal/operator/home.ts`, `src/lib/portal/operator/aliveness.ts`). Calendar items remain staged work. Every one of these fails closed: a Machine that is unreachable, a customer with no heartbeat row yet, or a source that has not landed renders an honest empty state rather than fabricated content. This is the same no-fabrication discipline the rest of the product holds (`/admin/playbook/security-trust`): an empty feed says "nothing needs a person," never invents one.
 
 ## Home
 

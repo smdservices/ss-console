@@ -28,6 +28,19 @@
 /** The classes of runtime detail a drill-in can request. Each maps to a
  * read-only endpoint on the Machine. Extend as drill-in surfaces are added.
  *
+ * Reconciliation with the Machine (overlay `shared/runtime_read.py`,
+ * checked 2026-07-04 / #1678): every kind listed here is in the Machine's
+ * SUPPORTED_KINDS, so no console request can 404. `audit_log`,
+ * `memory_export`, `config_export`, and `jobs` are REAL (backed by a table
+ * or the broker ledger); `activity` is supported but serves an honest empty
+ * page until its runtime table lands — portal Home therefore derives its
+ * activity feed from `audit_log`, and only the admin observe surface still
+ * requests `activity` (renders the empty state it was built for). The
+ * Machine additionally serves `audit_export` / `config` / `draft` /
+ * `matter` for the decommission pipeline and drift audit; those are
+ * deliberately NOT listed here — portal/admin drill-ins must not request
+ * compliance-export payloads.
+ *
  * `memory_export` serves an allow-listed Machine-local memory table one at a
  * time via the `table` query field (ADR 0016 mirror tables + `peer_preferences`,
  * the relationship model's learned lane — per-peer working-preference memory the

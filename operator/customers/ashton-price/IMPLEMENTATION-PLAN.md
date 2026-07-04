@@ -4,13 +4,15 @@ _The active sequencing document for the A&P pilot. Supersedes `BUILD-PLAN.md`
 for sequencing (the build it planned is done and merged); `BUILD-PLAN.md`
 remains the record of build posture and guardrails. What we owe:
 `CLIENT-PROPOSAL.md`. Delivery model: `00-OVERVIEW.md`. Trust dial:
-`ENTITLEMENTS.md`. Per-skill evidence: `../../grading/matrix.md`._
+`ENTITLEMENTS.md`. Per-skill evidence: `../../grading/matrix.md`.
+Process-grain test strategy: `TEST-PLAN.md`. Client-facing shape:
+`CLIENT-IMPLEMENTATION-PLAN.md`._
 
 ---
 
 ## 1. How this plan is structured (read once)
 
-Three rules shape everything below:
+Four rules shape everything below:
 
 1. **Gate-sequenced, never time-sequenced.** Milestones are verification
    events — a seam observed carrying real data — not dates. A milestone is
@@ -31,6 +33,19 @@ draft_for_review → autonomous`. Promotion beyond `draft_for_review`
    passes. Evidence lives in `operator/grading/matrix.md` + `runs/`; this
    plan tracks milestones, not per-skill state — never duplicate the matrix
    here.
+4. **Two standing gates sit above the ladder (Captain, 2026-07-04).**
+   **(a) Lifecycle acceptance.** The litigation-lifecycle model the skills
+   are built on is working doctrine, not firm-confirmed fact — the proposal
+   is still awaiting Christa's markup. Internal-only work (M0–M2: seat,
+   prod connect, read-only shadow) proceeds and iterates in parallel, and
+   its shadow output is evidence that accelerates sign-off. Nothing
+   firm-visible (M4 onward) activates until the firm has signed off the
+   lifecycle model for that lane — the acceptance level of `TEST-PLAN.md`.
+   **(b) Smokeball write defect (ticket #617858).** Memo and document
+   writes fail server-side on Smokeball's end (task and calendar writes
+   verified working live, 2026-07-03). Go-live blocker for every lane whose
+   delivery path lands output in Smokeball as a memo or document. We wait
+   for vendor resolution; no workaround routing.
 
 **Ladder definitions.** `live-shadow` = executes against real firm data on a
 schedule/trigger, output routed internally (Captain/ops) only — the firm sees
@@ -56,12 +71,20 @@ client's Machine.
 | `ashton-price` seat **unprovisioned**; Anthropic workspace pre-created, config row to author at provision | `docs/runbooks/operator/cost-telemetry-enable.md`; #1667/#1668                                                                                                                |
 | Cost plane live: per-seat workspace attribution + machine-local breaker                                   | ADR 0062; #1664/#1666                                                                                                                                                         |
 | Smokeball prod connect path = client-portal OAuth (settings hub), firm-delegated authorization_code grant | #1633/#1649 (the `bin/connect-smokeball.sh` reference in BUILD-PLAN §9 is stale)                                                                                              |
+| Litigation-lifecycle model **not firm-confirmed** — proposal awaiting Christa's markup                    | `CLIENT-PROPOSAL.md` header; standing gate (a)                                                                                                                                |
+| Smokeball memo + document writes **fail server-side** (403); task write verified working live             | Ticket #617858; 2026-07-03 live probe (task created + read-verified); standing gate (b)                                                                                       |
 
 ## 3. Milestone ladder
 
 Each milestone names its exit criterion (the thing observed working) and who
 holds the blocking input. Milestones overlap where noted; the numbering is
 dependency order, not a strict serial queue.
+
+The standing gates split the ladder: **M0–M2 are internal-only** and proceed
+now — the firm sees nothing, and every shadow run sharpens the lifecycle
+evidence we bring to the sign-off conversation. **M4 onward is firm-visible**
+and holds until gate (a) clears for the lane in question, and gate (b) clears
+wherever the lane's delivery path writes memos or documents into Smokeball.
 
 ### M0 — Seat live
 
@@ -138,7 +161,11 @@ the ladder on live matters: live-shadow → graded → promoted to
 5. `opposing-response-deficiency-review` → `meet-and-confer-drafter`.
 
 - **Blocked by:** M2 (shadow substrate) + M3 items 1–3 (dial, markup,
-  deadline fork).
+  deadline fork) + **gate (a)** (discovery-lane lifecycle sign-off, the L4
+  acceptance record per `TEST-PLAN.md`) + **gate (b)** for the skills that
+  write into Smokeball (`separate-statement-assembler` and
+  `discovery-response-staging` land documents; blocked until #617858
+  resolves — no workaround routing).
 - **Exit:** each skill has a graded live run in `runs/` sustaining
   `draft_for_review` with zero safety-line violations; the firm is receiving
   and using its drafts.
@@ -179,11 +206,33 @@ carrying forward.
 
 - **Exit:** none — this is the operating state the milestones converge into.
 
-## 4. Firm-input register (everything we need from A&P)
+## 4. Per-process test strategy
+
+Skill-grain evidence (the grading matrix + `runs/`) proves individual skills.
+It does not prove a _process_ — served discovery arriving, getting classified,
+tracked, staged, reviewed, and answered as one chain. `TEST-PLAN.md` defines
+the process-grain strategy: one end-to-end scenario suite per lifecycle lane,
+run through four levels.
+
+| Level | What runs                                                                                                     | Where                                      |
+| ----- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| L1    | Component: per-skill fixtures (64, 43 adversarial), re-run on every change                                    | Repo, pre-merge                            |
+| L2    | Integration: full lane chains over synthetic matters through the real substrate                               | `pilot-smokeball` staging seat             |
+| L3    | System: live-shadow on real A&P matters, output internal, graded against what the firm actually did           | `ashton-price` seat                        |
+| L4    | Acceptance: the firm reviews the process and its output against how the firm actually runs; per-lane sign-off | Firm (working session + reviewed evidence) |
+
+L4 is the mechanism of standing gate (a): lifecycle sign-off is not a
+one-time meeting, it is per-lane acceptance criteria passing, recorded per
+`TEST-PLAN.md`. No lane promotes to `draft_for_review` without its L4 record.
+The change flow (fixtures → staging seat → paid seat) is the regression
+discipline underneath all four levels.
+
+## 5. Firm-input register (everything we need from A&P)
 
 The client-visible face of this plan. Every ask, who owes it, what it
 unlocks. When presenting to the firm, this table — not the milestone ladder —
-is the artifact to speak from.
+is the artifact to speak from (in its client-facing shape,
+`CLIENT-IMPLEMENTATION-PLAN.md`).
 
 | #   | Input                                      | Owner            | Unlocks              |
 | --- | ------------------------------------------ | ---------------- | -------------------- |
@@ -196,8 +245,28 @@ is the artifact to speak from.
 | 7   | Voice samples (letters/templates)          | Christa          | Firm-voice drafting  |
 | 8   | Inbox decision + M365 admin consent        | Christa + IT     | M5                   |
 | 9   | Starting matter set                        | Christa          | M2 shadow scope      |
+| 10  | Lifecycle sign-off (per-lane acceptance)   | Chris + Christa  | Gate (a) → M4+       |
 
-## 5. Tracking model
+## 6. Dependency register
+
+Everything the plan waits on that we do not fully control, with owner and
+blast radius. Update in place; a dependency that blocks a milestone is also
+named on that milestone.
+
+| Dependency                               | Owner                              | Blocks                                                                               | State (2026-07-04)                             |
+| ---------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Smokeball memo/document write defect     | Smokeball support (ticket #617858) | Gate (b): M4+ delivery paths that write docs/memos — go-live blocker, no workarounds | Open; task/calendar writes verified unaffected |
+| Lifecycle sign-off (per-lane acceptance) | Chris + Christa                    | Gate (a): all firm-visible activation (M4+)                                          | Proposal awaiting markup                       |
+| Portal OAuth connect click               | Christa or Chris                   | M1 → everything downstream                                                           | Not yet asked                                  |
+| Working-session scheduling               | Christa                            | M3                                                                                   | Was out week of 2026-06-29                     |
+| M365 tenant admin consent                | A&P IT                             | M5                                                                                   | Not started                                    |
+| Graph DocumentStorage + mail watch build | Us (#1055, P0)                     | M5                                                                                   | Open                                           |
+| CoCounsel / drafting division answer     | Christa (post-TR meeting)          | Motion/response lane shape                                                           | Pending her meeting                            |
+| Deadline fork (rules engine vs by-hand)  | Christa                            | Deadline-lane shape                                                                  | Open, M3 item 3                                |
+| InfoTrack MCP availability               | Us + vendor                        | M6 filing/service signals                                                            | Research                                       |
+| Adobe backend (trial binder)             | Us                                 | M6 trial-prep lane                                                                   | Research                                       |
+
+## 7. Tracking model
 
 - **This document** is the canonical map. Milestone status updates land here
   in the same PR as the work that moves them, with the verify record cited.
@@ -206,19 +275,34 @@ is the artifact to speak from.
   Issues are the unit of doing; this doc is the unit of understanding.
 - **`operator/grading/matrix.md` + `runs/`** remain the per-skill evidence
   ledger. This plan never restates per-skill verdicts.
-- **Client-facing status** is a derived artifact, never this file: drafted
-  per milestone completion from the §4 register, Captain reviews and sends.
+- **`TEST-PLAN.md`** holds the process-grain scenario suites and the four
+  test levels; L4 acceptance records are the lifecycle sign-off evidence.
+- **Client-facing shape** is the standing `CLIENT-IMPLEMENTATION-PLAN.md` —
+  this plan in the firm's language, maintained alongside this file (when the
+  shape changes, update both in the same PR). Status notes to the firm derive
+  from it and the §5 register; Captain reviews and sends everything.
   Client-facing content carries no internal codenames, no timeframes, no
   uncontracted commitments (CLAUDE.md Pattern A/B).
 
-## 6. Risks worth naming (not a ceremony section)
+## 8. Risks worth naming (not a ceremony section)
 
+- **The lifecycle model is presumed, not confirmed.** Shadow grading assumes
+  our model of how A&P runs matters; if the model is wrong in places, early
+  grades mislead. Gate (a) exists for exactly this — treat L3 grades as
+  provisional until the firm's markup and per-lane acceptance land, and
+  expect the model to move.
+- **The write defect has no deadline.** #617858 is in Smokeball's queue, not
+  ours. Gate (b) means the document-writing half of the discovery lane waits
+  on a vendor we cannot schedule. Nothing to do but keep the ticket warm and
+  keep the unaffected paths (tasks, calendar, drafts routed to the firm)
+  moving.
 - **Real-tenant API quirks.** #1650's `/contacts` 400 class will recur on
   first real reads (M1/M2). Budget iteration there; the MCP breaker protects
   the seat.
-- **Single-threaded firm inputs.** Christa owns 8 of 9 register items. If
-  she stays saturated, M3 stalls while M0–M2 complete; the plan tolerates
-  that (shadow runs without her) but M4 cannot promote without the dial.
+- **Single-threaded firm inputs.** Christa owns 9 of the 10 register items.
+  If she stays saturated, M3 stalls while M0–M2 complete; the plan tolerates
+  that (shadow runs without her) but M4 cannot promote without the dial or
+  the sign-off.
 - **Inbound email is the sharpest edge.** M5 is both her #1 priority and the
   prompt-injection surface. The taint-gate and fail-closed posture are not
   relaxable for speed.

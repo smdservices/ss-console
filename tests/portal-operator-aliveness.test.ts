@@ -7,28 +7,30 @@
  * plus a last-action timestamp and (for unhealthy postures) a
  * Captain-escalation affordance.
  *
- * The Hermes runtime bridge (#821) is not wired today; the resolver
- * returns null and the AlivenessHeader component renders nothing per
+ * The resolver reads the customer's `fleet_status` heartbeat row
+ * (ADR 0023 Wave 1, wired in #1678); a customer with no row resolves to
+ * null and the AlivenessHeader renders nothing per
  * docs/style/empty-state-pattern.md. These tests cover:
  *
  *   - The closed AlivenessLevel vocabulary
  *   - alivenessTone → Tone mapping (closed switch)
- *   - deriveAlivenessFromBridge — the pure transition that the Hermes
- *     wiring will call once real readings flow. Priority and edge
+ *   - deriveAlivenessFromBridge — the pure transition. Priority and edge
  *     cases (sticky-stop wins, in-flight wins, missing timestamp,
- *     unparseable timestamp, threshold crossing).
+ *     unparseable timestamp, threshold crossing, heartbeat-driven
+ *     liveness).
  *   - formatAlivenessLevel — friendly headline per level
  *   - formatLastActionRelative — relative-time bucket boundaries
  *   - formatLastActionAbsolute — null + unparseable handling
  *   - needsEscalationAffordance — true only for the unhealthy postures
- *   - resolveAlivenessSignal — empty-state contract (returns null
- *     under the bridge stub)
+ *   - resolveAlivenessSignal — fleet_status row → signal, plus the
+ *     empty-state contract (no row / failed read → null)
  *
  * OFFLINE_THRESHOLD_MINUTES is asserted as a constant so a future
  * customer-yaml override has a single source of truth to verify
  * against.
  */
 
+import type { D1Database } from '@cloudflare/workers-types'
 import { describe, it, expect } from 'vitest'
 import {
   ALIVENESS_LEVELS,
@@ -48,11 +50,35 @@ import type { SubscriptionRow } from '../src/lib/portal/product-access'
 function makeReading(overrides?: Partial<AlivenessBridgeReading>): AlivenessBridgeReading {
   return {
     lastAuditTs: '2026-05-24T12:00:00.000Z',
+    lastHeartbeatTs: null,
     inFlightSkill: null,
     stickyStopLevel: 'OK',
     stickyStopReason: null,
     ...overrides,
   }
+}
+
+/**
+ * Minimal fake of the D1 surface the fleet_status read touches:
+ * prepare().bind().first(). `row` is what first() resolves; `fail` makes
+ * first() throw (missing-table case).
+ */
+function makeDb(opts: { row?: unknown; fail?: boolean }): D1Database {
+  const db = {
+    prepare() {
+      return {
+        bind() {
+          return {
+            first() {
+              if (opts.fail) return Promise.reject(new Error('no such table: fleet_status'))
+              return Promise.resolve(opts.row ?? null)
+            },
+          }
+        },
+      }
+    },
+  }
+  return db as unknown as D1Database
 }
 
 function makeSubscription(overrides?: Partial<SubscriptionRow>): SubscriptionRow {
@@ -213,6 +239,47 @@ describe('deriveAlivenessFromBridge', () => {
       expect(deriveAlivenessFromBridge(reading, NOW_MS).level).toBe('idle')
     })
   })
+
+  describe('heartbeat-driven liveness (#1678)', () => {
+    it('a fresh heartbeat keeps a quiet Machine idle past stale audit rows', () => {
+      // Audit is 3 hours old (would read offline alone) but the Machine
+      // heartbeated 2 minutes ago → idle. lastActionAt stays the audit ts —
+      // the last thing the operator DID, not the last time it phoned home.
+      const reading = makeReading({
+        lastAuditTs: '2026-05-24T09:00:00.000Z',
+        lastHeartbeatTs: '2026-05-24T12:03:00.000Z',
+      })
+      const signal = deriveAlivenessFromBridge(reading, NOW_MS)
+      expect(signal.level).toBe('idle')
+      expect(signal.lastActionAt).toBe('2026-05-24T09:00:00.000Z')
+    })
+
+    it('a fresh heartbeat with NO audit history is idle with null lastActionAt', () => {
+      // First-day Machine: heartbeating, has not acted yet. Alive, and honest
+      // about having no last action.
+      const reading = makeReading({
+        lastAuditTs: null,
+        lastHeartbeatTs: '2026-05-24T12:04:00.000Z',
+      })
+      const signal = deriveAlivenessFromBridge(reading, NOW_MS)
+      expect(signal.level).toBe('idle')
+      expect(signal.lastActionAt).toBeNull()
+    })
+
+    it('a stale heartbeat AND stale audit is offline', () => {
+      const reading = makeReading({
+        lastAuditTs: '2026-05-24T09:00:00.000Z',
+        lastHeartbeatTs: '2026-05-24T09:05:00.000Z',
+      })
+      expect(deriveAlivenessFromBridge(reading, NOW_MS).level).toBe('offline')
+    })
+
+    it('an unparseable heartbeat is skipped, not treated as epoch 0', () => {
+      // Fresh audit + garbage heartbeat → the audit row still proves life.
+      const reading = makeReading({ lastHeartbeatTs: 'not a timestamp' })
+      expect(deriveAlivenessFromBridge(reading, NOW_MS).level).toBe('idle')
+    })
+  })
 })
 
 describe('formatLastActionRelative', () => {
@@ -269,15 +336,66 @@ describe('formatLastActionAbsolute', () => {
 })
 
 describe('resolveAlivenessSignal', () => {
-  it('returns null today (Hermes bridge not wired)', async () => {
-    const signal = await resolveAlivenessSignal(makeSubscription())
+  const NOW_MS = Date.parse('2026-05-24T12:05:00.000Z')
+
+  it('returns null when the customer has no fleet_status row (empty-state contract)', async () => {
+    const signal = await resolveAlivenessSignal(makeDb({}), makeSubscription(), NOW_MS)
     expect(signal).toBeNull()
   })
 
-  it('returns null for any subscription shape (empty-state contract)', async () => {
-    const provisioning = await resolveAlivenessSignal(makeSubscription({ status: 'provisioning' }))
-    const paused = await resolveAlivenessSignal(makeSubscription({ status: 'paused' }))
-    expect(provisioning).toBeNull()
-    expect(paused).toBeNull()
+  it('returns null when the fleet_status read fails (missing table)', async () => {
+    const signal = await resolveAlivenessSignal(makeDb({ fail: true }), makeSubscription(), NOW_MS)
+    expect(signal).toBeNull()
+  })
+
+  it('derives idle from a fresh heartbeat row', async () => {
+    const db = makeDb({
+      row: {
+        last_heartbeat_ts: '2026-05-24T12:04:00.000Z',
+        last_audit_ts: '2026-05-24T11:00:00.000Z',
+        sticky_stop_level: 'OK',
+      },
+    })
+    const signal = await resolveAlivenessSignal(db, makeSubscription(), NOW_MS)
+    expect(signal?.level).toBe('idle')
+    expect(signal?.lastActionAt).toBe('2026-05-24T11:00:00.000Z')
+  })
+
+  it('derives sticky_stop from a Machine-reported breaker level', async () => {
+    const db = makeDb({
+      row: {
+        last_heartbeat_ts: '2026-05-24T12:04:00.000Z',
+        last_audit_ts: '2026-05-24T12:00:00.000Z',
+        sticky_stop_level: 'HARD_STOP',
+      },
+    })
+    const signal = await resolveAlivenessSignal(db, makeSubscription(), NOW_MS)
+    expect(signal?.level).toBe('sticky_stop')
+    // Reason text is not pushed on the heartbeat; the chip shows the posture.
+    expect(signal?.stickyStopReason).toBeNull()
+  })
+
+  it('treats an unknown sticky_stop_level as OK (under-report, never false-alarm)', async () => {
+    const db = makeDb({
+      row: {
+        last_heartbeat_ts: '2026-05-24T12:04:00.000Z',
+        last_audit_ts: '2026-05-24T12:00:00.000Z',
+        sticky_stop_level: 'SOMETHING_NEW',
+      },
+    })
+    const signal = await resolveAlivenessSignal(db, makeSubscription(), NOW_MS)
+    expect(signal?.level).toBe('idle')
+  })
+
+  it('derives offline from a row whose heartbeat and audit are both stale', async () => {
+    const db = makeDb({
+      row: {
+        last_heartbeat_ts: '2026-05-24T09:00:00.000Z',
+        last_audit_ts: '2026-05-24T08:00:00.000Z',
+        sticky_stop_level: null,
+      },
+    })
+    const signal = await resolveAlivenessSignal(db, makeSubscription(), NOW_MS)
+    expect(signal?.level).toBe('offline')
   })
 })

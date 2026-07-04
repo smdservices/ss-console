@@ -8,14 +8,16 @@
  * read on the single audited, fail-closed, one-customer-per-call path
  * (foundations §6, ADR 0043). Activity is one of those drill-ins.
  *
- * Until OPERATOR_RUNTIME_READ_URL is wired, the read path is not configured.
- * We short-circuit to an empty page BEFORE calling readMachineRuntime, so an
- * unwired deployment does not write an `unreachable` read-audit row on every
- * page view. Once wired, every read is attempted and audited per ADR 0043.
+ * In a deployment without OPERATOR_RUNTIME_READ_URL / _SECRET (a fresh
+ * environment), the read path is not configured. We short-circuit to an empty
+ * page BEFORE calling readMachineRuntime, so an unwired deployment does not
+ * write an `unreachable` read-audit row on every page view. In production the
+ * path is configured; every read is attempted and audited per ADR 0043.
  *
- * The Machine read endpoint (overlay-side) defines the wire format; until it
- * exists this path returns empty, so `parseAuditEntries` is dormant but written
- * defensively (parse, never cast) for the documented row shape.
+ * The Machine read endpoint (overlay `shared/runtime_read.py`) serves
+ * `audit_log` shaped to this module's `parseAuditEntries` contract — the
+ * overlay cites this file by name. Parsing stays defensive (parse, never
+ * cast): a malformed row is dropped, never rendered as a misleading line.
  */
 
 import type { D1Database } from '@cloudflare/workers-types'

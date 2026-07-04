@@ -243,6 +243,17 @@ scope:
   # is a CODE_EXECUTION action, fail-closed unless authored). Re-opened on the
   # customer-zero dogfood seat for the two-tier cost test; the sticky taint gate
   # still withholds subagent-spawning on any turn that has read untrusted content.
+# ---- SAFETY (ADR 0062) — PROBE CONFIGURATION, temporary ----
+# 1-cent daily cost cap so the ADR 0050 B3 live trip-fire probe can drive the
+# breaker to HARD_STOP with one tiny durable job on the dogfood seat. The
+# probe moved here from smd-staging: the staging canary has no gateway (bare
+# connectors, no channels), so the job seam the probe drives does not exist
+# there. REMOVE after the probe (restore platform default 5000) in the PR
+# that flips runtime-controls sticky_stop_cost_cap to enforced.
+safety:
+  sticky_stop:
+    cost_cap_daily_cents: 1
+
 escalation:
   red_flag_recipients:
     - team@smd.services
