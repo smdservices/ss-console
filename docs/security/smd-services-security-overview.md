@@ -98,7 +98,7 @@ These controls are reviewed against a maintained threat model and are verified a
 
 ## 8. Logging and audit
 
-- The Operator maintains a **tamper-resistant, append-only audit log** of its actions. The log is owned by a privileged broker process, not by the agent itself — the agent **cannot rewrite or delete its own audit trail**.
+- The Operator maintains a **tamper-resistant, append-only, hash-chained audit log** of its actions. The log is owned by a privileged broker process, not by the agent itself — the agent **cannot rewrite or delete its own audit trail** — and every row cryptographically commits to the row before it, so a mutated, deleted, or inserted row breaks the chain at a verifiable point. Exports carry the chain and are verifiable offline.
 - A full audit trail of Operator actions is **available to Smokeball on request** in the event of an incident investigation, and serves as the basis for digital-evidence collection.
 - Time across infrastructure is synchronized via NTP (Fly.io infrastructure).
 
