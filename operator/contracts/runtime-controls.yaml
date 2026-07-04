@@ -187,13 +187,18 @@ controls:
       (the dominant spend path) are now metered too — overlay
       shared/interactive_cost_meter.py estimates each turn's cents at the
       post_llm_call hook and feeds the SAME ladder (ADR 0062 §4 amendment,
-      overlay 8df1992a). Status unprobed: wiring + unit coverage on both
-      paths, no live negative-fire trip test recorded yet (ADR 0050 B3 tier).
-      PROBE HISTORY 2026-07-04 (#1701): the first probe found the cents cap
-      guarded only the durable-job path (entitled on NO live seat) while the
-      dominant interactive path was unmetered — option-C interactive metering
-      (above) was built to close that gap; a live trip on the interactive
-      path (now always reachable) flips this to enforced.
+      overlay 8df1992a). LIVE TRIP PROVEN 2026-07-04 (#1701): drove real
+      interactive turns on prod smd under a 1-cent cap — the meter priced them,
+      the ladder climbed WARN->SOFT_STOP (INVARIANT_VIOLATION rows)->HARD_STOP
+      (AGENT_STOPPED row), the gate then 503'd the next /mcp/turn, fleet_status
+      showed HARD_STOP, and the Captain clear surface reset it to OK end to end.
+      Status stays unprobed by the letter of this schema: 'enforced' requires
+      an AUTOMATED probe (probe_surface in {staging, prod-boot}); the 2026-07-04
+      trip was a one-time manual prod trip, strong evidence but not a recurring
+      negative-fire check. The honest path to enforced is a boot-time self-probe
+      (synthetic trip+assert+clear at boot, like invariant_7) — tracked, ADR
+      0050 B3 tier. The control demonstrably fires; only the continuous-
+      verification harness is outstanding.
 
   sticky_stop_tool_failure:
     control: sticky_stop_tool_failure

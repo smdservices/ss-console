@@ -254,7 +254,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # AgentMail email-reply channel keeps the email prompt; MCP route untouched. Not a
 # tracked pair (bootstrap/translate.py); all 4 tracked twins unchanged across
 # 2b694947→9b20a1ac, overlaySha256 stable. Superset of 33b58ad.
-ARG OVERLAY_REF="3b2481b8c41e92cf7b9c41196506ab94fd8e936c"
+ARG OVERLAY_REF="122ee0a2adac569194da7350a5f7276d44186134"
 
 ARG CUSTOMER_SLUG=customer-zero
 

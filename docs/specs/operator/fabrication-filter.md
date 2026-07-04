@@ -1,5 +1,34 @@
 # Fabrication Filter — Runtime Pre-Output Enforcement
 
+> **Amendment (2026-07-04, Captain decision, issue #1687): scope deliberately narrowed.**
+> The field-tag / source-existence filter specified below is **not built and is not
+> planned as specified**. The 2026-07-04 strategic review flagged the gap between this
+> spec and enforcement; the Captain call is downgrade-with-precision: the fabrication
+> gate IS the three shipped, code-enforced dimensions, and this spec records the
+> narrowing rather than implying the fourth dimension is pending.
+>
+> **What is enforced today (the actual gate):**
+>
+> 1. **Fabrication markers** — banned phrases/tells blocked at the overlay's
+>    `pre_tool_call` outbound gate (`FABRICATION_FILTER_TRIGGERED`, overlay#121,
+>    `shared/fabrication_markers.py`).
+> 2. **Fabricated citations** — legal-citation-shaped output refused in law skills
+>    (invariant #6, `operator/safety-substrate/citation_filter.py`) and fabricated
+>    citations blocked outbound (overlay#121).
+> 3. **Unverified identifiers** — asserted identifiers (account/case/phone-shaped
+>    values) require provenance (`operator/adapter/identifier_filter.py`, 481 lines;
+>    `IDENTIFIER_UNVERIFIED` audit events).
+>
+> These cover the liability classes the rule exists for: citations (sanctions risk),
+> identifiers (wrong-target risk), markers (fabrication tells). The whole-of-output
+> claim-vs-records check below adds latency, cost, and false-positive refusals on
+> every draft for speculative value.
+>
+> **Revisit trigger:** post-A&P real draft volume showing unsupported-claim escapes
+> that the three dimensions missed. If that evidence appears, this spec resumes as
+> the design of record. The client-facing description of the gate
+> (`src/pages/ai-disclosure.astro`) names exactly the enforced dimensions.
+
 **Spec for issue #798.** Invariant #8 (fabrication discipline) implemented as a runtime pre-output filter, parallel to citation-refusal (#6). Skill-level `context-detector` is supplementary, not the primary enforcement. The CLAUDE.md "no fabricated client-facing content" rule needs an architectural backstop.
 
 ## Source
