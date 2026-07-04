@@ -224,7 +224,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // cost_breaker,gate_inbound_cap}[new] + job_* + webhook_gate + heartbeat +
     // customer_config + consumes.yaml + tests; all four tracked twins verified
     // unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a6c8e3fb1c322a064124b0649c61c87a110a374b"')
+    // 5b4c99e1 (#125): Captain clear surface (ADR 0062 §6) — gate POST
+    // /sticky-stop/clear (console-proxy bearer) clears non-OK sticky_stop rows
+    // via the state machine's clear() with audited AGENT_RESUMED; the un-trip
+    // path the live trip-fire probe requires. Range a6c8e3fb..5b4c99e1 changed
+    // cost_breaker.py + webhook_gate.py + tests; all four tracked twins
+    // verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5b4c99e1ce749fdd080e99703c5a9766ffae53c6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
