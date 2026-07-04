@@ -113,3 +113,26 @@ The cost model (backing doc §6) is an estimation _method_. We have **zero meter
 4. We have **zero metered cost numbers (B6)**; no client quote is defensible until the rollup runs.
 
 The framework's shape is sound; its gaps are named, not hidden.
+
+---
+
+## Status update (2026-07-04, on merge)
+
+This record was accepted 2026-06-18 and amended 2026-06-23 but sat unmerged on
+`feat/operator-task-execution-framework` while downstream work cited it (ADR
+0051 references both the ADR and its amendment). Merged to main 2026-07-04 as
+part of the strategic-review hygiene wave (#1689) — the text above is the
+original record, unmodified. Honesty-banner items that have since resolved,
+with their records:
+
+1. **B0 (taint propagation into `delegate_task` children): fixed and live** —
+   overlay#105, verified on the fleet.
+2. **B3 (live cost circuit-breaker): wired** — [ADR 0062](./0062-operator-cost-plane.md)
+   (accepted 2026-07-03) ships the Machine-local breaker on the job/segment
+   path plus the inbound daily wake cap, deployed fleet-wide.
+3. **B1 (durable runner): decision record landed** as [ADR 0051](./0051-operator-durable-task-execution-substrate.md);
+   build progresses under it.
+4. **B6 (metered cost rollup): the measurement plane exists** — ADR 0062
+   central `cost_telemetry` with per-seat workspace attribution is ingesting;
+   [ADR 0063](./0063-operator-launch-pricing.md) priced launch from the
+   committed Review 5 cost model.
