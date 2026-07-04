@@ -249,7 +249,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // 122ee0a2 (#130): gate clear succeeds without a Machine audit row —
     // the broker PID-gates appends to the gateway process (OP-P1-4), so
     // the gate can't write the ledger; the resume is audited console-side.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="122ee0a2adac569194da7350a5f7276d44186134"')
+    // 7e70b376 (#131+#132, ss#1686): audit hash chain — CREATE/ensure gain
+    // prev_hash/row_hash, audit_export serves them, shared/audit_chain.py
+    // lands as the new tracked twin of workspace_broker/chain.py. emit.py
+    // twin changed (ensure applies CHAIN_COLUMN_ALTERS) and is re-pinned in
+    // overlay-pairs; the broker stamps the chain, writers untouched.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7e70b3766080019d9fa2cdadb8faa352b961790a"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
