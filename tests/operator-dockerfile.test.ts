@@ -230,7 +230,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // path the live trip-fire probe requires. Range a6c8e3fb..5b4c99e1 changed
     // cost_breaker.py + webhook_gate.py + tests; all four tracked twins
     // verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5b4c99e1ce749fdd080e99703c5a9766ffae53c6"')
+    // 378fd82d (#126): seam exposes persisted cron next_run_at/last_run_at
+    // (ss-console#1691) — makes wrong-timezone first fires observable from
+    // /runtime/config right after reprovision instead of as a surprise fire.
+    // Range 5b4c99e1..378fd82d changed shared/config_snapshot.py + tests;
+    // all four tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="378fd82dfb61e273cfc3fa4ebf0c013a6e5a7eee"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
