@@ -12,6 +12,10 @@ sources:
     href: https://github.com/venturecrane/ss-console/blob/main/src/pages/api/admin/quotes/[id]/sign.ts
   - label: Admin home launchpad (src/pages/admin/index.astro)
     href: https://github.com/venturecrane/ss-console/blob/main/src/pages/admin/index.astro
+  - label: ADR 0065 - Operator offboarding and dunning
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0065-operator-offboarding-and-dunning.md
+  - label: Decommission tooling (operator/bin/decommission-customer.sh)
+    href: https://github.com/venturecrane/ss-console/blob/main/operator/bin/decommission-customer.sh
 ---
 
 ## The spine: one entities table, eight stages
@@ -104,5 +108,22 @@ At final handoff the engagement moves the entity to `delivered`, which the syste
 - **Data objects:** `entities` (stage `delivered` then `ongoing`), `engagements`.
 
 A prospect that does not convert at any pre-acceptance stage is marked `lost` with a structured reason, which the Lost tab surfaces inline so the operator can scan why deals fall out without clicking through.
+
+## 11. Operator offboarding and dunning (ADR 0065)
+
+The exit path for an Operator seat, locked by Captain 2026-07-04. Every consequential step is a human action; the automated system's only role is the alert.
+
+**Voluntary cancellation:** 30 days written notice, effective at the end of the then-current billing cycle. Pause is the alternative: Stripe collection paused (cycle invoices void, so a paused seat is never charged), portal shows paused with audit access retained; a pause past 60 days triggers a conversation about whether this is actually an offboarding.
+
+**Dunning ladder (payment failure):** day 0, the automated alert lands at team@smd.services and Captain reaches out personally the same business day. Day 14 past due, pause the seat. Day 30 past due, treat as cancellation notice and begin the sequence below. Stripe's `past_due` never reduces access by itself; the webhook mirror keeps the seat active and the human ladder governs.
+
+**Offboarding sequence (any termination):**
+
+1. **Final export** - deliver the audit record and operational memory (the `audit_export` / `memory_export` runtime-read kinds the decommission pipeline serves) within 14 days of the termination date.
+2. **Access revocation** - MCP grants revoked (the ADR 0057 kill switch), connector credentials revoked or returned per custody posture, managed mailbox closed.
+3. **Destruction** - `decommission-customer.sh` destroys the Machine, volume, and per-customer stores; residual control-plane data deleted except legal, tax, and accounting records.
+4. **Attestation** - destruction confirmed in writing on request.
+
+Complete return and destruction within 30 days of termination; that number and the 30-day sub-processor notice are the DPA standard terms. A dry run of the full sequence against the staging seat precedes the first paid contract carrying these terms.
 
 > TODO(why): The transition from `delivered` to `ongoing` is described in the entity list empty-state copy as "Flag a delivered engagement for ongoing support," but I did not find the action wiring that performs that flag, nor confirmation that the two-week stabilization window is what gates the delivered->ongoing move. Looked in src/pages/admin/entities/index.astro (empty-state copy) and entities.ts (transitions); did not trace the delivered->ongoing trigger.
