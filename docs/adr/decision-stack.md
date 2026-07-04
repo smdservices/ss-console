@@ -23,7 +23,7 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 | **Payment terms**       | 50% deposit at signing, 50% at completion                                                                                                                                            |
 | **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                                                                                                        |
 | **Voice standard**      | We / our team throughout. Never I / the consultant.                                                                                                                                  |
-| **Decisions locked**    | 36 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)                                                                                       |
+| **Decisions locked**    | 37 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)                                                                                       |
 | **Deliverables queued** | 11 artifacts ready to build                                                                                                                                                          |
 
 ---
@@ -806,6 +806,20 @@ Cross-customer learning is not available as a feature. Platform improvements are
 **Cross-layer impact (Layer 6 - Delivery).** Defines the cross-customer perimeter for the Operator SKU; the answer to compliance counsel's "could another customer's data ever inform ours?" question.
 
 **Captain authorized:** 2026-05-20 per ADR record.
+
+---
+
+## Decision #50 - Operator Launch Pricing
+
+**ADR:** [docs/adr/0063-operator-launch-pricing.md](./0063-operator-launch-pricing.md)
+
+**Decision: The Operator launch price is $5,000/month flat-rate retainer plus a one-time $4,000 stand-up fee. Internal, never published; the client sees the price in their proposal.**
+
+Prices at the salary anchor (ADR 0037: compete with a hire — the displaced coordinator seat runs ~$60k/yr ≈ $5,000/mo loaded), above the Review 5 cost floor ($3,500/mo was ~90% labor and would have been break-even as a price). At $5,000 MRR the COGS>40% kill criterion trips at $2,000/mo seat cost — a genuine anomaly signal rather than ordinary-month noise. Pilot/dogfood seats carry list price for gate purposes while invoiced at $0.
+
+**Cross-layer impact (Layer 3 - Pricing).** Supersedes ADR 0004's deferred-pricing clause; the retainer _shape_ (flat, not metered) is unchanged. Arms the cost-plane kill gate (ADR 0062).
+
+**Captain authorized:** 2026-07-04 per ADR record.
 
 ---
 
