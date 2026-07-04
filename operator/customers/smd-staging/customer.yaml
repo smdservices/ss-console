@@ -112,15 +112,6 @@ scope:
   trusted_sender_domains:
     - smd-staging.invalid
   # Inert: drafts only, and there is no inbound to act on anyway.
-# ---- SAFETY (ADR 0062) — PROBE CONFIGURATION, staging only ----
-# 1-cent daily cost cap so the ADR 0050 B3 live trip-fire probe can drive the
-# breaker to HARD_STOP with a single tiny durable job instead of $100 of real
-# spend. REMOVE after the probe (restore platform default 5000) — tracked in
-# the probe PR that flips runtime-controls sticky_stop_cost_cap to enforced.
-safety:
-  sticky_stop:
-    cost_cap_daily_cents: 1
-
 escalation:
   red_flag_recipients:
     - staging@smd-staging.invalid
