@@ -26,12 +26,20 @@ on:
       # gate (test_customer_yaml_block_conformance.py) — otherwise an unclassified
       # top-level block added to only a customer.yaml merges without the gate.
       - 'operator/customers/**'
-      - 'operator/contracts/overlay-pairs.json'
-      - 'operator/contracts/runtime-controls.yaml'
-      - 'operator/contracts/overlay-hook-surface.json'
-      - 'operator/contracts/customer-yaml-blocks.yaml'
-      - 'operator/templates/Dockerfile'
-      - 'operator/templates/bootstrap.sh'
+      # #1688 (2026-07-04 review): whole-directory coverage. The prior filter
+      # named 4 contract files, Dockerfile, and bootstrap.sh — so skill bodies,
+      # vertical packs, migrations, the broker, templates/tests, and the
+      # migration tests could all change without this workflow running.
+      # bin/tests/test_ci_coverage_conformance.py pins filter <-> test-inventory
+      # parity so the gap cannot silently reopen.
+      - 'operator/contracts/**'
+      - 'operator/templates/**'
+      - 'operator/skills/**'
+      - 'operator/verticals/**'
+      - 'operator/migrations/**'
+      - 'operator/workspace_broker/**'
+      - 'operator/tests/**'
+      - 'operator/pytest.ini'
       - '.github/workflows/operator-substrate.yml'
   push:
     branches: [main]
@@ -75,14 +83,20 @@ jobs:
           done
           exit $fail
 
-      - name: Run pytest suites (adapter + evidence + pytest-style invariants)
+      - name: Run pytest suites (adapter + evidence + invariants + bin + skills + templates + migrations)
         working-directory: operator
-        # bin/tests entries are named explicitly: some of bin/tests needs
-        # substrate deps (pyyaml etc.) not installed in this bare-pytest env;
-        # the named files import only stdlib + adapter/bin.lib modules.
-        # test_decommission.py + test_seam_pull.py joined the list with #1355
-        # (the decommission data-plane fix) — they previously ran nowhere in CI.
-        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py bin/tests/test_customer_yaml_block_conformance.py bin/tests/test_runtime_control_conformance.py bin/tests/test_decommission.py bin/tests/test_seam_pull.py bin/tests/test_verify_overlay_pairs.py workspace_broker/tests -q
+        # #1688: full-directory invocation, replacing the prior hand-named
+        # bin/tests list. That list's exclusion rationale ("some of bin/tests
+        # needs substrate deps not installed here") went stale after pyyaml
+        # joined the install step: five suites — including the skill-frontmatter
+        # gate and the seat-timezone regression test — ran nowhere in CI, and
+        # skills/, templates/tests, and operator/tests ran nowhere at all.
+        # Everything below passes in a bare pytest+pyyaml venv (validated
+        # 2026-07-04, 636 tests). connectors/ stays out: it runs in its own
+        # per-connector venv conformance step further down.
+        # bin/tests/test_ci_coverage_conformance.py asserts this invocation
+        # covers every test_*.py under operator/ (connectors excepted).
+        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests workspace_broker/tests templates/tests tests skills -q
 
       # SEC-32: overlay-RUNTIME side of the adapter <-> overlay drift gate.
       #
