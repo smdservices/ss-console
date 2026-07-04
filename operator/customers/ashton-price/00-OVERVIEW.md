@@ -106,6 +106,13 @@ Across all of it: the chase, the staging, the capture, the surfacing, the traini
 ## Doc index
 
 - **`00-OVERVIEW.md`** — this file (big picture + delivery model + status). Read first.
+- **`IMPLEMENTATION-PLAN.md`** — the active go-live sequencing (gate-sequenced
+  milestone ladder, firm-input register, tracking model). **Current as of
+  2026-07-04; start here for "what's next."**
+- `BUILD-PLAN.md` — the pre-approval build plan (done; superseded for
+  sequencing by the implementation plan; guardrails §3 still govern).
+- **`CLIENT-PROPOSAL.md`** — the sent "Litigation Lifecycle Solution"; source
+  of truth for what we owe.
 - **`REDUNDANCY-AUDIT.md`** — current build posture (CUT/GATE/BUILD), firm-question
   cull, InfoTrack findings, phases reframe. **Most current detail.**
 - `RESEARCH-SYNTHESIS.md` — verified research picture (its Bucket-1/phasing
