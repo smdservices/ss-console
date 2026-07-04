@@ -246,7 +246,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // interactive cost meter was dark in prod (pricing excluded from the
     // wheel; alarmed model_unpriced every turn). Range 8df1992a..3b2481b8
     // changed pyproject.toml + a guard test; all four tracked twins unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3b2481b8c41e92cf7b9c41196506ab94fd8e936c"')
+    // 122ee0a2 (#130): gate clear succeeds without a Machine audit row —
+    // the broker PID-gates appends to the gateway process (OP-P1-4), so
+    // the gate can't write the ledger; the resume is audited console-side.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="122ee0a2adac569194da7350a5f7276d44186134"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
