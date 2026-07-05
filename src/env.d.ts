@@ -73,6 +73,15 @@ declare namespace Cloudflare {
     ADMIN_BASE_URL?: string
     RESEND_API_KEY?: string
     /**
+     * Meta Conversions API access token (ADR 0066 gate 2, #1723), generated
+     * under Events Manager > Conversions API settings for the SMD-owned
+     * pixel. Secret (wrangler secret via Infisical /ss). Unset = server
+     * events fail closed with an honest 'unconfigured' result.
+     */
+    META_CAPI_ACCESS_TOKEN?: string
+    /** Optional Events Manager test_event_code for verifying CAPI delivery. */
+    META_CAPI_TEST_EVENT_CODE?: string
+    /**
      * Resend webhook signing secret (`whsec_…` from the Resend dashboard
      * webhook detail page). Used to verify Svix-signed webhook deliveries
      * for the outreach attribution path. See
@@ -280,6 +289,13 @@ declare namespace App {
 interface ImportMetaEnv {
   readonly PUBLIC_GA4_MEASUREMENT_ID?: string
   readonly PUBLIC_GA4_INTERNAL_HOST_PATTERNS?: string
+  /**
+   * Meta Pixel / dataset id (ADR 0066 gate 2, #1723). Public by nature,
+   * shipped in the browser pixel. Unset = pixel + CAPI fail closed (no
+   * events, honestly reported). Set in .env.production once the SMD-owned
+   * Meta ad account exists.
+   */
+  readonly PUBLIC_META_PIXEL_ID?: string
   /**
    * Clerk publishable key (pk_test_* for dev, pk_live_* for prod). Required
    * at build time — @clerk/astro inlines it into the client bundle. Pulled

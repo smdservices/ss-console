@@ -43,11 +43,26 @@ interface IntakeSendResponse {
   error?: string
   message?: string
   field_errors?: Record<string, string>
+  meta_event_id?: string
 }
 
 type IntakeIntent = 'book' | 'send'
 
 const RENDERED_AT = Date.now()
+
+/**
+ * Browser half of the Meta event dedup pair (ADR 0066 gate 2, #1723). The
+ * server mints the event_id, sends the CAPI event, and returns the id as
+ * `meta_event_id`; firing the same event name with { eventID } here lets
+ * Meta collapse the pair. No-op when the pixel isn't loaded (unconfigured
+ * pixel id, GPC honored, or script blocked).
+ */
+function fireMetaBrowserEvent(eventName: 'Lead' | 'Schedule', eventId: string | undefined): void {
+  if (!eventId) return
+  const fbq = (window as { fbq?: (...args: unknown[]) => void }).fbq
+  if (typeof fbq !== 'function') return
+  fbq('track', eventName, {}, { eventID: eventId })
+}
 
 // ---------------------------------------------------------------------------
 // Form-data helpers
@@ -129,6 +144,8 @@ async function submitIntake(
       return
     }
 
+    fireMetaBrowserEvent('Lead', body.meta_event_id)
+
     state.email = payload.email
     state.name = payload.name
     state.businessName = payload.business_name
@@ -184,6 +201,7 @@ async function handleConfirmSlot(els: BookElements, state: BookState): Promise<v
     const body = (await res.json().catch(() => ({}))) as BookingResponse
 
     if (res.status === 201) {
+      fireMetaBrowserEvent('Schedule', body.meta_event_id)
       showClosedBooked(els, state, body)
       return
     }

@@ -12,6 +12,7 @@ import {
   readAttributionFromCookieHeader,
   type AdAttribution,
 } from '../../../lib/marketing/attribution'
+import { emitMetaEvent, mintMetaEventId } from '../../../lib/marketing/meta-capi'
 
 const NOTIFY_EMAIL = 'team@smd.services'
 const RATE_LIMIT_PER_HOUR = 10
@@ -95,7 +96,7 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
   }
 }
 
-async function handlePost({ request, clientAddress }: APIContext): Promise<Response> {
+async function handlePost({ request, clientAddress, locals }: APIContext): Promise<Response> {
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -147,6 +148,17 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
     return jsonResponse(500, { error: 'Internal server error' })
   }
 
+  // Meta CAPI Lead event (ADR 0066 gate 2, #1723) — server half of the
+  // dedup pair; the browser fires the same event_name with this eventID.
+  // Fail-closed no-op until the pixel/token are configured.
+  const metaEventId = mintMetaEventId()
+  await emitMetaEvent(
+    env,
+    import.meta.env.PUBLIC_META_PIXEL_ID,
+    { eventName: 'Lead', eventId: metaEventId, request, email: validated.email },
+    locals.cfContext ? (p) => locals.cfContext!.waitUntil(p) : undefined
+  )
+
   try {
     await sendAdminNotification(env, {
       ...validated,
@@ -158,7 +170,11 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
     console.error('[api/intake/send] Admin notification failed:', emailErr)
   }
 
-  return jsonResponse(200, { ok: true, entity_id: intakeResult.entityId })
+  return jsonResponse(200, {
+    ok: true,
+    entity_id: intakeResult.entityId,
+    meta_event_id: metaEventId,
+  })
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)
