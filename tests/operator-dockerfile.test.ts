@@ -254,7 +254,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // lands as the new tracked twin of workspace_broker/chain.py. emit.py
     // twin changed (ensure applies CHAIN_COLUMN_ALTERS) and is re-pinned in
     // overlay-pairs; the broker stamps the chain, writers untouched.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7e70b3766080019d9fa2cdadb8faa352b961790a"')
+    // c85b0ddb (#133, ss#1701): cost-breaker boot self-probe — the
+    // gateway:startup activation handler drives run_boot_probe (throwaway db,
+    // ladder trips HARD_STOP + assert_allowed refuses, os._exit(1) if inert),
+    // the recurring negative-fire check that earns sticky_stop_cost_cap its
+    // `enforced` status. Range 7e70b376..c85b0ddb is a fast-forward touching
+    // only handler.py + shared/cost_breaker.py + tests; no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c85b0ddb2c9c9158056865f53314348951dd2a5e"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
