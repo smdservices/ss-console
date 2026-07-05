@@ -64,6 +64,17 @@ function fireMetaBrowserEvent(eventName: 'Lead' | 'Schedule', eventId: string | 
   fbq('track', eventName, {}, { eventID: eventId })
 }
 
+/**
+ * GA4 conversion events (ADR 0066 gate 3, #1724), via the ssTrackEvent
+ * helper exposed by public/js/ga4-init.js. No-op when GA4 isn't loaded.
+ * Params must stay PII-free (GA4 policy) — slugs only, never email/name.
+ */
+function fireGa4Event(eventName: 'lead' | 'book_confirmed', params?: Record<string, string>): void {
+  const track = (window as { ssTrackEvent?: (name: string, params?: object) => void }).ssTrackEvent
+  if (typeof track !== 'function') return
+  track(eventName, params)
+}
+
 // ---------------------------------------------------------------------------
 // Form-data helpers
 // ---------------------------------------------------------------------------
@@ -145,6 +156,7 @@ async function submitIntake(
     }
 
     fireMetaBrowserEvent('Lead', body.meta_event_id)
+    fireGa4Event('lead', payload.interest ? { interest: payload.interest } : undefined)
 
     state.email = payload.email
     state.name = payload.name
@@ -202,6 +214,7 @@ async function handleConfirmSlot(els: BookElements, state: BookState): Promise<v
 
     if (res.status === 201) {
       fireMetaBrowserEvent('Schedule', body.meta_event_id)
+      fireGa4Event('book_confirmed')
       showClosedBooked(els, state, body)
       return
     }
