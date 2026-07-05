@@ -7,6 +7,11 @@ import { ALLOWED_INTERESTS, interestLabel } from '../../../lib/booking/config'
 import { trimString, isValidEmail, escapeHtml, jsonResponse } from '../../../lib/api/helpers'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildAdminUrl } from '../../../lib/config/app-url'
+import {
+  attributionSummary,
+  readAttributionFromCookieHeader,
+  type AdAttribution,
+} from '../../../lib/marketing/attribution'
 
 const NOTIFY_EMAIL = 'team@smd.services'
 const RATE_LIMIT_PER_HOUR = 10
@@ -116,6 +121,10 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
   const validated = validateSendBody(body)
   if (validated instanceof Response) return validated
 
+  // First-touch ad attribution, set by middleware on the landing request
+  // (ADR 0066 gate 1). Server-side read — the client never sends it.
+  const attribution = readAttributionFromCookieHeader(request.headers.get('cookie'))
+
   let intakeResult: Awaited<ReturnType<typeof processIntakeSubmission>>
   try {
     intakeResult = await processIntakeSubmission(
@@ -129,6 +138,7 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
         website: validated.website,
         userMessage: validated.messageRaw || null,
         interest: validated.interest,
+        attribution,
       },
       { source: 'website_intake_send' }
     )
@@ -142,6 +152,7 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
       ...validated,
       entityId: intakeResult.entityId,
       message: validated.messageRaw,
+      attribution,
     })
   } catch (emailErr) {
     console.error('[api/intake/send] Admin notification failed:', emailErr)
@@ -161,6 +172,7 @@ interface AdminNotificationParams {
   message: string
   entityId: string
   interest: string | null
+  attribution: AdAttribution | null
 }
 
 async function sendAdminNotification(
@@ -176,10 +188,13 @@ async function sendAdminNotification(
   const escapedMessage = params.message ? escapeHtml(params.message) : null
   const intentLabel = interestLabel(params.interest)
   const escapedInterest = intentLabel ? escapeHtml(intentLabel) : null
+  const attrSummary = attributionSummary(params.attribution)
+  const escapedAttribution = attrSummary ? escapeHtml(attrSummary) : null
 
   const html = [
     `<p><strong>${escapedName}</strong> &lt;${escapedEmail}&gt; from <strong>${escapedBusiness}</strong> sent a message via the Send path on /book.</p>`,
     escapedInterest ? `<p><strong>Inquiring about:</strong> ${escapedInterest}</p>` : '',
+    escapedAttribution ? `<p><strong>Ad source:</strong> ${escapedAttribution}</p>` : '',
     escapedPhone ? `<p>Phone: ${escapedPhone}</p>` : '',
     escapedWebsite ? `<p>Website: <a href="${escapedWebsite}">${escapedWebsite}</a></p>` : '',
     '<hr>',
@@ -192,7 +207,10 @@ async function sendAdminNotification(
     .filter(Boolean)
     .join('')
 
-  const subjectPrefix = interestLabel ? `[${interestLabel}] ` : ''
+  // Pre-existing bug fixed alongside #1722: this interpolated the imported
+  // interestLabel FUNCTION (always truthy — every subject got function
+  // source), not the resolved label for this lead.
+  const subjectPrefix = intentLabel ? `[${intentLabel}] ` : ''
   await sendEmail(workerEnv.RESEND_API_KEY, {
     to: NOTIFY_EMAIL,
     reply_to: params.email,
