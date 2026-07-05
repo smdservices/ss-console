@@ -163,42 +163,37 @@ controls:
     control: sticky_stop_cost_cap
     class: circuit-breaker
     substrate_module: safety-substrate/sticky_stop.py
-    # Not hook-wired: enforcement lives in the overlay's job-worker thread +
-    # the webhook gate, not a Hermes plugin hook, so wired_via stays empty
-    # (the hook-surface check only applies to hook-wired controls). The wiring
-    # is described in the note.
+    # The dominant (interactive) path is metered at post_llm_call. wired_via is
+    # recorded for when this flips to enforced; kept empty while unprobed so the
+    # hook-surface check does not apply pre-deploy.
     wired_via: ''
     live_probe: ''
     probe_surface: ''
     status: unprobed
     owner: SMDurgan
-    tracking: '#1661'
+    tracking: '#1701'
     note: >-
-      WIRED at overlay a6c8e3fb (overlay#124, ADR 0062): shared/cost_breaker.py
-      (vendored sticky_stop twin) enforces the job-path exact-cents cap at
-      shared/job_segment.py (assert before segment, record real cents after;
-      HARD_STOP dead-letters the job to needs_review), and the webhook-gate
-      InboundWakeGuard (shared/gate_inbound_cap.py) parks verified inbound at
+      WIRED (ADR 0062): shared/cost_breaker.py enforces the job-path exact-cents
+      cap at shared/job_segment.py (HARD_STOP dead-letters the job to
+      needs_review); shared/interactive_cost_meter.py meters every interactive
+      turn at post_llm_call (the dominant spend path, ADR 0062 §4) into the SAME
+      ladder; the webhook-gate InboundWakeGuard parks verified inbound at
       HARD_STOP or past the authored inbound_daily_cap; the heartbeat carries
-      sticky_stop_level to the fleet view. record_cost_cents()/assert_allowed()
-      + the $50/day (cost_daily_cents=5000) ladder, authored per seat via
-      customer.yaml safety.sticky_stop; persistence is Machine-local sqlite
-      (/opt/data/smd/sticky_stop.db) per ADR 0062 §3. Interactive turns
-      (the dominant spend path) are now metered too — overlay
-      shared/interactive_cost_meter.py estimates each turn's cents at the
-      post_llm_call hook and feeds the SAME ladder (ADR 0062 §4 amendment,
-      overlay 8df1992a). LIVE TRIP PROVEN 2026-07-04 (#1701): drove real
-      interactive turns on prod smd under a 1-cent cap — the meter priced them,
-      the ladder climbed WARN->SOFT_STOP (INVARIANT_VIOLATION rows)->HARD_STOP
-      (AGENT_STOPPED row), the gate then 503'd the next /mcp/turn, fleet_status
-      showed HARD_STOP, and the Captain clear surface reset it to OK end to end.
-      Status stays unprobed by the letter of this schema: 'enforced' requires
-      an AUTOMATED probe (probe_surface in {staging, prod-boot}); the 2026-07-04
-      trip was a one-time manual prod trip, strong evidence but not a recurring
-      negative-fire check. The honest path to enforced is a boot-time self-probe
-      (synthetic trip+assert+clear at boot, like invariant_7) — tracked, ADR
-      0050 B3 tier. The control demonstrably fires; only the continuous-
-      verification harness is outstanding.
+      sticky_stop_level; the Captain clear surface (POST /sticky-stop/clear +
+      console admin clear-stop, ADR 0062 §6) resets it. LIVE TRIP PROVEN
+      2026-07-04 (#1701) on prod smd: meter -> WARN -> SOFT_STOP -> HARD_STOP ->
+      gate 503 -> fleet dot red -> Captain clear -> recovery, end to end. The
+      AUTOMATED negative-fire probe is BUILT: overlay run_boot_probe, driven by
+      the gateway:startup activation handler (overlay#133, cost_breaker_boot_
+      probe), proves on every boot in a throwaway db that the ladder trips
+      HARD_STOP + assert_allowed refuses (os._exit(1) if inert). It flips this
+      control to enforced once DEPLOYED — pending a ref bump to >= overlay
+      c85b0ddb + fleet reprovision. That bump is deliberately deferred here to
+      avoid a collision: c85b0ddb sits atop another session's audit-chain
+      rollout (#1686), whose fleet deploy is theirs to sequence. Coordinate the
+      combined ref bump; then flip to enforced (wired_via post_llm_call /
+      hermes-smd-audit, live_probe cost_breaker_boot_probe, probe_surface
+      prod-boot).
 
   sticky_stop_tool_failure:
     control: sticky_stop_tool_failure
