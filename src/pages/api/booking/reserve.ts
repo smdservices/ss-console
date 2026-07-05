@@ -13,6 +13,7 @@ import {
   readAttributionFromCookieHeader,
   type AdAttribution,
 } from '../../../lib/marketing/attribution'
+import { emitMetaEvent, mintMetaEventId } from '../../../lib/marketing/meta-capi'
 import { rollbackFailedBooking } from '../../../lib/booking/rollback'
 import { createScheduleStatement, updateScheduleGoogleSync } from '../../../lib/booking/schedule'
 import { verifyBookingLink } from '../../../lib/booking/signed-link'
@@ -421,7 +422,7 @@ async function syncGoogleCalendarAndPromote(args: GoogleSyncArgs): Promise<strin
   }
 }
 
-async function handlePost({ request }: APIContext): Promise<Response> {
+async function handlePost({ request, locals }: APIContext): Promise<Response> {
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -504,14 +505,41 @@ async function handlePost({ request }: APIContext): Promise<Response> {
   // Release the hold — the live assessment row is now the lock
   await releaseHold(env.DB, holdResult.id!)
 
+  // Phase 4: confirmation emails + conversion event + 201 response
+  return finalizeBooking({ request, locals, validated, dbResult, googleMeetUrl, manageUrl })
+}
+
+interface FinalizeBookingArgs {
+  request: Request
+  locals: APIContext['locals']
+  validated: ValidatedInput
+  dbResult: DbCommitResult
+  googleMeetUrl: string
+  manageUrl: string
+}
+
+async function finalizeBooking(args: FinalizeBookingArgs): Promise<Response> {
+  const { request, locals, validated, dbResult, googleMeetUrl, manageUrl } = args
   const { slotStartUtc, slotEndUtc, guestTimezone } = validated
   const { assessmentId, meetingId, scheduleId, meetingScheduleId } = dbResult
   const displayTz = guestTimezone || BOOKING_CONFIG.consultant.timezone
 
-  // Phase 4: Confirmation emails (best-effort)
+  // Confirmation emails (best-effort)
   await sendConfirmationEmails({ input: validated, dbResult, googleMeetUrl, manageUrl })
 
+  // Meta CAPI Schedule event (ADR 0066 gate 2, #1723) — server half of the
+  // dedup pair; browser fires the same event_name with this eventID.
+  // Fail-closed no-op until the pixel/token are configured.
+  const metaEventId = mintMetaEventId()
+  await emitMetaEvent(
+    env,
+    import.meta.env.PUBLIC_META_PIXEL_ID,
+    { eventName: 'Schedule', eventId: metaEventId, request, email: validated.email },
+    locals.cfContext ? (p) => locals.cfContext!.waitUntil(p) : undefined
+  )
+
   return jsonResponse(201, {
+    meta_event_id: metaEventId,
     ok: true,
     // assessment_id and meeting_id are equal by construction during the
     // monitoring window — callers can use either. New code should prefer meeting_id.

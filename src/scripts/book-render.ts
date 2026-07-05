@@ -33,6 +33,8 @@ export interface BookingResponse {
   error?: string
   message?: string
   fallback?: { email?: string }
+  /** Server-minted Meta event id — browser fires the dedup pair (#1723). */
+  meta_event_id?: string
 }
 
 // ---------- State transitions ----------
