@@ -65,12 +65,11 @@ firm's core argument.
 
 Nobody searches SMD's category by name, so Google Search only catches
 adjacent-intent terms at legal-adjacent CPCs ($6-15+), and the job is discovery
-(Meta) or precision role-targeting (LinkedIn) (Track B, Task 3). But Phoenix-local
-
-- law-firm-owner is a tiny audience that starves Meta's learning phase and pushes
-  LinkedIn into ultra-narrow $150-300 CPM. The local + niche + category-creation
-  triple is the biggest structural headwind and argues against a big local paid test
-  before a message is proven.
+(Meta) or precision role-targeting (LinkedIn) (Track B, Task 3). But the
+Phoenix-local + law-firm-owner audience is tiny: it starves Meta's learning
+phase and pushes LinkedIn into ultra-narrow $150-300 CPM. The local + niche +
+category-creation triple is the biggest structural headwind and argues against
+a big local paid test before a message is proven.
 
 ### 4. The economics demand qualified-call optimization, which SMD cannot do yet
 
