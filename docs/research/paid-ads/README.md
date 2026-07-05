@@ -25,6 +25,10 @@ benchmarks and unverifiable items are flagged inline.
   with Cloudflare Workers implementation patterns.
 - `04-internal-audit.md` — Track D. What smd.services can and cannot track today,
   and the minimum build to become ad-ready.
+- `05-round-two-addendum.md` — Second research pass (2026-07-05, parallel session;
+  reconciled post-ADR). Only what the tracks above do not cover: legal-endemic and
+  partnership channels, show-rate economics, Meta/Google platform shifts, the
+  receptionist-keyword price-frame note, LinkedIn round-two evidence.
 
 ## The one-paragraph read
 
