@@ -163,15 +163,14 @@ controls:
     control: sticky_stop_cost_cap
     class: circuit-breaker
     substrate_module: safety-substrate/sticky_stop.py
-    # The dominant (interactive) path is metered at post_llm_call. wired_via is
-    # recorded for when this flips to enforced; kept empty while unprobed so the
-    # hook-surface check does not apply pre-deploy.
-    wired_via: ''
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    # Enforcement spans the job-worker thread + the webhook gate, but the
+    # DOMINANT (interactive) path is metered at post_llm_call, which is the hook
+    # named here for the hook-surface check. Full wiring is in the note.
+    wired_via: 'post_llm_call / hermes-smd-audit'
+    live_probe: cost_breaker_boot_probe
+    probe_surface: prod-boot
+    status: enforced
     owner: SMDurgan
-    tracking: '#1701'
     note: >-
       WIRED (ADR 0062): shared/cost_breaker.py enforces the job-path exact-cents
       cap at shared/job_segment.py (HARD_STOP dead-letters the job to
@@ -180,20 +179,23 @@ controls:
       ladder; the webhook-gate InboundWakeGuard parks verified inbound at
       HARD_STOP or past the authored inbound_daily_cap; the heartbeat carries
       sticky_stop_level; the Captain clear surface (POST /sticky-stop/clear +
-      console admin clear-stop, ADR 0062 §6) resets it. LIVE TRIP PROVEN
-      2026-07-04 (#1701) on prod smd: meter -> WARN -> SOFT_STOP -> HARD_STOP ->
-      gate 503 -> fleet dot red -> Captain clear -> recovery, end to end. The
-      AUTOMATED negative-fire probe is BUILT: overlay run_boot_probe, driven by
-      the gateway:startup activation handler (overlay#133, cost_breaker_boot_
-      probe), proves on every boot in a throwaway db that the ladder trips
-      HARD_STOP + assert_allowed refuses (os._exit(1) if inert). It flips this
-      control to enforced once DEPLOYED — pending a ref bump to >= overlay
-      c85b0ddb + fleet reprovision. That bump is deliberately deferred here to
-      avoid a collision: c85b0ddb sits atop another session's audit-chain
-      rollout (#1686), whose fleet deploy is theirs to sequence. Coordinate the
-      combined ref bump; then flip to enforced (wired_via post_llm_call /
-      hermes-smd-audit, live_probe cost_breaker_boot_probe, probe_surface
-      prod-boot).
+      console admin clear-stop, ADR 0062 §6) resets it. $50/day
+      (cost_daily_cents=5000) default, authored per seat via customer.yaml
+      safety.sticky_stop; Machine-local sqlite persistence. PROBED:
+      cost_breaker_boot_probe (overlay run_boot_probe, driven by the
+      gateway:startup activation handler, overlay#133) proves on EVERY boot, in
+      a throwaway db, that the ladder trips HARD_STOP and assert_allowed then
+      refuses — the handler _die()s (os._exit(1), bypassing the hook registry's
+      raise-swallowing) if the probe returns not-ok, so an inert breaker crash-
+      loops the gateway rather than serving ungoverned. run_boot_probe is itself
+      exception-proof (broad except -> return (False, reason)), so there is no
+      path where the breaker is inert and the Machine still serves — the same
+      fail-closed prod-boot standard as trust_ceiling and audit_emission.
+      VERIFIED LIVE 2026-07-05: hermes-smd reprovisioned to OVERLAY_REF
+      c85b0ddb (ss#1719) and booted healthy through the probe twice (deploy +
+      restart, VERSION 128, 1/1 checks). Also manually trip-proven end to end on
+      prod smd 2026-07-04 (#1701): meter -> WARN -> SOFT_STOP -> HARD_STOP ->
+      gate 503 -> fleet dot red -> Captain clear -> recovery.
 
   sticky_stop_tool_failure:
     control: sticky_stop_tool_failure
