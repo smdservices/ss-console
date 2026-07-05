@@ -9,6 +9,10 @@ import {
   computeManageTokenExpiry,
 } from '../../../lib/booking/tokens'
 import { processIntakeSubmission, type PreSeededIntake } from '../../../lib/booking/intake-core'
+import {
+  readAttributionFromCookieHeader,
+  type AdAttribution,
+} from '../../../lib/marketing/attribution'
 import { rollbackFailedBooking } from '../../../lib/booking/rollback'
 import { createScheduleStatement, updateScheduleGoogleSync } from '../../../lib/booking/schedule'
 import { verifyBookingLink } from '../../../lib/booking/signed-link'
@@ -165,6 +169,8 @@ function calendarUnavailableJson(): Response {
 interface DbCommitArgs {
   input: ValidatedInput
   preSeeded: PreSeededIntake | null
+  /** First-touch ad attribution from the ss_attr cookie (ADR 0066 gate 1). */
+  attribution: AdAttribution | null
 }
 
 interface DbCommitResult {
@@ -228,8 +234,22 @@ async function seedScheduleSidecars(
   return { scheduleId, meetingScheduleId }
 }
 
+async function mintManageToken(
+  slotEndUtc: string
+): Promise<{ manageToken: string; manageTokenHash: string; manageTokenExpiresAt: string }> {
+  const manageToken = generateManageToken()
+  return {
+    manageToken,
+    manageTokenHash: await hashManageToken(manageToken),
+    manageTokenExpiresAt: computeManageTokenExpiry(
+      slotEndUtc,
+      BOOKING_CONFIG.manage_token_ttl_hours_after_slot
+    ),
+  }
+}
+
 async function commitBookingToDb(args: DbCommitArgs): Promise<DbCommitResult> {
-  const { input, preSeeded } = args
+  const { input, preSeeded, attribution } = args
   const {
     name,
     email,
@@ -262,6 +282,7 @@ async function commitBookingToDb(args: DbCommitArgs): Promise<DbCommitResult> {
       yearsInBusiness,
       biggestChallenge,
       howHeard,
+      attribution,
     },
     {
       scheduledAt: slotStartUtc,
@@ -277,12 +298,7 @@ async function commitBookingToDb(args: DbCommitArgs): Promise<DbCommitResult> {
   const assessmentId = intakeResult.assessmentId!
   const meetingId = intakeResult.meetingId!
 
-  const manageToken = generateManageToken()
-  const manageTokenHash = await hashManageToken(manageToken)
-  const manageTokenExpiresAt = computeManageTokenExpiry(
-    slotEndUtc,
-    BOOKING_CONFIG.manage_token_ttl_hours_after_slot
-  )
+  const { manageToken, manageTokenHash, manageTokenExpiresAt } = await mintManageToken(slotEndUtc)
 
   // Create assessment_schedule (legacy) and meeting_schedule (canonical) sidecars.
   const { scheduleId, meetingScheduleId } = await seedScheduleSidecars({
@@ -447,9 +463,13 @@ async function handlePost({ request }: APIContext): Promise<Response> {
     })
   }
 
+  // First-touch ad attribution, set by middleware on the landing request
+  // (ADR 0066 gate 1). Server-side read — the client never sends it.
+  const attribution = readAttributionFromCookieHeader(request.headers.get('cookie'))
+
   let dbResult: DbCommitResult
   try {
-    dbResult = await commitBookingToDb({ input: validated, preSeeded })
+    dbResult = await commitBookingToDb({ input: validated, preSeeded, attribution })
   } catch (err) {
     console.error('[api/booking/reserve] DB commit failed:', err)
     await releaseHold(env.DB, holdResult.id!)

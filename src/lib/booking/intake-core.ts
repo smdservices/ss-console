@@ -12,6 +12,7 @@ import { updateAssessment, getAssessment } from '../db/assessments'
 import { createMeetingWithLegacyAssessment, ensureMeetingForAssessment } from '../db/meetings'
 import { appendContext } from '../db/context'
 import { interestLabel } from './config'
+import { attributionSummary, type AdAttribution } from '../marketing/attribution'
 
 export interface IntakeInput {
   name: string
@@ -43,6 +44,15 @@ export interface IntakeInput {
    * canonical code, not the display label.
    */
   interest?: string | null
+  /**
+   * First-touch ad-click attribution (enumerated utm_*, gclid, fbclid),
+   * read server-side from the ss_attr cookie at the API boundary
+   * (ADR 0066 launch gate 1, #1722). Stored in context metadata for
+   * campaign attribution. INTERNAL-ONLY: never rendered on client-facing
+   * surfaces — keep it out of intakeLines, which flow into the
+   * guest-visible calendar event description.
+   */
+  attribution?: AdAttribution | null
 }
 
 /**
@@ -231,6 +241,58 @@ function buildIntakeLines(input: IntakeInput): string[] {
 }
 
 /**
+ * Append the intake context row: the prospect's own words, the categorical
+ * intake lines, and (in metadata) the first-touch ad attribution. Returns
+ * the context row id, or null when there is nothing to write.
+ */
+async function appendIntakeContext(
+  db: D1Database,
+  orgId: string,
+  args: { entityId: string; input: IntakeInput; intakeLines: string[]; pipeline: string }
+): Promise<string | null> {
+  const { entityId, input, intakeLines, pipeline } = args
+  const trimmedMessage = input.userMessage?.trim() ?? ''
+  const contentParts: string[] = []
+  if (trimmedMessage) contentParts.push(trimmedMessage)
+  if (intakeLines.length > 0) contentParts.push(intakeLines.join('\n'))
+
+  // Attribution must not be silently dropped when the submission carries no
+  // other content (e.g. the V4 booking path sends only name/email/slot): an
+  // admin-facing summary line makes the context row exist so the metadata
+  // is persisted. Deliberately NOT part of intakeLines — those are rendered
+  // into the guest-visible calendar event description.
+  const attribution = input.attribution ?? null
+  if (attribution && contentParts.length === 0) {
+    const summary = attributionSummary(attribution)
+    if (summary) contentParts.push(`Ad attribution: ${summary}`)
+  }
+
+  if (contentParts.length === 0) return null
+
+  const contextEntry = await appendContext(db, orgId, {
+    entity_id: entityId,
+    type: 'intake',
+    content: contentParts.join('\n\n'),
+    source: pipeline,
+    metadata: {
+      name: input.name,
+      email: input.email,
+      phone: input.phone ?? null,
+      website: input.website ?? null,
+      user_message: trimmedMessage || null,
+      vertical: input.vertical,
+      employee_count: input.employeeCount,
+      years_in_business: input.yearsInBusiness,
+      biggest_challenge: input.biggestChallenge,
+      how_heard: input.howHeard,
+      interest: input.interest,
+      attribution,
+    },
+  })
+  return contextEntry.id
+}
+
+/**
  * Process an intake submission: find-or-create entity, create contact (if
  * new email), create meeting, and append intake context.
  *
@@ -251,34 +313,7 @@ export async function processIntakeSubmission(
   const meetingRes = await resolveMeeting(db, orgId, entityId, scheduledAt, preSeeded)
 
   const intakeLines = buildIntakeLines(input)
-  const trimmedMessage = input.userMessage?.trim() ?? ''
-  const contentParts: string[] = []
-  if (trimmedMessage) contentParts.push(trimmedMessage)
-  if (intakeLines.length > 0) contentParts.push(intakeLines.join('\n'))
-
-  let contextId: string | null = null
-  if (contentParts.length > 0) {
-    const contextEntry = await appendContext(db, orgId, {
-      entity_id: entityId,
-      type: 'intake',
-      content: contentParts.join('\n\n'),
-      source: pipeline,
-      metadata: {
-        name: input.name,
-        email: input.email,
-        phone: input.phone ?? null,
-        website: input.website ?? null,
-        user_message: trimmedMessage || null,
-        vertical: input.vertical,
-        employee_count: input.employeeCount,
-        years_in_business: input.yearsInBusiness,
-        biggest_challenge: input.biggestChallenge,
-        how_heard: input.howHeard,
-        interest: input.interest,
-      },
-    })
-    contextId = contextEntry.id
-  }
+  const contextId = await appendIntakeContext(db, orgId, { entityId, input, intakeLines, pipeline })
 
   return {
     entityId,

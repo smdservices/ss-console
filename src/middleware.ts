@@ -10,6 +10,13 @@ import {
   POST_REWRITE_REDIRECTS,
   firstRedirect,
 } from './lib/routing/legacy-redirects'
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_COOKIE_MAX_AGE_S,
+  encodeAttributionCookie,
+  parseAttributionFromUrl,
+  urlHasAttributionParams,
+} from './lib/marketing/attribution'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -176,6 +183,30 @@ function enforceAuth(context: APIContext, pathname: string): Response | null {
   return null
 }
 
+/**
+ * First-touch ad-attribution capture (ADR 0066 launch gate 1, #1722).
+ *
+ * On marketing hosts only: when a request lands carrying any enumerated ad
+ * param (utm_*, gclid, fbclid) and no attribution cookie exists yet, persist
+ * the params in a first-party httpOnly cookie. First-touch semantics: an
+ * existing cookie is never overwritten. The intake/booking APIs read the
+ * cookie server-side and store it on the lead's D1 context row.
+ */
+function captureAdAttribution(context: APIContext, hostname: string): void {
+  if (hostname.startsWith('admin.') || hostname.startsWith('portal.')) return
+  if (!urlHasAttributionParams(context.url)) return
+  if (context.cookies.has(ATTRIBUTION_COOKIE)) return
+  const attribution = parseAttributionFromUrl(context.url)
+  if (!attribution) return
+  context.cookies.set(ATTRIBUTION_COOKIE, encodeAttributionCookie(attribution), {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: ATTRIBUTION_COOKIE_MAX_AGE_S,
+  })
+}
+
 async function handleRequest(context: APIContext, next: NextFn): Promise<Response> {
   const { pathname } = context.url
   const hostname = context.url.hostname
@@ -194,6 +225,8 @@ async function handleRequest(context: APIContext, next: NextFn): Promise<Respons
   // legacy auth paths, retired marketing surfaces).
   const postRewrite = firstRedirect(POST_REWRITE_REDIRECTS, redirectCtx)
   if (postRewrite) return context.redirect(postRewrite.location, postRewrite.status)
+
+  captureAdAttribution(context, hostname)
 
   context.locals.session = null
   await resolveAdminSession(context, pathname)
