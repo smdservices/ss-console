@@ -46,6 +46,10 @@
   }
 
   window.gtag('js', new Date())
+  // allow_google_signals stays FALSE by conscious decision (ADR 0066 gate 3,
+  // #1724): GA4 is a reporting install. Flipping it (Google Ads remarketing,
+  // cross-device) is a deliberate step at Google Ads launch, paired with
+  // Consent Mode - do not enable it casually.
   window.gtag('config', measurementId, {
     anonymize_ip: true,
     allow_google_signals: false,
