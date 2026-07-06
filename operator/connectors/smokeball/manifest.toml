@@ -15,12 +15,16 @@
 #
 # tool_classes is the conformance ORACLE: every entry must agree with the
 # hand-authored overlay map (shared/action_classes.py) under the runtime name
-# mcp_smokeball_<tool>. The surface is the reads + create_memo (internal_write) +
-# the document round-trip writes add_file (internal_write) and delete_file
-# (destructive, taint-gated) + the deadline-engine / document-organization write
-# cut: create_event/update_event/create_event_reminder, create_task/update_task,
-# and create_folder (all internal_write). The trust-account fund-movement tools
-# are NEVER exposed here and are hard-BANNED at the overlay.
+# mcp_smokeball_<tool>. The surface is the reads (including read_document,
+# the server-side presigned fetch + text extraction that makes matter
+# documents readable as DATA — added 2026-07-05 after the L2 DISC-1 finding
+# that no tool could fetch what get_download_url mints) + create_memo
+# (internal_write) + the document round-trip writes add_file (internal_write)
+# and delete_file (destructive, taint-gated) + the deadline-engine /
+# document-organization write cut: create_event/update_event/
+# create_event_reminder, create_task/update_task, and create_folder (all
+# internal_write). The trust-account fund-movement tools are NEVER exposed
+# here and are hard-BANNED at the overlay.
 #
 # COORDINATED CHANGE: the matching shared/action_classes.py entries in
 # hermes-smd-overlay (mcp_smokeball_create_event etc. = internal_write;
@@ -73,6 +77,7 @@ get_relationships_on_matter = "read"
 get_files_on_matter = "read"
 get_file = "read"
 get_download_url = "read"
+read_document = "read"
 list_folders = "read"
 create_folder = "internal_write"
 add_file = "internal_write"
