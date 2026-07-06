@@ -87,14 +87,26 @@ Discovery reaches the firm two ways, and this body accepts either source:
 
 - **In-Smokeball (active now).** The served document is already filed to the matter.
   The skill finds it among the matter's files and reads it there.
-- **Inbound email before it is filed (later).** The proposal's #1 intake ask: much
-  discovery arrives by mail and email **before** it is entered into Smokeball. That
-  source rides M365 / Microsoft Graph (Track E), which is **not yet runtime-wired**
-  (see `operator/verticals/law-firm/addons/pi/README.md`). The body is written so
-  the email path activates by adding a `webhook_triggers` entry
-  (`{ source: <mail adapter>, event_type: message.received, skill:
-discovery-served-watch }`) once that connector is verified — no rewrite. Until
-  that trigger is live, the skill does not assert an email source it cannot read.
+- **Inbound email before it is filed (live via the Operator's own inbox; M365 at
+  Track E widens it).** The proposal's #1 intake ask: much discovery arrives by
+  mail and email **before** it is entered into Smokeball. The live path today is
+  the spine: `matter-inbox-router` classifies a formal-service email as
+  `served-document-intake` and EXECUTES this skill in the same turn (v0.3.0 —
+  a route that ends the turn with no capture executed is a silent drop, the
+  same `fails` class as a silent halt). On this path, in order:
+  1. **File the served document to the matter first** (`add_file` with the
+     email's attachment bytes) — that is the firm's copy landing in the matter
+     file, which the firm wants regardless, and it makes the document readable
+     via `read_document` for the capture. Then read it back.
+  2. **Capture from the document text plus the email body** (the service
+     letter often states the method/date; the proof of service governs when
+     the two disagree — surface the disagreement, never pick silently).
+  3. Standard capture from there: memo + confirm task, dedup on the filed
+     fileId. **Never reply to the sender** (router invariant 2a carries
+     through this skill: the sender of served discovery is adverse counsel).
+
+  The M365/Graph source (Track E) later joins as a second `webhook_triggers`
+  entry — no rewrite; this email-path procedure is source-agnostic.
 
 Either way the capture logic is identical: identify the type, read the POS, match to
 the matter, surface for confirmation.
