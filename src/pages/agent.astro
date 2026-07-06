@@ -312,7 +312,12 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         >
           Plain terms: your agent's model usage runs on your own Anthropic key under a spend limit
           you set, so we cannot see or cap that spend. Setup is done by hand, carefully, and your
-          portal shows the status the whole way.
+          portal shows the status the whole way. Prices exclude applicable sales tax, calculated at
+          checkout. Subscriptions are governed by the <a
+            href="/agent/terms"
+            class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-text-primary)]"
+            >Hosted Agent terms</a
+          >.
         </p>
       </div>
     </section>
