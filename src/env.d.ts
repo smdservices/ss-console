@@ -204,6 +204,20 @@ declare namespace Cloudflare {
      */
     OPERATOR_SECRET_RELAY_URL?: string
     /**
+     * Infisical Universal Auth machine identity for the Hosted Agent BYO-key
+     * write transport (ADR 0067). Scoped write-only to the hosted-customers
+     * path. When any of the three is unset,
+     * `isHostedSecretTransportConfigured` returns false and the portal key
+     * endpoint returns an honest `not_enabled` (the key is then collected at
+     * the Captain-run go-live step). See
+     * src/lib/operator/infisical-secret-transport.ts.
+     */
+    INFISICAL_UA_CLIENT_ID?: string
+    INFISICAL_UA_CLIENT_SECRET?: string
+    INFISICAL_PROJECT_ID?: string
+    /** Infisical environment slug for the hosted-key writes; defaults to 'prod'. */
+    INFISICAL_ENV_SLUG?: string
+    /**
      * Host template for the live console→Machine runtime read path (ADR 0043
      * path A). A `{app}` placeholder is substituted with the registry-resolved
      * Fly app (e.g. `https://{app}.fly.dev`); absent, it falls back to

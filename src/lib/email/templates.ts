@@ -9,7 +9,7 @@ import { BRAND_NAME } from '../config/brand'
 const PORTAL_CARD_WIDTH = '480px'
 const BOOKING_CARD_WIDTH = '520px'
 
-function escapeEmailHtml(str: string): string {
+export function escapeEmailHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -57,28 +57,28 @@ function emailFooter(): string {
     </div>`
 }
 
-function portalDocument(body: string): string {
+export function portalDocument(body: string): string {
   return emailDocument({ title: BRAND_NAME, subtitle: 'Client Portal', body })
 }
 
-function paragraph(html: string, margin = '0 0 24px', size = '15px'): string {
+export function paragraph(html: string, margin = '0 0 24px', size = '15px'): string {
   return `      <p style="font-size:${size};color:#334155;margin:${margin};">
         ${html}
       </p>`
 }
 
-function mutedParagraph(html: string, margin = '24px 0 0'): string {
+export function mutedParagraph(html: string, margin = '24px 0 0'): string {
   return `      <p style="font-size:12px;color:#94a3b8;margin:${margin};">
         ${html}
       </p>`
 }
 
-function greeting(clientName: string): string {
+export function greeting(clientName: string): string {
   const name = clientName ? ` ${escapeEmailHtml(clientName)}` : ''
   return `Hi${name},`
 }
 
-function actionButton(url: string, label: string, padding = '12px 32px'): string {
+export function actionButton(url: string, label: string, padding = '12px 32px'): string {
   const href = escapeEmailHtml(url)
   return `      <a href="${href}"
          style="display:inline-block;background-color:#1e40af;color:#ffffff;
@@ -88,7 +88,7 @@ function actionButton(url: string, label: string, padding = '12px 32px'): string
       </a>`
 }
 
-function detailPanel(label: string, value: string, margin = '0 0 24px'): string {
+export function detailPanel(label: string, value: string, margin = '0 0 24px'): string {
   return `      <div style="background:#f1f5f9;border-radius:6px;padding:16px;margin:${margin};">
         <p style="font-size:13px;color:#64748b;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">${label}</p>
         <p style="font-size:16px;color:#0f172a;font-weight:600;margin:0;">${value}</p>

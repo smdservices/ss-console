@@ -73,6 +73,13 @@ export async function attachStripeSubscription(
  *   * `paused`    — collection paused (audit-only access)
  *   * `active`    — collection resumed
  *   * `cancelled` — subscription deleted at Stripe; ended_at is stamped
+ *
+ * Provisioning guard (ADR 0067): a `provisioning` row is promoted to
+ * `active` by the provisioning/activation flow ONLY — for the Hosted Agent
+ * a Stripe subscription attaches at checkout, so subscription.updated
+ * events arrive while the seat is still being stood up and must not flip
+ * it live. Cancellation still applies to a provisioning row (a buyer who
+ * cancels before activation is honestly cancelled).
  */
 export async function setSubscriptionBillingStatus(
   db: D1Database,
@@ -90,7 +97,7 @@ export async function setSubscriptionBillingStatus(
   }
   await db
     .prepare(
-      "UPDATE subscriptions SET status = ?, updated_at = datetime('now') WHERE id = ? AND status != 'cancelled'"
+      "UPDATE subscriptions SET status = ?, updated_at = datetime('now') WHERE id = ? AND status NOT IN ('cancelled', 'provisioning')"
     )
     .bind(status, subscriptionRowId)
     .run()
