@@ -31,16 +31,16 @@ const faqSchema = {
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <script is:inline type="application/ld+json" set:html={serializeJsonLd(faqSchema)} />
-        <p class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]">
+        <p class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]">
           Common Questions
         </p>
-        <h2 class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+        <h2 class="mb-10 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
           Questions Worth Asking.
         </h2>
         <div class="max-w-3xl space-y-10">
           {faqs.map((f) => (
             <div>
-              <h3 class="mb-3 font-['Archivo'] text-xl font-bold text-[color:var(--ss-color-text-primary)]">
+              <h3 class="mb-3 font-body text-xl font-bold text-[color:var(--ss-color-text-primary)]">
                 {f.q}
               </h3>
               <p class="text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
@@ -57,12 +57,12 @@ const faqSchema = {
 <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
   <div class="mx-auto max-w-5xl text-center">
     <p
-      class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-muted)]"
+      class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-muted)]"
     >
       Start Here
     </p>
     <h2
-      class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+      class="mb-6 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
     >
       It Starts With An Assessment.
     </h2>

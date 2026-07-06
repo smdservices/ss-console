@@ -15,12 +15,12 @@ const { slug } = Astro.props
 <section class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32">
   <div class="mx-auto max-w-5xl">
     <p
-      class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+      class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
     >
       The Managed Operator
     </p>
     <h1
-      class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+      class="mb-8 font-body text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
     >
       <slot name="heading" />
     </h1>
@@ -33,7 +33,7 @@ const { slug } = Astro.props
     <p class="mt-8">
       <a
         href={coldLanderLink.href}
-        class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+        class="font-mono text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
         >{coldLanderLink.text} &rarr;</a
       >
     </p>

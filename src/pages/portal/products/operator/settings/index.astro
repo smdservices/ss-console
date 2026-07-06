@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { getPortalClient } from '../../../../../lib/portal/session'
@@ -108,10 +109,7 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -163,7 +161,7 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
             >
               <div class="flex items-center justify-between gap-4">
                 <div class="flex flex-col gap-1 min-w-0">
-                  <span class="font-['Archivo'] text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  <span class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
                     {link.label}
                   </span>
                   <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
@@ -172,7 +170,7 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
                 </div>
                 <span
                   aria-hidden="true"
-                  class="font-['Archivo'] text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
+                  class="font-body text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
                 >
                   →
                 </span>

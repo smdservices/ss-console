@@ -44,14 +44,14 @@ const openCount = queue.filter((r) => openStatuses.has(r.status)).length
     banner && (
       <div
         role="status"
-        class="mb-6 border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold"
+        class="mb-6 border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold"
       >
         {banner}
       </div>
     )
   }
 
-  <p class="font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+  <p class="font-mono text-base text-[color:var(--ss-color-text-secondary)]">
     {queue.length} purchase{queue.length === 1 ? '' : 's'} · {openCount} open work item{
       openCount === 1 ? '' : 's'
     }. Runbook: docs/runbooks/hosted-agent/concierge.md
@@ -61,7 +61,7 @@ const openCount = queue.filter((r) => openStatuses.has(r.status)).length
     {queue.map((row) => <HostedAgentQueueCard row={row} />)}
     {
       queue.length === 0 && (
-        <p class="font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+        <p class="font-mono text-base text-[color:var(--ss-color-text-secondary)]">
           No purchases yet.
         </p>
       )

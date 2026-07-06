@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../lib/fonts'
 import '../../styles/global.css'
 import PortalHeader from '../../components/portal/PortalHeader.astro'
 import TimelineEntry from '../../components/portal/TimelineEntry.astro'
@@ -27,10 +28,7 @@ if (import.meta.env.PROD) {
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
     />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-    />
+    <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
     <title>Portal component gallery — dev</title>
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
@@ -208,7 +206,7 @@ if (import.meta.env.PROD) {
 
       <section class="space-y-4">
         <p
-          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+          class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
         >
           Plainspoken additions — PR A
         </p>
@@ -249,28 +247,28 @@ if (import.meta.env.PROD) {
         <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 space-y-5">
           <div class="flex items-baseline gap-6">
             <span
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
+              class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
               >hero</span
             >
             <MoneyDisplay amountCents={525000} size="hero" />
           </div>
           <div class="flex items-baseline gap-6">
             <span
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
+              class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
               >kpi</span
             >
             <MoneyDisplay amountCents={262500} size="kpi" />
           </div>
           <div class="flex items-baseline gap-6">
             <span
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
+              class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
               >total</span
             >
             <MoneyDisplay amountCents={525000} size="total" />
           </div>
           <div class="flex items-baseline gap-6">
             <span
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
+              class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] w-16"
               >row</span
             >
             <MoneyDisplay amountCents={262500} size="row" />

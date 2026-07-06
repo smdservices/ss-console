@@ -31,6 +31,8 @@ export default defineConfig({
   session: { driver: sessionDrivers.lruCache() },
   integrations: [clerk(), sitemap({ filter: isPublicMarketingUrl })],
   vite: {
+    ssr: { optimizeDeps: { exclude: ['@clerk/astro/components'] } },
+    optimizeDeps: { exclude: ['@clerk/astro/components'] },
     plugins: [tailwindcss()],
   },
 })

@@ -59,13 +59,13 @@ const ratePercent = formatApprovalRate(candidate.approvalRate)
   data-promotion-skill={candidate.skillName}
 >
   <div
-    class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+    class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold"
   >
     Promotion ready
   </div>
   <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
     <h3
-      class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)] m-0"
+      class="font-body text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)] m-0"
     >
       {candidate.skillName} ready for promotion?
     </h3>
@@ -82,7 +82,7 @@ const ratePercent = formatApprovalRate(candidate.approvalRate)
     <div class="flex flex-wrap items-center gap-3">
       <a
         href={candidate.reviewUrl}
-        class="inline-flex items-center min-h-11 px-4 py-2 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold hover:bg-[color:var(--ss-color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+        class="inline-flex items-center min-h-11 px-4 py-2 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-mono text-label uppercase tracking-[0.14em] font-bold hover:bg-[color:var(--ss-color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
       >
         Review on Skills tab
       </a>
@@ -90,7 +90,7 @@ const ratePercent = formatApprovalRate(candidate.approvalRate)
         <input type="hidden" name="returnTo" value={returnTo} />
         <button
           type="submit"
-          class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+          class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
         >
           Dismiss for now
         </button>

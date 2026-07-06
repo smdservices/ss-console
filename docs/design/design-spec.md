@@ -115,11 +115,12 @@ All tokens use the `--ss-*` prefix.
 ```css
 --ss-font-display: 'Archivo', system-ui, sans-serif;
 --ss-font-body: 'Archivo', system-ui, sans-serif;
---ss-font-accent-label: 'Archivo Narrow', 'Archivo', system-ui, sans-serif;
 --ss-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 ```
 
-Plainspoken register: single-family display + body via Archivo. Archivo Narrow for chips and tags. JetBrains Mono for IDs, invoice numbers, code, fixed-width data.
+Plainspoken register: single-family display + body via Archivo. JetBrains Mono for eyebrows, labels, chips, table headers, IDs, invoice numbers, code, and fixed-width data.
+
+**Exactly two families, all three subdomains (Captain ruling 2026-07-06).** Archivo Narrow (the former `--ss-font-accent-label`) is retired; the token remains in the compiled package until the token JSON is updated in crane-console, but nothing in this repo may reference it. Families are declared only through the semantic utilities `font-display` / `font-body` / `font-mono` (mapped in `src/styles/global.css` `@theme`) or `var(--ss-font-*)`; Tailwind arbitrary-value family literals are banned. The Google Fonts stylesheet URL is declared once in `src/lib/fonts.ts` (`GOOGLE_FONTS_URL`). Enforced by `tests/typography-tokens.test.ts` in `npm run verify`. Out of scope: HTML email (inline-styled) and the SOW PDF (react-pdf registered fonts on a signed document).
 
 ### Functional Type Scale
 

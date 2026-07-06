@@ -44,7 +44,7 @@ const hasGoogleConnector = rows.some((row) => (row.adapter ?? '').toLowerCase().
 <section aria-labelledby="settings-connectors-heading" class="mt-section">
   <h2
     id="settings-connectors-heading"
-    class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+    class="font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
   >
     Connectors
   </h2>
@@ -64,7 +64,7 @@ const hasGoogleConnector = rows.some((row) => (row.adapter ?? '').toLowerCase().
             <li class="border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0">
               <div class="flex items-baseline justify-between gap-4 flex-wrap p-card">
                 <div class="min-w-0 flex-1">
-                  <p class="font-['Archivo'] text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                  <p class="font-body text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
                     {row.capabilityName}
                   </p>
                   <p class="mt-1 text-caption text-[color:var(--ss-color-text-secondary)] m-0">
@@ -81,7 +81,7 @@ const hasGoogleConnector = rows.some((row) => (row.adapter ?? '').toLowerCase().
                     <input type="hidden" name="capabilityName" value={row.capabilityName} />
                     <button
                       type="submit"
-                      class="inline-flex items-center min-h-11 px-4 py-2 font-['Archivo_Narrow'] text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                      class="inline-flex items-center min-h-11 px-4 py-2 font-mono text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
                     >
                       Re-authorize
                     </button>
@@ -98,7 +98,7 @@ const hasGoogleConnector = rows.some((row) => (row.adapter ?? '').toLowerCase().
     hasGoogleConnector ? (
       <a
         href="/portal/products/operator/oauth/google-workspace"
-        class="mt-stack inline-flex items-center min-h-11 px-4 py-2 font-['Archivo_Narrow'] text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 no-underline"
+        class="mt-stack inline-flex items-center min-h-11 px-4 py-2 font-mono text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 no-underline"
       >
         Connect Google
       </a>

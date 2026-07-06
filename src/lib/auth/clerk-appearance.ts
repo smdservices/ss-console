@@ -11,8 +11,8 @@
  *   - Sharp corners everywhere (borderRadius: 0)
  *   - Heavy 3px ink borders on cards, inputs, and primary buttons
  *   - Cream background, ink text, burnt-orange primary
- *   - Archivo / Archivo Narrow typography (matches header monogram)
- *   - All-caps Archivo Narrow on buttons and small labels
+ *   - Archivo / JetBrains Mono typography (matches header monogram)
+ *   - All-caps JetBrains Mono on buttons and small labels
  *
  * The "Secured by Clerk" footer is locked to the Hobby tier and
  * remains visible until we upgrade. Everything else is themed below.
@@ -60,16 +60,15 @@ export const clerkAppearance = {
     rootBox: 'w-full',
     // Header
     headerTitle:
-      "font-['Archivo'] font-black uppercase tracking-tight " +
+      'font-body font-black uppercase tracking-tight ' +
       'text-[color:var(--ss-color-text-primary)]',
     headerSubtitle:
-      "font-['Archivo_Narrow'] uppercase tracking-[0.12em] " +
-      'text-[color:var(--ss-color-text-secondary)]',
-    // Primary button: ink filled, sharp, uppercase Archivo Narrow, burnt-orange on hover.
+      'font-mono uppercase tracking-[0.12em] ' + 'text-[color:var(--ss-color-text-secondary)]',
+    // Primary button: ink filled, sharp, uppercase JetBrains Mono, burnt-orange on hover.
     formButtonPrimary:
       'rounded-none border-[3px] border-[color:var(--ss-color-text-primary)] ' +
       'bg-[color:var(--ss-color-text-primary)] text-white ' +
-      "font-['Archivo_Narrow'] font-bold uppercase tracking-[0.12em] " +
+      'font-mono font-bold uppercase tracking-[0.12em] ' +
       'hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] ' +
       'focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] ' +
       'focus-visible:ring-offset-2 transition-colors',
@@ -83,7 +82,7 @@ export const clerkAppearance = {
       'bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] ' +
       'focus:ring-2 focus:ring-[color:var(--ss-color-action)] focus:ring-offset-0',
     formFieldLabel:
-      "font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm " +
+      'font-mono uppercase tracking-[0.12em] font-bold text-sm ' +
       'text-[color:var(--ss-color-text-primary)]',
     formFieldHintText: 'text-xs text-[color:var(--ss-color-text-secondary)]',
     formFieldErrorText: 'text-xs text-[color:var(--ss-color-error)]',
@@ -91,16 +90,16 @@ export const clerkAppearance = {
     socialButtonsBlockButton:
       'rounded-none border-[3px] border-[color:var(--ss-color-text-primary)] ' +
       'bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] ' +
-      "font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold " +
+      'font-mono uppercase tracking-[0.12em] font-bold ' +
       'hover:bg-[color:var(--ss-color-border-subtle)]',
-    socialButtonsBlockButtonText: "font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold",
+    socialButtonsBlockButtonText: 'font-mono uppercase tracking-[0.12em] font-bold',
     // Footer + action links. Normal-case here so email addresses
     // (rendered in identity-preview rows like "Signed in as foo@bar")
     // are not text-transformed and don't overflow the card.
     footer: 'rounded-none bg-[color:var(--ss-color-background)]',
-    footerAction: "font-['Archivo_Narrow'] text-sm normal-case tracking-normal",
+    footerAction: 'font-mono text-sm normal-case tracking-normal',
     footerActionLink:
-      "font-['Archivo_Narrow'] font-bold uppercase tracking-[0.12em] " +
+      'font-mono font-bold uppercase tracking-[0.12em] ' +
       'text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)] ' +
       'underline-offset-2',
     footerActionText: 'text-[color:var(--ss-color-text-secondary)] normal-case tracking-normal',
@@ -115,11 +114,11 @@ export const clerkAppearance = {
     // Form section divider
     dividerLine: 'bg-[color:var(--ss-color-text-primary)]',
     dividerText:
-      "font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs " +
+      'font-mono uppercase tracking-[0.14em] text-xs ' +
       'text-[color:var(--ss-color-text-secondary)]',
     // Alert + notice surfaces
     alert: 'rounded-none border-[3px]',
-    alertText: "font-['Archivo_Narrow'] text-sm",
+    alertText: 'font-mono text-sm',
     // Spinner + busy state
     spinner: 'text-[color:var(--ss-color-primary)]',
   },

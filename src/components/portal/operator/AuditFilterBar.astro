@@ -9,7 +9,7 @@
  * data resolver re-runs against the new params.
  *
  * Plainspoken aesthetic matching FilterBar.astro (#869). 3px ink
- * border, Archivo Narrow uppercase labels, no shadowy form chrome.
+ * border, JetBrains Mono uppercase labels, no shadowy form chrome.
  *
  * Drift guard: every input `name` here matches a field on
  * `AuditListParams` in src/lib/portal/operator/audit.ts. If you
@@ -73,7 +73,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5 min-w-0">
       <label
         for="audit-filter-skill"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Skill
       </label>
@@ -104,7 +104,7 @@ function toDateValue(value: string | null): string {
         availableSkills.length === 0 && (
           <span
             id="audit-filter-skill-empty"
-            class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
+            class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
           >
             Skills appear as your Operator acts
           </span>
@@ -116,7 +116,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5 min-w-0">
       <label
         for="audit-filter-action"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Action class
       </label>
@@ -141,7 +141,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5">
       <label
         for="audit-filter-from"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         From
       </label>
@@ -158,7 +158,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5">
       <label
         for="audit-filter-to"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         To
       </label>
@@ -175,7 +175,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5">
       <label
         for="audit-filter-sort"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Sort
       </label>
@@ -198,7 +198,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-row gap-2 md:items-end">
       <button
         type="submit"
-        class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
+        class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-mono text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
       >
         Apply
       </button>
@@ -213,7 +213,7 @@ function toDateValue(value: string | null): string {
   <div class="flex flex-col gap-1.5 min-w-0">
     <label
       for="audit-filter-q"
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
     >
       Search
     </label>

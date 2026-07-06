@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../lib/fonts'
 import '../../../styles/global.css'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
@@ -118,10 +119,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -155,7 +153,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
             >
               <div
-                class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+                class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold"
               >
                 <span>Engagement total</span>
                 <span class="text-[color:var(--ss-color-primary)]">
@@ -165,7 +163,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               <div class="px-5 py-5">
                 <MoneyDisplay amountCents={totalCents} size="hero" />
                 <p
-                  class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+                  class="mt-3 font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
                 >
                   Fixed · USD
                 </p>
@@ -177,10 +175,10 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               {
                 isSigned ? (
                   <div class="border-t-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] px-5 py-4 flex items-center justify-between gap-3">
-                    <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)] flex items-center gap-2">
+                    <span class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)] flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        class="inline-flex items-center justify-center w-5 h-5 bg-[color:var(--ss-color-complete)] text-[color:var(--ss-color-background)] font-['Archivo'] font-black text-xs"
+                        class="inline-flex items-center justify-center w-5 h-5 bg-[color:var(--ss-color-complete)] text-[color:var(--ss-color-background)] font-body font-black text-xs"
                       >
                         ✓
                       </span>
@@ -194,16 +192,16 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
                   </div>
                 ) : isSuperseded ? (
                   <div class="border-t-[2px] border-[color:var(--ss-color-text-primary)] px-5 py-4">
-                    <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
+                    <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
                       A revised version is available
                     </p>
                     {supersedingQuoteId && (
                       <a
                         href={`/portal/quotes/${supersedingQuoteId}`}
-                        class="mt-3 inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+                        class="mt-3 inline-flex items-center gap-2 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
                       >
                         Go to the latest proposal
-                        <span aria-hidden="true" class="font-['Archivo'] font-black">
+                        <span aria-hidden="true" class="font-body font-black">
                           →
                         </span>
                       </a>
@@ -222,7 +220,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
                 ) : hasActiveSignature ? (
                   <a
                     href="#sign-surface"
-                    class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] flex items-center justify-between gap-3 px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                    class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] flex items-center justify-between gap-3 px-5 py-4 font-body text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
                   >
                     <span>Review and sign</span>
                     <span aria-hidden="true" class="font-black">
@@ -241,12 +239,12 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               pdfHref && (
                 <a
                   href={pdfHref}
-                  class="mt-4 flex items-center justify-between border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-border-subtle)] px-5 py-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors"
+                  class="mt-4 flex items-center justify-between border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-border-subtle)] px-5 py-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors"
                 >
                   <span>View the full PDF</span>
                   <span
                     aria-hidden="true"
-                    class="font-['Archivo'] font-black text-[color:var(--ss-color-primary)]"
+                    class="font-body font-black text-[color:var(--ss-color-primary)]"
                   >
                     ↓
                   </span>
@@ -264,7 +262,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
             >
               <div
-                class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+                class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold"
               >
                 <span>Terms</span>
                 <span class="text-[color:var(--ss-color-primary)]">§ 03</span>
@@ -274,7 +272,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
                   class="px-5 py-5 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] border-b-[2px] md:border-b-0 border-[color:var(--ss-color-text-primary)]"
                 >
                   <p
-                    class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+                    class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
                   >
                     Total
                   </p>
@@ -284,7 +282,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
                 </div>
                 <div class="px-5 py-5">
                   <p
-                    class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+                    class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
                   >
                     Payment schedule
                   </p>
@@ -300,7 +298,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               hasActiveSignature && (
                 <section id="sign-surface" class="mt-8">
                   <div class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                    <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                    <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
                       <span>Review and sign</span>
                       <span class="text-[color:var(--ss-color-primary)]">§ 04</span>
                     </div>
@@ -336,7 +334,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
             >
               <div
-                class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+                class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold"
               >
                 <span>Engagement total</span>
                 <span class="text-[color:var(--ss-color-primary)]"
@@ -346,7 +344,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               <div class="px-5 py-5">
                 <MoneyDisplay amountCents={totalCents} size="hero" />
                 <p
-                  class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+                  class="mt-3 font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
                 >
                   Fixed · USD
                 </p>
@@ -358,10 +356,10 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               {
                 isSigned ? (
                   <div class="border-t-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] px-5 py-4 flex items-center justify-between gap-3">
-                    <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)] flex items-center gap-2">
+                    <span class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)] flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        class="inline-flex items-center justify-center w-5 h-5 bg-[color:var(--ss-color-complete)] text-[color:var(--ss-color-background)] font-['Archivo'] font-black text-xs"
+                        class="inline-flex items-center justify-center w-5 h-5 bg-[color:var(--ss-color-complete)] text-[color:var(--ss-color-background)] font-body font-black text-xs"
                       >
                         ✓
                       </span>
@@ -375,16 +373,16 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
                   </div>
                 ) : isSuperseded ? (
                   <div class="border-t-[2px] border-[color:var(--ss-color-text-primary)] px-5 py-4">
-                    <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
+                    <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
                       A revised version is available
                     </p>
                     {supersedingQuoteId && (
                       <a
                         href={`/portal/quotes/${supersedingQuoteId}`}
-                        class="mt-3 inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+                        class="mt-3 inline-flex items-center gap-2 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
                       >
                         Go to the latest proposal
-                        <span aria-hidden="true" class="font-['Archivo'] font-black">
+                        <span aria-hidden="true" class="font-body font-black">
                           →
                         </span>
                       </a>
@@ -399,7 +397,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
                 ) : hasActiveSignature ? (
                   <a
                     href="#sign-surface"
-                    class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] flex items-center justify-between gap-3 px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                    class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] flex items-center justify-between gap-3 px-5 py-4 font-body text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
                   >
                     <span>Review and sign</span>
                     <span aria-hidden="true" class="font-black">
@@ -418,12 +416,12 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
               pdfHref && (
                 <a
                   href={pdfHref}
-                  class="flex items-center justify-between border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-border-subtle)] px-5 py-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors"
+                  class="flex items-center justify-between border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-border-subtle)] px-5 py-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors"
                 >
                   <span>View the full PDF</span>
                   <span
                     aria-hidden="true"
-                    class="font-['Archivo'] font-black text-[color:var(--ss-color-primary)]"
+                    class="font-body font-black text-[color:var(--ss-color-primary)]"
                   >
                     ↓
                   </span>

@@ -33,19 +33,19 @@ const secretAction = `/api/portal/products/operator/connectors/${encodeURICompon
 const fieldId = `secret-${connectorId}`
 
 const btn =
-  "inline-flex items-center min-h-11 px-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+  'inline-flex items-center min-h-11 px-4 font-mono text-label uppercase tracking-[0.14em] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
 ---
 
 <li class="border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0">
   <div class="flex flex-col gap-2 px-5 md:px-7 py-5">
     <div class="flex items-baseline justify-between gap-4 flex-wrap">
       <p
-        class="font-['Archivo'] text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+        class="font-body text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
       >
         {row.capabilityName}
       </p>
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         {formatCustody(row.custody)}
       </span>
@@ -75,14 +75,14 @@ const btn =
           </form>
 
           <details class="border-t-[2px] border-[color:var(--ss-color-border)]">
-            <summary class="cursor-pointer list-none py-2 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset">
+            <summary class="cursor-pointer list-none py-2 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset">
               Enter or update an API key
             </summary>
             <form method="POST" action={secretAction} class="flex flex-col gap-3 pt-2">
               <input type="hidden" name="return_to" value={returnTo} />
               <label
                 for={fieldId}
-                class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+                class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
               >
                 API key for {row.capabilityName}
               </label>
