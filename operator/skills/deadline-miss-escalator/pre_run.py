@@ -385,6 +385,7 @@ class SmokeballSubprocessSource:
         )
         frm = self._today.isoformat()
         to = (self._today + timedelta(days=self._windows.escalation_window_days)).isoformat()
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args — argv[0] is the module-constant connector-venv interpreter, overridable only via SMD_CONNECTOR_VENV_PYTHON from the Machine's own boot env (same trust domain; the test seam). The snippet is a module constant; frm/to are date.isoformat() strings computed here, never external input.
         result = subprocess.run(  # raises on timeout → caller wakes
             [connector_python, "-c", _PULL_SNIPPET, frm, to],
             capture_output=True,
