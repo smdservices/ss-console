@@ -94,7 +94,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         <div class="max-w-3xl mx-auto px-6 pt-6">
           <p
             role="status"
-            class="border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em]"
+            class="border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.14em]"
           >
             Checkout closed. Nothing was charged.
           </p>
@@ -105,12 +105,12 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     <!-- Hero -->
     <section class="max-w-5xl mx-auto px-6 pt-16 pb-12 md:pt-24 md:pb-16">
       <p
-        class="font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-primary)]"
+        class="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-primary)]"
       >
         Hosted Agent
       </p>
       <h1
-        class="mt-4 font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-6xl text-[color:var(--ss-color-text-primary)]"
+        class="mt-4 font-body font-black uppercase tracking-[-0.02em] text-4xl md:text-6xl text-[color:var(--ss-color-text-primary)]"
       >
         Your own always-on agent. Without the second job of running it.
       </h1>
@@ -123,13 +123,13 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         <a
           href="/api/checkout/hosted-agent"
           data-ev="agent-hero-cta"
-          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
         >
           Get Your Agent
         </a>
         <a
           href="#pricing"
-          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
         >
           See Pricing
         </a>
@@ -140,7 +140,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
       <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <h2
-          class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
         >
           What it does on day one
         </h2>
@@ -149,21 +149,21 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         </p>
         <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-            <h3 class="font-['Archivo'] font-black uppercase text-xl">The morning digest</h3>
+            <h3 class="font-body font-black uppercase text-xl">The morning digest</h3>
             <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
               Forward it what matters. Every morning, on your clock, it sends you what landed, what
               it did with it, and what needs you.
             </p>
           </div>
           <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-            <h3 class="font-['Archivo'] font-black uppercase text-xl">Research briefs</h3>
+            <h3 class="font-body font-black uppercase text-xl">Research briefs</h3>
             <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
               Name a topic once. It digs, keeps digging on a schedule, and reports back in a brief
               you can actually read.
             </p>
           </div>
           <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-            <h3 class="font-['Archivo'] font-black uppercase text-xl">Watch and report</h3>
+            <h3 class="font-body font-black uppercase text-xl">Watch and report</h3>
             <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
               Point it at something that changes: a feed, a market, a competitor. It watches while
               you do anything else, and tells you when something moved.
@@ -183,7 +183,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     >
       <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <h2
-          class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-white"
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-white"
         >
           Built careful on purpose
         </h2>
@@ -226,29 +226,29 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
       <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <h2
-          class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
         >
           How it works
         </h2>
         <ol class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-base">
           <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-            <span class="font-['JetBrains_Mono'] text-[color:var(--ss-color-primary)]">01</span>
-            <h3 class="mt-2 font-['Archivo'] font-black uppercase text-xl">Subscribe</h3>
+            <span class="font-mono text-[color:var(--ss-color-primary)]">01</span>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Subscribe</h3>
             <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
               Checkout runs on Stripe. You get a portal account that tracks setup at every step.
             </p>
           </li>
           <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-            <span class="font-['JetBrains_Mono'] text-[color:var(--ss-color-primary)]">02</span>
-            <h3 class="mt-2 font-['Archivo'] font-black uppercase text-xl">Tell us about it</h3>
+            <span class="font-mono text-[color:var(--ss-color-primary)]">02</span>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Tell us about it</h3>
             <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
               A short questionnaire: what to call it, what it works on, who it accepts email from.
               Plus a dedicated Anthropic API key you create with a spend limit you control.
             </p>
           </li>
           <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-            <span class="font-['JetBrains_Mono'] text-[color:var(--ss-color-primary)]">03</span>
-            <h3 class="mt-2 font-['Archivo'] font-black uppercase text-xl">Meet your agent</h3>
+            <span class="font-mono text-[color:var(--ss-color-primary)]">03</span>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Meet your agent</h3>
             <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
               We stand it up by hand, test it, and hand you its Telegram line and email address.
               Your portal shows the moment it goes live.
@@ -262,12 +262,12 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     <section id="pricing" class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
       <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <h2
-          class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
         >
           Pricing
         </h2>
         <div class="mt-8 max-w-xl border-[3px] border-[color:var(--ss-color-text-primary)] p-8">
-          <p class="font-['Archivo'] font-black text-5xl text-[color:var(--ss-color-text-primary)]">
+          <p class="font-body font-black text-5xl text-[color:var(--ss-color-text-primary)]">
             $79<span class="text-2xl font-bold">/month</span>
           </p>
           <p class="mt-4 text-base text-[color:var(--ss-color-text-secondary)]">
@@ -284,7 +284,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
           <a
             href="/api/checkout/hosted-agent"
             data-ev="agent-pricing-cta"
-            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
           >
             Get Your Agent
           </a>
@@ -306,7 +306,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
       <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
         <h2
-          class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
         >
           Questions, answered straight
         </h2>
@@ -314,7 +314,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
           {
             faqs.map((f) => (
               <details class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-                <summary class="cursor-pointer font-['Archivo'] font-black uppercase text-lg text-[color:var(--ss-color-text-primary)]">
+                <summary class="cursor-pointer font-body font-black uppercase text-lg text-[color:var(--ss-color-text-primary)]">
                   {f.q}
                 </summary>
                 <p class="mt-4 text-base text-[color:var(--ss-color-text-secondary)]">{f.a}</p>

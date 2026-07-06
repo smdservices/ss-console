@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
@@ -71,9 +72,9 @@ const crMessage =
 const cardClass =
   'border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]'
 const barClass =
-  "bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+  'bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold'
 const labelClass =
-  "font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+  'font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]'
 const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
 ---
 
@@ -84,10 +85,7 @@ const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -113,7 +111,7 @@ const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
         crMessage && (
           <div
             role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
               cr === 'filed'
                 ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
                 : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
@@ -291,7 +289,7 @@ const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
                 </p>
                 <a
                   href="/portal/products/operator/settings/advanced"
-                  class="inline-flex items-center gap-2 self-start px-5 py-3 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  class="inline-flex items-center gap-2 self-start px-5 py-3 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
                     tune

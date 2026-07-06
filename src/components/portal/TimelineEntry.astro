@@ -3,7 +3,7 @@
  * Dated narrative entry for the engagement timeline. Past tense, concrete.
  * No status-updated system entries.
  *
- * Plainspoken log-line format — Archivo Narrow caps meta row above prose
+ * Plainspoken log-line format — JetBrains Mono caps meta row above prose
  * body. Date in short-date format, optional actor in uppercase caps.
  * Optional artifact link below the body.
  *
@@ -43,12 +43,12 @@ const {
 <div class="flex flex-col gap-row">
   <div class="flex items-baseline gap-stack">
     <span
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold tabular-nums text-[color:var(--ss-color-primary)]"
+      class="font-mono text-label uppercase tracking-[0.18em] font-bold tabular-nums text-[color:var(--ss-color-primary)]"
       >{date}</span
     >
     {
       actor && (
-        <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-primary)]">
+        <span class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-primary)]">
           · {actor}
         </span>
       )

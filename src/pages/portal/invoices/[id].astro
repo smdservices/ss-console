@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../lib/fonts'
 import '../../../styles/global.css'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
@@ -165,10 +166,7 @@ const depositNote = null
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -308,9 +306,7 @@ const depositNote = null
 
           <!-- What's included -->
           <div>
-            <h2
-              class="font-['Archivo'] font-bold text-title text-[color:var(--ss-color-text-primary)]"
-            >
+            <h2 class="font-body font-bold text-title text-[color:var(--ss-color-text-primary)]">
               What's included
             </h2>
             <ul class="mt-stack flex flex-col">
@@ -326,8 +322,7 @@ const depositNote = null
               }
             </ul>
             <div class="mt-card pt-5 flex justify-between items-baseline">
-              <span
-                class="font-['Archivo'] font-bold text-title text-[color:var(--ss-color-text-primary)]"
+              <span class="font-body font-bold text-title text-[color:var(--ss-color-text-primary)]"
                 >Total</span
               >
               <MoneyDisplay amountCents={totalCents} size="h2" />

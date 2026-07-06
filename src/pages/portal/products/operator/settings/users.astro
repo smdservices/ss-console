@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { getPortalClient } from '../../../../../lib/portal/session'
@@ -180,10 +181,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -225,7 +223,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
 
       <section class="mt-8">
         <p
-          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+          class="mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
         >
           Granted access
         </p>
@@ -233,10 +231,10 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
         {
           members.length === 0 ? (
             <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
                 No members yet
               </p>
-              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
                 Once your team members sign in and you grant them roles, they'll appear here.
               </p>
             </div>
@@ -253,7 +251,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
                   >
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
                       <div class="flex flex-col gap-0.5 min-w-0">
-                        <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                        <span class="font-body font-bold text-[color:var(--ss-color-text-primary)] truncate">
                           {m.name || m.email}
                         </span>
                         <span class="text-sm text-[color:var(--ss-color-text-secondary)] truncate">
@@ -283,7 +281,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
                               <button
                                 type="submit"
                                 class:list={[
-                                  "inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] transition-colors",
+                                  'inline-flex items-center px-3 py-1.5 text-xs font-mono uppercase tracking-[0.12em] font-bold border-[2px] transition-colors',
                                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
                                   isActive
                                     ? 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-error)] hover:border-[color:var(--ss-color-error)]'
@@ -312,7 +310,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
 
       <section class="mt-12">
         <p
-          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+          class="mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
         >
           Pending invitations
           {
@@ -348,7 +346,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
                   ]}
                 >
                   <div class="flex flex-col gap-0.5 min-w-0">
-                    <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                    <span class="font-body font-bold text-[color:var(--ss-color-text-primary)] truncate">
                       {inv.email}
                     </span>
                     <span class="text-xs text-[color:var(--ss-color-text-muted)]">
@@ -356,7 +354,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
                       {inv.expiresAt && <span> · Expires {formatInviteDate(inv.expiresAt)}</span>}
                     </span>
                   </div>
-                  <span class="inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]">
+                  <span class="inline-flex items-center px-3 py-1.5 text-xs font-mono uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]">
                     Awaiting sign-in
                   </span>
                 </div>
@@ -377,7 +375,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
 
       <section class="mt-12">
         <p
-          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+          class="mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
         >
           Invite a new member
         </p>
@@ -397,7 +395,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
           />
           <button
             type="submit"
-            class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+            class="inline-flex items-center justify-center px-5 py-2 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
           >
             Send invitation
           </button>

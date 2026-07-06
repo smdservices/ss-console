@@ -58,12 +58,12 @@ const FIELDS = [
 <section class="mt-12">
   <header class="border-b-[2px] border-[color:var(--ss-color-text-primary)] pb-3 mb-6">
     <p
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+      class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
     >
       § 05
     </p>
     <h2
-      class="mt-1 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      class="mt-1 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
     >
       Scope envelope
     </h2>
@@ -78,7 +78,7 @@ const FIELDS = [
         const value = scope[field.name as keyof EditableScope].join(', ')
         return (
           <label class="block">
-            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+            <span class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
               {field.label}
             </span>
             <input
@@ -98,7 +98,7 @@ const FIELDS = [
     {
       errorsFor('scope').map((err) => (
         <p class="text-sm text-[color:var(--ss-color-error)]">
-          <span class="font-['JetBrains_Mono']">{err.path}</span>: {err.message}
+          <span class="font-mono">{err.path}</span>: {err.message}
         </p>
       ))
     }

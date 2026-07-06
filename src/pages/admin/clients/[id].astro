@@ -69,9 +69,9 @@ const overdueInvoices = invoices.filter((i) => i.status === 'overdue')
 const sentInvoices = invoices.filter((i) => i.status === 'sent')
 
 const SECTION_LABEL =
-  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+  'font-mono text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]'
 const LINK_ACT =
-  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+  'font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] underline underline-offset-4'
 ---
 
 <AdminLayout
@@ -96,7 +96,7 @@ const LINK_ACT =
     </div>
     <div class="shrink-0 text-right text-sm leading-7 text-[color:var(--ss-color-text-secondary)]">
       <span
-        class="inline-flex items-center gap-2 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em]"
+        class="inline-flex items-center gap-2 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em]"
       >
         <span class="h-[7px] w-[7px] rounded-full bg-[color:var(--ss-color-complete)]"></span>
         Client · {stageLabel}
@@ -110,26 +110,26 @@ const LINK_ACT =
   <div class="mb-7 flex border border-[color:var(--ss-color-text-primary)]">
     <div class="flex-1 border-r border-[color:var(--ss-color-border)] px-[18px] py-[14px]">
       <span
-        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        class="mb-[5px] block font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
         >Lifetime billed</span
       >
-      <span class="font-['JetBrains_Mono'] text-lg font-bold">{formatMoney(rollup.invoiced)}</span>
+      <span class="font-mono text-lg font-bold">{formatMoney(rollup.invoiced)}</span>
     </div>
     <div class="flex-1 border-r border-[color:var(--ss-color-border)] px-[18px] py-[14px]">
       <span
-        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        class="mb-[5px] block font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
         >Paid</span
       >
-      <span class="font-['JetBrains_Mono'] text-lg font-bold">{formatMoney(rollup.paid)}</span>
+      <span class="font-mono text-lg font-bold">{formatMoney(rollup.paid)}</span>
     </div>
     <div class="flex-1 px-[18px] py-[14px]">
       <span
-        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        class="mb-[5px] block font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
         >Outstanding</span
       >
       <span
         class:list={[
-          "font-['JetBrains_Mono'] text-lg font-bold",
+          'font-mono text-lg font-bold',
           rollup.outstanding > 0
             ? 'text-[color:var(--ss-color-primary)]'
             : 'text-[color:var(--ss-color-text-muted)]',
@@ -149,10 +149,10 @@ const LINK_ACT =
           operator && (
             <div class="mb-3.5 border border-[color:var(--ss-color-border)] border-l-[3px] border-l-[color:var(--ss-color-primary)] px-[18px] py-4">
               <div class="mb-3 flex items-center justify-between">
-                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]">
+                <span class="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]">
                   Operator
                 </span>
-                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                   {posturePill(operator.authority).label}
                 </span>
               </div>
@@ -164,12 +164,12 @@ const LINK_ACT =
                 {operator.config_error && ' · config needs attention'}
               </div>
               <div class="mt-3 flex items-baseline justify-between border-t border-[color:var(--ss-color-border-subtle)] pt-3">
-                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                   Monthly price
                 </span>
                 <span
                   class:list={[
-                    "font-['JetBrains_Mono'] text-base font-bold",
+                    'font-mono text-base font-bold',
                     operatorPrice == null && 'text-[color:var(--ss-color-text-muted)]',
                   ]}
                 >
@@ -181,9 +181,7 @@ const LINK_ACT =
                 action={`/api/admin/clients/${entityId}/operator-price`}
                 class="mt-2.5 flex items-center gap-2"
               >
-                <span class="font-['JetBrains_Mono'] text-sm text-[color:var(--ss-color-text-secondary)]">
-                  $
-                </span>
+                <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)]">$</span>
                 <input
                   type="number"
                   name="monthly_price"
@@ -191,14 +189,14 @@ const LINK_ACT =
                   step="1"
                   value={operatorPrice ?? ''}
                   placeholder="0"
-                  class="w-28 border border-[color:var(--ss-color-border)] px-2 py-1 font-['JetBrains_Mono'] text-sm"
+                  class="w-28 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-sm"
                 />
-                <span class="font-['Archivo_Narrow'] text-[11px] text-[color:var(--ss-color-text-muted)]">
+                <span class="font-mono text-[11px] text-[color:var(--ss-color-text-muted)]">
                   / mo
                 </span>
                 <button
                   type="submit"
-                  class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                  class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
                 >
                   Save
                 </button>
@@ -206,10 +204,10 @@ const LINK_ACT =
               {operatorSubscription && (
                 <div class="mt-3 border-t border-[color:var(--ss-color-border-subtle)] pt-3">
                   <div class="flex items-baseline justify-between">
-                    <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                    <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                       Retainer billing
                     </span>
-                    <span class="font-['JetBrains_Mono'] text-sm">
+                    <span class="font-mono text-sm">
                       {operatorSubscription.stripe_subscription_id
                         ? `Stripe · ${operatorSubscription.status}`
                         : 'Not attached'}
@@ -224,7 +222,7 @@ const LINK_ACT =
                       <input type="hidden" name="action" value="start" />
                       <button
                         type="submit"
-                        class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                        class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
                       >
                         Start monthly billing ({formatMoney(operatorPrice)}/mo)
                       </button>
@@ -245,7 +243,7 @@ const LINK_ACT =
                           <input type="hidden" name="action" value="pause" />
                           <button
                             type="submit"
-                            class="border border-[color:var(--ss-color-border)] px-3 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+                            class="border border-[color:var(--ss-color-border)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
                           >
                             Pause billing
                           </button>
@@ -259,7 +257,7 @@ const LINK_ACT =
                           <input type="hidden" name="action" value="resume" />
                           <button
                             type="submit"
-                            class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                            class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
                           >
                             Resume billing
                           </button>
@@ -273,7 +271,7 @@ const LINK_ACT =
                           <input type="hidden" name="action" value="cancel" />
                           <button
                             type="submit"
-                            class="border border-[color:var(--ss-color-error)] px-3 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-error)]"
+                            class="border border-[color:var(--ss-color-error)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-error)]"
                           >
                             Cancel
                           </button>
@@ -296,10 +294,10 @@ const LINK_ACT =
           serviceRows.map((svc) => (
             <div class="mb-3.5 border border-[color:var(--ss-color-border)] border-l-[3px] border-l-[color:var(--ss-color-text-primary)] px-[18px] py-4">
               <div class="mb-3 flex items-center justify-between">
-                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
+                <span class="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
                   Consulting
                 </span>
-                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                   <span
                     class:list={['h-[7px] w-[7px] rounded-full', serviceToneDotClass(svc.tone)]}
                   />
@@ -311,9 +309,7 @@ const LINK_ACT =
                   {svc.title}
                 </span>
                 {svc.value && (
-                  <span class="font-['JetBrains_Mono'] text-base font-bold whitespace-nowrap">
-                    {svc.value}
-                  </span>
+                  <span class="font-mono text-base font-bold whitespace-nowrap">{svc.value}</span>
                 )}
               </div>
               {svc.keyDateIso && (
@@ -336,7 +332,7 @@ const LINK_ACT =
         <form method="POST" action={`/api/admin/entities/${entity.id}/quotes`}>
           <button
             type="submit"
-            class="mt-3.5 block w-full border border-dashed border-[color:var(--ss-color-border)] px-3.5 py-2.5 text-center font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]"
+            class="mt-3.5 block w-full border border-dashed border-[color:var(--ss-color-border)] px-3.5 py-2.5 text-center font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]"
             >+ New quote</button
           >
         </form>
@@ -357,7 +353,7 @@ const LINK_ACT =
             <div class="space-y-2.5 text-sm">
               {quotes.length > 0 && (
                 <div class="flex gap-3">
-                  <span class="w-20 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                  <span class="w-20 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                     Quotes
                   </span>
                   <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -372,7 +368,7 @@ const LINK_ACT =
               )}
               {invoices.length > 0 && (
                 <div class="flex gap-3">
-                  <span class="w-20 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                  <span class="w-20 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                     Invoices
                   </span>
                   <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -394,7 +390,7 @@ const LINK_ACT =
       <section class="border-t border-[color:var(--ss-color-text-primary)] pt-4 pb-6">
         <div class="mb-4 flex items-baseline justify-between">
           <h2 class={SECTION_LABEL}>Activity</h2>
-          <span class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]">
+          <span class="font-mono text-[12px] text-[color:var(--ss-color-text-muted)]">
             {deduplicatedTimeline.length}
             {deduplicatedTimeline.length === 1 ? 'event' : 'events'}
           </span>
@@ -457,7 +453,7 @@ const LINK_ACT =
                     <span class="text-[color:var(--ss-color-text-secondary)]"> · {c.title}</span>
                   )}
                   {c.email && (
-                    <div class="font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+                    <div class="font-mono text-xs text-[color:var(--ss-color-text-muted)]">
                       {c.email}
                     </div>
                   )}
@@ -481,14 +477,14 @@ const LINK_ACT =
     <div class="border-t border-[color:var(--ss-color-border)] px-[18px] py-3.5 text-sm">
       <div class="flex gap-4 py-1.5">
         <span
-          class="w-24 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+          class="w-24 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
           >Origin</span
         >
         <span>{entity.source_pipeline ?? 'unknown source'} · {formatDate(entity.created_at)}</span>
       </div>
       <div class="flex gap-4 py-1.5">
         <span
-          class="w-24 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+          class="w-24 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
           >Full record</span
         >
         <a href={`/admin/entities/${entity.id}`} class={LINK_ACT}>

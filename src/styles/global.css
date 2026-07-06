@@ -39,10 +39,17 @@
   --color-complete: var(--ss-color-complete);
   --color-error: var(--ss-color-error);
 
-  /* ---------- Typography families ---------- */
+  /* ---------- Typography families ----------
+   * The canonical system is exactly two families (Captain ruling
+   * 2026-07-06): Archivo for display + body, JetBrains Mono for
+   * eyebrows, labels, chips, table headers, and fixed-width data.
+   * Archivo Narrow is retired. Declare families ONLY through these
+   * utilities (font-display / font-body / font-mono) — Tailwind
+   * arbitrary-value family literals are blocked by
+   * tests/typography-tokens.test.ts.
+   */
   --font-display: var(--ss-font-display);
   --font-body: var(--ss-font-body);
-  --font-accent-label: var(--ss-font-accent-label);
   --font-mono: var(--ss-font-mono);
 
   /* ---------- Typography scale ----------
@@ -612,7 +619,7 @@
  * Venture Handbook prose
  *
  * Styles rendered markdown (the `handbook` content collection) in the
- * Plainspoken register: Archivo Narrow uppercase headings, hairline
+ * Plainspoken register: JetBrains Mono uppercase mini-headings, hairline
  * borders, zero radius, single accent (burnt orange). Scoped to a dozen
  * element selectors under .handbook-prose; not a full typographic system.
  * Pages start their body at h2 (the page <h1> is rendered by the route).
@@ -637,7 +644,7 @@
   border-bottom: 1px solid var(--ss-color-border);
 }
 .handbook-prose h3 {
-  font-family: 'Archivo Narrow', var(--ss-font-body);
+  font-family: var(--ss-font-mono);
   font-size: 0.8125rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -722,7 +729,7 @@
   vertical-align: top;
 }
 .handbook-prose th {
-  font-family: 'Archivo Narrow', var(--ss-font-body);
+  font-family: var(--ss-font-mono);
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;

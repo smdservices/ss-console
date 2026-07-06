@@ -89,7 +89,7 @@ const escalationAria =
               {headline}
             </span>
             {signal.level === 'running' && signal.currentSkill && (
-              <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+              <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] truncate">
                 {signal.currentSkill}
               </p>
             )}
@@ -104,7 +104,7 @@ const escalationAria =
         <div class="flex items-center justify-between gap-4 md:justify-end">
           {lastActionRelative && lastActionAbsolute && (
             <p
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] whitespace-nowrap"
+              class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] whitespace-nowrap"
               title={`Last action ${lastActionAbsolute}`}
             >
               Last action {lastActionRelative}
@@ -114,7 +114,7 @@ const escalationAria =
             <a
               href={escalationTarget}
               aria-label={escalationAria}
-              class="inline-flex items-center min-h-11 px-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded-[var(--ss-radius-button)]"
+              class="inline-flex items-center min-h-11 px-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded-[var(--ss-radius-button)]"
             >
               Contact your consultant
             </a>

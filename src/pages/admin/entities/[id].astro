@@ -123,20 +123,18 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
         <section class="border-b border-[color:var(--ss-color-border)] py-8">
           <div class="mb-4 flex items-baseline justify-between gap-4">
             <h2
-              class="font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]"
+              class="font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]"
             >
               Timeline
             </h2>
-            <span
-              class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]"
-            >
+            <span class="font-mono text-[12px] text-[color:var(--ss-color-text-muted)]">
               {emptyCountLabel(deduplicatedTimeline.length, 'event', 'events')} | deduped
             </span>
           </div>
 
           <details class="mb-6">
             <summary
-              class="cursor-pointer font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+              class="cursor-pointer font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
             >
               + Add note
             </summary>
@@ -149,7 +147,7 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
                 <input type="hidden" name="type" value="note" />
                 <label class="block">
                   <span
-                    class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+                    class="mb-1 block font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
                   >
                     Note
                   </span>
@@ -163,13 +161,13 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
                 <div class="flex justify-end gap-3">
                   <button
                     type="reset"
-                    class="border border-[color:var(--ss-color-text-primary)] px-4 py-2 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]"
+                    class="border border-[color:var(--ss-color-text-primary)] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]"
                   >
                     Clear
                   </button>
                   <button
                     type="submit"
-                    class="border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-4 py-2 font-['Archivo'] text-sm font-semibold uppercase tracking-[0.04em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)] hover:border-[color:var(--ss-color-primary-hover)]"
+                    class="border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-4 py-2 font-body text-sm font-semibold uppercase tracking-[0.04em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)] hover:border-[color:var(--ss-color-primary-hover)]"
                   >
                     Add note
                   </button>
@@ -210,7 +208,7 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
                 >
                   <span class={statusBadgeClass(meeting.status)}>{meeting.status}</span>
                   {meeting.meeting_type && (
-                    <span class="border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                    <span class="border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
                       {meeting.meeting_type}
                     </span>
                   )}

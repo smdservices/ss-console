@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../lib/fonts'
 import '../../../styles/global.css'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import {
@@ -84,10 +85,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -121,10 +119,10 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
       {
         !engagement ? (
           <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
               No active engagement
             </p>
-            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
               Progress appears here once your engagement begins.
             </p>
           </div>
@@ -133,7 +131,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
             <div class="flex flex-col gap-8 min-w-0">
               {/* § 01 Overview */}
               <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
                   <span>Overview</span>
                   <span class="text-[color:var(--ss-color-primary)]">§ 01</span>
                 </div>
@@ -152,26 +150,26 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
                     ]}
                   >
                     <div class="py-3 md:py-0 md:pr-6 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)]">
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                      <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
                         Started
                       </p>
-                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                      <p class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
                         {formatDate(engagement.start_date)}
                       </p>
                     </div>
                     <div class="py-3 md:py-0 md:px-6 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] border-t-[2px] md:border-t-0 border-[color:var(--ss-color-text-primary)]">
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                      <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
                         Estimated completion
                       </p>
-                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                      <p class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
                         {formatDate(engagement.estimated_end)}
                       </p>
                     </div>
                     <div class="py-3 md:py-0 md:pl-6 border-t-[2px] md:border-t-0 border-[color:var(--ss-color-text-primary)]">
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                      <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
                         Current state
                       </p>
-                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-primary)]">
+                      <p class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-primary)]">
                         {currentMilestoneLabel}
                       </p>
                     </div>
@@ -181,7 +179,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
 
               {/* § 02 Milestones */}
               <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
                   <span>Milestones</span>
                   <span class="text-[color:var(--ss-color-primary)]">§ 02</span>
                 </div>
@@ -206,7 +204,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
                         <li class="grid grid-cols-[72px_1fr] md:grid-cols-[88px_1fr_auto] items-stretch">
                           <div
                             class:list={[
-                              'flex items-center justify-center font-["Archivo"] font-black text-2xl md:text-3xl tracking-[-0.02em] border-r-[2px] border-[color:var(--ss-color-text-primary)]',
+                              'flex items-center justify-center font-body font-black text-2xl md:text-3xl tracking-[-0.02em] border-r-[2px] border-[color:var(--ss-color-text-primary)]',
                               markerClass,
                             ]}
                             aria-hidden="true"
@@ -214,7 +212,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
                             {String(idx + 1).padStart(2, '0')}
                           </div>
                           <div class="px-5 py-5 min-w-0">
-                            <h3 class="font-['Archivo'] text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 leading-tight">
+                            <h3 class="font-body text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 leading-tight">
                               {m.name}
                             </h3>
                             {m.description && (
