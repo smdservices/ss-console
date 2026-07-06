@@ -94,7 +94,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         <div class="max-w-3xl mx-auto px-6 pt-6">
           <p
             role="status"
-            class="border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold"
+            class="border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em]"
           >
             Checkout closed. Nothing was charged.
           </p>
@@ -105,7 +105,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
     <!-- Hero -->
     <section class="max-w-5xl mx-auto px-6 pt-16 pb-12 md:pt-24 md:pb-16">
       <p
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+        class="font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-primary)]"
       >
         Hosted Agent
       </p>
@@ -114,9 +114,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
       >
         Your own always-on agent. Without the second job of running it.
       </h1>
-      <p
-        class="mt-6 max-w-3xl font-['Archivo_Narrow'] text-lg md:text-xl text-[color:var(--ss-color-text-secondary)]"
-      >
+      <p class="mt-6 max-w-3xl text-lg md:text-xl text-[color:var(--ss-color-text-secondary)]">
         The open-source Hermes Agent, hosted on its own isolated machine, set up from a short
         questionnaire, and fenced by the same safety controls we build for our managed Operator
         clients. It works while your laptop sleeps. We keep it alive, updated, and watched.
@@ -146,43 +144,33 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         >
           What it does on day one
         </h2>
-        <p
-          class="mt-4 max-w-3xl font-['Archivo_Narrow'] text-lg text-[color:var(--ss-color-text-secondary)]"
-        >
+        <p class="mt-4 max-w-3xl text-lg text-[color:var(--ss-color-text-secondary)]">
           Not a chat window. Standing work it does on its own, delivered to you:
         </p>
         <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
             <h3 class="font-['Archivo'] font-black uppercase text-xl">The morning digest</h3>
-            <p
-              class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]"
-            >
+            <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
               Forward it what matters. Every morning, on your clock, it sends you what landed, what
               it did with it, and what needs you.
             </p>
           </div>
           <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
             <h3 class="font-['Archivo'] font-black uppercase text-xl">Research briefs</h3>
-            <p
-              class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]"
-            >
+            <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
               Name a topic once. It digs, keeps digging on a schedule, and reports back in a brief
               you can actually read.
             </p>
           </div>
           <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
             <h3 class="font-['Archivo'] font-black uppercase text-xl">Watch and report</h3>
-            <p
-              class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]"
-            >
+            <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
               Point it at something that changes: a feed, a market, a competitor. It watches while
               you do anything else, and tells you when something moved.
             </p>
           </div>
         </div>
-        <p
-          class="mt-8 max-w-3xl font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]"
-        >
+        <p class="mt-8 max-w-3xl text-base text-[color:var(--ss-color-text-secondary)]">
           And when you hand it anything else over Telegram or email, it carries the work to done.
           Anything it wants to send to a third party comes to you first as a draft.
         </p>
@@ -199,14 +187,12 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         >
           Built careful on purpose
         </h2>
-        <p class="mt-4 max-w-3xl font-['Archivo_Narrow'] text-lg text-white/80">
+        <p class="mt-4 max-w-3xl text-lg text-white/80">
           This spring, thousands of self-hosted agents were found exposed on the open internet, and
           a fifth of one community skill registry turned out to be malicious. The fix is not hoping.
           It is fences, checked by code, every time the agent boots:
         </p>
-        <ul
-          class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 font-['Archivo_Narrow'] text-base text-white"
-        >
+        <ul class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-base text-white">
           <li class="border-[3px] border-white/40 p-5">
             <strong class="uppercase">Its own machine.</strong> Every agent runs isolated. No shared runtime,
             no data path between customers.
@@ -244,7 +230,7 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
         >
           How it works
         </h2>
-        <ol class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 font-['Archivo_Narrow'] text-base">
+        <ol class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-base">
           <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
             <span class="font-['JetBrains_Mono'] text-[color:var(--ss-color-primary)]">01</span>
             <h3 class="mt-2 font-['Archivo'] font-black uppercase text-xl">Subscribe</h3>
@@ -284,15 +270,11 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
           <p class="font-['Archivo'] font-black text-5xl text-[color:var(--ss-color-text-primary)]">
             $79<span class="text-2xl font-bold">/month</span>
           </p>
-          <p
-            class="mt-4 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]"
-          >
+          <p class="mt-4 text-base text-[color:var(--ss-color-text-secondary)]">
             Founding seats: the first 25 subscriptions pay $49/month, and that price never increases
             for as long as the subscription stays active.
           </p>
-          <ul
-            class="mt-6 flex flex-col gap-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-primary)]"
-          >
+          <ul class="mt-6 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-primary)]">
             <li>Your own isolated, always-on agent</li>
             <li>Set up for you, updated for you, watched for you</li>
             <li>Telegram plus its own allowlisted email inbox</li>
@@ -307,12 +289,15 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
             Get Your Agent
           </a>
         </div>
-        <p
-          class="mt-6 max-w-xl font-['Archivo_Narrow'] text-sm text-[color:var(--ss-color-text-secondary)]"
-        >
+        <p class="mt-6 max-w-xl text-sm text-[color:var(--ss-color-text-secondary)]">
           Plain terms: your agent's model usage runs on your own Anthropic key under a spend limit
           you set, so we cannot see or cap that spend. Setup is done by hand, carefully, and your
-          portal shows the status the whole way.
+          portal shows the status the whole way. Prices exclude applicable sales tax, calculated at
+          checkout. Subscriptions are governed by the <a
+            href="/agent/terms"
+            class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-text-primary)]"
+            >Hosted Agent terms</a
+          >.
         </p>
       </div>
     </section>
@@ -332,16 +317,12 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
                 <summary class="cursor-pointer font-['Archivo'] font-black uppercase text-lg text-[color:var(--ss-color-text-primary)]">
                   {f.q}
                 </summary>
-                <p class="mt-4 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
-                  {f.a}
-                </p>
+                <p class="mt-4 text-base text-[color:var(--ss-color-text-secondary)]">{f.a}</p>
               </details>
             ))
           }
         </div>
-        <p
-          class="mt-10 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]"
-        >
+        <p class="mt-10 text-base text-[color:var(--ss-color-text-secondary)]">
           Running a business and sizing up something bigger? The
           <a href="/operator" class="underline text-[color:var(--ss-color-primary)]">Operator</a>
           is the managed worker we build for a specific role in a specific business.
