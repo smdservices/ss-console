@@ -37,7 +37,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
           <h1 class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
             You're in.
           </h1>
-          <p class="mt-6 font-['Archivo_Narrow'] text-lg text-[color:var(--ss-color-text-secondary)]">
+          <p class="mt-6 text-lg text-[color:var(--ss-color-text-secondary)]">
             Payment received and your subscription is active. Next step: the setup questionnaire in
             your portal. It covers what to call your agent, what it works on, and who it accepts
             email from.
@@ -48,7 +48,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
           >
             Open Your Portal
           </a>
-          <p class="mt-6 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-color-text-secondary)]">
+          <p class="mt-6 text-sm text-[color:var(--ss-color-text-secondary)]">
             A confirmation email is on its way from Stripe, and one from us with the same portal
             link.
           </p>
@@ -58,7 +58,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
           <h1 class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
             {sessionKnown ? 'Payment pending' : 'Checkout status unknown'}
           </h1>
-          <p class="mt-6 font-['Archivo_Narrow'] text-lg text-[color:var(--ss-color-text-secondary)]">
+          <p class="mt-6 text-lg text-[color:var(--ss-color-text-secondary)]">
             {sessionKnown
               ? 'Stripe has not confirmed this payment yet. Your portal reflects the subscription the moment it lands.'
               : 'This page could not confirm a checkout. If you completed payment, your portal is the source of truth.'}
