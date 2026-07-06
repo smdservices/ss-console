@@ -279,7 +279,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // credential-free cross-connector attachment transfer). Range
     // 3e5b8a9b..c081223b touches only translate.py + action_classes + tests;
     // no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c081223bda47357e6f684a008d44433c145d2ff9"')
+    // 7c10fd61 (#140, ss#1758): caption provenance allowlist for the tier-2
+    // citation gate — captions harvested from READ results into the session
+    // register; only provenance-verified bare case-name hits are exempt
+    // (reporter cites/statutes/rules/tier-1 never relax; empty register =
+    // fail-closed). Vendored citation_filter synced from ss#1764 (allowlist +
+    // Cal ordinal reporter false-negative fix) and now drift-tracked as a
+    // SEC-32 pair in overlay-pairs.json.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7c10fd61a270422c3e5bcaa4bac58f5425aae561"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
