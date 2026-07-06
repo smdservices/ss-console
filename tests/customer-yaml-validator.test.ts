@@ -136,6 +136,34 @@ function withFullOptionals(): Record<string, unknown> {
   return f
 }
 
+describe('digest (authored digest home, #1742)', () => {
+  it('accepts a valid home_matter_id GUID and carries it through', () => {
+    const f = validFixture()
+    f['digest'] = { home_matter_id: 'f220c8e4-eab5-4fd9-8f1d-0becf715b390' }
+    const result = validate(f)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.digest?.home_matter_id).toBe('f220c8e4-eab5-4fd9-8f1d-0becf715b390')
+    }
+  })
+
+  it('is null when unauthored (fail-closed default)', () => {
+    const result = validate(validFixture())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.digest).toBeNull()
+  })
+
+  it('rejects a non-GUID home_matter_id', () => {
+    const f = validFixture()
+    f['digest'] = { home_matter_id: 'the ops matter' }
+    const result = validate(f)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.path === 'digest.home_matter_id')).toBe(true)
+    }
+  })
+})
+
 function codesOf(errors: ValidationError[]): ValidationErrorCode[] {
   return errors.map((e) => e.code)
 }
