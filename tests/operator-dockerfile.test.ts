@@ -273,7 +273,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // in-Sentry confirmation the gateway init fired (its INFO log is filtered by
     // Hermes' root=WARNING) + a per-boot restart signal. Range 50a6545e..3e5b8a9b
     // touches only shared/sentry_init.py + tests; no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3e5b8a9b773eeb44f0cae752ae272716e1e21840"')
+    // c081223b (#138, ss#1742/#1744): digest.home_matter_id materializes as a
+    // '## Digest home' SOUL section (unauthored = fail-closed, byte-identical);
+    // mcp_smokeball_file_attachment_to_matter mapped INTERNAL_WRITE (the
+    // credential-free cross-connector attachment transfer). Range
+    // 3e5b8a9b..c081223b touches only translate.py + action_classes + tests;
+    // no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c081223bda47357e6f684a008d44433c145d2ff9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

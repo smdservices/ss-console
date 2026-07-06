@@ -536,6 +536,30 @@ def delete_file(matter_id: str, file_id: str) -> Any:
     return _get_client().delete_file(matter_id, file_id)
 
 
+@server.tool()
+def file_attachment_to_matter(
+    matter_id: str, download_url: str, file_name: str, folder_id: str | None = None
+) -> Any:
+    """File an email attachment to a matter from its vendor-minted, time-limited
+    ``download_url`` (the AgentMail attachment contract) — the mechanical
+    cross-connector transfer the served-discovery email path needs (#1744): the
+    agent cannot shuttle binary between MCP servers through its context, so this
+    tool fetches the bytes server-side and runs the documented two-stage
+    Smokeball upload.
+
+    No credentials cross connectors: the URL's embedded token IS the fetch
+    credential, minted by the AgentMail tool the agent already called. Guardrails
+    (the URL argument can originate on a tainted turn): https only; host must be
+    an allowed attachment source (default ``download.agentmail.to``; override via
+    ``SMOKEBALL_ATTACHMENT_URL_HOSTS``); redirects are not followed; 25 MB cap.
+    Classified INTERNAL_WRITE (a matter-file write; never an external send).
+    Materialization is async — poll ``get_file`` to confirm, or use
+    ``read_document`` on the returned fileId once ingested."""
+    client = _get_client()
+    blob = client.fetch_attachment_url(download_url)
+    return client.add_file(matter_id, file_name, blob, folder_id=folder_id)
+
+
 # ---- Memos ----------------------------------------------------------------
 @server.tool()
 def get_memos_on_matter(matter_id: str, limit: int = 500, offset: int = 0) -> Any:
