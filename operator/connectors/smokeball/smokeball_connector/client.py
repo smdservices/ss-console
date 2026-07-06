@@ -39,6 +39,7 @@ import base64
 import json
 import os
 import time
+import urllib.parse
 from typing import Any
 
 import httpx
@@ -95,6 +96,9 @@ _MAX_ERROR_BODY = 600
 # read_document ceiling: a matter PDF/DOCX is KBs to low MBs; anything past this
 # is a scan bundle or media file that text extraction shouldn't slurp into RAM.
 _MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
+# file_attachment_to_matter: hosts an attachment download URL may point at.
+# AgentMail mints time-limited URLs on this host (docs.agentmail.to/attachments).
+_DEFAULT_ATTACHMENT_HOSTS = "download.agentmail.to"
 
 
 def _truncate_body(text: str | None) -> str:
@@ -421,6 +425,46 @@ class SmokeballClient:
                 f"over the {_MAX_DOWNLOAD_BYTES}-byte read limit"
             )
         return info, blob
+
+    def fetch_attachment_url(self, url: str) -> bytes:
+        """Fetch attachment bytes from a TIME-LIMITED vendor download URL (the
+        AgentMail attachment ``download_url`` contract) for filing to a matter.
+
+        Guardrails, because the URL argument ultimately comes from the agent
+        loop on a tainted turn: https only; host must be on the allowlist
+        (default: AgentMail's download hosts; override via
+        ``SMOKEBALL_ATTACHMENT_URL_HOSTS``, comma-separated) so injected
+        content cannot direct arbitrary web content into a matter file; no
+        redirects are followed (httpx default); no auth headers are sent (the
+        URL's token IS the credential); body capped at ``_MAX_DOWNLOAD_BYTES``."""
+        parsed = urllib.parse.urlparse(url)
+        allowed = {
+            h.strip().lower()
+            for h in os.environ.get(
+                "SMOKEBALL_ATTACHMENT_URL_HOSTS", _DEFAULT_ATTACHMENT_HOSTS
+            ).split(",")
+            if h.strip()
+        }
+        if parsed.scheme != "https" or (parsed.hostname or "").lower() not in allowed:
+            raise SmokeballWriteError(
+                f"attachment fetch refused: URL host {parsed.hostname!r} is not an "
+                f"allowed attachment source (allowed: {sorted(allowed)})"
+            )
+        try:
+            resp = self._http.get(url)
+        except httpx.HTTPError as exc:
+            raise SmokeballWriteError(f"attachment fetch failed: {exc}") from exc
+        if resp.status_code >= 400:
+            raise SmokeballWriteError(
+                f"attachment fetch rejected with HTTP {resp.status_code}"
+            )
+        blob = resp.content
+        if len(blob) > _MAX_DOWNLOAD_BYTES:
+            raise SmokeballWriteError(
+                f"attachment fetch: body is {len(blob)} bytes, over the "
+                f"{_MAX_DOWNLOAD_BYTES}-byte limit"
+            )
+        return blob
 
     def _put_presigned(self, url: str, data: bytes) -> None:
         """PUT raw bytes to a presigned S3 upload URL. The URL is pre-authenticated

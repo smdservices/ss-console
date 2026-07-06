@@ -94,10 +94,15 @@ Discovery reaches the firm two ways, and this body accepts either source:
   `served-document-intake` and EXECUTES this skill in the same turn (v0.3.0 —
   a route that ends the turn with no capture executed is a silent drop, the
   same `fails` class as a silent halt). On this path, in order:
-  1. **File the served document to the matter first** (`add_file` with the
-     email's attachment bytes) — that is the firm's copy landing in the matter
-     file, which the firm wants regardless, and it makes the document readable
-     via `read_document` for the capture. Then read it back.
+  1. **File the served document to the matter first** — get the attachment's
+     time-limited `download_url` from the AgentMail attachment tool, then
+     `file_attachment_to_matter(matter_id, download_url, file_name)` (the
+     server-side transfer, #1744; the agent never shuttles the bytes itself).
+     That is the firm's copy landing in the matter file, which the firm wants
+     regardless, and it makes the document readable via `read_document` for
+     the capture once Smokeball's async ingest completes. If ingest has not
+     completed in-turn, capture from the email body + attachment extraction
+     you already hold and say so in the memo; never block the capture on it.
   2. **Capture from the document text plus the email body** (the service
      letter often states the method/date; the proof of service governs when
      the two disagree — surface the disagreement, never pick silently).

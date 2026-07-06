@@ -561,6 +561,16 @@ export interface Escalation {
   acknowledgement_window_minutes: number | null
 }
 
+/**
+ * Authored digest destination (#1742): the designated internal/operations
+ * matter whose memos carry the full daily needs-you digest, so a cron-fired
+ * digest lands somewhere a person reads. Optional; unauthored seats stay
+ * fail-closed (session output + heartbeat only, per ADR 0035).
+ */
+export interface Digest {
+  home_matter_id: string
+}
+
 export interface BusinessHours {
   timezone: string
   days: string[]
@@ -829,6 +839,7 @@ export interface CustomerYaml {
   voice_library: VoiceLibrary | null
   voice_cohorts: VoiceCohorts | null
   business_hours: BusinessHours | null
+  digest: Digest | null
   memory: Memory
   logging: Logging | null
   pause: Pause | null

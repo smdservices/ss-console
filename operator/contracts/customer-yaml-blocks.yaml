@@ -105,6 +105,15 @@ top_level:
       timezone; unauthored = UTC (container clock, the prior behavior). days/start/
       end are authored-but-inert today (future business-hours-aware behavior);
       timezone is the load-bearing field.
+  digest:
+    status: implemented
+    materializer: >-
+      overlay translate.py _digest_home_soul_section (overlay #138, ss #1742):
+      digest.home_matter_id renders as the SOUL.md `## Digest home` section
+      naming the designated internal operations matter, which
+      daily-needs-you-digest step 4 resolves for the full-digest memo write.
+      Unauthored = no section = fail-closed (session output + heartbeat only).
+      Validated console-side by checkDigest (GUID) in sections-other.ts.
   escalation:
     status: implemented
     materializer: translate _persona_config (config.yaml escalation)
