@@ -266,7 +266,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // discovery, opposing responses), so reading a matter document taints the
     // session like an inbound email. Range c85b0ddb..50a6545e touches only
     // shared/action_classes.py + the inbound fence + tests; no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="50a6545e76afd947a7bbff9bcc17a30cf10f61ac"')
+    // (That range ALSO carried #134/#135, the Sentry init + PII scrub — see the
+    // Sentry-on-Machines memory; likewise no tracked twin.)
+    // 3e5b8a9b (#137, ss#0023): Sentry boot marker — init_sentry now sends one
+    // info capture_message("boot: monitoring active") per process, the direct
+    // in-Sentry confirmation the gateway init fired (its INFO log is filtered by
+    // Hermes' root=WARNING) + a per-boot restart signal. Range 50a6545e..3e5b8a9b
+    // touches only shared/sentry_init.py + tests; no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3e5b8a9b773eeb44f0cae752ae272716e1e21840"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
