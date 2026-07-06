@@ -23,7 +23,10 @@ different case, and a document with instructions planted inside it aimed at
 an automated reader.
 
 Then we ran your discovery process against it, end to end, through real
-email and real Smokeball, and graded every step.
+email and real Smokeball, and graded every step. When discovery held up, we
+kept going and ran the rest of the lifecycle the same way: a case just
+filed, medical records, a minor's settlement, liens and disbursement, and a
+summary judgment motion. The second half of this report covers those runs.
 
 ## What it did
 
@@ -104,6 +107,91 @@ message now always leaves a visible task. The remaining fixes are smaller
 versions of the same discipline: every action the system takes has to land
 somewhere a person will actually see it. Each fix was rebuilt, retested on
 the rehearsal office, and graded again before we counted it done.
+
+## Then we ran the rest of the lifecycle
+
+Discovery is where you told us the most slips, so it went first and deepest.
+The second rehearsal round ran every other part of the case the same way,
+against the same rehearsal office, with the same grading. Every part passed,
+and the guardrails held in every run.
+
+**Deadlines went on the calendar as proposals, never as facts.** For each
+served set it proposed a response date with the service method and the
+weekend rollover handled correctly, and every date landed flagged for a
+person to confirm. When the summary judgment motion arrived, it captured
+the hearing, proposed the opposition and reply windows, said plainly that
+those windows run under a different rule than ordinary motions and that its
+proposals ignore court holidays, and refused to treat any of it as final.
+One honest note from the grading: on one kind of service, two separate runs
+proposed windows that differed by two court days. That disagreement is
+exactly why every date it produces is a proposal, and it is the first thing
+we want to settle with you in the working session: whether deadline
+arithmetic lives in Smokeball's court-rules engine or in a routine you
+confirm.
+
+**The multi-defendant case stayed straight.** Two defendants served
+discovery a day apart, one of them a sixty-question set. Each set was
+captured under the right defendant, and the unusual size was called out
+rather than smoothed over.
+
+**The lien file came back the way a good ledger reads.** Three lienholders,
+three different situations, each reported as it actually stood: one payoff
+in hand with its expiration date and a warning to refresh it, one asserted
+but never requested, one requested with no response and flagged as the item
+holding up disbursement. No arithmetic on reductions. That judgment stays
+with the attorney.
+
+**The medical chronology quotes the record and nothing else.** Every line
+carries the record's own words and the page it came from. Where the record
+was thin, the chronology says so instead of rounding up.
+
+## What it declined to invent
+
+The strongest results of the second round were the refusals.
+
+**No records roster, no chase.** Asked to chase medical records on a matter
+where no one had authored a list of providers, it declined to guess at one
+and asked the firm to confirm which requests are actually open.
+
+**No numbers, no settlement statement.** Asked to prepare disbursement
+inputs on a matter where the gross, the fee, and two of three lien payoffs
+were not recorded, it said the statement cannot be assembled, listed
+exactly what the attorney needs to record, and computed nothing. Smokeball
+runs the trust math; the system feeds it only what a person authored.
+
+**No conference date, no schedule.** The settlement tracker found no
+mediation date on file and said so, rather than inventing a timeline to
+track.
+
+## What it caught that we did not plant
+
+Two findings in the second round were not test designs. They were real gaps
+in the rehearsal file, and it found them.
+
+**A settlement offer quietly expiring.** The carrier's offer on the minor's
+case carried a thirty-day window, and nothing on the matter was tracking
+it. The system read the offer, computed the expiration, saw no task or
+calendar entry anywhere, and raised it as needing the attorney immediately.
+That is the kind of miss that costs real money, and no one had asked it to
+look.
+
+**A settlement with no petitioner.** On the same case it noticed that the
+guardian ad litem existed only as a note in the matter description, not as
+a record in Smokeball, and that a minor's compromise cannot move without
+one. It named that as the item gating the whole settlement and put it in
+front of the attorney.
+
+## What the second round fixed
+
+The pattern from the first round repeated: rehearsal broke things so your
+account never has to. The largest fix this round: Smokeball's calendar has
+three unstated requirements for how an event must be written, and the
+system's first attempts bounced off them. We pinned down the exact rules,
+built them in, and verified a clean write against Smokeball directly. The
+smaller fixes are the same discipline as before: when a run is interrupted,
+it should reconcile what it already wrote instead of adding alongside; when
+it finds a time-sensitive item, it should leave a task, not just a note.
+Each fix is rebuilt and reproven on the rehearsal office before it counts.
 
 ## What this is, and is not
 
