@@ -9,13 +9,13 @@
  * Shape of the call (per https://docs.sentry.io/api/):
  *   GET https://sentry.io/api/0/organizations/{org}/events/
  *     ?field=count()&query=tenant:<slug>&statsPeriod=24h&project={project_id}
- *   Authorization: Bearer <SENTRY_API_TOKEN>
+ *   Authorization: Bearer <SENTRY_AUTH_TOKEN>
  *
  * Response shape (success):
  *   { "data": [{ "count()": N }] }
  *
  * Failure handling:
- *   - Missing env (no SENTRY_API_TOKEN / SENTRY_ORG_SLUG / SENTRY_PROJECT_ID)
+ *   - Missing env (no SENTRY_AUTH_TOKEN / SENTRY_ORG_SLUG / SENTRY_PROJECT_ID)
  *     → skip entirely; log once at INFO. Lets PR 4 ship before PR 5 wires
  *     the credentials.
  *   - Per-customer HTTP error / parse error → write `sentry_errors_last_24h
@@ -31,7 +31,7 @@
 const SENTRY_API_BASE = 'https://sentry.io/api/0'
 
 export interface SentrySyncEnv {
-  SENTRY_API_TOKEN?: string
+  SENTRY_AUTH_TOKEN?: string
   SENTRY_ORG_SLUG?: string
   SENTRY_PROJECT_ID?: string
 }
@@ -57,7 +57,7 @@ export async function fetchTenantErrorsLast24h(
   tenantSlug: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<SentrySyncResult> {
-  if (!env.SENTRY_API_TOKEN || !env.SENTRY_ORG_SLUG || !env.SENTRY_PROJECT_ID) {
+  if (!env.SENTRY_AUTH_TOKEN || !env.SENTRY_ORG_SLUG || !env.SENTRY_PROJECT_ID) {
     return {
       customer_slug: tenantSlug,
       status: 'unavailable',
@@ -77,7 +77,7 @@ export async function fetchTenantErrorsLast24h(
   let response: Response
   try {
     response = await fetchImpl(url, {
-      headers: { Authorization: `Bearer ${env.SENTRY_API_TOKEN}` },
+      headers: { Authorization: `Bearer ${env.SENTRY_AUTH_TOKEN}` },
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

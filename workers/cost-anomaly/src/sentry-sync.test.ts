@@ -18,7 +18,7 @@ import {
 } from './sentry-sync'
 
 const FULL_ENV: SentrySyncEnv = {
-  SENTRY_API_TOKEN: 'sentry-tok',
+  SENTRY_AUTH_TOKEN: 'sentry-tok',
   SENTRY_ORG_SLUG: 'smd',
   SENTRY_PROJECT_ID: '12345',
 }
