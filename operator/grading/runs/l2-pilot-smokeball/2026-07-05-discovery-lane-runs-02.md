@@ -76,3 +76,23 @@ ROUTE-1 A pending F5-fix reprovision · WATCH-1 content-pass (delivery gap
 confirm tasks exist; dedicated tracker runs still to execute). Findings
 F1–F6 all root-caused; F1/F2/F3 fixed AND live-verified; F4a/F5/F6 fixed in
 repo, land at next reprovision; F4b filed (#1742).
+
+## ROUTE-1 final rerun (2026-07-06, post-F5 reprovision) — PASS (vfy_01KWW1GR1VATHS3XS1NW3V1JWH)
+
+Real service email (RFP Set Two) 15:33Z → router `served-document-intake` →
+capture EXECUTED in-turn (F5 closed live): full capture memo 15:35:57Z
+(parties, matter, case number, source email, attachmentId, POS declarant +
+date) + CONFIRM task due 07-08. No reply to the adverse sender. Two
+fail-closed details held: the covering email's "electronic service" claim
+was NOT adopted because the POS text itself came through truncated ("service
+method unconfirmed"); and the attachment was not silently dropped OR silently
+claimed filed — the memo names the manual filing step with the AgentMail ids.
+Residual: mechanical cross-connector attachment filing (#1744) — the agent
+cannot shuttle binary between MCP servers through its context; needs a
+broker/connector-side transfer primitive.
+
+**Discovery lane close-out:** DISC-1 PASS, DISC-4 assembler-leg PASS, DISC-5
+PASS, ROUTE-1 A+B PASS, WATCH-1 content-PASS (delivery #1742). Email-path
+capture proven end-to-end with zero human steps. Remaining lane items:
+DISC-2/DISC-3 dedicated tracker runs, oversized-SROG assembler variant;
+then the non-discovery lanes.
