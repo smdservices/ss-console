@@ -174,7 +174,13 @@ Per `references/output-format.md`:
    shared): a short note per item on what needs doing, why it matters (the governing
    rule where the owning step has one), which step owns it, and when to bring the
    attorney in. Short; explanatory, not advisory.
-4. **Write the digest** to the firm's internal notes surface. Internal only.
+4. **Write the digest** to the firm's internal digest home — the location the
+   seat has AUTHORED for it (no imposed default: unauthored means the digest
+   exists in this run's output plus the heartbeat row, and the run output says
+   so explicitly). Internal only. **Attempt this run's write fresh, every
+   run:** a prior run's write failure is history, not this run's truth — never
+   report a write as denied unless THIS run's attempt was denied, and quote
+   this run's literal error when it is.
 
 ## Trust Ceiling
 
