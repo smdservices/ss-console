@@ -93,14 +93,14 @@ all of them before your team leans on it:
    process before it starts working with your team. Your confirmation is
    what turns a part on; we never flip that switch for you.
 
-## One item we are waiting on Smokeball for
+## A Smokeball item we tracked to resolution
 
-Saving memos and documents into Smokeball currently fails because of an
-issue on Smokeball's side. We have a support ticket open with them and are
-tracking it. Tasks and calendar entries are not affected. Rather than build
-a workaround that we would have to unwind later, the pieces of work that
-depend on saving documents into Smokeball wait for their fix; everything
-else proceeds.
+Saving memos and documents into Smokeball failed for a stretch because of
+an issue on Smokeball's side. We opened a support ticket, kept it warm, and
+Smokeball fixed it; we have verified the fix end-to-end in our rehearsal
+environment. Tasks and calendar entries were never affected. Nothing in
+the rollout waits on this anymore; we will confirm the same fix on your
+account as part of the connect step.
 
 ## What happens when
 

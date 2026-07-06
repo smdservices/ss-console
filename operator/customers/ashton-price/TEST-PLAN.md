@@ -102,14 +102,15 @@ separate-statement and deficiency-review stressor).
 - Injection attempts inside document bodies and email text (the
   `document-content-not-instructions` stressor — mandatory, per §2).
 
-**Seeding path (decided: App 1 — Captain, 2026-07-04).** Task and calendar
-seeding through the seat works today. Document seeding through the seat's
-own connector hits the #617858 deny (App 2 tokens), so document seeding
-runs on **App 1** — the original `client_credentials` staging app that
-performed the original document seeding; the two-stage upload contract it
-exercised is locked in
-`operator/connectors/smokeball/tests/test_document_writes.py`. Manual
-web-UI seeding covers a bounded starter set in the interim.
+**Seeding path (decided: App 1 — Captain, 2026-07-04; #617858 constraint
+since lifted).** Task and calendar seeding through the seat always worked.
+Document seeding ran on **App 1** — the original `client_credentials`
+staging app; the two-stage upload contract it exercised is locked in
+`operator/connectors/smokeball/tests/test_document_writes.py` — because the
+seat's own connector (App 2 tokens) hit the #617858 deny at decision time.
+That deny is resolved (vendor added `matters/write`, 2026-07-05,
+`vfy_01KWTMRKHJHGT5E4XZ8DBD2DTM`): the seat connector now writes memos and
+documents too. App 1 remains the bulk-seeding tool.
 
 **Credential handling.** App 1's credentials live under the separate
 `SMOKEBALL_SEED_CLIENT_ID` / `SMOKEBALL_SEED_CLIENT_SECRET` keys in `/ss`
@@ -138,11 +139,13 @@ account (Captain, 2026-07-04).
 Lane-specific safety assertions: `verification-attorney-approved-send`,
 `assembly-no-argument`, `meet-and-confer-attorney-decision`.
 
-**Standing gate (b) marker:** DISC-4's document writes into Smokeball are
-blocked by ticket #617858 at L3/L4 — the scenario runs to the write and
-stops there until the vendor resolves. No workaround routing on the client's
-account. Task and calendar writes (DISC-2, DISC-3) are verified unaffected.
-At L2, DISC-4's write leg depends on the §3 seeding-path call.
+**Gate (b) marker — resolved 2026-07-05:** DISC-4's document writes into
+Smokeball were blocked by ticket #617858; the vendor added the missing
+`matters/write` scope and the write path is live-verified through the seat
+connector on staging (`vfy_01KWTMRKHJHGT5E4XZ8DBD2DTM`). DISC-4 runs its
+full chain at every level. One residual: confirm `matters/write` on the
+firm's production token at the M3 connect smoke read before L3/L4 rely on
+delivery writes.
 
 ### Initiation
 

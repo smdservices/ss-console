@@ -45,14 +45,20 @@ draft_for_review → autonomous`. Promotion beyond `draft_for_review`
    session; observation follows it; nothing firm-visible activates until
    the firm has signed off the lifecycle model for that lane — the
    acceptance level of `TEST-PLAN.md`.
-   **(b) Smokeball write defect (ticket #617858).** Memo and document
-   writes fail server-side on Smokeball's end (task and calendar writes
-   verified working live, 2026-07-03). Go-live blocker for every lane whose
-   delivery path lands output in Smokeball as a memo or document. We wait
-   for vendor resolution; no workaround routing. Gate (b) governs delivery
-   writes on the client's account; hydrating our own staging tenant with
-   test data is test infrastructure, not a workaround (Captain,
-   2026-07-04 — see M1).
+   **(b) Smokeball write defect (ticket #617858) — RESOLVED 2026-07-05.**
+   Root cause was app-level, exactly as the per-app evidence predicted: our
+   app was missing the `matters/write` scope, and both blocked endpoints
+   (`/matters/{id}/memos`, `/matters/{id}/documents/files`) are
+   matters-nested — `memos/write` alone was insufficient, which is why the
+   2026-07-03 probe 403'd with `memos/write` provably in the token. Task
+   writes (`/tasks`) never needed it, which is why they worked. Smokeball
+   added the scope and promoted the app config to production. Live-verified
+   through the seat's own connector on staging
+   (`vfy_01KWTMRKHJHGT5E4XZ8DBD2DTM`): fresh mint carries `matters/write`;
+   `create_memo` 201 + read-back; `add_file` 201 + listed on matter
+   2026-PI-101. **Residual check:** the production app's grant is vendor-
+   asserted, not yet observed — verify `matters/write` in the decoded scopes
+   at the M3 connect smoke read before relying on it for delivery writes.
 
 **Ladder definitions.** `live-shadow` = executes against real firm data on a
 schedule/trigger, output routed internally (Captain/ops) only — the firm sees
@@ -79,7 +85,7 @@ client's Machine.
 | Cost plane live: per-seat workspace attribution + machine-local breaker                                                                                                                                                                    | ADR 0062; #1664/#1666                                                                                                                                                         |
 | Smokeball prod connect path = client-portal OAuth (settings hub), firm-delegated authorization_code grant                                                                                                                                  | #1633/#1649 (the `bin/connect-smokeball.sh` reference in BUILD-PLAN §9 is stale)                                                                                              |
 | Litigation-lifecycle model **not firm-confirmed** — proposal awaiting Christa's markup                                                                                                                                                     | `CLIENT-PROPOSAL.md` header; standing gate (a)                                                                                                                                |
-| Smokeball memo + document writes **fail server-side** (403); task write verified working live                                                                                                                                              | Ticket #617858; 2026-07-03 live probe (task created + read-verified); standing gate (b)                                                                                       |
+| Smokeball memo + document writes **working live** via the seat's own connector (App 2) after the vendor added `matters/write` (ticket #617858 resolved 2026-07-05); production-app grant still to be observed at M3 connect                | `vfy_01KWTMRKHJHGT5E4XZ8DBD2DTM` (2026-07-05); gate (b) lifted                                                                                                                |
 | App 1 (original `client_credentials` staging app, performed the original doc seeding) credentials captured to `SMOKEBALL_SEED_*` + **live-verified incl. doc-write** (App 2 had overwritten `SMOKEBALL_STAGING_*`; deny confirmed per-app) | `vfy_01KWQKZVDVESGWY5VRDA12PK46` + `vfy_01KWQN1EYR3N41YVP5W3YYMJVX` (2026-07-04)                                                                                              |
 
 ## 3. Milestone ladder
@@ -119,13 +125,15 @@ attempts), then every lane's L2 scenario suite run end-to-end. This is where
 all iteration happens until the firm's account is in play — and for as long
 as we work together, per the change-flow rule.
 
-**Seeding path (decided: App 1 — Captain, 2026-07-04).** Document seeding
-through the seat's own connector hits the same #617858 deny (App 2 tokens).
-Seeding runs on **App 1**, the original `client_credentials` staging app
-that performed the original document seeding (upload contract locked in
-`operator/connectors/smokeball/tests/test_document_writes.py`). Manual
-web-UI seeding covers a bounded starter set in the interim; task and
-calendar seeding through the seat works today regardless.
+**Seeding path (decided: App 1 — Captain, 2026-07-04; constraint since
+lifted).** At decision time, document seeding through the seat's own
+connector hit the #617858 deny (App 2 tokens), so seeding ran on **App 1**,
+the original `client_credentials` staging app (upload contract locked in
+`operator/connectors/smokeball/tests/test_document_writes.py`) — and the
+full synthetic set landed that way (PR #1716). With #617858 resolved
+(2026-07-05, gate (b) above), the seat's own connector now writes memos and
+documents too; App 1 remains the bulk-seeding tool, the seat connector the
+delivery path.
 
 **Credential handling (do not get this wrong twice).** App 2's rollout
 **overwrote** `SMOKEBALL_STAGING_CLIENT_ID/SECRET` in `/ss` — the vault
@@ -141,10 +149,10 @@ on. The US API key is account-scoped (same for all apps):
 (`vfy_01KWQN1EYR3N41YVP5W3YYMJVX`, 2026-07-04):** `client_credentials` mint
 200 → `/matters` read 200 → **full two-stage document upload succeeds**
 (POST `documents/files` 202 + presigned PUT 200) on matter `54bc1371` —
-the same tenant + matter where App 2's writes 403. Document seeding is
-unblocked, and the deny is confirmed **per-app** at Smokeball's authorizer
-(App 1 allowed, App 2 denied, same tenant/resource) — strong addendum
-evidence for ticket #617858 (Captain call whether to send).
+the same tenant + matter where App 2's writes then 403'd. The per-app deny
+observation (App 1 allowed, App 2 denied, same tenant/resource) was
+vindicated by the vendor's resolution: App 1 had `matters/write`, App 2
+did not — see gate (b), resolved 2026-07-05.
 
 - **Blocked by:** nothing. Start immediately.
 - **Exit:** every lane's L2 scenario suite has a passing end-to-end run on
@@ -189,7 +197,10 @@ connect flow (settings hub); refresh token vaulted; smoke read
 seat's MCP, verified in the room or immediately after.
 
 - **Blocked by:** M0 (seat) + M2 (the authorization happens at the session).
-- **Exit:** verify record of a real-matter list read through the live seat.
+- **Exit:** verify record of a real-matter list read through the live seat,
+  including `matters/write` present in the `auth_status` decoded scopes (the
+  gate (b) production-grant confirmation — vendor-asserted until observed
+  here).
 - **Watch:** the `/contacts` bare-term 400 class of API quirk (#1650) — first
   reads against real tenant data are where the next such quirk surfaces.
 
@@ -221,10 +232,11 @@ the ladder on live matters: live-shadow → graded → promoted to
 
 - **Blocked by:** M4 (shadow substrate) + M2 items 2–4 (dial, markup,
   deadline fork) + **gate (a)** (discovery-lane lifecycle sign-off, the L4
-  acceptance record per `TEST-PLAN.md`) + **gate (b)** for the skills that
-  write into Smokeball (`separate-statement-assembler` and
-  `discovery-response-staging` land documents; blocked until #617858
-  resolves — no workaround routing).
+  acceptance record per `TEST-PLAN.md`). Gate (b) is resolved (#617858,
+  2026-07-05) — `separate-statement-assembler` and
+  `discovery-response-staging` document writes are no longer vendor-blocked;
+  confirm the production app's `matters/write` grant at the M3 connect
+  smoke read.
 - **Exit:** each skill has a graded live run in `runs/` sustaining
   `draft_for_review` with zero safety-line violations; the firm is receiving
   and using its drafts.
@@ -312,19 +324,19 @@ Everything the plan waits on that we do not fully control, with owner and
 blast radius. Update in place; a dependency that blocks a milestone is also
 named on that milestone.
 
-| Dependency                                  | Owner                              | Blocks                                                                               | State (2026-07-04)                                                                                                         |
-| ------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Smokeball memo/document write defect        | Smokeball support (ticket #617858) | Gate (b): M5+ delivery paths that write docs/memos — go-live blocker, no workarounds | Open; task/calendar writes unaffected; deny confirmed **per-app** (App 1 writes succeed, same tenant) — addendum candidate |
-| Lifecycle sign-off (per-lane acceptance)    | Chris + Christa                    | Gate (a): all firm-visible activation (M5+)                                          | Proposal awaiting markup                                                                                                   |
-| Working-session scheduling                  | Christa                            | M2 → the whole firm-facing sequence (connect, shadow, activation)                    | Was out week of 2026-06-29                                                                                                 |
-| Connect authorization                       | Christa or Chris                   | M3                                                                                   | Asked at the working session (M2 item 9)                                                                                   |
-| ~~App 1 credential retrieval~~ **RESOLVED** | Captain (done 2026-07-04)          | ~~M1 document-bearing L2 scenarios~~ unblocked                                       | `SMOKEBALL_SEED_*` vaulted + live-verified incl. doc-write (`vfy_01KWQN1EYR3N41YVP5W3YYMJVX`)                              |
-| M365 tenant admin consent                   | A&P IT                             | M6                                                                                   | Not started                                                                                                                |
-| Graph DocumentStorage + mail watch build    | Us (#1055, P0)                     | M6                                                                                   | Open                                                                                                                       |
-| CoCounsel / drafting division answer        | Christa (post-TR meeting)          | Motion/response lane shape                                                           | Pending her meeting                                                                                                        |
-| Deadline fork (rules engine vs by-hand)     | Christa                            | Deadline-lane shape                                                                  | Open, M2 item 4                                                                                                            |
-| InfoTrack MCP availability                  | Us + vendor                        | M7 filing/service signals                                                            | Research                                                                                                                   |
-| Adobe backend (trial binder)                | Us                                 | M7 trial-prep lane                                                                   | Research                                                                                                                   |
+| Dependency                                            | Owner                                                 | Blocks                                                            | State (2026-07-04)                                                                                                                                                     |
+| ----------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~Smokeball memo/document write defect~~ **RESOLVED** | Smokeball support (ticket #617858, closed 2026-07-05) | ~~Gate (b): M5+ delivery paths that write docs/memos~~ lifted     | App was missing `matters/write`; vendor added it + promoted to production; staging live-verified (`vfy_01KWTMRKHJHGT5E4XZ8DBD2DTM`); prod grant observed at M3 connect |
+| Lifecycle sign-off (per-lane acceptance)              | Chris + Christa                                       | Gate (a): all firm-visible activation (M5+)                       | Proposal awaiting markup                                                                                                                                               |
+| Working-session scheduling                            | Christa                                               | M2 → the whole firm-facing sequence (connect, shadow, activation) | Was out week of 2026-06-29                                                                                                                                             |
+| Connect authorization                                 | Christa or Chris                                      | M3                                                                | Asked at the working session (M2 item 9)                                                                                                                               |
+| ~~App 1 credential retrieval~~ **RESOLVED**           | Captain (done 2026-07-04)                             | ~~M1 document-bearing L2 scenarios~~ unblocked                    | `SMOKEBALL_SEED_*` vaulted + live-verified incl. doc-write (`vfy_01KWQN1EYR3N41YVP5W3YYMJVX`)                                                                          |
+| M365 tenant admin consent                             | A&P IT                                                | M6                                                                | Not started                                                                                                                                                            |
+| Graph DocumentStorage + mail watch build              | Us (#1055, P0)                                        | M6                                                                | Open                                                                                                                                                                   |
+| CoCounsel / drafting division answer                  | Christa (post-TR meeting)                             | Motion/response lane shape                                        | Pending her meeting                                                                                                                                                    |
+| Deadline fork (rules engine vs by-hand)               | Christa                                               | Deadline-lane shape                                               | Open, M2 item 4                                                                                                                                                        |
+| InfoTrack MCP availability                            | Us + vendor                                           | M7 filing/service signals                                         | Research                                                                                                                                                               |
+| Adobe backend (trial binder)                          | Us                                                    | M7 trial-prep lane                                                | Research                                                                                                                                                               |
 
 ## 7. Tracking model
 
@@ -351,12 +363,12 @@ named on that milestone.
   (M2) corrects it before anything runs against the firm's account, and
   per-lane acceptance (L4) confirms it lane by lane. Expect the model to
   move; corrections flow back through L1–L3 on the rehearsal office.
-- **The write defect has no deadline.** #617858 is in Smokeball's queue, not
-  ours. Gate (b) means the document-writing half of the discovery lane waits
-  on a vendor we cannot schedule; it also constrains rehearsal-office
-  document seeding (M1) unless the App 1 or web-UI path is taken. Keep the
-  ticket warm and keep the unaffected paths (tasks, calendar, drafts routed
-  to the firm) moving.
+- **~~The write defect has no deadline~~ — resolved 2026-07-05.** #617858
+  closed: the app was missing `matters/write`; Smokeball added it and
+  promoted to production. The residual exposure is narrow: the production
+  app's grant is vendor-asserted until the M3 connect smoke read decodes the
+  scopes on the firm's own token. If `matters/write` is absent there, it is
+  the same one-line vendor fix, not a new defect class.
 - **Real-tenant API quirks.** #1650's `/contacts` 400 class will recur on
   first real reads (M3/M4). Budget iteration there; the MCP breaker protects
   the seat.
