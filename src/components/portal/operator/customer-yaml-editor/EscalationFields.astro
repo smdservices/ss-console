@@ -36,12 +36,12 @@ const ackValue =
 <section class="mt-12">
   <header class="border-b-[2px] border-[color:var(--ss-color-text-primary)] pb-3 mb-6">
     <p
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+      class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
     >
       § 02
     </p>
     <h2
-      class="mt-1 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      class="mt-1 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
     >
       Escalation
     </h2>
@@ -53,7 +53,7 @@ const ackValue =
   <div class="space-y-6">
     <label class="block">
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Red-flag recipients
       </span>
@@ -72,7 +72,7 @@ const ackValue =
 
     <label class="block">
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Failure recipients
       </span>
@@ -91,7 +91,7 @@ const ackValue =
 
     <label class="block max-w-xs">
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Acknowledgement window (minutes)
       </span>
@@ -112,7 +112,7 @@ const ackValue =
     {
       errorsFor('escalation').map((err) => (
         <p class="text-sm text-[color:var(--ss-color-error)]">
-          <span class="font-['JetBrains_Mono']">{err.path}</span>: {err.message}
+          <span class="font-mono">{err.path}</span>: {err.message}
         </p>
       ))
     }

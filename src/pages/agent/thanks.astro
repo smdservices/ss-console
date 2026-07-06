@@ -34,7 +34,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
     {
       paid ? (
         <>
-          <h1 class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
+          <h1 class="font-body font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
             You're in.
           </h1>
           <p class="mt-6 text-lg text-[color:var(--ss-color-text-secondary)]">
@@ -44,7 +44,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
           </p>
           <a
             href="/portal/products/hosted-agent"
-            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
           >
             Open Your Portal
           </a>
@@ -55,7 +55,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
         </>
       ) : (
         <>
-          <h1 class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
+          <h1 class="font-body font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
             {sessionKnown ? 'Payment pending' : 'Checkout status unknown'}
           </h1>
           <p class="mt-6 text-lg text-[color:var(--ss-color-text-secondary)]">
@@ -65,7 +65,7 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
           </p>
           <a
             href="/portal/products/hosted-agent"
-            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
           >
             Check Your Portal
           </a>

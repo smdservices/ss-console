@@ -110,11 +110,11 @@ const dateLabel = now.toLocaleDateString('en-US', {
 })
 
 const LAB =
-  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+  'font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]'
 const SEC =
-  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+  'font-mono text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]'
 const CARD_LINK =
-  "font-['Archivo_Narrow'] text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+  'font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]'
 
 interface MotionCard {
   label: string
@@ -149,9 +149,7 @@ const motion: MotionCard[] = [
 <AdminLayout title="Home | SMD Services" maxWidth="max-w-6xl">
   <div class="mb-6 flex items-baseline justify-between">
     <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Home</h1>
-    <span class="font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-text-muted)]"
-      >{dateLabel}</span
-    >
+    <span class="font-mono text-[13px] text-[color:var(--ss-color-text-muted)]">{dateLabel}</span>
   </div>
 
   <!-- needs you today -->
@@ -160,7 +158,7 @@ const motion: MotionCard[] = [
       class="flex items-baseline justify-between border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5"
     >
       <span class={SEC}>Needs you today</span>
-      <span class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]"
+      <span class="font-mono text-[12px] text-[color:var(--ss-color-text-muted)]"
         >{actions.length} {actions.length === 1 ? 'item' : 'items'}</span
       >
     </div>
@@ -176,7 +174,7 @@ const motion: MotionCard[] = [
             class="grid grid-cols-[18px_110px_1fr_auto] items-center gap-3.5 border-t border-[color:var(--ss-color-border-subtle)] px-[18px] py-3 transition-colors first:border-t-0 hover:bg-[rgba(26,21,18,0.025)]"
           >
             <span class:list={['h-2 w-2 rounded-full', toneDot[a.tone]]} />
-            <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-muted)]">
+            <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-muted)]">
               {a.type}
             </span>
             <span class="text-sm text-[color:var(--ss-color-text-primary)]">{a.text}</span>
@@ -197,19 +195,17 @@ const motion: MotionCard[] = [
       <div class="flex gap-8">
         <div>
           <span class={`${LAB} mb-1 block`}>Invoiced</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold"
-            >{formatMoney(totals.invoiced)}</span
-          >
+          <span class="font-mono text-xl font-bold">{formatMoney(totals.invoiced)}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>Paid</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(totals.paid)}</span>
+          <span class="font-mono text-xl font-bold">{formatMoney(totals.paid)}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>Outstanding</span>
           <span
             class:list={[
-              "font-['JetBrains_Mono'] text-xl font-bold",
+              'font-mono text-xl font-bold',
               totals.outstanding > 0
                 ? 'text-[color:var(--ss-color-primary)]'
                 : 'text-[color:var(--ss-color-text-muted)]',
@@ -226,12 +222,11 @@ const motion: MotionCard[] = [
       <div class="flex gap-8">
         <div>
           <span class={`${LAB} mb-1 block`}>Active operators</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{recurring.activeCount}</span>
+          <span class="font-mono text-xl font-bold">{recurring.activeCount}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>MRR</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(recurring.mrr)}</span
-          >
+          <span class="font-mono text-xl font-bold">{formatMoney(recurring.mrr)}</span>
           {
             recurring.unpricedCount > 0 && (
               <div class="mt-1 text-[11px] text-[color:var(--ss-color-primary)]">
@@ -250,7 +245,7 @@ const motion: MotionCard[] = [
       motion.map((card) => (
         <div class="border border-[color:var(--ss-color-border)] px-[18px] py-4">
           <div class="mb-3 flex items-baseline justify-between border-b border-[color:var(--ss-color-border)] pb-2.5">
-            <span class="font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
+            <span class="font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
               {card.label}
             </span>
             <a href={card.href} class={CARD_LINK}>
@@ -262,7 +257,7 @@ const motion: MotionCard[] = [
               <span class="text-[color:var(--ss-color-text-secondary)]">{r.k}</span>
               <span
                 class:list={[
-                  "font-['JetBrains_Mono'] font-medium",
+                  'font-mono font-medium',
                   r.tone === 'alert' && Number(r.n) > 0 && 'text-[color:var(--ss-color-error)]',
                   r.tone === 'good' && 'text-[color:var(--ss-color-complete)]',
                 ]}

@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
 import '../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../lib/config/brand'
 import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
@@ -53,10 +54,10 @@ const senders: string[] = (() => {
 })()
 
 const labelClass =
-  "block font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
+  'block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]'
 const inputClass =
-  "mt-2 w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
-const hintClass = "mt-1 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-color-text-secondary)]"
+  'mt-2 w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]'
+const hintClass = 'mt-1 font-mono text-sm text-[color:var(--ss-color-text-secondary)]'
 ---
 
 <!doctype html>
@@ -66,10 +67,7 @@ const hintClass = "mt-1 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-col
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <title>Agent Setup | {BRAND_NAME}</title>
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
@@ -89,7 +87,7 @@ const hintClass = "mt-1 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-col
         errorMessage && (
           <div
             role="alert"
-            class="mt-6 border-[3px] border-[color:var(--ss-color-error)] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-error)]"
+            class="mt-6 border-[3px] border-[color:var(--ss-color-error)] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-error)]"
           >
             {errorMessage}
           </div>
@@ -188,9 +186,7 @@ const hintClass = "mt-1 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-col
               checked={intake.spend_limit_confirmed === 1}
               class="mt-1 h-5 w-5"
             />
-            <span
-              class="font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-primary)]"
-            >
+            <span class="font-mono text-base text-[color:var(--ss-color-text-primary)]">
               I created a dedicated Anthropic API key for this agent and set a spend limit on it in
               my Anthropic console. I understand my agent's model usage bills to my own Anthropic
               account and that SMD cannot see or cap that spend.
@@ -200,7 +196,7 @@ const hintClass = "mt-1 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-col
 
         <button
           type="submit"
-          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
         >
           Save Setup Answers
         </button>

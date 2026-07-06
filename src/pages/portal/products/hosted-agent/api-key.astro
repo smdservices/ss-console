@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
 import '../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../lib/config/brand'
 import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
@@ -61,10 +62,7 @@ const keyReceived = intake.anthropic_key_status === 'received'
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <title>API Key | {BRAND_NAME}</title>
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
@@ -84,7 +82,7 @@ const keyReceived = intake.anthropic_key_status === 'received'
         banner && (
           <div
             role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
               banner.tone === 'complete'
                 ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
                 : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
@@ -97,7 +95,7 @@ const keyReceived = intake.anthropic_key_status === 'received'
 
       <div class="mt-8 flex flex-col gap-6">
         <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
-          <p class="font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-primary)]">
+          <p class="font-mono text-base text-[color:var(--ss-color-text-primary)]">
             Your agent runs on your own Anthropic API key. Create a dedicated key in your Anthropic
             console, set a monthly spend limit on it there, and paste it below. The key relays
             straight into your agent's isolated vault: it is never stored on this site, never shown
@@ -105,7 +103,7 @@ const keyReceived = intake.anthropic_key_status === 'received'
           </p>
           {
             keyReceived && (
-              <p class="mt-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
+              <p class="mt-4 font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
                 A key is on file for your agent
               </p>
             )
@@ -119,7 +117,7 @@ const keyReceived = intake.anthropic_key_status === 'received'
         >
           <label
             for="secret"
-            class="block font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
+            class="block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
           >
             {keyReceived ? 'Replace your key' : 'Paste your key'}
           </label>
@@ -129,11 +127,11 @@ const keyReceived = intake.anthropic_key_status === 'received'
             type="password"
             autocomplete="off"
             required
-            class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-['JetBrains_Mono'] text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
+            class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
           />
           <button
             type="submit"
-            class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+            class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
           >
             Relay Key to Vault
           </button>

@@ -74,7 +74,7 @@ const rangeEnd = Math.min(page * pageSize, totalCount)
         aria-label="Audit log pagination"
         class="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
       >
-        <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+        <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
           Showing {rangeStart} to {rangeEnd} of {totalCount}
         </p>
         <ul class="flex items-center gap-2" role="list">
@@ -83,21 +83,21 @@ const rangeEnd = Math.min(page * pageSize, totalCount)
               <a
                 href={buildHref(page - 1)}
                 rel="prev"
-                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
               >
                 Previous
               </a>
             ) : (
               <span
                 aria-disabled="true"
-                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-border)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-muted)]"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-border)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-muted)]"
               >
                 Previous
               </span>
             )}
           </li>
           <li>
-            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)] px-2">
+            <span class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)] px-2">
               Page {page} of {pageCount}
             </span>
           </li>
@@ -106,14 +106,14 @@ const rangeEnd = Math.min(page * pageSize, totalCount)
               <a
                 href={buildHref(page + 1)}
                 rel="next"
-                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
               >
                 Next
               </a>
             ) : (
               <span
                 aria-disabled="true"
-                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-border)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-muted)]"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-border)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-muted)]"
               >
                 Next
               </span>
