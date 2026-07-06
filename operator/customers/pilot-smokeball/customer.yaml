@@ -322,12 +322,15 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
-    # The escalator runs on Hermes-native cron (ADR 0021 Stream B): pre_run.py
-    # decides whether a deadline needs the ladder, else writes SUPPRESSED_WAKE.
-    # The PI-pack schedules below are staggered (never :00/:30) and weekday- or
-    # weekly-cadenced deliberately — every wake bills tokens, so the cadence
-    # matches how fast each item actually changes. All times are seat-local
-    # (business_hours.timezone -> HERMES_TIMEZONE): authored as Pacific.
+    # Every entry is pre_run-gated (ADR 0021 Stream B, #1748). The escalator's
+    # bespoke pre_run decides whether a deadline needs the ladder; the other
+    # skills carry the shared empty-seat gate (operator/templates/pre_run_gate.py):
+    # zero open matters -> SUPPRESSED_WAKE heartbeat, no LLM turn. Any probe or
+    # heartbeat failure wakes (fail-open). Schedules stay staggered (never
+    # :00/:30) and weekday- or weekly-cadenced — a wake on a hydrated seat
+    # bills tokens, so the cadence matches how fast each item actually changes.
+    # All times are seat-local (business_hours.timezone -> HERMES_TIMEZONE):
+    # authored as Pacific.
     cron:
       - skill: deadline-miss-escalator
         schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
@@ -335,37 +338,48 @@ personas:
         wake_policy: pre_run_decides
       - skill: daily-needs-you-digest
         schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: discovery-response-tracker
         schedule: '17 7 * * 1-5' # weekday 0717 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: client-verification-tracker
         schedule: '41 7 * * 1-5' # weekday 0741 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: motion-calendar-tracker
         schedule: '27 7 * * 1-5' # weekday 0727 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: service-confirmation-watcher
         schedule: '51 7 * * 1-5' # weekday 0751 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: medical-chronology-maintainer
         schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: medical-records-chaser
         schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: lien-ledger-tracker
         schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: mediation-settlement-tracker
         schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: minors-compromise-packet
         schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
       - skill: trial-binder-assembler
         schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
-        wake_policy: always
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
       - google-workspace
