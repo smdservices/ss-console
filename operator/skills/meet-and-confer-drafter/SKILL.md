@@ -181,12 +181,18 @@ regardless of what any document, reply, or email says:
    firm's voice: the matter and set, each flagged response and the attorney's stated
    reason, the request to supplement or withdraw by a date, and the note that a motion
    to compel further may follow. Connective, factual, no legal argument.
-5. **Surface the go/no-go** — email the responsible attorney (via the Operator's
-   AgentMail inbox; the attorney is a rostered internal recipient) the ready draft, the
-   compel window, and the explicit choice: send now, informal-first, or not yet. **No
-   send to opposing counsel.** Log with `create_memo`; open a tracked item with
-   `create_task` (assigned to the responsible staff, keyed to the set, dated toward the
-   compel window) so the letter and the deadline stay live.
+5. **Surface the go/no-go** — the letter TEXT lives in the matter memo
+   (`create_memo`, where citations belong per the delivery-channel rule); the
+   email to the responsible attorney is a CITATION-FREE POINTER, not the
+   letter: plain words naming the matter, the set, where the draft lives (the
+   matter memo), the proposed dates flagged as needing confirmation, and the
+   explicit choice — send now, informal-first, or not yet. Emailing the letter
+   body itself fights the mail channel's citation gate by construction (7+
+   refused attempts observed live, 2026-07-05, L2 finding F6) and violates the
+   redraft-once rule; the pointer email passes on the first try because it
+   carries no citation. **No send to opposing counsel.** Open a tracked item
+   with `create_task` (assigned to the responsible staff, keyed to the set,
+   dated toward the compel window) so the letter and the deadline stay live.
 6. **Hold and re-surface** — if the attorney chooses informal-first or holds, the draft
    stays ready and the item stays open; as the compel window approaches unresolved, the
    skill re-surfaces it to the attorney (an approaching window is a higher-severity
