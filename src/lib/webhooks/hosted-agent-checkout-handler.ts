@@ -292,7 +292,11 @@ async function sendPurchaseEmails(
     await sendEmail(resendApiKey, {
       to: input.buyerEmail,
       subject: 'Your Hosted Agent subscription is active',
-      html: hostedAgentWelcomeEmailHtml(input.buyerName, portalUrl),
+      // Deep-link the product page on the portal host, not the portal root.
+      html: hostedAgentWelcomeEmailHtml(
+        input.buyerName,
+        `${portalUrl}/portal/products/hosted-agent`
+      ),
     })
   } catch (err) {
     console.error('[hosted-agent-checkout] welcome email failed:', err)
