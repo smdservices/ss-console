@@ -823,6 +823,20 @@ Prices at the salary anchor (ADR 0037: compete with a hire — the displaced coo
 
 ---
 
+## Decision #51 - Hosted Agent Self-Serve SKU
+
+**ADR:** [docs/adr/0067-hosted-agent-self-serve-sku.md](./0067-hosted-agent-self-serve-sku.md)
+
+**Decision: Launch a second recurring SKU, Hosted Agent — a self-serve $79/month subscription (first 25 founding seats $49/month via a Stripe forever-coupon) for an always-on personal Hermes agent, BYO Anthropic key, concierge-provisioned on the Operator substrate, with published pricing on its own product page.**
+
+Competes with DIY and the commodity hosting floor by design (a deliberate, scoped carve-out from ADR 0037 Tenet 1 — the Operator itself still competes with a hire and its pricing stays internal per Decision #50). Launch channels are constrained to Telegram plus allowlisted-sender email with draft-for-review external sends, mapping onto ADR 0032's deferred public-exposure checklist. Checkout is self-serve; provisioning stays Captain-run behind named automation seams.
+
+**Cross-layer impact (Layer 3 - Pricing, Layer 5 - Distribution).** First published price on any SMD surface (page-scoped exemption recorded in the positioning spine and guard tests); creates the entry rung of the hosted-to-Operator ladder.
+
+**Captain authorized:** 2026-07-06 per session directive (skunkworks operation).
+
+---
+
 ## Decision #30 - Case Study Creation
 
 **Issue:** smdservices/ss-console #30

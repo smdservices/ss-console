@@ -2,7 +2,7 @@
 title: Business Model
 section: business
 order: 3
-summary: Two front doors, the three-layer problem framework, the engagement phases, and pain clusters by vertical
+summary: Three front doors, the three-layer problem framework, the engagement phases, and pain clusters by vertical
 sources:
   - label: CLAUDE.md - The Business Model
     href: https://github.com/venturecrane/ss-console/blob/main/CLAUDE.md
@@ -20,14 +20,15 @@ SMD Services is a solutions consulting venture under SMDurgan, LLC. We sell scop
 
 The buyer is the owner of an established, owner-led business with real operational load and the ability to pay for a solution. There is no revenue-band qualification gate: the old "$750k-$5M" band was retired in [ADR 0003](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0003-lead-gen-pivot-actor-identity.md), and Decision #2 in the Decision Stack is superseded. We qualify in conversation, not by filtering on a guessed revenue figure. The "too big for one person, too small for a COO" framing still captures the *shape* of the buyer; it is not a filter.
 
-## Two front doors, one firm
+## Three front doors, one firm
 
-The firm has two acquisition paths into the same firm-level identity (ADR 0004, locks 1 and 2):
+The firm has three acquisition paths into the same firm-level identity (ADR 0004, locks 1 and 2; ADR 0067):
 
 1. **Scope-based consulting engagements.** The primary path. The prospect arrives without a fixed solution in mind; we surface their objectives through an assessment conversation, design a solution, and quote a fixed project price. This is the funnel locked in Decisions #16 and #18.
 2. **The Operator SKU.** A productized flat-rate monthly retainer ([ADR 0004](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0004-productized-operator-offering.md)). The entry point for prospects who already know they want an agent and have done their own diagnosis. See `/admin/playbook/operator-thesis` for what the Operator is.
+3. **The Hosted Agent SKU.** A self-serve monthly subscription for an always-on personal Hermes agent on the Operator substrate ([ADR 0067](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0067-hosted-agent-self-serve-sku.md), Decision #51). The only SKU with published pricing and a buy CTA (page-scoped exemption to the positioning locks); checkout is self-serve, provisioning is concierge. It targets a different buyer (the individual who wants an agent and will not run a server) and doubles as the entry rung of the hosted-to-Operator ladder.
 
-Two front doors, one firm. The firm-level voice and solutions-consulting positioning are unchanged across both; the Operator is one productized outcome we can deliver, not the firm itself (ADR 0004, positioning guardrails). The old "$200-500/mo undefined post-delivery retainer" (Decision #12) is superseded by the Operator SKU.
+Three front doors, one firm. The firm-level voice and solutions-consulting positioning are unchanged across all of them; the Operator and the Hosted Agent are productized outcomes we deliver, not the firm itself (ADR 0004, positioning guardrails). The old "$200-500/mo undefined post-delivery retainer" (Decision #12) is superseded by the Operator SKU.
 
 ## The three-layer problem framework
 

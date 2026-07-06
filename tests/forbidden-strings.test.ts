@@ -381,7 +381,9 @@ describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
 // explanatory note that mentions a fenced term does not trip the guard.
 // ============================================================================
 
-const OPERATOR_PAGE = resolve('src/pages/operator.astro')
+// The Hosted Agent storefront (ADR 0067) carries the same fenced-term
+// exposure as the Operator page, so both SKU pages are scanned.
+const SKU_MARKETING_PAGES = [resolve('src/pages/operator.astro'), resolve('src/pages/agent.astro')]
 const MARKETING_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
   {
     label: '"compliant" (no compliance claim without counsel review)',
@@ -401,16 +403,20 @@ const MARKETING_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
   },
 ]
 
-describe('operator.astro marketing fenced-term guard', () => {
-  it('finds the Operator page source (sanity)', () => {
-    expect(() => readFileSync(OPERATOR_PAGE, 'utf-8')).not.toThrow()
+describe('SKU marketing pages fenced-term guard', () => {
+  it('finds the SKU page sources (sanity)', () => {
+    for (const page of SKU_MARKETING_PAGES) {
+      expect(() => readFileSync(page, 'utf-8')).not.toThrow()
+    }
   })
 
-  for (const { label, pattern } of MARKETING_FENCED_TERMS) {
-    it(`operator.astro must not contain fenced term: ${label}`, () => {
-      const content = stripComments(readFileSync(OPERATOR_PAGE, 'utf-8'))
-      expect(pattern.test(content)).toBe(false)
-    })
+  for (const page of SKU_MARKETING_PAGES) {
+    for (const { label, pattern } of MARKETING_FENCED_TERMS) {
+      it(`${page.split('/').slice(-1)[0]} must not contain fenced term: ${label}`, () => {
+        const content = stripComments(readFileSync(page, 'utf-8'))
+        expect(pattern.test(content)).toBe(false)
+      })
+    }
   }
 })
 

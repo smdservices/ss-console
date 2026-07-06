@@ -31,6 +31,14 @@ function readAllSrcFiles(): string[] {
 // to the first conversation, so no dollar amount may appear on that surface
 // either. New marketing sections SHOULD be added here so a future edit cannot
 // accidentally publish a price.
+//
+// DELIBERATE EXEMPTION (do not "fix"): src/pages/agent.astro and
+// src/pages/agent/thanks.astro are OMITTED from this list on purpose. The
+// Hosted Agent SKU sells self-serve with published pricing per ADR 0067
+// (decision-stack #51) and the positioning-spine decision log entry dated
+// 2026-07-06. The exemption is scoped to those two pages only; every other
+// marketing surface stays price-free, and the agent pages remain enrolled
+// in all other content guards (forbidden-strings, voice scan below).
 function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
@@ -96,7 +104,13 @@ describe('voice standard', () => {
   // regex and constrain page copy to pass it, rather than loosen the guardrail
   // for pages. First-person "I" stays confined to the test-excluded About.astro
   // component; it is never inlined into these page files.
-  const marketingPages = ['src/pages/index.astro', 'src/pages/operator.astro']
+  const marketingPages = [
+    'src/pages/index.astro',
+    'src/pages/operator.astro',
+    // The Hosted Agent storefront is price-exempt (see readMarketingFiles)
+    // but holds firm "we" voice like every other marketing page.
+    'src/pages/agent.astro',
+  ]
 
   // Shared scan: flag standalone first-person "I " in the author's voice, after
   // stripping quoted spans (owner quotes such as "I can't take a day off" are

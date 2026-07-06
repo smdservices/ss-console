@@ -1,0 +1,154 @@
+schema_version: 1
+
+# HOSTED AGENT template customer.yaml (ADR 0067).
+#
+# The slim self-serve variant of _template: one general-assistant persona,
+# no vertical pack, Telegram plus allowlisted-sender email only, and the
+# named day-one jobs the product page sells (owner-facing digest, research
+# briefs, monitoring reports). Authoring source is the customer's intake
+# row in the admin queue (admin.smd.services/admin/hosted-agent), NOT an
+# interview transcript. Target authoring time: minutes.
+#
+# Copy to operator/customers/{slug}/customer.yaml, replace every bracketed
+# value from the intake row, then validate:
+#
+#   npx tsx scripts/validate-customer-yaml.ts \
+#     operator/customers/{slug}/customer.yaml
+#
+# Hard rules for this SKU (do not loosen per customer):
+#   - inbound_allow_from MUST be non-empty and MUST NOT contain a bare '@'
+#     domain wildcard for a public mail provider. No public inbound
+#     address is offered at this tier (ADR 0067 channel constraint).
+#   - external_send stays draft_for_review.
+#   - The ANTHROPIC_API_KEY staged for this Machine is the CUSTOMER'S key
+#     (Infisical /ss/hosted/{slug}), never an SMD org key.
+
+# ---- IDENTITY ----
+customer_id: '[SLUG]'
+customer_name: '[CUSTOMER NAME from intake / Stripe]'
+vertical: mixed
+addons: []
+practice_areas:
+  - general
+fly_region: phx
+
+# ---- RUNTIME ----
+# Cheap main model on the customer's own key; no escalation tier at this
+# price point (their key, their spend limit — keep the burn predictable).
+model: claude-sonnet-4-6
+hermes_ref: '[CURRENT BLESSED FLEET PIN, e.g., v2026.5.7@<40-hex-sha>]'
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+
+# ---- HUMANS WITH PORTAL ACCESS ----
+users:
+  - email: '[BUYER EMAIL]'
+    role: principal
+    full_name: '[BUYER NAME]'
+
+# ---- PERSONA ----
+personas:
+  - slug: '[AGENT NAME, lowercased]'
+    status: active
+    name: '[AGENT NAME from intake]'
+    title: Assistant
+    tone:
+      - plainspoken
+      - warm-but-professional
+      - concise
+    entitlements:
+      exposure:
+        internal_write: autonomous
+        external_send: draft_for_review
+    skills:
+      - name: inbox-triage
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: true
+        enabled: true
+      - name: workspace
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: status-report-assembler
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+    cron:
+      # Named day-one job: the morning digest, on the customer's clock
+      # ([TIMEZONE from intake] — express as UTC here).
+      - skill: status-report-assembler
+        schedule: '[MORNING DIGEST CRON, e.g., 0 14 * * * for 7am PHX]'
+        wake_policy: always
+
+# ---- CONNECTORS ----
+connectors:
+  Email:
+    adapter: agentmail
+    backend: 'mcp:agentmail'
+    enabled: true
+    webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/email'
+
+webhook_triggers:
+  - source: agentmail
+    event_type: message.received
+    skill: inbox-triage
+    persona: '[AGENT NAME, lowercased]'
+
+# ---- SCOPE ----
+scope:
+  email_folders_visible:
+    - Inbox
+    - Sent
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+  # ADR 0067 channel constraint: the allowlist IS the inbound surface.
+  # Copy the intake row's sender list verbatim; never add a domain
+  # wildcard at this tier. Empty roster = fail-closed (drafts only).
+  inbound_allow_from:
+    - '[SENDER 1 from intake]'
+
+# ---- ESCALATION ----
+escalation:
+  red_flag_recipients:
+    - '[BUYER EMAIL]'
+  failure_recipients:
+    - team@smd.services
+
+# ---- SAFETY ----
+# The cost breaker guards the CUSTOMER'S key here (their spend limit is
+# the real cap; this is the on-Machine backstop). Tighter than the
+# platform default on purpose.
+safety:
+  sticky_stop:
+    cost_cap_daily_cents: 1000
+    inbound_daily_cap: 100
+
+# ---- TELEGRAM ----
+# Per-customer bot (BotFather; see docs/runbooks/hosted-agent/). Token is
+# staged as a Fly secret, never here. Allowlist is MANDATORY (fails open
+# when empty).
+telegram:
+  allowed_users:
+    - '[BUYER TELEGRAM NUMERIC ID — resolve from the handle at go-live]'
+
+# ---- VOICE LIBRARY ----
+voice_library:
+  samples_path: 'r2://vaults/[SLUG]/voice/samples/'
+
+# ---- MEMORY (isolation invariants; must match customer_id) ----
+memory:
+  d1_namespace: '[SLUG]'
+  r2_vault_path: 'vaults/[SLUG]/'
+  vectorize_index: 'hermes-[SLUG]-vault'

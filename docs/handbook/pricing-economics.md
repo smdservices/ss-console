@@ -2,7 +2,7 @@
 title: Pricing & Economics
 section: business
 order: 4
-summary: The internal rate ladder, engagement range, payment terms, paid assessment, and the Operator pricing posture - all figures internal, nothing published externally
+summary: The internal rate ladder, engagement range, payment terms, paid assessment, and the Operator and Hosted Agent pricing postures - consulting and Operator figures internal; the Hosted Agent price is the one published exception (ADR 0067)
 sources:
   - label: Decision Stack (Decisions #13, #14, #16)
     href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/decision-stack.md
@@ -73,6 +73,12 @@ Standard terms are a 50/50 split (Decision #14):
 The Operator is a productized flat-rate retainer SKU ([ADR 0004](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0004-productized-operator-offering.md), lock 1). The *shape* of the pricing is locked: a fixed monthly price, not metered, not credit-based, not scoped per engagement. The customer signs up for a productized service, not a scoped engagement.
 
 The **specific price is locked and internal, never published**: **$5,000/month plus a $4,000 one-time stand-up fee** ([ADR 0063](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0063-operator-launch-pricing.md), Decision #50, Captain 2026-07-04). The number prices at the salary anchor (the Operator competes with a hire; the displaced coordinator seat runs roughly $60k/yr loaded) and sits above the committed cost model's floor - the earlier ~$3,500/mo working baseline turned out to be ~90% Captain labor, so pricing at it would have been break-even. At $5,000 MRR the cost-plane kill criterion (seat COGS above 40% of MRR for two consecutive months, ADR 0062) trips at $2,000/mo, making a trip a genuine anomaly signal. The client sees the price in their proposal; no dollar amount appears on any public surface.
+
+## The Hosted Agent pricing posture
+
+The Hosted Agent is the second recurring SKU ([ADR 0067](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0067-hosted-agent-self-serve-sku.md), Decision #51): a self-serve subscription at **$79/month**, with the first 25 founding seats at **$49/month for the life of the subscription** (enforced by a Stripe forever-coupon with a 25-redemption cap). This is the one deliberate exception to the no-published-price rule: self-serve requires a visible price, so the `/agent` product page publishes it, recorded as a page-scoped exemption in the positioning spine's decision log and in the guard tests. The Operator's price stays internal; nothing else on the site shows a dollar amount.
+
+The customer supplies their own Anthropic API key (with a spend limit set in their own console), so inference cost is theirs by design; SMD's seat cost is the Fly Machine plus support minutes, which keeps the ADR 0062 COGS gate honest at this price point. Founding-price obligations are bounded by a plan-retirement clause in the product terms, not open-ended.
 
 Post-handoff support for scope-based engagements is separate from the Operator: a two-week async stabilization period is included (Decision #27). Beyond that window, the client is quoted a follow-on scope or converted to an Operator subscription if the fit is right (Decision #44 / ADR 0004, lock 4).
 

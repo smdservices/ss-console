@@ -1,0 +1,252 @@
+---
+import '../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../lib/config/brand'
+import { getPortalClient } from '../../../../lib/portal/session'
+import { getProductSubscription, listProductRoles } from '../../../../lib/portal/product-access'
+import {
+  getIntakeByEntity,
+  type HostedAgentIntakeRow,
+} from '../../../../lib/db/hosted-agent-intake'
+import { HOSTED_AGENT_PRODUCT_SLUG } from '../../../../lib/portal/hosted-agent-access'
+import PortalHeader from '../../../../components/portal/PortalHeader.astro'
+import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../components/SkipToMain.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Hosted Agent — portal landing (ADR 0067).
+ *
+ * URL: portal.smd.services/portal/products/hosted-agent
+ *
+ * Same access shape as the Operator landing: Clerk session → bound entity →
+ * subscription on (entity, 'hosted-agent') → role. The landing branches on
+ * subscription status AND the concierge intake state so the customer always
+ * sees the true next step:
+ *
+ *   no_subscription  — no Hosted Agent on this account
+ *   setup            — subscription provisioning; sub-branches:
+ *                        awaiting_intake  → complete the questionnaire
+ *                        intake_submitted → answers received; setup underway
+ *   paused           — billing paused
+ *   live             — agent running; channel details from the intake row
+ *
+ * Everything rendered comes from authored rows (intake answers, entity
+ * name); missing data renders nothing per the empty-state pattern.
+ */
+
+export const prerender = false
+
+const portalData = await getPortalClient(env.DB, Astro.locals)
+if (!portalData) {
+  return Astro.redirect('/auth/sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
+}
+
+const { user, client } = portalData
+
+type SurfaceState = 'no_subscription' | 'setup' | 'paused' | 'live' | 'no_role'
+
+let surfaceState: SurfaceState
+let intake: HostedAgentIntakeRow | null = null
+
+const subscription = await getProductSubscription(env.DB, client.id, HOSTED_AGENT_PRODUCT_SLUG)
+if (!subscription) {
+  surfaceState = 'no_subscription'
+} else {
+  const roles = await listProductRoles(env.DB, user.id, client.id, HOSTED_AGENT_PRODUCT_SLUG)
+  intake = await getIntakeByEntity(env.DB, client.id)
+  if (roles.length === 0) {
+    surfaceState = 'no_role'
+  } else if (subscription.status === 'paused') {
+    surfaceState = 'paused'
+  } else if (subscription.status === 'active' && intake?.status === 'live') {
+    surfaceState = 'live'
+  } else {
+    surfaceState = 'setup'
+  }
+}
+
+const needsIntake = surfaceState === 'setup' && intake?.status === 'awaiting_intake'
+const intakeSubmitted =
+  surfaceState === 'setup' && intake !== null && intake.status !== 'awaiting_intake'
+const needsKey =
+  surfaceState === 'setup' &&
+  intake !== null &&
+  intake.anthropic_key_status === 'pending' &&
+  intake.customer_slug !== null
+
+// Intake form outcome banner (?st=saved|invalid|error) and key form outcome
+// (?cs=saved|not_enabled|...) both land back here or on their own pages.
+const stStatus = Astro.url.searchParams.get('st')
+const stMessage =
+  stStatus === 'saved'
+    ? 'Your setup answers were saved.'
+    : stStatus === 'invalid'
+      ? 'Some answers were missing or invalid. Please review the form and try again.'
+      : null
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Hosted Agent | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal"
+        crumbLabel="Home"
+        tag="Product"
+        h1="Hosted Agent"
+        meta={null}
+      />
+
+      {
+        stMessage && (
+          <div
+            role="status"
+            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+              stStatus === 'saved'
+                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+            }`}
+          >
+            {stMessage}
+          </div>
+        )
+      }
+
+      {
+        surfaceState === 'no_subscription' && (
+          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              Not subscribed
+            </p>
+            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              Your account doesn't include the Hosted Agent product.
+            </p>
+          </div>
+        )
+      }
+
+      {
+        surfaceState === 'no_role' && (
+          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              Access pending
+            </p>
+            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              A Hosted Agent exists on this account, but your user has no role on it yet.
+            </p>
+          </div>
+        )
+      }
+
+      {
+        surfaceState === 'paused' && (
+          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              Paused
+            </p>
+            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              Your subscription is paused. Your agent is not running.
+            </p>
+          </div>
+        )
+      }
+
+      {
+        surfaceState === 'setup' && (
+          <div class="mt-10 flex flex-col gap-6">
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-10">
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                Setup in progress
+              </p>
+              <p class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                Your subscription is active and your agent is being prepared. This page shows the
+                current setup state at every step.
+              </p>
+            </div>
+
+            {needsIntake && (
+              <a
+                href="/portal/products/hosted-agent/intake"
+                class="block border-[3px] border-[color:var(--ss-color-primary)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+              >
+                <p class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-primary)]">
+                  Next step: setup questionnaire
+                </p>
+                <p class="mt-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                  Tell us what to call your agent, what it should work on, and which senders it
+                  accepts email from. Takes a few minutes.
+                </p>
+              </a>
+            )}
+
+            {intakeSubmitted && (
+              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
+                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
+                  Questionnaire received
+                </p>
+                {intake?.agent_name && (
+                  <p class="mt-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                    Agent name: {intake.agent_name}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {needsKey && (
+              <a
+                href="/portal/products/hosted-agent/api-key"
+                class="block border-[3px] border-[color:var(--ss-color-primary)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+              >
+                <p class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-primary)]">
+                  Next step: add your Anthropic API key
+                </p>
+                <p class="mt-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                  Your agent runs on your own Anthropic key with a spend limit you control. The key
+                  is relayed straight to your agent's isolated vault and is never stored or shown
+                  here.
+                </p>
+              </a>
+            )}
+          </div>
+        )
+      }
+
+      {
+        surfaceState === 'live' && (
+          <div class="mt-10 flex flex-col gap-6">
+            <div class="border-[3px] border-[color:var(--ss-color-complete)] p-8 md:p-10">
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                {intake?.agent_name ?? 'Your agent'} is live
+              </p>
+              {intake?.telegram_handle && (
+                <p class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                  Connected to Telegram for {intake.telegram_handle}.
+                </p>
+              )}
+              <p class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                Setup changes and questions: reply to any email from us, and we take it from there.
+              </p>
+            </div>
+          </div>
+        )
+      }
+    </main>
+  </body>
+</html>
