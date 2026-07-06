@@ -6,6 +6,9 @@ import {
   submitHostedAgentIntake,
 } from '../../../../../lib/db/hosted-agent-intake'
 import { isValidEmail, trimString } from '../../../../../lib/api/helpers'
+import { sendEmail } from '../../../../../lib/email/resend'
+import { hostedAgentIntakeNotificationEmailHtml } from '../../../../../lib/email/hosted-agent-templates'
+import { getAdminBaseUrl } from '../../../../../lib/config/app-url'
 
 /**
  * POST /api/portal/products/hosted-agent/intake (ADR 0067)
@@ -76,6 +79,23 @@ export const POST: APIRoute = async ({ locals, request }) => {
   } catch (err) {
     console.error('[hosted-agent/intake] save failed:', err)
     return back('error')
+  }
+
+  // Best-effort concierge baton: tell team@ the questionnaire landed and
+  // provisioning can start. Never blocks the customer's save.
+  try {
+    const adminBase = getAdminBaseUrl(env) ?? 'https://admin.smd.services'
+    await sendEmail(env.RESEND_API_KEY, {
+      to: 'team@smd.services',
+      subject: `Hosted Agent intake submitted: ${access.client.name}`,
+      html: hostedAgentIntakeNotificationEmailHtml({
+        entityName: access.client.name,
+        agentName: parsed.agentName,
+        adminQueueUrl: `${adminBase}/admin/hosted-agent`,
+      }),
+    })
+  } catch (err) {
+    console.error('[hosted-agent/intake] team notification failed:', err)
   }
   return back('saved')
 }
