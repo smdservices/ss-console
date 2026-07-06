@@ -174,10 +174,12 @@ Per `references/output-format.md`:
    shared): a short note per item on what needs doing, why it matters (the governing
    rule where the owning step has one), which step owns it, and when to bring the
    attorney in. Short; explanatory, not advisory.
-4. **Write the digest** to the firm's internal digest home — the location the
-   seat has AUTHORED for it (no imposed default: unauthored means the digest
-   exists in this run's output plus the heartbeat row, and the run output says
-   so explicitly). Internal only. **Attempt this run's write fresh, every
+4. **Write the digest** to the firm's internal digest home — the matter your
+   SOUL's "Digest home" section names (materialized from the seat's authored
+   `digest.home_matter_id`, #1742): the full digest text goes there as one
+   `create_memo`. No imposed default: if your SOUL has no Digest home section,
+   the seat has not authored one — the digest exists in this run's output plus
+   the heartbeat row, and the run output says so explicitly. Internal only. **Attempt this run's write fresh, every
    run:** a prior run's write failure is history, not this run's truth — never
    report a write as denied unless THIS run's attempt was denied, and quote
    this run's literal error when it is.

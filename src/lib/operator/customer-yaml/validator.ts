@@ -51,6 +51,7 @@ import { checkConnectors } from './sections-connectors'
 import { checkScope } from './sections-scope'
 import {
   checkBusinessHours,
+  checkDigest,
   checkComplianceEnabled,
   checkEscalation,
   checkLogging,
@@ -238,6 +239,7 @@ interface ParsedSections {
   voiceLibrary: ReturnType<typeof checkVoiceLibrary>
   voiceCohorts: ReturnType<typeof checkVoiceCohorts>
   businessHours: ReturnType<typeof checkBusinessHours>
+  digest: ReturnType<typeof checkDigest>
   logging: ReturnType<typeof checkLogging>
   pause: ReturnType<typeof checkPause>
   observability: Observability
@@ -295,6 +297,7 @@ function validateSections(
     voiceLibrary: checkVoiceLibrary(root, errors),
     voiceCohorts: checkVoiceCohorts(root, errors),
     businessHours: checkBusinessHours(root, errors),
+    digest: checkDigest(root, errors),
     logging: checkLogging(root, errors),
     pause: checkPause(root, errors),
     observability: checkObservability(root, errors),
@@ -332,6 +335,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     voice_library: p.voiceLibrary,
     voice_cohorts: p.voiceCohorts,
     business_hours: p.businessHours,
+    digest: p.digest,
     memory: p.memory as Memory,
     logging: p.logging,
     pause: p.pause,

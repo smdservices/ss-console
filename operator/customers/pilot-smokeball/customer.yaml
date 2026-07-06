@@ -479,6 +479,14 @@ scope:
   # turn can NEVER trigger a delete. A real client seat authors its own posture
   # (a firm would typically leave destructive refused/draft).
 
+# ---- DIGEST HOME (#1742) ----
+# The authored destination for the daily needs-you digest: the internal
+# operations matter 2026-OPS-001 (seeded 2026-07-06, not a client matter).
+# translate.py materializes this into SOUL.md; unauthored seats stay
+# fail-closed (digest lives in session output + heartbeat only).
+digest:
+  home_matter_id: 3c191bed-cdda-48b9-a6ed-a51a349f3f94
+
 # ---- BUSINESS HOURS ----
 # Sets the seat's IANA timezone. bootstrap.sh exports it as HERMES_TIMEZONE, so
 # Hermes' clock AND this seat's cron schedules run in this timezone (DST-correct
