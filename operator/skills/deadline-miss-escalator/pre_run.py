@@ -38,8 +38,12 @@ Exit codes:
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import os
+import socket
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -244,11 +248,224 @@ async def run_once(
 
 
 # ---------------------------------------------------------------------------
-# CLI bootstrap. The cron daemon invokes this directly. Production wiring
-# resolves the Smokeball deadline reader from customer.yaml and the audit writer from
-# env (ADR 0008 d1_env). Until the reader adapter ships, the cron invocation
-# falls through to wake — the agent wakes, the absence becomes visible.
+# Production wiring (#1748, ADR 0021 Stream B). The Smokeball pull runs in the
+# connector's own venv via subprocess (smokeball_connector is not importable
+# from the Hermes venv this script runs in); the SUPPRESSED_WAKE heartbeat goes
+# through the broker's uid-gated `suppressed_wake_append` verb (a cron pre_run
+# is a gateway CHILD — agent uid, non-gateway PID — so the strict audit_append
+# PID gate correctly rejects it). Every unknown stays conservative: pull
+# failure, unrecognized envelope, zero parseable dates on a non-empty pull,
+# heartbeat failure — all wake.
 # ---------------------------------------------------------------------------
+
+_CONNECTOR_PYTHON_DEFAULT = "/opt/connectors/smokeball/.venv/bin/python"
+_PULL_TIMEOUT_SECONDS = 60
+_HEARTBEAT_TIMEOUT_SECONDS = 10
+
+# Runs inside the connector venv. Both pulls are attempted independently and
+# errors are REPORTED, not swallowed — a partial view must not suppress.
+_PULL_SNIPPET = """\
+import json
+import sys
+
+from smokeball_connector.client import build_client_from_env
+
+frm, to = sys.argv[1], sys.argv[2]
+client = build_client_from_env()
+out = {}
+try:
+    out["tasks"] = client.get("/tasks", IsCompleted=False, Limit=500)
+except Exception as exc:
+    out["tasksError"] = str(exc)[:300]
+try:
+    out["events"] = client.get("/events", From=frm, To=to, Limit=500)
+except Exception as exc:
+    out["eventsError"] = str(exc)[:300]
+print(json.dumps(out, default=str))
+"""
+
+_TASK_DATE_KEYS = ("dueDate", "DueDate", "due_date")
+_EVENT_DATE_KEYS = ("startTime", "StartTime", "startDate", "start", "from")
+_MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id", "id")
+
+
+def _extract_items(payload) -> list | None:
+    """Defensive envelope unwrap; None means the shape is unrecognized."""
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("items", "value", "results", "tasks", "events", "data"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+    return None
+
+
+def _parse_iso_date(value) -> date | None:
+    if not isinstance(value, str) or len(value) < 10:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+def _first_date(item: dict, keys: Sequence[str]) -> date | None:
+    for key in keys:
+        parsed = _parse_iso_date(item.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _matter_id_of(item: dict) -> str:
+    for key in _MATTER_ID_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return "unknown-matter"
+
+
+def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
+    """Pure parse of the connector pull. Returns (deadlines, problem).
+
+    A non-None problem means the view is partial or unrecognizable and the
+    caller MUST wake. Dateless items are skipped (a task without a due date
+    is not an authored deadline) — but a non-empty pull yielding ZERO
+    parseable dates is treated as an unrecognized wire shape, not an empty
+    deadline book. Every date here was read, never computed.
+    """
+    for error_key in ("tasksError", "eventsError"):
+        if raw.get(error_key):
+            return [], f"pull error: {error_key}={raw[error_key]}"
+    tasks = _extract_items(raw.get("tasks"))
+    events = _extract_items(raw.get("events"))
+    if tasks is None or events is None:
+        return [], "unrecognized pull envelope"
+    deadlines: list[MatterDeadline] = []
+    total_items = 0
+    for items, keys, label in (
+        (tasks, _TASK_DATE_KEYS, "task-deadline"),
+        (events, _EVENT_DATE_KEYS, "court-date"),
+    ):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            total_items += 1
+            authored = _first_date(item, keys)
+            if authored is None:
+                continue
+            deadlines.append(
+                MatterDeadline(
+                    matter_id=_matter_id_of(item),
+                    authored_date=authored,
+                    label=label,
+                    # No acknowledgment ledger exists yet; conservative
+                    # defaults keep every in-range deadline waking the ladder.
+                    matter_open=True,
+                    conflict_hold=False,
+                    acknowledged=False,
+                )
+            )
+    if total_items > 0 and not deadlines:
+        return [], "non-empty pull with zero parseable dates"
+    return deadlines, None
+
+
+class SmokeballSubprocessSource:
+    """DeadlineSource over a connector-venv subprocess pull."""
+
+    def __init__(self, windows: EscalationWindows, today: date) -> None:
+        self._windows = windows
+        self._today = today
+
+    def pull_deadlines(self) -> Sequence[MatterDeadline]:
+        connector_python = os.environ.get(
+            "SMD_CONNECTOR_VENV_PYTHON", _CONNECTOR_PYTHON_DEFAULT
+        )
+        frm = self._today.isoformat()
+        to = (self._today + timedelta(days=self._windows.escalation_window_days)).isoformat()
+        result = subprocess.run(  # raises on timeout → caller wakes
+            [connector_python, "-c", _PULL_SNIPPET, frm, to],
+            capture_output=True,
+            text=True,
+            timeout=_PULL_TIMEOUT_SECONDS,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"smokeball pull exit {result.returncode}: "
+                f"{(result.stderr or '').strip()[:500]}"
+            )
+        raw = json.loads((result.stdout or "").strip().splitlines()[-1])
+        deadlines, problem = parse_pull(raw)
+        if problem:
+            raise RuntimeError(problem)
+        return deadlines
+
+
+class BrokerSuppressedWakeWriter:
+    """SuppressedWakeWriter over the broker's uid-gated heartbeat verb."""
+
+    def __init__(self, socket_path: str, customer_slug: str) -> None:
+        self._socket_path = socket_path
+        self._customer_slug = customer_slug
+
+    async def write_suppressed_wake(
+        self,
+        *,
+        skill_name: str,
+        pre_run_inputs: bytes,
+        decision_basis: str,
+        next_scheduled_at: str,
+        extra_metadata: dict | None = None,
+    ) -> str:
+        request = {
+            "action": "suppressed_wake_append",
+            "row": {
+                "action_type": "SUPPRESSED_WAKE",
+                "actor": "agent",
+                "actor_role": "agent",
+                "skill_name": skill_name,
+                "input_digest": hashlib.sha256(pre_run_inputs).hexdigest(),
+                "metadata": json.dumps(
+                    {
+                        "decision_basis": decision_basis,
+                        "next_scheduled_at": next_scheduled_at,
+                        "platform": "cron-pre-run",
+                        "customer": self._customer_slug,
+                        **(extra_metadata or {}),
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ),
+            },
+        }
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(_HEARTBEAT_TIMEOUT_SECONDS)
+            sock.connect(self._socket_path)
+            sock.sendall(json.dumps(request).encode("utf-8") + b"\n")
+            raw = b""
+            while not raw.endswith(b"\n"):
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                raw += chunk
+        response = json.loads(raw.decode("utf-8"))
+        if response.get("ok") is not True:
+            raise RuntimeError(f"heartbeat rejected: {response}")
+        return str(response.get("id", ""))
+
+
+def _writer_factory():
+    socket_path = os.environ.get("SMD_AUDIT_BROKER_SOCKET") or os.environ.get(
+        "SMD_WORKSPACE_BROKER_SOCKET"
+    )
+    if not socket_path:
+        return None  # run_once treats None as "no writer wired" → wake
+    return BrokerSuppressedWakeWriter(
+        socket_path, os.environ.get("CUSTOMER_SLUG", "")
+    )
 
 
 def main() -> int:
@@ -256,11 +473,16 @@ def main() -> int:
     if not customer_slug:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
         return _emit_wake()
-    sys.stderr.write(
-        "[pre_run] deadline-miss-escalator Smokeball reader not yet wired; "
-        "falling back to wake (see ADR 0021 Stream B follow-on)\n"
-    )
-    return _emit_wake()
+    windows = EscalationWindows()
+    today = datetime.now(timezone.utc).date()
+    source = SmokeballSubprocessSource(windows, today)
+    try:
+        return asyncio.run(
+            run_once([source], windows, _writer_factory, today=today)
+        )
+    except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
+        sys.stderr.write(f"[pre_run] escalator pre_run failed ({exc}); waking\n")
+        return _emit_wake()
 
 
 if __name__ == "__main__":
