@@ -268,8 +268,8 @@
     },
     "SUPPRESSED_WAKE": {
       "side": "ss-console",
-      "producerFile": "operator/adapter/audit_log.py",
-      "note": "SuppressedWakeWriter emits SUPPRESSED_WAKE before pre_run.py prints {wakeAgent:false}; called from skills' pre_run.py."
+      "producerFile": "operator/workspace_broker/server.py",
+      "note": "Broker-stamped via the uid-gated suppressed_wake_append verb (#1748): skills' pre_run.py (shared empty-seat gate at operator/templates/pre_run_gate.py, plus deadline-miss-escalator's bespoke gate) send the row over the broker socket before printing {wakeAgent:false}. The adapter SuppressedWakeWriter (operator/adapter/audit_log.py) remains the dev/test writer."
     },
     "REPLY_SENT": {
       "side": "overlay",
