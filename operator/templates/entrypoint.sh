@@ -180,6 +180,7 @@ launch_broker() {
     SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
     SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
     SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
+    SMD_AGENT_UID="$(id -u hermes)" \
     SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
     /opt/workspace-broker/.venv/bin/python \
     -m workspace_broker.server

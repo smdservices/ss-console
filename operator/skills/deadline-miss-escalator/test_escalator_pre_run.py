@@ -246,3 +246,72 @@ def test_run_once_falls_back_to_wake_when_no_writer():
     code, out = _capture_stdout(run_once(sources, EscalationWindows(), lambda: None, today=TODAY, now=NOW))
     assert code == 0
     assert json.loads(out) == {"wakeAgent": True}
+
+
+# ---------------------------------------------------------------------------
+# parse_pull — the production Smokeball pull parser (#1748 wiring)
+# ---------------------------------------------------------------------------
+
+parse_pull = _pre_run.parse_pull
+
+
+def test_parse_pull_clean_tasks_and_events() -> None:
+    raw = {
+        "tasks": {"items": [{"matterId": "m-1", "dueDate": "2026-07-20T00:00:00Z"}]},
+        "events": {"items": [{"matterId": "m-2", "startTime": "2026-07-09T09:00:00"}]},
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert {(d.matter_id, d.label, d.authored_date.isoformat()) for d in deadlines} == {
+        ("m-1", "task-deadline", "2026-07-20"),
+        ("m-2", "court-date", "2026-07-09"),
+    }
+
+
+def test_parse_pull_bare_list_envelope() -> None:
+    raw = {"tasks": [{"matterId": "m-1", "dueDate": "2026-07-20"}], "events": []}
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert len(deadlines) == 1
+
+
+def test_parse_pull_error_key_is_a_problem() -> None:
+    raw = {"tasks": {"items": []}, "events": {"items": []}, "eventsError": "boom"}
+    deadlines, problem = parse_pull(raw)
+    assert deadlines == [] and problem is not None
+
+
+def test_parse_pull_unrecognized_envelope_is_a_problem() -> None:
+    deadlines, problem = parse_pull({"tasks": {"weird": 1}, "events": {"items": []}})
+    assert deadlines == [] and problem is not None
+
+
+def test_parse_pull_nonempty_pull_with_zero_dates_is_a_problem() -> None:
+    """A wire shape whose date keys we don't recognize must WAKE, not read as
+    an empty deadline book."""
+    raw = {
+        "tasks": {"items": [{"matterId": "m-1", "deadline_when": "2026-07-20"}]},
+        "events": {"items": []},
+    }
+    deadlines, problem = parse_pull(raw)
+    assert deadlines == [] and problem is not None
+
+
+def test_parse_pull_dateless_items_skipped_when_others_parse() -> None:
+    raw = {
+        "tasks": {
+            "items": [
+                {"matterId": "m-1", "dueDate": "2026-07-20"},
+                {"matterId": "m-2"},  # dateless task: not an authored deadline
+            ]
+        },
+        "events": {"items": []},
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert [d.matter_id for d in deadlines] == ["m-1"]
+
+
+def test_parse_pull_empty_pull_is_a_clean_empty_book() -> None:
+    deadlines, problem = parse_pull({"tasks": {"items": []}, "events": {"items": []}})
+    assert deadlines == [] and problem is None

@@ -10,6 +10,7 @@ import {
   AUDIT_LOG_DAYS_MAX,
   VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
   type BusinessHours,
+  type Digest,
   type Escalation,
   type LogLevel,
   type LogShip,
@@ -385,6 +386,35 @@ function validateBusinessHoursFields(
     start: start as string,
     end: end as string,
   }
+}
+
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function checkDigest(
+  root: Record<string, unknown>,
+  errors: ValidationError[]
+): Digest | null {
+  const raw = root['digest']
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'digest',
+      message: 'digest must be an object when present',
+    })
+    return null
+  }
+  const home = raw['home_matter_id']
+  if (typeof home !== 'string' || !GUID_RE.test(home)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'digest.home_matter_id',
+      message:
+        'home_matter_id must be a Smokeball matter GUID (the designated internal operations matter)',
+    })
+    return null
+  }
+  return { home_matter_id: home }
 }
 
 export function checkLogging(
