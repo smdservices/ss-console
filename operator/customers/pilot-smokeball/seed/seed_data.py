@@ -517,6 +517,27 @@ def build_documents() -> dict[str, tuple[str, str, list[str]]]:
         rfp_h + _pos("REQUESTS FOR PRODUCTION, SET ONE", "June 26, 2026", "BY ELECTRONIC SERVICE: I transmitted the document to the electronic service addresses of record."),
     )
 
+    # Motions lane (added for L2 round 2): an MSJ with statutory response dates
+    msj = _caption(court_b, p_b, "HALVERSON PROPERTY GROUP LLC", no_b, "NOTICE OF MOTION AND MOTION FOR SUMMARY JUDGMENT, OR IN THE ALTERNATIVE, SUMMARY ADJUDICATION")
+    msj += [
+        "TO ALL PARTIES AND THEIR ATTORNEYS OF RECORD:",
+        "PLEASE TAKE NOTICE that on September 15, 2026, at 8:30 a.m., or as",
+        "soon thereafter as the matter may be heard, in Department 47 of the",
+        "above-entitled Court, Defendant HALVERSON PROPERTY GROUP LLC will and",
+        "hereby does move for summary judgment in its favor and against",
+        "Plaintiff THOMAS BELL, or in the alternative for summary adjudication",
+        "of issues, on the ground that there is no triable issue of material",
+        "fact as to Defendant's control of the work site.",
+        "This motion is based on this Notice, the Memorandum of Points and",
+        "Authorities, the Separate Statement of Undisputed Material Facts, the",
+        "Declaration of R. Halverson, and the records and files herein.",
+    ]
+    docs["msj-halverson"] = (
+        "multidef-bell",
+        "2026-07-01 Notice of Motion and MSJ - Halverson - Bell.pdf",
+        msj + _pos("NOTICE OF MOTION AND MOTION FOR SUMMARY JUDGMENT", "July 1, 2026", "BY ELECTRONIC SERVICE: I transmitted the document to the electronic service addresses of record."),
+    )
+
     # Lookalike stressor: caption easily confused with 2026-PI-101
     court_l, p_l, d_l, no_l = _LOOKALIKE
     rfp_l = _caption(court_l, p_l, d_l, no_l, "REQUESTS FOR PRODUCTION OF DOCUMENTS, SET ONE")
