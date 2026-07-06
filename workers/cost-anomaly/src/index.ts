@@ -55,7 +55,7 @@ export interface Env {
    * `smd-operator` Sentry project; staged on this Worker via
    * `wrangler secret put` after PR 5 lands.
    */
-  SENTRY_API_TOKEN?: string
+  SENTRY_AUTH_TOKEN?: string
   SENTRY_ORG_SLUG?: string
   SENTRY_PROJECT_ID?: string
 }
@@ -269,10 +269,10 @@ async function runSentrySync(
   env: Env,
   customers: CustomerRow[]
 ): Promise<RunSummary['sentrySync']> {
-  if (!env.SENTRY_API_TOKEN || !env.SENTRY_ORG_SLUG || !env.SENTRY_PROJECT_ID) {
+  if (!env.SENTRY_AUTH_TOKEN || !env.SENTRY_ORG_SLUG || !env.SENTRY_PROJECT_ID) {
     return {
       ran: false,
-      reason: 'SENTRY_API_TOKEN / SENTRY_ORG_SLUG / SENTRY_PROJECT_ID not configured',
+      reason: 'SENTRY_AUTH_TOKEN / SENTRY_ORG_SLUG / SENTRY_PROJECT_ID not configured',
       results: [],
     }
   }
