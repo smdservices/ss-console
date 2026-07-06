@@ -1,6 +1,6 @@
 {
   "overlayRepo": "https://github.com/venturecrane/hermes-smd-overlay.git",
-  "overlayRef": "c85b0ddb2c9c9158056865f53314348951dd2a5e",
+  "overlayRef": "50a6545e76afd947a7bbff9bcc17a30cf10f61ac",
   "overlayRefNote": "MUST equal the ARG OVERLAY_REF pinned in operator/templates/Dockerfile \u2014 that is the overlay commit a customer Machine actually ships. The vitest gate asserts the two agree so the manifest cannot pin a stale overlay. Bump both together when OVERLAY_REF moves, then re-record each overlaySha256 from the runtime file at the new ref. 2026-07-05: 7e70b376 -> c85b0ddb (overlay#133 cost-breaker boot self-probe). Fast-forward, 3 files (hooks/smd-overlay-activation/handler.py, shared/cost_breaker.py, tests/test_activation_hook.py) \u2014 NO tracked twin touched, so every overlaySha256 below is unchanged; only overlayRef moved.",
   "pairs": [
     {

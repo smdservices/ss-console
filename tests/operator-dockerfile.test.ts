@@ -260,7 +260,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // the recurring negative-fire check that earns sticky_stop_cost_cap its
     // `enforced` status. Range 7e70b376..c85b0ddb is a fast-forward touching
     // only handler.py + shared/cost_breaker.py + tests; no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c85b0ddb2c9c9158056865f53314348951dd2a5e"')
+    // 50a6545e (#136, L2 DISC-1): mcp_smokeball_read_document mapped READ and
+    // FENCED as a tainting content-read — the connector's new server-side
+    // document fetch+extraction returns externally-authored text (served
+    // discovery, opposing responses), so reading a matter document taints the
+    // session like an inbound email. Range c85b0ddb..50a6545e touches only
+    // shared/action_classes.py + the inbound fence + tests; no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="50a6545e76afd947a7bbff9bcc17a30cf10f61ac"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

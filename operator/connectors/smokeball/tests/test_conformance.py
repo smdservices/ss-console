@@ -44,6 +44,7 @@ EXPECTED_TOOLS = {
     "get_files_on_matter",
     "get_file",
     "get_download_url",
+    "read_document",
     "list_folders",
     "create_folder",
     "add_file",
