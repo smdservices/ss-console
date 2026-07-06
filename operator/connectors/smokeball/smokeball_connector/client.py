@@ -92,6 +92,9 @@ class SmokeballWriteError(RuntimeError):
 
 
 _MAX_ERROR_BODY = 600
+# read_document ceiling: a matter PDF/DOCX is KBs to low MBs; anything past this
+# is a scan bundle or media file that text extraction shouldn't slurp into RAM.
+_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
 
 
 def _truncate_body(text: str | None) -> str:
@@ -379,6 +382,45 @@ class SmokeballClient:
             "fileName": file_name,
             "uploaded": True,
         }
+
+    # ---- document reads -----------------------------------------------------
+    def download_file(self, matter_id: str, file_id: str) -> tuple[dict[str, Any], bytes]:
+        """Fetch a matter document's bytes via the documented download flow:
+        ``GET /matters/{id}/documents/files/{fileId}/download`` returns
+        ``{downloadUrl, expiry, fileExtension, fileId, name, sizeBytes}`` (contract
+        observed live 2026-07-05); the presigned ``downloadUrl`` is then fetched with
+        NO auth headers (same S3-presign rule as the upload leg). Returns
+        ``(download_info, blob)``. Size-guarded: refuses anything over
+        ``_MAX_DOWNLOAD_BYTES`` up front (from the advertised sizeBytes) and again on
+        the actual body, so a mislabeled giant can't flood the process."""
+        info = self.request(
+            "GET", f"/matters/{matter_id}/documents/files/{file_id}/download"
+        )
+        if not isinstance(info, dict) or not info.get("downloadUrl"):
+            raise SmokeballWriteError(
+                f"download: no downloadUrl for file {file_id!r} on matter {matter_id!r}"
+            )
+        advertised = info.get("sizeBytes")
+        if isinstance(advertised, int) and advertised > _MAX_DOWNLOAD_BYTES:
+            raise SmokeballWriteError(
+                f"download: file {file_id!r} is {advertised} bytes, "
+                f"over the {_MAX_DOWNLOAD_BYTES}-byte read limit"
+            )
+        try:
+            resp = self._http.get(info["downloadUrl"])
+        except httpx.HTTPError as exc:
+            raise SmokeballWriteError(f"presigned download GET failed: {exc}") from exc
+        if resp.status_code >= 400:
+            raise SmokeballWriteError(
+                f"presigned download GET rejected with HTTP {resp.status_code}"
+            )
+        blob = resp.content
+        if len(blob) > _MAX_DOWNLOAD_BYTES:
+            raise SmokeballWriteError(
+                f"download: file {file_id!r} body is {len(blob)} bytes, "
+                f"over the {_MAX_DOWNLOAD_BYTES}-byte read limit"
+            )
+        return info, blob
 
     def _put_presigned(self, url: str, data: bytes) -> None:
         """PUT raw bytes to a presigned S3 upload URL. The URL is pre-authenticated
