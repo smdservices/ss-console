@@ -171,6 +171,17 @@ const ACTION_TO_CATEGORY: ReadonlyMap<string, string> = new Map(
   CLIENT_ACTIVITY_CATEGORIES.flatMap((c) => c.actions.map((a) => [a, c.key] as const))
 )
 
+/** Client-language summary for one entry, or null when unmapped. */
+export function clientSummaryFor(entry: AuditEntry): string | null {
+  const build = CLIENT_LANGUAGE[entry.action]
+  return build ? build(entry) : null
+}
+
+/** True when the entry has authored client language. */
+export function isClientVisibleAction(action: string): boolean {
+  return action in CLIENT_LANGUAGE
+}
+
 /** Map raw entries to client lines; unmapped entries are DROPPED. */
 export function toClientActivity(entries: readonly AuditEntry[]): ClientActivityLine[] {
   const lines: ClientActivityLine[] = []
