@@ -110,7 +110,7 @@ if (!subscription) {
 // exactly — each card is still conditionally included; only the presentation
 // changed, from a §-numbered card grid to a quiet grouped nav (ADR 0069
 // landing restructure).
-type SectionGroup = 'setup' | 'direct' | 'review' | 'administer'
+type SectionGroup = 'direct' | 'review' | 'administer'
 interface SectionCard {
   href: string
   label: string
@@ -122,13 +122,10 @@ const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : nul
 const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
-  sectionCards.push({
-    href: '/portal/products/operator/onboarding',
-    label: 'Get started',
-    description:
-      'The three steps to a working operator: invite your team, connect systems, calibrate.',
-    group: 'setup',
-  })
+  // "Get started" (onboarding) intentionally removed from the landing: it
+  // duplicated nav items already present (Connections, Team) and is noise for a
+  // running operator (ADR 0069 sub-page coherence pass). The onboarding page
+  // still exists by URL; it is simply not featured.
   const ACTIVE_DOER_ROLES = ['staff', 'principal']
   const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
   if (canAct) {
@@ -184,7 +181,6 @@ if (access) {
     })
   }
 }
-const setupCards = sectionCards.filter((s) => s.group === 'setup')
 const SECTION_GROUPS: { key: SectionGroup; label: string }[] = [
   { key: 'direct', label: 'Direct' },
   { key: 'review', label: 'Review' },
@@ -435,28 +431,6 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
           <PromotionCardList candidates={promotionCandidates} />
 
           <section aria-label="Manage your operator" class="flex flex-col gap-8">
-            {setupCards.length > 0 && (
-              <a
-                href={setupCards[0].href}
-                class="group flex items-center justify-between gap-6 border-[3px] border-[color:var(--ss-color-primary)] px-5 py-4 transition-colors hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-              >
-                <div class="min-w-0">
-                  <p class="font-body text-base font-bold text-[color:var(--ss-color-text-primary)]">
-                    {setupCards[0].label}
-                  </p>
-                  <p class="mt-0.5 text-sm text-[color:var(--ss-color-text-secondary)]">
-                    {setupCards[0].description}
-                  </p>
-                </div>
-                <span
-                  aria-hidden="true"
-                  class="font-body font-black text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-1"
-                >
-                  →
-                </span>
-              </a>
-            )}
-
             {SECTION_GROUPS.map((grp) => {
               const items = sectionCards.filter((s) => s.group === grp.key)
               if (items.length === 0) return null

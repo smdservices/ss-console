@@ -33,19 +33,15 @@ interface Props {
   class?: string
 }
 
-const {
-  crumbHref = null,
-  crumbLabel = null,
-  tag = null,
-  h1,
-  meta = null,
-  class: klass = '',
-} = Astro.props
+// `tag` is intentionally no longer destructured/rendered: the "SECTION" /
+// "PRODUCT" stamp was marketing-register noise on a console. Kept in Props for
+// caller compatibility (ADR 0069 register pass).
+const { crumbHref = null, crumbLabel = null, h1, meta = null, class: klass = '' } = Astro.props
 
 const showCrumb = !!(crumbHref && crumbLabel)
 ---
 
-<header class={`border-b-[3px] border-[color:var(--ss-color-text-primary)] py-6 md:py-10 ${klass}`}>
+<header class={`border-b-[3px] border-[color:var(--ss-color-text-primary)] py-5 md:py-7 ${klass}`}>
   {
     showCrumb && (
       <a
@@ -67,15 +63,8 @@ const showCrumb = !!(crumbHref && crumbLabel)
     ]}
   >
     <div class="min-w-0 flex-1">
-      {
-        tag && (
-          <span class="inline-block mb-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-3 py-1 font-mono text-label uppercase tracking-[0.18em] font-bold whitespace-nowrap">
-            {tag}
-          </span>
-        )
-      }
       <h1
-        class="font-body text-hero-mobile md:text-hero uppercase text-[color:var(--ss-color-text-primary)] m-0"
+        class="m-0 font-body text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)] md:text-3xl"
       >
         {h1}
       </h1>
