@@ -300,7 +300,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // trust plugin now notes the real id (new pre_llm_call hook +
     // post_tool_call) and resolves at a single pre-hook choke point. Unblocks
     // the #140 caption exemption + A1 identifier gate. No tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3294e9095405b876967b52863765b1a020573170"')
+    // 95fc269f (#144): exclusion matching checks ANY candidate key — the live
+    // Smokeball envelope carries a foreign top-level id that defeated first-
+    // present-wins precedence (proven by signed probes against the running
+    // gate); fail-open config reads now log. Range 3294e909..95fc269f touches
+    // shared/gate_trigger_exclusions.py + tests; no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="95fc269fa4327e0f22c8ec507f76930c1a8a3785"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
