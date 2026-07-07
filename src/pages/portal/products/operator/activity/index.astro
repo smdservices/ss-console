@@ -9,6 +9,10 @@ import {
   parseAuditListParams,
 } from '../../../../../lib/portal/operator/audit'
 import { loadActivityPage } from '../../../../../lib/portal/operator/activity-read'
+import {
+  CLIENT_ACTIVITY_CATEGORIES,
+  mappedActionsForCategories,
+} from '../../../../../lib/portal/operator/activity-language'
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import {
   resolveComplianceView,
@@ -67,14 +71,23 @@ const config = await getCustomerConfig(env.DB, client.id)
 const customerSlug = config?.customer_slug ?? client.id
 
 const params = parseAuditListParams(Astro.url.searchParams)
+// Client-facing category filter (`cat`): expands to the underlying mapped
+// raw actions page-side, so the URL contract for `action=` bookmarks stays
+// intact while the control speaks client language only.
+const selectedCategories = Astro.url.searchParams
+  .getAll('cat')
+  .filter((k) => CLIENT_ACTIVITY_CATEGORIES.some((c) => c.key === k))
 // Default "last 7 days" window when no explicit range was requested, mirroring
 // the legacy viewer — keeps the surface responsive over long histories.
 const resolvedParams = (() => {
-  if (params.from === null && params.to === null) {
-    const range = defaultAuditDateRange()
-    return { ...params, from: range.from, to: range.to }
+  const withRange =
+    params.from === null && params.to === null
+      ? { ...params, from: defaultAuditDateRange().from, to: defaultAuditDateRange().to }
+      : params
+  if (selectedCategories.length > 0 && withRange.actions.length === 0) {
+    return { ...withRange, actions: mappedActionsForCategories(selectedCategories) }
   }
-  return params
+  return withRange
 })()
 
 const activityPage = await loadActivityPage(
@@ -140,7 +153,7 @@ const complianceView =
       <div class="mt-8 flex flex-col gap-6">
         <AuditFilterBar
           skills={resolvedParams.skills}
-          actions={resolvedParams.actions}
+          categories={selectedCategories}
           from={resolvedParams.from}
           to={resolvedParams.to}
           q={resolvedParams.q}
