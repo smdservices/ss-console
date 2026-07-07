@@ -1,7 +1,8 @@
 # Litigation Lifecycle: Rehearsal Results
 
-_Prepared for Christa Barrera and Chris Price, Ashton & Price. Status: DRAFT
-for Captain review; not sent. This extends the earlier "Safety & Readiness"
+_Prepared for Christa Barrera and Chris Price, Ashton & Price. Status: SENT
+to Christa 2026-07-06 ("Rehearsal Results: Running Your Litigation
+Lifecycle"). This extends the earlier "Safety & Readiness"
 report, which was careful to say the system had been adversarially reviewed
 but never executed. That has changed: everything below is the system actually
 running._
