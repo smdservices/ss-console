@@ -182,6 +182,31 @@ class Broker:
                 )
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id}
+        # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
+        # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the
+        # agent uid on a NON-gateway PID — the same shape as the cron pre_run
+        # children above — so the generic gateway-PID-gated audit_append refuses
+        # it. This sibling verb gates on the agent uid and locks action_type to
+        # WEBHOOK_SUPPRESSED, so it cannot forge any other row. Deliberately a
+        # separate verb (not a widened suppressed_wake_append) so each verb pins
+        # exactly one action_type and stays auditable in isolation.
+        if action == "webhook_suppressed_append":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "webhook_suppressed_append requires a caller running as the agent uid"
+                )
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("webhook_suppressed_append requires a 'row' object")
+            if row.get("action_type") != "WEBHOOK_SUPPRESSED":
+                raise ValueError(
+                    "webhook_suppressed_append only accepts action_type=WEBHOOK_SUPPRESSED"
+                )
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id}
         if action == "health":
             return {
                 "ok": True,
