@@ -177,6 +177,79 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
       </div>
     </section>
 
+    <!-- Permission bands: what it does on its own, what waits for you, what it never does.
+         Grounded in the trust-ceiling enforcement (operator/adapter/trust_ceiling.py) and the
+         authored Hosted Agent entitlements (external_send: draft_for_review). This copy is
+         deliberately NOT framed as staging/prod/go-live or a "tap to approve spend" flow: the
+         Hosted Agent has no deployment surface and no purchasing tool, so those bands would be
+         fabrication for this SKU. Every claim below maps to an enforced, boot-probed control. -->
+    <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+        >
+          What it does on its own. And where it stops.
+        </h2>
+        <p class="mt-4 max-w-3xl text-lg text-[color:var(--ss-color-text-secondary)]">
+          Every agent runs inside three lines. The boundary is enforced in code and re-checked every
+          time the agent starts, so it holds while you are not watching.
+        </p>
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p
+              class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+            >
+              On its own
+            </p>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">The work, done for you</h3>
+            <ul
+              class="mt-4 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-secondary)]"
+            >
+              <li>Reads your email, calendar, and files</li>
+              <li>Researches, and keeps digging on a schedule</li>
+              <li>Writes drafts, notes, and working documents</li>
+              <li>Sends your digests, briefs, and reports to you</li>
+            </ul>
+          </div>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p
+              class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+            >
+              Waits for you
+            </p>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Comes to you first</h3>
+            <ul
+              class="mt-4 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-secondary)]"
+            >
+              <li>Anything bound for someone other than you arrives as a draft</li>
+              <li>You read it, edit it, and send it from your own inbox</li>
+              <li>Nothing is sent, posted, or shared with a third party on its own</li>
+            </ul>
+          </div>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p
+              class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+            >
+              Never on its own
+            </p>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">The hard floor</h3>
+            <ul
+              class="mt-4 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-secondary)]"
+            >
+              <li>It will not agree to or sign anything for you</li>
+              <li>It will not delete anything it cannot take back</li>
+              <li>It will not run unauthorized code or commands</li>
+              <li>It will not move money</li>
+            </ul>
+          </div>
+        </div>
+        <p class="mt-8 max-w-3xl text-base text-[color:var(--ss-color-text-secondary)]">
+          The middle line is the one that keeps an always-on agent safe: it can do the reading and
+          the drafting all day, but the decision to send stays yours.
+        </p>
+      </div>
+    </section>
+
     <!-- Safety -->
     <section
       class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)]"
@@ -202,9 +275,8 @@ const checkoutStatus = Astro.url.searchParams.get('checkout')
             is refused. The agent can never widen its own authority.
           </li>
           <li class="border-[3px] border-white/40 p-5">
-            <strong class="uppercase">Boot-checked safety invariants.</strong> Code-enforced rules, verified
-            every start: no destructive action and no outbound send to a third party without approval,
-            no fabricated citations, stop means stop.
+            <strong class="uppercase">Boot-checked safety invariants.</strong> The permission bands above
+            are enforced in code and re-verified every start. No fabricated citations. Stop means stop.
           </li>
           <li class="border-[3px] border-white/40 p-5">
             <strong class="uppercase">Reviewed skills only.</strong> Your agent's capabilities come from
