@@ -26,6 +26,10 @@ interface Props {
 
 const { clientName } = Astro.props
 
+// Suppress the client label when the entity name IS the firm name (the
+// founder's own seats): "SMD SERVICES · SMD Services" reads as a render bug.
+const showClientName = clientName.trim().toLowerCase() !== 'smd services'
+
 const phoneDigits = FIRM_CONTACT.phone.replace(/[^+\d]/g, '')
 const smsHref = `sms:${phoneDigits}`
 const telHref = `tel:${phoneDigits}`
@@ -42,11 +46,13 @@ const iconClasses =
   <div class="max-w-5xl mx-auto h-full px-4 md:px-6 flex items-center justify-between gap-stack">
     <div class="flex items-baseline gap-3 md:gap-4 min-w-0">
       <SmdLogo href="/portal" />
-      <p
-        class="hidden sm:block font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] truncate"
-      >
-        {clientName}
-      </p>
+      {
+        showClientName && (
+          <p class="hidden sm:block font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] truncate">
+            {clientName}
+          </p>
+        )
+      }
     </div>
     <div class="flex items-center gap-1">
       <a href={mailtoHref} aria-label="Email us" class={iconClasses}>
