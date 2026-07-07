@@ -10,6 +10,7 @@ import {
 } from '../../../../lib/db/hosted-agent-intake'
 import { HOSTED_AGENT_PRODUCT_SLUG } from '../../../../lib/portal/hosted-agent-access'
 import PortalHeader from '../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
@@ -53,6 +54,8 @@ let surfaceState: SurfaceState
 let intake: HostedAgentIntakeRow | null = null
 
 const subscription = await getProductSubscription(env.DB, client.id, HOSTED_AGENT_PRODUCT_SLUG)
+const operatorSubscription = await getProductSubscription(env.DB, client.id, 'operator')
+const operatorActive = operatorSubscription !== null
 if (!subscription) {
   surfaceState = 'no_subscription'
 } else {
@@ -213,6 +216,11 @@ const stMessage =
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
     <PortalHeader clientName={client.name} />
+    <PortalTabs
+      pathname={Astro.url.pathname}
+      operatorActive={operatorActive}
+      hostedAgentActive={subscription !== null}
+    />
 
     <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
       <PortalPageHead
