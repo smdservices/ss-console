@@ -385,6 +385,16 @@ RUN uv venv /opt/workspace-broker/.venv \
 # ~/.clio-mcp/tokens.enc (seeded by bootstrap.sh) under ENCRYPTION_KEY.
 RUN npm install -g @oktopeak/clio-mcp@2.0.0
 
+# ---------- Brave Search MCP server (shared web-search connector, ADR 0070) ----------
+# @brave/brave-search-mcp-server (official, MIT) is a LOCAL stdio MCP server. The
+# overlay materializes customer.yaml `mcp:brave` into the profile mcp_servers block
+# as a `brave-search-mcp-server` command server (surface narrowed to
+# brave_web_search); install it globally so the binary is on PATH for the gateway
+# to launch. Pinned to 2.0.85. It reads the shared, SMD-absorbed BRAVE_API_KEY from
+# the env block translate.py writes onto the volume. Inert until a customer.yaml
+# binds a WebSearch connector (ON by default for the Hosted Agent).
+RUN npm install -g @brave/brave-search-mcp-server@2.0.85
+
 # Register the plugin pack with Hermes' loader. `hermes plugins install` clones
 # the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
 # hermes_cli/plugins_cmd.py `_install_plugin_core` does `git clone --depth 1`
