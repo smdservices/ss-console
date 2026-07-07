@@ -543,6 +543,21 @@ export interface WebhookTrigger {
   event_type: string
   skill: string
   persona: string
+  /**
+   * Authored trigger exceptions (overlay gate enforcement): a verified
+   * delivery whose matter (payload id/matterId) or actor (payload userId)
+   * is listed here is acknowledged 202, audited (WEBHOOK_SUPPRESSED), and
+   * never forwarded — zero agent turns. Extensible: new exception axes are
+   * added as new keys here. Unauthored = no exceptions (ADR 0035).
+   */
+  exclude: WebhookTriggerExclude | null
+}
+
+export interface WebhookTriggerExclude {
+  /** Matter GUIDs this trigger never fires for (e.g. the internal ops/digest-home matter). */
+  matters: string[]
+  /** Vendor user GUIDs whose own changes are exempt (e.g. the supervising principal). */
+  actors: string[]
 }
 
 export interface Scope {

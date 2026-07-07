@@ -305,18 +305,19 @@ unlocks. When presenting to the firm, this table — not the milestone ladder �
 is the artifact to speak from (in its client-facing shape,
 `CLIENT-IMPLEMENTATION-PLAN.md`).
 
-| #   | Input                                                | Owner            | Unlocks                             |
-| --- | ---------------------------------------------------- | ---------------- | ----------------------------------- |
-| 1   | Working session scheduled                            | Christa          | M2 → the whole firm-facing sequence |
-| 2   | Connect authorization (at the session, portal OAuth) | Christa or Chris | M3 → everything on their account    |
-| 3   | Entitlement sign-off                                 | Chris + Christa  | M5+ promotions                      |
-| 4   | Markup + 7 proposal questions                        | Christa          | Lane final shapes                   |
-| 5   | Deadline-fork answer                                 | Christa          | Deadline-lane shape                 |
-| 6   | CoCounsel division (post-TR meeting)                 | Christa          | Motion/response lane                |
-| 7   | Voice samples (letters/templates)                    | Christa          | Firm-voice drafting                 |
-| 8   | Inbox decision + M365 admin consent                  | Christa + IT     | M6                                  |
-| 9   | Starting matter set                                  | Christa          | M4 shadow scope                     |
-| 10  | Lifecycle sign-off (per-lane acceptance)             | Chris + Christa  | Gate (a) → M5+                      |
+| #   | Input                                                                                                                           | Owner            | Unlocks                                                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------- |
+| 1   | Working session scheduled                                                                                                       | Christa          | M2 → the whole firm-facing sequence                                                   |
+| 2   | Connect authorization (at the session, portal OAuth)                                                                            | Christa or Chris | M3 → everything on their account                                                      |
+| 3   | Entitlement sign-off                                                                                                            | Chris + Christa  | M5+ promotions                                                                        |
+| 4   | Markup + 7 proposal questions                                                                                                   | Christa          | Lane final shapes                                                                     |
+| 5   | Deadline-fork answer                                                                                                            | Christa          | Deadline-lane shape                                                                   |
+| 6   | CoCounsel division (post-TR meeting)                                                                                            | Christa          | Motion/response lane                                                                  |
+| 7   | Voice samples (letters/templates)                                                                                               | Christa          | Firm-voice drafting                                                                   |
+| 8   | Inbox decision + M365 admin consent                                                                                             | Christa + IT     | M6                                                                                    |
+| 9   | Starting matter set                                                                                                             | Christa          | M4 shadow scope                                                                       |
+| 10  | Lifecycle sign-off (per-lane acceptance)                                                                                        | Chris + Christa  | Gate (a) → M5+                                                                        |
+| 11  | Trigger exceptions (Chris's Smokeball userId so his own matter edits never trigger the supervision memo; any matters to exempt) | Chris            | Authored `webhook_triggers[].exclude` at connect (gate-enforced, audited suppression) |
 
 ## 6. Dependency register
 
