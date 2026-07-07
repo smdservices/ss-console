@@ -30,7 +30,7 @@ vertical: mixed
 addons: []
 practice_areas:
   - general
-fly_region: phx
+fly_region: lax # nearest to Phoenix; Fly has no phx region — pick per customer geography
 
 # ---- RUNTIME ----
 # Cheap main model on the customer's own key; no escalation tier at this

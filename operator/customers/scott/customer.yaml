@@ -20,7 +20,7 @@ vertical: mixed
 addons: []
 practice_areas:
   - general
-fly_region: phx
+fly_region: lax # Phoenix-adjacent; Fly retired phx (fleet standard, same as customer-zero)
 
 # ---- RUNTIME ----
 # Cheap main model on the customer's own key; no escalation tier at this
