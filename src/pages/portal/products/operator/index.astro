@@ -6,9 +6,9 @@ import {
   listProductRoles,
   type ProductAccess,
 } from '../../../../lib/portal/product-access'
-import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
 import PromotionCardList from '../../../../components/portal/operator/PromotionCardList.astro'
-import AlivenessHeader from '../../../../components/portal/operator/AlivenessHeader.astro'
+import OperatorHero from '../../../../components/portal/operator/facets/OperatorHero.astro'
+import { resolveOperatorHero } from '../../../../lib/portal/operator/facets/identity/hero'
 import {
   listPromotionReadySkills,
   type PromotionCandidate,
@@ -104,56 +104,63 @@ if (!subscription) {
 // users so they have a path to confirm the firm's posture; the
 // destination renders an explicit "not enabled for this firm" empty
 // state per docs/style/empty-state-pattern.md.
+// Management surfaces, grouped by the three console jobs (ADR 0052): Direct
+// (shape the employment), Review (what it did), Administer (the relationship).
+// "Get started" is the transitional setup lead. Role gates are preserved
+// exactly — each card is still conditionally included; only the presentation
+// changed, from a §-numbered card grid to a quiet grouped nav (ADR 0069
+// landing restructure).
+type SectionGroup = 'direct' | 'review' | 'administer'
 interface SectionCard {
   href: string
   label: string
   description: string
+  group: SectionGroup
 }
 const sectionCards: SectionCard[] = []
 const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : null
 const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
-  sectionCards.push({
-    href: '/portal/products/operator/onboarding',
-    label: 'Get started',
-    description:
-      'The three steps to a working operator: invite your team, connect systems, calibrate.',
-  })
-  const ACTIVE_DOER_ROLES = ['staff', 'principal']
-  const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
-  if (canAct) {
-    sectionCards.push({
-      href: '/portal/products/operator/calendar',
-      label: 'Calendar',
-      description: 'Appointments and deadlines your Operator has scheduled or proposed.',
-    })
-  }
+  // "Get started" (onboarding) intentionally removed from the landing: it
+  // duplicated nav items already present (Connections, Team) and is noise for a
+  // running operator (ADR 0069 sub-page coherence pass). The onboarding page
+  // still exists by URL; it is simply not featured.
+  // "Calendar" removed from the landing: it was a dead stub (a filter over no
+  // data) that conflated a calendar of appointments with scheduling the
+  // operator's recurring jobs. The real need is a Schedule view of authored
+  // crons, built separately. The page still exists by URL (ADR 0069 sub-page
+  // coherence pass).
   sectionCards.push({
     href: '/portal/products/operator/activity',
     label: 'Activity',
     description:
       'A full record of every action your Operator takes: drafts created, sends approved, identity changes.',
+    group: 'review',
   })
   sectionCards.push({
     href: '/portal/products/operator/connections',
     label: 'Connections',
     description: 'The systems your Operator connects to, and how their credentials are held.',
+    group: 'direct',
   })
   sectionCards.push({
     href: '/portal/products/operator/configure',
     label: 'Configure',
     description: "Your Operator's skills, governance, voice, scope, and hours.",
+    group: 'direct',
   })
   sectionCards.push({
     href: '/portal/products/operator/team',
     label: 'Team',
     description: 'The people on your account, their roles, and who is covering for whom.',
+    group: 'administer',
   })
   sectionCards.push({
     href: '/portal/products/operator/account',
     label: 'Account',
     description: 'Your subscription, escalation contacts, and notification preferences.',
+    group: 'administer',
   })
   const isCompliance = userRoles.includes('compliance')
   const isPrincipal = userRoles.includes('principal')
@@ -165,9 +172,15 @@ if (access) {
       label: 'Compliance',
       description:
         'Separation-of-duties view: audit history, retention posture, and evidence packet entry.',
+      group: 'review',
     })
   }
 }
+const SECTION_GROUPS: { key: SectionGroup; label: string }[] = [
+  { key: 'direct', label: 'Direct' },
+  { key: 'review', label: 'Review' },
+  { key: 'administer', label: 'Administer' },
+]
 
 // Aliveness signal (per #875, wired in #1678). Per-customer "where is the
 // agent right now" header: idle / running / sticky_stop / offline +
@@ -180,6 +193,11 @@ let alivenessSignal: AlivenessSignal | null = null
 if (access) {
   alivenessSignal = await resolveAlivenessSignal(env.DB, access.subscription)
 }
+
+// "Meet your operator" hero (ADR 0069 Slice 2): identity (active persona) +
+// status (aliveness), composed by the shared resolver. Both facets are Tier-1
+// real from the config projection / fleet_status; nothing fabricated.
+const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 
 // Promotion recommendation cards (per #811). Principal-only because the
 // trust-ceiling promotion is the firm's decision per §11.3 — operator
@@ -236,7 +254,20 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  <PortalPageHead crumbHref="/portal" crumbLabel="Home" tag="Product" h1="Operator" meta={null} />
+  {
+    /* A console lead, not a marketing masthead: the nav tab and the hero below
+      already say "Operator", so we drop the oversized wordmark and keep only a
+      quiet breadcrumb (ADR 0069 landing restructure). */
+  }
+  <a
+    href="/portal"
+    class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 md:text-sm"
+  >
+    <span aria-hidden="true" class="font-body font-black text-[color:var(--ss-color-primary)]"
+      >←</span
+    >
+    Home
+  </a>
 
   {
     crMessage && (
@@ -311,9 +342,7 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   {
     surfaceState === 'active' && (
       <>
-        <div class="mt-8">
-          <AlivenessHeader signal={alivenessSignal} />
-        </div>
+        <OperatorHero model={heroModel} />
 
         {/* Home / Today (client-portal §5.1): what needs you, what it did,
                 escalations. Runtime-fed (#1678); fails closed to honest empty
@@ -393,77 +422,47 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
           </section>
         )}
 
-        <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
-          <div class="flex flex-col gap-8 min-w-0">
-            <PromotionCardList candidates={promotionCandidates} />
-            <section>
-              <p class="mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                Sections
-              </p>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-[color:var(--ss-color-text-primary)] border-[3px] border-[color:var(--ss-color-text-primary)]">
-                {sectionCards.map((s, i) => {
-                  const anchor = String(i + 1).padStart(2, '0')
-                  return (
-                    <a
-                      href={s.href}
-                      class="block bg-[color:var(--ss-color-background)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                    >
-                      <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
-                        § {anchor}
-                      </p>
-                      <h2 class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                        {s.label}
-                      </h2>
-                      <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
-                        {s.description}
-                      </p>
-                    </a>
-                  )
-                })}
-              </div>
-            </section>
-          </div>
+        <div class="mt-10 flex flex-col gap-8">
+          <PromotionCardList candidates={promotionCandidates} />
 
-          <aside class="flex flex-col gap-8 min-w-0">
-            <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-              <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                Your roles
-              </div>
-              <div class="px-5 md:px-7 py-6">
-                <ul
-                  class="space-y-1 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
-                  role="list"
-                >
-                  {access?.roles.map((role) => (
-                    <li>· {role}</li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-
-            {access?.roles.includes('principal') && (
-              <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                  Manage
+          <section aria-label="Manage your operator" class="flex flex-col gap-8">
+            {SECTION_GROUPS.map((grp) => {
+              const items = sectionCards.filter((s) => s.group === grp.key)
+              if (items.length === 0) return null
+              return (
+                <div>
+                  <p class="mb-1 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                    {grp.label}
+                  </p>
+                  <ul role="list" class="border-t-[2px] border-[color:var(--ss-color-border)]">
+                    {items.map((s) => (
+                      <li>
+                        <a
+                          href={s.href}
+                          class="group flex items-center justify-between gap-6 border-b-[2px] border-[color:var(--ss-color-border)] py-4 transition-colors hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                        >
+                          <div class="min-w-0">
+                            <p class="font-body text-base font-bold text-[color:var(--ss-color-text-primary)]">
+                              {s.label}
+                            </p>
+                            <p class="mt-0.5 text-sm text-[color:var(--ss-color-text-secondary)]">
+                              {s.description}
+                            </p>
+                          </div>
+                          <span
+                            aria-hidden="true"
+                            class="font-body font-black text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-1"
+                          >
+                            →
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]" role="list">
-                  <li>
-                    <a
-                      href="/portal/products/operator/settings/users"
-                      class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                    >
-                      <p class="font-body font-bold text-[color:var(--ss-color-text-primary)]">
-                        Users
-                      </p>
-                      <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                        Invite team members and manage roles.
-                      </p>
-                    </a>
-                  </li>
-                </ul>
-              </section>
-            )}
-          </aside>
+              )
+            })}
+          </section>
         </div>
       </>
     )

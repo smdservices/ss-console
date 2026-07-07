@@ -14,12 +14,12 @@
  * caching it. The custody note states honestly whether SMD can rotate it.
  */
 
-import { formatConnectorHealth } from '../../../lib/portal/operator/settings'
 import {
   formatCustody,
   describeCustody,
   type ConnectionRow,
 } from '../../../lib/portal/operator/connections'
+import type { ConnectorHealth } from '../../../lib/portal/operator/settings'
 
 interface Props {
   row: ConnectionRow
@@ -29,6 +29,28 @@ interface Props {
 
 const { row, operable, returnTo } = Astro.props
 const connectorId = row.adapter || row.capabilityName
+
+// Humanize the capability key for display: DocumentStorage -> "Document Storage".
+const displayName = row.capabilityName.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+
+// Client-facing connection status. `unconfigured` here means "no live health
+// probe has run yet" (the probe is not wired) — NOT "not set up". An authored
+// connector IS configured, and SMD monitors its live health (the custody note
+// says so). So we never show the client a scary "Unconfigured" for something
+// they've set up; we say "Configured".
+function clientStatusLabel(health: ConnectorHealth): string {
+  switch (health) {
+    case 'ok':
+      return 'Connected'
+    case 'warn':
+      return 'Needs attention'
+    case 'fail':
+      return 'Needs reconnecting'
+    case 'unconfigured':
+      return 'Configured'
+  }
+}
+const statusLabel = clientStatusLabel(row.health)
 const secretAction = `/api/portal/products/operator/connectors/${encodeURIComponent(connectorId)}/secret`
 const fieldId = `secret-${connectorId}`
 
@@ -42,7 +64,7 @@ const btn =
       <p
         class="font-body text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
       >
-        {row.capabilityName}
+        {displayName}
       </p>
       <span
         class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
@@ -51,7 +73,7 @@ const btn =
       </span>
     </div>
     <p class="text-caption text-[color:var(--ss-color-text-secondary)] m-0">
-      {row.adapter ? `${row.adapter} · ` : ''}{formatConnectorHealth(row.health)}
+      {row.adapter ? `${row.adapter} · ` : ''}{statusLabel}
     </p>
     <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">
       {describeCustody(row.custody)}
@@ -84,7 +106,7 @@ const btn =
                 for={fieldId}
                 class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
               >
-                API key for {row.capabilityName}
+                API key for {displayName}
               </label>
               <input
                 id={fieldId}

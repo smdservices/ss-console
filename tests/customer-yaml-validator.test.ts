@@ -671,6 +671,36 @@ describe('validate — connectors', () => {
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidTokenRef')
   })
+
+  // ADR 0070: WebSearch is a first-class connector capability bound to mcp:brave.
+  it('accepts a WebSearch connector on the mcp:brave backend', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
+      adapter: 'brave',
+      backend: 'mcp:brave',
+      enabled: true,
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.connectors.WebSearch?.backend).toBe('mcp:brave')
+    expect(r.value.connectors.WebSearch?.enabled).toBe(true)
+  })
+
+  it('rejects a WebSearch connector on an unknown backend (fail-closed)', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
+      adapter: 'brave',
+      backend: 'http:brave.com',
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const has = r.errors.some(
+      (e) => e.code === 'InvalidBackend' && e.path === 'connectors.WebSearch.backend'
+    )
+    expect(has).toBe(true)
+  })
 })
 
 // -----------------------------------------------------------------------------
