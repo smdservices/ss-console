@@ -152,6 +152,15 @@
   h3 {
     font-family: var(--ss-font-display);
   }
+
+  /* Legible text selection everywhere. Without this, selection falls to the OS
+   * default, which on some accent colors paints dark-on-dark over the cream
+   * surfaces (the "highlight renders illegible" defect). Burnt-orange
+   * highlight, cream text — always legible. */
+  ::selection {
+    background-color: var(--ss-color-primary);
+    color: var(--ss-color-background);
+  }
 }
 
 .material-symbols-outlined {
