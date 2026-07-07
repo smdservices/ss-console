@@ -82,6 +82,7 @@ describe('capability conformance: invariant constants', () => {
       'IntakeCRM',
       'CallTracking',
       'InternalComms',
+      'WebSearch',
     ]
     expect(Object.keys(BANNED_METHOD_NAMES).sort()).toEqual(expected.sort())
   })

@@ -94,8 +94,11 @@ top_level:
       (overlay shared/customer_config.py) feeds shared/cost_breaker.thresholds_from_config
       (safety.sticky_stop.cost_cap_daily_cents -> the job-path daily ladder) and
       shared/gate_inbound_cap.resolve_inbound_cap (safety.sticky_stop.inbound_daily_cap ->
-      the webhook-gate wake cap). Unauthored => platform defaults (5000 cents / 200 wakes),
-      integrity control per ADR 0035/0062 — never fail-open.
+      the webhook-gate wake cap). safety.sticky_stop.web_search_daily_cap (ADR 0070) is
+      read the same way and enforced at the mcp:brave search call site (a per-UTC-day
+      fair-use rate ceiling on the SMD-absorbed shared Brave key), NOT by the sticky-stop
+      circuit breaker. Unauthored => platform defaults (5000 cents / 200 wakes / 200
+      searches), integrity control per ADR 0035/0062 — never fail-open.
   business_hours:
     status: implemented
     materializer: >-
