@@ -70,6 +70,26 @@ export async function getProductSubscription(
 }
 
 /**
+ * All live (provisioning/active/paused) subscriptions for an entity in
+ * one query. The offerings resolver and the Billing surface consume this
+ * instead of per-slug getProductSubscription calls.
+ */
+export async function listActiveSubscriptionsForEntity(
+  db: D1Database,
+  entityId: string
+): Promise<SubscriptionRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT * FROM subscriptions
+        WHERE entity_id = ? AND status IN ('provisioning', 'active', 'paused')
+        ORDER BY created_at ASC`
+    )
+    .bind(entityId)
+    .all<SubscriptionRow>()
+  return result.results ?? []
+}
+
+/**
  * Return the list of active (non-revoked) roles this user holds on this
  * (entity, product) tuple. Empty array means the user has no access
  * inside the product even if the customer has a subscription.

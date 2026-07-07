@@ -141,7 +141,7 @@ async function readRecentAuditEntries(
  * read (that is the admin view's job; ADR 0052 keeps this surface scoped to
  * the client's own operator). Missing row / NULL depth / read failure → 0.
  */
-async function readDraftQueueDepth(db: D1Database, customerSlug: string): Promise<number> {
+export async function readDraftQueueDepth(db: D1Database, customerSlug: string): Promise<number> {
   try {
     const row = await db
       .prepare('SELECT draft_queue_depth FROM operator_runtime_summary WHERE customer_slug = ?')
