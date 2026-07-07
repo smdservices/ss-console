@@ -37,10 +37,27 @@
 #                  stripped - explicitly unset before the gateway exec (must NOT be stage:agent)
 #                  n/a      - never on the Machine (provisioning-host / image-build)
 #   strip_site:  (only when agent_env: stripped) the file that unsets it
+#   custody:     infra | customer
+#                  infra    - operator/SMD-owned (R2, Fly, Sentry, HMAC masters,
+#                             bucket names, D1 bindings). Safe to be REAL — or
+#                             emulated — during a keyless build; the operator
+#                             holds it regardless of which customer is provisioning.
+#                  customer - carries (or grants access to) a specific customer's
+#                             world: their model key, their connector OAuth creds,
+#                             their inbox/webhook secrets, their Google identity.
+#                             MUST enter only at handoff through a door we never
+#                             see (portal relay / Captain go-live). A keyless build
+#                             sees only a placeholder; staging/keyless runs must
+#                             NOT borrow the live value. `GOOGLE_*` is customer-by-
+#                             EFFECT (DWD impersonation), so staging substitutes an
+#                             isolated credential rather than the live one.
 #   note:        free text
 #
 # Adding a consumer? Add/update the var here FIRST. If a plugin needs a var at
 # `stage: agent`, it must be `agent_env: held` — the boot invariant enforces it.
+# Every var MUST carry a `custody` class — operator/bin/lib/secret_custody.py and
+# its completeness test fail closed on an unclassified provisioning secret, which
+# is what keeps the keyless-build placeholder allowlist complete.
 
 vars:
   # ---- Agent-held credentials/config (the long-running gateway + overlay plugins) ----
@@ -48,46 +65,55 @@ vars:
     stage: agent
     requirement: required
     agent_env: held
-    note: the gateway's model credential
+    custody: customer
+    note: the gateway's model credential (per-seat Anthropic workspace key or BYO key)
   SMD_D1_AUDIT_BINDING:
     stage: agent
     requirement: required
     agent_env: held
+    custody: infra
     note: hermes-smd-audit D1 binding (path or var-name indirection)
   SMD_D1_AGENT_STATE_BINDING:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: mutable agent-state binding (agent_skills_inventory) from fly.toml [env]; falls back to SMD_D1_AUDIT_BINDING when unset (OP-P1-4 ledger/state split)
   SMD_AUDIT_BROKER_SOCKET:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: from fly.toml [env]; set => overlay routes audit writes through the broker's append-only audit_append (OP-P1-4); the broker-side ledger path (SMD_AUDIT_DB_PATH) is entrypoint-computed and broker-only, like SMD_WORKSPACE_BROKER_SOCKET
   R2_SKILL_BODIES_BUCKET:
     stage: agent
     requirement: required
     agent_env: held
+    custody: infra
     note: bucket NAME (not a credential) from fly.toml [env]; skill_capture target
   R2_ENDPOINT_URL:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: endpoint URL (NOT a credential) read by skill_capture + the voice reader path; intentionally kept across the R2 strip
   SMD_VOICE_VAULT_DIR:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: local voice-vault dir set by bootstrap Step 2a; the voice plugin reads samples from here so the agent holds NO R2 credential (OP-P0-2)
   R2_SKILL_BODIES_ACCESS_KEY_ID:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: bucket-SCOPED token for agent-authored skill persistence; OFF by default; NEVER the account-wide pair
   R2_SKILL_BODIES_SECRET_ACCESS_KEY:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: paired with R2_SKILL_BODIES_ACCESS_KEY_ID
 
   # ---- Boot-stage credentials: read before the agent, then STRIPPED ----
@@ -96,17 +122,20 @@ vars:
     requirement: required
     agent_env: stripped
     strip_site: operator/templates/bootstrap.sh
+    custody: infra
     note: ACCOUNT-WIDE R2 key; read by the customer.yaml fetch (Step 2) + voice-vault sync (Step 2a); unset before gateway exec (OP-P0-2)
   R2_SECRET_ACCESS_KEY:
     stage: boot
     requirement: required
     agent_env: stripped
     strip_site: operator/templates/bootstrap.sh
+    custody: infra
     note: paired with R2_ACCESS_KEY_ID
   R2_BUCKET_CONFIG:
     stage: boot
     requirement: required
     agent_env: held
+    custody: infra
     note: config-bucket NAME (not a credential); fly.toml [env]; used by the boot fetches and is harmless in the agent env
 
   # ---- Broker-stage credentials: read by the uid-split broker, unset for the agent ----
@@ -115,30 +144,35 @@ vars:
     requirement: optional
     agent_env: stripped
     strip_site: operator/templates/entrypoint.sh
-    note: DWD service-account key; only the workspace-broker process decodes it; unset for the gateway
+    custody: customer
+    note: DWD service-account key; customer-by-EFFECT (impersonates the seat's authored subject); only the workspace-broker process decodes it; unset for the gateway. Staging SUBSTITUTES an isolated cred (gen-staging-google-cred.py), never the live one.
   GOOGLE_TOKEN_JSON:
     stage: broker
     requirement: optional
     agent_env: stripped
     strip_site: operator/templates/entrypoint.sh
-    note: legacy user-OAuth token; broker-only
+    custody: customer
+    note: legacy user-OAuth token; grants the customer's own Google; broker-only
   GOOGLE_CLIENT_SECRET_JSON:
     stage: broker
     requirement: optional
     agent_env: stripped
     strip_site: operator/templates/entrypoint.sh
-    note: broker-only OAuth client secret
+    custody: customer
+    note: broker-only OAuth client secret for the customer's Google app
 
   # ---- MCP-subprocess credentials (passed only into the connector subprocess env) ----
   CLIO_CLIENT_ID:
     stage: mcp-subprocess
     requirement: optional
     agent_env: held
+    custody: customer
     note: Clio MCP connector; materialized into the mcp_servers subprocess env when the customer binds Clio
   CLIO_CLIENT_SECRET:
     stage: mcp-subprocess
     requirement: optional
     agent_env: held
+    custody: customer
     note: paired with CLIO_CLIENT_ID
 
   # ---- Optional agent observability / Phase-2 forward-compat ----
@@ -146,26 +180,31 @@ vars:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: Honcho observations mirror; inert in Phase 1 (ADR 0016 revised)
   HONCHO_API_KEY:
     stage: agent
     requirement: optional
     agent_env: held
+    custody: infra
     note: Honcho inferred-memory; inert in Phase 1
   AGENTMAIL_API_KEY:
     stage: agent
     requirement: optional
     agent_env: held
-    note: deferred Phase 2; no consumer wired today
+    custody: customer
+    note: AgentMail REST credential (send + inbox/webhook mgmt); reaches the shared account's OTHER inboxes, so staging must not borrow it
 
   # ---- Provisioning-host only (never reach the Machine) ----
   OPERATOR_RUNTIME_READ_SECRET:
     stage: provisioning-host
     requirement: optional
     agent_env: n/a
+    custody: infra
     note: HMAC seed used at provisioning to derive the per-customer OPERATOR_RUNTIME_READ_KEY; never staged to the Machine
   CF_API_TOKEN:
     stage: provisioning-host
     requirement: optional
     agent_env: n/a
+    custody: infra
     note: Cloudflare token for R2 bucket creation at provisioning; never staged
