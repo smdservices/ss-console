@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../lib/fonts'
 import '../../styles/global.css'
 import { BRAND_NAME } from '../../lib/config/brand'
 import { getPortalClient } from '../../lib/portal/session'
@@ -209,10 +210,7 @@ const touchpointText: string | null = (() => {
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -238,10 +236,10 @@ const touchpointText: string | null = (() => {
             class="mt-10 border-[3px] border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)] p-6 md:p-8"
             aria-live="polite"
           >
-            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-error)]">
+            <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-error)]">
               Something broke
             </p>
-            <h2 class="mt-2 font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            <h2 class="mt-2 font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
               We couldn't load your portal.
             </h2>
             <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
@@ -251,7 +249,7 @@ const touchpointText: string | null = (() => {
             <div class="mt-5">
               <a
                 href="/portal"
-                class="inline-flex items-center min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-2.5 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                class="inline-flex items-center min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-2.5 font-body text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
               >
                 Retry
               </a>
@@ -278,7 +276,7 @@ const touchpointText: string | null = (() => {
                 class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
                 aria-label="Pending invoice"
               >
-                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
                   <span>{invoicePillLabel}</span>
                   <span class="text-[color:var(--ss-color-primary)]">
                     № {pendingInvoice.id.slice(0, 2).toUpperCase()}
@@ -287,14 +285,14 @@ const touchpointText: string | null = (() => {
                 <div class="px-5 py-5">
                   <MoneyDisplay amountCents={invoiceAmountCents ?? 0} size="hero" />
                   {invoiceCaption && (
-                    <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]">
+                    <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]">
                       {invoiceCaption}
                     </p>
                   )}
                 </div>
                 <a
                   href={`/portal/invoices/${pendingInvoice.id}`}
-                  class="flex items-center justify-between border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                  class="flex items-center justify-between border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-body text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
                 >
                   <span>Pay invoice</span>
                   <span aria-hidden="true" class="font-black">
@@ -307,14 +305,14 @@ const touchpointText: string | null = (() => {
                 class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-5 py-6"
                 aria-label="Next check-in"
               >
-                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
+                <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
                   Next check-in
                 </p>
-                <p class="mt-3 font-['Archivo'] text-3xl md:text-[2.5rem] font-black uppercase tracking-[-0.02em] leading-none text-[color:var(--ss-color-text-primary)]">
+                <p class="mt-3 font-body text-3xl md:text-[2.5rem] font-black uppercase tracking-[-0.02em] leading-none text-[color:var(--ss-color-text-primary)]">
                   {touchpointText}
                 </p>
                 {consultantFirst && (
-                  <p class="mt-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                  <p class="mt-4 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
                     with {consultantFirst}
                   </p>
                 )}
@@ -324,7 +322,7 @@ const touchpointText: string | null = (() => {
                 class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-5 py-6"
                 aria-label="Engagement status"
               >
-                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
+                <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
                   In flight
                 </p>
                 <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
@@ -337,12 +335,12 @@ const touchpointText: string | null = (() => {
 
         <section class="flex-1 min-w-0 md:order-1 mt-10 md:mt-0">
           <p
-            class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+            class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
           >
             Recent activity
           </p>
           <h2
-            class="mt-2 font-['Archivo'] text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+            class="mt-2 font-body text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
           >
             Log
           </h2>

@@ -60,7 +60,7 @@ function stageAgeLabel(days: number): string {
 }
 
 const chipClass =
-  "inline-flex items-center gap-1 border px-2.5 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em]"
+  'inline-flex items-center gap-1 border px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em]'
 ---
 
 <section
@@ -68,12 +68,12 @@ const chipClass =
   data-test="identity-strip"
 >
   <div
-    class="mb-2 font-['Archivo_Narrow'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]"
+    class="mb-2 font-mono text-[12px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]"
   >
     Signal | {signalSourceLabel ?? entity.source_pipeline ?? 'unknown_source'}
   </div>
   <h1
-    class="mb-3 font-['Archivo'] text-4xl font-black uppercase leading-[1.05] tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+    class="mb-3 font-body text-4xl font-black uppercase leading-[1.05] tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
   >
     {entity.name}
   </h1>
@@ -112,7 +112,7 @@ const chipClass =
   </div>
   {
     signalEvidence && (
-      <div class="font-['JetBrains_Mono'] text-[15px] font-medium leading-6 text-[color:var(--ss-color-text-primary)]">
+      <div class="font-mono text-[15px] font-medium leading-6 text-[color:var(--ss-color-text-primary)]">
         {signalEvidence}
       </div>
     )

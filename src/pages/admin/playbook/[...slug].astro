@@ -26,9 +26,9 @@ const { Content } = await render(entry)
 const { title, summary, sources, status } = entry.data
 
 const LAB =
-  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+  'font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]'
 const LINK =
-  "font-['Archivo_Narrow'] text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)] hover:underline"
+  'font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)] hover:underline'
 ---
 
 <AdminLayout
@@ -47,7 +47,7 @@ const LINK =
       <header class="mb-6 border-b border-[color:var(--ss-color-border)] pb-5">
         {
           status && (
-            <span class="mb-2 inline-block border border-[color:var(--ss-color-attention)] px-2 py-0.5 font-['JetBrains_Mono'] text-[10px] uppercase tracking-wide text-[color:var(--ss-color-attention)]">
+            <span class="mb-2 inline-block border border-[color:var(--ss-color-attention)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[color:var(--ss-color-attention)]">
               {status}
             </span>
           )

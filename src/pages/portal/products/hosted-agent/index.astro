@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
 import '../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../lib/config/brand'
 import { getPortalClient } from '../../../../lib/portal/session'
@@ -69,13 +70,105 @@ if (!subscription) {
 }
 
 const needsIntake = surfaceState === 'setup' && intake?.status === 'awaiting_intake'
-const intakeSubmitted =
-  surfaceState === 'setup' && intake !== null && intake.status !== 'awaiting_intake'
 const needsKey =
   surfaceState === 'setup' &&
   intake !== null &&
   intake.anthropic_key_status === 'pending' &&
   intake.customer_slug !== null
+const keyReceived = intake?.anthropic_key_status === 'received'
+
+/**
+ * The setup journey, rendered as a numbered step list so a new customer
+ * always knows what they bought, whose move it is, and what happens next.
+ * Every state derives from authored rows; every sentence describes shipped
+ * system behavior (the go-live email exists, the page does switch to live).
+ */
+type StepState = 'done' | 'action' | 'team' | 'upcoming'
+interface SetupStep {
+  title: string
+  detail: string
+  state: StepState
+  href?: string
+}
+
+const setupSteps: SetupStep[] =
+  surfaceState === 'setup'
+    ? [
+        {
+          title: 'Payment received',
+          detail: 'Your subscription is active.',
+          state: 'done',
+        },
+        needsIntake
+          ? {
+              title: 'Setup questionnaire',
+              state: 'action',
+              href: '/portal/products/hosted-agent/intake',
+              detail:
+                'Tell us what to call your agent, what it should work on, and which senders it accepts email from. Takes a few minutes.',
+            }
+          : {
+              title: 'Setup questionnaire',
+              state: 'done',
+              detail: intake?.agent_name
+                ? `Received. Your agent will be called ${intake.agent_name}.`
+                : 'Received.',
+            },
+        keyReceived
+          ? {
+              title: 'Your Anthropic API key',
+              state: 'done',
+              detail:
+                "Received. It lives in your agent's isolated vault and is never shown or logged.",
+            }
+          : needsKey
+            ? {
+                title: 'Your Anthropic API key',
+                state: 'action',
+                href: '/portal/products/hosted-agent/api-key',
+                detail:
+                  "Your agent's secure vault is ready. Add the API key you created in the Anthropic Console, with a spend limit you set.",
+              }
+            : {
+                title: 'Your Anthropic API key',
+                state: 'upcoming',
+                detail:
+                  "Unlocks once our team prepares your agent's secure vault. You will create this key in your own Anthropic Console with a spend limit you control; it goes into your agent's vault only.",
+              },
+        {
+          title: 'We build and test your agent',
+          state: keyReceived ? 'team' : 'upcoming',
+          detail:
+            'Our team configures your agent by hand, connects Telegram and its private email inbox, and runs it through a safety check before anything goes live.',
+        },
+        {
+          title: 'Go live',
+          state: 'upcoming',
+          detail:
+            'You get an email with exactly how to reach your agent, and this page switches to your live status view.',
+        },
+      ]
+    : []
+
+const stepBadge: Record<StepState, { label: string; klass: string }> = {
+  done: {
+    label: 'Done',
+    klass: 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]',
+  },
+  action: {
+    label: 'Your turn',
+    klass: 'border-[color:var(--ss-color-primary)] text-[color:var(--ss-color-primary)]',
+  },
+  team: {
+    label: 'Our team is on it',
+    klass: 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]',
+  },
+  upcoming: {
+    label: 'Up next',
+    klass:
+      'border-[color:var(--ss-color-text-secondary)] text-[color:var(--ss-color-text-secondary)]',
+  },
+}
 
 // Intake form outcome banner (?st=saved|invalid|error) and key form outcome
 // (?cs=saved|not_enabled|...) both land back here or on their own pages.
@@ -95,8 +188,9 @@ const stMessage =
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
     />
     <title>Hosted Agent | {BRAND_NAME}</title>
@@ -118,7 +212,7 @@ const stMessage =
         stMessage && (
           <div
             role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
               stStatus === 'saved'
                 ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
                 : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
@@ -132,10 +226,10 @@ const stMessage =
       {
         surfaceState === 'no_subscription' && (
           <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
               Not subscribed
             </p>
-            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
               Your account doesn't include the Hosted Agent product.
             </p>
           </div>
@@ -145,10 +239,10 @@ const stMessage =
       {
         surfaceState === 'no_role' && (
           <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
               Access pending
             </p>
-            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
               A Hosted Agent exists on this account, but your user has no role on it yet.
             </p>
           </div>
@@ -158,10 +252,10 @@ const stMessage =
       {
         surfaceState === 'paused' && (
           <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
               Paused
             </p>
-            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
               Your subscription is paused. Your agent is not running.
             </p>
           </div>
@@ -172,58 +266,63 @@ const stMessage =
         surfaceState === 'setup' && (
           <div class="mt-10 flex flex-col gap-6">
             <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-10">
-              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
                 Setup in progress
               </p>
-              <p class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
-                Your subscription is active and your agent is being prepared. This page shows the
-                current setup state at every step.
+              <p class="mt-3 font-mono text-base text-[color:var(--ss-color-text-secondary)]">
+                Your subscription is active. We build each agent by hand, and this page shows the
+                true state of every step. Anything that needs you also arrives by email.
               </p>
             </div>
 
-            {needsIntake && (
-              <a
-                href="/portal/products/hosted-agent/intake"
-                class="block border-[3px] border-[color:var(--ss-color-primary)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
-              >
-                <p class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-primary)]">
-                  Next step: setup questionnaire
-                </p>
-                <p class="mt-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
-                  Tell us what to call your agent, what it should work on, and which senders it
-                  accepts email from. Takes a few minutes.
-                </p>
-              </a>
-            )}
+            <ol class="flex flex-col gap-4">
+              {setupSteps.map((step, i) => {
+                const badge = stepBadge[step.state]
+                const inner = (
+                  <>
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                      <p class="font-body text-lg font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                        {i + 1}. {step.title}
+                      </p>
+                      <span
+                        class={`border-[2px] px-2 py-0.5 font-mono text-xs font-bold uppercase tracking-[0.14em] ${badge.klass}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
+                    <p class="mt-2 font-mono text-base text-[color:var(--ss-color-text-secondary)]">
+                      {step.detail}
+                    </p>
+                  </>
+                )
+                return (
+                  <li>
+                    {step.href ? (
+                      <a
+                        href={step.href}
+                        class="block border-[3px] border-[color:var(--ss-color-primary)] p-5 md:p-6 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+                      >
+                        {inner}
+                      </a>
+                    ) : (
+                      <div
+                        class={`border-[3px] p-5 md:p-6 ${
+                          step.state === 'done'
+                            ? 'border-[color:var(--ss-color-complete)]'
+                            : 'border-[color:var(--ss-color-text-primary)]'
+                        }`}
+                      >
+                        {inner}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
 
-            {intakeSubmitted && (
-              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
-                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
-                  Questionnaire received
-                </p>
-                {intake?.agent_name && (
-                  <p class="mt-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
-                    Agent name: {intake.agent_name}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {needsKey && (
-              <a
-                href="/portal/products/hosted-agent/api-key"
-                class="block border-[3px] border-[color:var(--ss-color-primary)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
-              >
-                <p class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-primary)]">
-                  Next step: add your Anthropic API key
-                </p>
-                <p class="mt-2 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
-                  Your agent runs on your own Anthropic key with a spend limit you control. The key
-                  is relayed straight to your agent's isolated vault and is never stored or shown
-                  here.
-                </p>
-              </a>
-            )}
+            <p class="font-mono text-base text-[color:var(--ss-color-text-secondary)]">
+              Questions at any point: team@smd.services. A person answers.
+            </p>
           </div>
         )
       }
@@ -232,15 +331,15 @@ const stMessage =
         surfaceState === 'live' && (
           <div class="mt-10 flex flex-col gap-6">
             <div class="border-[3px] border-[color:var(--ss-color-complete)] p-8 md:p-10">
-              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
                 {intake?.agent_name ?? 'Your agent'} is live
               </p>
               {intake?.telegram_handle && (
-                <p class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+                <p class="mt-3 font-mono text-base text-[color:var(--ss-color-text-secondary)]">
                   Connected to Telegram for {intake.telegram_handle}.
                 </p>
               )}
-              <p class="mt-3 font-['Archivo_Narrow'] text-base text-[color:var(--ss-color-text-secondary)]">
+              <p class="mt-3 font-mono text-base text-[color:var(--ss-color-text-secondary)]">
                 Setup changes and questions: reply to any email from us, and we take it from there.
               </p>
             </div>

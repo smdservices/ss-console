@@ -79,6 +79,24 @@ const ADMIN_HOST_CANONICALIZE: RedirectRule = {
   status: 301,
 }
 
+/**
+ * Apex `/portal/*` canonicalizes to the portal subdomain, mirroring the admin
+ * rule above. Found in the Hosted Agent live dry-run (2026-07-06): a relative
+ * portal link on a marketing page kept the buyer on smd.services, serving the
+ * portal on the wrong host. Absolute target (host change).
+ */
+const PORTAL_HOST_CANONICALIZE: RedirectRule = {
+  label: 'portal-host-canonicalize',
+  match: ({ hostname, pathname }) =>
+    hostname === 'smd.services' && (pathname === '/portal' || pathname.startsWith('/portal/')),
+  location: ({ url }) => {
+    const next = new URL(url)
+    next.hostname = 'portal.smd.services'
+    return next.toString()
+  },
+  status: 301,
+}
+
 /** Old dual-auth-era paths → the unified Clerk sign-in/up. Query preserved. */
 const LEGACY_AUTH_PATHS: Record<string, string> = {
   '/auth/login': '/auth/sign-in',
@@ -150,6 +168,7 @@ export const PRE_REWRITE_REDIRECTS: readonly RedirectRule[] = [OPERATOR_RENAME]
 /** Redirects that run AFTER the subdomain rewrite. Order is significant. */
 export const POST_REWRITE_REDIRECTS: readonly RedirectRule[] = [
   ADMIN_HOST_CANONICALIZE,
+  PORTAL_HOST_CANONICALIZE,
   LEGACY_AUTH,
   BOOK_THANKS,
   RETIRED_MARKETING_EXACT,

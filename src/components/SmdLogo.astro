@@ -40,20 +40,18 @@ const focusRingOffset = inverse
   {...rest}
 >
   <span
-    class="inline-block bg-[color:var(--ss-color-primary)] px-1.5 py-0.5 font-['Archivo'] font-black uppercase leading-none tracking-tight text-white"
+    class="inline-block bg-[color:var(--ss-color-primary)] px-1.5 py-0.5 font-body font-black uppercase leading-none tracking-tight text-white"
     >SMD</span
   >
   <span
-    class:list={[
-      "font-['Archivo_Narrow'] font-semibold uppercase tracking-[0.08em] leading-none",
-      wordmarkColor,
-    ]}>Services</span
+    class:list={['font-body font-semibold uppercase tracking-[0.08em] leading-none', wordmarkColor]}
+    >Services</span
   >
   {
     badge && (
       <span
         class:list={[
-          "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] border px-2 py-0.5 leading-none",
+          'font-mono text-[11px] font-bold uppercase tracking-[0.14em] border px-2 py-0.5 leading-none',
           badgeColor,
           badgeBorder,
         ]}

@@ -17,6 +17,11 @@
  *     session is retried at full price. No app-side seat counter exists.
  *   * **charge_automatically** (Checkout default) — a $79 consumer-priced
  *     subscription is card-on-file, unlike the invoiced B2B retainer.
+ *   * **Stripe Tax, exclusive.** Sessions run with automatic_tax enabled
+ *     and the SaaS tax code on the product; tax is added on top of the
+ *     published price in jurisdictions where a registration is active
+ *     (AZ TPT at launch — physical nexus). Stripe Tax must be activated
+ *     in the dashboard or session creation fails.
  *
  * DEV-MODE PATTERN: when apiKey is undefined, log and return a mock — same
  * as client.ts / resend.ts.
@@ -26,6 +31,14 @@
 export const HOSTED_AGENT_PRICE_CENTS = 7900
 export const HOSTED_AGENT_FOUNDING_DISCOUNT_CENTS = 3000
 export const HOSTED_AGENT_FOUNDING_SEATS = 25
+
+/**
+ * Stripe Tax code: "Software as a service (SaaS) - personal use"
+ * (cloud-delivered, no download). AZ taxes this under the personal
+ * property rental TPT classification; Stripe Tax computes per active
+ * registration. Tax is EXCLUSIVE — added on top of the published price.
+ */
+const SAAS_TAX_CODE = 'txcd_10103000'
 
 const STRIPE_API_BASE = 'https://api.stripe.com/v1'
 
@@ -48,12 +61,26 @@ async function resolveHostedAgentProductId(apiKey: string): Promise<string> {
     { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } }
   )
   if (searchRes.ok) {
-    const data: { data: Array<{ id: string }> } = await searchRes.json()
-    if (data.data.length > 0) return data.data[0].id
+    const data: { data: Array<{ id: string; tax_code: string | null }> } = await searchRes.json()
+    if (data.data.length > 0) {
+      const product = data.data[0]
+      // Self-heal a product created before tax wiring existed.
+      if (product.tax_code !== SAAS_TAX_CODE) {
+        const patch = new URLSearchParams()
+        patch.append('tax_code', SAAS_TAX_CODE)
+        await fetch(`${STRIPE_API_BASE}/products/${product.id}`, {
+          method: 'POST',
+          headers: stripeHeaders(apiKey),
+          body: patch.toString(),
+        })
+      }
+      return product.id
+    }
   }
   const body = new URLSearchParams()
   body.append('name', PRODUCT_NAME)
   body.append(`metadata[${PRODUCT_MARKER.key}]`, PRODUCT_MARKER.value)
+  body.append('tax_code', SAAS_TAX_CODE)
   const res = await fetch(`${STRIPE_API_BASE}/products`, {
     method: 'POST',
     headers: stripeHeaders(apiKey),
@@ -137,6 +164,9 @@ async function createSession(
   body.append('line_items[0][price_data][currency]', 'usd')
   body.append('line_items[0][price_data][product]', productId)
   body.append('line_items[0][price_data][recurring][interval]', 'month')
+  body.append('line_items[0][price_data][tax_behavior]', 'exclusive')
+  // Requires Stripe Tax activated in the dashboard; sessions fail otherwise.
+  body.append('automatic_tax[enabled]', 'true')
   body.append('success_url', params.success_url)
   body.append('cancel_url', params.cancel_url)
   body.append('client_reference_id', params.clerk_user_id)

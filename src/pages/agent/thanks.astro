@@ -5,6 +5,7 @@ import Base from '../../layouts/Base.astro'
 import Nav from '../../components/Nav.astro'
 import Footer from '../../components/Footer.astro'
 import { getHostedAgentCheckoutSession } from '../../lib/stripe/checkout'
+import { getPortalBaseUrl } from '../../lib/config/app-url'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -12,6 +13,10 @@ import { env } from 'cloudflare:workers'
  * Stripe substitutes into the success URL and confirms the payment state
  * honestly. The portal is the durable home; this page is a signpost.
  */
+
+// Absolute portal-host URL: a relative /portal link from this marketing page
+// would keep the buyer on the apex host (found in the live dry-run).
+const portalProductUrl = `${getPortalBaseUrl(env) ?? ''}/portal/products/hosted-agent`
 
 const sessionId = Astro.url.searchParams.get('session_id')
 
@@ -34,38 +39,38 @@ if (sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
     {
       paid ? (
         <>
-          <h1 class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
+          <h1 class="font-body font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
             You're in.
           </h1>
-          <p class="mt-6 font-['Archivo_Narrow'] text-lg text-[color:var(--ss-color-text-secondary)]">
+          <p class="mt-6 text-lg text-[color:var(--ss-color-text-secondary)]">
             Payment received and your subscription is active. Next step: the setup questionnaire in
             your portal. It covers what to call your agent, what it works on, and who it accepts
             email from.
           </p>
           <a
-            href="/portal/products/hosted-agent"
-            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+            href={portalProductUrl}
+            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
           >
             Open Your Portal
           </a>
-          <p class="mt-6 font-['Archivo_Narrow'] text-sm text-[color:var(--ss-color-text-secondary)]">
+          <p class="mt-6 text-sm text-[color:var(--ss-color-text-secondary)]">
             A confirmation email is on its way from Stripe, and one from us with the same portal
             link.
           </p>
         </>
       ) : (
         <>
-          <h1 class="font-['Archivo'] font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
+          <h1 class="font-body font-black uppercase tracking-[-0.02em] text-4xl md:text-5xl text-[color:var(--ss-color-text-primary)]">
             {sessionKnown ? 'Payment pending' : 'Checkout status unknown'}
           </h1>
-          <p class="mt-6 font-['Archivo_Narrow'] text-lg text-[color:var(--ss-color-text-secondary)]">
+          <p class="mt-6 text-lg text-[color:var(--ss-color-text-secondary)]">
             {sessionKnown
               ? 'Stripe has not confirmed this payment yet. Your portal reflects the subscription the moment it lands.'
               : 'This page could not confirm a checkout. If you completed payment, your portal is the source of truth.'}
           </p>
           <a
-            href="/portal/products/hosted-agent"
-            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+            href={portalProductUrl}
+            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
           >
             Check Your Portal
           </a>

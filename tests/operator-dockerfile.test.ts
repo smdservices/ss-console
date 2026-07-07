@@ -279,7 +279,22 @@ describe('Operator customer Machine Dockerfile', () => {
     // credential-free cross-connector attachment transfer). Range
     // 3e5b8a9b..c081223b touches only translate.py + action_classes + tests;
     // no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c081223bda47357e6f684a008d44433c145d2ff9"')
+    // 7c10fd61 (#140, ss#1758): caption provenance allowlist for the tier-2
+    // citation gate — captions harvested from READ results into the session
+    // register; only provenance-verified bare case-name hits are exempt
+    // (reporter cites/statutes/rules/tier-1 never relax; empty register =
+    // fail-closed). Vendored citation_filter synced from ss#1764 (allowlist +
+    // Cal ordinal reporter false-negative fix) and now drift-tracked as a
+    // SEC-32 pair in overlay-pairs.json.
+    // 07c7a516 (#142 + #138): authored webhook-trigger exceptions — the gate
+    // suppresses excluded (matter/actor) deliveries per customer.yaml
+    // webhook_triggers[].exclude with a WEBHOOK_SUPPRESSED audit row, fail-open
+    // to forward; plus the #1742 digest-home SOUL materializer +
+    // mcp_smokeball_file_attachment_to_matter INTERNAL_WRITE mapping (#1744).
+    // Range 7c10fd61..07c7a516 touches webhook_gate.py + shared/
+    // gate_trigger_exclusions.py + translate.py + action_classes + tests; no
+    // tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="07c7a5162c3bff5e2ecf67908f0e742e7598d1df"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

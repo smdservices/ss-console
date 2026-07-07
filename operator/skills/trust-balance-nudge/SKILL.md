@@ -107,6 +107,20 @@ citations belong only in matter-internal artifacts (memos, internal notes,
 tasks). Write the FIRST draft citation-free; do not write a cited draft and
 wait for the gate to teach you.
 
+Three more first-draft rules, same rationale (the gates enforce them; a
+refusal is a stalled deliverable and a full-context redraft — write it right
+the first time):
+
+- No em dashes anywhere, in any channel. Use commas, colons, or periods.
+- In email and task text, refer to the matter by its NUMBER (e.g.
+  2026-PI-101), never by its case caption. The matter's own caption is
+  acceptable inside matter memos; cited case law is never acceptable
+  anywhere.
+- State a specific dollar figure only when it exists in an authored source
+  on the matter, and name that source in the same sentence ("per the MedFin
+  payoff letter dated..."). Never total, estimate, or round figures into
+  existence.
+
 If a delivery tool refuses a draft or write (citation filter, banned-typography
 gate, or any other content gate): do not retry the same content, and do not
 drop the work. Redraft once, and the redraft KEEPS every captured fact: the

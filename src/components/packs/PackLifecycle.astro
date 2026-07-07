@@ -37,11 +37,11 @@ const rows = (step: Step): { label: string; tone: 'primary' | 'secondary'; text:
   {
     steps.map((step, i) => (
       <li class="grid grid-cols-[2.5rem_1fr] gap-x-5 gap-y-4 border-b-[3px] border-[color:var(--ss-color-text-primary)] py-8 md:grid-cols-[4rem_1fr] md:gap-x-8">
-        <span class="font-['Archivo'] text-2xl md:text-4xl font-black tabular-nums leading-none text-[color:var(--ss-color-primary)]">
+        <span class="font-body text-2xl md:text-4xl font-black tabular-nums leading-none text-[color:var(--ss-color-primary)]">
           {String(i + 1).padStart(2, '0')}
         </span>
         <div class="space-y-5">
-          <h3 class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+          <h3 class="font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
             {step.title}
           </h3>
           <dl class="space-y-3">
@@ -49,7 +49,7 @@ const rows = (step: Step): { label: string; tone: 'primary' | 'secondary'; text:
               <div class="grid grid-cols-1 gap-1 sm:grid-cols-[7.5rem_1fr] sm:gap-4">
                 <dt
                   class:list={[
-                    "font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em]",
+                    'font-mono text-xs font-semibold uppercase tracking-[0.12em]',
                     r.tone === 'primary'
                       ? 'text-[color:var(--ss-color-primary)]'
                       : 'text-[color:var(--ss-color-text-secondary)]',

@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../../../lib/fonts'
 import '../../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../../lib/config/brand'
 import { getPortalClient } from '../../../../../../lib/portal/session'
@@ -128,10 +129,7 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <title>Operator · Advanced settings | {BRAND_NAME}</title>
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
@@ -171,10 +169,10 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
         configRow === null ? (
           <section class="mt-10">
             <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
                 No configuration found
               </p>
-              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
                 Your customer.yaml has not been projected yet. Contact Captain to provision the
                 editor surface.
               </p>
@@ -183,13 +181,13 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
         ) : projectionError !== null ? (
           <section class="mt-10">
             <div class="border-[3px] border-[color:var(--ss-color-error)] p-8 md:p-12 text-center">
-              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-error)]">
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-error)]">
                 Configuration error
               </p>
-              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
                 The current configuration projection is invalid. Contact Captain.
               </p>
-              <p class="mt-2 font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)] break-all">
+              <p class="mt-2 font-mono text-xs text-[color:var(--ss-color-text-muted)] break-all">
                 {projectionError}
               </p>
             </div>
@@ -201,53 +199,53 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
             class="mt-2"
           >
             <section class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-              <h2 class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              <h2 class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
                 Captain-managed identity
               </h2>
               <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div>
-                  <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
                     Customer ID
                   </dt>
-                  <dd class="font-['JetBrains_Mono'] text-[color:var(--ss-color-text-primary)]">
+                  <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
                     {locked.customer_id}
                   </dd>
                 </div>
                 <div>
-                  <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
                     Vertical
                   </dt>
                   <dd class="text-[color:var(--ss-color-text-primary)]">{locked.vertical}</dd>
                 </div>
                 <div>
-                  <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
                     Fly region
                   </dt>
-                  <dd class="font-['JetBrains_Mono'] text-[color:var(--ss-color-text-primary)]">
+                  <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
                     {locked.fly_region}
                   </dd>
                 </div>
                 <div>
-                  <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
                     Model
                   </dt>
-                  <dd class="font-['JetBrains_Mono'] text-[color:var(--ss-color-text-primary)]">
+                  <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
                     {locked.model}
                   </dd>
                 </div>
                 <div>
-                  <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
                     Hermes ref
                   </dt>
-                  <dd class="font-['JetBrains_Mono'] text-[color:var(--ss-color-text-primary)]">
+                  <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
                     {locked.hermes_ref}
                   </dd>
                 </div>
                 <div>
-                  <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
                     Machine
                   </dt>
-                  <dd class="font-['JetBrains_Mono'] text-[color:var(--ss-color-text-primary)]">
+                  <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
                     {locked.machine.size} / {locked.machine.memory_mb} MB
                   </dd>
                 </div>
@@ -270,13 +268,13 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
             <div class="mt-12 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end border-t-[3px] border-[color:var(--ss-color-text-primary)] pt-6">
               <a
                 href={SETTINGS_LANDING_URL}
-                class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                class="inline-flex items-center justify-center px-5 py-2 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
               >
                 Cancel
               </a>
               <button
                 type="submit"
-                class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                class="inline-flex items-center justify-center px-5 py-2 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
               >
                 Save changes
               </button>

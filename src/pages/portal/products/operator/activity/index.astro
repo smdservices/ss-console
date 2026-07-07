@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
@@ -114,10 +115,7 @@ const complianceView =
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -156,10 +154,10 @@ const complianceView =
               aria-label="No activity"
               class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
             >
-              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
                 {emptyHeading}
               </p>
-              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
                 {emptyBody}
               </p>
             </section>
@@ -188,13 +186,13 @@ const complianceView =
                 slot="read"
                 class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
               >
-                <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
                   Retention & evidence
                 </div>
                 <div class="flex flex-col gap-4 px-5 md:px-7 py-6">
                   {complianceView.retention ? (
                     <div>
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                      <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
                         Audit retention
                       </p>
                       <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">

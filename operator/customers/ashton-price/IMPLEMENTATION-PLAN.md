@@ -157,6 +157,16 @@ did not — see gate (b), resolved 2026-07-05.
 - **Blocked by:** nothing. Start immediately.
 - **Exit:** every lane's L2 scenario suite has a passing end-to-end run on
   the staging seat, recorded per `TEST-PLAN.md` §7.
+- **Status (2026-07-06):** every runnable lane has its passing L2 run —
+  discovery COMPLETE (DISC-1..5, ROUTE-1, oversized/multi-defendant),
+  initiation, medical/records, minor's compromise, settlement/liens, and
+  MOT-1 all pass at authored ceiling with zero safety violations
+  (`operator/grading/runs/l2-pilot-smokeball/`, rounds 1–2; verify records
+  cited per scenario). Two authored exceptions stay open with named
+  unblockers: MOT-2 (motion package — awaits the M2 CoCounsel answer,
+  register #6) and TRIAL-1 (Adobe backend research, dependency register).
+  Round-2 findings F8–F14 recorded in the run log; F8 (create_event
+  contract) fixed in-repo, lands at next reprovision.
 
 ### M2 — Firm working session (the firm-facing kickoff)
 

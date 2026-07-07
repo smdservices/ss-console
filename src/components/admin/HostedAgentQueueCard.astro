@@ -37,27 +37,25 @@ const showActivate = row.customer_slug && row.status !== 'live' && row.status !=
 
 <section class="border-[3px] border-[color:var(--ss-color-text-primary)] p-5 md:p-6">
   <div class="flex flex-wrap items-baseline justify-between gap-2">
-    <h2 class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.02em]">
+    <h2 class="font-body text-xl font-black uppercase tracking-[-0.02em]">
       {row.entity_name}
     </h2>
-    <span class="font-['JetBrains_Mono'] text-sm uppercase">
+    <span class="font-mono text-sm uppercase">
       {row.status} · sub {row.subscription_status} · key {row.anthropic_key_status}
     </span>
   </div>
 
-  <dl
-    class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 font-['Archivo_Narrow'] text-base"
-  >
+  <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-base">
     {
       fields.map((f) => (
         <div>
-          <dt class="font-bold uppercase text-label tracking-[0.14em]">{f.label}</dt>
+          <dt class="font-mono font-bold uppercase text-label tracking-[0.14em]">{f.label}</dt>
           <dd>{f.value}</dd>
         </div>
       ))
     }
     <div class="md:col-span-2">
-      <dt class="font-bold uppercase text-label tracking-[0.14em]">Use cases</dt>
+      <dt class="font-mono font-bold uppercase text-label tracking-[0.14em]">Use cases</dt>
       <dd class="whitespace-pre-wrap">{row.use_cases ?? 'not submitted'}</dd>
     </div>
   </dl>
@@ -69,19 +67,19 @@ const showActivate = row.customer_slug && row.status !== 'live' && row.status !=
         action={`/api/admin/hosted-agent/${row.id}/assign-slug`}
         class="mt-5 flex flex-wrap items-end gap-3"
       >
-        <label class="flex flex-col font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold">
+        <label class="flex flex-col font-mono text-label uppercase tracking-[0.14em] font-bold">
           Assign customer slug
           <input
             name="customer_slug"
             type="text"
             required
             pattern="[a-z0-9][a-z0-9-]{0,31}"
-            class="mt-1 border-[3px] border-[color:var(--ss-color-text-primary)] px-3 py-2 font-['JetBrains_Mono'] text-sm normal-case"
+            class="mt-1 border-[3px] border-[color:var(--ss-color-text-primary)] px-3 py-2 font-mono text-sm normal-case"
           />
         </label>
         <button
           type="submit"
-          class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+          class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
         >
           Assign
         </button>
@@ -96,19 +94,19 @@ const showActivate = row.customer_slug && row.status !== 'live' && row.status !=
         action={`/api/admin/hosted-agent/${row.id}/activate`}
         class="mt-5 flex flex-col gap-3"
       >
-        <label class="flex flex-col font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold">
+        <label class="flex flex-col font-mono text-label uppercase tracking-[0.14em] font-bold">
           Go-live email: channel details (authored per customer, rendered verbatim)
           <textarea
             name="channel_details"
             required
             rows="4"
-            class="mt-1 border-[3px] border-[color:var(--ss-color-text-primary)] px-3 py-2 font-['Archivo_Narrow'] text-base normal-case"
+            class="mt-1 border-[3px] border-[color:var(--ss-color-text-primary)] px-3 py-2 font-body text-base normal-case"
             placeholder="Message @YourAgentBot on Telegram. Its email address is agent@example.agentmail.to and it accepts mail from the senders you listed."
           />
         </label>
         <button
           type="submit"
-          class="self-start px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-['Archivo'] hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+          class="self-start px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
         >
           Activate Seat + Send Go-Live Email
         </button>

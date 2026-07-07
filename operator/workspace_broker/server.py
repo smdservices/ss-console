@@ -119,17 +119,41 @@ class Broker:
         # ADR 0021 Stream B: cron pre_run scripts run as subprocess CHILDREN of
         # the gateway (hermes cron/scheduler.py `subprocess.run`), so they share
         # the agent uid but never the gateway PID. The narrow heartbeat verb
-        # below gates on uid instead. Derive the agent uid from the gateway
-        # process at boot; if /proc is unavailable the verb stays fail-closed.
-        try:
-            self.agent_uid = os.stat(f"/proc/{self.gateway_pid}").st_uid
-        except OSError:
-            self.agent_uid = None
+        # below gates on uid instead — resolved lazily via _resolve_agent_uid()
+        # because at BROKER start the gateway PID still belongs to the root
+        # entrypoint (the exec-drop to the agent user happens after the broker
+        # launches; live-caught on pilot-smokeball 2026-07-06).
+        self.agent_uid = None
         # B1: the job ledger folds into the SAME broker-owned DB file (one
         # mount, one uid boundary). Mutable control state, distinct table set;
         # the audit_log append-only guarantee is untouched (no job verb writes
         # audit_log). Disabled when the audit DB is unconfigured (pre-B1 image).
         self.job_ledger = JobLedgerWriter(audit_db_path) if audit_db_path else None
+
+    def _resolve_agent_uid(self) -> int | None:
+        """Resolve (and cache) the agent uid for the heartbeat verb.
+
+        Precedence: explicit SMD_AGENT_UID from the entrypoint (which knows the
+        agent user while still root), then a request-time stat of the gateway
+        PID — by the time any pre_run fires, the entrypoint has exec-dropped
+        into the agent user under the same PID. uid 0 is never accepted: the
+        agent never runs as root, and a pre-exec-drop stat would read the root
+        entrypoint. Unresolvable → None → the verb stays fail-closed.
+        """
+        if self.agent_uid is not None:
+            return self.agent_uid
+        env_uid = os.environ.get("SMD_AGENT_UID", "").strip()
+        if env_uid.isdigit() and int(env_uid) != 0:
+            self.agent_uid = int(env_uid)
+            return self.agent_uid
+        try:
+            uid = os.stat(f"/proc/{self.gateway_pid}").st_uid
+        except OSError:
+            return None
+        if uid == 0:
+            return None
+        self.agent_uid = uid
+        return self.agent_uid
 
     def handle(
         self, request: dict[str, Any], peer_pid: int, peer_uid: int | None = None
@@ -144,7 +168,8 @@ class Broker:
         if action == "suppressed_wake_append":
             if self.ledger is None:
                 raise ValueError("audit ledger not configured on this broker")
-            if self.agent_uid is None or peer_uid != self.agent_uid:
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
                 raise PermissionError(
                     "suppressed_wake_append requires a caller running as the agent uid"
                 )

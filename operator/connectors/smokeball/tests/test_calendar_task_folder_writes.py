@@ -74,10 +74,14 @@ def test_update_task_partial(rec: _Recorder) -> None:
 
 # ---- events ---------------------------------------------------------------
 def test_create_event_forces_normal_type(rec: _Recorder) -> None:
+    # attendees + time_zone became required with the live-API contract fix
+    # (L2 round 2, 2026-07-06) — see test_create_event_contract.py.
     server.create_event(
         subject="Discovery responses due",
         start_time="2026-07-15T09:00:00",
         end_time="2026-07-15T09:30:00",
+        attendees=["s-1"],
+        time_zone="America/Los_Angeles",
         matter_id="m-9",
     )
     assert rec.calls[0] == {
@@ -88,6 +92,8 @@ def test_create_event_forces_normal_type(rec: _Recorder) -> None:
             "startTime": "2026-07-15T09:00:00",
             "endTime": "2026-07-15T09:30:00",
             "matterId": "m-9",
+            "attendees": ["s-1"],
+            "timeZone": "America/Los_Angeles",
             "type": "Normal",
         },
     }

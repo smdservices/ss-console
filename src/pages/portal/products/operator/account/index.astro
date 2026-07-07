@@ -1,4 +1,5 @@
 ---
+import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
@@ -65,13 +66,13 @@ const statusToneClass =
 
 const cardClass = 'border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8'
 const sectionLabelClass =
-  "mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+  'mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]'
 const recipientListClass =
   'm-0 list-none p-0 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]'
 const recipientRowClass =
-  "border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 px-5 py-3 font-['Archivo'] text-[color:var(--ss-color-text-primary)]"
+  'border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 px-5 py-3 font-body text-[color:var(--ss-color-text-primary)]'
 const emptyNoteClass =
-  "font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
+  'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]'
 
 const hasEscalation =
   account.escalation.redFlagRecipients.length > 0 ||
@@ -86,10 +87,7 @@ const hasEscalation =
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
@@ -115,7 +113,7 @@ const hasEscalation =
         crMessage && (
           <div
             role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
               cr === 'filed'
                 ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
                 : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
@@ -141,17 +139,17 @@ const hasEscalation =
               account.subscription ? (
                 <div class="flex flex-col gap-3">
                   <span
-                    class={`inline-flex w-fit items-center px-3 py-1.5 text-caption font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] ${statusToneClass}`}
+                    class={`inline-flex w-fit items-center px-3 py-1.5 text-caption font-mono uppercase tracking-[0.12em] font-bold border-[2px] ${statusToneClass}`}
                   >
                     {subscriptionStatusLabel(account.subscription.status)}
                   </span>
-                  <p class="m-0 font-['Archivo'] text-[color:var(--ss-color-text-primary)]">
+                  <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
                     {subscriptionStatusProse(account.subscription.status)}
                   </p>
                 </div>
               ) : (
                 <div class="flex flex-col gap-2">
-                  <p class="m-0 font-['Archivo'] text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  <p class="m-0 font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
                     Not provisioned yet
                   </p>
                   <p class={`m-0 ${emptyNoteClass}`}>
@@ -180,7 +178,7 @@ const hasEscalation =
                 <div class="flex flex-col gap-6">
                   {account.escalation.redFlagRecipients.length > 0 && (
                     <div>
-                      <p class="mb-2 font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                      <p class="mb-2 font-body font-bold text-[color:var(--ss-color-text-primary)]">
                         Red-flag alerts
                       </p>
                       <ul role="list" class={recipientListClass}>
@@ -192,7 +190,7 @@ const hasEscalation =
                   )}
                   {account.escalation.failureRecipients.length > 0 && (
                     <div>
-                      <p class="mb-2 font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                      <p class="mb-2 font-body font-bold text-[color:var(--ss-color-text-primary)]">
                         Failure alerts
                       </p>
                       <ul role="list" class={recipientListClass}>
@@ -203,14 +201,14 @@ const hasEscalation =
                     </div>
                   )}
                   {account.escalation.ackWindowMinutes !== null && (
-                    <p class="m-0 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                    <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
                       Acknowledgement window: {account.escalation.ackWindowMinutes} minutes
                     </p>
                   )}
                 </div>
               ) : (
                 <div class={cardClass}>
-                  <p class="m-0 font-['Archivo'] text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  <p class="m-0 font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
                     No escalation contacts set
                   </p>
                   <p class={`mt-2 m-0 ${emptyNoteClass}`}>

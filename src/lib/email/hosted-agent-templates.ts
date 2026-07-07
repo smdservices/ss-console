@@ -60,6 +60,28 @@ export function hostedAgentOrderNotificationEmailHtml(
   )
 }
 
+export interface HostedAgentIntakeNotificationInput {
+  entityName: string
+  agentName: string | null
+  adminQueueUrl: string
+}
+
+/** Operational alert to team@ when a customer submits the setup
+ * questionnaire — the "ready to provision" baton. */
+export function hostedAgentIntakeNotificationEmailHtml(
+  input: HostedAgentIntakeNotificationInput
+): string {
+  return portalDocument(
+    [
+      paragraph('A Hosted Agent setup questionnaire was submitted.', '0 0 8px'),
+      detailPanel('Customer', escapeEmailHtml(input.entityName)),
+      detailPanel('Agent name', escapeEmailHtml(input.agentName ?? 'not provided')),
+      paragraph('Next concierge steps: assign the customer slug, then provision.'),
+      actionButton(input.adminQueueUrl, 'Open the Queue'),
+    ].join('\n')
+  )
+}
+
 /**
  * Sent by the Captain's activate action when the agent goes live. Channel
  * details are authored per customer in the admin activate form, never

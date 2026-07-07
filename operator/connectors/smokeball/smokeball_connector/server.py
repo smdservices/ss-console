@@ -288,23 +288,57 @@ def list_events(
     )
 
 
+def _next_day(date_str: str) -> str:
+    """YYYY-MM-DD -> the following day's YYYY-MM-DD (all-day span normalization)."""
+    from datetime import date, timedelta
+
+    y, m, d = (int(p) for p in date_str.split("-"))
+    return (date(y, m, d) + timedelta(days=1)).isoformat()
+
+
 @server.tool()
 def create_event(
     subject: str,
     start_time: str,
     end_time: str,
+    attendees: list[str],
+    time_zone: str,
     matter_id: str | None = None,
     description: str | None = None,
     location: str | None = None,
     all_day: bool | None = None,
-    attendees: list[str] | None = None,
-    time_zone: str | None = None,
 ) -> Any:
     """Create a calendar event — the Operator writing a computed deadline into the
-    Smokeball calendar (the single-source-of-truth consolidation). ``start_time`` /
-    ``end_time`` are ISO 8601; ``attendees`` are staff ids. Always created as a
-    non-recurring (``Normal``) event — recurring events are read-only on the API.
-    Classified INTERNAL_WRITE."""
+    Smokeball calendar (the single-source-of-truth consolidation). Always created
+    as a non-recurring (``Normal``) event — recurring events are read-only on the
+    API. Classified INTERNAL_WRITE.
+
+    The live API's validation contract (verified against staging, 2026-07-06;
+    each miss is an HTTP 400 that also counts toward the connector breaker):
+
+    - ``attendees`` — REQUIRED, at least one staff id (see ``get_staff``).
+    - ``time_zone`` — REQUIRED, an IANA name (e.g. ``America/Los_Angeles``).
+      Use the firm's authored zone; never guess a zone for a deadline.
+    - ``start_time`` / ``end_time`` — ISO 8601. For ``all_day=True`` the API
+      requires exact 24-hour boundaries; this tool normalizes both to the
+      date's midnight span, so passing the deadline DATE is enough.
+    """
+    if not attendees:
+        raise ValueError(
+            "create_event: Smokeball requires at least one attendee (staff id) — "
+            "call get_staff and pass attendees=[<staff_id>]."
+        )
+    if not time_zone:
+        raise ValueError(
+            "create_event: Smokeball requires an IANA time_zone "
+            "(e.g. 'America/Los_Angeles'). Use the firm's authored zone."
+        )
+    if all_day:
+        start_date, end_date = start_time[:10], end_time[:10]
+        start_time = f"{start_date}T00:00:00Z"
+        if end_date <= start_date:
+            end_date = _next_day(start_date)
+        end_time = f"{end_date}T00:00:00Z"
     return _get_client().request(
         "POST",
         "/events",

@@ -47,7 +47,7 @@ const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
 >
   <div class="mb-5 flex items-end justify-between">
     <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Clients</h1>
-    <span class="font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-text-muted)]">
+    <span class="font-mono text-[13px] text-[color:var(--ss-color-text-muted)]">
       {clients.length}
       {clients.length === 1 ? 'client' : 'clients'}
     </span>
@@ -61,7 +61,7 @@ const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
     ) : (
       <div>
         <div
-          class={`${COL} border-b border-[color:var(--ss-color-text-primary)] px-3.5 pb-2.5 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]`}
+          class={`${COL} border-b border-[color:var(--ss-color-text-primary)] px-3.5 pb-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]`}
         >
           <span>Client</span>
           <span>Vertical</span>
@@ -82,19 +82,19 @@ const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
               <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
                 {verticalLabel(c.vertical)}
               </span>
-              <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
+              <span class="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
                 {stageLabel(c.stage)}
               </span>
               <span>
                 {hasOperator && (
-                  <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-primary)]">
+                  <span class="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-primary)]">
                     Operator
                   </span>
                 )}
               </span>
               <span
                 class:list={[
-                  "text-right font-['JetBrains_Mono'] text-[13px] font-medium",
+                  'text-right font-mono text-[13px] font-medium',
                   rollup?.has_overdue
                     ? 'text-[color:var(--ss-color-error)]'
                     : outstanding > 0

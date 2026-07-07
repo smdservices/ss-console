@@ -149,3 +149,74 @@ def test_heartbeat_row_joins_the_hash_chain(tmp_path: Path) -> None:
     # The heartbeat row chains off the prior row's hash.
     assert rows[1][1] == rows[0][2]
     assert rows[1][2] is not None
+
+
+# ---------------------------------------------------------------------------
+# Agent-uid resolution (live-caught on pilot-smokeball 2026-07-06: at broker
+# start the gateway PID still belongs to the ROOT entrypoint — the exec-drop
+# to the agent user happens later, so boot-time derivation read uid 0)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_uid_resolves_from_env(tmp_path: Path, monkeypatch) -> None:
+    broker = _broker(tmp_path)
+    broker.agent_uid = None
+    monkeypatch.setenv("SMD_AGENT_UID", str(AGENT_UID))
+    resp = broker.handle(
+        {"action": "suppressed_wake_append", "row": _row()},
+        peer_pid=9999,
+        peer_uid=AGENT_UID,
+    )
+    assert resp["ok"] is True
+    assert broker.agent_uid == AGENT_UID  # cached after first resolution
+
+
+def test_agent_uid_env_zero_is_refused(tmp_path: Path, monkeypatch) -> None:
+    """uid 0 is never a valid agent uid — a root caller must not be minted in."""
+    broker = _broker(tmp_path)
+    broker.agent_uid = None
+    broker.gateway_pid = 999999999  # /proc stat fallback must also fail
+    monkeypatch.setenv("SMD_AGENT_UID", "0")
+    with pytest.raises(PermissionError):
+        broker.handle(
+            {"action": "suppressed_wake_append", "row": _row()},
+            peer_pid=9999,
+            peer_uid=0,
+        )
+
+
+def test_agent_uid_proc_stat_of_root_is_refused(tmp_path: Path, monkeypatch) -> None:
+    """A pre-exec-drop stat reading the root entrypoint must not be cached."""
+    broker = _broker(tmp_path)
+    broker.agent_uid = None
+    monkeypatch.delenv("SMD_AGENT_UID", raising=False)
+
+    class _RootStat:
+        st_uid = 0
+
+    monkeypatch.setattr("workspace_broker.server.os.stat", lambda path: _RootStat())
+    with pytest.raises(PermissionError):
+        broker.handle(
+            {"action": "suppressed_wake_append", "row": _row()},
+            peer_pid=9999,
+            peer_uid=0,
+        )
+    assert broker.agent_uid is None  # not cached — a later stat can still succeed
+
+
+def test_agent_uid_lazy_proc_stat_resolves_nonroot(tmp_path: Path, monkeypatch) -> None:
+    broker = _broker(tmp_path)
+    broker.agent_uid = None
+    monkeypatch.delenv("SMD_AGENT_UID", raising=False)
+
+    class _HermesStat:
+        st_uid = AGENT_UID
+
+    monkeypatch.setattr("workspace_broker.server.os.stat", lambda path: _HermesStat())
+    resp = broker.handle(
+        {"action": "suppressed_wake_append", "row": _row()},
+        peer_pid=9999,
+        peer_uid=AGENT_UID,
+    )
+    assert resp["ok"] is True
+    assert broker.agent_uid == AGENT_UID

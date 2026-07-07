@@ -176,14 +176,14 @@ const ticketShell = [
     <a href={props.href} class={ticketShell}>
       <div class="md:grid md:grid-cols-[56px_1fr_auto_auto_48px] md:items-stretch">
         {/* № cell */}
-        <div class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[88px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell">
+        <div class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[88px] py-3 md:py-0 font-body font-black text-num-cell">
           {props.serial ? `№${props.serial}` : '№'}
         </div>
 
         {/* Main */}
         <div class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-4 md:py-5 flex flex-col justify-center gap-2">
           <div class="flex items-center gap-3 flex-wrap">
-            <h3 class="font-['Archivo'] text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
+            <h3 class="font-body text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
               {props.title}
             </h3>
             <StatusPill tone={props.tone} label={props.toneLabel} />
@@ -198,7 +198,7 @@ const ticketShell = [
         {/* Price */}
         <div class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-5 flex flex-col items-start md:items-end justify-center gap-1">
           <MoneyDisplay amountCents={props.amountCents} size="row" />
-          <span class="font-['Archivo_Narrow'] text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          <span class="font-mono text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
             {props.metaCaption ?? 'Amount'}
           </span>
         </div>
@@ -206,7 +206,7 @@ const ticketShell = [
         {/* Date */}
         <div class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-5 flex flex-col justify-center gap-1">
           {props.metaLabel && (
-            <span class="font-['Archivo_Narrow'] text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            <span class="font-mono text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
               {props.metaLabel}
             </span>
           )}
@@ -220,7 +220,7 @@ const ticketShell = [
         {/* Arrow */}
         <div
           aria-hidden="true"
-          class="hidden md:flex items-center justify-center font-['Archivo'] font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
+          class="hidden md:flex items-center justify-center font-body font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
         >
           →
         </div>
@@ -239,13 +239,13 @@ const ticketShell = [
     >
       <div class="md:grid md:grid-cols-[88px_1fr_140px_180px_auto_48px] md:items-stretch">
         {/* Thumb */}
-        <div class="flex items-center justify-center md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] md:min-h-[88px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell text-[color:var(--ss-color-text-primary)]">
+        <div class="flex items-center justify-center md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] md:min-h-[88px] py-3 md:py-0 font-body font-black text-num-cell text-[color:var(--ss-color-text-primary)]">
           {props.fileExt ?? props.icon.slice(0, 3).toUpperCase()}
         </div>
 
         {/* Main */}
         <div class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-4 md:py-5 flex flex-col justify-center gap-2">
-          <h4 class="font-['Archivo'] text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
+          <h4 class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
             {props.title}
           </h4>
           {props.eyebrow && (
@@ -257,7 +257,7 @@ const ticketShell = [
 
         {/* Kind */}
         <div class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-5 flex flex-col justify-center gap-1">
-          <span class="font-['Archivo_Narrow'] text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          <span class="font-mono text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
             Kind
           </span>
           <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)]">
@@ -267,7 +267,7 @@ const ticketShell = [
 
         {/* Meta */}
         <div class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-5 flex flex-col justify-center gap-1">
-          <span class="font-['Archivo_Narrow'] text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          <span class="font-mono text-label font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
             Shared
           </span>
           <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)]">
@@ -285,7 +285,7 @@ const ticketShell = [
         {/* Arrow */}
         <div
           aria-hidden="true"
-          class="hidden md:flex items-center justify-center font-['Archivo'] font-black text-xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
+          class="hidden md:flex items-center justify-center font-body font-black text-xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
         >
           ↗
         </div>

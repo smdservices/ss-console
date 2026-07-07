@@ -62,7 +62,7 @@ function invoiceDate(inv: (typeof invoices)[number]): string {
 }
 
 const LAB =
-  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+  'font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]'
 const HEAD = `grid gap-4 items-center px-3.5 pb-2.5 border-b border-[color:var(--ss-color-text-primary)] ${LAB}`
 const ROW =
   'grid gap-4 items-center px-3.5 py-3 border-b border-[color:var(--ss-color-border-subtle)] text-sm'
@@ -81,25 +81,21 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
   <!-- two-revenue band -->
   <div class="mb-6 grid grid-cols-2 border border-[color:var(--ss-color-text-primary)]">
     <div class="border-r border-[color:var(--ss-color-text-primary)] px-[22px] py-4">
-      <div class="mb-3 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.16em]">
-        One-time
-      </div>
+      <div class="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.16em]">One-time</div>
       <div class="flex gap-8">
         <div>
           <span class={`${LAB} mb-1 block`}>Invoiced</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold"
-            >{formatMoney(totals.invoiced)}</span
-          >
+          <span class="font-mono text-xl font-bold">{formatMoney(totals.invoiced)}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>Paid</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(totals.paid)}</span>
+          <span class="font-mono text-xl font-bold">{formatMoney(totals.paid)}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>Outstanding</span>
           <span
             class:list={[
-              "font-['JetBrains_Mono'] text-xl font-bold",
+              'font-mono text-xl font-bold',
               totals.outstanding > 0
                 ? 'text-[color:var(--ss-color-primary)]'
                 : 'text-[color:var(--ss-color-text-muted)]',
@@ -116,18 +112,15 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
       </div>
     </div>
     <div class="px-[22px] py-4">
-      <div class="mb-3 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.16em]">
-        Recurring
-      </div>
+      <div class="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.16em]">Recurring</div>
       <div class="flex gap-8">
         <div>
           <span class={`${LAB} mb-1 block`}>Active operators</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{recurring.activeCount}</span>
+          <span class="font-mono text-xl font-bold">{recurring.activeCount}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>MRR</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(recurring.mrr)}</span
-          >
+          <span class="font-mono text-xl font-bold">{formatMoney(recurring.mrr)}</span>
           {
             recurring.unpricedCount > 0 && (
               <div class="mt-1 text-[11px] text-[color:var(--ss-color-primary)]">
@@ -144,22 +137,22 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
   <div class="mb-1 flex gap-7 border-b border-[color:var(--ss-color-text-primary)]">
     <button
       data-tab="quo"
-      class="bill-tab pb-2.5 font-['Archivo_Narrow'] text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      class="bill-tab pb-2.5 font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
     >
-      Quotes <span class="font-['JetBrains_Mono'] text-[11px]">{quotes.length}</span>
+      Quotes <span class="font-mono text-[11px]">{quotes.length}</span>
     </button>
     <button
       data-tab="inv"
-      class="bill-tab pb-2.5 font-['Archivo_Narrow'] text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-primary)]"
+      class="bill-tab pb-2.5 font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-primary)]"
       data-on
     >
-      Invoices <span class="font-['JetBrains_Mono'] text-[11px]">{invoices.length}</span>
+      Invoices <span class="font-mono text-[11px]">{invoices.length}</span>
     </button>
     <button
       data-tab="rec"
-      class="bill-tab pb-2.5 font-['Archivo_Narrow'] text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      class="bill-tab pb-2.5 font-mono text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
     >
-      Recurring <span class="font-['JetBrains_Mono'] text-[11px]">{roster.length}</span>
+      Recurring <span class="font-mono text-[11px]">{roster.length}</span>
     </button>
   </div>
 
@@ -190,13 +183,11 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
               <span class="text-[color:var(--ss-color-text-secondary)]">
                 {inv.description ?? inv.type}
               </span>
-              <span class="text-right font-['JetBrains_Mono'] font-medium">
-                {formatMoney(inv.amount)}
-              </span>
+              <span class="text-right font-mono font-medium">{formatMoney(inv.amount)}</span>
               <span>
                 <span class={statusBadgeClass(inv.status)}>{inv.status}</span>
               </span>
-              <span class="text-right font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+              <span class="text-right font-mono text-xs text-[color:var(--ss-color-text-muted)]">
                 {invoiceDate(inv)}
               </span>
             </a>
@@ -231,13 +222,11 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
                 {clientName(q.entity_id)}
               </span>
               <span class="text-[color:var(--ss-color-text-secondary)]">Quote v{q.version}</span>
-              <span class="text-right font-['JetBrains_Mono'] font-medium">
-                {formatMoney(q.total_price)}
-              </span>
+              <span class="text-right font-mono font-medium">{formatMoney(q.total_price)}</span>
               <span>
                 <span class={statusBadgeClass(q.status)}>{q.status}</span>
               </span>
-              <span class="text-right font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+              <span class="text-right font-mono text-xs text-[color:var(--ss-color-text-muted)]">
                 {formatDate(q.created_at)}
               </span>
             </a>
@@ -271,15 +260,15 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
               <span class="font-semibold text-[color:var(--ss-color-text-primary)]">
                 {r.entity_name ?? r.customer_slug}
               </span>
-              <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
+              <span class="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
                 {runtimeEntities.has(r.entity_id) ? 'Active' : 'Provisioning'}
               </span>
               {operatorPrice(r.entity_id) == null ? (
-                <span class="text-right font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-primary)]">
+                <span class="text-right font-mono text-[13px] text-[color:var(--ss-color-primary)]">
                   unpriced
                 </span>
               ) : (
-                <span class="text-right font-['JetBrains_Mono'] text-[13px] font-medium">
+                <span class="text-right font-mono text-[13px] font-medium">
                   {formatMoney(operatorPrice(r.entity_id) ?? 0)}/mo
                 </span>
               )}

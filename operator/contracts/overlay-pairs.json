@@ -1,7 +1,7 @@
 {
   "overlayRepo": "https://github.com/venturecrane/hermes-smd-overlay.git",
-  "overlayRef": "c081223bda47357e6f684a008d44433c145d2ff9",
-  "overlayRefNote": "MUST equal the ARG OVERLAY_REF pinned in operator/templates/Dockerfile \u2014 that is the overlay commit a customer Machine actually ships. The vitest gate asserts the two agree so the manifest cannot pin a stale overlay. Bump both together when OVERLAY_REF moves, then re-record each overlaySha256 from the runtime file at the new ref. 2026-07-05: 7e70b376 -> c85b0ddb (overlay#133 cost-breaker boot self-probe). Fast-forward, 3 files (hooks/smd-overlay-activation/handler.py, shared/cost_breaker.py, tests/test_activation_hook.py) \u2014 NO tracked twin touched, so every overlaySha256 below is unchanged; only overlayRef moved.",
+  "overlayRef": "07c7a5162c3bff5e2ecf67908f0e742e7598d1df",
+  "overlayRefNote": "MUST equal the ARG OVERLAY_REF pinned in operator/templates/Dockerfile \u2014 that is the overlay commit a customer Machine actually ships. The vitest gate asserts the two agree so the manifest cannot pin a stale overlay. Bump both together when OVERLAY_REF moves, then re-record each overlaySha256 from the runtime file at the new ref. 2026-07-06: c081223b -> 7c10fd61 (overlay#140 caption provenance allowlist, ss #1758). Recomputed overlaySha256 for the runtime files #140 touched; ss-twin sha256 recomputed where the tracked twin changed (citation_filter caption allowlist + Cal ordinal reporter fix, ss #1764).",
   "pairs": [
     {
       "adapterPath": "operator/adapter/voice/transform.py",
@@ -37,6 +37,13 @@
       "syncNote": "2026-07-04 #1686 audit hash chain: overlayRef 122ee0a2 -> 7e70b376 (overlay#131 chain schema/export + #132 lint/format; also ships overlay#128-130 interactive metering + gate-clear from the cost-plane wave). emit.py overlaySha256 recomputed (ensure_schema now applies CHAIN_COLUMN_ALTERS). NEW PAIR: workspace_broker/chain.py <-> shared/audit_chain.py, byte-identical twins (canonicalization + verify_chain must never drift between the broker writer and the Machine-side export/verifier).",
       "sha256": "b84b14342ec9548c9dd7fe4a680269deda09b7413b41df5c24a2633311a369ed",
       "overlaySha256": "b84b14342ec9548c9dd7fe4a680269deda09b7413b41df5c24a2633311a369ed"
+    },
+    {
+      "adapterPath": "operator/safety-substrate/citation_filter.py",
+      "overlayPath": "shared/citation_filter.py",
+      "syncNote": "NEW PAIR 2026-07-06 (overlay#140 / ss#1758): the tier-2 citation filter is vendored from ss-console (source of truth; 'changes land there first') \u2014 now drift-tracked like the other twins. Deliberate cosmetic divergence: the overlay copy carries a VENDORED docstring note and overlay ruff formatting, so the two sha256s differ by design; each side's hash pins its own runtime bytes.",
+      "sha256": "7f925702dc8f8be56368cb59f12b8eb7d36f7fd058c50d948d1c5360ab3c0d0f",
+      "overlaySha256": "0774974277c082edab00d108db95d356224504079bab8558a301ccc25fec2143"
     }
   ]
 }
