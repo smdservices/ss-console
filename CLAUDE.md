@@ -47,6 +47,7 @@ SMD contact addresses:
 ## Enterprise Rules
 
 - **All changes through PRs.** Never push directly to main. Branch, PR, CI, QA, merge.
+- **Worktree discipline: the primary checkout is read-only.** All repo mutations happen in an isolated worktree (`EnterWorktree`). A PreToolUse hook (`.claude/hooks/worktree-guard.mjs`) rejects Edit/Write into the primary tree (paths under `.claude/` are exempt — the worktrees themselves live there), and a SessionStart hook (`.claude/hooks/sync-primary.sh`) fast-forwards a clean primary checkout to origin/main so it never drifts stale. Do not work around the guard with Bash writes. Captain-only escape hatch: `SS_ALLOW_PRIMARY_WRITES=1`. Guard tests: `tests/worktree-guard.test.ts`.
 - **Never echo secret values.** Transcripts persist in ~/.claude/ and are sent to API providers.
 - **Verify secret VALUES, not just key existence.**
 - **Never auto-save to VCMS** without explicit Captain approval.
