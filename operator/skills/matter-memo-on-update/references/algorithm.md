@@ -16,7 +16,7 @@ A successful call resets the breaker's error count, so the realistic worst case 
 
 1. **Change key.** `op-mmou:<matterId>:<timestamp>` - the raw `.NET ticks` value verbatim.
 2. **Read existing memos once** with `get_memos_on_matter(matterId)`. If any memo body already contains that exact change-key tag, the change is already logged → **STOP, write nothing.** Webhook deliveries can repeat; a repeat is not a new change.
-3. **On a `get_memos` error, do not retry.** Proceed to Phase 2. A missing dedupe read at worst yields one extra memo on a redelivery - bounded, and the skill can never loop: it is routed only from `{source: smokeball, event_type: matter.updated}`, and its own `create_memo` emits a `memo.*` event, never `matter.updated`. (If a `memo.*` event ever reaches this skill, that is a routing misconfiguration - STOP and surface it.)
+3. **On a `get_memos` error, do not retry.** Proceed to Phase 2. A missing dedupe read at worst yields one extra memo on a redelivery - bounded, and the skill can never loop: it is routed only from `{source: smokeball, event_type: matter.updated}`, and its own `create_memo` emits a `memo.*` event, never `matter.updated`. (If a `memo.*` event ever reaches this skill, that is a routing misconfiguration - STOP and surface it.) Verified live 2026-07-07 (`vfy_01KWYJV4EYMW1C575GC3H9B80V`): a seat `create_memo` produced no subsequent `matter.updated`. Apparent `matter.updated` "cycling" in the ledger is always an external editor (the L2 driver's `patch-matter`, or a human matter edit), not self-feed.
 
 ## Phase 2 - Resolve actor and source (degrade honestly, never fabricate)
 

@@ -124,6 +124,27 @@ Seeding is test-infrastructure hydration on our own tenant. It is distinct
 from standing gate (b), which governs delivery writes on the client's
 account (Captain, 2026-07-04).
 
+**Rehearsal-seat lifecycle between waves.** The rehearsal seat stays seeded
+between test waves, so its `pre_run` wake-gate (which suppresses only on a
+_provably empty_ tenant) keeps waking the scheduled tracker/digest crons daily
+— ~$1–3/day of Sonnet for digests nobody reads. The gate is working as
+designed; the right lever is to quiesce the seat when no wave is running:
+
+```
+operator/bin/pause-customer.sh pilot-smokeball --reason "between L2 waves"
+operator/bin/pause-customer.sh pilot-smokeball --resume   # before the next wave
+```
+
+Pause writes `/opt/data/.paused` and restarts the machine warm; the agent loop
+and cron scheduler never start (`bootstrap.sh` step 9), so all wakes — cron,
+webhook, inbound — stop, with no `customer.yaml` edit and no re-provision. It
+is an all-or-nothing kill switch, fully reversible. De-seeding is rejected (no
+teardown script; a full re-seed each wave is fragile); always-on is rejected
+(nothing drives the seat between waves and the client is not connected).
+Pausing is a Captain directive (it disables scheduled behaviour); this documents
+the mechanism and the recommendation — actually pausing a given wave-gap is the
+Captain's call.
+
 ## 4. Scenario suites by process
 
 ### Discovery (the pattern lane — deepest, activates first)
