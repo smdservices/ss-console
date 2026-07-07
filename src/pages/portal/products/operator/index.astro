@@ -126,16 +126,11 @@ if (access) {
   // duplicated nav items already present (Connections, Team) and is noise for a
   // running operator (ADR 0069 sub-page coherence pass). The onboarding page
   // still exists by URL; it is simply not featured.
-  const ACTIVE_DOER_ROLES = ['staff', 'principal']
-  const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
-  if (canAct) {
-    sectionCards.push({
-      href: '/portal/products/operator/calendar',
-      label: 'Calendar',
-      description: 'Appointments and deadlines your Operator has scheduled or proposed.',
-      group: 'direct',
-    })
-  }
+  // "Calendar" removed from the landing: it was a dead stub (a filter over no
+  // data) that conflated a calendar of appointments with scheduling the
+  // operator's recurring jobs. The real need is a Schedule view of authored
+  // crons, built separately. The page still exists by URL (ADR 0069 sub-page
+  // coherence pass).
   sectionCards.push({
     href: '/portal/products/operator/activity',
     label: 'Activity',
