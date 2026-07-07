@@ -9,12 +9,29 @@
 #
 # ISOLATION (the load-bearing part): the normal reprovision injects every
 # Infisical /ss key as an env var, and provision-customer.sh stages the
-# per-customer ones (GOOGLE_SERVICE_ACCOUNT_JSON, CLIO_*) onto the Machine.
-# Those are the REAL customer credentials. This wrapper:
-#   - replaces GOOGLE_SERVICE_ACCOUNT_JSON with a freshly generated ISOLATED
-#     service account (gen-staging-google-cred.py) — boots the broker
-#     identically to prod, wired to nothing real; and
-#   - BLANKS CLIO_* so the real Clio credentials never reach the staging box.
+# customer-owned ones (GOOGLE_*, CLIO_*, AGENTMAIL_*, SMOKEBALL_*, webhook
+# secrets, the per-seat Anthropic key) onto the Machine. Those are REAL customer
+# credentials. This wrapper isolates staging from ALL of them.
+#
+# FAIL-CLOSED (2026-07 rework, issue #1783). The previous version blanked a
+# HAND-MAINTAINED DENYLIST (`CLIO_*` only) and so failed OPEN: any customer-owned
+# secret it did not name (AgentMail, Smokeball, per-seat Anthropic, webhook
+# secrets) leaked onto the staging box the moment a staging seat bound that
+# connector. This version derives the isolate set from the custody classification
+# (operator/bin/lib/secret_custody.py, sourced from
+# operator/contracts/env-consumption.yaml + the connector tables), so a NEWLY
+# added customer-owned secret is isolated automatically. The classification's
+# completeness against provision-customer.sh is CI-enforced
+# (operator/bin/tests/test_secret_custody.py::test_every_staged_secret_is_classified),
+# which is what makes this allowlist trustworthy.
+#
+# Two isolation moves:
+#   - BLANK every customer-owned secret (contract-driven) so the real value never
+#     reaches the staging Machine.
+#   - SUBSTITUTE GOOGLE_SERVICE_ACCOUNT_JSON with a freshly generated ISOLATED
+#     service account (gen-staging-google-cred.py): Google is customer-by-EFFECT
+#     (DWD impersonation), so the broker still needs *a* credential to boot
+#     identically to prod — wired to nothing real.
 # Result: staging borrows none of the live business's access.
 #
 # The slug is HARDCODED to smd-staging. This wrapper must never touch a real
@@ -25,18 +42,35 @@ set -euo pipefail
 
 SLUG="smd-staging"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${HERE}/../.." && pwd)"
+
+# Contract-driven isolate set, computed BEFORE infisical run (it needs no secret —
+# only the classification + the slug). Newline-separated customer-owned source
+# names, per-seat __<CID> expanded. Fails loud if the classification cannot load.
+ISOLATE_NAMES="$(cd "${REPO_ROOT}" && uv run --quiet --with pyyaml python3 \
+  operator/bin/lib/secret_custody.py isolate-names "${SLUG}")" \
+  || { echo "reprovision-staging: could not compute the customer-owned isolate set" >&2; exit 1; }
+[ -n "${ISOLATE_NAMES}" ] \
+  || { echo "reprovision-staging: empty isolate set — refusing to run without isolation" >&2; exit 1; }
 
 exec infisical run --env=prod --path=/ss --silent -- bash -c '
   set -euo pipefail
-  HERE="$1"; SLUG="$2"
-  # Generated isolated Google credential (throwaway RSA key, fictitious project).
+  HERE="$1"; SLUG="$2"; ISOLATE_NAMES="$3"
+
+  # Blank every customer-owned secret so the real value never reaches the staging
+  # Machine. Empty-string assignments, not secrets (gitleaks false positive). # gitleaks:allow
+  while IFS= read -r _n; do
+    [ -n "${_n}" ] || continue
+    export "${_n}="
+  done <<< "${ISOLATE_NAMES}"
+
+  # SUBSTITUTE the isolated Google service account (throwaway RSA key, fictitious
+  # project). Set AFTER the blank loop (which also blanks GOOGLE_SERVICE_ACCOUNT_JSON).
   # Value flows env -> fly secrets import; never printed.
   GEN_JSON="$(uv run --quiet --with cryptography python3 "${HERE}/gen-staging-google-cred.py")"
   export GOOGLE_SERVICE_ACCOUNT_JSON="$(printf "%s" "${GEN_JSON}" | base64 | tr -d "\n")"
   unset GEN_JSON
-  # Blank real per-customer secrets so they never leak onto the staging Machine.
-  # The values are empty strings (blanking), not secrets — gitleaks false positive.
-  export CLIO_CLIENT_ID="" CLIO_CLIENT_SECRET="" CLIO_ENCRYPTION_KEY="" CLIO_TOKENS_ENC_B64="" # gitleaks:allow
+
   # Non-interactive: Machine secrets persist; nothing to paste.
   yes s | "${HERE}/provision-customer.sh" "${SLUG}"
-' _ "${HERE}" "${SLUG}"
+' _ "${HERE}" "${SLUG}" "${ISOLATE_NAMES}"
