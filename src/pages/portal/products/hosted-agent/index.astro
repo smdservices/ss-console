@@ -384,7 +384,8 @@ const stMessage =
                     .
                   </p>
                 </div>
-                <form method="POST" action="/api/portal/products/hosted-agent/billing">
+                <form method="POST" action="/api/portal/billing/manage">
+                  <input type="hidden" name="product_slug" value="hosted-agent" />
                   <button
                     type="submit"
                     class="px-6 py-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
