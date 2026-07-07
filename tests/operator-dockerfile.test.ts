@@ -294,7 +294,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // Range 7c10fd61..07c7a516 touches webhook_gate.py + shared/
     // gate_trigger_exclusions.py + translate.py + action_classes + tests; no
     // tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="07c7a5162c3bff5e2ecf67908f0e742e7598d1df"')
+    // 3294e909 (#143, ss#1758/#141): the provenance SESSION RESOLVER — core's
+    // pre_tool_call fire sites drop session_id, so the register was never
+    // consulted under its real key (111/111 tier3 rows empty-register); the
+    // trust plugin now notes the real id (new pre_llm_call hook +
+    // post_tool_call) and resolves at a single pre-hook choke point. Unblocks
+    // the #140 caption exemption + A1 identifier gate. No tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3294e9095405b876967b52863765b1a020573170"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
