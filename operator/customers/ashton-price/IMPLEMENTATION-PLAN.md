@@ -363,8 +363,14 @@ named on that milestone.
   lifecycle sign-off evidence.
 - **Client-facing shape** is the standing `CLIENT-IMPLEMENTATION-PLAN.md` —
   this plan in the firm's language, maintained alongside this file (when the
-  shape changes, update both in the same PR). Status notes to the firm derive
-  from it and the §5 register; Captain reviews and sends everything.
+  shape changes, update both in the same PR). It is the A&P **instance** of the
+  reusable baseline `operator/templates/CLIENT-IMPLEMENTATION-PLAN.template.md`:
+  the baseline is the generic method (the four rollout stages + four testing
+  layers + proof-over-calendar, identical for every Operator); the instance
+  overlays only what is A&P-specific (the litigation lifecycle we bring up
+  discovery-first, the firm-input table, the Smokeball note). When the baseline
+  method changes, update the instances. Status notes to the firm derive from the
+  instance and the §5 register; Captain reviews and sends everything.
   Client-facing content carries no internal codenames, no timeframes, no
   uncontracted commitments (CLAUDE.md Pattern A/B).
 
