@@ -317,7 +317,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // proven live on pilot-smokeball (suppression stood, audit row never
     // persisted). Range 6e685b03..af895354 touches webhook_gate.py +
     // shared/audit_client.py + tests; no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="af895354ad86f01bfde82e179c5c42d0fe733f6a"')
+    // 138c10a (#147, ss #1796): wire mcp:brave — shared web-search connector
+    // (ADR 0070). Range af895354..138c10a touches bootstrap/mcp_registry.py +
+    // shared/action_classes.py + tests; no tracked twin moved (every
+    // overlaySha256 unchanged, only overlayRef).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="138c10a11852d5225b7a859a216d47aba7ffcedc"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
