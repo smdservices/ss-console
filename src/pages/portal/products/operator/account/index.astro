@@ -4,6 +4,7 @@ import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
+import { getStripeCustomerIdForSubscription } from '../../../../../lib/portal/billing'
 import {
   loadAccountState,
   subscriptionStatusLabel,
@@ -44,6 +45,9 @@ const { client, roles } = access
 
 const config = await getCustomerConfig(env.DB, client.id)
 const account = await loadAccountState(env.DB, client.id)
+// Manage-Billing door renders only when a Stripe customer exists on the
+// subscription (no fabricated door).
+const stripeCustomerId = await getStripeCustomerIdForSubscription(env.DB, client.id, 'operator')
 
 const RETURN_TO = '/portal/products/operator/account'
 const cr = Astro.url.searchParams.get('cr')
@@ -146,6 +150,17 @@ const hasEscalation =
                   <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
                     {subscriptionStatusProse(account.subscription.status)}
                   </p>
+                  {stripeCustomerId && (
+                    <form method="POST" action="/api/portal/billing/manage" class="mt-2">
+                      <input type="hidden" name="product_slug" value="operator" />
+                      <button
+                        type="submit"
+                        class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                      >
+                        Manage Billing
+                      </button>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <div class="flex flex-col gap-2">
