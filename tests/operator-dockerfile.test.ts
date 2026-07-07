@@ -321,7 +321,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // (ADR 0070). Range af895354..138c10a touches bootstrap/mcp_registry.py +
     // shared/action_classes.py + tests; no tracked twin moved (every
     // overlaySha256 unchanged, only overlayRef).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="138c10a11852d5225b7a859a216d47aba7ffcedc"')
+    // b9391d8 (#148, ss #1796): fix the Brave runtime tool name to
+    // mcp_brave_brave_web_search — live pilot-smokeball verification of #147
+    // caught the single-brave name was unmapped -> REFUSED. Range
+    // 138c10a..b9391d8 touches shared/action_classes.py + test; no tracked twin.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b9391d859c6d59df26c033caa3f0face6d215570"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
