@@ -1,6 +1,6 @@
 # Hosted Agent — Tiered-Autonomy Product Model (proposal)
 
-_Status: **proposal**, awaiting Captain decision. Date 2026-07-07. Motivated by [`docs/research/hosted-agent/target-customer-and-demand.md`](../../research/hosted-agent/target-customer-and-demand.md) (the market wants action-taking; draft-only-as-ceiling is off-market) and the Captain directive that security is a **how**, not a capability ceiling. This document proposes how the Hosted Agent should act; it is not yet a locked decision and does not change any live seat._
+_Status: **ACCEPTED 2026-07-07** — all three open decisions approved as recommended; locked in [ADR 0071](../../adr/0071-confirm-ceiling-and-hosted-agent-tier-ladder.md). Motivated by [`docs/research/hosted-agent/target-customer-and-demand.md`](../../research/hosted-agent/target-customer-and-demand.md) (the market wants action-taking; draft-only-as-ceiling is off-market) and the Captain directive that security is a **how**, not a capability ceiling. This document is the design rationale; ADR 0071 is the decision of record. No live seat changes until the implementation issues land._
 
 ## TL;DR
 
@@ -80,10 +80,11 @@ Re-author `operator/customers/_hosted-template/customer.yaml` from "draft-only e
 - **Hosted Agent:** ship the tier ladder above. This turns it from "drafts, you send" into "**acts, with per-send confirmation**" — the capability the market actually pays for — without loosening any irreversible-action invariant. Positioning follows: _the agent that actually does things, and can't go rogue._
 - **Operator:** philosophy unchanged. It already authors per action class per engagement (ADR 0035); regulated verticals may floor `EXTERNAL_SEND` at `draft_for_review` or `confirm`. This proposal does not change Operator authoring; it makes the Hosted Agent finally use the same engine at a sensible default.
 
-## Open decisions for the Captain
+## Decisions (resolved 2026-07-07 — see ADR 0071)
 
-1. **Approve adding the `CONFIRM` ceiling value** (the one substrate change), reusing `current_turn_approval` extended to `EXTERNAL_SEND`?
-2. **Approve the Hosted Agent default authoring** (confirm-on-send default, laddering to autonomous)?
-3. **Naming** of the new tier (`confirm` / `autonomous_with_confirmation` / other)?
+1. **Add the `CONFIRM` ceiling value** — ✅ approved. Reuses `current_turn_approval` extended to `EXTERNAL_SEND`; restrictiveness ordering `autonomous` < `confirm` < `draft_for_review` < `refused`.
+2. **Hosted Agent default authoring** — ✅ approved. Confirm-on-send default, laddering to autonomous per skill.
+3. **Naming** — ✅ `confirm`.
+4. **(Added to scope)** owner can promote `confirm` → `autonomous` per skill from the portal (graduated trust; control-plane act per ADR 0026).
 
-On approval, this becomes an ADR + implementation issues (substrate: new ceiling value + enforcement + validator + schema; template re-authoring; confirm-over-channel UX; audit action for the confirm path). No live seat changes until then.
+Locked in [ADR 0071](../../adr/0071-confirm-ceiling-and-hosted-agent-tier-ladder.md). Implementation tracked in issues (substrate ceiling value + enforcement in both cores; schema/validator; template re-author; confirm-over-channel UX; portal promotion surface). No live seat changes until they land and are verified on `pilot-smokeball`.
