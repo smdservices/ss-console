@@ -170,15 +170,30 @@ const stepBadge: Record<StepState, { label: string; klass: string }> = {
   },
 }
 
-// Intake form outcome banner (?st=saved|invalid|error) and key form outcome
-// (?cs=saved|not_enabled|...) both land back here or on their own pages.
+/** Authored allowlist for the live view (from the intake row). */
+const allowedSenders: string[] = (() => {
+  try {
+    const parsed: unknown = JSON.parse(intake?.allowed_senders_json ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : []
+  } catch {
+    return []
+  }
+})()
+
+// Intake form outcome banner (?st=saved|invalid|error) and billing door
+// outcome (?cs=billing_*) both land back here.
 const stStatus = Astro.url.searchParams.get('st')
+const csStatus = Astro.url.searchParams.get('cs')
 const stMessage =
   stStatus === 'saved'
     ? 'Your setup answers were saved.'
     : stStatus === 'invalid'
       ? 'Some answers were missing or invalid. Please review the form and try again.'
-      : null
+      : csStatus === 'billing_unavailable'
+        ? 'Billing management is not available for this subscription yet. Write to team@smd.services and we sort it out.'
+        : csStatus === 'billing_error'
+          ? 'Could not open billing management. Try again, or write to team@smd.services.'
+          : null
 ---
 
 <!doctype html>
@@ -334,15 +349,78 @@ const stMessage =
               <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
                 {intake?.agent_name ?? 'Your agent'} is live
               </p>
-              {intake?.telegram_handle && (
-                <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-                  Connected to Telegram for {intake.telegram_handle}.
+              {intake?.channel_details && (
+                <p class="mt-4 font-body text-lg leading-relaxed whitespace-pre-wrap text-[color:var(--ss-color-text-primary)]">
+                  {intake.channel_details}
                 </p>
               )}
-              <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-                Setup changes and questions: reply to any email from us, and we take it from there.
-              </p>
             </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+                <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                  Who it accepts email from
+                </p>
+                {allowedSenders.length > 0 ? (
+                  <ul class="mt-3 flex flex-col gap-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                    {allowedSenders.map((s) => (
+                      <li>{s}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
+                    No senders on file. Write to team@smd.services to set the allowlist.
+                  </p>
+                )}
+                <p class="mt-3 font-body text-sm text-[color:var(--ss-color-text-secondary)]">
+                  Mail from anyone else is ignored. Changes to this list go through our team.
+                </p>
+              </div>
+
+              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+                <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                  How it works for you
+                </p>
+                <ul class="mt-3 flex flex-col gap-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                  {intake?.timezone && <li>Morning digest, on your clock ({intake.timezone})</li>}
+                  <li>Replies to you arrive directly</li>
+                  <li>Anything for a third party comes to you as a draft first</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                    Billing
+                  </p>
+                  <p class="mt-2 font-body text-base text-[color:var(--ss-color-text-secondary)]">
+                    Update your card, view invoices, or cancel. Cancellation takes effect at the end
+                    of the billing period, per the{' '}
+                    <a
+                      href="https://smd.services/agent/terms"
+                      class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-text-primary)]"
+                    >
+                      Hosted Agent terms
+                    </a>
+                    .
+                  </p>
+                </div>
+                <form method="POST" action="/api/portal/products/hosted-agent/billing">
+                  <button
+                    type="submit"
+                    class="px-6 py-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                  >
+                    Manage Billing
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <p class="font-body text-base text-[color:var(--ss-color-text-secondary)]">
+              Setup changes and questions: team@smd.services. A person answers.
+            </p>
           </div>
         )
       }

@@ -78,6 +78,14 @@ export const POST: APIRoute = async ({ locals, params, request }) => {
     )
       .bind(intake.subscription_id)
       .run()
+    // Persist the authored channel details: the live view renders them
+    // verbatim for the life of the subscription (migration 0088) — the
+    // go-live email must not be the only copy.
+    await env.DB.prepare(
+      `UPDATE hosted_agent_intake SET channel_details = ?, updated_at = datetime('now') WHERE id = ?`
+    )
+      .bind(channelDetails, id)
+      .run()
     await setIntakeStatus(env.DB, id, 'live')
   } catch (err) {
     console.error('[admin/hosted-agent] activate failed:', err)
