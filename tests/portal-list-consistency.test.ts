@@ -18,9 +18,8 @@ import { resolve } from 'path'
  */
 
 const PAGES = [
-  { name: 'Proposals', path: 'src/pages/portal/quotes/index.astro' },
-  { name: 'Invoices', path: 'src/pages/portal/invoices/index.astro' },
-  { name: 'Documents', path: 'src/pages/portal/documents/index.astro' },
+  { name: 'Billing', path: 'src/pages/portal/billing/index.astro' },
+  { name: 'Documents', path: 'src/pages/portal/engagement/documents/index.astro' },
 ] as const
 
 describe('portal list pages: unified scaffolding (R7 registry)', () => {
@@ -41,8 +40,11 @@ describe('portal list pages: unified scaffolding (R7 registry)', () => {
 
       it('imports PortalListItem primitive', () => {
         const code = source()
-        expect(code).toContain(
-          "import PortalListItem from '../../../components/portal/PortalListItem.astro'"
+        // Depth-agnostic: pages live at different directory depths after the
+        // portal IA rebuild; the contract is the shared primitive, not the
+        // relative prefix.
+        expect(code).toMatch(
+          /import PortalListItem from '(\.\.\/)+components\/portal\/PortalListItem\.astro'/
         )
       })
 

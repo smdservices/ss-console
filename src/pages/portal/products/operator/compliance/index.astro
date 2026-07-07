@@ -1,7 +1,5 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
-import '../../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../../lib/config/brand'
+import PortalShell from '../../../../../layouts/PortalShell.astro'
 import {
   resolveOperatorAccess,
   OPERATOR_LANDING_PATH,
@@ -13,10 +11,7 @@ import {
 } from '../../../../../lib/portal/operator/compliance'
 import type { Vertical } from '../../../../../lib/operator/customer-yaml'
 import { ACCEPTED_VERTICALS } from '../../../../../lib/operator/customer-yaml'
-import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -107,177 +102,161 @@ const view = resolveComplianceView({
 const isPrincipalOnly = roles.includes('principal') && !roles.includes('compliance')
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Operator · Compliance | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Operator · Compliance"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/operator"
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Compliance"
+    meta={null}
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
-
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/operator"
-        crumbLabel="Operator"
-        tag="Section"
-        h1="Compliance"
-        meta={null}
-      />
-
-      {
-        !view.enabled && (
-          <section
-            aria-label="Compliance view not enabled"
-            class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+  {
+    !view.enabled && (
+      <section
+        aria-label="Compliance view not enabled"
+        class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+      >
+        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          Compliance view not enabled
+        </p>
+        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          This firm has not opted in to the dedicated Compliance dashboard. The audit log is still
+          available directly to authorized roles.
+        </p>
+        <p class="mt-6 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          <a
+            href="/portal/products/operator/activity"
+            class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
           >
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Compliance view not enabled
+            Go to audit log
+          </a>
+        </p>
+      </section>
+    )
+  }
+
+  {
+    view.enabled && (
+      <div class="mt-8 flex flex-col gap-8">
+        {isPrincipalOnly && (
+          <section
+            aria-label="Principal read-only notice"
+            class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-5 md:p-6"
+          >
+            <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]">
+              Read-only view
             </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              This firm has not opted in to the dedicated Compliance dashboard. The audit log is
-              still available directly to authorized roles.
-            </p>
-            <p class="mt-6 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              <a
-                href="/portal/products/operator/activity"
-                class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
-              >
-                Go to audit log
-              </a>
+            <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+              This is the same dashboard your compliance reviewer sees. Retention controls are
+              configured in Settings.
             </p>
           </section>
-        )
-      }
+        )}
 
-      {
-        view.enabled && (
-          <div class="mt-8 flex flex-col gap-8">
-            {isPrincipalOnly && (
-              <section
-                aria-label="Principal read-only notice"
-                class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-5 md:p-6"
-              >
-                <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]">
-                  Read-only view
-                </p>
-                <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-                  This is the same dashboard your compliance reviewer sees. Retention controls are
-                  configured in Settings.
-                </p>
-              </section>
-            )}
-
-            <section
-              aria-label="Audit log"
-              class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-            >
-              <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                Audit log
-              </div>
-              <div class="px-5 md:px-7 py-6">
-                <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                  Every safety-relevant action the Operator takes is recorded with a timestamp,
-                  actor, and decision. That covers drafts created, sends approved, identity changes,
-                  memory access, and connector binding.
-                </p>
-                <p class="mt-4">
-                  <a
-                    href="/portal/products/operator/activity"
-                    class="inline-flex items-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-                  >
-                    Open audit log
-                  </a>
-                </p>
-              </div>
-            </section>
-
-            <section
-              aria-label="Audit retention"
-              class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-            >
-              <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                Audit retention
-              </div>
-              <div class="px-5 md:px-7 py-6">
-                {view.retention === null ? (
-                  <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                    Retention posture is not yet on file for this firm.
-                  </p>
-                ) : (
-                  <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    <div>
-                      <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Vertical
-                      </dt>
-                      <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
-                        {view.retention.vertical}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Effective retention window
-                      </dt>
-                      <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
-                        {formatRetentionWindow(view.retention.effectiveDays)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Per-vertical default
-                      </dt>
-                      <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
-                        {formatRetentionWindow(view.retention.defaultDays)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Firm override
-                      </dt>
-                      <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
-                        {view.retention.overrideDays === null
-                          ? 'None (default applies)'
-                          : formatRetentionWindow(view.retention.overrideDays)}
-                      </dd>
-                    </div>
-                  </dl>
-                )}
-              </div>
-            </section>
-
-            <section
-              aria-label="Evidence packet"
-              class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-            >
-              <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                Evidence packet
-              </div>
-              <div class="px-5 md:px-7 py-6">
-                <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                  A signed, reviewer-readable archive documenting how the Operator operated inside
-                  this organization during a chosen window: plain-language summary, structured audit
-                  log, redacted configuration, signed addenda.
-                </p>
-                <p class="mt-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                  Generation runs on the per-firm machine. The portal trigger lands separately;
-                  contact your principal to request a packet today.
-                </p>
-              </div>
-            </section>
+        <section
+          aria-label="Audit log"
+          class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+        >
+          <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+            Audit log
           </div>
-        )
-      }
-    </main>
-  </body>
-</html>
+          <div class="px-5 md:px-7 py-6">
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+              Every safety-relevant action the Operator takes is recorded with a timestamp, actor,
+              and decision. That covers drafts created, sends approved, identity changes, memory
+              access, and connector binding.
+            </p>
+            <p class="mt-4">
+              <a
+                href="/portal/products/operator/activity"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              >
+                Open audit log
+              </a>
+            </p>
+          </div>
+        </section>
+
+        <section
+          aria-label="Audit retention"
+          class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+        >
+          <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+            Audit retention
+          </div>
+          <div class="px-5 md:px-7 py-6">
+            {view.retention === null ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                Retention posture is not yet on file for this firm.
+              </p>
+            ) : (
+              <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                <div>
+                  <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Vertical
+                  </dt>
+                  <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                    {view.retention.vertical}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Effective retention window
+                  </dt>
+                  <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                    {formatRetentionWindow(view.retention.effectiveDays)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Per-vertical default
+                  </dt>
+                  <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                    {formatRetentionWindow(view.retention.defaultDays)}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Firm override
+                  </dt>
+                  <dd class="mt-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                    {view.retention.overrideDays === null
+                      ? 'None (default applies)'
+                      : formatRetentionWindow(view.retention.overrideDays)}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </div>
+        </section>
+
+        <section
+          aria-label="Evidence packet"
+          class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+        >
+          <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+            Evidence packet
+          </div>
+          <div class="px-5 md:px-7 py-6">
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+              A signed, reviewer-readable archive documenting how the Operator operated inside this
+              organization during a chosen window: plain-language summary, structured audit log,
+              redacted configuration, signed addenda.
+            </p>
+            <p class="mt-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              Generation runs on the per-firm machine. The portal trigger lands separately; contact
+              your principal to request a packet today.
+            </p>
+          </div>
+        </section>
+      </div>
+    )
+  }
+</PortalShell>

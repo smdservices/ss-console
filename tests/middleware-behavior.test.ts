@@ -245,7 +245,7 @@ describe('middleware runtime: behavior', () => {
     it('does NOT rewrite a path already under /portal on the portal subdomain', async () => {
       // Already-prefixed paths fall through to auth enforcement, not rewrite.
       // With no auth, the portal page path redirects to sign-in (not a rewrite).
-      const { res } = await invoke({ url: 'https://portal.smd.services/portal/quotes' })
+      const { res } = await invoke({ url: 'https://portal.smd.services/portal/engagement' })
       expect(res.headers.get(REWRITE_MARKER)).toBeNull()
       expect(res.status).toBe(302)
       expect(res.headers.get('Location')).toBe('/auth/sign-in')
@@ -391,7 +391,7 @@ describe('middleware runtime: behavior', () => {
   // ---- Portal auth enforcement ------------------------------------------
   describe('portal auth enforcement', () => {
     it('redirects an unauthenticated portal PAGE request to /auth/sign-in', async () => {
-      const { res } = await invoke({ url: 'https://portal.smd.services/portal/quotes' })
+      const { res } = await invoke({ url: 'https://portal.smd.services/portal/engagement' })
       expect(res.status).toBe(302)
       expect(res.headers.get('Location')).toBe('/auth/sign-in')
     })
@@ -404,7 +404,7 @@ describe('middleware runtime: behavior', () => {
 
     it('allows a Clerk-authenticated user through (primary portal path)', async () => {
       const { res, next } = await invoke({
-        url: 'https://portal.smd.services/portal/quotes',
+        url: 'https://portal.smd.services/portal/engagement',
         auth: { userId: 'user_any_clerk' },
       })
       expect(next).toHaveBeenCalledOnce()
@@ -414,7 +414,7 @@ describe('middleware runtime: behavior', () => {
     it('allows a legacy magic-link client session (cookie) as a Clerk fallback', async () => {
       await seedClientSession(db)
       const { res, next } = await invoke({
-        url: 'https://portal.smd.services/portal/quotes',
+        url: 'https://portal.smd.services/portal/engagement',
         cookie: `${SESSION_COOKIE_NAME}=${CLIENT_TOKEN}`,
       })
       expect(next).toHaveBeenCalledOnce()
@@ -423,7 +423,7 @@ describe('middleware runtime: behavior', () => {
 
     it('rejects an unknown/invalid session_token cookie with no Clerk session', async () => {
       const { res } = await invoke({
-        url: 'https://portal.smd.services/portal/quotes',
+        url: 'https://portal.smd.services/portal/engagement',
         cookie: `${SESSION_COOKIE_NAME}=not-a-real-token`,
       })
       expect(res.status).toBe(302)

@@ -1,14 +1,9 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
-import '../../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../../lib/config/brand'
+import PortalShell from '../../../../../layouts/PortalShell.astro'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import { loadTeamRoster, formatLastLogin } from '../../../../../lib/portal/operator/team-read'
-import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../../components/SkipToMain.astro'
 import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
@@ -69,133 +64,117 @@ const manageLinkClass =
   'inline-flex items-center gap-2 px-5 py-3 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Operator · Team | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Operator · Team"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/operator"
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Team"
+    meta={`${roster.members.length} ${roster.members.length === 1 ? 'person' : 'people'}`}
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
-
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/operator"
-        crumbLabel="Operator"
-        tag="Section"
-        h1="Team"
-        meta={`${roster.members.length} ${roster.members.length === 1 ? 'person' : 'people'}`}
-      />
-
-      {
-        crMessage && (
-          <div
-            role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
-              cr === 'filed'
-                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
-                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
-            }`}
-          >
-            {crMessage}
-          </div>
-        )
-      }
-
-      <div class="mt-8">
-        <DomainSurface
-          authority={config?.authority ?? null}
-          domain="people_access"
-          roles={roles}
-          returnTo={RETURN_TO}
-          domainLabel="who's on this account and their roles"
-        >
-          <Fragment slot="read">
-            {
-              roster.members.length === 0 ? (
-                <section
-                  aria-label="No members yet"
-                  class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
-                >
-                  <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                    No one on the account yet
-                  </p>
-                  <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                    As people are added to your account, they appear here with their role.
-                  </p>
-                </section>
-              ) : (
-                <ul role="list" class={listClass}>
-                  {roster.members.map((m) => (
-                    <li class={rowClass}>
-                      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
-                        <div class="min-w-0">
-                          <p class="font-body font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
-                            {m.name}
-                          </p>
-                          <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
-                            {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
-                          </p>
-                        </div>
-                        <div class="flex flex-wrap gap-2 md:justify-end">
-                          {m.roles.map((r) => (
-                            <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )
-            }
-          </Fragment>
-
-          <Fragment slot="operable">
-            {
-              roster.members.length > 0 && (
-                <ul role="list" class={`${listClass} mb-6`}>
-                  {roster.members.map((m) => (
-                    <li class={rowClass}>
-                      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
-                        <div class="min-w-0">
-                          <p class="font-body font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
-                            {m.name}
-                          </p>
-                          <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
-                            {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
-                          </p>
-                        </div>
-                        <div class="flex flex-wrap gap-2 md:justify-end">
-                          {m.roles.map((r) => (
-                            <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )
-            }
-            <div class="flex flex-col sm:flex-row gap-3">
-              <a href="/portal/products/operator/settings/users" class={manageLinkClass}>
-                <span class="material-symbols-outlined" aria-hidden="true">group</span>
-                Manage roles &amp; invites
-              </a>
-            </div>
-          </Fragment>
-        </DomainSurface>
+  {
+    crMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          cr === 'filed'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {crMessage}
       </div>
-    </main>
-  </body>
-</html>
+    )
+  }
+
+  <div class="mt-8">
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="people_access"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="who's on this account and their roles"
+    >
+      <Fragment slot="read">
+        {
+          roster.members.length === 0 ? (
+            <section
+              aria-label="No members yet"
+              class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+            >
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                No one on the account yet
+              </p>
+              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                As people are added to your account, they appear here with their role.
+              </p>
+            </section>
+          ) : (
+            <ul role="list" class={listClass}>
+              {roster.members.map((m) => (
+                <li class={rowClass}>
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                    <div class="min-w-0">
+                      <p class="font-body font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                        {m.name}
+                      </p>
+                      <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
+                        {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 md:justify-end">
+                      {m.roles.map((r) => (
+                        <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </Fragment>
+
+      <Fragment slot="operable">
+        {
+          roster.members.length > 0 && (
+            <ul role="list" class={`${listClass} mb-6`}>
+              {roster.members.map((m) => (
+                <li class={rowClass}>
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                    <div class="min-w-0">
+                      <p class="font-body font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                        {m.name}
+                      </p>
+                      <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
+                        {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 md:justify-end">
+                      {m.roles.map((r) => (
+                        <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+        <div class="flex flex-col sm:flex-row gap-3">
+          <a href="/portal/products/operator/settings/users" class={manageLinkClass}>
+            <span class="material-symbols-outlined" aria-hidden="true">group</span>
+            Manage roles &amp; invites
+          </a>
+        </div>
+      </Fragment>
+    </DomainSurface>
+  </div>
+</PortalShell>

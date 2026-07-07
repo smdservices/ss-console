@@ -1,13 +1,8 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
-import '../../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../../lib/config/brand'
+import PortalShell from '../../../../../layouts/PortalShell.astro'
 import { getPortalClient } from '../../../../../lib/portal/session'
 import { getProductSubscription } from '../../../../../lib/portal/product-access'
-import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -102,83 +97,67 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
 ]
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Operator · Settings | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Operator · Settings"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/operator"
+    crumbLabel="Operator"
+    tag="Settings"
+    h1="Overview"
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
+  {
+    banner && (
+      <div
+        role="status"
+        class:list={[
+          'mt-6 px-4 py-3 border-[3px] text-sm',
+          banner.tone === 'success'
+            ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+            : banner.tone === 'error'
+              ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+              : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+        ]}
+      >
+        {banner.text}
+      </div>
+    )
+  }
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/operator"
-        crumbLabel="Operator"
-        tag="Settings"
-        h1="Overview"
-      />
-
-      {
-        banner && (
-          <div
-            role="status"
-            class:list={[
-              'mt-6 px-4 py-3 border-[3px] text-sm',
-              banner.tone === 'success'
-                ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
-                : banner.tone === 'error'
-                  ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
-                  : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
-            ]}
-          >
-            {banner.text}
-          </div>
-        )
-      }
-
-      <section class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)]">
-        {
-          SETTINGS_LINKS.map((link, idx) => (
-            <a
-              href={link.href}
-              class:list={[
-                'block px-5 py-5 md:px-6 md:py-6 group hover:bg-[color:var(--ss-color-border-subtle)] transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
-                idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
-              ]}
+  <section class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)]">
+    {
+      SETTINGS_LINKS.map((link, idx) => (
+        <a
+          href={link.href}
+          class:list={[
+            'block px-5 py-5 md:px-6 md:py-6 group hover:bg-[color:var(--ss-color-border-subtle)] transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+            idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+          ]}
+        >
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex flex-col gap-1 min-w-0">
+              <span class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                {link.label}
+              </span>
+              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                {link.description}
+              </span>
+            </div>
+            <span
+              aria-hidden="true"
+              class="font-body text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
             >
-              <div class="flex items-center justify-between gap-4">
-                <div class="flex flex-col gap-1 min-w-0">
-                  <span class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                    {link.label}
-                  </span>
-                  <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                    {link.description}
-                  </span>
-                </div>
-                <span
-                  aria-hidden="true"
-                  class="font-body text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
-                >
-                  →
-                </span>
-              </div>
-            </a>
-          ))
-        }
-      </section>
-    </main>
-  </body>
-</html>
+              →
+            </span>
+          </div>
+        </a>
+      ))
+    }
+  </section>
+</PortalShell>

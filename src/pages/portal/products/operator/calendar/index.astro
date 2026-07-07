@@ -1,7 +1,5 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
-import '../../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../../lib/config/brand'
+import PortalShell from '../../../../../layouts/PortalShell.astro'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
 import {
   CALENDAR_ITEM_TYPES,
@@ -13,10 +11,7 @@ import {
   type CalendarItemType,
   type CalendarSort,
 } from '../../../../../lib/portal/operator/calendar'
-import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../../components/SkipToMain.astro'
 import CalendarAgenda from '../../../../../components/portal/operator/CalendarAgenda.astro'
 import { env } from 'cloudflare:workers'
 
@@ -92,163 +87,147 @@ const SORT_LABELS: Record<CalendarSort, string> = {
 }
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Operator · Calendar | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Operator · Calendar"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/operator"
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Calendar"
+    meta={calendarPage.totalCount > 0 ? `${calendarPage.totalCount} total` : null}
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
-
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/operator"
-        crumbLabel="Operator"
-        tag="Section"
-        h1="Calendar"
-        meta={calendarPage.totalCount > 0 ? `${calendarPage.totalCount} total` : null}
-      />
-
-      <div class="mt-8 flex flex-col gap-6">
-        {
-          /* Filter form: by type + date range + sort. GET-form shape
+  <div class="mt-8 flex flex-col gap-6">
+    {
+      /* Filter form: by type + date range + sort. GET-form shape
             mirrors the FilterBar pattern used on the drafts surface so
             the URL contract is consistent across Operator sub-surfaces.
             Calendar-specific so it stays inline; the drafts FilterBar
             component is left untouched per #872 file-scope. */
-        }
-        <form
-          method="get"
-          class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto_auto] gap-3 md:gap-4 md:items-end"
-          aria-label="Filter and sort calendar items"
+    }
+    <form
+      method="get"
+      class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto_auto] gap-3 md:gap-4 md:items-end"
+      aria-label="Filter and sort calendar items"
+    >
+      <fieldset class="flex flex-col gap-1.5 min-w-0">
+        <legend
+          class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)] mb-1"
         >
-          <fieldset class="flex flex-col gap-1.5 min-w-0">
-            <legend
-              class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)] mb-1"
-            >
-              Type
-            </legend>
-            <div class="flex flex-col gap-1">
-              {
-                CALENDAR_ITEM_TYPES.map((type) => (
-                  <label class="inline-flex items-center gap-2 font-mono text-sm text-[color:var(--ss-color-text-primary)]">
-                    <input
-                      type="checkbox"
-                      name="type"
-                      value={type}
-                      checked={selectedTypes.has(type)}
-                      class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-                    />
-                    {TYPE_LABELS[type]}
-                  </label>
-                ))
-              }
-            </div>
-          </fieldset>
+          Type
+        </legend>
+        <div class="flex flex-col gap-1">
+          {
+            CALENDAR_ITEM_TYPES.map((type) => (
+              <label class="inline-flex items-center gap-2 font-mono text-sm text-[color:var(--ss-color-text-primary)]">
+                <input
+                  type="checkbox"
+                  name="type"
+                  value={type}
+                  checked={selectedTypes.has(type)}
+                  class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                />
+                {TYPE_LABELS[type]}
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
 
-          <div class="flex flex-col gap-1.5 min-w-0">
-            <label
-              for="filter-from"
-              class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-            >
-              From
-            </label>
-            <input
-              type="date"
-              id="filter-from"
-              name="from"
-              value={params.fromIso ?? ''}
-              class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-            />
-          </div>
-
-          <div class="flex flex-col gap-1.5 min-w-0">
-            <label
-              for="filter-to"
-              class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-            >
-              To
-            </label>
-            <input
-              type="date"
-              id="filter-to"
-              name="to"
-              value={params.toIso ?? ''}
-              class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-            />
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label
-              for="filter-sort"
-              class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-            >
-              Sort
-            </label>
-            <select
-              id="filter-sort"
-              name="sort"
-              class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-            >
-              {
-                CALENDAR_SORTS.map((option) => (
-                  <option value={option} selected={option === params.sort}>
-                    {SORT_LABELS[option]}
-                  </option>
-                ))
-              }
-            </select>
-          </div>
-
-          <div class="flex flex-row gap-2 md:items-end">
-            <button
-              type="submit"
-              class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-mono text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
-            >
-              Apply
-            </button>
-          </div>
-        </form>
-
-        {
-          calendarPage.totalCount === 0 ? (
-            <section
-              aria-label="No calendar items"
-              class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
-            >
-              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                No calendar items yet
-              </p>
-              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                Items your Operator schedules or proposes appear here once your calendar connector
-                is active.
-              </p>
-            </section>
-          ) : (
-            <CalendarAgenda
-              rows={calendarPage.rows}
-              totalCount={calendarPage.totalCount}
-              page={calendarPage.page}
-              pageSize={calendarPage.pageSize}
-              pageCount={calendarPage.pageCount}
-              conflictMap={conflictMap}
-              searchParams={Astro.url.searchParams}
-            />
-          )
-        }
+      <div class="flex flex-col gap-1.5 min-w-0">
+        <label
+          for="filter-from"
+          class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          From
+        </label>
+        <input
+          type="date"
+          id="filter-from"
+          name="from"
+          value={params.fromIso ?? ''}
+          class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        />
       </div>
-    </main>
-  </body>
-</html>
+
+      <div class="flex flex-col gap-1.5 min-w-0">
+        <label
+          for="filter-to"
+          class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          To
+        </label>
+        <input
+          type="date"
+          id="filter-to"
+          name="to"
+          value={params.toIso ?? ''}
+          class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="filter-sort"
+          class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Sort
+        </label>
+        <select
+          id="filter-sort"
+          name="sort"
+          class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        >
+          {
+            CALENDAR_SORTS.map((option) => (
+              <option value={option} selected={option === params.sort}>
+                {SORT_LABELS[option]}
+              </option>
+            ))
+          }
+        </select>
+      </div>
+
+      <div class="flex flex-row gap-2 md:items-end">
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-mono text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
+        >
+          Apply
+        </button>
+      </div>
+    </form>
+
+    {
+      calendarPage.totalCount === 0 ? (
+        <section
+          aria-label="No calendar items"
+          class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+        >
+          <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            No calendar items yet
+          </p>
+          <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            Items your Operator schedules or proposes appear here once your calendar connector is
+            active.
+          </p>
+        </section>
+      ) : (
+        <CalendarAgenda
+          rows={calendarPage.rows}
+          totalCount={calendarPage.totalCount}
+          page={calendarPage.page}
+          pageSize={calendarPage.pageSize}
+          pageCount={calendarPage.pageCount}
+          conflictMap={conflictMap}
+          searchParams={Astro.url.searchParams}
+        />
+      )
+    }
+  </div>
+</PortalShell>
