@@ -45,17 +45,17 @@ const showActivate = row.customer_slug && row.status !== 'live' && row.status !=
     </span>
   </div>
 
-  <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 font-mono text-base">
+  <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-base">
     {
       fields.map((f) => (
         <div>
-          <dt class="font-bold uppercase text-label tracking-[0.14em]">{f.label}</dt>
+          <dt class="font-mono font-bold uppercase text-label tracking-[0.14em]">{f.label}</dt>
           <dd>{f.value}</dd>
         </div>
       ))
     }
     <div class="md:col-span-2">
-      <dt class="font-bold uppercase text-label tracking-[0.14em]">Use cases</dt>
+      <dt class="font-mono font-bold uppercase text-label tracking-[0.14em]">Use cases</dt>
       <dd class="whitespace-pre-wrap">{row.use_cases ?? 'not submitted'}</dd>
     </div>
   </dl>
@@ -100,7 +100,7 @@ const showActivate = row.customer_slug && row.status !== 'live' && row.status !=
             name="channel_details"
             required
             rows="4"
-            class="mt-1 border-[3px] border-[color:var(--ss-color-text-primary)] px-3 py-2 font-mono text-base normal-case"
+            class="mt-1 border-[3px] border-[color:var(--ss-color-text-primary)] px-3 py-2 font-body text-base normal-case"
             placeholder="Message @YourAgentBot on Telegram. Its email address is agent@example.agentmail.to and it accepts mail from the senders you listed."
           />
         </label>
