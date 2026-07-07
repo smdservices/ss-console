@@ -31,6 +31,22 @@ def _handler(captured: list[httpx.Request], blob: bytes):
     return handler
 
 
+def test_cdn_host_allowed() -> None:
+    # Live finding 2026-07-07 (post-reprovision verification): AgentMail's
+    # get_attachment mints URLs on cdn.agentmail.to; the allowlist only knew
+    # download.agentmail.to and the transfer correctly fail-closed. Both
+    # vendor hosts are now defaults.
+    url = "https://cdn.agentmail.to/attachments/att_2?token=tok456"
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, content=b"%PDF-1.4 cdn copy")
+
+    client = _mock_client(handler)
+    assert client.fetch_attachment_url(url) == b"%PDF-1.4 cdn copy"
+
+
 def test_fetch_attachment_happy_path_no_auth_headers() -> None:
     captured: list[httpx.Request] = []
     client = _mock_client(_handler(captured, b"%PDF-1.4 served set"))
