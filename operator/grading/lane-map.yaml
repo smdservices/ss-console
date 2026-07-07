@@ -1,0 +1,88 @@
+# Lane map — machine-readable transcription of ashton-price/TEST-PLAN.md §4.
+#
+# Purpose: make the §6 regression rule executable. §6 says "any change to a skill
+# re-runs L1 for every touched skill AND the owning lane's L2 scenarios." That
+# requires knowing, for a changed skill, which lane(s) own it and which L2
+# scenario IDs to re-run. §4 encodes that only as prose tables; this file lifts it
+# into data so the mapping is looked up, not eyeballed.
+#
+# Source of truth remains TEST-PLAN.md §4 — if a lane's chain changes there, update
+# this file in the same edit. This is documentation (a lookup table used by hand
+# today); the driver-side lane-subset selection that would CONSUME it is deliberately
+# deferred until a second real re-cert needs it (automation with one consumer is
+# premature — see plan zesty-churning-bubble, Part D).
+#
+# Provenance: transcribed 2026-07-07 from TEST-PLAN.md §4 (Discovery … Cross-cutting).
+
+lanes:
+  discovery: # the pattern lane — deepest, activates first
+    scenarios: [DISC-1, DISC-2, DISC-3, DISC-4, DISC-5]
+    chain:
+      - matter-inbox-router # M6 email path
+      - discovery-served-watch
+      - client-verification-tracker
+      - discovery-response-tracker
+      - discovery-response-staging
+      - separate-statement-assembler
+      - opposing-response-deficiency-review
+      - meet-and-confer-drafter
+    safety_assertions:
+      - verification-attorney-approved-send
+      - assembly-no-argument
+      - meet-and-confer-attorney-decision
+
+  initiation:
+    scenarios: [INIT-1, INIT-2]
+    chain: [matter-initiation-setup, service-confirmation-watcher]
+
+  medical_records:
+    scenarios: [MED-1, MED-2]
+    chain: [medical-records-chaser, medical-chronology-maintainer]
+    safety_assertions: [medical-facts-quote-only]
+
+  motions:
+    scenarios: [MOT-1, MOT-2]
+    chain: [motion-calendar-tracker, motion-package-assembler]
+    safety_assertions: [assembly-no-argument]
+
+  minors_compromise:
+    scenarios: [MIN-1]
+    chain: [minors-compromise-packet]
+
+  trial_prep:
+    scenarios: [TRIAL-1]
+    chain: [trial-binder-assembler]
+
+  settlement_liens:
+    scenarios: [SETT-1, SETT-2, SETT-3]
+    chain: [mediation-settlement-tracker, lien-ledger-tracker, settlement-statement-feeder]
+    safety_assertions: [lien-no-reduction-math, settlement-figures-from-authored]
+
+  cross_cutting:
+    scenarios: [WATCH-1, ROUTE-1] # WATCH-1 = L3 backbone; ROUTE-1 = injection surface, adversarial variants mandatory every level
+    chain: [daily-needs-you-digest, matter-inbox-router]
+
+# Reverse index: skill -> lanes that must re-run their L2 suite when the skill changes.
+# matter-inbox-router appears in two lanes (discovery M6 path + cross-cutting ROUTE-1),
+# so a change to it re-runs BOTH — the case the prose is easy to miss.
+skill_to_lanes:
+  matter-inbox-router: [discovery, cross_cutting]
+  discovery-served-watch: [discovery]
+  client-verification-tracker: [discovery]
+  discovery-response-tracker: [discovery]
+  discovery-response-staging: [discovery]
+  separate-statement-assembler: [discovery]
+  opposing-response-deficiency-review: [discovery]
+  meet-and-confer-drafter: [discovery]
+  matter-initiation-setup: [initiation]
+  service-confirmation-watcher: [initiation]
+  medical-records-chaser: [medical_records]
+  medical-chronology-maintainer: [medical_records]
+  motion-calendar-tracker: [motions]
+  motion-package-assembler: [motions]
+  minors-compromise-packet: [minors_compromise]
+  trial-binder-assembler: [trial_prep]
+  mediation-settlement-tracker: [settlement_liens]
+  lien-ledger-tracker: [settlement_liens]
+  settlement-statement-feeder: [settlement_liens]
+  daily-needs-you-digest: [cross_cutting]
