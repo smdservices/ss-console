@@ -116,7 +116,7 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       </span>
       {
         item.location && (
-          <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+          <span class="font-body text-sm text-[color:var(--ss-color-text-secondary)] truncate">
             {item.location}
           </span>
         )
@@ -148,11 +148,11 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       </span>
       {
         item.relatedMatterTitle ? (
-          <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+          <span class="font-body text-sm text-[color:var(--ss-color-text-primary)] truncate">
             {item.relatedMatterTitle}
           </span>
         ) : (
-          <span class="font-mono text-sm text-[color:var(--ss-color-text-muted)]">None</span>
+          <span class="font-body text-sm text-[color:var(--ss-color-text-muted)]">None</span>
         )
       }
     </div>
