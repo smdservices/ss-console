@@ -68,6 +68,28 @@ revisions:
       remediation-pending: [],
     }
   - {
+      from: 3.1,
+      to: 4.0,
+      date: '2026-07-07',
+      kind: 'portal IA rebuild (ADR 0068: offerings as destinations)',
+      added:
+        [
+          'src/layouts/PortalShell.astro (single chrome owner; nav resolved once per request)',
+          'src/components/portal/PortalNav.astro (destination renderer; PortalTabs markup carried over)',
+          'src/lib/portal/offerings.ts + nav.ts (data-driven destination set)',
+          'Destinations: Home / Engagement / Operator / Agent / Billing, composed to ownership',
+          '/portal/billing (+ /billing/invoices/[id]) one money surface',
+          '/portal/engagement absorbs proposals (spotlight + /proposals/[id]), documents, past-work list',
+        ],
+      changed:
+        [
+          'PortalTabs boolean props (operatorActive/hostedAgentActive) retired; the 4-tab consulting set (Proposals/Invoices/Documents/Progress) superseded as the destination set (R25 rationale superseded for the set, persistent-tabs pattern survives in PortalNav)',
+          '/portal/quotes, /portal/invoices, /portal/documents 301 via portal-ia-redirects (src/lib/routing/legacy-redirects.ts)',
+          'Home rebuilt as offering-card status dashboard (HomeOfferingCard + home-cards.ts); warm holding page when nothing owned',
+          'NOTE: the route inventory and auth sections below this changelog predate Clerk and this rebuild; ADR 0068 and docs/handbook/client-portal.md are current until this document is fully revised',
+        ],
+    }
+  - {
       from: 3.0,
       to: 3.1,
       date: '2026-04-16',

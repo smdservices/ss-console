@@ -1,14 +1,8 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
-import '../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../lib/config/brand'
+import PortalShell from '../../../../layouts/PortalShell.astro'
 import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
 import { getIntakeByEntity } from '../../../../lib/db/hosted-agent-intake'
-import PortalHeader from '../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../components/portal/PortalTabs.astro'
-import { getProductSubscription } from '../../../../lib/portal/product-access'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -63,161 +57,139 @@ const inputBase =
 const inputClass = `${inputBase} font-mono`
 const proseInputClass = `${inputBase} font-body`
 const hintClass = 'mt-1 font-body text-sm text-[color:var(--ss-color-text-secondary)]'
-
-const operatorSubscription = await getProductSubscription(env.DB, access.client.id, 'operator')
-const operatorActive = operatorSubscription !== null
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Agent Setup | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={access.client.name} />
-    <PortalTabs
-      pathname={Astro.url.pathname}
-      operatorActive={operatorActive}
-      hostedAgentActive={true}
-    />
+<PortalShell
+  title="Agent Setup"
+  clientName={access.client.name}
+  orgId={access.client.org_id}
+  entityId={access.client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/hosted-agent"
+    crumbLabel="Hosted Agent"
+    tag="Setup"
+    h1="Agent Setup"
+    meta={null}
+  />
 
-    <main id="main" role="main" class="max-w-3xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/hosted-agent"
-        crumbLabel="Hosted Agent"
-        tag="Setup"
-        h1="Agent Setup"
-        meta={null}
-      />
-
-      {
-        errorMessage && (
-          <div
-            role="alert"
-            class="mt-6 border-[3px] border-[color:var(--ss-color-error)] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-error)]"
-          >
-            {errorMessage}
-          </div>
-        )
-      }
-
-      <form
-        method="POST"
-        action="/api/portal/products/hosted-agent/intake"
-        class="mt-8 flex flex-col gap-6"
+  {
+    errorMessage && (
+      <div
+        role="alert"
+        class="mt-6 border-[3px] border-[color:var(--ss-color-error)] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-error)]"
       >
-        <div>
-          <label for="agent_name" class={labelClass}>What should your agent be called?</label>
-          <input
-            id="agent_name"
-            name="agent_name"
-            type="text"
-            required
-            maxlength="64"
-            value={intake.agent_name ?? ''}
-            class={proseInputClass}
-          />
-          <p class={hintClass}>A first name works best. It signs its messages with this.</p>
-        </div>
+        {errorMessage}
+      </div>
+    )
+  }
 
-        <div>
-          <label for="use_cases" class={labelClass}>What do you want it working on?</label>
-          <textarea
-            id="use_cases"
-            name="use_cases"
-            required
-            rows="6"
-            maxlength="4000"
-            class={proseInputClass}>{intake.use_cases ?? ''}</textarea
-          >
-          <p class={hintClass}>
-            Plain language is perfect. Examples: a morning digest of what landed overnight, research
-            briefs on topics you name, watching a feed and reporting changes.
-          </p>
-        </div>
+  <form
+    method="POST"
+    action="/api/portal/products/hosted-agent/intake"
+    class="mt-8 flex flex-col gap-6"
+  >
+    <div>
+      <label for="agent_name" class={labelClass}>What should your agent be called?</label>
+      <input
+        id="agent_name"
+        name="agent_name"
+        type="text"
+        required
+        maxlength="64"
+        value={intake.agent_name ?? ''}
+        class={proseInputClass}
+      />
+      <p class={hintClass}>A first name works best. It signs its messages with this.</p>
+    </div>
 
-        <div>
-          <label for="telegram_handle" class={labelClass}>Your Telegram username (optional)</label>
-          <input
-            id="telegram_handle"
-            name="telegram_handle"
-            type="text"
-            maxlength="64"
-            value={intake.telegram_handle ?? ''}
-            class={inputClass}
-          />
-          <p class={hintClass}>Telegram is the fastest way to talk to your agent.</p>
-        </div>
+    <div>
+      <label for="use_cases" class={labelClass}>What do you want it working on?</label>
+      <textarea
+        id="use_cases"
+        name="use_cases"
+        required
+        rows="6"
+        maxlength="4000"
+        class={proseInputClass}>{intake.use_cases ?? ''}</textarea
+      >
+      <p class={hintClass}>
+        Plain language is perfect. Examples: a morning digest of what landed overnight, research
+        briefs on topics you name, watching a feed and reporting changes.
+      </p>
+    </div>
 
-        <div>
-          <label for="timezone" class={labelClass}>Your timezone</label>
-          <input
-            id="timezone"
-            name="timezone"
-            type="text"
-            required
-            maxlength="64"
-            placeholder="America/Phoenix"
-            value={intake.timezone ?? ''}
-            class={inputClass}
-          />
-          <p class={hintClass}>Scheduled work (digests, briefs) runs on your clock.</p>
-        </div>
+    <div>
+      <label for="telegram_handle" class={labelClass}>Your Telegram username (optional)</label>
+      <input
+        id="telegram_handle"
+        name="telegram_handle"
+        type="text"
+        maxlength="64"
+        value={intake.telegram_handle ?? ''}
+        class={inputClass}
+      />
+      <p class={hintClass}>Telegram is the fastest way to talk to your agent.</p>
+    </div>
 
-        <div>
-          <label for="allowed_senders" class={labelClass}>
-            Email addresses your agent should accept mail from
-          </label>
-          <textarea
-            id="allowed_senders"
-            name="allowed_senders"
-            required
-            rows="4"
-            maxlength="2000"
-            placeholder="you@example.com"
-            class={inputClass}>{senders.join('\n')}</textarea
-          >
-          <p class={hintClass}>
-            One address per line. Your agent has its own inbox and only accepts mail from this list.
-            That is a safety feature: no stranger can reach it.
-          </p>
-        </div>
+    <div>
+      <label for="timezone" class={labelClass}>Your timezone</label>
+      <input
+        id="timezone"
+        name="timezone"
+        type="text"
+        required
+        maxlength="64"
+        placeholder="America/Phoenix"
+        value={intake.timezone ?? ''}
+        class={inputClass}
+      />
+      <p class={hintClass}>Scheduled work (digests, briefs) runs on your clock.</p>
+    </div>
 
-        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-5">
-          <label class="flex items-start gap-3">
-            <input
-              type="checkbox"
-              name="spend_limit_confirmed"
-              value="1"
-              required
-              checked={intake.spend_limit_confirmed === 1}
-              class="mt-1 h-5 w-5"
-            />
-            <span class="font-body text-base text-[color:var(--ss-color-text-primary)]">
-              I created a dedicated Anthropic API key for this agent and set a spend limit on it in
-              my Anthropic console. I understand my agent's model usage bills to my own Anthropic
-              account and that SMD cannot see or cap that spend.
-            </span>
-          </label>
-        </div>
+    <div>
+      <label for="allowed_senders" class={labelClass}>
+        Email addresses your agent should accept mail from
+      </label>
+      <textarea
+        id="allowed_senders"
+        name="allowed_senders"
+        required
+        rows="4"
+        maxlength="2000"
+        placeholder="you@example.com"
+        class={inputClass}>{senders.join('\n')}</textarea
+      >
+      <p class={hintClass}>
+        One address per line. Your agent has its own inbox and only accepts mail from this list.
+        That is a safety feature: no stranger can reach it.
+      </p>
+    </div>
 
-        <button
-          type="submit"
-          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
-        >
-          Save Setup Answers
-        </button>
-      </form>
-    </main>
-  </body>
-</html>
+    <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-5">
+      <label class="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name="spend_limit_confirmed"
+          value="1"
+          required
+          checked={intake.spend_limit_confirmed === 1}
+          class="mt-1 h-5 w-5"
+        />
+        <span class="font-body text-base text-[color:var(--ss-color-text-primary)]">
+          I created a dedicated Anthropic API key for this agent and set a spend limit on it in my
+          Anthropic console. I understand my agent's model usage bills to my own Anthropic account
+          and that SMD cannot see or cap that spend.
+        </span>
+      </label>
+    </div>
+
+    <button
+      type="submit"
+      class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+    >
+      Save Setup Answers
+    </button>
+  </form>
+</PortalShell>

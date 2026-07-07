@@ -2,7 +2,7 @@
 title: The Client Portal
 section: system
 order: 5
-summary: The portal.smd.services surface where a consulting client reviews and signs proposals, pays invoices, reads documents, and tracks an engagement - the auth model, every surface, and the integrations behind them
+summary: The portal.smd.services surface where a client sees what they own - engagement lifecycle, product consoles, and one billing surface - plus the auth model and the integrations behind them
 sources:
   - label: src/pages/portal/ (portal surfaces)
     href: https://github.com/venturecrane/ss-console/tree/main/src/pages/portal
@@ -18,37 +18,33 @@ sources:
 
 The client portal is the surface a paying client sees. It is served at `portal.smd.services` and lives in source under `src/pages/portal/`. One Astro app, one Worker; the `portal.` subdomain is a front door, not a separate deployment (the rewrite mechanics live in `/admin/playbook/the-website`). Pages are marked `noindex, nofollow` - this is private client space, never a marketing surface, and it ships effectively no client JavaScript: mutations are HTML forms validated server-side.
 
-The portal serves clients who arrive two ways: through a consulting engagement, or as an Operator subscriber. A client can have one, the other, or both. This page documents the consulting surfaces and the shared auth model. The client-facing Operator product console - a large surface in its own right - is documented separately at `/admin/playbook/operator-console`. How a business travels from lead to portal account is `/admin/playbook/customer-lifecycle`.
+The portal serves clients who arrive three ways: through a consulting engagement, as an Operator subscriber, or as a Hosted Agent subscriber. A client can hold any combination on one entity, and the portal composes to exactly what they own (ADR 0068: offerings as destinations). This page documents the shared shell, the engagement and billing destinations, and the auth model. The client-facing Operator product console - a large surface in its own right - is documented separately at `/admin/playbook/operator-console`. How a business travels from lead to portal account is `/admin/playbook/customer-lifecycle`.
 
-## The consulting surfaces
+## The destinations
+
+Navigation is computed from data in exactly one place: `resolvePortalOfferings` (src/lib/portal/offerings.ts) answers "what does this entity own," `buildPortalNav` (src/lib/portal/nav.ts) turns that into the destination list, and every page renders through the single chrome owner `src/layouts/PortalShell.astro`. Pages carry no nav-shaping props, so the tab set cannot drift page to page. The destinations, in fixed order: Home (always), Engagement (when any engagement or proposal exists), Operator and Agent (per subscription), and Billing (once any invoice or subscription exists). An entity that owns nothing yet gets a warm holding page on Home.
 
 Every surface scopes to the signed-in client's own entity and renders authored data only. The surfaces, from `src/pages/portal/`:
 
 ### Home (`index.astro`)
 
-The dashboard. Action-first above the fold (a pending invoice to pay, or the next touchpoint), with a recent-activity timeline below. The timeline is assembled from real events - a proposal sent or signed, an invoice sent or paid, a milestone completed - each in concrete past tense, capped at the most recent few, sorted newest first. It is never synthesized copy: if nothing has happened yet, the surface says so. The consultant name and next-touchpoint label appear only when authored on the engagement.
+The status dashboard: one card per owned offering (src/lib/portal/home-cards.ts) showing its live status and, when something genuinely needs the client, a needs-you door (sign the proposal, pay the invoice, finish agent setup, review operator drafts). Below the cards, the recent-activity timeline assembled from real events - a proposal sent or signed, an invoice sent or paid, a milestone completed - in concrete past tense, never synthesized copy.
 
-### Proposals (`quotes/index.astro`, `quotes/[id].astro`)
+### Engagement (`engagement/index.astro` and children)
 
-The conversion surface. The list shows every proposal with its status (sent, accepted, declined, expired) and, for a pending one, the time remaining. The detail page renders the scoped project in sections: the deliverables and the schedule (each rendered only from the authored fields on the quote, omitted entirely when absent), the terms (total price and the payment split), and a review-and-sign block.
+The one lifecycle destination. An open proposal renders as a spotlight above the active workspace - both can be true at once, because a follow-on proposal to an active client is a real state. The active engagement shows the overview (scope summary, start, estimated end) and the milestone list with status and evidence, never a synthesized percent-complete. Completed engagements live in a past-work list linking to read-only detail pages (`engagement/[id].astro`).
 
-Signing runs through SignWell. When an open signature request exists for the quote, the detail page presents the review-and-sign surface pointing at the SignWell document; the client signs there. SignWell calls back to the webhook handler (`src/pages/api/webhooks/signwell.ts`), which records the signed state and stores the signed PDF. The client can then download the executed SOW (`/api/portal/quotes/[id]/sow`, streamed from R2). The client never sees an hourly rate or an hours breakdown in any of this.
+Proposal review and signing lives at `engagement/proposals/[id].astro`: deliverables and schedule rendered only from authored quote fields, terms (total price and payment split), and the SignWell review-and-sign block. SignWell calls back to `src/pages/api/webhooks/signwell.ts`; the signed SOW downloads via `/api/portal/quotes/[id]/sow`. The client never sees an hourly rate.
 
-### Invoices (`invoices/index.astro`, `invoices/[id].astro`)
+The document library lives at `engagement/documents/index.astro`: files stored in R2 across ALL of the client's engagements plus the signed SOW, served through the org-scoped, traversal-checked `/api/portal/documents/[...key]` endpoint.
 
-View and pay. The list leads with the money that matters (paid to date, balance due, engagement total) and lists each invoice with its type, amount, status, and date. The detail page shows the line items (from the invoice's own line-item rows, never borrowed from the engagement scope) and a Pay button when a Stripe hosted-checkout URL is present on the invoice. Payment happens on Stripe; its webhook marks the invoice paid, and the portal then shows the paid state. When no payment link is attached yet, the surface shows a pending state rather than a dead button.
+### Billing (`billing/index.astro`, `billing/invoices/[id].astro`)
 
-### Documents (`documents/index.astro`)
+The one money surface. Subscriptions (Operator, Hosted Agent) list with their status and a Manage Billing door that opens a Stripe Billing Portal session via `POST /api/portal/billing/manage` (principal-gated per product; the Stripe customer id comes from the subscription row, never user input). Engagement invoices list below with paid-to-date and balance-due sums; the detail page shows authored line items and a Pay button when a Stripe hosted-checkout URL exists. Old `/portal/quotes`, `/portal/invoices`, and `/portal/documents` URLs 301 permanently to their new homes (src/lib/routing/legacy-redirects.ts, `portal-ia-redirects`).
 
-The engagement document library. It lists files stored in R2 under the client's own org-and-engagement prefix, plus the signed SOW when one exists. Downloads stream through `/api/portal/documents/[...key]`, which validates that the requested key carries the client's org prefix, rejects path traversal, and confirms the key belongs to one of the client's own engagements or quotes before serving it. PDFs render inline; other types download.
+### Product consoles
 
-### Engagement (`engagement/index.astro`)
-
-The in-flight project tracker. It shows the active engagement overview (scope summary, start, estimated end) and the milestone list with each milestone's status and dates. It shows status and evidence, not a reassuring progress bar - there is no synthesized percent-complete.
-
-### Tabs
-
-The top tabs (`src/components/portal/PortalTabs.astro`) switch between the consulting set (Proposals, Invoices, Documents, Progress) and the Operator tab. The Operator tab appears only when the client has an active Operator subscription; otherwise the portal is the consulting set alone.
+The Operator console (`products/operator/`) and Hosted Agent console (`products/hosted-agent/`) keep their own subtrees (paths frozen: email deep links and externally registered OAuth callbacks point at them). Client-facing operator activity renders curated language only: the allowlist in src/lib/portal/operator/activity-language.ts maps raw audit actions to authored copy, unmapped actions render nothing, and a guard test bans the raw formatter from client surfaces.
 
 ## The auth model
 
