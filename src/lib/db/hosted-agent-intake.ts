@@ -28,6 +28,8 @@ export interface HostedAgentIntakeRow {
   spend_limit_confirmed: number
   anthropic_key_status: 'pending' | 'received'
   customer_slug: string | null
+  /** Captain-authored go-live channel details; rendered verbatim on the live view. */
+  channel_details: string | null
   submitted_at: string | null
   created_at: string
   updated_at: string
@@ -36,7 +38,7 @@ export interface HostedAgentIntakeRow {
 const COLUMNS =
   'id, org_id, entity_id, subscription_id, status, agent_name, use_cases, telegram_handle, ' +
   'timezone, allowed_senders_json, spend_limit_confirmed, anthropic_key_status, customer_slug, ' +
-  'submitted_at, created_at, updated_at'
+  'channel_details, submitted_at, created_at, updated_at'
 
 export async function createHostedAgentIntake(
   db: D1Database,
