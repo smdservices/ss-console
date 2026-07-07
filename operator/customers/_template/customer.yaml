@@ -134,6 +134,19 @@ connectors:
 #     event_type: document.added
 #     skill: discovery-response
 #     persona: '[PERSONA SLUG]'
+#     # OPTIONAL trigger exceptions (gate-enforced: excluded deliveries get a 202 +
+#     # WEBHOOK_SUPPRESSED audit row, no agent wake). Author these when a skill must
+#     # NOT fire for specific matters or specific actors — e.g. an internal
+#     # ops/notepad matter the Operator should not supervise, or a principal whose
+#     # own edits should not trigger a supervision memo. Values are vendor GUIDs;
+#     # the validator rejects unknown keys and non-GUID entries because the runtime
+#     # gate FAILS OPEN — a typo must fail authoring loudly, not silently forward.
+#     # Unauthored = no exceptions (ADR 0035, no imposed defaults).
+#     exclude:
+#       matters:
+#         - '[MATTER GUID]'   # e.g. an internal ops/digest-home matter
+#       actors:
+#         - '[VENDOR USER GUID]'   # e.g. the supervising principal's own edits
 
 # ---- SCOPE ----
 scope:
