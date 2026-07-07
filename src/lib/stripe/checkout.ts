@@ -221,6 +221,36 @@ export async function createHostedAgentCheckoutSession(
   return { ...session, founding: false }
 }
 
+/**
+ * Create a Stripe Billing Portal session for a hosted-agent subscriber —
+ * the portal's "manage billing / cancel" door (the product terms promise
+ * cancellation from the portal). Uses the account's default portal
+ * configuration; card entry and cancellation happen on Stripe's surface.
+ */
+export async function createBillingPortalSession(
+  apiKey: string | undefined,
+  stripeCustomerId: string,
+  returnUrl: string
+): Promise<string> {
+  if (!apiKey) {
+    console.log('[DEV] Stripe: would create billing portal session')
+    return returnUrl
+  }
+  const body = new URLSearchParams()
+  body.append('customer', stripeCustomerId)
+  body.append('return_url', returnUrl)
+  const res = await fetch(`${STRIPE_API_BASE}/billing_portal/sessions`, {
+    method: 'POST',
+    headers: stripeHeaders(apiKey),
+    body: body.toString(),
+  })
+  if (!res.ok) {
+    throw new Error(`Stripe billing portal session failed ${res.status}: ${await res.text()}`)
+  }
+  const data: { url: string } = await res.json()
+  return data.url
+}
+
 export interface HostedAgentCheckoutSessionView {
   id: string
   status: string
