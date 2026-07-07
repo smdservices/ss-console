@@ -97,7 +97,7 @@ connectors:
     adapter: agentmail
     backend: 'mcp:agentmail'
     enabled: true
-    webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/email'
+    webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/agentmail'
 
 webhook_triggers:
   - source: agentmail
