@@ -55,9 +55,12 @@ const senders: string[] = (() => {
 
 const labelClass =
   'block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]'
-const inputClass =
-  'mt-2 w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]'
-const hintClass = 'mt-1 font-mono text-sm text-[color:var(--ss-color-text-secondary)]'
+const inputBase =
+  'mt-2 w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]'
+/* Data-like fields (handle, timezone, sender emails) render mono; natural-language fields render body. */
+const inputClass = `${inputBase} font-mono`
+const proseInputClass = `${inputBase} font-body`
+const hintClass = 'mt-1 font-body text-sm text-[color:var(--ss-color-text-secondary)]'
 ---
 
 <!doctype html>
@@ -112,7 +115,7 @@ const hintClass = 'mt-1 font-mono text-sm text-[color:var(--ss-color-text-second
             required
             maxlength="64"
             value={intake.agent_name ?? ''}
-            class={inputClass}
+            class={proseInputClass}
           />
           <p class={hintClass}>A first name works best. It signs its messages with this.</p>
         </div>
@@ -125,7 +128,7 @@ const hintClass = 'mt-1 font-mono text-sm text-[color:var(--ss-color-text-second
             required
             rows="6"
             maxlength="4000"
-            class={inputClass}>{intake.use_cases ?? ''}</textarea
+            class={proseInputClass}>{intake.use_cases ?? ''}</textarea
           >
           <p class={hintClass}>
             Plain language is perfect. Examples: a morning digest of what landed overnight, research
@@ -190,7 +193,7 @@ const hintClass = 'mt-1 font-mono text-sm text-[color:var(--ss-color-text-second
               checked={intake.spend_limit_confirmed === 1}
               class="mt-1 h-5 w-5"
             />
-            <span class="font-mono text-base text-[color:var(--ss-color-text-primary)]">
+            <span class="font-body text-base text-[color:var(--ss-color-text-primary)]">
               I created a dedicated Anthropic API key for this agent and set a spend limit on it in
               my Anthropic console. I understand my agent's model usage bills to my own Anthropic
               account and that SMD cannot see or cap that spend.
