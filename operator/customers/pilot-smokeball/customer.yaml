@@ -445,6 +445,15 @@ webhook_triggers:
     event_type: matter.updated
     skill: matter-memo-on-update
     persona: quinn
+    # Authored trigger exceptions (gate-enforced: 202 + WEBHOOK_SUPPRESSED audit
+    # row, no agent wake). The ops/digest-home matter is plumbing, not a case —
+    # the Operator must not write supervision memos about its own notepad.
+    # Actor exclusions (e.g. the supervising principal's own edits) are authored
+    # per firm at connect with the real vendor userId; NOT authored here because
+    # the rehearsal harness's App 1 PATCHes are the L2 trigger path.
+    exclude:
+      matters:
+        - 3c191bed-cdda-48b9-a6ed-a51a349f3f94 # 2026-OPS-001 (digest home)
   # An inbound email to the Operator routes through the spine to the right skill.
   - source: agentmail
     event_type: message.received

@@ -20,7 +20,13 @@
  */
 
 import type { CapabilityName } from '../capabilities/types'
-import type { Connector, Persona, ValidationError, WebhookTrigger } from './types'
+import type {
+  Connector,
+  Persona,
+  ValidationError,
+  WebhookTrigger,
+  WebhookTriggerExclude,
+} from './types'
 import { isPlainObject } from './helpers'
 
 export function checkWebhookTriggers(
@@ -132,7 +138,63 @@ function checkOneTrigger(
     })
     return null
   }
-  return { source, event_type: eventType, skill, persona }
+  const exclude = checkTriggerExclude(raw['exclude'], `${path}.exclude`, errors)
+  if (exclude === undefined) return null
+  return { source, event_type: eventType, skill, persona, exclude }
+}
+
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Parse the optional authored exception block. Returns null when absent
+ * (no exceptions), the parsed block when valid, or `undefined` on a
+ * validation error (the caller drops the trigger — a typo here must fail
+ * authoring loudly, because the runtime gate deliberately fails OPEN).
+ */
+function checkTriggerExclude(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): WebhookTriggerExclude | null | undefined {
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: 'exclude must be an object when present' })
+    return undefined
+  }
+  const known = ['matters', 'actors']
+  for (const key of Object.keys(raw)) {
+    if (!known.includes(key)) {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `unknown exclude key "${key}" (known: ${known.join(', ')})`,
+      })
+      return undefined
+    }
+  }
+  const lists: Record<'matters' | 'actors', string[]> = { matters: [], actors: [] }
+  for (const key of ['matters', 'actors'] as const) {
+    const val = raw[key]
+    if (val === undefined || val === null) continue
+    if (!Array.isArray(val) || !val.every((v) => typeof v === 'string' && GUID_RE.test(v))) {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `${key} must be a list of vendor GUIDs`,
+      })
+      return undefined
+    }
+    lists[key] = val
+  }
+  if (lists.matters.length === 0 && lists.actors.length === 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: 'exclude must name at least one matter or actor when present',
+    })
+    return undefined
+  }
+  return { matters: lists.matters, actors: lists.actors }
 }
 
 function checkTriggerString(raw: unknown, path: string, errors: ValidationError[]): string | null {
