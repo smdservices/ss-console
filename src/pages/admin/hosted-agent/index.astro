@@ -51,7 +51,7 @@ const openCount = queue.filter((r) => openStatuses.has(r.status)).length
     )
   }
 
-  <p class="font-mono text-base text-[color:var(--ss-color-text-secondary)]">
+  <p class="text-base text-[color:var(--ss-color-text-secondary)]">
     {queue.length} purchase{queue.length === 1 ? '' : 's'} · {openCount} open work item{
       openCount === 1 ? '' : 's'
     }. Runbook: docs/runbooks/hosted-agent/concierge.md
@@ -61,9 +61,7 @@ const openCount = queue.filter((r) => openStatuses.has(r.status)).length
     {queue.map((row) => <HostedAgentQueueCard row={row} />)}
     {
       queue.length === 0 && (
-        <p class="font-mono text-base text-[color:var(--ss-color-text-secondary)]">
-          No purchases yet.
-        </p>
+        <p class="text-base text-[color:var(--ss-color-text-secondary)]">No purchases yet.</p>
       )
     }
   </div>
