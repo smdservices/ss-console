@@ -305,7 +305,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // present-wins precedence (proven by signed probes against the running
     // gate); fail-open config reads now log. Range 3294e909..95fc269f touches
     // shared/gate_trigger_exclusions.py + tests; no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="95fc269fa4327e0f22c8ec507f76930c1a8a3785"')
+    // 6e685b03 (#145): exclusion matching searches the NESTED payload level —
+    // the verbatim live envelope (session transcript, 2026-07-07) puts the
+    // matter at payload.id with only userId top-level; both prior attempts
+    // assumed flat. Regression test pins the verbatim envelope. Range
+    // 95fc269f..6e685b03 touches shared/gate_trigger_exclusions.py + tests;
+    // no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6e685b0347fbd9e759a569c5fd79219d6d35b321"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
