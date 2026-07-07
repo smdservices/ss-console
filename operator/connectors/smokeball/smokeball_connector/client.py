@@ -97,8 +97,12 @@ _MAX_ERROR_BODY = 600
 # is a scan bundle or media file that text extraction shouldn't slurp into RAM.
 _MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
 # file_attachment_to_matter: hosts an attachment download URL may point at.
-# AgentMail mints time-limited URLs on this host (docs.agentmail.to/attachments).
-_DEFAULT_ATTACHMENT_HOSTS = "download.agentmail.to"
+# AgentMail mints time-limited URLs on these hosts (docs.agentmail.to/attachments).
+# cdn.agentmail.to observed live 2026-07-07: get_attachment returned a CDN-host
+# URL and the transfer fail-closed on the allowlist (post-reprovision
+# verification of overlay#140/ss#1744) — the allowlist was right in posture,
+# just missing the vendor's real serving host.
+_DEFAULT_ATTACHMENT_HOSTS = "download.agentmail.to,cdn.agentmail.to"
 
 
 def _truncate_body(text: str | None) -> str:
