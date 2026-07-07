@@ -1,7 +1,5 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../../lib/fonts'
-import '../../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../../lib/config/brand'
+import PortalShell from '../../../../../layouts/PortalShell.astro'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import { skillToggleRowsFromPersona } from '../../../../../lib/portal/operator/settings'
@@ -11,10 +9,7 @@ import {
   parseBusinessHours,
   formatCeiling,
 } from '../../../../../lib/portal/operator/configure'
-import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../../components/SkipToMain.astro'
 import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
@@ -78,229 +73,210 @@ const labelClass =
 const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Operator · Configure | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Operator · Configure"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/operator"
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Configure"
+    meta={null}
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
+  {
+    crMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          cr === 'filed'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {crMessage}
+      </div>
+    )
+  }
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/operator"
-        crumbLabel="Operator"
-        tag="Section"
-        h1="Configure"
-        meta={null}
-      />
-
-      {
-        crMessage && (
-          <div
-            role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
-              cr === 'filed'
-                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
-                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
-            }`}
-          >
-            {crMessage}
-          </div>
-        )
-      }
-
-      <div class="mt-8 flex flex-col gap-8">
-        {/* Configuration domain: skills, voice, scope, hours. */}
-        <DomainSurface
-          authority={config?.authority ?? null}
-          domain="configuration"
-          roles={roles}
-          returnTo={RETURN_TO}
-          domainLabel="skills, voice, scope and hours"
-        >
-          <div slot="read" class="flex flex-col gap-8">
-            <section class={cardClass}>
-              <div class={barClass}>Skills</div>
-              <div class="px-5 md:px-7 py-6">
-                {
-                  skillRows.length === 0 ? (
-                    <p class={emptyClass}>
-                      Your operator's skills appear here once they are configured.
-                    </p>
-                  ) : (
-                    <ul role="list" class="flex flex-col gap-2">
-                      {skillRows.map((s) => (
-                        <li class="flex items-baseline justify-between gap-4">
-                          <span class="text-sm text-[color:var(--ss-color-text-primary)]">
-                            {s.skillName}
-                          </span>
-                          <span class={labelClass}>{s.enabled ? 'On' : 'Off'}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                }
-              </div>
-            </section>
-
-            <section class={cardClass}>
-              <div class={barClass}>Voice</div>
-              <div class="px-5 md:px-7 py-6 flex flex-col gap-3">
-                {
-                  tone.length > 0 ? (
-                    <div>
-                      <p class={labelClass}>Tone</p>
-                      <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
-                        {tone.join(', ')}
-                      </p>
-                    </div>
-                  ) : null
-                }
+  <div class="mt-8 flex flex-col gap-8">
+    {/* Configuration domain: skills, voice, scope, hours. */}
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="configuration"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="skills, voice, scope and hours"
+    >
+      <div slot="read" class="flex flex-col gap-8">
+        <section class={cardClass}>
+          <div class={barClass}>Skills</div>
+          <div class="px-5 md:px-7 py-6">
+            {
+              skillRows.length === 0 ? (
                 <p class={emptyClass}>
-                  Voice samples and calibration are tuned with your SMD team. Calibration status
-                  appears here once a session is scheduled.
+                  Your operator's skills appear here once they are configured.
                 </p>
-              </div>
-            </section>
+              ) : (
+                <ul role="list" class="flex flex-col gap-2">
+                  {skillRows.map((s) => (
+                    <li class="flex items-baseline justify-between gap-4">
+                      <span class="text-sm text-[color:var(--ss-color-text-primary)]">
+                        {s.skillName}
+                      </span>
+                      <span class={labelClass}>{s.enabled ? 'On' : 'Off'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+          </div>
+        </section>
 
-            <section class={cardClass}>
-              <div class={barClass}>Scope</div>
-              <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
-                {
-                  scope === null ? (
-                    <p class={emptyClass}>
-                      Your operator's visibility and blocks appear here once scope is set.
+        <section class={cardClass}>
+          <div class={barClass}>Voice</div>
+          <div class="px-5 md:px-7 py-6 flex flex-col gap-3">
+            {
+              tone.length > 0 ? (
+                <div>
+                  <p class={labelClass}>Tone</p>
+                  <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
+                    {tone.join(', ')}
+                  </p>
+                </div>
+              ) : null
+            }
+            <p class={emptyClass}>
+              Voice samples and calibration are tuned with your SMD team. Calibration status appears
+              here once a session is scheduled.
+            </p>
+          </div>
+        </section>
+
+        <section class={cardClass}>
+          <div class={barClass}>Scope</div>
+          <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
+            {
+              scope === null ? (
+                <p class={emptyClass}>
+                  Your operator's visibility and blocks appear here once scope is set.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <p class={labelClass}>Visible folders</p>
+                    <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
+                      {scope.email_folders_visible.length > 0
+                        ? scope.email_folders_visible.join(', ')
+                        : 'None set'}
                     </p>
-                  ) : (
-                    <>
-                      <div>
-                        <p class={labelClass}>Visible folders</p>
-                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
-                          {scope.email_folders_visible.length > 0
-                            ? scope.email_folders_visible.join(', ')
-                            : 'None set'}
-                        </p>
-                      </div>
-                      <div>
-                        <p class={labelClass}>Blind folders</p>
-                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
-                          {scope.email_folders_blind.length > 0
-                            ? scope.email_folders_blind.join(', ')
-                            : 'None set'}
-                        </p>
-                      </div>
-                      <div>
-                        <p class={labelClass}>Blocks</p>
-                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
-                          {[
+                  </div>
+                  <div>
+                    <p class={labelClass}>Blind folders</p>
+                    <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
+                      {scope.email_folders_blind.length > 0
+                        ? scope.email_folders_blind.join(', ')
+                        : 'None set'}
+                    </p>
+                  </div>
+                  <div>
+                    <p class={labelClass}>Blocks</p>
+                    <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
+                      {[
+                        ...scope.email_keyword_blocks,
+                        ...scope.domain_blocks,
+                        ...scope.matter_blocks,
+                      ].length > 0
+                        ? [
                             ...scope.email_keyword_blocks,
                             ...scope.domain_blocks,
                             ...scope.matter_blocks,
-                          ].length > 0
-                            ? [
-                                ...scope.email_keyword_blocks,
-                                ...scope.domain_blocks,
-                                ...scope.matter_blocks,
-                              ].join(', ')
-                            : 'None set'}
-                        </p>
-                      </div>
-                    </>
-                  )
-                }
-              </div>
-            </section>
-
-            <section class={cardClass}>
-              <div class={barClass}>Business hours</div>
-              <div class="px-5 md:px-7 py-6">
-                {
-                  hours === null ? (
-                    <p class={emptyClass}>
-                      Your operator's working hours appear here once they are set.
+                          ].join(', ')
+                        : 'None set'}
                     </p>
-                  ) : (
-                    <p class="text-sm text-[color:var(--ss-color-text-primary)]">
-                      {hours.days.length > 0 ? `${hours.days.join(', ')} · ` : ''}
-                      {hours.start}–{hours.end} ({hours.timezone})
-                    </p>
-                  )
-                }
-              </div>
-            </section>
+                  </div>
+                </>
+              )
+            }
           </div>
-        </DomainSurface>
+        </section>
 
-        {/* Trust domain: governance ceilings on the action-class model. */}
-        <DomainSurface
-          authority={config?.authority ?? null}
-          domain="trust"
-          roles={roles}
-          returnTo={RETURN_TO}
-          domainLabel="governance ceilings"
-        >
-          <section slot="read" class={cardClass}>
-            <div class={barClass}>Governance</div>
-            <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
-              <p class={emptyClass}>
-                Each action class has a hard floor your operator can never cross. SMD sets the
-                ceiling within that floor. An action class with no configured ceiling is refused by
-                default.
-              </p>
-              <ul role="list" class="flex flex-col gap-2">
-                {
-                  govRows.map((g) => (
-                    <li class="flex items-baseline justify-between gap-4">
-                      <span class="text-sm text-[color:var(--ss-color-text-primary)]">
-                        {g.label}
-                      </span>
-                      <span class={labelClass}>
-                        {g.floor ? `Floor: ${formatCeiling(g.floor)}` : 'No hard floor'}
-                      </span>
-                    </li>
-                  ))
-                }
-              </ul>
-            </div>
-          </section>
-        </DomainSurface>
-
-        {
-          roles.includes('principal') && (
-            <section class={cardClass}>
-              <div class={barClass}>Advanced</div>
-              <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
+        <section class={cardClass}>
+          <div class={barClass}>Business hours</div>
+          <div class="px-5 md:px-7 py-6">
+            {
+              hours === null ? (
                 <p class={emptyClass}>
-                  Edit the full operator configuration as a structured form: personas, escalation,
-                  business hours, connectors, and scope.
+                  Your operator's working hours appear here once they are set.
                 </p>
-                <a
-                  href="/portal/products/operator/settings/advanced"
-                  class="inline-flex items-center gap-2 self-start px-5 py-3 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-                >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    tune
-                  </span>
-                  Advanced configuration
-                </a>
-              </div>
-            </section>
-          )
-        }
+              ) : (
+                <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                  {hours.days.length > 0 ? `${hours.days.join(', ')} · ` : ''}
+                  {hours.start}–{hours.end} ({hours.timezone})
+                </p>
+              )
+            }
+          </div>
+        </section>
       </div>
-    </main>
-  </body>
-</html>
+    </DomainSurface>
+
+    {/* Trust domain: governance ceilings on the action-class model. */}
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="trust"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="governance ceilings"
+    >
+      <section slot="read" class={cardClass}>
+        <div class={barClass}>Governance</div>
+        <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
+          <p class={emptyClass}>
+            Each action class has a hard floor your operator can never cross. SMD sets the ceiling
+            within that floor. An action class with no configured ceiling is refused by default.
+          </p>
+          <ul role="list" class="flex flex-col gap-2">
+            {
+              govRows.map((g) => (
+                <li class="flex items-baseline justify-between gap-4">
+                  <span class="text-sm text-[color:var(--ss-color-text-primary)]">{g.label}</span>
+                  <span class={labelClass}>
+                    {g.floor ? `Floor: ${formatCeiling(g.floor)}` : 'No hard floor'}
+                  </span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </section>
+    </DomainSurface>
+
+    {
+      roles.includes('principal') && (
+        <section class={cardClass}>
+          <div class={barClass}>Advanced</div>
+          <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
+            <p class={emptyClass}>
+              Edit the full operator configuration as a structured form: personas, escalation,
+              business hours, connectors, and scope.
+            </p>
+            <a
+              href="/portal/products/operator/settings/advanced"
+              class="inline-flex items-center gap-2 self-start px-5 py-3 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">
+                tune
+              </span>
+              Advanced configuration
+            </a>
+          </div>
+        </section>
+      )
+    }
+  </div>
+</PortalShell>

@@ -97,6 +97,42 @@ const PORTAL_HOST_CANONICALIZE: RedirectRule = {
   status: 301,
 }
 
+/**
+ * Portal IA rebuild (2026-07-07): the engagement-function surfaces folded
+ * into the offerings-as-destinations IA. Old paths 301 to their new homes
+ * so invoice emails, SignWell return links, and bookmarks keep working.
+ * SOURCES are the retired paths; do not "modernize" them.
+ */
+const PORTAL_IA_PREFIXES: Array<{ from: string; to: string }> = [
+  { from: '/portal/quotes', to: '/portal/engagement/proposals' },
+  { from: '/portal/invoices', to: '/portal/billing/invoices' },
+  { from: '/portal/documents', to: '/portal/engagement/documents' },
+]
+
+const PORTAL_IA_REDIRECTS: RedirectRule = {
+  label: 'portal-ia-redirects',
+  match: ({ pathname }) =>
+    PORTAL_IA_PREFIXES.some(({ from }) => isPathOrDescendant(pathname, from)),
+  location: ({ pathname, url }) => {
+    const hit = PORTAL_IA_PREFIXES.find(({ from }) => isPathOrDescendant(pathname, from))!
+    // Bare list paths land on the new destination roots (the lists were
+    // absorbed); descendant paths (detail ids) map into the new subtree.
+    const next = new URL(url)
+    if (pathname === hit.from) {
+      next.pathname =
+        hit.from === '/portal/quotes'
+          ? '/portal/engagement'
+          : hit.from === '/portal/invoices'
+            ? '/portal/billing'
+            : '/portal/engagement/documents'
+    } else {
+      next.pathname = pathname.replace(hit.from, hit.to)
+    }
+    return next.toString()
+  },
+  status: 301,
+}
+
 /** Old dual-auth-era paths → the unified Clerk sign-in/up. Query preserved. */
 const LEGACY_AUTH_PATHS: Record<string, string> = {
   '/auth/login': '/auth/sign-in',
@@ -169,6 +205,7 @@ export const PRE_REWRITE_REDIRECTS: readonly RedirectRule[] = [OPERATOR_RENAME]
 export const POST_REWRITE_REDIRECTS: readonly RedirectRule[] = [
   ADMIN_HOST_CANONICALIZE,
   PORTAL_HOST_CANONICALIZE,
+  PORTAL_IA_REDIRECTS,
   LEGACY_AUTH,
   BOOK_THANKS,
   RETIRED_MARKETING_EXACT,

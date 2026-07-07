@@ -22,6 +22,7 @@
 
 import type { D1Database } from '@cloudflare/workers-types'
 import { readMachineRuntime, type RuntimeReadActor } from '../../operator/runtime-read'
+import { isClientVisibleAction } from './activity-language'
 import {
   createMachineRuntimeTransport,
   createRuntimeReadAudit,
@@ -70,7 +71,10 @@ export async function loadActivityPage(
     actor
   )
   const rows = result.ok ? parseAuditEntries(result.data) : []
-  return buildAuditListPage(rows, params)
+  // Curated client language only (Captain decision 7): entries without
+  // authored client copy never reach the page, regardless of filters.
+  const clientRows = rows.filter((r) => isClientVisibleAction(r.action))
+  return buildAuditListPage(clientRows, params)
 }
 
 // ---------------------------------------------------------------------------

@@ -92,7 +92,7 @@ async function handleSend(
   if (clientEmail) {
     try {
       const formattedAmount = `$${existing.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      const portalUrl = buildPortalUrl(env, '/portal/invoices')
+      const portalUrl = buildPortalUrl(env, '/portal/billing')
       await sendEmail(env.RESEND_API_KEY, {
         to: clientEmail,
         subject: 'Your invoice from SMD Services is ready',
