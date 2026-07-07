@@ -151,10 +151,10 @@ describe('loadHomeFeeds: live feeds through the audit_log seam', () => {
     expect(feeds.recentActivity).toEqual([
       {
         id: 'a1',
-        summary: 'Draft Created (matter-memo-on-update)',
+        summary: 'Prepared a draft for your review: matter-memo-on-update',
         at: '2026-07-01T10:00:00.000Z',
       },
-      { id: 'a2', summary: 'Reply Sent', at: '2026-07-01T09:00:00.000Z' },
+      { id: 'a2', summary: 'Replied to a message', at: '2026-07-01T09:00:00.000Z' },
     ])
   })
 
@@ -189,7 +189,7 @@ describe('loadHomeFeeds: live feeds through the audit_log seam', () => {
         summary: 'Deadline conflict on discovery response',
         at: '2026-07-01T10:00:00.000Z',
       },
-      { id: 'e2', summary: 'Escalation Fired', at: '2026-07-01T08:00:00.000Z' },
+      { id: 'e2', summary: 'Flagged something for your attention', at: '2026-07-01T08:00:00.000Z' },
     ])
   })
 })

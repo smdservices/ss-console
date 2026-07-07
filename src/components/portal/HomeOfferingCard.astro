@@ -1,0 +1,51 @@
+---
+/**
+ * One Home dashboard card per owned offering (portal IA rebuild, Captain
+ * decision 3). Generic frame: offering eyebrow, status headline, real
+ * meta lines, and a needs-you CTA when (and only when) something genuinely needs
+ * the client. All content is authored/derived by home-cards.ts — this
+ * component renders, never decides.
+ */
+import type { OfferingCard } from '../../lib/portal/home-cards'
+
+interface Props {
+  card: OfferingCard
+}
+
+const { card } = Astro.props
+---
+
+<div class="border-[3px] border-[color:var(--ss-color-text-primary)] flex flex-col">
+  <a
+    href={card.href}
+    class="flex-1 block p-6 md:p-7 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+  >
+    <p
+      class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      {card.label}
+    </p>
+    <p
+      class="mt-3 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]"
+    >
+      {card.statusLabel}
+    </p>
+    {
+      card.meta.length > 0 && (
+        <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          {card.meta.join(' · ')}
+        </p>
+      )
+    }
+  </a>
+  {
+    card.needsYou && (
+      <a
+        href={card.needsYou.href}
+        class="block border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white px-6 py-3.5 font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+      >
+        {card.needsYou.label} →
+      </a>
+    )
+  }
+</div>

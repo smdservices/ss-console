@@ -1,0 +1,136 @@
+---
+import PortalShell from '../../../layouts/PortalShell.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
+import StatusPill from '../../../components/portal/StatusPill.astro'
+import {
+  resolveEngagementLabel,
+  resolveMilestoneStampLabel,
+  type Tone,
+} from '../../../lib/portal/status'
+import { getPortalClient } from '../../../lib/portal/session'
+import { listEngagements } from '../../../lib/db/engagements'
+import { listMilestones } from '../../../lib/db/milestones'
+import type { Milestone } from '../../../lib/db/milestones'
+import { formatShortDate } from '../../../lib/portal/formatters'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Past-engagement detail (portal IA rebuild, Captain decision 5): a
+ * read-only record of a completed or cancelled engagement — scope, dates,
+ * and its milestone list. Linked from the Engagement destination's
+ * past-work list. Entity-scoped: an id outside this client's engagements
+ * redirects home.
+ */
+
+export const prerender = false
+
+const { id } = Astro.params
+if (!id) return Astro.redirect('/portal/engagement')
+
+const portalData = await getPortalClient(env.DB, Astro.locals)
+if (!portalData) {
+  return Astro.redirect('/auth/sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
+}
+const { user, client } = portalData
+
+const engagements = await listEngagements(env.DB, user.org_id, client.id)
+const engagement = engagements.find((e) => e.id === id) ?? null
+if (!engagement) return Astro.redirect('/portal/engagement')
+
+const milestones: Milestone[] = await listMilestones(env.DB, user.org_id, engagement.id)
+
+function milestoneTone(status: string): Tone {
+  if (status === 'completed') return 'success'
+  if (status === 'in_progress') return 'warning'
+  return 'outline'
+}
+---
+
+<PortalShell
+  title="Past engagement"
+  clientName={client.name}
+  orgId={user.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/engagement"
+    crumbLabel="Engagement"
+    tag={`Engagement № ${engagement.id.slice(0, 2).toUpperCase()}`}
+    h1="Past engagement"
+    meta={[
+      engagement.start_date ? `Started ${formatShortDate(engagement.start_date)}` : null,
+      engagement.actual_end ? `Ended ${formatShortDate(engagement.actual_end)}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n') || null}
+  />
+
+  <div class="mt-10 flex flex-col gap-8">
+    <section class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div
+        class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold"
+      >
+        <span>Overview</span>
+        <StatusPill
+          tone={engagement.status === 'completed' ? 'success' : 'outline'}
+          label={resolveEngagementLabel(engagement.status)}
+        />
+      </div>
+      <div class="px-5 md:px-7 py-6">
+        {
+          engagement.scope_summary ? (
+            <p class="text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
+              {engagement.scope_summary}
+            </p>
+          ) : (
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              No scope summary on record.
+            </p>
+          )
+        }
+      </div>
+    </section>
+
+    {
+      milestones.length > 0 && (
+        <section class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+          <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+            <span>Milestones</span>
+          </div>
+          <ol class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]">
+            {milestones.map((m, idx) => (
+              <li class="grid grid-cols-[56px_1fr_auto] items-center">
+                <span
+                  aria-hidden="true"
+                  class="flex items-center justify-center self-stretch font-body font-black border-r-[2px] border-[color:var(--ss-color-text-primary)]"
+                >
+                  {String(idx + 1).padStart(2, '0')}
+                </span>
+                <span class="px-5 py-4 min-w-0">
+                  <span class="block font-body font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                    {m.name}
+                  </span>
+                  {m.completed_at && (
+                    <span class="mt-1 block font-mono text-xs uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
+                      Completed {formatShortDate(m.completed_at)}
+                    </span>
+                  )}
+                </span>
+                <span class="px-5">
+                  <StatusPill
+                    tone={milestoneTone(m.status)}
+                    label={resolveMilestoneStampLabel(m.status)}
+                  />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
+  </div>
+</PortalShell>

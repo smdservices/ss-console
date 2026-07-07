@@ -7,7 +7,7 @@ related-adr: 0009-cross-machine-query-prohibition.md, 0015-hermes-fork-vs-upstre
 related-issue: TBD
 ---
 
-# ADR 0068 — Independent Oversight Plane
+# ADR 0069 — Independent Oversight Plane
 
 **Status:** Proposed — build deferred (Captain decision 2026-07-07). This ADR scopes a decision; it does **not** presume the answer is yes. The recommendation below (a narrow console-side tracer bullet) is **accepted in principle**, but the build is **deferred** behind an explicit trigger — see [Decision (2026-07-07)](#decision-2026-07-07). The full "second always-on agent per customer" framing is rejected for now.
 
