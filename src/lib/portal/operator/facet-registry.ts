@@ -83,9 +83,12 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     id: 'status',
     label: 'Status / aliveness',
     plane: 'central_runtime',
-    surface: { kind: 'planned', slice: 2 },
-    mounts: ['client', 'admin'],
-    note: 'idle/running/sticky_stop/offline + last action. running never renders today (no in-flight marker pushed).',
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/identity/hero.ts',
+    },
+    mounts: ['client'],
+    note: 'Co-rendered with identity in the shared OperatorHero (Slice 2). Admin mount + running-state marker are follow-ups; running never renders today (no in-flight marker pushed).',
   },
   {
     id: 'activity',
@@ -101,8 +104,12 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     id: 'identity',
     label: 'Identity / persona',
     plane: 'config_projection',
-    surface: { kind: 'planned', slice: 2 },
-    mounts: ['client', 'admin'],
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/identity/hero.ts',
+    },
+    mounts: ['client'],
+    note: 'Active-persona name/title in the shared OperatorHero (Slice 2). Admin mount is a follow-up.',
   },
   {
     id: 'skills',
