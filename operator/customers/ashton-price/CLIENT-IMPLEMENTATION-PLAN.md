@@ -6,6 +6,12 @@
 > internal codenames, no timeframes, and no commitments beyond
 > `CLIENT-PROPOSAL.md`. When the internal plan's shape changes, update this
 > file in the same PR. The body below is written to the firm.
+>
+> _Current as of 2026-07-07. Reflects the completed rehearsal rounds (L2
+> rounds 1 and 2) and mirrors the internal plan's firm-input register through
+> item 11 (trigger exceptions). Designed to sit alongside the rehearsal
+> report (`CLIENT-REHEARSAL-REPORT.md`): that piece is the evidence, this is
+> the rollout._
 
 ---
 
@@ -58,37 +64,42 @@ on its own only where you have said so.
 Everything below is yours to give, and each item unlocks a specific part of
 the rollout. None of it needs to happen at once.
 
-| What we need                                                                                                                                   | Who                                                    | What it unlocks                                              |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
-| A working session                                                                                                                              | Christa, plus Chris for the decisions only he can make | Everything; this is the first step                           |
-| Authorize the Smokeball connection at that session (one approval screen in your portal, confirmed together in the room)                        | Christa or Chris                                       | The Operator seeing your matters at all                      |
-| Confirm our picture of how your cases actually run, part by part                                                                               | Chris and Christa                                      | Each part going live for your team                           |
-| Your markup on the proposal and answers to its open questions                                                                                  | Christa                                                | The final shape of each piece of work                        |
-| The deadline question: does the firm use Smokeball's court-rules calendaring today, or are dates figured by hand?                              | Christa                                                | How deadline handling is set up                              |
-| How you want drafting divided with CoCounsel, once your evaluation is done                                                                     | Christa                                                | The motion and response work                                 |
-| A set of your letters and templates                                                                                                            | Christa                                                | Drafts that read like your office wrote them                 |
-| The inbox decision (its own address, an inbox it watches, or forwarding), plus a one-time approval from whoever administers your Microsoft 365 | Christa and your IT contact                            | Served discovery reaching the Operator the moment it arrives |
-| Which matters it watches first                                                                                                                 | Christa                                                | The starting scope of quiet observation                      |
-| Sign-off on how far it goes on its own, for each kind of work                                                                                  | Chris and Christa                                      | Any widening beyond prepare-and-review                       |
+| What we need                                                                                                                                   | Who                                                    | What it unlocks                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
+| A working session                                                                                                                              | Christa, plus Chris for the decisions only he can make | Everything; this is the first step                                    |
+| Authorize the Smokeball connection at that session (one approval screen in your portal, confirmed together in the room)                        | Christa or Chris                                       | The Operator seeing your matters at all                               |
+| Confirm our picture of how your cases actually run, part by part                                                                               | Chris and Christa                                      | Each part going live for your team                                    |
+| Your markup on the proposal and answers to its open questions                                                                                  | Christa                                                | The final shape of each piece of work                                 |
+| The deadline question: does the firm use Smokeball's court-rules calendaring today, or are dates figured by hand?                              | Christa                                                | How deadline handling is set up                                       |
+| How you want drafting divided with CoCounsel, once your evaluation is done                                                                     | Christa                                                | The motion and response work                                          |
+| A set of your letters and templates                                                                                                            | Christa                                                | Drafts that read like your office wrote them                          |
+| The inbox decision (its own address, an inbox it watches, or forwarding), plus a one-time approval from whoever administers your Microsoft 365 | Christa and your IT contact                            | Served discovery reaching the Operator the moment it arrives          |
+| Which matters it watches first                                                                                                                 | Christa                                                | The starting scope of quiet observation                               |
+| Any matters or people the Operator should leave alone (for example, Chris's own edits to his own matters)                                      | Chris                                                  | The Operator staying quiet on activity you have already accounted for |
+| Sign-off on how far it goes on its own, for each kind of work                                                                                  | Chris and Christa                                      | Any widening beyond prepare-and-review                                |
 
 ## How we test before you rely on it
 
 Four layers, in order, and every piece of the Operator's work passes through
-all of them before your team leans on it:
+all of them before your team leans on it. The first two are already behind
+us; the rehearsal report captures what they produced.
 
-1. **Practice documents first.** Every routine is exercised against a large
+1. **Practice documents.** Every routine has been exercised against a large
    set of practice matters and documents, including deliberately tricky
    ones: wrong-matter lookalikes, malformed proofs of service, documents
-   that try to mislead it.
+   that try to mislead it. Done.
 2. **A rehearsal office.** We keep our own practice account on Smokeball,
-   the same platform your firm runs, and we fill it with matters and
-   documents we write ourselves. Your data never appears there. Full chains
-   of work, served discovery through drafted response, run in that account
-   before anything ever touches yours, and every change we make, for as
-   long as we work together, goes through the rehearsal office first.
-3. **Quiet observation on your real matters.** As described above: it
-   works, we grade it against what your team actually did, and it stays
-   invisible to your team until it is consistently right.
+   the same platform your firm runs, filled with matters and documents we
+   wrote ourselves; your data never appears there. We ran full chains of
+   work through it, served discovery through drafted response and on across
+   the rest of the lifecycle, and graded every step. That is the rehearsal
+   the report describes. It stays alive for as long as we work together:
+   every change we make proves itself there before it goes anywhere near
+   your matters.
+3. **Quiet observation on your real matters.** Once connected, it works your
+   matters with everything routed to us, not your team. We grade it against
+   what your team actually did, and it stays invisible to your team until it
+   is consistently right.
 4. **Your review.** You see the evidence and confirm each part of the
    process before it starts working with your team. Your confirmation is
    what turns a part on; we never flip that switch for you.
