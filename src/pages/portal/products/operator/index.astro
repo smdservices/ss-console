@@ -8,7 +8,8 @@ import {
 } from '../../../../lib/portal/product-access'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
 import PromotionCardList from '../../../../components/portal/operator/PromotionCardList.astro'
-import AlivenessHeader from '../../../../components/portal/operator/AlivenessHeader.astro'
+import OperatorHero from '../../../../components/portal/operator/facets/OperatorHero.astro'
+import { resolveOperatorHero } from '../../../../lib/portal/operator/facets/identity/hero'
 import {
   listPromotionReadySkills,
   type PromotionCandidate,
@@ -181,6 +182,11 @@ if (access) {
   alivenessSignal = await resolveAlivenessSignal(env.DB, access.subscription)
 }
 
+// "Meet your operator" hero (ADR 0069 Slice 2): identity (active persona) +
+// status (aliveness), composed by the shared resolver. Both facets are Tier-1
+// real from the config projection / fleet_status; nothing fabricated.
+const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
+
 // Promotion recommendation cards (per #811). Principal-only because the
 // trust-ceiling promotion is the firm's decision per §11.3 — operator
 // and compliance roles do not see the prompt. The resolver returns an
@@ -311,9 +317,7 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   {
     surfaceState === 'active' && (
       <>
-        <div class="mt-8">
-          <AlivenessHeader signal={alivenessSignal} />
-        </div>
+        <OperatorHero model={heroModel} />
 
         {/* Home / Today (client-portal §5.1): what needs you, what it did,
                 escalations. Runtime-fed (#1678); fails closed to honest empty
