@@ -1,42 +1,32 @@
 schema_version: 1
 
-# HOSTED AGENT template customer.yaml (ADR 0067).
+# HOSTED AGENT seat: Scott Durgan (founding seat #1, the live dry-run of
+# ADR 0067). Authored from the intake row in the admin queue on
+# 2026-07-06 per docs/runbooks/hosted-agent/concierge.md; template
+# operator/customers/_hosted-template/.
 #
-# The slim self-serve variant of _template: one general-assistant persona,
-# no vertical pack, Telegram plus allowlisted-sender email only, and the
-# named day-one jobs the product page sells (owner-facing digest, research
-# briefs, monitoring reports). Authoring source is the customer's intake
-# row in the admin queue (admin.smd.services/admin/hosted-agent), NOT an
-# interview transcript. Target authoring time: minutes.
+# Intake: agent name "Agent Crane"; use cases "chief of staff — email,
+# calendar, daily routine"; timezone MST; allowed sender
+# smdurgan@icloud.com; spend limit confirmed. Anthropic key staged at
+# Infisical /ss/hosted/scott (the CUSTOMER'S key, never an SMD org key).
 #
-# Copy to operator/customers/{slug}/customer.yaml, replace every bracketed
-# value from the intake row, then validate:
-#
-#   npx tsx scripts/validate-customer-yaml.ts \
-#     operator/customers/{slug}/customer.yaml
-#
-# Hard rules for this SKU (do not loosen per customer):
-#   - inbound_allow_from MUST be non-empty and MUST NOT contain a bare '@'
-#     domain wildcard for a public mail provider. No public inbound
-#     address is offered at this tier (ADR 0067 channel constraint).
-#   - external_send stays draft_for_review.
-#   - The ANTHROPIC_API_KEY staged for this Machine is the CUSTOMER'S key
-#     (Infisical /ss/hosted/{slug}), never an SMD org key.
+# ADR 0067 hard rules honored: inbound allowlist non-empty and exact
+# addresses only; external_send stays draft_for_review.
 
 # ---- IDENTITY ----
-customer_id: '[SLUG]'
-customer_name: '[CUSTOMER NAME from intake / Stripe]'
+customer_id: 'scott'
+customer_name: 'Scott Durgan'
 vertical: mixed
 addons: []
 practice_areas:
   - general
-fly_region: lax # nearest to Phoenix; Fly has no phx region — pick per customer geography
+fly_region: lax # Phoenix-adjacent; Fly retired phx (fleet standard, same as customer-zero)
 
 # ---- RUNTIME ----
 # Cheap main model on the customer's own key; no escalation tier at this
 # price point (their key, their spend limit — keep the burn predictable).
 model: claude-sonnet-4-6
-hermes_ref: '[CURRENT BLESSED FLEET PIN, e.g., v2026.5.7@<40-hex-sha>]'
+hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
 machine:
   size: shared-cpu-1x
@@ -44,15 +34,15 @@ machine:
 
 # ---- HUMANS WITH PORTAL ACCESS ----
 users:
-  - email: '[BUYER EMAIL]'
+  - email: scott@smd.services
     role: principal
-    full_name: '[BUYER NAME]'
+    full_name: Scott Durgan
 
 # ---- PERSONA ----
 personas:
-  - slug: '[AGENT NAME, lowercased]'
+  - slug: agent-crane
     status: active
-    name: '[AGENT NAME from intake]'
+    name: Agent Crane
     title: Assistant
     tone:
       - plainspoken
@@ -85,10 +75,10 @@ personas:
           webhook: false
         enabled: true
     cron:
-      # Named day-one job: the morning digest, on the customer's clock
-      # ([TIMEZONE from intake] — express as UTC here).
+      # Named day-one job: the morning digest at 7:00 MST (Phoenix has no
+      # DST, so 7am is 14:00 UTC year-round).
       - skill: status-report-assembler
-        schedule: '[MORNING DIGEST CRON, e.g., 0 14 * * * for 7am PHX]'
+        schedule: '0 14 * * *'
         wake_policy: always
 
 # ---- CONNECTORS ----
@@ -97,13 +87,13 @@ connectors:
     adapter: agentmail
     backend: 'mcp:agentmail'
     enabled: true
-    webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/email'
+    webhook_url: 'https://hermes-scott.fly.dev/webhooks/email'
 
 webhook_triggers:
   - source: agentmail
     event_type: message.received
     skill: inbox-triage
-    persona: '[AGENT NAME, lowercased]'
+    persona: agent-crane
 
 # ---- SCOPE ----
 scope:
@@ -114,15 +104,14 @@ scope:
   email_keyword_blocks: []
   domain_blocks: []
   # ADR 0067 channel constraint: the allowlist IS the inbound surface.
-  # Copy the intake row's sender list verbatim; never add a domain
-  # wildcard at this tier. Empty roster = fail-closed (drafts only).
+  # Exact addresses from the intake row; no domain wildcards at this tier.
   inbound_allow_from:
-    - '[SENDER 1 from intake]'
+    - smdurgan@icloud.com
 
 # ---- ESCALATION ----
 escalation:
   red_flag_recipients:
-    - '[BUYER EMAIL]'
+    - scott@smd.services
   failure_recipients:
     - team@smd.services
 
@@ -141,14 +130,14 @@ safety:
 # when empty).
 telegram:
   allowed_users:
-    - '[BUYER TELEGRAM NUMERIC ID — resolve from the handle at go-live]'
+    - '7367659986'
 
 # ---- VOICE LIBRARY ----
 voice_library:
-  samples_path: 'r2://vaults/[SLUG]/voice/samples/'
+  samples_path: 'r2://vaults/scott/voice/samples/'
 
 # ---- MEMORY (isolation invariants; must match customer_id) ----
 memory:
-  d1_namespace: '[SLUG]'
-  r2_vault_path: 'vaults/[SLUG]/'
-  vectorize_index: 'hermes-[SLUG]-vault'
+  d1_namespace: scott
+  r2_vault_path: 'vaults/scott/'
+  vectorize_index: 'hermes-scott-vault'
