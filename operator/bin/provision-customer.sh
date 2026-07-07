@@ -503,6 +503,16 @@ if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
   unset _AGENTMAIL_WH_KEY _AGENTMAIL_WH_SECRET
 fi
 
+# Brave Search (mcp:brave, ADR 0070). BRAVE_API_KEY is the SHARED, SMD-absorbed
+# subscription token — one key across every Hosted-Agent seat (keeps "your only
+# bill is Anthropic" true; not BYO). Like AgentMail's account-wide credential it
+# is staged ONLY for a customer whose customer.yaml actually binds mcp:brave.
+# Missing at boot => the overlay leaves the Brave MCP server unwired (fail-closed,
+# no crashloop), so an unbound or key-less seat simply has no web search.
+if grep -qE 'backend:[[:space:]]*.?mcp:brave' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  stage_secret_from_env BRAVE_API_KEY "${BRAVE_API_KEY:-}" "Brave Search subscription token (shared, account-wide; web search)"
+fi
+
 # Google service-account key (DWD). REQUIRED for any customer.yaml with
 # google_auth.mode: dwd — bootstrap.sh Step 2b dies without it. Base64-encoded
 # service-account JSON. Shared across the smd.services domain (one SA, domain-wide
