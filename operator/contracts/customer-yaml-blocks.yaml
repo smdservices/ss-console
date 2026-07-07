@@ -143,7 +143,12 @@ top_level:
   # ---- runtime-consumed from customer.yaml on the volume (overlay reads it directly) ----
   webhook_triggers:
     status: implemented
-    materializer: overlay hermes-smd-webhook-router (routes (source,event_type)->persona/skill from customer.yaml at runtime) + webhook_gate source-stamp
+    materializer: >-
+      overlay hermes-smd-webhook-router (routes (source,event_type)->persona/skill
+      from customer.yaml at runtime) + webhook_gate source-stamp + webhook_gate
+      trigger exclusions (overlay shared/gate_trigger_exclusions.py, live-read per
+      delivery: exclude.matters/actors -> 202 + WEBHOOK_SUPPRESSED audit row, no
+      forward; fail-open to forward on any config/parse issue)
     note: >-
       ADR 0021 Stream E. The router reads customer.yaml.webhook_triggers directly
       from the synced volume (not translated into config.yaml); validated

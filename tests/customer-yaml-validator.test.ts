@@ -136,6 +136,39 @@ function withFullOptionals(): Record<string, unknown> {
   return f
 }
 
+describe('webhook_triggers.exclude (authored trigger exceptions)', () => {
+  const OPS = '3c191bed-cdda-48b9-a6ed-a51a349f3f94'
+  const CHRIS = 'aaaa1111-2222-3333-4444-bbbbcccc0001'
+
+  function withExclude(exclude: unknown) {
+    const f = withWebhooks()
+    const triggers = f['webhook_triggers'] as Record<string, unknown>[]
+    triggers[0]['exclude'] = exclude
+    return f
+  }
+
+  it('accepts matter + actor GUID lists and carries them through', () => {
+    const result = validate(withExclude({ matters: [OPS], actors: [CHRIS] }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.webhook_triggers[0].exclude).toEqual({ matters: [OPS], actors: [CHRIS] })
+    }
+  })
+
+  it('is null when unauthored', () => {
+    const result = validate(withWebhooks())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.webhook_triggers[0]?.exclude ?? null).toBeNull()
+  })
+
+  it('rejects non-GUID ids, unknown keys, and an empty block', () => {
+    for (const bad of [{ matters: ['the ops matter'] }, { people: [CHRIS] }, {}]) {
+      const result = validate(withExclude(bad))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
 describe('digest (authored digest home, #1742)', () => {
   it('accepts a valid home_matter_id GUID and carries it through', () => {
     const f = validFixture()
