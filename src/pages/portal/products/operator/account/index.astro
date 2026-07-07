@@ -86,13 +86,8 @@ const hasEscalation =
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  <PortalPageHead
-    crumbHref="/portal/products/operator"
-    crumbLabel="Operator"
-    tag="Section"
-    h1="Account"
-    meta={subStatus ? subscriptionStatusLabel(account.subscription!.status) : null}
-  />
+  {/* Status is shown once, on the chip below — not repeated in the header meta. */}
+  <PortalPageHead crumbHref="/portal/products/operator" crumbLabel="Operator" h1="Account" />
 
   {
     crMessage && (
@@ -128,9 +123,13 @@ const hasEscalation =
               >
                 {subscriptionStatusLabel(account.subscription.status)}
               </span>
-              <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
-                {subscriptionStatusProse(account.subscription.status)}
-              </p>
+              {/* The chip states the status; the prose only adds value when the
+                  status needs explaining (paused, etc.), so skip it for active. */}
+              {account.subscription.status !== 'active' && (
+                <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
+                  {subscriptionStatusProse(account.subscription.status)}
+                </p>
+              )}
               {stripeCustomerId && (
                 <form method="POST" action="/api/portal/billing/manage" class="mt-2">
                   <input type="hidden" name="product_slug" value="operator" />
