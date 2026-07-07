@@ -294,7 +294,24 @@ describe('Operator customer Machine Dockerfile', () => {
     // Range 7c10fd61..07c7a516 touches webhook_gate.py + shared/
     // gate_trigger_exclusions.py + translate.py + action_classes + tests; no
     // tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="07c7a5162c3bff5e2ecf67908f0e742e7598d1df"')
+    // 3294e909 (#143, ss#1758/#141): the provenance SESSION RESOLVER — core's
+    // pre_tool_call fire sites drop session_id, so the register was never
+    // consulted under its real key (111/111 tier3 rows empty-register); the
+    // trust plugin now notes the real id (new pre_llm_call hook +
+    // post_tool_call) and resolves at a single pre-hook choke point. Unblocks
+    // the #140 caption exemption + A1 identifier gate. No tracked twin moved.
+    // 95fc269f (#144): exclusion matching checks ANY candidate key — the live
+    // Smokeball envelope carries a foreign top-level id that defeated first-
+    // present-wins precedence (proven by signed probes against the running
+    // gate); fail-open config reads now log. Range 3294e909..95fc269f touches
+    // shared/gate_trigger_exclusions.py + tests; no tracked twin moved.
+    // 6e685b03 (#145): exclusion matching searches the NESTED payload level —
+    // the verbatim live envelope (session transcript, 2026-07-07) puts the
+    // matter at payload.id with only userId top-level; both prior attempts
+    // assumed flat. Regression test pins the verbatim envelope. Range
+    // 95fc269f..6e685b03 touches shared/gate_trigger_exclusions.py + tests;
+    // no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6e685b0347fbd9e759a569c5fd79219d6d35b321"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
