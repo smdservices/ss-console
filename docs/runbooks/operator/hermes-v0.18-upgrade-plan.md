@@ -13,7 +13,7 @@
 - **Where we are:** the entire fleet (smd, ashton-price, pilot-smokeball, pilot-law, scott, smd-staging) is pinned to `v2026.5.16` = **Hermes v0.14.0**, ~7 weeks and **4 minor versions** behind. Latest stable is **v0.18.0**.
 - **The headline risk is retired.** The scary part of a 0.14→0.18 jump was v0.15.0 collapsing `run_agent.py` from 16,083 lines to 3,821 across new `agent/*` modules, which killed every file:line citation our overlay's hook-surface doc carries. A static diff against upstream v0.18.0 proves this does **not** break us: all **9 hooks** our overlay binds still exist in `VALID_HOOKS`, the plugin API is unchanged, and the tool-hook kwargs are a backward-compatible **superset**. Our plugins bind by hook _name_, not line number, so the refactor is transparent to them.
 - **One empirical gate remains:** the LLM/session-hook kwargs shapes, resolved by running the existing `hermes-smd-hook-probe` smoke plugin against a stock v0.18.0 container on staging. This is a gate we already have, not new work.
-- **The real lesson is systemic.** The reason we drifted 7 weeks behind is that [ADR 0024](../../adr/0024-hermes-consumption-and-update-cadence.md)'s tracking-and-golden-image automation (its Decisions 2, 3, 5) was **never built**. This upgrade should be run in a way that builds that muscle by hand once, then we should decide whether to automate it so we do not land here again in September. See §7.
+- **The real lesson is systemic.** We drifted 7 weeks because [ADR 0024](../../adr/0024-hermes-consumption-and-update-cadence.md)'s "keep current" automation was never built and the cadence stayed manual. The fix is right-sized: **a lightweight release-watch now** (a scheduled release check that pings on a new tag), and the full golden-image/tracking pipeline **deferred until fleet scale** — building a CI factory for a 3-seat fleet is the over-engineering we are avoiding. See §7.
 
 ---
 
@@ -80,9 +80,11 @@ Fetched `hermes_cli/plugins.py` and `model_tools.py` from `NousResearch/hermes-a
 
 **Verdict: structural compatibility is proven.** The refactor moved firing sites (dead citations) but preserved the named-hook contract, which is the only thing our plugins bind to.
 
-### 3.4 Residual risk (the one empirical gate)
+### 3.4 Residual risk — two gates, and the one that matters most
 
-The static proof covers the 3 tool hooks' kwargs directly and all 9 hook _names_. The 6 LLM/session/gateway hooks fire from the refactored `agent/*` modules; their kwargs shapes (`sender_id`, `assistant_response`, `completed`/`interrupted`, the `pre_gateway_dispatch` `event/gateway/session_store` triple) are **high-confidence but not statically confirmed here**. The right tool to close them is empirical and already exists: run `hermes-smd-hook-probe` against a stock v0.18.0 container and diff the observed kwargs against the documented contract. This is Step 0 of §5.
+**(a) Signature gap (lower risk).** The static proof covers the 3 tool hooks' kwargs directly and all 9 hook _names_. The 6 LLM/session/gateway hooks fire from the refactored `agent/*` modules; their kwargs shapes (`sender_id`, `assistant_response`, `completed`/`interrupted`, the `pre_gateway_dispatch` `event/gateway/session_store` triple) are **high-confidence but not statically confirmed here**. Several of these (`pre_gateway_dispatch`, `on_session_end`, `subagent_stop`) only fire on a **provisioned Machine**, not a bare container — so they are closed on staging (§5 Step 3), not in the container probe.
+
+**(b) Semantic gap (the real risk).** Structural compatibility is not behavioral compatibility. The v0.15+ promptware/Brainworm defenses can **wrap tool-result content in delimiter markers, quarantine it, or scan recalled memory** before it reaches the model. Our `transform_tool_result` (ADR-0027 inbound quarantine) and audit/voice plugins _parse that content_. A hook can fire with a kwarg still named `result` whose **value is now delimiter-fenced or truncated** — signature-green, semantics-broken, and it would pass every presence check while silently feeding the compliance-audit plugin mangled bytes on a live law firm. The gate therefore escalates from "kwarg present" to "**consumed value semantically unchanged, or the change is understood and handled**," and specifically checks our ADR-0027 quarantine does not double-wrap or conflict with native fencing. Closed by the semantic snapshot in §5 Step 1.
 
 ### 3.5 Overlay housekeeping (no functional code change expected)
 
@@ -90,14 +92,14 @@ Because the hooks are compatible, the overlay should need **no functional code c
 
 - Re-pin `docs/hook-surface.md` header to `v2026.7.1` and refresh the (now-informational) file:line citations.
 - Record the hook-probe smoke output at v0.18.0 as the new re-verification artifact.
-- `OVERLAY_REF` can stay where it is unless the probe surfaces a kwargs gap (see §8 open decision on lockstep).
+- `OVERLAY_REF` stays where it is unless the semantic gate (§3.4b) surfaces a real gap.
 
 ---
 
 ## 4. Other upgrade surfaces (lower risk, still checked)
 
 - **Honcho:** not baked into the Phase-1 image (`operator/templates/Dockerfile:353` — in-container Honcho server removed; real server deferred to Phase 2). ADR 0024's "add a Honcho integrity assertion" is therefore **moot for this upgrade** — there is no Honcho to pin.
-- **From-source rebuild:** the per-customer Dockerfile re-runs `git clone` + `uv sync` + `playwright install` + overlay install. A new upstream SHA means new transitive deps resolve; watch the build for `uv sync` / Playwright surprises. (This is exactly the non-determinism ADR 0024's golden image was meant to remove.)
+- **From-source rebuild — determinism is mostly handled.** Upstream ships `uv.lock` at both the v0.14 and v0.18 tags, and the Dockerfile runs `uv sync --frozen` (`operator/templates/Dockerfile:348`), so the **Python** env is reproducible per-pin — a v0.14 rebuild today reproduces today's running Python tree. The residual non-determinism is the **npm/Playwright layer only**: `npm install` (not `npm ci`) at `Dockerfile:336-339` and `npx playwright install ... chromium` at `:337`. Consequence: capture the running seat's env as the rollback reference (§5 Step 0), and assert a browser launch in boot-smoke (§5 Step 3), rather than assuming a byte-identical rebuild. Building a vendored requirement manifest is **not** warranted — `uv.lock` + `--frozen` already covers the Python surface.
 - **Flat-file memory:** Phase 1 runs on Hermes' `MEMORY.md`/`USER.md` per-profile core (`operator/templates/README.md:106`). Format has been stable across the release train; low risk, but confirm on staging that existing `/opt/data` volume memory loads cleanly after the bump.
 - **The hardcoded-pin gotcha list** (a bump must update **all** of these, or the pin silently drifts back to v0.14.0):
   - `operator/customers/<slug>/customer.yaml` → `hermes_ref` (per customer being promoted)
@@ -113,35 +115,45 @@ Because the hooks are compatible, the overlay should need **no functional code c
 
 ## 5. Execution plan — staged rollout with gates
 
-Honors the standing rule: **fixtures → pilot-smokeball → ashton-price, never straight to a paid seat.**
+Honors the standing rule: **never straight to a paid seat.** Because there is no local Docker, the "stock container" proof runs against the isolated, from-source **staging Machine** (Fly remote build) rather than a synthetic local container — more faithful, not a cut corner. `smd-staging` is a permanent, credential-isolated seat that exists to absorb exactly this.
 
-**Step 0 — Prove the overlay on v0.18.0 (before any pin bump).**
-Build a stock v0.18.0 container, run `hermes-smd-hook-probe`, capture the observed kwargs for all 9 hooks, diff against `docs/hook-surface.md`. Gate: every hook fires; no consumed kwarg missing. Re-pin `hook-surface.md`. **If a kwarg gap appears, stop and patch the overlay before proceeding.**
+**Step 0 — Capture the v0.14 baseline + rollback reference (before any pin bump).**
+From the running v0.14 `smd-staging` Machine: capture the resolved env as the concrete rollback artifact (`uv.lock` confirmed at `a91a57fa…`, Playwright pkg + chromium rev, Hermes SHA, live `OVERLAY_REF`) and a **semantic baseline** — the payload bytes each overlay plugin consumes for a fixed input via `hermes-smd-hook-probe`. This baseline is what the v0.18 snapshot diffs against.
 
-**Step 1 — Bump the pins (staging only, first).**
-Set `smd-staging` `hermes_ref` → `v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b`; update the Dockerfile/provision defaults per §4. PR + verify.
+**Step 1 — Prove the overlay at v0.18 (signatures + semantics).**
+On the reprovisioned staging Machine (or a throwaway build if Docker becomes available), run `hermes-smd-hook-probe`:
 
-**Step 2 — Staging reprovision + boot-smoke + live-turn.**
-`operator/bin/reprovision-staging.sh` (isolated creds), then `operator/bin/boot-smoke-test.sh smd-staging` (all 8 checks incl. overlay-plugins-installed, curator-disabled, overlay-pack-root-owned), then a real inbound→draft turn with an audit-row check. Gate: boot-smoke green + `crane_verify` live-turn record.
+- **Presence gate:** every hook fires; no consumed kwarg missing.
+- **Semantic gate (§3.4b):** snapshot the payload each plugin consumes for `transform_tool_result` and `pre/post_llm_call`; diff against the Step-0 v0.14 baseline. Read the v0.15–v0.18 security/CHANGELOG notes for tool-result delimiter/quarantine and recalled-memory-scan changes and assert each. Confirm ADR-0027 quarantine does not double-wrap native fencing.
+- If any gap → stop and patch the overlay before promoting further. Re-pin `hook-surface.md` to `v2026.7.1`.
 
-**Step 3 — pilot-smokeball (fixtures gate first).**
-Run the fixtures path, then reprovision pilot-smokeball, boot-smoke, and a discovery-lane run. Gate: same as Step 2 + a grading run that matches the pre-upgrade baseline.
+**Step 2 — Bump the per-seat pin (staging only).**
+Set `operator/customers/smd-staging/customer.yaml` `hermes_ref` → `v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b`. **Leave the global defaults (`provision-customer.sh:138`, `Dockerfile:40/43/49`, templates) at v0.14 until the blessing step (§5 Step 6)** — all 6 seats carry explicit pins, so the default only affects new provisions/fixtures; bumping it early is a latent footgun on any mid-rollout reprovision.
 
-**Step 4 — ashton-price (paid seat, canary).**
-Promote only after Steps 2–3 are green. Reprovision, boot-smoke, live-turn on a low-stakes real path. The **per-customer pin is the rollback lever**: if a regression hits A&P, revert `hermes_ref` to `v2026.5.16@a91a…` and `reprovision.sh ashton-price` restores the prior image.
+**Step 3 — Staging reprovision + hardened boot-smoke + real webhook turn.**
+`operator/bin/reprovision-staging.sh` (isolated creds). First **harden** `boot-smoke-test.sh` (it currently only greps plugin presence and its comment still says "four"; there are 12): assert (a) loaded overlay SHA == intended `OVERLAY_REF`, (b) expected plugin count registered, (c) target hooks registered at runtime (fail-closed harness-ON, not file-presence), (d) Playwright launches a headless browser. Then trigger a **real webhook-originated** inbound (Svix → overlay gate → Hermes adapter) so `pre_gateway_dispatch` + `on_session_end` kwargs are captured on a Machine. Gate: hardened boot-smoke green + `crane_verify` live-turn + the semantic snapshot confirmed on real machinery.
 
-**Rollback (any gate):** revert the customer's `hermes_ref` to the v0.14.0 pin and reprovision. Machine secrets persist across deploy, so rollback is a pin flip, not a rebuild-from-nothing.
+**Step 4 — pilot-smokeball (real-connector proof of the load-bearing path).**
+Bump pin, reprovision, hardened boot-smoke, then an explicit **real inbound-email → recipient-locked-draft** round-trip (real creds) asserting recipient-lock correctness + the expected audit row, plus a discovery-lane run matching the pre-upgrade baseline. This is the only real-connector proof before the paying seat; recipient-lock correctness is an explicit gate (wrong recipient on a law firm's mail = incident).
+
+**— CHECKPOINT —** Stop and report: probe (signatures + semantics), both seats' hardened-boot-smoke + live-turn evidence, recipient-lock proof. Wait for the Captain's explicit go before Step 5.
+
+**Step 5 — ashton-price (paid seat, last, canary).** _(only after the checkpoint go)_
+Bump pin, reprovision, hardened boot-smoke, one low-stakes real inbound→draft turn with recipient-lock + audit assertion. **Rollback lever:** revert `hermes_ref` to `v2026.5.16@a91a…` and `reprovision.sh ashton-price` against the Step-0 captured reference (Python deterministic via `--frozen`; the captured env checks the npm/Playwright layer). Machine secrets persist across deploy, so rollback is a pin flip.
+
+**Step 6 — Bless v0.18 + release-watch.**
+Only after A&P is green: bump the global defaults (`provision-customer.sh:138`, `Dockerfile:40/43/49`, `_template`/`_hosted-template`, fixtures) to the target pin, make the pilot-law/scott call (fold in or record a dated hold), and add the lightweight release-watch (§7).
 
 ---
 
 ## 6. Verification / done criteria
 
-1. `hermes-smd-hook-probe` fires all 9 hooks on a v0.18.0 container; no consumed kwarg missing (`crane_verify`, fresh_process).
-2. `boot-smoke-test.sh` passes all checks on each promoted seat (`crane_verify`, live_state per seat).
-3. A real inbound→draft turn on each seat emits the expected audit rows (`crane_verify`, live_state).
-4. `docs/hook-surface.md` re-pinned to `v2026.7.1` with refreshed citations.
-5. No hardcoded `v2026.5.16` default remains for a promoted path (grep clean).
-6. Fleet view: all promoted seats on v0.18.0; any seat held back carries a recorded reason (ADR 0024 Decision 6).
+1. `hermes-smd-hook-probe` fires all 9 hooks (container + Machine); no consumed kwarg missing **and consumed content semantically unchanged or handled** (`crane_verify`, fresh_process).
+2. Hardened `boot-smoke-test.sh` green on each promoted seat: overlay SHA matches `OVERLAY_REF`, plugin count + runtime hook registration asserted, Playwright launches (`crane_verify`, live_state per seat).
+3. A **real webhook** inbound on staging + a **real recipient-locked** round-trip on pilot-smokeball — correct recipient + expected audit rows (`crane_verify`, live_state).
+4. `docs/hook-surface.md` re-pinned to `v2026.7.1`; the v0.14 rollback reference captured and confirmed reproducible.
+5. Per-seat pins bumped during rollout; global defaults bumped only at the blessing step; pilot-law/scott disposition recorded.
+6. Release-watch live. Fleet view: all promoted seats on v0.18.0; any seat held back carries a recorded reason (ADR 0024 Decision 6).
 
 ---
 
@@ -149,15 +161,18 @@ Promote only after Steps 2–3 are green. Reprovision, boot-smoke, live-turn on 
 
 ADR 0024 (2026-05-28) already designed the "keep current" strategy and even predicted this drift: "a quarterly rebase against a weekly release train leaves us structurally ~12 versions behind at all times." Its Steps 1–2 (SHA-pin, de-fork, first boot) landed. **Step 3 — the CI→GHCR golden base image and the automated tracking job — was never built**, and we sailed past its trigger ("before first real customer"; A&P is live). The manual, Captain-noticed-via-Discord cadence is exactly the bottleneck ADR 0024 named, and it is why nobody bumped the pin for 7 weeks.
 
-This upgrade forces us to do, by hand, once, the two things Step 3 automates: build an image at a new SHA, and prove the overlay against it. That hand-run is the raw material for the automation. **Recommendation:** at minimum, build ADR 0024's _tracking job_ this cycle — a CI job that, on each upstream release, builds a candidate, runs the overlay tests + hook-probe + safety invariants, and emits a green/red signal plus a hook-surface diff. That converts "are we compatible with the latest Hermes?" from a manual dig into a standing signal, and blessing a new version becomes a deliberate pin bump instead of an archaeology project. The golden GHCR image (Step 3's other half) can follow. Without this, we will be back here in September.
+**The right-sized fix is a habit, not a factory.** Building ADR 0024's full CI→GHCR golden-image + candidate-build tracking pipeline for a **3-active-seat fleet** — where this entire compatibility audit took one session by hand — is building a machine to change a lightbulb. The golden-image pipeline earns its keep at fleet scale; we are not at fleet scale, so it is **deferred until seat count or upgrade pain demands it**.
+
+What we adopt now is the minimum that actually prevents recurrence: a **lightweight release-watch** — a scheduled `gh api` check on `NousResearch/hermes-agent/releases` that pings / opens an issue when a new tag ships, so the pin can never silently rot for 7 weeks again. Ten lines, not a subsystem. The reason we drifted was a missing _signal_, not a missing pipeline; we build the signal now and the pipeline the day it pays for itself.
 
 ---
 
-## 8. Open decisions for Captain
+## 8. Decisions (resolved 2026-07-07)
 
-1. **Automation scope this cycle.** Build ADR 0024's tracking job now (bundled with the upgrade), or do the manual v0.18.0 upgrade first and file the automation as a follow-on? (Recommendation: build at least the tracking job now — the manual run is the prototype.)
-2. **Overlay lockstep.** Hold `OVERLAY_REF` fixed and only re-pin `hook-surface.md`, or cut a fresh overlay tag alongside the Hermes bump? (Recommendation: hold `OVERLAY_REF`; the hooks are compatible, so no overlay code change is expected — only re-verify.)
-3. **New-capability follow-ons.** File issues to adopt v0.18.0's `pre_verify` / completion contracts (maps to "Done means wired") and evaluate v0.17.0 scale-to-zero for the Hosted Agent cost plane, or defer both? (Recommendation: file, do not block this upgrade on them.)
+1. **Automation scope.** Cut the golden-image / tracking-CI pipeline as over-engineering at 3 seats; ship a lightweight release-watch instead. Revisit the pipeline at fleet scale. (§7)
+2. **Overlay lockstep.** Hold `OVERLAY_REF`; hooks are compatible, so no overlay code change is expected — only re-verify and re-pin `hook-surface.md`. Cut a fresh overlay tag only if the semantic gate (§3.4) surfaces a real gap.
+3. **New-capability follow-ons.** File — do not block. v0.18 `pre_verify` / completion-contracts ("Done means wired"); v0.17 scale-to-zero for the Hosted Agent cost plane.
+4. **Rollout depth.** Captain checkpoint after pilot-smokeball; the paying seat (A&P) is promoted only on explicit go.
 
 ---
 
