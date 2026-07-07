@@ -29,11 +29,11 @@
 import StatusPill from '../StatusPill.astro'
 import {
   decisionTone,
-  formatAuditAction,
   formatAuditDecision,
   formatAuditTimestamp,
   type AuditEntry,
 } from '../../../lib/portal/operator/audit'
+import { clientSummaryFor } from '../../../lib/portal/operator/activity-language'
 
 interface Props {
   entry: AuditEntry
@@ -50,7 +50,10 @@ const resolvedSerial = serial ?? entry.id.slice(0, 2).toUpperCase()
 const decisionLabel = formatAuditDecision(entry.decision)
 const decisionToneValue = decisionTone(entry.decision)
 
-const actionLabel = formatAuditAction(entry.action)
+// Curated client language only; upstream filtering guarantees a mapped
+// entry, and an unmapped straggler renders an empty cell, never raw
+// vocabulary.
+const actionLabel = clientSummaryFor(entry) ?? ''
 const tsLabel = formatAuditTimestamp(entry.ts)
 
 // Truncate the reason in the row caption; the full text is in the

@@ -311,7 +311,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // assumed flat. Regression test pins the verbatim envelope. Range
     // 95fc269f..6e685b03 touches shared/gate_trigger_exclusions.py + tests;
     // no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6e685b0347fbd9e759a569c5fd79219d6d35b321"')
+    // af895354 (#146, ss #1791): the webhook gate records WEBHOOK_SUPPRESSED via
+    // a new uid-gated broker verb (webhook_suppressed_append) instead of the
+    // gateway-PID-gated audit_append that was silently refusing the write —
+    // proven live on pilot-smokeball (suppression stood, audit row never
+    // persisted). Range 6e685b03..af895354 touches webhook_gate.py +
+    // shared/audit_client.py + tests; no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="af895354ad86f01bfde82e179c5c42d0fe733f6a"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
