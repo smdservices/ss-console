@@ -98,6 +98,14 @@ connectors:
     backend: 'mcp:agentmail'
     enabled: true
     webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/agentmail'
+  # WebSearch is ON by default for the Hosted Agent — research is the marketed
+  # product (ADR 0070). Search + extract only; no driven browser. Cost is
+  # SMD-absorbed on a shared Brave key (not BYO — no second signup), capped
+  # per-seat by safety.sticky_stop.web_search_daily_cap below.
+  WebSearch:
+    adapter: brave
+    backend: 'mcp:brave'
+    enabled: true
 
 webhook_triggers:
   - source: agentmail
@@ -134,6 +142,9 @@ safety:
   sticky_stop:
     cost_cap_daily_cents: 1000
     inbound_daily_cap: 100
+    # Per-seat WebSearch fair-use ceiling (ADR 0070): protects the shared,
+    # SMD-absorbed Brave key. Enforced at the mcp:brave call site in the overlay.
+    web_search_daily_cap: 200
 
 # ---- TELEGRAM ----
 # Per-customer bot (BotFather; see docs/runbooks/hosted-agent/). Token is

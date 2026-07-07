@@ -22,6 +22,7 @@ export const ACCEPTED_CAPABILITY_NAMES: ReadonlySet<CapabilityName> = new Set<Ca
   'IntakeCRM',
   'CallTracking',
   'InternalComms',
+  'WebSearch',
 ])
 
 export const ACCEPTED_VERTICALS = [
