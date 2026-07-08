@@ -3,16 +3,21 @@
  * Operator hero — the shared "meet your operator" lead (ADR 0069 Slice 2).
  *
  * Renders who the operator is (persona identity) and whether it is alive and
- * in-bounds (the aliveness signal, via the existing AlivenessHeader). ONE shared
- * component, mounted in both portals per Lock 4; the facet registry points the
- * `identity` and `status` facets at the resolver this consumes
+ * in-bounds (the aliveness signal, via AlivenessHeader). ONE shared component,
+ * mounted in both portals per Lock 4; the facet registry points the `identity`
+ * and `status` facets at the resolver this consumes
  * (lib/portal/operator/facets/identity/hero.ts).
+ *
+ * Calm register (UI-PATTERNS Rule 8): a raised Card, a mono `text-label`
+ * eyebrow, the persona name in sentence case at `text-title`, and the aliveness
+ * signal as a calm inline status — no loud 3px rules or black-uppercase name.
  *
  * Identity is authored config — nothing fabricated. With no active persona the
  * headline falls back to the generic label "Your operator" (a label, not an
  * authored value), and a null aliveness signal renders AlivenessHeader's silent
  * empty state (never a fabricated "healthy" chip).
  */
+import Card from '../../Card.astro'
 import AlivenessHeader from '../AlivenessHeader.astro'
 import type { OperatorHeroModel } from '../../../../lib/portal/operator/facets/identity/hero'
 
@@ -26,30 +31,15 @@ const { model, escalationHref = null } = Astro.props
 const displayName = model.name ?? 'Your operator'
 ---
 
-<section
-  class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-  aria-label="Operator identity and status"
->
-  <div class="flex flex-col gap-5 px-5 py-6 md:px-7">
-    <div>
-      <p
-        class="font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--ss-color-primary)]"
-      >
-        Your operator
-      </p>
-      <h2
-        class="mt-1 font-body text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)] md:text-3xl"
-      >
-        {displayName}
-      </h2>
-      {
-        model.title && (
-          <p class="mt-1 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-            {model.title}
-          </p>
-        )
-      }
-    </div>
+<Card class="mt-8" ariaLabel="Operator identity and status">
+  <p class="text-label uppercase text-[color:var(--color-text-muted)]">Your operator</p>
+  <h2 class="mt-1 text-title text-[color:var(--color-text-primary)]">{displayName}</h2>
+  {
+    model.title && (
+      <p class="mt-1 text-caption text-[color:var(--color-text-secondary)]">{model.title}</p>
+    )
+  }
+  <div class="mt-4">
     <AlivenessHeader signal={model.aliveness} escalationHref={escalationHref} />
   </div>
-</section>
+</Card>

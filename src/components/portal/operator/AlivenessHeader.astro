@@ -5,30 +5,33 @@
  * running, sticky_stop, offline) plus the last-action timestamp and,
  * for the two unhealthy states, a Captain-escalation affordance.
  *
+ * Calm register (UI-PATTERNS Rule 8): an inline status row — a tone
+ * `StatusDot` + the level word + last-action caption, sentence case, no
+ * loud pill or 3px rule. The calm counterpart to the old chip; the
+ * StatusDot consumes the same `Tone` as StatusPill so tone stays unified.
+ *
  * Per-customer: the signal prop is the resolved AlivenessSignal from
- * `src/lib/portal/operator/aliveness.ts ::
- * resolveAlivenessSignal(subscription)`. The component takes nothing
- * about the subscription itself — it is a pure renderer over the
- * resolved typed signal so unit tests of the resolver and the
- * component can move independently.
+ * `src/lib/portal/operator/aliveness.ts :: resolveAlivenessSignal(subscription)`.
+ * The component takes nothing about the subscription itself — it is a pure
+ * renderer over the resolved typed signal so unit tests of the resolver and
+ * the component can move independently.
  *
- * Empty-state contract: when `signal === null` (no data yet because
- * the Hermes bridge is not wired), the component renders nothing.
- * That matches `docs/style/empty-state-pattern.md` — a fabricated
- * green chip is worse than no chip at all. When the bridge lands,
- * the resolver starts returning real signals and the chip appears
- * without a component change.
+ * Empty-state contract: when `signal === null` (no data yet because the
+ * Hermes bridge is not wired), the component renders nothing. That matches
+ * `docs/style/empty-state-pattern.md` — a fabricated green chip is worse than
+ * no chip at all. When the bridge lands, the resolver starts returning real
+ * signals and the row appears without a component change.
  *
- * Escalation affordance: for `sticky_stop` and `offline` we surface a
- * single Captain-contact link. The `escalationHref` prop comes from
- * the page (typically a `mailto:` to the assigned consultant). When
- * the page cannot resolve one, the prop is null and the component
- * falls back to a link to the Operator settings surface where the
- * principal can review consultant assignment. The fallback is the
- * design contract: never render an inert escalation button.
+ * Escalation affordance: for `sticky_stop` and `offline` we surface a single
+ * Captain-contact link. The `escalationHref` prop comes from the page
+ * (typically a `mailto:` to the assigned consultant). When the page cannot
+ * resolve one, the prop is null and the component falls back to a link to the
+ * Operator settings surface where the principal can review consultant
+ * assignment. The fallback is the design contract: never render an inert
+ * escalation button.
  */
 
-import { TONE_CLASS } from '../../../lib/portal/status'
+import StatusDot from '../StatusDot.astro'
 import {
   alivenessTone,
   formatAlivenessLevel,
@@ -53,15 +56,8 @@ interface Props {
 
 const { signal, escalationHref = null, escalationLabel = null } = Astro.props
 
-if (signal === null) {
-  // Empty-state branch — render nothing. The wrapping page already
-  // owns the dashboard chrome; we are silently absent until the
-  // bridge has real data to report.
-}
-
 const level = signal?.level ?? null
 const tone = level ? alivenessTone(level) : null
-const toneClass = tone ? TONE_CLASS[tone] : ''
 const headline = level ? formatAlivenessLevel(level) : ''
 const lastActionRelative = signal ? formatLastActionRelative(signal.lastActionAt) : null
 const lastActionAbsolute = signal ? formatLastActionAbsolute(signal.lastActionAt) : null
@@ -73,54 +69,40 @@ const escalationAria =
 ---
 
 {
-  signal !== null && (
-    <section
+  signal !== null && tone !== null && (
+    <div
       aria-label="Operator status"
       data-testid="aliveness-header"
       data-aliveness-level={level}
-      class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+      class="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption"
     >
-      <div class="flex flex-col gap-3 px-5 md:px-7 py-4 md:flex-row md:items-center md:justify-between md:gap-6">
-        <div class="flex flex-col gap-2 min-w-0 md:flex-row md:items-center md:gap-4">
-          <div class="flex items-center gap-3 min-w-0">
-            <span
-              class={`inline-flex items-center font-mono uppercase tracking-[var(--ss-text-letter-spacing-label)] font-semibold rounded-[var(--ss-radius-badge)] whitespace-nowrap px-3 py-1.5 text-label ${toneClass}`}
-            >
-              {headline}
-            </span>
-            {signal.level === 'running' && signal.currentSkill && (
-              <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] truncate">
-                {signal.currentSkill}
-              </p>
-            )}
-          </div>
-          {signal.level === 'sticky_stop' && signal.stickyStopReason && (
-            <p class="text-sm text-[color:var(--ss-color-text-secondary)] min-w-0">
-              {signal.stickyStopReason}
-            </p>
-          )}
-        </div>
-
-        <div class="flex items-center justify-between gap-4 md:justify-end">
-          {lastActionRelative && lastActionAbsolute && (
-            <p
-              class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] whitespace-nowrap"
-              title={`Last action ${lastActionAbsolute}`}
-            >
-              Last action {lastActionRelative}
-            </p>
-          )}
-          {showEscalation && (
-            <a
-              href={escalationTarget}
-              aria-label={escalationAria}
-              class="inline-flex items-center min-h-11 px-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded-[var(--ss-radius-button)]"
-            >
-              Contact your consultant
-            </a>
-          )}
-        </div>
-      </div>
-    </section>
+      <span class="inline-flex items-center gap-2">
+        <StatusDot tone={tone} />
+        <span class="font-medium text-[color:var(--color-text-primary)]">{headline}</span>
+      </span>
+      {signal.level === 'running' && signal.currentSkill && (
+        <span class="text-[color:var(--color-text-secondary)]">{signal.currentSkill}</span>
+      )}
+      {signal.level === 'sticky_stop' && signal.stickyStopReason && (
+        <span class="text-[color:var(--color-text-secondary)]">{signal.stickyStopReason}</span>
+      )}
+      {lastActionRelative && lastActionAbsolute && (
+        <span
+          class="text-[color:var(--color-text-muted)]"
+          title={`Last action ${lastActionAbsolute}`}
+        >
+          · last action {lastActionRelative}
+        </span>
+      )}
+      {showEscalation && (
+        <a
+          href={escalationTarget}
+          aria-label={escalationAria}
+          class="font-medium text-[color:var(--color-action)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+        >
+          Contact your consultant
+        </a>
+      )}
+    </div>
   )
 }

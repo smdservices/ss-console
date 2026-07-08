@@ -1,0 +1,48 @@
+---
+/**
+ * Card — the calm-register raised card shell (UI-PATTERNS Rule 8).
+ *
+ * A white surface that lifts off the cream ground, a hairline border, and
+ * Rule 6 card padding. This is the ONLY place console card-shell markup
+ * should exist on portal surfaces — it replaces the loud `border-[3px]`
+ * flat-cream boxes. A border or surface change propagates from here.
+ *
+ * `as` picks the semantic element (<section> default, <article>, <div>).
+ * Pass `href` to make the whole card a link (interactive affordance +
+ * focus ring). `padded={false}` drops the internal padding for cards
+ * whose children own their own edges (e.g. a Card wrapping a CardHeader
+ * plus a full-bleed list of rows).
+ */
+import type { HTMLTag } from 'astro/types'
+
+interface Props {
+  as?: 'section' | 'article' | 'div'
+  href?: string | null
+  ariaLabel?: string | null
+  padded?: boolean
+  class?: string
+}
+
+const {
+  as = 'section',
+  href = null,
+  ariaLabel = null,
+  padded = true,
+  class: klass = '',
+} = Astro.props
+
+const Tag: HTMLTag = href ? 'a' : as
+const base = 'bg-surface-raised rounded-card border border-[color:var(--color-border)]'
+const pad = padded ? 'p-card' : ''
+const interactive = href
+  ? 'block transition-colors hover:border-[color:var(--color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2'
+  : ''
+---
+
+<Tag
+  href={href ?? undefined}
+  aria-label={ariaLabel ?? undefined}
+  class={`${base} ${pad} ${interactive} ${klass}`}
+>
+  <slot />
+</Tag>
