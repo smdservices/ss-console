@@ -1,9 +1,8 @@
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { resolveOperatorAccess } from '../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../lib/portal/customer-config'
 import { createChangeRequest } from '../../../../lib/portal/operator/change-request'
-import { safeReturnTo } from '../../../../lib/portal/operator/return-to'
+import { safeReturnTo, instanceFromOperatorPath } from '../../../../lib/portal/operator/return-to'
 
 /**
  * POST /api/portal/operator/change-request
@@ -40,24 +39,34 @@ function redirect(returnTo: string, status: 'filed' | 'invalid' | 'error'): Resp
 }
 
 export const POST: APIRoute = async ({ locals, request }) => {
-  const access = await resolveOperatorAccess(env.DB, locals, { allowedRoles: ALL_CLIENT_ROLES })
-  if (access.kind === 'redirect') {
-    return new Response(null, { status: 303, headers: { Location: access.to } })
-  }
-
   const form = await request.formData()
   const domain = form.get('domain')
   const summary = form.get('summary')
   const returnTo = safeReturnTo(form.get('return_to'))
 
+  // The operator instance is carried by the (already instance-scoped) return_to
+  // path — no separate field to thread through the form components. Ownership is
+  // enforced centrally by resolveOperatorAccess({ customerSlug }).
+  const instance = instanceFromOperatorPath(returnTo)
+  if (!instance) {
+    return new Response(null, { status: 303, headers: { Location: '/portal/products/operator' } })
+  }
+
+  const access = await resolveOperatorAccess(env.DB, locals, {
+    allowedRoles: ALL_CLIENT_ROLES,
+    customerSlug: instance,
+  })
+  if (access.kind === 'redirect') {
+    return new Response(null, { status: 303, headers: { Location: access.to } })
+  }
+
   if (typeof domain !== 'string' || typeof summary !== 'string') {
     return redirect(returnTo, 'invalid')
   }
 
-  const config = await getCustomerConfig(env.DB, access.client.id)
   const result = await createChangeRequest(env.DB, {
     entity_id: access.client.id,
-    customer_slug: config?.customer_slug ?? access.client.id,
+    customer_slug: access.customerSlug,
     domain,
     requested_by_user_id: access.user.id,
     requested_by_email: access.user.email,

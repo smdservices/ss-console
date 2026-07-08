@@ -53,7 +53,8 @@ const OPERATOR_ROOT = '/portal/products/operator'
 export async function loadOnboardingState(
   db: D1Database,
   entityId: string,
-  orgId: string
+  orgId: string,
+  instanceSlug: string
 ): Promise<OnboardingState> {
   const config = await getCustomerConfig(db, entityId)
   const roster = await loadTeamRoster(db, entityId, orgId)
@@ -62,22 +63,29 @@ export async function loadOnboardingState(
     config?.credential_custody_default ?? 'delegated'
   )
 
-  return deriveOnboardingState({
-    memberCount: roster.members.length,
-    connectedCount: connectors.filter((c) => c.health === 'ok').length,
-    totalConnectors: connectors.length,
-  })
+  return deriveOnboardingState(
+    {
+      memberCount: roster.members.length,
+      connectedCount: connectors.filter((c) => c.health === 'ok').length,
+      totalConnectors: connectors.length,
+    },
+    instanceSlug
+  )
 }
 
 /** Pure step derivation from the resolved signals. Honest: no signal → not started. */
-export function deriveOnboardingState(signals: OnboardingSignals): OnboardingState {
+export function deriveOnboardingState(
+  signals: OnboardingSignals,
+  instanceSlug: string
+): OnboardingState {
   const { memberCount, connectedCount, totalConnectors } = signals
+  const operatorBase = `${OPERATOR_ROOT}/${instanceSlug}`
   const steps: OnboardingStep[] = [
     {
       key: 'invite',
       title: 'Invite & roles',
       description: 'Add the people who will work with your operator, and set what each can do.',
-      href: `${OPERATOR_ROOT}/team`,
+      href: `${operatorBase}/team`,
       status: memberCount > 0 ? 'done' : 'not_started',
       detail:
         memberCount > 0
@@ -88,7 +96,7 @@ export function deriveOnboardingState(signals: OnboardingSignals): OnboardingSta
       key: 'connect',
       title: 'Connect systems',
       description: 'Connect the tools your operator works across, and choose how each is held.',
-      href: `${OPERATOR_ROOT}/connections`,
+      href: `${operatorBase}/connections`,
       status: connectedCount > 0 ? 'done' : 'not_started',
       detail:
         totalConnectors === 0

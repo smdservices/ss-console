@@ -1,16 +1,15 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
-import { skillToggleRowsFromPersona } from '../../../../../lib/portal/operator/settings'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { skillToggleRowsFromPersona } from '../../../../../../lib/portal/operator/settings'
 import {
   buildGovernanceFloorRows,
   parseScope,
   parseBusinessHours,
   formatCeiling,
-} from '../../../../../lib/portal/operator/configure'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
+} from '../../../../../../lib/portal/operator/configure'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -36,15 +35,20 @@ import { env } from 'cloudflare:workers'
  * runtime-gated Activity surface).
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
 const { client, roles } = access
 
-const config = await getCustomerConfig(env.DB, client.id)
+const config = access.config
 const activePersona = config?.personas.find((p) => p.status === 'active') ?? null
 const skillRows = skillToggleRowsFromPersona(activePersona)
 const tone = activePersona?.tone ?? []
@@ -52,7 +56,7 @@ const govRows = buildGovernanceFloorRows(config?.vertical ?? null)
 const scope = parseScope(config?.scope)
 const hours = parseBusinessHours(config?.business_hours)
 
-const RETURN_TO = '/portal/products/operator/configure'
+const RETURN_TO = `${operatorBase}/configure`
 
 const cr = Astro.url.searchParams.get('cr')
 const crMessage =
@@ -81,7 +85,7 @@ const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Configure"
@@ -266,7 +270,7 @@ const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
               business hours, connectors, and scope.
             </p>
             <a
-              href="/portal/products/operator/settings/advanced"
+              href={`${operatorBase}/settings/advanced`}
               class="inline-flex items-center gap-2 self-start px-5 py-3 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
             >
               <span class="material-symbols-outlined" aria-hidden="true">

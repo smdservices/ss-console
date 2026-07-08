@@ -1,6 +1,6 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
 import {
   CALENDAR_ITEM_TYPES,
   CALENDAR_SORTS,
@@ -10,9 +10,9 @@ import {
   parseCalendarListParams,
   type CalendarItemType,
   type CalendarSort,
-} from '../../../../../lib/portal/operator/calendar'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import CalendarAgenda from '../../../../../components/portal/operator/CalendarAgenda.astro'
+} from '../../../../../../lib/portal/operator/calendar'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import CalendarAgenda from '../../../../../../components/portal/operator/CalendarAgenda.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -56,8 +56,13 @@ import { env } from 'cloudflare:workers'
  * of the audit posture, not a doer surface that changes state.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
@@ -95,7 +100,7 @@ const SORT_LABELS: Record<CalendarSort, string> = {
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Calendar"
@@ -226,6 +231,7 @@ const SORT_LABELS: Record<CalendarSort, string> = {
           pageCount={calendarPage.pageCount}
           conflictMap={conflictMap}
           searchParams={Astro.url.searchParams}
+          operatorBase={operatorBase}
         />
       )
     }

@@ -1,11 +1,10 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
-import { buildConnectionRows } from '../../../../../lib/portal/operator/connections'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
-import ConnectionRowCard from '../../../../../components/portal/operator/ConnectionRowCard.astro'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { buildConnectionRows } from '../../../../../../lib/portal/operator/connections'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import ConnectionRowCard from '../../../../../../components/portal/operator/ConnectionRowCard.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -32,21 +31,26 @@ import { env } from 'cloudflare:workers'
  * to the change-request endpoint, which redirects with `?cr=`.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
 const { client, roles } = access
 
-const config = await getCustomerConfig(env.DB, client.id)
+const config = access.config
 const rows = buildConnectionRows(
   config?.connectors,
   config?.credential_custody_default ?? 'delegated'
 )
 
-const RETURN_TO = '/portal/products/operator/connections'
+const RETURN_TO = `${operatorBase}/connections`
 
 // Secret-write outcome banner (from the connector secret endpoint redirect).
 const cs = Astro.url.searchParams.get('cs')
@@ -88,7 +92,7 @@ const banner = csMessage
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Connections"
@@ -138,7 +142,12 @@ const banner = csMessage
             class="m-0 list-none p-0 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
           >
             {rows.map((row) => (
-              <ConnectionRowCard row={row} operable={false} returnTo={RETURN_TO} />
+              <ConnectionRowCard
+                row={row}
+                operable={false}
+                returnTo={RETURN_TO}
+                instance={instance}
+              />
             ))}
           </ul>
           <ul
@@ -147,7 +156,12 @@ const banner = csMessage
             class="m-0 list-none p-0 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
           >
             {rows.map((row) => (
-              <ConnectionRowCard row={row} operable={true} returnTo={RETURN_TO} />
+              <ConnectionRowCard
+                row={row}
+                operable={true}
+                returnTo={RETURN_TO}
+                instance={instance}
+              />
             ))}
           </ul>
         </DomainSurface>
