@@ -152,7 +152,10 @@ describe('customer-config projection: SQL document', () => {
       'scott@smd.services'
     )
     expect(sql).toContain('INSERT INTO customer_configs')
-    expect(sql).toContain('ON CONFLICT(entity_id) DO UPDATE SET')
+    expect(sql).toContain('ON CONFLICT(customer_slug) DO UPDATE SET')
+    // entity_id must NOT be in the update set — a re-projection never silently
+    // repoints a config to a different owning entity (cross-tenant guard).
+    expect(sql).not.toContain('entity_id = excluded.entity_id')
     expect(sql).toContain('INSERT INTO customer_config_history')
     expect(sql).toContain("'manual'")
     // No-op guard + prev_git_sha lineage.

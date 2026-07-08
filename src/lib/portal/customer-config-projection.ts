@@ -25,7 +25,8 @@ import type { CustomerYaml, Persona } from '../operator/customer-yaml/types'
 import type { CustomerConfigDbRow, PersonaConfig } from './customer-config'
 
 export interface ProjectionContext {
-  /** The local entities.id this customer maps to (customer_configs PK). */
+  /** The owning entities.id (customer_configs.entity_id — an FK since migration
+   *  0090, no longer the PK; the PK is customer_slug). */
   entityId: string
   /** Owning organizations.id. */
   orgId: string
@@ -163,6 +164,12 @@ export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): str
     e(row.git_sha),
     e(row.synced_at),
   ]
+  // entity_id is deliberately excluded from the update set: since migration 0090
+  // the PK is customer_slug, and a routine re-projection must NEVER silently move
+  // a config to a different entity (that would repoint a live operator under the
+  // wrong client's login — a cross-tenant exposure). Repointing an instance to a
+  // new owning entity is an explicit, reviewed one-time operation, never a
+  // fall-through of this upsert.
   const updates = CONFIG_COLUMNS.filter((c) => c !== 'entity_id')
     .map((c) => `  ${c} = excluded.${c}`)
     .join(',\n')
@@ -174,7 +181,7 @@ export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): str
 
 INSERT INTO customer_configs (${CONFIG_COLUMNS.join(', ')})
 VALUES (${values.join(', ')})
-ON CONFLICT(entity_id) DO UPDATE SET
+ON CONFLICT(customer_slug) DO UPDATE SET
 ${updates};
 
 INSERT INTO customer_config_history

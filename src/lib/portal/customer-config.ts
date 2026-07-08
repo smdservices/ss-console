@@ -308,6 +308,12 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
  * Read the projected customer config for an entity. Returns null when no row
  * exists — a meaningful state during alpha when CI sync has not been wired
  * up yet (rows are hand-seeded only).
+ *
+ * LEGACY / single-instance only. Since migration 0090 an entity may own more
+ * than one operator config (the multi-operator model), so this `.first()` read
+ * returns an ARBITRARY row for a multi-config entity. New operator surfaces must
+ * address the instance by slug via {@link getCustomerConfigBySlug}; this remains
+ * only for the (still 1:1) callers that key on the entity alone.
  */
 export async function getCustomerConfig(
   db: D1Database,
@@ -319,6 +325,45 @@ export async function getCustomerConfig(
     .first<CustomerConfigDbRow>()
   if (!row) return null
   return projectRow(row)
+}
+
+/**
+ * Read the projected customer config for a specific operator instance, addressed
+ * by its `customer_slug` (the instance identity since migration 0090). This is
+ * the read every instance-addressed operator surface uses. Returns null when no
+ * such config exists.
+ *
+ * The CALLER is responsible for the ownership check — verify the returned
+ * `entity_id` matches the signed-in client's entity before rendering, so a user
+ * cannot view another client's operator by guessing a slug. `resolveOperatorAccess`
+ * enforces this centrally.
+ */
+export async function getCustomerConfigBySlug(
+  db: D1Database,
+  customerSlug: string
+): Promise<CustomerConfigRow | null> {
+  const row = await db
+    .prepare('SELECT * FROM customer_configs WHERE customer_slug = ?')
+    .bind(customerSlug)
+    .first<CustomerConfigDbRow>()
+  if (!row) return null
+  return projectRow(row)
+}
+
+/**
+ * List every projected operator config owned by an entity, oldest first (stable
+ * order for nav/home listing). One row per operator instance the client owns
+ * (multi-operator model, migration 0090). Empty array when the entity owns none.
+ */
+export async function listCustomerConfigsForEntity(
+  db: D1Database,
+  entityId: string
+): Promise<CustomerConfigRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM customer_configs WHERE entity_id = ? ORDER BY created_at ASC')
+    .bind(entityId)
+    .all<CustomerConfigDbRow>()
+  return (results ?? []).map(projectRow)
 }
 
 /**
