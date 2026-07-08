@@ -23,6 +23,12 @@
   --color-background: var(--ss-color-background);
   --color-surface: var(--ss-color-surface);
   --color-surface-inverse: var(--ss-color-surface-inverse);
+  /* Raised card surface — white, lifts off the cream ground. The calm
+   * console register (UI-PATTERNS Rule 8) defines cards by a white fill +
+   * hairline border, not by the marketing site's flat cream + heavy rule.
+   * A distinct token (not a global flip of --color-surface) keeps the
+   * marketing surfaces on cream. */
+  --color-surface-raised: #ffffff;
   --color-border: var(--ss-color-border);
   --color-border-subtle: var(--ss-color-border-subtle);
 
