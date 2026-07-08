@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: action + drafting
-    trust_ceiling: draft_for_review
     action_class: read + draft + surfaced_write
     connectors:
       - smokeball # PracticeManagement — matter + responsible attorney (read), create_memo (internal write)

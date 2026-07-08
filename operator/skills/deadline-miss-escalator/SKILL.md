@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: scheduled escalation (internal surfacing + named-human notify)
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     cron: true
     connectors:

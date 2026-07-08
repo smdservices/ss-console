@@ -29,7 +29,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # high-frequency track/present/flag; the reasoning is small, the discipline is the value
-    trust_ceiling: draft_for_review # the deadline is presented for attorney confirm, never final autonomously; the compel decision is brought to the attorney, never acted on
     action_class: read + internal_write # reads the served-doc capture / the engine's date; on confirm writes a calendar event + task + memo. No external_send: it presents, flags, and hands off; it never messages another party.
     content_ceiling: connective # surfaces a deadline and flags a decision point; never legal argument, never the deadline as an authoritative final computation, never a meet-and-confer letter
     connectors:

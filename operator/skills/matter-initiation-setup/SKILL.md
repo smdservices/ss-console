@@ -28,7 +28,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # a scaffold-and-surface mechanic run once at matter opening; the reasoning is small, the discipline is in what it refuses
-    trust_ceiling: draft_for_review # setup writes are internal-only, but the folder taxonomy / task template are unauthored and the write path is unverified at connect; ships cautious (draft_for_review), raisable toward autonomous_internal_write per the entitlement model once the firm's convention is authored and the writes round-trip on a real tenant
     action_class: read + internal_write # reads the matter; writes only inside the matter (folders, tasks, memo); never files, serves, sends, or calendars a legal deadline
     content_ceiling: connective # it builds structure and scaffolds items to confirm; it authors no legal work product and computes no legal date
     connectors:

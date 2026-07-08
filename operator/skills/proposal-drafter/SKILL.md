@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: marketing-agency
     weight: heavy # ADR 0049 — synthesis from a transcript into a client-facing proposal; escalate to the seat's escalation model when one is authored
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
       - fireflies

@@ -13,7 +13,6 @@ metadata:
     tags: [Email, Triage, Draft, SMD, Customer-Zero]
   smd:
     customer: smd
-    trust_ceiling: draft_for_review
 ---
 
 # SMD Inbox Triage Drafter

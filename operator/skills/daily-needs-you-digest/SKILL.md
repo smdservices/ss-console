@@ -21,7 +21,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # high-frequency scheduled aggregation; the reasoning is small
-    trust_ceiling: autonomous_internal_surface # a read-only internal surface digest: assembles + surfaces autonomously; internal only; would be draft_for_review only if ever delivered externally (mirrors matter-status-digest's framing). It never acts on an item, so no external-send floor applies.
     action_class: read + internal_write # reads matters/tasks/dates; writes the digest (and a heartbeat row on a quiet tick) to the firm-internal surface. No send, no chase, no close.
     content_ceiling: surface_only # MAY aggregate/summarize/point; MUST NOT act on an item, decide a legal next step, or produce work product
     connectors:

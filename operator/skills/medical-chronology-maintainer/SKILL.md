@@ -15,7 +15,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: heavy # reads large medical records; escalate to the seat's escalation model (before reading) when one is authored
-    trust_ceiling: autonomous_internal_surface
     action_class: read + internal_write
     content_ceiling: surface_only # MAY extract/structure/cite; MUST NOT draft narrative, characterize causation/severity, or value the case
     connectors:

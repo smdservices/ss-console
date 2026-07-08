@@ -13,7 +13,6 @@ metadata:
     tags: [Marketing, Agency, Onboarding, ClientHandoff]
   smd:
     vertical: marketing-agency
-    trust_ceiling: draft_for_review
     action_class: read + internal_write + external_send (gated)
     connectors:
       - gmail

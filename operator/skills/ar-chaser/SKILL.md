@@ -13,7 +13,6 @@ metadata:
     tags: [Marketing, Agency, AR, Money, DraftForReview]
   smd:
     vertical: marketing-agency
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
       - quickbooks

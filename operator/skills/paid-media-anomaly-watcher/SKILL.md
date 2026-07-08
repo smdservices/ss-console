@@ -13,7 +13,6 @@ metadata:
     tags: [Marketing, Agency, PaidMedia, MonitoringSkill]
   smd:
     vertical: marketing-agency
-    trust_ceiling: autonomous
     action_class: read + internal_write
     connectors:
       - meta_ads | google_ads | linkedin_ads

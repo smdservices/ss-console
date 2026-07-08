@@ -35,7 +35,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # a bookkeeping-and-chase skill; the reasoning is small, the discipline is the refusal
-    trust_ceiling: autonomous_internal_write # the ledger writes (create_task/update_task/create_memo) are internal bookkeeping, confirmed by read; the chase outbound is draft-and-surface, a human sends it (no external_send in action_class)
     action_class: read + internal_write
     content_ceiling: connective # the ledger entry and the payoff chase are connective artifacts; never legal work product, never the reduction figure, never a negotiation position
     connectors:
