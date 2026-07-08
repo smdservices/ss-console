@@ -17,7 +17,7 @@ interface Props {
 const { doors } = Astro.props
 ---
 
-<div class="border border-[color:var(--color-border)] bg-surface-raised">
+<div class="border border-[color:var(--color-border-strong)] bg-surface-raised">
   {
     doors.map((d, i) => {
       const divider = i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''
@@ -47,12 +47,10 @@ const { doors } = Astro.props
       ) : (
         <div class={`flex items-center justify-between gap-6 p-card ${divider}`}>
           <div class="min-w-0">
-            <p class="text-body font-semibold text-[color:var(--color-text-secondary)]">
-              {d.label}
-            </p>
-            <p class="mt-0.5 text-caption text-[color:var(--color-text-muted)]">{d.desc}</p>
+            <p class="text-body font-semibold text-[color:var(--color-text-primary)]">{d.label}</p>
+            <p class="mt-0.5 text-caption text-[color:var(--color-text-secondary)]">{d.desc}</p>
           </div>
-          <span class="flex-none font-mono text-label uppercase tracking-[0.1em] text-[color:var(--color-text-muted)]">
+          <span class="flex-none whitespace-nowrap border border-[color:var(--color-border-subtle)] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-text-muted)]">
             Not yet available
           </span>
         </div>
