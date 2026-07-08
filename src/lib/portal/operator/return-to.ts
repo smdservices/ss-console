@@ -32,3 +32,20 @@ export function safeReturnTo(raw: unknown): string {
   if (next !== '' && next !== '/' && next !== '?' && next !== '#') return OPERATOR_ROOT
   return value
 }
+
+/**
+ * Extract the operator INSTANCE slug from a `/portal/products/operator/<slug>/…`
+ * path (multi-operator model). Returns null when the path has no instance
+ * segment (the bare root) or names the stable `oauth` sub-path (not an instance).
+ *
+ * Form endpoints that don't carry a dedicated instance field derive it from the
+ * already-instance-scoped return path; ownership is still enforced downstream by
+ * resolveOperatorAccess({ customerSlug }), so this is a routing hint, not a trust
+ * boundary.
+ */
+export function instanceFromOperatorPath(path: string): string | null {
+  const m = /^\/portal\/products\/operator\/([^/?#]+)(?:[/?#]|$)/.exec(path)
+  const slug = m?.[1]
+  if (!slug || slug === 'oauth') return null
+  return slug
+}

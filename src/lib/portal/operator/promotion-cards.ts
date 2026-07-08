@@ -180,6 +180,7 @@ interface DismissalRow {
 export async function listPromotionReadySkills(
   db: D1Database,
   entityId: string,
+  instanceSlug: string,
   nowMs: number = Date.now()
 ): Promise<PromotionCandidate[]> {
   const config = await getCustomerConfig(db, entityId)
@@ -209,7 +210,7 @@ export async function listPromotionReadySkills(
       approvalRate: evaluation.approvalRate,
       weeks: evaluation.weeks,
       totalDrafts: evaluation.totalDrafts,
-      reviewUrl: buildReviewUrl(skillName),
+      reviewUrl: buildReviewUrl(instanceSlug, skillName),
       dismissUrl: buildDismissUrl(skillName),
     })
   }
@@ -294,8 +295,8 @@ export function formatApprovalRate(rate: number): string {
  * the parameter; surfacing it now keeps the card's link contract stable
  * across the eventual scroll-to-row change.
  */
-export function buildReviewUrl(skillName: string): string {
-  return `/portal/products/operator/settings?focus=${encodeURIComponent(skillName)}`
+export function buildReviewUrl(instanceSlug: string, skillName: string): string {
+  return `/portal/products/operator/${instanceSlug}/settings?focus=${encodeURIComponent(skillName)}`
 }
 
 /**

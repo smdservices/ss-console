@@ -44,9 +44,12 @@ interface Props {
    * filters. Pass `Astro.url.searchParams` from the page.
    */
   searchParams: URLSearchParams
+  /** Instance-scoped operator base path, forwarded to each row's detail link. */
+  operatorBase: string
 }
 
-const { rows, totalCount, page, pageSize, pageCount, conflictMap, searchParams } = Astro.props
+const { rows, totalCount, page, pageSize, pageCount, conflictMap, searchParams, operatorBase } =
+  Astro.props
 
 function buildHref(targetPage: number): string {
   const next = new URLSearchParams(searchParams)
@@ -75,6 +78,7 @@ const rangeEnd = Math.min(page * pageSize, totalCount)
             item={item}
             conflictCount={conflictCount}
             serial={String(index + 1 + (page - 1) * pageSize).padStart(2, '0')}
+            operatorBase={operatorBase}
           />
         )
       })

@@ -42,24 +42,33 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const target = ALLOWED[slug]
   if (!target) return back('/portal', 'billing_invalid')
 
+  // Operator is instance-addressed: return to the addressed instance's account
+  // page when the form carries an instance; else the bare product path.
+  let returnPath = target.returnPath
+  if (slug === 'operator') {
+    const instanceRaw = form.get('instance')
+    const instance = typeof instanceRaw === 'string' && instanceRaw !== '' ? instanceRaw : null
+    if (instance) returnPath = `/portal/products/operator/${instance}/account`
+  }
+
   const access = await resolveProductAccess(env.DB, user.id, client.id, slug)
   if (!access || !access.roles.includes('principal')) {
-    return back(target.returnPath, 'billing_forbidden')
+    return back(returnPath, 'billing_forbidden')
   }
 
   const stripeCustomerId = await getStripeCustomerIdForSubscription(env.DB, client.id, slug)
-  if (!stripeCustomerId) return back(target.returnPath, 'billing_unavailable')
+  if (!stripeCustomerId) return back(returnPath, 'billing_unavailable')
 
   try {
     const portalBase = getPortalBaseUrl(env) ?? ''
     const url = await createBillingPortalSession(
       env.STRIPE_API_KEY,
       stripeCustomerId,
-      `${portalBase}${target.returnPath}`
+      `${portalBase}${returnPath}`
     )
     return new Response(null, { status: 303, headers: { Location: url } })
   } catch (err) {
     console.error('[portal/billing] portal session failed:', err)
-    return back(target.returnPath, 'billing_error')
+    return back(returnPath, 'billing_error')
   }
 }

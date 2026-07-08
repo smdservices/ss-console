@@ -58,8 +58,21 @@ interface CallbackCtx {
   connectorParam: string | null
 }
 
-function buildResultUrl(portalBase: string, params: Record<string, string>): string {
-  const url = new URL(`${portalBase}/portal/products/operator/settings`)
+/**
+ * The settings page to return to. The instance slug is the state's `customer_id`
+ * (bound at authorize time), so a verified callback lands on the RIGHT operator's
+ * settings; a pre-verification failure with no known instance falls back to the
+ * bare operator root.
+ */
+function buildResultUrl(
+  portalBase: string,
+  instanceSlug: string | null,
+  params: Record<string, string>
+): string {
+  const path = instanceSlug
+    ? `/portal/products/operator/${instanceSlug}/settings`
+    : '/portal/products/operator'
+  const url = new URL(`${portalBase}${path}`)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
   return url.toString()
 }
@@ -83,7 +96,7 @@ async function reject(
   })
   const params: Record<string, string> = { status: 'failed', reason }
   if (meta.provider) params.provider = meta.provider
-  return ctx.redirect(buildResultUrl(ctx.portalBase, params), 302)
+  return ctx.redirect(buildResultUrl(ctx.portalBase, meta.customer_id, params), 302)
 }
 
 async function handleProviderError(
@@ -272,7 +285,7 @@ export const GET: APIRoute = async ({ request, redirect, locals, params }) => {
   })
 
   return redirect(
-    buildResultUrl(ctx.portalBase, {
+    buildResultUrl(ctx.portalBase, customer_id, {
       status: 'connected',
       provider: providerSlug,
     }),

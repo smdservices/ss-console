@@ -23,9 +23,12 @@ import { formatTrustCeilingLevel } from '../../../lib/portal/operator/settings'
 interface Props {
   rows: SkillToggleRow[]
   personaSlug: string | null
+  /** Addressed operator instance's slug — posted so the endpoint redirects back
+   *  to the right instance's settings page. */
+  instance: string
 }
 
-const { rows, personaSlug } = Astro.props
+const { rows, personaSlug, instance } = Astro.props
 ---
 
 <section aria-labelledby="settings-skills-heading" class="mt-section">
@@ -53,6 +56,7 @@ const { rows, personaSlug } = Astro.props
                 action="/api/portal/operator/settings/skill-toggle"
                 class="flex items-baseline justify-between gap-4 flex-wrap p-card"
               >
+                <input type="hidden" name="instance" value={instance} />
                 <input type="hidden" name="skillName" value={row.skillName} />
                 {personaSlug ? (
                   <input type="hidden" name="personaSlug" value={personaSlug} />

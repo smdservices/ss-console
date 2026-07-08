@@ -11,13 +11,16 @@ import { resolveEngagementLabel } from './status'
 import { subscriptionStatusLabel, type SubscriptionStatus } from './operator/account-read'
 import { resolveAlivenessSignal } from './operator/aliveness'
 import { readDraftQueueDepth } from './operator/home'
-import { getCustomerConfig } from './customer-config'
 import { resolveHostedAgentState } from './hosted-agent-state'
 import { listInvoicesForEntity } from '../db/invoices'
 import { formatShortDate } from './formatters'
 
 export interface OfferingCard {
-  key: 'engagement' | 'operator' | 'hosted-agent' | 'billing'
+  /**
+   * Stable card identity. Fixed literals for single-instance offerings; per-
+   * instance (`operator:<slug>`) for operators, since a client can own several.
+   */
+  key: string
   label: string
   href: string
   statusLabel: string
@@ -60,13 +63,21 @@ function engagementCard(offerings: PortalOfferings): OfferingCard | null {
   }
 }
 
+/**
+ * One card per operator the client owns (multi-operator model). Each is
+ * instance-addressed by slug; the label is the operator's display name (persona)
+ * so two operators are distinguishable at a glance.
+ */
+async function operatorCards(db: D1Database, offerings: PortalOfferings): Promise<OfferingCard[]> {
+  return Promise.all(offerings.operators.map((op) => operatorCard(db, op)))
+}
+
 async function operatorCard(
   db: D1Database,
-  offerings: PortalOfferings
-): Promise<OfferingCard | null> {
-  const sub = offerings.operator
-  if (!sub) return null
-
+  op: PortalOfferings['operators'][number]
+): Promise<OfferingCard> {
+  const sub = op.subscription
+  const base = `/portal/products/operator/${op.slug}`
   const meta: string[] = []
   let needsYou: OfferingCard['needsYou'] = null
   const subStatus: SubscriptionStatus =
@@ -80,14 +91,12 @@ async function operatorCard(
     if (signal?.lastActionAt) {
       meta.push(`Last action ${formatShortDate(signal.lastActionAt)}`)
     }
-    const config = await getCustomerConfig(db, sub.entity_id)
-    if (config?.customer_slug) {
-      const depth = await readDraftQueueDepth(db, config.customer_slug)
-      if (depth > 0) {
-        needsYou = {
-          label: `${depth} draft${depth !== 1 ? 's' : ''} waiting for review`,
-          href: '/portal/products/operator',
-        }
+    // The instance slug is authoritative here (no re-read of the config needed).
+    const depth = await readDraftQueueDepth(db, op.slug)
+    if (depth > 0) {
+      needsYou = {
+        label: `${depth} draft${depth !== 1 ? 's' : ''} waiting for review`,
+        href: base,
       }
     }
   } catch {
@@ -95,9 +104,9 @@ async function operatorCard(
   }
 
   return {
-    key: 'operator',
-    label: 'Operator',
-    href: '/portal/products/operator',
+    key: `operator:${op.slug}`,
+    label: op.displayName,
+    href: base,
     statusLabel,
     meta,
     needsYou,
@@ -181,11 +190,11 @@ export async function loadHomeCards(
   db: D1Database,
   input: { orgId: string; entityId: string; userId: string; offerings: PortalOfferings }
 ): Promise<OfferingCard[]> {
-  const [operator, hostedAgent, billing] = await Promise.all([
-    operatorCard(db, input.offerings),
+  const [operators, hostedAgent, billing] = await Promise.all([
+    operatorCards(db, input.offerings),
     hostedAgentCard(db, input.offerings, input.userId),
     billingCard(db, input.orgId, input.entityId, input.offerings),
   ])
-  const cards = [engagementCard(input.offerings), operator, hostedAgent, billing]
+  const cards = [engagementCard(input.offerings), ...operators, hostedAgent, billing]
   return cards.filter((c): c is OfferingCard => c !== null)
 }

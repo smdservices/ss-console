@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import { applySkillToggle } from '../../../../../lib/portal/operator/config-governance'
 import { env } from 'cloudflare:workers'
 import { errorResponse } from '../../../../../lib/api/helpers'
@@ -22,11 +21,22 @@ import { errorResponse } from '../../../../../lib/api/helpers'
  *   ?status=invalid_*  — malformed request
  */
 
-const SETTINGS_PAGE_URL = '/portal/products/operator/settings'
+const OPERATOR_LANDING = '/portal/products/operator'
 
-function redirectWithStatus(status: string): Response {
-  const target = `${SETTINGS_PAGE_URL}?status=${encodeURIComponent(status)}`
-  return new Response(null, { status: 303, headers: { Location: target } })
+// The settings page is now instance-addressed. Redirect back to the addressed
+// instance's settings; fall back to the bare chooser when the instance can't be
+// determined from the form.
+function settingsUrl(instance: string | null): string {
+  return instance ? `${OPERATOR_LANDING}/${instance}/settings` : OPERATOR_LANDING
+}
+
+function redirectWithStatus(instance: string | null, status: string): Response {
+  const base = settingsUrl(instance)
+  const sep = base.includes('?') ? '&' : '?'
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `${base}${sep}status=${encodeURIComponent(status)}` },
+  })
 }
 
 function jsonError(status: number, message: string): Response {
@@ -34,27 +44,31 @@ function jsonError(status: number, message: string): Response {
 }
 
 export const POST: APIRoute = async ({ locals, request }) => {
-  const access = await resolveOperatorAccess(env.DB, locals, { allowedRoles: ['principal'] })
+  const formData = await request.formData()
+  const instanceRaw = formData.get('instance')
+  const instance = typeof instanceRaw === 'string' && instanceRaw !== '' ? instanceRaw : null
+
+  const access = await resolveOperatorAccess(env.DB, locals, {
+    allowedRoles: ['principal'],
+    customerSlug: instance ?? '',
+  })
   if (access.kind === 'redirect') {
     return jsonError(403, 'Forbidden')
   }
 
-  const formData = await request.formData()
   const skillName = formData.get('skillName')
   const nextEnabled = formData.get('nextEnabled')
   const personaSlug = formData.get('personaSlug')
 
   if (typeof skillName !== 'string' || skillName === '') {
-    return redirectWithStatus('invalid_skill')
+    return redirectWithStatus(instance, 'invalid_skill')
   }
   if (nextEnabled !== 'true' && nextEnabled !== 'false') {
-    return redirectWithStatus('invalid_state')
+    return redirectWithStatus(instance, 'invalid_state')
   }
 
-  const config = await getCustomerConfig(env.DB, access.client.id)
-
   await applySkillToggle(env.DB, {
-    customer_slug: config?.customer_slug ?? access.client.id,
+    customer_slug: access.customerSlug,
     entity_id: access.client.id,
     actor: { user_id: access.user.id, email: access.user.email, role: 'principal' },
     persona_slug: typeof personaSlug === 'string' && personaSlug !== '' ? personaSlug : null,
@@ -62,5 +76,5 @@ export const POST: APIRoute = async ({ locals, request }) => {
     next_enabled: nextEnabled === 'true',
   })
 
-  return redirectWithStatus('saved')
+  return redirectWithStatus(instance, 'saved')
 }

@@ -20,15 +20,20 @@ import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 
 import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access.js'
-import { getCustomerConfig } from '../../../../../../lib/portal/customer-config.js'
 import { issueOAuthState } from '../../../../../../lib/oauth/state.js'
 import { buildGoogleAuthorizeUrl } from '../../../../../../lib/oauth/providers/google-workspace.js'
 import { requirePortalBaseUrl } from '../../../../../../lib/config/app-url.js'
 
-const SETTINGS_PATH = '/portal/products/operator/settings'
+const OPERATOR_ROOT = '/portal/products/operator'
 
-function failed(portalBase: string, reason: string): Response {
-  const url = new URL(`${portalBase}${SETTINGS_PATH}`)
+/** Instance-scoped settings path (falls back to the bare root when we don't yet
+ *  know which operator — e.g. a missing/invalid ?instance). */
+function settingsPath(instanceSlug: string | null): string {
+  return instanceSlug ? `${OPERATOR_ROOT}/${instanceSlug}/settings` : OPERATOR_ROOT
+}
+
+function failed(portalBase: string, reason: string, instanceSlug: string | null): Response {
+  const url = new URL(`${portalBase}${settingsPath(instanceSlug)}`)
   url.searchParams.set('status', 'failed')
   url.searchParams.set('reason', reason)
   return new Response(null, { status: 302, headers: { Location: url.toString() } })
@@ -38,27 +43,37 @@ function portalCallbackUrl(portalBase: string, providerSlug: string): string {
   return `${portalBase}/portal/products/operator/oauth/${encodeURIComponent(providerSlug)}/callback`
 }
 
-export const GET: APIRoute = async ({ locals, params, redirect }) => {
+export const GET: APIRoute = async ({ locals, params, url, redirect }) => {
   const portalBase = requirePortalBaseUrl(env)
   const connector = typeof params.connector === 'string' ? params.connector : ''
 
+  // OAuth stays on this stable (non-[instance]) path so the provider-registered
+  // redirect URI never changes; the operator instance rides in as a query param
+  // and is bound into the signed state below (multi-operator model).
+  const instance = url.searchParams.get('instance')
+
   // v1: only Google Workspace is wired end-to-end (provider + relay).
   if (connector !== 'google-workspace') {
-    return failed(portalBase, 'unknown_connector')
+    return failed(portalBase, 'unknown_connector', instance)
   }
 
-  const access = await resolveOperatorAccess(env.DB, locals, { allowedRoles: ['principal'] })
+  if (!instance) {
+    return failed(portalBase, 'no_instance', null)
+  }
+
+  const access = await resolveOperatorAccess(env.DB, locals, {
+    allowedRoles: ['principal'],
+    customerSlug: instance,
+  })
   if (access.kind === 'redirect') {
     return redirect(access.to, 302)
   }
 
-  const config = await getCustomerConfig(env.DB, access.client.id)
-  if (!config) {
-    return failed(portalBase, 'no_customer_config')
-  }
+  // access.config is the ownership-checked instance config (entity_id === client).
+  const config = access.config
 
   if (!env.GOOGLE_CLIENT_ID) {
-    return failed(portalBase, 'provider_not_configured')
+    return failed(portalBase, 'provider_not_configured', instance)
   }
 
   // Bind the state to the reviewer's CLERK id — the callback verifies against
@@ -69,7 +84,7 @@ export const GET: APIRoute = async ({ locals, params, redirect }) => {
   // state that can never match.
   const reviewerClerkId = access.user.clerk_user_id
   if (!reviewerClerkId) {
-    return failed(portalBase, 'no_clerk_identity')
+    return failed(portalBase, 'no_clerk_identity', instance)
   }
 
   const state = await issueOAuthState({

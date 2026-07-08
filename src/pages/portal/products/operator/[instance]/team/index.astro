@@ -1,10 +1,9 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
-import { loadTeamRoster, formatLastLogin } from '../../../../../lib/portal/operator/team-read'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { loadTeamRoster, formatLastLogin } from '../../../../../../lib/portal/operator/team-read'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -26,18 +25,23 @@ import { env } from 'cloudflare:workers'
  * slot — and only once the switch is on.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
 const { user, client, roles } = access
 
-const config = await getCustomerConfig(env.DB, client.id)
+const config = access.config
 const roster = await loadTeamRoster(env.DB, client.id, user.org_id)
 
-const RETURN_TO = '/portal/products/operator/team'
+const RETURN_TO = `${operatorBase}/team`
 const cr = Astro.url.searchParams.get('cr')
 const crMessage =
   cr === 'filed'
@@ -72,7 +76,7 @@ const manageLinkClass =
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Team"
@@ -169,7 +173,7 @@ const manageLinkClass =
           )
         }
         <div class="flex flex-col sm:flex-row gap-3">
-          <a href="/portal/products/operator/settings/users" class={manageLinkClass}>
+          <a href={`${operatorBase}/settings/users`} class={manageLinkClass}>
             <span class="material-symbols-outlined" aria-hidden="true">group</span>
             Manage roles &amp; invites
           </a>

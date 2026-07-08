@@ -482,7 +482,7 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // granted role names (principal / staff / compliance) — text
   // items inside a chrome card, not a list-row card surface.
   resolve('src/pages/portal/products/operator/index.astro'),
-  // `products/operator/calendar/index.astro` is the Operator
+  // `products/operator/[instance]/calendar/index.astro` is the Operator
   // calendar agenda (#872). It renders list rows through the
   // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
   // justification — the six-cell calendar vocabulary, time-range /
@@ -491,8 +491,8 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // this page render the filter form's type checkboxes and sort
   // <option>s, not list rows. The agenda itself is rendered through
   // <CalendarAgenda>, which iterates via <CalendarItemRow>.
-  resolve('src/pages/portal/products/operator/calendar/index.astro'),
-  // `products/operator/settings/advanced/index.astro` is the
+  resolve('src/pages/portal/products/operator/[instance]/calendar/index.astro'),
+  // `products/operator/[instance]/settings/advanced/index.astro` is the
   // customer.yaml editor (#877): a structured FORM, not a list
   // surface. The only `.map(` on the page is the frontmatter
   // `resolved.errors.map((e) => e.path)` call that joins validation-
@@ -503,8 +503,8 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // render typed inputs per field group, not list-row cards. The
   // PortalListItem primitive is the wrong shape here. There is no
   // status/document repeating-card vocabulary to enforce.
-  resolve('src/pages/portal/products/operator/settings/advanced/index.astro'),
-  // `products/operator/connections/index.astro` (§5.8) iterates connectors
+  resolve('src/pages/portal/products/operator/[instance]/settings/advanced/index.astro'),
+  // `products/operator/[instance]/connections/index.astro` (§5.8) iterates connectors
   // through the dedicated <ConnectionRowCard> primitive, not PortalListItem. A
   // connection row's vocabulary (capability + adapter/health + custody badge +
   // custody description + the operable OAuth/write-only-secret controls) does
@@ -512,41 +512,41 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // justification as DraftRow / MatterRow / AuditEntryRow / CalendarItemRow /
   // NotificationRow. The .map( hits render the read-slot and operable-slot
   // connector lists; both go through <ConnectionRowCard>.
-  resolve('src/pages/portal/products/operator/connections/index.astro'),
-  // `products/operator/configure/index.astro` (§5.6) renders config FIELD rows
+  resolve('src/pages/portal/products/operator/[instance]/connections/index.astro'),
+  // `products/operator/[instance]/configure/index.astro` (§5.6) renders config FIELD rows
   // (skill name + on/off, action-class + governance floor) as plain text <li>s
   // inside config section cards — not the PortalListItem status/document
   // repeating-card vocabulary. Same justification as settings/advanced (a
   // structured config surface, not a list of records). The .map( hits iterate
   // the skill list and the action-class governance rows; neither carries a
   // money/status/document cell that PortalListItem's variants model.
-  resolve('src/pages/portal/products/operator/configure/index.astro'),
-  // `products/operator/team/index.astro` (§5.7) renders the people-on-this-
+  resolve('src/pages/portal/products/operator/[instance]/configure/index.astro'),
+  // `products/operator/[instance]/team/index.astro` (§5.7) renders the people-on-this-
   // account roster as identity rows (name + email/last-login, away badge, role
   // chips) inside the dual-mode read/operable slots — not the PortalListItem
   // status/document record-row vocabulary. The .map( iterates members; the
   // people_access domain is Read + Request at launch (ADR 0041).
-  resolve('src/pages/portal/products/operator/team/index.astro'),
-  // `products/operator/account/index.astro` (§5.9) renders escalation
+  resolve('src/pages/portal/products/operator/[instance]/team/index.astro'),
+  // `products/operator/[instance]/account/index.astro` (§5.9) renders escalation
   // recipients as plain contact rows (one email per row) inside read-only
   // domain surfaces — not the PortalListItem status/document record-row
   // vocabulary. The .map( iterates authored escalation recipients; subscription
   // is the SMD-only provisioning domain shown as an honest status surface.
-  resolve('src/pages/portal/products/operator/account/index.astro'),
-  // `products/operator/settings/index.astro` is the settings hub — a
+  resolve('src/pages/portal/products/operator/[instance]/account/index.astro'),
+  // `products/operator/[instance]/settings/index.astro` is the settings hub — a
   // NAVIGATION menu, not a list of records. The `.map(` iterates
   // SETTINGS_LINKS (label + description → link) to render nav rows pointing
   // at the sub-surfaces (Connections / Users / Advanced). Menu links are not
   // the PortalListItem status/document record-row vocabulary; same category
   // as the other Operator sub-pages above.
-  resolve('src/pages/portal/products/operator/settings/index.astro'),
-  // `products/operator/onboarding/index.astro` (§6) renders the three
+  resolve('src/pages/portal/products/operator/[instance]/settings/index.astro'),
+  // `products/operator/[instance]/onboarding/index.astro` (§6) renders the three
   // get-started steps as numbered guidance cards (step number, title,
   // description, honest status badge) linking to Team/Connections/Calibration —
   // not the PortalListItem status/document record-row vocabulary. The .map(
   // iterates the derived steps; a step with no signal reads "to do", never a
   // fabricated completion.
-  resolve('src/pages/portal/products/operator/onboarding/index.astro'),
+  resolve('src/pages/portal/products/operator/[instance]/onboarding/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
@@ -814,6 +814,7 @@ const CALM_REGISTER_PENDING: string[] = [
   // Operator landing reverted to the loud register per Captain (2026-07-08):
   // keep the Status/Role/Management content, drop the calm register for now.
   'src/pages/portal/products/operator/index.astro',
+  'src/pages/portal/products/operator/[instance]/index.astro',
   'src/components/portal/operator/facets/OperatorHero.astro',
   'src/components/portal/operator/FacetDoorList.astro',
   'src/components/admin/EntityContactRow.astro',
@@ -851,17 +852,17 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/hosted-agent/api-key.astro',
   'src/pages/portal/products/hosted-agent/index.astro',
   'src/pages/portal/products/hosted-agent/intake.astro',
-  'src/pages/portal/products/operator/account/index.astro',
-  'src/pages/portal/products/operator/activity/index.astro',
-  'src/pages/portal/products/operator/calendar/index.astro',
-  'src/pages/portal/products/operator/compliance/index.astro',
-  'src/pages/portal/products/operator/configure/index.astro',
-  'src/pages/portal/products/operator/connections/index.astro',
-  'src/pages/portal/products/operator/onboarding/index.astro',
-  'src/pages/portal/products/operator/settings/advanced/index.astro',
-  'src/pages/portal/products/operator/settings/index.astro',
-  'src/pages/portal/products/operator/settings/users.astro',
-  'src/pages/portal/products/operator/team/index.astro',
+  'src/pages/portal/products/operator/[instance]/account/index.astro',
+  'src/pages/portal/products/operator/[instance]/activity/index.astro',
+  'src/pages/portal/products/operator/[instance]/calendar/index.astro',
+  'src/pages/portal/products/operator/[instance]/compliance/index.astro',
+  'src/pages/portal/products/operator/[instance]/configure/index.astro',
+  'src/pages/portal/products/operator/[instance]/connections/index.astro',
+  'src/pages/portal/products/operator/[instance]/onboarding/index.astro',
+  'src/pages/portal/products/operator/[instance]/settings/advanced/index.astro',
+  'src/pages/portal/products/operator/[instance]/settings/index.astro',
+  'src/pages/portal/products/operator/[instance]/settings/users.astro',
+  'src/pages/portal/products/operator/[instance]/team/index.astro',
 ]
 
 // PENDING entries are repo-relative paths; the collected files are absolute.

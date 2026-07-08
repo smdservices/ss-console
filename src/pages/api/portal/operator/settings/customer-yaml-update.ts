@@ -48,8 +48,11 @@
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { getPortalClient } from '../../../../../lib/portal/session'
-import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
+import {
+  getOperatorSubscriptionByInstance,
+  listProductRoles,
+} from '../../../../../lib/portal/product-access'
+import { getCustomerConfigBySlug } from '../../../../../lib/portal/customer-config'
 import {
   projectEditableConfig,
   resolveEditableConfigFromRow,
@@ -75,10 +78,13 @@ import {
 } from '../../../../../lib/operator/customer-yaml'
 
 const PRODUCT_SLUG = 'operator'
-const ADVANCED_PAGE_URL = '/portal/products/operator/settings/advanced'
+const OPERATOR_ROOT = '/portal/products/operator'
 
-function redirectWithStatus(status: string): Response {
-  const target = `${ADVANCED_PAGE_URL}?status=${encodeURIComponent(status)}`
+/** The instance's advanced-config page (multi-operator). A null instance (a
+ *  pre-resolution failure) falls back to the bare operator root. */
+function redirectWithStatus(instance: string | null, status: string): Response {
+  const base = instance ? `${OPERATOR_ROOT}/${instance}/settings/advanced` : OPERATOR_ROOT
+  const target = `${base}?status=${encodeURIComponent(status)}`
   return new Response(null, { status: 303, headers: { Location: target } })
 }
 
@@ -243,28 +249,35 @@ interface AuthCtx {
   customerSlug: string
 }
 
-async function authorize(locals: App.Locals): Promise<Response | AuthCtx> {
+async function authorize(locals: App.Locals, instance: string): Promise<Response | AuthCtx> {
   const portalData = await getPortalClient(env.DB, locals)
-  if (!portalData) return redirectWithStatus('forbidden')
-  if (!portalData.client) return redirectWithStatus('forbidden')
+  if (!portalData) return redirectWithStatus(instance, 'forbidden')
+  if (!portalData.client) return redirectWithStatus(instance, 'forbidden')
 
   const { user, client } = portalData
-  const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
-  if (!subscription) return redirectWithStatus('forbidden')
+
+  // Ownership guard: the addressed instance's config must belong to this client.
+  const config = await getCustomerConfigBySlug(env.DB, instance)
+  if (!config || config.entity_id !== client.id) return redirectWithStatus(instance, 'forbidden')
+
+  const subscription = await getOperatorSubscriptionByInstance(env.DB, client.id, instance)
+  if (!subscription) return redirectWithStatus(instance, 'forbidden')
 
   const callerRoles = await listProductRoles(env.DB, user.id, client.id, PRODUCT_SLUG)
-  if (!callerRoles.includes('principal')) return redirectWithStatus('forbidden')
+  if (!callerRoles.includes('principal')) return redirectWithStatus(instance, 'forbidden')
 
-  return { userId: user.id, customerId: client.id, customerSlug: client.id }
+  // customerSlug is the real instance slug (not client.id — the pre-fix bug that
+  // stamped an entity id into the audit customer_id field).
+  return { userId: user.id, customerId: client.id, customerSlug: instance }
 }
 
 async function resolveCurrentYaml(
-  customerId: string
+  customerSlug: string
 ): Promise<Response | { current: CustomerYaml; editable: EditableCustomerConfig }> {
-  const row = await getCustomerConfig(env.DB, customerId)
-  if (row === null) return redirectWithStatus('no_config')
+  const row = await getCustomerConfigBySlug(env.DB, customerSlug)
+  if (row === null) return redirectWithStatus(customerSlug, 'no_config')
   const resolved = resolveEditableConfigFromRow(row)
-  if ('error' in resolved) return redirectWithStatus('internal_error')
+  if ('error' in resolved) return redirectWithStatus(customerSlug, 'internal_error')
 
   // Re-validate to produce a CustomerYaml for the merger (resolved.editable
   // is the editor-projection, not the full YAML the merger needs as
@@ -272,12 +285,12 @@ async function resolveCurrentYaml(
   // `resolveEditableConfigFromRow` ran; this second pass surfaces the
   // typed yaml the merger consumes.
   const yamlResult = validate(reconstructProjection(row))
-  if (!yamlResult.ok) return redirectWithStatus('internal_error')
+  if (!yamlResult.ok) return redirectWithStatus(customerSlug, 'internal_error')
 
   return { current: yamlResult.value, editable: resolved.editable }
 }
 
-function reconstructProjection(row: Awaited<ReturnType<typeof getCustomerConfig>>): unknown {
+function reconstructProjection(row: Awaited<ReturnType<typeof getCustomerConfigBySlug>>): unknown {
   if (row === null) return null
   return {
     schema_version: Number(row.schema_version),
@@ -340,14 +353,22 @@ async function emitAudit(args: AuditArgs): Promise<void> {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  const auth = await authorize(locals)
+  // Read the form once, up front, to learn which operator instance this edit
+  // targets (hidden `instance` field on the advanced-config form). formData() is
+  // single-read, so parseFormToConfig below reuses this same object.
+  const form = await request.formData()
+  const instance = typeof form.get('instance') === 'string' ? (form.get('instance') as string) : ''
+  if (!instance) {
+    return new Response(null, { status: 303, headers: { Location: OPERATOR_ROOT } })
+  }
+
+  const auth = await authorize(locals, instance)
   if (auth instanceof Response) return auth
 
-  const resolved = await resolveCurrentYaml(auth.customerId)
+  const resolved = await resolveCurrentYaml(auth.customerSlug)
   if (resolved instanceof Response) return resolved
   const { current, editable: before } = resolved
 
-  const form = await request.formData()
   const proposed = parseFormToConfig(form, before)
 
   const result = validateEditableChanges(current, proposed)
@@ -360,7 +381,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       actorId: auth.userId,
       errors: result.errors,
     })
-    return redirectWithStatus('invalid')
+    return redirectWithStatus(auth.customerSlug, 'invalid')
   }
 
   const after = projectEditableConfig(result.value).editable
@@ -372,5 +393,5 @@ export const POST: APIRoute = async ({ request, locals }) => {
     actorId: auth.userId,
     errors: null,
   })
-  return redirectWithStatus('applied')
+  return redirectWithStatus(auth.customerSlug, 'applied')
 }

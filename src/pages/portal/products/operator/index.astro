@@ -1,41 +1,22 @@
 ---
 import PortalShell from '../../../../layouts/PortalShell.astro'
 import { getPortalClient } from '../../../../lib/portal/session'
-import {
-  getProductSubscription,
-  listProductRoles,
-  type ProductAccess,
-} from '../../../../lib/portal/product-access'
-import OperatorHero from '../../../../components/portal/operator/facets/OperatorHero.astro'
-import { resolveOperatorHero } from '../../../../lib/portal/operator/facets/identity/hero'
-import {
-  resolveAlivenessSignal,
-  type AlivenessSignal,
-} from '../../../../lib/portal/operator/aliveness'
-import { getCustomerConfig } from '../../../../lib/portal/customer-config'
-import FacetDoorList from '../../../../components/portal/operator/FacetDoorList.astro'
-import type { FacetDoor } from '../../../../lib/portal/operator/facet-doors'
+import { resolvePortalOfferings } from '../../../../lib/portal/offerings'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator landing — the operator's front door (ADR 0069; signed-off landing
- * brief docs/design/operator/surface-briefs/operator-landing.md, 2026-07-08).
+ * Operator product root — the instance chooser (multi-operator model, ADR 0069 +
+ * the 2026-07-08 model correction: one client, many operators).
  *
- * This console is about the OPERATOR itself, not the work it produces. Business
- * work (a draft to review) flows through the real channels — the mailbox, the
- * alert — never here. The surface answers three questions:
- *   Status     — is it OK? (operator health only; no business-work queue)
- *   Role       — what does it do? (Persona · Scope · Skills · Schedule · Workflows)
- *   Management — fix, change, or retrieve (Governance · Voice · Connections ·
- *                Team · Memory · Activity), with Account (the commercial layer) last.
+ * This bare path absorbs every legacy inbound link to
+ * `/portal/products/operator`. It never renders an operator itself; it routes:
+ *   0 operators → honest empty state
+ *   1 operator  → redirect straight to that instance's landing
+ *   many        → a chooser list, one row per operator the client owns
  *
- * Every door leads to a facet's own page. Facets whose page isn't built yet carry
- * href: null and render as present-but-not-yet-built (honest, never "coming
- * soon"); each becomes its own Surface Brief. Access is gated per destination
- * (resolveOperatorAccess) — this landing only maps the doors.
+ * Each operator's real surface lives under `[instance]/`. Instances come from the
+ * offerings resolver (subscriptions × configs the client owns); no fabrication.
  */
-
-const PRODUCT_SLUG = 'operator'
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
@@ -44,132 +25,18 @@ if (!portalData) {
 if (!portalData.client) {
   return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
+const { client } = portalData
 
-const { user, client } = portalData
+const offerings = await resolvePortalOfferings(env.DB, client.org_id, client.id)
+const operators = offerings.operators
 
-type SurfaceState = 'no_subscription' | 'provisioning' | 'paused' | 'no_role' | 'active'
-let surfaceState: SurfaceState
-let access: ProductAccess | null = null
-
-const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
-if (!subscription) {
-  surfaceState = 'no_subscription'
-} else if (subscription.status === 'provisioning') {
-  surfaceState = 'provisioning'
-} else if (subscription.status === 'paused') {
-  surfaceState = 'paused'
-} else {
-  const roles = await listProductRoles(env.DB, user.id, client.id, PRODUCT_SLUG)
-  if (roles.length === 0) {
-    surfaceState = 'no_role'
-  } else {
-    surfaceState = 'active'
-    access = { subscription, roles }
-  }
+// One operator → go straight in; no reason to make the client pick from a list of one.
+if (operators.length === 1) {
+  return Astro.redirect(`/portal/products/operator/${operators[0].slug}`)
 }
-
-const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : null
-
-// STATUS — persona identity + the real aliveness signal (brief §5). Both are real
-// from the config projection / fleet_status; the block is honest-empty when the
-// runtime bridge has no data (never a fabricated "healthy").
-let alivenessSignal: AlivenessSignal | null = null
-if (access) {
-  alivenessSignal = await resolveAlivenessSignal(env.DB, access.subscription)
-}
-const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
-
-// The operator's facet map (brief §5). Scope/Skills/Governance/Voice deep-link to
-// today's Configure page until each is split into its own briefed surface; the
-// facets with no page yet (Persona, Schedule, Workflows, Memory) carry href: null.
-const CONFIGURE = '/portal/products/operator/configure'
-const roleDoors: FacetDoor[] = [
-  {
-    label: 'Persona',
-    desc: 'Who it is: its name, role, and the identities it can operate as.',
-    href: null,
-  },
-  { label: 'Scope', desc: 'What it handles for you, and the shape of its job.', href: CONFIGURE },
-  {
-    label: 'Skills',
-    desc: 'Everything it can do: authored, bundled, and the ones it wrote itself.',
-    href: CONFIGURE,
-  },
-  {
-    label: 'Schedule',
-    desc: 'The recurring jobs it runs, and the hours it works.',
-    href: null,
-  },
-  {
-    label: 'Workflows',
-    desc: 'The multi-step processes it follows to get work done.',
-    href: null,
-  },
-]
-const manageDoors: FacetDoor[] = [
-  {
-    label: 'Governance',
-    desc: 'What it may do on its own vs. what needs your sign-off.',
-    href: CONFIGURE,
-  },
-  { label: 'Voice', desc: 'How it sounds when it writes on your behalf.', href: CONFIGURE },
-  {
-    label: 'Connections',
-    desc: 'The systems and channels it works through.',
-    href: '/portal/products/operator/connections',
-  },
-  {
-    label: 'Team',
-    desc: 'People on the account and who gets alerted.',
-    href: '/portal/products/operator/team',
-  },
-  { label: 'Memory', desc: 'What it knows about your business, to view or export.', href: null },
-  {
-    label: 'Activity',
-    desc: 'The full record of everything it has done.',
-    href: '/portal/products/operator/activity',
-  },
-]
-const accountDoors: FacetDoor[] = [
-  {
-    label: 'Account',
-    desc: 'Subscription, data export, and cancellation.',
-    href: '/portal/products/operator/account',
-  },
-]
-
-// Change-request filing outcome (returns via ?cr=filed|invalid|error).
-const crStatus = Astro.url.searchParams.get('cr')
-const crMessage =
-  crStatus === 'filed'
-    ? 'Your request was sent.'
-    : crStatus === 'invalid'
-      ? "That request couldn't be filed. Please add a short description and try again."
-      : crStatus === 'error'
-        ? 'Something went wrong filing your request. Please try again.'
-        : null
-const crTone = crStatus === 'filed' ? 'complete' : 'error'
 
 const seclabelClass =
   'font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]'
-
-// Honest non-active states (empty-state pattern).
-const EMPTY: Record<Exclude<SurfaceState, 'active'>, { title: string; body: string }> = {
-  no_subscription: {
-    title: 'Not subscribed',
-    body: "Your account doesn't include the Operator product. Contact us if you'd like to talk about adding it.",
-  },
-  provisioning: { title: 'Setup in progress', body: 'Your Operator is being configured.' },
-  paused: {
-    title: 'Paused',
-    body: 'Your Operator subscription is paused. Audit history remains accessible; new drafts are suspended until the subscription resumes.',
-  },
-  no_role: {
-    title: 'Access pending',
-    body: "The Operator is set up for your firm, but you haven't been granted a role yet. Contact your firm's principal to be added.",
-  },
-}
-const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
 ---
 
 <PortalShell
@@ -187,56 +54,45 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
     Home
   </a>
 
-  {
-    crMessage && (
-      <div
-        role="status"
-        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label font-bold uppercase tracking-[0.14em] ${
-          crTone === 'complete'
-            ? 'border-[color:var(--color-complete)] text-[color:var(--color-complete)]'
-            : 'border-[color:var(--color-error)] text-[color:var(--color-error)]'
-        }`}
-      >
-        {crMessage}
-      </div>
-    )
-  }
+  <p class={`mt-8 ${seclabelClass}`}>Operators</p>
 
   {
-    empty && (
-      <div class="mt-10 border-[3px] border-[color:var(--color-text-primary)] p-8 text-center md:p-12">
+    operators.length === 0 ? (
+      <div class="mt-3 border-[3px] border-[color:var(--color-text-primary)] p-8 text-center md:p-12">
         <p class="font-body text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)] md:text-3xl">
-          {empty.title}
+          No operators yet
         </p>
         <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
-          {empty.body}
+          Your account doesn't include an Operator yet. Contact us if you'd like to talk about
+          adding one.
         </p>
       </div>
-    )
-  }
-
-  {
-    surfaceState === 'active' && (
-      <>
-        <p class={`mt-8 ${seclabelClass}`}>Status</p>
-        <div class="mt-3">
-          <OperatorHero model={heroModel} />
-        </div>
-
-        <p class={`mt-10 ${seclabelClass}`}>Role</p>
-        <div class="mt-3">
-          <FacetDoorList doors={roleDoors} />
-        </div>
-
-        <p class={`mt-10 ${seclabelClass}`}>Management</p>
-        <div class="mt-3">
-          <FacetDoorList doors={manageDoors} />
-        </div>
-
-        <div class="mt-8">
-          <FacetDoorList doors={accountDoors} />
-        </div>
-      </>
+    ) : (
+      <div class="mt-3 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+        {operators.map((op, i) => (
+          <a
+            href={`/portal/products/operator/${op.slug}`}
+            class={`group flex items-center justify-between gap-6 px-5 py-5 transition-colors hover:bg-[color:var(--color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset md:px-7 ${
+              i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''
+            }`}
+          >
+            <div class="min-w-0">
+              <p class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--color-text-primary)]">
+                {op.displayName}
+              </p>
+              <p class="mt-0.5 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                {op.status}
+              </p>
+            </div>
+            <span
+              aria-hidden="true"
+              class="font-body font-black text-[color:var(--color-primary)] transition-transform group-hover:translate-x-1"
+            >
+              →
+            </span>
+          </a>
+        ))}
+      </div>
     )
   }
 </PortalShell>

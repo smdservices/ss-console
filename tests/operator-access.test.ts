@@ -41,6 +41,9 @@ const ENTITY_ID = 'entity-test'
 const USER_ID = 'user-test'
 const OTHER_USER_ID = 'user-other'
 const PRODUCT_SLUG = 'operator'
+// The operator instance addressed in these tests (its customer_slug). Multi-
+// operator: the slug — not the entity alone — identifies the operator.
+const SLUG = 'test-op'
 
 async function freshDb(): Promise<D1Database> {
   const db = createTestD1()
@@ -52,6 +55,20 @@ async function seedEntity(db: D1Database): Promise<void> {
   await db
     .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
     .bind(ENTITY_ID, ORG_ID, 'Test Firm', 'test-firm')
+    .run()
+  // The instance's config must exist and belong to this entity for the gate's
+  // ownership check to pass. Seeded alongside the entity for every test.
+  await seedConfig(db, SLUG, ENTITY_ID)
+}
+
+async function seedConfig(db: D1Database, slug: string, entityId: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO customer_configs
+        (customer_slug, entity_id, org_id, schema_version, personas_json, git_sha, synced_at)
+       VALUES (?, ?, ?, '1', '[]', 'sha-test', '2026-05-21T00:00:00Z')`
+    )
+    .bind(slug, entityId, ORG_ID)
     .run()
 }
 
@@ -71,10 +88,10 @@ async function seedSubscription(
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO subscriptions (id, org_id, entity_id, product_slug, status)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO subscriptions (id, org_id, entity_id, product_slug, instance_slug, status)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .bind('sub-test', ORG_ID, ENTITY_ID, PRODUCT_SLUG, status)
+    .bind('sub-test', ORG_ID, ENTITY_ID, PRODUCT_SLUG, SLUG, status)
     .run()
 }
 
@@ -139,6 +156,7 @@ describe('resolveOperatorAccess', () => {
     vi.mocked(getPortalClient).mockResolvedValue(null)
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -155,6 +173,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -173,6 +192,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -193,6 +213,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -213,6 +234,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -234,6 +256,7 @@ describe('resolveOperatorAccess', () => {
 
     // Drafts allows operator | principal only — compliance must be redirected
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -254,6 +277,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -262,7 +286,12 @@ describe('resolveOperatorAccess', () => {
       expect(result.user.id).toBe(USER_ID)
       expect(result.client.id).toBe(ENTITY_ID)
       expect(result.subscription.status).toBe('active')
+      expect(result.subscription.instance_slug).toBe(SLUG)
       expect(result.roles).toContain('principal')
+      // The resolved instance is returned so pages don't re-read it.
+      expect(result.customerSlug).toBe(SLUG)
+      expect(result.config.customer_slug).toBe(SLUG)
+      expect(result.config.entity_id).toBe(ENTITY_ID)
     }
   })
 
@@ -277,6 +306,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -297,6 +327,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -320,6 +351,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['staff', 'principal'],
     })
 
@@ -341,6 +373,7 @@ describe('resolveOperatorAccess', () => {
 
     // Audit accepts principal | operator | compliance
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['principal', 'staff', 'compliance'],
     })
 
@@ -362,6 +395,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['principal'],
     })
 
@@ -391,6 +425,58 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
+      allowedRoles: ['principal'],
+    })
+
+    expect(result.kind).toBe('redirect')
+    if (result.kind === 'redirect') {
+      expect(result.to).toBe('/portal/products/operator')
+    }
+  })
+
+  it('cross-entity guard: a valid slug owned by ANOTHER entity is refused', async () => {
+    // The signed-in client (ENTITY_ID) has a live subscription + role, but asks
+    // for a slug whose config belongs to a different entity. Even with a role on
+    // its own operator, it must not reach another client's operator by slug.
+    await seedEntity(db)
+    await seedUser(db, USER_ID, 'principal@firm.com')
+    await seedSubscription(db, 'active')
+    await grantRole(db, USER_ID, 'principal')
+    // A foreign entity that owns the config for slug 'foreign-op'.
+    await db
+      .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
+      .bind('entity-foreign', ORG_ID, 'Foreign Firm', 'foreign-firm')
+      .run()
+    await seedConfig(db, 'foreign-op', 'entity-foreign')
+    vi.mocked(getPortalClient).mockResolvedValue({
+      user: mockUser(USER_ID, 'principal@firm.com'),
+      client: mockClient(),
+    })
+
+    const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: 'foreign-op',
+      allowedRoles: ['principal'],
+    })
+
+    expect(result.kind).toBe('redirect')
+    if (result.kind === 'redirect') {
+      expect(result.to).toBe('/portal/products/operator')
+    }
+  })
+
+  it('unknown slug (no such config) redirects to the operator root', async () => {
+    await seedEntity(db)
+    await seedUser(db, USER_ID, 'principal@firm.com')
+    await seedSubscription(db, 'active')
+    await grantRole(db, USER_ID, 'principal')
+    vi.mocked(getPortalClient).mockResolvedValue({
+      user: mockUser(USER_ID, 'principal@firm.com'),
+      client: mockClient(),
+    })
+
+    const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: 'no-such-operator',
       allowedRoles: ['principal'],
     })
 
@@ -412,6 +498,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
+      customerSlug: SLUG,
       allowedRoles: ['principal'],
     })
 
