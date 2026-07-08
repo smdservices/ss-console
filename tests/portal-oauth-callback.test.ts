@@ -84,9 +84,9 @@ describe('portal oauth callback', () => {
     const location = parseRedirect(response)
     expect(location.searchParams.get('status')).toBe('failed')
     expect(location.searchParams.get('reason')).toBe('missing_params')
-    // Redirects back to the Operator settings page on the portal subdomain.
+    // No verified state ⇒ no known instance ⇒ falls back to the bare operator root.
     expect(location.origin).toBe(PORTAL_BASE)
-    expect(location.pathname).toBe('/portal/products/operator/settings')
+    expect(location.pathname).toBe('/portal/products/operator')
   })
 
   it('redirects with provider_error when issuer rejects consent', async () => {
@@ -205,7 +205,9 @@ describe('portal oauth callback', () => {
     const location = parseRedirect(response)
     expect(location.searchParams.get('status')).toBe('connected')
     expect(location.searchParams.get('provider')).toBe('microsoft-graph')
-    expect(location.pathname).toBe('/portal/products/operator/settings')
+    // Verified state carries the instance slug, so the return lands on that
+    // operator's settings page.
+    expect(location.pathname).toBe('/portal/products/operator/acme-law/settings')
   })
 
   it('redirects with exchange_failed when the token endpoint rejects the code', async () => {

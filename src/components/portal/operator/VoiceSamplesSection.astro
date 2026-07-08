@@ -26,9 +26,12 @@ import { formatVoiceSampleStatus } from '../../../lib/portal/operator/settings'
 
 interface Props {
   samples: VoiceSample[]
+  /** Addressed operator instance's slug — posted so the endpoint redirects back
+   *  to the right instance's settings page. */
+  instance: string
 }
 
-const { samples } = Astro.props
+const { samples, instance } = Astro.props
 
 function formatAddedAt(iso: string): string {
   const d = new Date(iso)
@@ -51,6 +54,7 @@ function formatAddedAt(iso: string): string {
       enctype="multipart/form-data"
       class="flex items-center gap-2 m-0"
     >
+      <input type="hidden" name="instance" value={instance} />
       <input type="hidden" name="action" value="add" />
       <label
         class="inline-flex items-center min-h-11 px-4 py-2 font-mono text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] cursor-pointer focus-within:ring-2 focus-within:ring-[color:var(--ss-color-action)] focus-within:ring-offset-2"
@@ -89,6 +93,7 @@ function formatAddedAt(iso: string): string {
                   action="/api/portal/operator/settings/voice-samples"
                   class="m-0"
                 >
+                  <input type="hidden" name="instance" value={instance} />
                   <input type="hidden" name="action" value="remove" />
                   <input type="hidden" name="sampleId" value={sample.id} />
                   <button

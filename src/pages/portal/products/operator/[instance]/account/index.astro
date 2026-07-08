@@ -1,15 +1,14 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
-import { getStripeCustomerIdForSubscription } from '../../../../../lib/portal/billing'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { getStripeCustomerIdForSubscription } from '../../../../../../lib/portal/billing'
 import {
   loadAccountState,
   subscriptionStatusLabel,
   subscriptionStatusProse,
-} from '../../../../../lib/portal/operator/account-read'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
+} from '../../../../../../lib/portal/operator/account-read'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -30,21 +29,26 @@ import { env } from 'cloudflare:workers'
  * Account links to them. Readable by all three client roles.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
 const { client, roles } = access
 
-const config = await getCustomerConfig(env.DB, client.id)
+const config = access.config
 const account = await loadAccountState(env.DB, client.id)
 // Manage-Billing door renders only when a Stripe customer exists on the
 // subscription (no fabricated door).
 const stripeCustomerId = await getStripeCustomerIdForSubscription(env.DB, client.id, 'operator')
 
-const RETURN_TO = '/portal/products/operator/account'
+const RETURN_TO = `${operatorBase}/account`
 const cr = Astro.url.searchParams.get('cr')
 const crMessage =
   cr === 'filed'
@@ -87,7 +91,7 @@ const hasEscalation =
   pathname={Astro.url.pathname}
 >
   {/* Status is shown once, on the chip below — not repeated in the header meta. */}
-  <PortalPageHead crumbHref="/portal/products/operator" crumbLabel="Operator" h1="Account" />
+  <PortalPageHead crumbHref={operatorBase} crumbLabel="Operator" h1="Account" />
 
   {
     crMessage && (
@@ -133,6 +137,7 @@ const hasEscalation =
               {stripeCustomerId && (
                 <form method="POST" action="/api/portal/billing/manage" class="mt-2">
                   <input type="hidden" name="product_slug" value="operator" />
+                  <input type="hidden" name="instance" value={instance} />
                   <button
                     type="submit"
                     class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
