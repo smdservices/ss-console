@@ -26,13 +26,21 @@ import { errorResponse } from '../../../../../lib/api/helpers'
  * later is one line.
  */
 
-const SETTINGS_PAGE_URL = '/portal/products/operator/settings'
+const OPERATOR_LANDING = '/portal/products/operator'
 
-function redirectWithStatus(status: string): Response {
-  const target = `${SETTINGS_PAGE_URL}?status=${encodeURIComponent(status)}`
+// The settings page is now instance-addressed. Redirect back to the addressed
+// instance's settings; fall back to the bare chooser when the instance can't be
+// determined from the form.
+function settingsUrl(instance: string | null): string {
+  return instance ? `${OPERATOR_LANDING}/${instance}/settings` : OPERATOR_LANDING
+}
+
+function redirectWithStatus(instance: string | null, status: string): Response {
+  const base = settingsUrl(instance)
+  const sep = base.includes('?') ? '&' : '?'
   return new Response(null, {
     status: 303,
-    headers: { Location: target },
+    headers: { Location: `${base}${sep}status=${encodeURIComponent(status)}` },
   })
 }
 
@@ -41,17 +49,21 @@ function jsonError(status: number, message: string): Response {
 }
 
 export const POST: APIRoute = async ({ locals, request }) => {
+  const formData = await request.formData()
+  const instanceRaw = formData.get('instance')
+  const instance = typeof instanceRaw === 'string' && instanceRaw !== '' ? instanceRaw : null
+
   const access = await resolveOperatorAccess(env.DB, locals, {
     allowedRoles: ['principal'],
+    customerSlug: instance ?? '',
   })
   if (access.kind === 'redirect') {
     return jsonError(403, 'Forbidden')
   }
 
-  const formData = await request.formData()
   const capabilityName = formData.get('capabilityName')
   if (typeof capabilityName !== 'string' || capabilityName === '') {
-    return redirectWithStatus('invalid_capability')
+    return redirectWithStatus(instance, 'invalid_capability')
   }
 
   console.info('settings.connector_reconsent.intent', {
@@ -60,5 +72,5 @@ export const POST: APIRoute = async ({ locals, request }) => {
     capability: capabilityName,
   })
 
-  return redirectWithStatus('reconsent_started')
+  return redirectWithStatus(instance, 'reconsent_started')
 }

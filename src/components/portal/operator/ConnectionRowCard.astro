@@ -25,9 +25,12 @@ interface Props {
   row: ConnectionRow
   operable: boolean
   returnTo: string
+  /** The addressed operator instance's slug — threaded to the endpoints so a
+   *  POST from this row is attributed to the right operator. */
+  instance: string
 }
 
-const { row, operable, returnTo } = Astro.props
+const { row, operable, returnTo, instance } = Astro.props
 const connectorId = row.adapter || row.capabilityName
 
 // Humanize the capability key for display: DocumentStorage -> "Document Storage".
@@ -87,6 +90,7 @@ const btn =
             action="/api/portal/operator/settings/connector-reconsent"
             class="m-0"
           >
+            <input type="hidden" name="instance" value={instance} />
             <input type="hidden" name="capabilityName" value={row.capabilityName} />
             <button
               type="submit"
@@ -101,6 +105,7 @@ const btn =
               Enter or update an API key
             </summary>
             <form method="POST" action={secretAction} class="flex flex-col gap-3 pt-2">
+              <input type="hidden" name="instance" value={instance} />
               <input type="hidden" name="return_to" value={returnTo} />
               <label
                 for={fieldId}

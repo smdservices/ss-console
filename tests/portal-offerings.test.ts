@@ -12,16 +12,30 @@ function quote(status: string, id = `q-${status}`): Quote {
   return { id, status } as unknown as Quote
 }
 function subscription(slug: string, status = 'active'): SubscriptionRow {
-  return { id: `sub-${slug}`, product_slug: slug, status } as unknown as SubscriptionRow
+  // Operator subs carry an instance_slug (the instance identity); for the tests
+  // the slug equals the product slug so it humanizes back to "Operator".
+  return {
+    id: `sub-${slug}`,
+    product_slug: slug,
+    instance_slug: slug === 'operator' ? 'operator' : null,
+    status,
+    service_id: null,
+  } as unknown as SubscriptionRow
 }
 
-const NOTHING = { engagements: [], quotes: [], subscriptions: [], hasInvoices: false }
+const NOTHING = {
+  engagements: [],
+  quotes: [],
+  subscriptions: [],
+  operatorConfigs: [],
+  hasInvoices: false,
+}
 
 describe('deriveOfferings', () => {
   it('nothing owned: no engagement presence, no products, no invoices', () => {
     const o = deriveOfferings(NOTHING)
     expect(o.engagement.present).toBe(false)
-    expect(o.operator).toBeNull()
+    expect(o.operators).toEqual([])
     expect(o.hostedAgent).toBeNull()
     expect(o.hasInvoices).toBe(false)
   })
@@ -72,8 +86,35 @@ describe('deriveOfferings', () => {
       subscriptions: [subscription('hosted-agent', 'provisioning'), subscription('operator')],
     })
     expect(o.engagement.present).toBe(false)
-    expect(o.operator?.product_slug).toBe('operator')
+    expect(o.operators).toHaveLength(1)
+    expect(o.operators[0].slug).toBe('operator')
     expect(o.hostedAgent?.status).toBe('provisioning')
+  })
+
+  it('multi-operator: one entry per operator subscription, addressed by instance_slug', () => {
+    const smd = {
+      id: 'sub-smd',
+      product_slug: 'operator',
+      instance_slug: 'smd',
+      status: 'active',
+      service_id: null,
+    } as unknown as SubscriptionRow
+    const pilot = {
+      id: 'sub-pilot',
+      product_slug: 'operator',
+      instance_slug: 'pilot-smokeball',
+      status: 'active',
+      service_id: null,
+    } as unknown as SubscriptionRow
+    const o = deriveOfferings({
+      ...NOTHING,
+      subscriptions: [smd, pilot],
+      operatorConfigs: [{ customer_slug: 'smd', displayName: 'Crane' }],
+    })
+    expect(o.operators.map((op) => op.slug)).toEqual(['smd', 'pilot-smokeball'])
+    // displayName from config when present; humanized slug as the honest fallback.
+    expect(o.operators[0].displayName).toBe('Crane')
+    expect(o.operators[1].displayName).toBe('Pilot Smokeball')
   })
 })
 
@@ -89,6 +130,7 @@ describe('buildPortalNav', () => {
         engagements: [engagement('in_progress')],
         quotes: [],
         subscriptions: [subscription('operator'), subscription('hosted-agent')],
+        operatorConfigs: [],
         hasInvoices: true,
       })
     )
@@ -116,6 +158,7 @@ describe('isNavDestinationActive', () => {
       engagements: [engagement('in_progress')],
       quotes: [],
       subscriptions: [subscription('operator')],
+      operatorConfigs: [],
       hasInvoices: true,
     })
   )

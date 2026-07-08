@@ -1,8 +1,8 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { loadOnboardingState } from '../../../../../lib/portal/operator/onboarding-read'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { loadOnboardingState } from '../../../../../../lib/portal/operator/onboarding-read'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -22,15 +22,20 @@ import { env } from 'cloudflare:workers'
  * Readable by all three client roles; the destinations enforce their own gates.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
 const { user, client } = access
 
-const onboarding = await loadOnboardingState(env.DB, client.id, user.org_id)
+const onboarding = await loadOnboardingState(env.DB, client.id, user.org_id, instance)
 
 const cardClass = 'block border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-7'
 const doneBadge =
@@ -47,7 +52,7 @@ const todoBadge =
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Get started"

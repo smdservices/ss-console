@@ -1,11 +1,15 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { getPortalClient } from '../../../../../lib/portal/session'
-import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
-import { listClerkOrgParticipants } from '../../../../../lib/portal/clerk-org-members'
-import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
-import { loadTeamRoster, formatLastLogin } from '../../../../../lib/portal/operator/team-read'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { getPortalClient } from '../../../../../../lib/portal/session'
+import {
+  getOperatorSubscriptionByInstance,
+  listProductRoles,
+} from '../../../../../../lib/portal/product-access'
+import { getCustomerConfigBySlug } from '../../../../../../lib/portal/customer-config'
+import { listClerkOrgParticipants } from '../../../../../../lib/portal/clerk-org-members'
+import { isPeopleAccessOperable } from '../../../../../../lib/portal/operator/people-access-gate'
+import { loadTeamRoster, formatLastLogin } from '../../../../../../lib/portal/operator/team-read'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -58,6 +62,10 @@ import { env } from 'cloudflare:workers'
 
 const PRODUCT_SLUG = 'operator'
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
   return Astro.redirect('/auth/sign-in')
@@ -69,8 +77,16 @@ if (!portalData.client) {
 const { user, client } = portalData
 const orgId = user.org_id
 
-const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
+const subscription = await getOperatorSubscriptionByInstance(env.DB, client.id, instance)
 if (!subscription) {
+  return Astro.redirect('/portal/products/operator')
+}
+
+// Ownership guard: the addressed instance's config must belong to THIS client's
+// entity before rendering (defense in depth beyond the entity-scoped
+// subscription read above).
+const config = await getCustomerConfigBySlug(env.DB, instance)
+if (!config || config.entity_id !== client.id) {
   return Astro.redirect('/portal/products/operator')
 }
 
@@ -85,7 +101,7 @@ if (!isPrincipal) {
 // default), there is no direct-management door: send the principal to the
 // read-only Team surface, where they see the roster and can request a change.
 if (!(await isPeopleAccessOperable(env.DB, client.id))) {
-  return Astro.redirect('/portal/products/operator/team')
+  return Astro.redirect(`${operatorBase}/team`)
 }
 
 const { members } = await loadTeamRoster(env.DB, client.id, orgId)
@@ -177,7 +193,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Settings"
     h1="Users"
@@ -252,6 +268,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
                           action="/api/portal/products/operator/role-action"
                           class="inline-flex"
                         >
+                          <input type="hidden" name="instance" value={instance} />
                           <input
                             type="hidden"
                             name="action"
@@ -366,6 +383,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
       action="/api/portal/products/operator/invitations"
       class="flex flex-col sm:flex-row gap-3 max-w-2xl"
     >
+      <input type="hidden" name="instance" value={instance} />
       <input
         type="email"
         name="email"
