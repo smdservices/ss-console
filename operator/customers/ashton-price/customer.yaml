@@ -46,7 +46,7 @@ model: claude-sonnet-4-6
 escalation_model: claude-opus-4-8
 # CONFIRM: bump to the OVERLAY_REF carrying the smokeball authorization_code +
 # per-seat-env change before reprovision.sh (matches pilot at provision time).
-hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
 
 machine:
   size: shared-cpu-1x
