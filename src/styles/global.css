@@ -30,6 +30,10 @@
    * marketing surfaces on cream. */
   --color-surface-raised: #ffffff;
   --color-border: var(--ss-color-border);
+  /* Firmer hairline for calm-register cards — the default 16% ink border reads
+   * as washed on wide white cards (UI-PATTERNS Rule 8 readability pass). Still a
+   * hairline, just enough to seat the card on the cream. */
+  --color-border-strong: rgba(26, 21, 18, 0.22);
   --color-border-subtle: var(--ss-color-border-subtle);
 
   --color-text-primary: var(--ss-color-text-primary);
