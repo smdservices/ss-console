@@ -23,7 +23,8 @@ import {
 export const ACTION_CLASS_LABEL: Record<ActionClass, string> = {
   read: 'Read',
   internal_write: 'Internal write',
-  external_send: 'External send',
+  external_send: 'External send (outside)',
+  external_send_internal: 'Internal send (staff)',
   commitment: 'Commitment',
   destructive: 'Destructive',
   code_execution: 'Code execution',

@@ -154,6 +154,12 @@ export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
  * than one scalar applied to the whole skill — splitting the exposure axis
  * (external_send) from the initiation and internal axes.
  *
+ * `external_send` is a send to a NON-roster (outside) recipient;
+ * `external_send_internal` is a send to a human-rostered internal recipient
+ * (the firm's own staff). The recipient axis is resolved upstream by
+ * `recipient_classifier`, so an internal notification never collapses onto the
+ * outside ceiling. Both are fail-closed when unauthored (ADR 0035).
+ *
  * The values must stay byte-identical to the Python enum's `.value` strings;
  * the overlay materializer (`hermes-smd bootstrap`) carries this map across
  * the seam to the runtime `enforce()` call.
@@ -162,6 +168,7 @@ export const ACCEPTED_ACTION_CLASSES = [
   'read',
   'internal_write',
   'external_send',
+  'external_send_internal',
   'commitment',
   'destructive',
   'code_execution',

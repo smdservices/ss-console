@@ -89,15 +89,17 @@ describe('trustCeilingRowsFromPersona', () => {
       { actionClass: 'destructive', ceiling: 'refused' },
     ])
     const rows = trustCeilingRowsFromPersona(persona)
-    expect(rows).toHaveLength(5)
+    // internal_write, external_send, external_send_internal, commitment, destructive, code_execution
+    expect(rows).toHaveLength(6)
     expect(rows[0]).toEqual({
       skillName: 'internal_write',
       currentLevel: 'draft_for_review',
       rawLevel: 'draft_for_review',
       actionClass: 'internal_write',
     })
-    expect(rows[1].currentLevel).toBe('autonomous')
-    expect(rows[3].currentLevel).toBe('refused')
+    expect(rows[1].currentLevel).toBe('autonomous') // external_send
+    expect(rows[2].currentLevel).toBeNull() // external_send_internal, unauthored → fail-closed
+    expect(rows[4].currentLevel).toBe('refused') // destructive
   })
 
   it('null-out currentLevel for an unknown ceiling, keeping rawLevel', () => {
