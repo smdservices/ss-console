@@ -17,7 +17,6 @@ metadata:
     addon: pi
     weight: heavy # reasoning over a full response set against the propounded requests; the judgment it feeds is the attorney's
     skill_type: document retrieval + surfacing
-    trust_ceiling: autonomous_internal_surface # produces an internal surface artifact; no external send, so no external-send floor applies. The content_ceiling below is the real bound. Matches the surface-only sibling matter-document-review.
     action_class: read + internal_write
     content_ceiling: surface_only # MAY summarize/extract/point-to-candidate-gaps; MUST NOT render the deficiency judgment, decide to compel, or draft work product/argument
     connectors:

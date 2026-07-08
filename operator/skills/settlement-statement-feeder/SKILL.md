@@ -26,7 +26,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # mechanical collation of read figures; the safety is in what it refuses, not in heavy reasoning
-    trust_ceiling: draft_for_review # the assembled statement is staged for a person to finalize and execute; never autonomous
     action_class: read + internal_write # reads figures, writes an internal create_memo log; no external send, and no fund movement of any kind
     content_ceiling: connective # collates read inputs into the statement's mechanical structure; never the trust computation, never valuation or legal work product
     connectors:

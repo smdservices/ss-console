@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: extraction + drafting
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
       - smokeball # PracticeManagement — dedupe + conflict check (read), internal memo (write)

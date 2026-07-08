@@ -15,7 +15,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: heavy # spans assemble + format-surface + hearing-stage + tentative-ruling watch; the read/collate/route work is the bulk, but the seams (format, reservation, tentative ruling) each fail closed
-    trust_ceiling: draft_for_review # produces a staged package for the attorney to finalize and file; never files, serves, drafts, or reserves
     action_class: read + internal_write # reads matter documents and calendar; writes are internal (create_task, create_event, create_memo, gated add_file/create_folder). No external send.
     content_ceiling: connective # organizes authored components into the required structure; never legal work product, never argument, never the drafted motion
     connectors:

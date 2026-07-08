@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: read + assembly (internal surfacing)
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
       - smokeball # PracticeManagement — list_tasks (read, due_date) for authored task deadlines
