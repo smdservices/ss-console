@@ -6,47 +6,34 @@ import {
   listProductRoles,
   type ProductAccess,
 } from '../../../../lib/portal/product-access'
-import PromotionCardList from '../../../../components/portal/operator/PromotionCardList.astro'
 import OperatorHero from '../../../../components/portal/operator/facets/OperatorHero.astro'
-import Card from '../../../../components/portal/Card.astro'
-import CardHeader from '../../../../components/portal/CardHeader.astro'
 import { resolveOperatorHero } from '../../../../lib/portal/operator/facets/identity/hero'
-import {
-  listPromotionReadySkills,
-  type PromotionCandidate,
-} from '../../../../lib/portal/operator/promotion-cards'
 import {
   resolveAlivenessSignal,
   type AlivenessSignal,
 } from '../../../../lib/portal/operator/aliveness'
 import { getCustomerConfig } from '../../../../lib/portal/customer-config'
-import { loadHomeFeeds, type HomeFeeds } from '../../../../lib/portal/operator/home'
-import { formatAuditTimestamp } from '../../../../lib/portal/operator/audit'
+import Card from '../../../../components/portal/Card.astro'
+import FacetDoorList from '../../../../components/portal/operator/FacetDoorList.astro'
+import type { FacetDoor } from '../../../../lib/portal/operator/facet-doors'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator dashboard — landing page.
+ * Operator landing — the operator's front door (ADR 0069; signed-off landing
+ * brief docs/design/operator/surface-briefs/operator-landing.md, 2026-07-08).
  *
- * URL: portal.smd.services/portal/products/operator
+ * This console is about the OPERATOR itself, not the work it produces. Business
+ * work (a draft to review) flows through the real channels — the mailbox, the
+ * alert — never here. The surface answers three questions:
+ *   Status     — is it OK? (operator health only; no business-work queue)
+ *   Role       — what does it do? (Persona · Scope · Skills · Schedule · Workflows)
+ *   Management — fix, change, or retrieve (Governance · Voice · Connections ·
+ *                Team · Memory · Activity), with Account (the commercial layer) last.
  *
- * Access model (per PR #904 substrate, PR #906 Clerk rewire):
- *   1. Clerk session required (gated by middleware)
- *   2. Local users row linked to a Clerk org with a matching local
- *      entity (resolved by getPortalClient)
- *   3. Active subscription on (entity, 'operator') in the
- *      subscriptions table
- *   4. At least one role granted on (user, entity, 'operator') in
- *      product_roles — vocabulary: principal | staff | compliance
- *
- * Anything less degrades to the appropriate empty state per
- * docs/style/empty-state-pattern.md. No fabrication.
- *
- * This page is the routing entry point. Internal product surfaces
- * (Activity, Calendar, Connections, Configure, Team, Account) live under
- * /portal/products/operator/* and are reached via the section card
- * grid rendered in the active-state branch below. Each child surface
- * uses the shared resolveOperatorAccess helper to enforce its own
- * role gate; the landing only orchestrates which cards to render.
+ * Every door leads to a facet's own page. Facets whose page isn't built yet carry
+ * href: null and render as present-but-not-yet-built (honest, never "coming
+ * soon"); each becomes its own Surface Brief. Access is gated per destination
+ * (resolveOperatorAccess) — this landing only maps the doors.
  */
 
 const PRODUCT_SLUG = 'operator'
@@ -61,17 +48,7 @@ if (!portalData.client) {
 
 const { user, client } = portalData
 
-// Surface state derived in priority order. We render exactly one state.
-//   no_subscription   — customer has no Operator subscription on file
-//   provisioning      — subscription exists but the per-customer Hermes
-//                       Machine + D1 are still being set up
-//   paused            — subscription is paused (audit-only access)
-//   no_role           — subscription is active but the user has no role
-//                       granted; principal needs to grant access
-//   active            — subscription active + at least one role; render
-//                       the dashboard
 type SurfaceState = 'no_subscription' | 'provisioning' | 'paused' | 'no_role' | 'active'
-
 let surfaceState: SurfaceState
 let access: ProductAccess | null = null
 
@@ -92,151 +69,77 @@ if (!subscription) {
   }
 }
 
-// Section cards in the active-state main column. Filtered by the
-// caller's roles so staff / principals see the act-on-the-product
-// surfaces (Calendar) and every role sees Activity.
-// Each destination uses resolveOperatorAccess to enforce the gate
-// server-side; this list is the visual filter only.
-//
-// Compliance card surfacing (per #895): when the firm has opted in to
-// the dedicated Compliance view (customer.yaml.compliance_enabled =
-// true), surface the card to compliance and principal roles. Staff
-// never see it — their surfaces are Activity and Calendar.
-// When the firm has NOT opted in, surface only to compliance-role
-// users so they have a path to confirm the firm's posture; the
-// destination renders an explicit "not enabled for this firm" empty
-// state per docs/style/empty-state-pattern.md.
-// Management surfaces, grouped by the three console jobs (ADR 0052): Direct
-// (shape the employment), Review (what it did), Administer (the relationship).
-// "Get started" is the transitional setup lead. Role gates are preserved
-// exactly — each card is still conditionally included; only the presentation
-// changed, from a §-numbered card grid to a quiet grouped nav (ADR 0069
-// landing restructure).
-type SectionGroup = 'direct' | 'review' | 'administer'
-interface SectionCard {
-  href: string
-  label: string
-  description: string
-  group: SectionGroup
-}
-const sectionCards: SectionCard[] = []
 const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : null
-const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
-if (access) {
-  const userRoles = access.roles
-  // "Get started" (onboarding) intentionally removed from the landing: it
-  // duplicated nav items already present (Connections, Team) and is noise for a
-  // running operator (ADR 0069 sub-page coherence pass). The onboarding page
-  // still exists by URL; it is simply not featured.
-  // "Calendar" removed from the landing: it was a dead stub (a filter over no
-  // data) that conflated a calendar of appointments with scheduling the
-  // operator's recurring jobs. The real need is a Schedule view of authored
-  // crons, built separately. The page still exists by URL (ADR 0069 sub-page
-  // coherence pass).
-  sectionCards.push({
-    href: '/portal/products/operator/activity',
-    label: 'Activity',
-    description:
-      'A full record of every action your Operator takes: drafts created, sends approved, identity changes.',
-    group: 'review',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/connections',
-    label: 'Connections',
-    description: 'The systems your Operator connects to, and how their credentials are held.',
-    group: 'direct',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/configure',
-    label: 'Configure',
-    description: "Your Operator's skills, governance, voice, scope, and hours.",
-    group: 'direct',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/team',
-    label: 'Team',
-    description: 'The people on your account, their roles, and who is covering for whom.',
-    group: 'administer',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/account',
-    label: 'Account',
-    description: 'Your subscription, escalation contacts, and notification preferences.',
-    group: 'administer',
-  })
-  const isCompliance = userRoles.includes('compliance')
-  const isPrincipal = userRoles.includes('principal')
-  const showComplianceCard =
-    (complianceViewEnabled && (isCompliance || isPrincipal)) || isCompliance
-  if (showComplianceCard) {
-    sectionCards.push({
-      href: '/portal/products/operator/compliance',
-      label: 'Compliance',
-      description:
-        'Separation-of-duties view: audit history, retention posture, and evidence packet entry.',
-      group: 'review',
-    })
-  }
-}
-const SECTION_GROUPS: { key: SectionGroup; label: string }[] = [
-  { key: 'direct', label: 'Direct' },
-  { key: 'review', label: 'Review' },
-  { key: 'administer', label: 'Administer' },
-]
 
-// Aliveness signal (per #875, wired in #1678). Per-customer "where is the
-// agent right now" header: idle / running / sticky_stop / offline +
-// last-action timestamp, derived from this customer's fleet_status
-// heartbeat row (ADR 0023 Wave 1). A customer with no row yet resolves to
-// null and the AlivenessHeader renders nothing (empty-state pattern).
-// Surfaced for any role so operators and compliance see the same posture
-// the principal sees; access to the surface is already role-gated upstream.
+// STATUS — persona identity + the real aliveness signal (brief §5). Both are real
+// from the config projection / fleet_status; the block is honest-empty when the
+// runtime bridge has no data (never a fabricated "healthy").
 let alivenessSignal: AlivenessSignal | null = null
 if (access) {
   alivenessSignal = await resolveAlivenessSignal(env.DB, access.subscription)
 }
-
-// "Meet your operator" hero (ADR 0069 Slice 2): identity (active persona) +
-// status (aliveness), composed by the shared resolver. Both facets are Tier-1
-// real from the config projection / fleet_status; nothing fabricated.
 const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 
-// Promotion recommendation cards (per #811). Principal-only because the
-// trust-ceiling promotion is the firm's decision per §11.3 — operator
-// and compliance roles do not see the prompt. The resolver returns an
-// empty list today (Hermes stats bridge not wired); when it does the
-// PromotionCardList wrapper renders nothing, so no fabricated copy
-// reaches the page. The dismissals table is wired so the empty case is
-// honest: even when bridge data lands later, a dismissed card stays
-// suppressed for the cooldown.
-let promotionCandidates: PromotionCandidate[] = []
-if (access?.roles.includes('principal')) {
-  promotionCandidates = await listPromotionReadySkills(env.DB, client.id)
-}
+// The operator's facet map (brief §5). Scope/Skills/Governance/Voice deep-link to
+// today's Configure page until each is split into its own briefed surface; the
+// facets with no page yet (Persona, Schedule, Workflows, Memory) carry href: null.
+const CONFIGURE = '/portal/products/operator/configure'
+const roleDoors: FacetDoor[] = [
+  {
+    label: 'Persona',
+    desc: 'Who it is: its name, role, and the identities it can operate as.',
+    href: null,
+  },
+  { label: 'Scope', desc: 'What it handles for you, and the shape of its job.', href: CONFIGURE },
+  {
+    label: 'Skills',
+    desc: 'Everything it can do: authored, bundled, and the ones it wrote itself.',
+    href: CONFIGURE,
+  },
+  {
+    label: 'Schedule',
+    desc: 'The recurring jobs it runs, and the hours it works.',
+    href: null,
+  },
+  {
+    label: 'Workflows',
+    desc: 'The multi-step processes it follows to get work done.',
+    href: null,
+  },
+]
+const manageDoors: FacetDoor[] = [
+  {
+    label: 'Governance',
+    desc: 'What it may do on its own vs. what needs your sign-off.',
+    href: CONFIGURE,
+  },
+  { label: 'Voice', desc: 'How it sounds when it writes on your behalf.', href: CONFIGURE },
+  {
+    label: 'Connections',
+    desc: 'The systems and channels it works through.',
+    href: '/portal/products/operator/connections',
+  },
+  {
+    label: 'Team',
+    desc: 'People on the account and who gets alerted.',
+    href: '/portal/products/operator/team',
+  },
+  { label: 'Memory', desc: 'What it knows about your business, to view or export.', href: null },
+  {
+    label: 'Activity',
+    desc: 'The full record of everything it has done.',
+    href: '/portal/products/operator/activity',
+  },
+]
+const accountDoors: FacetDoor[] = [
+  {
+    label: 'Account',
+    desc: 'Subscription, data export, and cancellation.',
+    href: '/portal/products/operator/account',
+  },
+]
 
-// Home/Today runtime feeds (client-portal §5.1, wired in #1678): recent
-// activity + escalations from ONE live runtime read (ADR 0043, kind
-// audit_log — the same frozen seam the Activity page uses), and
-// needsAttentionCount from the Machine-pushed draft_queue_depth in this
-// customer's summary-mirror row. Every source fails closed to an honest
-// empty; Home never fabricates a review queue the Machine did not report
-// (ADR 0035).
-const customerSlug = customerConfig?.customer_slug ?? client.id
-const homeActorRole = access?.roles.includes('principal')
-  ? 'principal'
-  : access?.roles.includes('compliance')
-    ? 'compliance'
-    : 'staff'
-const homeFeeds: HomeFeeds | null = access
-  ? await loadHomeFeeds({ db: env.DB, env, actorUserId: user.id }, customerSlug, {
-      actor: user.email,
-      actorRole: homeActorRole,
-    })
-  : null
-
-// Change-request filing outcome (client-portal §3). The dual-mode "Request a
-// change" form 303s back with ?cr=filed|invalid|error so the surface it returned
-// to can show a banner.
+// Change-request filing outcome (returns via ?cr=filed|invalid|error).
 const crStatus = Astro.url.searchParams.get('cr')
 const crMessage =
   crStatus === 'filed'
@@ -247,6 +150,27 @@ const crMessage =
         ? 'Something went wrong filing your request. Please try again.'
         : null
 const crTone = crStatus === 'filed' ? 'complete' : 'error'
+
+const seclabelClass =
+  'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-muted)]'
+
+// Honest non-active states (empty-state pattern).
+const EMPTY: Record<Exclude<SurfaceState, 'active'>, { title: string; body: string }> = {
+  no_subscription: {
+    title: 'Not subscribed',
+    body: "Your account doesn't include the Operator product. Contact us if you'd like to talk about adding it.",
+  },
+  provisioning: { title: 'Setup in progress', body: 'Your Operator is being configured.' },
+  paused: {
+    title: 'Paused',
+    body: 'Your Operator subscription is paused. Audit history remains accessible; new drafts are suspended until the subscription resumes.',
+  },
+  no_role: {
+    title: 'Access pending',
+    body: "The Operator is set up for your firm, but you haven't been granted a role yet. Contact your firm's principal to be added.",
+  },
+}
+const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
 ---
 
 <PortalShell
@@ -256,11 +180,6 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  {
-    /* A console lead, not a marketing masthead: the nav tab and the hero below
-      already say "Operator", so we keep only a quiet breadcrumb. Calm register
-      (UI-PATTERNS Rule 8): a text-label crumb, no black-weight arrow. */
-  }
   <a
     href="/portal"
     class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 text-label uppercase text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
@@ -285,48 +204,10 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   }
 
   {
-    surfaceState === 'no_subscription' && (
+    empty && (
       <Card class="mt-10 text-center">
-        <p class="text-title text-[color:var(--color-text-primary)]">Not subscribed</p>
-        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
-          Your account doesn't include the Operator product. Contact us if you'd like to talk about
-          adding it.
-        </p>
-      </Card>
-    )
-  }
-
-  {
-    surfaceState === 'provisioning' && (
-      <Card class="mt-10 text-center">
-        <p class="text-title text-[color:var(--color-text-primary)]">Setup in progress</p>
-        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
-          Your Operator is being configured.
-        </p>
-      </Card>
-    )
-  }
-
-  {
-    surfaceState === 'paused' && (
-      <Card class="mt-10 text-center">
-        <p class="text-title text-[color:var(--color-text-primary)]">Paused</p>
-        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
-          Your Operator subscription is paused. Audit history remains accessible; new drafts are
-          suspended until the subscription resumes.
-        </p>
-      </Card>
-    )
-  }
-
-  {
-    surfaceState === 'no_role' && (
-      <Card class="mt-10 text-center">
-        <p class="text-title text-[color:var(--color-text-primary)]">Access pending</p>
-        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
-          The Operator is set up for your firm, but you haven't been granted a role yet. Contact
-          your firm's principal to be added.
-        </p>
+        <p class="text-title text-[color:var(--color-text-primary)]">{empty.title}</p>
+        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">{empty.body}</p>
       </Card>
     )
   }
@@ -334,114 +215,23 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   {
     surfaceState === 'active' && (
       <>
-        <OperatorHero model={heroModel} />
+        <p class={`mt-8 ${seclabelClass}`}>Status</p>
+        <div class="mt-3">
+          <OperatorHero model={heroModel} />
+        </div>
 
-        {/* Home / Today (client-portal §5.1): what needs you, what it did,
-                escalations. Runtime-fed (#1678); fails closed to honest empty
-                on any transport failure. "What needs you" appears ONLY when
-                the Machine reported work genuinely routed to a human for this
-                client — never a fabricated queue (ADR 0035). */}
-        {homeFeeds && (
-          <section class="mt-8 flex flex-col gap-8" aria-label="What's happening">
-            {homeFeeds.needsAttentionCount > 0 && (
-              <Card href="/portal/products/operator/activity" ariaLabel="Items need your review">
-                <p class="text-label uppercase text-[color:var(--color-action)]">What needs you</p>
-                <p class="mt-1 text-heading text-[color:var(--color-text-primary)]">
-                  {homeFeeds.needsAttentionCount}{' '}
-                  {homeFeeds.needsAttentionCount === 1 ? 'item needs' : 'items need'} your review
-                </p>
-              </Card>
-            )}
+        <p class={`mt-10 ${seclabelClass}`}>Role</p>
+        <div class="mt-3">
+          <FacetDoorList doors={roleDoors} />
+        </div>
 
-            <Card>
-              <CardHeader
-                title="Recent activity"
-                actionLabel="Full record"
-                actionHref="/portal/products/operator/activity"
-              />
-              {homeFeeds.recentActivity.length === 0 ? (
-                <p class="mt-stack text-caption text-[color:var(--color-text-secondary)]">
-                  No activity to show yet.
-                </p>
-              ) : (
-                <ul role="list" class="mt-stack">
-                  {homeFeeds.recentActivity.map((item, i) => (
-                    <li
-                      class={`py-3 ${i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''}`}
-                    >
-                      <p class="text-body text-[color:var(--color-text-primary)]">{item.summary}</p>
-                      <p class="mt-1 text-caption text-[color:var(--color-text-muted)]">
-                        {formatAuditTimestamp(item.at)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
+        <p class={`mt-10 ${seclabelClass}`}>Management</p>
+        <div class="mt-3">
+          <FacetDoorList doors={manageDoors} />
+        </div>
 
-            {homeFeeds.escalations.length > 0 && (
-              <Card ariaLabel="Escalations">
-                <CardHeader title="Escalations" />
-                <ul role="list" class="mt-stack">
-                  {homeFeeds.escalations.map((item, i) => (
-                    <li
-                      class={`py-3 ${i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''}`}
-                    >
-                      <p class="text-body text-[color:var(--color-text-primary)]">{item.summary}</p>
-                      <p class="mt-1 text-caption text-[color:var(--color-text-muted)]">
-                        {formatAuditTimestamp(item.at)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-          </section>
-        )}
-
-        <div class="mt-10 flex flex-col gap-8">
-          <PromotionCardList candidates={promotionCandidates} />
-
-          <section aria-label="Manage your operator" class="flex flex-col gap-8">
-            {SECTION_GROUPS.map((grp) => {
-              const items = sectionCards.filter((s) => s.group === grp.key)
-              if (items.length === 0) return null
-              return (
-                <div>
-                  <p class="mb-2 text-label uppercase text-[color:var(--color-text-muted)]">
-                    {grp.label}
-                  </p>
-                  <Card padded={false}>
-                    <ul role="list">
-                      {items.map((s, i) => (
-                        <li>
-                          <a
-                            href={s.href}
-                            class={`group flex items-center justify-between gap-6 p-card transition-colors hover:bg-[color:var(--color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset ${i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''}`}
-                          >
-                            <div class="min-w-0">
-                              <p class="text-body font-semibold text-[color:var(--color-text-primary)]">
-                                {s.label}
-                              </p>
-                              <p class="mt-0.5 text-caption text-[color:var(--color-text-secondary)]">
-                                {s.description}
-                              </p>
-                            </div>
-                            <span
-                              aria-hidden="true"
-                              class="text-[color:var(--color-text-muted)] transition-transform group-hover:translate-x-0.5"
-                            >
-                              →
-                            </span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </div>
-              )
-            })}
-          </section>
+        <div class="mt-8">
+          <FacetDoorList doors={accountDoors} />
         </div>
       </>
     )
