@@ -1,0 +1,33 @@
+---
+/**
+ * CardHeader — sentence-case section header for a Card (UI-PATTERNS Rule 8).
+ *
+ * Replaces the loud ink-fill header bars (ink background + cream mono-caps
+ * text) that shipped across the portal. A `text-heading` title in sentence
+ * case with an optional right-aligned action link. The action renders only
+ * when both label and href are present (no inert affordances).
+ */
+interface Props {
+  title: string
+  actionLabel?: string | null
+  actionHref?: string | null
+  class?: string
+}
+
+const { title, actionLabel = null, actionHref = null, class: klass = '' } = Astro.props
+const showAction = Boolean(actionLabel && actionHref)
+---
+
+<div class={`flex items-baseline justify-between gap-4 ${klass}`}>
+  <h2 class="text-heading text-[color:var(--color-text-primary)]">{title}</h2>
+  {
+    showAction && (
+      <a
+        href={actionHref}
+        class="whitespace-nowrap text-caption font-medium text-[color:var(--color-action)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+      >
+        {actionLabel}
+      </a>
+    )
+  }
+</div>

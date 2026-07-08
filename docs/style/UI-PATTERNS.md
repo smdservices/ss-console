@@ -439,6 +439,50 @@ The test auto-enrolls new portal list-index files. Exceptions are an explicit `L
 
 ---
 
+## Rule 8 — Console register: calm Plainspoken
+
+**Rule.** The client portal and the admin console render in the _calm_ Plainspoken register: cards are a white raised surface (`bg-surface-raised`) with a hairline border (`border` — ink at ~16%), **never** `border-[3px]` and never a full-ink rule. Headings are sentence case at the Rule 5 scale (`text-title` / `text-heading`), never `font-black` and never all-caps. Monospace (`font-mono`) is reserved for `text-label` eyebrows, status chips, and fixed-width data — not body, not headings. Ink-fill header bars (ink background, cream text) are a marketing device and do not appear on console surfaces.
+
+**Why.** The portal and admin drifted into two different-looking products off the _same_ tokens — the portal rendered them loud (3px ink rules, flat cream, black uppercase), the admin softened them (white cards, hairline borders, sentence case). One console in two registers is the "they don't look remotely similar" problem (Captain, 2026-07-07). The loud register is a marketing asset — a sign-shop shout on a page you visit once — and a tax on a console someone operates daily. Rules 5–7 already prescribe the calm _mechanics_ (token type, token spacing, shared primitives); this rule names the register they add up to and bans the loud markers explicitly, so the portal remediation converges and cannot regress.
+
+**Scope.** Console surfaces only: `src/pages/portal/**`, `src/components/portal/**`, `src/pages/admin/**`, `src/components/admin/**`. The marketing site (`src/pages/*.astro` at root, `src/components/{marketing,packs}/**`, `Nav`, `Footer`) keeps the loud register — that is where the shout belongs.
+
+**Authority.** Same anchors as Rules 5–7 (Material 3, IBM Carbon, Shopify Polaris): a console is scanned and operated, not read; calm surfaces with semantic status and generous whitespace are the documented pattern for repeat-use tools.
+
+**Loud markers (banned on migrated console surfaces).**
+
+- `border-[3px]` (or any `border-[Npx]` used as a card rule) → `border` / `border-[color:var(--color-border)]`.
+- `font-black` on headings → Rule 5 token weights (`text-title` 700, `text-heading` 600), sentence case.
+- Uppercasing whole headings → uppercase belongs only to `text-label` eyebrows and chips.
+- Ink-fill header bars (`bg-[color:var(--ss-color-text-primary)]` behind inverted section-header text) → a plain `CardHeader`.
+
+**Correct pattern.**
+
+```astro
+<Card>
+  <CardHeader title="Recent activity" actionLabel="Full record" actionHref="/portal/products/operator/activity" />
+  <PortalListItem variant="status" ... />
+</Card>
+```
+
+where `Card` renders `bg-surface-raised rounded-card border p-card` (Rule 6), `CardHeader` is a sentence-case `text-heading` title with an optional action link, and inline status uses `StatusDot` (the calm counterpart to `StatusPill`).
+
+**Anti-pattern (portal, pre-migration).** The client portal shipped ~133 `border-[3px]`, ~85 `font-black`, and ~345 `uppercase` across ~60 files — the operator hero (`src/components/portal/operator/facets/OperatorHero.astro`), the account page (`src/pages/portal/products/operator/account/index.astro`), and the landing home feeds (`src/pages/portal/products/operator/index.astro`) all rendered loud. The admin console is already ~95% calm and is the reference.
+
+**Registered primitives (this rule).**
+
+- [`src/components/portal/Card.astro`](../../src/components/portal/Card.astro) — raised card shell (`bg-surface-raised rounded-card border p-card`).
+- [`src/components/portal/CardHeader.astro`](../../src/components/portal/CardHeader.astro) — sentence-case `text-heading` title + optional action link; replaces ink-fill header bars.
+- [`src/components/portal/StatusDot.astro`](../../src/components/portal/StatusDot.astro) — tone dot; consumes `Tone` from `status.ts`; the calm counterpart to `StatusPill`.
+
+Reuse the Rule 7 primitives (`PortalListItem`, `StatusPill`, `MoneyDisplay`) where they fit rather than re-hardcoding.
+
+**Detection.** A "Calm register" assertion family in [`tests/forbidden-strings.test.ts`](../../tests/forbidden-strings.test.ts): every console file **not** listed in `CALM_REGISTER_PENDING` must be free of the loud markers. `CALM_REGISTER_PENDING` begins as the full loud-file set and **shrinks** with each migration slice; the end state is an empty list — whole console calm, guard fully enforcing. The list only shrinks; no allowlist grows around it.
+
+**Escape hatch.** None on a migrated surface. If a console surface genuinely needs a heavier treatment, that is a signal the register is wrong — raise it, don't annotate around it.
+
+---
+
 ## Enforcement
 
 - **Grep / AST rules** in the `nav-spec/validate.py` extension or a sibling validator: redundancy detector (Rule 2), inline typography detector (Rule 5), inline spacing detector (Rule 6), multi-primary detector (Rule 3), heading-skip detector (Rule 4), pill-context detector (Rule 1).
