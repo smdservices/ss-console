@@ -1,10 +1,22 @@
 # Hermes v0.14.0 → v0.18.0 Fleet Upgrade Plan
 
-**Status:** Proposed (awaiting Captain review)
+**Status:** ✅ Executed 2026-07-07 — all 4 live seats on v0.18.0, blessed, release-watch live.
 **Date:** 2026-07-07
 **Author:** agent session (Captain: Scott Durgan)
 **Governs:** the first deliberate blessed-version promotion under [ADR 0024](../../adr/0024-hermes-consumption-and-update-cadence.md)
 **Target:** `v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b` (Hermes Agent **v0.18.0**, "The Judgment Release", 2026-07-01)
+
+---
+
+## Outcome (2026-07-07)
+
+**Ground truth corrected mid-execution:** only **4** hermes-\* Fly seats are actually live, and **all are SMD's own** — `hermes-smd-staging`, `hermes-pilot-smokeball`, `hermes-scott` (Scott's personal seat), `hermes-smd` (Crane, the venture production agent). `ashton-price` and `pilot-law` are **config-only** (no Machine — A&P is not stood up, still in planning), so they were a pin bump at bless time, not a promotion. There is **no external-customer blast radius** anywhere in this fleet.
+
+All 4 live seats were reprovisioned from source to v0.18.0, each passing all 13 boot-smoke checks. Runtime hooks were proven firing live with a **backward-compatible superset** of kwargs (pilot-smokeball hook-probe: `pre_tool_call`/`post_llm_call` at v0.18 carry our documented kwargs + new `turn_id`/`api_request_id`/`telemetry_schema_version`; our `**kwargs` handlers ignore the extras). The recipient-lock / reply / inbound / webhook-gate behavior was proven durably by the overlay's own suite (**113/113 green**) rather than a one-off email — repeatable, maintainable. v0.18 was **blessed** as the fleet default (config-only seats + Dockerfile ARGs + provision default), and the lightweight **release-watch** shipped (`.github/workflows/hermes-release-watch.yml`). Rollback anywhere stays a one-flip pin revert (`uv.lock` + `uv sync --frozen` make the v0.14 rebuild reproducible).
+
+Follow-ons (filed, non-blocking): price/exempt the `boot-selfcheck` model so the benign boot-time `INVARIANT_VIOLATION` stops logging; the golden-image/tracking pipeline stays deferred until fleet scale.
+
+_The plan below is the reasoning and procedure as authored; the seat-topology and rollout specifics were adjusted per the ground truth above during execution._
 
 ---
 
