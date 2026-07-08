@@ -15,7 +15,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # high-frequency chase/track; the reasoning is small
-    trust_ceiling: draft_for_review # the signer-bound send is attorney-approved, never autonomous; the external intent is carried by action_class, not a ceiling suffix
     action_class: read + internal_write + external_send
     content_ceiling: connective # drafts a verification REQUEST (a connective artifact); never legal work product; never the legal determination of what needs verifying
     connectors:

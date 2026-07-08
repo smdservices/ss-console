@@ -69,6 +69,7 @@ personas:
       exposure:
         internal_write: autonomous
         external_send: draft_for_review
+        external_send_internal: autonomous
         destructive: autonomous
     skills:
       # spine

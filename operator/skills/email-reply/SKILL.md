@@ -13,7 +13,6 @@ metadata:
     tags: [Email, Reply, Draft, SMD, Customer-Zero]
   smd:
     customer: smd
-    trust_ceiling: autonomous
 ---
 
 # Crane Email Reply

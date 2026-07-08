@@ -325,7 +325,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // mcp_brave_brave_web_search — live pilot-smokeball verification of #147
     // caught the single-brave name was unmapped -> REFUSED. Range
     // 138c10a..b9391d8 touches shared/action_classes.py + test; no tracked twin.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b9391d859c6d59df26c033caa3f0face6d215570"')
+    // 9189224 (#149, ss #1822, ADR 0072): recipient-aware proactive send —
+    // external_send_internal class + recipient_classifier (NEW byte-identical
+    // pair) + outbound_recipient registry + evaluate_tool_call reclassification.
+    // Range b9391d8..9189224 adds shared/recipient_classifier.py (tracked as a
+    // new pair) and touches action_classes.py/enforce.py/__init__.py/validate.py/
+    // translate.py (not tracked twins).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="918922487e3715998cde4fecc1a248d89f49f9f6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

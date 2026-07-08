@@ -20,7 +20,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # a read/organize surface; the reasoning is small and mechanical
-    trust_ceiling: autonomous_internal_surface # reads + writes only an internal log; nothing client- or court-bound leaves
     action_class: read + internal_write
     content_ceiling: surface_only # organizes what the record says; never work product, never a legal determination
     connectors:

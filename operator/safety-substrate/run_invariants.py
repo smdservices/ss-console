@@ -10,7 +10,8 @@ The seven irreducible invariants (per `safety-substrate/README.md` and
 `docs/specs/operator/safety-invariants.md`):
 
   1. No destructive action without explicit current-turn confirmation
-  2. No outbound external send without confirmation
+  2. Outbound external send governed by the authored per-recipient-class ceiling
+     (external_send / external_send_internal), fail-closed when unauthored
   3. No contract / commitment execution autonomously
   4. "Don't act" / "stop" instructions are sticky across compaction
   5. Trust-ceiling enforced in code, not in prompt

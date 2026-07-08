@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: read + assembly (filing proposal)
-    trust_ceiling: draft_for_review
     action_class: read + write
     connectors:
       - email # customer-bound — the inbound message + its attachment

@@ -13,7 +13,6 @@ metadata:
     tags: [Email, Calendar, Drive, Docs, Sheets, Google, SMD]
   smd:
     customer: smd
-    trust_ceiling: draft_for_review
 ---
 
 # Workspace

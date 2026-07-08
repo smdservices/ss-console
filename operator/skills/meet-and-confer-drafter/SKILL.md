@@ -16,7 +16,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # a connective draft plus a go/no-go flag; the reasoning is small
-    trust_ceiling: draft_for_review # opposing-counsel-bound by nature; never autonomous; the external intent is carried by action_class, not a ceiling suffix
     action_class: read + internal_write + external_send # external_send is DRAFT ONLY — the letter is prepared for a person to send, never dispatched by the skill
     content_ceiling: connective # drafts a meet-and-confer LETTER (a connective artifact) from the attorney's flagged deficiencies; never legal argument, never the legal judgment of what is deficient
     connectors:

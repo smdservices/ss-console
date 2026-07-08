@@ -198,7 +198,9 @@ export function actionClassLabel(actionClass: ActionClass): string {
     case 'internal_write':
       return 'Internal write'
     case 'external_send':
-      return 'External send'
+      return 'External send (outside)'
+    case 'external_send_internal':
+      return 'Internal send (staff)'
     case 'commitment':
       return 'Commitment'
     case 'destructive':

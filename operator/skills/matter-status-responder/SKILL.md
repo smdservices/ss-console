@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: drafting
-    trust_ceiling: draft_for_review
     action_class: read + draft
     connectors:
       - smokeball # PracticeManagement — matter status (incl. responsible attorney), recent activity, next step (read)

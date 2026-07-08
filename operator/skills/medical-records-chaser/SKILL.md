@@ -15,7 +15,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # high-frequency watch/chase/track; the reasoning is small
-    trust_ceiling: draft_for_review # the provider/vendor chase is an external send, drafted for a human to send; never autonomous
     action_class: read + internal_write + external_send
     content_ceiling: connective # drafts a records chase (a connective follow-up); never work product; never the chronology, the demand, or any characterization of treatment
     connectors:

@@ -108,6 +108,7 @@ export function trustCeilingRowsFromPersona(persona: PersonaConfig | null): Trus
   const classes: AuthoredExposureActionClass[] = [
     'internal_write',
     'external_send',
+    'external_send_internal',
     'commitment',
     'destructive',
     'code_execution',

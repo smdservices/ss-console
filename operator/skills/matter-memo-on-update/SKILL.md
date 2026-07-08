@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: change-detection + internal logging
-    trust_ceiling: autonomous_internal_write
     action_class: read + internal_write
     connectors:
       - smokeball # PracticeManagement - read existing memos + actor (read), create_memo (internal write)
