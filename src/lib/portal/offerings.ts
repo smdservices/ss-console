@@ -17,6 +17,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { listEngagements, type Engagement } from '../db/engagements'
 import { listQuotesForEntity, type Quote } from '../db/quotes'
 import { listActiveSubscriptionsForEntity, type SubscriptionRow } from './product-access'
+import { listCustomerConfigsForEntity } from './customer-config'
 
 const ENGAGEMENT_TERMINAL_STATUSES = new Set(['completed', 'cancelled'])
 
@@ -29,13 +30,42 @@ export interface EngagementOfferings {
   pastEngagements: Engagement[]
 }
 
+/**
+ * One operator the client owns (multi-operator model). An operator instance is a
+ * subscription row + its config, addressed by `slug` (the config's customer_slug,
+ * carried on the subscription as instance_slug). `displayName` is the active
+ * persona's name (fallback: humanized slug) — the label shown in nav/home.
+ */
+export interface OperatorInstance {
+  slug: string
+  subscription: SubscriptionRow
+  displayName: string
+  status: string
+}
+
+/** Lite view of an operator config, passed into the pure derivation. */
+export interface OperatorConfigLite {
+  customer_slug: string
+  displayName: string
+}
+
 export interface PortalOfferings {
   engagement: EngagementOfferings
-  operator: SubscriptionRow | null
+  /** Every operator the client owns, in subscription created_at order. */
+  operators: OperatorInstance[]
   hostedAgent: SubscriptionRow | null
   /** Any portal-visible invoice exists (drives the Billing destination). */
   hasInvoices: boolean
   subscriptions: SubscriptionRow[]
+}
+
+/** Title-case a kebab slug for a fallback display name (e.g. "pilot-smokeball" → "Pilot Smokeball"). */
+export function humanizeSlug(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 /** Pure derivation from already-fetched rows; unit-tested in isolation. */
@@ -43,6 +73,7 @@ export function deriveOfferings(input: {
   engagements: Engagement[]
   quotes: Quote[]
   subscriptions: SubscriptionRow[]
+  operatorConfigs: OperatorConfigLite[]
   hasInvoices: boolean
 }): PortalOfferings {
   const activeEngagement =
@@ -53,6 +84,20 @@ export function deriveOfferings(input: {
   const openProposal = input.quotes.find((q) => q.status === 'sent') ?? null
 
   const bySlug = (slug: string) => input.subscriptions.find((s) => s.product_slug === slug) ?? null
+  const displayNameFor = (slug: string) =>
+    input.operatorConfigs.find((c) => c.customer_slug === slug)?.displayName ?? humanizeSlug(slug)
+
+  // One entry per operator subscription. instance_slug is the instance identity;
+  // a defensive filter drops any malformed operator sub with no instance_slug so
+  // it never renders a broken (slug-less) card/URL.
+  const operators: OperatorInstance[] = input.subscriptions
+    .filter((s) => s.product_slug === 'operator' && !!s.instance_slug)
+    .map((s) => ({
+      slug: s.instance_slug as string,
+      subscription: s,
+      displayName: displayNameFor(s.instance_slug as string),
+      status: s.status,
+    }))
 
   return {
     engagement: {
@@ -61,7 +106,7 @@ export function deriveOfferings(input: {
       openProposal,
       pastEngagements,
     },
-    operator: bySlug('operator'),
+    operators,
     hostedAgent: bySlug('hosted-agent'),
     hasInvoices: input.hasInvoices,
     subscriptions: input.subscriptions,
@@ -84,11 +129,25 @@ export async function resolvePortalOfferings(
   orgId: string,
   entityId: string
 ): Promise<PortalOfferings> {
-  const [engagements, quotes, subscriptions, hasInvoices] = await Promise.all([
+  const [engagements, quotes, subscriptions, configs, hasInvoices] = await Promise.all([
     listEngagements(db, orgId, entityId),
     listQuotesForEntity(db, orgId, entityId),
     listActiveSubscriptionsForEntity(db, entityId),
+    listCustomerConfigsForEntity(db, entityId),
     hasPortalVisibleInvoices(db, entityId),
   ])
-  return deriveOfferings({ engagements, quotes, subscriptions, hasInvoices })
+  const operatorConfigs: OperatorConfigLite[] = configs.map((c) => ({
+    customer_slug: c.customer_slug,
+    displayName: operatorDisplayName(c.personas, c.customer_slug),
+  }))
+  return deriveOfferings({ engagements, quotes, subscriptions, operatorConfigs, hasInvoices })
+}
+
+/**
+ * The label an operator shows in nav/home: its active persona's name, falling
+ * back to the humanized slug when no persona is active/authored. Never fabricated.
+ */
+function operatorDisplayName(personas: { status: string; name: string }[], slug: string): string {
+  const active = personas.find((p) => p.status === 'active')
+  return active?.name?.trim() || humanizeSlug(slug)
 }

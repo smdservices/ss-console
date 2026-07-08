@@ -1,26 +1,28 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
-import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
 import {
   defaultAuditDateRange,
   distinctAuditSkills,
   parseAuditListParams,
-} from '../../../../../lib/portal/operator/audit'
-import { loadActivityPage } from '../../../../../lib/portal/operator/activity-read'
+} from '../../../../../../lib/portal/operator/audit'
+import { loadActivityPage } from '../../../../../../lib/portal/operator/activity-read'
 import {
   CLIENT_ACTIVITY_CATEGORIES,
   mappedActionsForCategories,
-} from '../../../../../lib/portal/operator/activity-language'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
+} from '../../../../../../lib/portal/operator/activity-language'
 import {
   resolveComplianceView,
   formatRetentionWindow,
-} from '../../../../../lib/portal/operator/compliance'
-import { ACCEPTED_VERTICALS, type Vertical } from '../../../../../lib/operator/customer-yaml/types'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
-import AuditFilterBar from '../../../../../components/portal/operator/AuditFilterBar.astro'
-import AuditLogTable from '../../../../../components/portal/operator/AuditLogTable.astro'
-import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
+} from '../../../../../../lib/portal/operator/compliance'
+import {
+  ACCEPTED_VERTICALS,
+  type Vertical,
+} from '../../../../../../lib/operator/customer-yaml/types'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import AuditFilterBar from '../../../../../../components/portal/operator/AuditFilterBar.astro'
+import AuditLogTable from '../../../../../../components/portal/operator/AuditLogTable.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -49,8 +51,13 @@ import { env } from 'cloudflare:workers'
  * Access: Clerk session + bound entity + active subscription + any one role.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
@@ -62,8 +69,8 @@ const isCompliance = roles.includes('compliance')
 // Most-privileged role label for the runtime read-audit row.
 const actorRole = isPrincipal ? 'principal' : isCompliance ? 'compliance' : 'staff'
 
-const config = await getCustomerConfig(env.DB, client.id)
-const customerSlug = config?.customer_slug ?? client.id
+const config = access.config
+const customerSlug = access.customerSlug
 
 const params = parseAuditListParams(Astro.url.searchParams)
 // Client-facing category filter (`cat`): expands to the underlying mapped
@@ -124,7 +131,7 @@ const complianceView =
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Activity"
@@ -173,7 +180,7 @@ const complianceView =
           authority={config?.authority ?? null}
           domain="compliance"
           roles={roles}
-          returnTo="/portal/products/operator/activity"
+          returnTo={`${operatorBase}/activity`}
           domainLabel="audit retention and evidence"
         >
           <div

@@ -1,17 +1,16 @@
 ---
-import PortalShell from '../../../../../layouts/PortalShell.astro'
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
 import {
   resolveOperatorAccess,
   OPERATOR_LANDING_PATH,
-} from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
+} from '../../../../../../lib/portal/operator-access'
 import {
   resolveComplianceView,
   formatRetentionWindow,
-} from '../../../../../lib/portal/operator/compliance'
-import type { Vertical } from '../../../../../lib/operator/customer-yaml'
-import { ACCEPTED_VERTICALS } from '../../../../../lib/operator/customer-yaml'
-import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+} from '../../../../../../lib/portal/operator/compliance'
+import type { Vertical } from '../../../../../../lib/operator/customer-yaml'
+import { ACCEPTED_VERTICALS } from '../../../../../../lib/operator/customer-yaml'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -64,8 +63,13 @@ import { env } from 'cloudflare:workers'
  *     placement contract is stable when the trigger lands.
  */
 
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'compliance'],
+  customerSlug: instance,
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
@@ -77,7 +81,7 @@ if (!hasComplianceViewRole) {
   return Astro.redirect(OPERATOR_LANDING_PATH)
 }
 
-const config = await getCustomerConfig(env.DB, client.id)
+const config = access.config
 const complianceEnabled = config?.compliance_enabled ?? false
 const rawVertical = config?.vertical ?? null
 const vertical: Vertical | null = (() => {
@@ -110,7 +114,7 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref="/portal/products/operator"
+    crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
     h1="Compliance"
@@ -132,7 +136,7 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
         </p>
         <p class="mt-6 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
           <a
-            href="/portal/products/operator/activity"
+            href={`${operatorBase}/activity`}
             class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
           >
             Go to audit log
@@ -175,7 +179,7 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
             </p>
             <p class="mt-4">
               <a
-                href="/portal/products/operator/activity"
+                href={`${operatorBase}/activity`}
                 class="inline-flex items-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
               >
                 Open audit log

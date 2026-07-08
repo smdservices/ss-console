@@ -1,18 +1,18 @@
 ---
-import PortalShell from '../../../../../../layouts/PortalShell.astro'
-import { getPortalClient } from '../../../../../../lib/portal/session'
+import PortalShell from '../../../../../../../layouts/PortalShell.astro'
+import { getPortalClient } from '../../../../../../../lib/portal/session'
 import {
-  getProductSubscription,
+  getOperatorSubscriptionByInstance,
   listProductRoles,
-} from '../../../../../../lib/portal/product-access'
-import { getCustomerConfig } from '../../../../../../lib/portal/customer-config'
-import { resolveEditableConfigFromRow } from '../../../../../../lib/portal/operator/customer-yaml-editor'
-import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
-import PersonaFields from '../../../../../../components/portal/operator/customer-yaml-editor/PersonaFields.astro'
-import EscalationFields from '../../../../../../components/portal/operator/customer-yaml-editor/EscalationFields.astro'
-import BusinessHoursFields from '../../../../../../components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro'
-import ConnectorsFields from '../../../../../../components/portal/operator/customer-yaml-editor/ConnectorsFields.astro'
-import ScopeFields from '../../../../../../components/portal/operator/customer-yaml-editor/ScopeFields.astro'
+} from '../../../../../../../lib/portal/product-access'
+import { getCustomerConfigBySlug } from '../../../../../../../lib/portal/customer-config'
+import { resolveEditableConfigFromRow } from '../../../../../../../lib/portal/operator/customer-yaml-editor'
+import PortalPageHead from '../../../../../../../components/portal/PortalPageHead.astro'
+import PersonaFields from '../../../../../../../components/portal/operator/customer-yaml-editor/PersonaFields.astro'
+import EscalationFields from '../../../../../../../components/portal/operator/customer-yaml-editor/EscalationFields.astro'
+import BusinessHoursFields from '../../../../../../../components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro'
+import ConnectorsFields from '../../../../../../../components/portal/operator/customer-yaml-editor/ConnectorsFields.astro'
+import ScopeFields from '../../../../../../../components/portal/operator/customer-yaml-editor/ScopeFields.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -56,7 +56,11 @@ import { env } from 'cloudflare:workers'
  */
 
 const PRODUCT_SLUG = 'operator'
-const SETTINGS_LANDING_URL = '/portal/products/operator/settings'
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+const SETTINGS_LANDING_URL = `${operatorBase}/settings`
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
@@ -68,7 +72,7 @@ if (!portalData.client) {
 
 const { user, client } = portalData
 
-const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
+const subscription = await getOperatorSubscriptionByInstance(env.DB, client.id, instance)
 if (!subscription) {
   return Astro.redirect('/portal/products/operator')
 }
@@ -78,7 +82,13 @@ if (!callerRoles.includes('principal')) {
   return Astro.redirect(SETTINGS_LANDING_URL)
 }
 
-const configRow = await getCustomerConfig(env.DB, client.id)
+// Ownership guard: the addressed instance's config must belong to THIS client's
+// entity before rendering the editor. A missing or foreign config redirects to
+// the client's own operator list.
+const configRow = await getCustomerConfigBySlug(env.DB, instance)
+if (!configRow || configRow.entity_id !== client.id) {
+  return Astro.redirect('/portal/products/operator')
+}
 
 let resolved: ReturnType<typeof resolveEditableConfigFromRow> | null = null
 let projectionError: string | null = null
@@ -179,6 +189,7 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
       </section>
     ) : editable !== null && locked !== null ? (
       <form method="POST" action="/api/portal/operator/settings/customer-yaml-update" class="mt-2">
+        <input type="hidden" name="instance" value={instance} />
         <section class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
           <h2 class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
             Captain-managed identity

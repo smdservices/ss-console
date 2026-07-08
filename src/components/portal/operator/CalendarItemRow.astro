@@ -51,9 +51,11 @@ interface Props {
    * for stable visual rhythm even when ids change underneath.
    */
   serial?: string
+  /** Instance-scoped operator base path (`/portal/products/operator/<slug>`). */
+  operatorBase: string
 }
 
-const { item, conflictCount, serial } = Astro.props
+const { item, conflictCount, serial, operatorBase } = Astro.props
 const resolvedSerial = serial ?? item.id.slice(0, 2).toUpperCase()
 
 // `ai_scheduled` is the higher-trust state — already on the customer's
@@ -69,7 +71,7 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
 ---
 
 <a
-  href={`/portal/products/operator/calendar/${item.id}`}
+  href={`${operatorBase}/calendar/${item.id}`}
   aria-describedby={conflictId}
   class="group block bg-[color:var(--ss-color-surface)] border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 transition-colors hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
 >
