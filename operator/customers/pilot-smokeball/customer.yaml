@@ -433,15 +433,15 @@ connectors:
     enabled: true
     webhook_url: 'https://hermes-pilot-smokeball.fly.dev/webhooks/agentmail'
 
-  # WebSearch (mcp:brave, ADR 0070) — bound here so the rehearsal rig exercises
-  # the shared web-search connector before any paid seat (fixtures -> pilot-smokeball
-  # -> paid). Search + extract only. Keyed on the shared, SMD-absorbed BRAVE_API_KEY
-  # staged by provision-customer.sh. This is the pilot-smokeball live-verification
-  # binding for the ADR 0070 go-live, not an Operator default (Operator =
-  # authored-per-engagement).
+  # WebSearch (native:brave-free, ADR 0070) — bound here so the rehearsal rig
+  # exercises native web search before any paid seat (fixtures -> pilot-smokeball
+  # -> paid). Hermes' native brave-free provider (no MCP wrapper), reads
+  # BRAVE_SEARCH_API_KEY staged by provision-customer.sh. This is the
+  # live-verification binding for the ADR 0070 native go-live, not an Operator
+  # default (Operator = authored-per-engagement).
   WebSearch:
     adapter: brave
-    backend: mcp:brave
+    backend: native:brave-free
     enabled: true
 
   # NOTE: Calendar + DocumentStorage are added at provision once the firm's mail

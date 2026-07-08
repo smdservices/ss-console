@@ -331,7 +331,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // Range b9391d8..9189224 adds shared/recipient_classifier.py (tracked as a
     // new pair) and touches action_classes.py/enforce.py/__init__.py/validate.py/
     // translate.py (not tracked twins).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="918922487e3715998cde4fecc1a248d89f49f9f6"')
+    // ea19b4bc (#150, ss #1796, ADR 0070 native cut): retire the mcp:brave
+    // connector for Hermes' NATIVE web_search provider. translate._materialize_web_search
+    // (native:<provider> -> web.search_backend), mcp_registry brave spec removed,
+    // action_classes web_search READ, validate accepts native:. Range
+    // 9189224..ea19b4bc touches bootstrap/{translate,mcp_registry,validate}.py +
+    // shared/action_classes.py + tests; no tracked twin moved (overlaySha256 unchanged).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ea19b4bc278e9e2c5aff34dbd6832820f9f76083"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

@@ -241,7 +241,11 @@ export type LogLevel = (typeof ACCEPTED_LOG_LEVELS)[number]
 export const ACCEPTED_LOG_SHIPS = ['cloudflare-d1', 'fly-logs'] as const
 export type LogShip = (typeof ACCEPTED_LOG_SHIPS)[number]
 
-export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as const
+// native: — a bundled Hermes provider selected by config (not an external server
+// we wire). Web search rides this: `native:brave-free` -> web.search_backend,
+// materialized by the overlay's translate._materialize_web_search. Added with the
+// ADR 0070 native cut (2026-07-08), superseding the mcp:brave connector.
+export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:', 'native:'] as const
 
 /**
  * Google credential mode for the optional top-level `google_auth.mode`
