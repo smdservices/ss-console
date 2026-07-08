@@ -23,6 +23,8 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { ORG_ID } from '../src/lib/constants'
 import {
   getCustomerConfig,
+  getCustomerConfigBySlug,
+  listCustomerConfigsForEntity,
   getActivePersona,
   getLatestSyncMeta,
   listCustomerConfigHistory,
@@ -276,6 +278,57 @@ describe('customer_configs schema integrity', () => {
     await expect(
       seedConfig(db, { entity_id: 'entity-other', customer_slug: 'same-slug' })
     ).rejects.toThrow()
+  })
+
+  it('allows MANY configs per entity (multi-operator model, migration 0090)', async () => {
+    // Before 0090 entity_id was the PK; a second config for the same entity was
+    // a PK violation. Now an entity (one client) may own several operators.
+    await seedEntity(db)
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'smd' })
+    await expect(
+      seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'pilot-smokeball' })
+    ).resolves.not.toThrow()
+  })
+})
+
+describe('getCustomerConfigBySlug / listCustomerConfigsForEntity (multi-operator)', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedEntity(db)
+  })
+
+  it('getCustomerConfigBySlug returns the row addressed by customer_slug', async () => {
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'smd' })
+    await seedConfig(db, {
+      entity_id: ENTITY_ID,
+      customer_slug: 'pilot-smokeball',
+      personas: [makePersona({ slug: 'crane-law', name: 'Crane' })],
+    })
+    const smd = await getCustomerConfigBySlug(db, 'smd')
+    const pilot = await getCustomerConfigBySlug(db, 'pilot-smokeball')
+    expect(smd?.customer_slug).toBe('smd')
+    expect(smd?.entity_id).toBe(ENTITY_ID)
+    expect(pilot?.customer_slug).toBe('pilot-smokeball')
+    expect(pilot?.personas[0].name).toBe('Crane')
+  })
+
+  it('getCustomerConfigBySlug returns null for an unknown slug', async () => {
+    expect(await getCustomerConfigBySlug(db, 'no-such-slug')).toBeNull()
+  })
+
+  it('listCustomerConfigsForEntity returns every operator the entity owns', async () => {
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'smd' })
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'pilot-smokeball' })
+    const list = await listCustomerConfigsForEntity(db, ENTITY_ID)
+    // Order is created_at ASC; the two seeds can share a second-granularity
+    // timestamp, so assert membership rather than a brittle exact order.
+    expect(list.map((c) => c.customer_slug).sort()).toEqual(['pilot-smokeball', 'smd'])
+  })
+
+  it('listCustomerConfigsForEntity returns [] when the entity owns none', async () => {
+    expect(await listCustomerConfigsForEntity(db, ENTITY_ID)).toEqual([])
   })
 })
 

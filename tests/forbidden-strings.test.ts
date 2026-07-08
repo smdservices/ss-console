@@ -811,6 +811,11 @@ const LOUD_MARKERS: { re: RegExp; label: string }[] = [
 // so a file that merely *documents* a loud marker — like the primitives' doc
 // blocks — is not flagged. Only real class usage should trip the guard.
 const CALM_REGISTER_PENDING: string[] = [
+  // Operator landing reverted to the loud register per Captain (2026-07-08):
+  // keep the Status/Role/Management content, drop the calm register for now.
+  'src/pages/portal/products/operator/index.astro',
+  'src/components/portal/operator/facets/OperatorHero.astro',
+  'src/components/portal/operator/FacetDoorList.astro',
   'src/components/admin/EntityContactRow.astro',
   'src/components/admin/EntityIdentityStrip.astro',
   'src/components/admin/HostedAgentQueueCard.astro',
