@@ -13,7 +13,6 @@ metadata:
     tags: [Marketing, Agency, ScopeOps, DraftForReview]
   smd:
     vertical: marketing-agency
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
       - slack

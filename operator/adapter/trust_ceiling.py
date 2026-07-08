@@ -44,7 +44,13 @@ class ActionClass(str, enum.Enum):
 
     READ = "read"  # Always allowed
     INTERNAL_WRITE = "internal_write"  # Notes, drafts, internal state — autonomous OK
-    EXTERNAL_SEND = "external_send"  # Email, SMS, Slack-to-external, posts — gated
+    EXTERNAL_SEND = "external_send"  # Send to a NON-roster (outside) recipient — gated
+    # Send to a human-rostered INTERNAL recipient (the firm's own staff). Its own
+    # authored, fail-closed exposure ceiling — so "an assistant that needs a click
+    # to answer staff isn't one" is authorable without opening outside sends. The
+    # recipient axis is resolved upstream (recipient_classifier.send_action_class);
+    # an UNCLASSIFIABLE recipient is a hard error there, never routed here as a draft.
+    EXTERNAL_SEND_INTERNAL = "external_send_internal"
     COMMITMENT = "commitment"  # Sign, accept terms, agree to dates — never autonomous
     DESTRUCTIVE = "destructive"  # Delete, drop, irreversible — explicit per-call approval
     CODE_EXECUTION = "code_execution"  # Arbitrary code / shell / subagent — authored-only, fail-closed
@@ -94,8 +100,11 @@ def _unauthored_resolution(action: ActionClass, skill_ceiling: Ceiling) -> Ceili
         return Ceiling.AUTONOMOUS
     if action == ActionClass.INTERNAL_WRITE:
         return skill_ceiling
-    # EXTERNAL_SEND and any unrecognized entitled class: no authored grant means
-    # no action (ADR 0035 fail-closed). COMMITMENT / DESTRUCTIVE additionally
+    # EXTERNAL_SEND, EXTERNAL_SEND_INTERNAL, and any unrecognized entitled class:
+    # no authored grant means no action (ADR 0035 fail-closed). A rostered internal
+    # send is NOT autonomous-by-default — the engagement must author
+    # external_send_internal, exactly like the outside class; unauthored is refused,
+    # never a silent draft or a silent send. COMMITMENT / DESTRUCTIVE additionally
     # carry their own current-turn-approval reversibility floors in enforce().
     return Ceiling.REFUSED
 
@@ -168,6 +177,7 @@ def enforce(
     # pre_tool_call gate; here for parity (the two cores must agree).
     if inbound_trust_class != _TRUST_CLASS_INTERNAL and action in (
         ActionClass.EXTERNAL_SEND,
+        ActionClass.EXTERNAL_SEND_INTERNAL,
         ActionClass.DESTRUCTIVE,
         ActionClass.COMMITMENT,
         ActionClass.CODE_EXECUTION,
@@ -237,29 +247,35 @@ def enforce(
             )
         return EnforcementDecision(allowed=True, reason="destructive with current-turn approval", audit_action="allow")
 
-    # EXTERNAL_SEND: governed by the resolved per-action ceiling (ADR 0025/0035).
-    # autonomous → send; draft_for_review (an AUTHORED value) → draft; refused →
-    # block. Unauthored external_send is fail-closed (refused), not draft (ADR
-    # 0035 — no imposed default). No in-turn-approval escape: exposure autonomy is
-    # configured, not approved per message.
-    if action == ActionClass.EXTERNAL_SEND:
+    # EXTERNAL_SEND / EXTERNAL_SEND_INTERNAL: each governed by its OWN resolved
+    # per-action ceiling (ADR 0025/0035). The recipient axis is decided upstream
+    # (recipient_classifier) — by the time a send reaches here it is already typed
+    # as the outside class (external_send) or the rostered class
+    # (external_send_internal); an unclassifiable recipient never reaches here (it
+    # is a hard error at the router). autonomous → send; draft_for_review (an
+    # AUTHORED value) → draft; refused → block. Unauthored is fail-closed (refused),
+    # not draft (ADR 0035 — no imposed default). No in-turn-approval escape:
+    # exposure autonomy is configured, not approved per message. A rostered send is
+    # recipient-locked to the classified roster recipient — the classifier, not this
+    # branch, enforces that lock.
+    if action in (ActionClass.EXTERNAL_SEND, ActionClass.EXTERNAL_SEND_INTERNAL):
         eff = resolve_ceiling(action, ceiling, action_ceilings, vertical_floors)
         if eff == Ceiling.AUTONOMOUS:
             return EnforcementDecision(
                 allowed=True,
-                reason="external_send permitted: configured ceiling is autonomous",
+                reason=f"{action.value} permitted: configured ceiling is autonomous",
                 audit_action="allow",
             )
         if eff == Ceiling.REFUSED:
             return EnforcementDecision(
                 allowed=False,
-                reason="external_send refused: configured ceiling (or vertical floor) is refused",
+                reason=f"{action.value} refused: configured ceiling (or vertical floor) is refused",
                 audit_action="refuse",
             )
         # draft_for_review — an AUTHORED draft_for_review ceiling (not a default)
         return EnforcementDecision(
             allowed=False,
-            reason="external_send at authored draft_for_review ceiling; routing to draft",
+            reason=f"{action.value} at authored draft_for_review ceiling; routing to draft",
             audit_action="draft",
         )
 

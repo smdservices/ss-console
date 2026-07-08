@@ -27,7 +27,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: medium # a bounded multi-form assembly plus a GAL/hearing track and a lien chase; the read/match work is the bulk, the reasoning is small
-    trust_ceiling: draft_for_review # produces a staged packet for the attorney to finalize and file; never files, serves, computes the minor's net, or judges fee reasonableness
     action_class: read + internal_write # reads matter figures and documents; writes are the tracking task and the internal log (create_memo). No autonomous external send; the lien chase is drafted and surfaced for a human to send.
     content_ceiling: connective # collates authored figures into the forms' required structure; never legal work product, never a computed figure the attorney/Smokeball owns
     connectors:

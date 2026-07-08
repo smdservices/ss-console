@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: smd-intake
     weight: heavy # ADR 0049 — evidence-bound synthesis from a transcript; escalate to the seat's escalation model when one is authored
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     coverage_axis: observation-5-domain
     connectors: []

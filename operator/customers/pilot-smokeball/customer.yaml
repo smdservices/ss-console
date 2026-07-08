@@ -69,6 +69,7 @@ personas:
       exposure:
         internal_write: autonomous
         external_send: draft_for_review
+        external_send_internal: autonomous
         destructive: autonomous
     skills:
       # spine
@@ -332,55 +333,67 @@ personas:
     # bills tokens, so the cadence matches how fast each item actually changes.
     # All times are seat-local (business_hours.timezone -> HERMES_TIMEZONE):
     # authored as Pacific.
-    cron:
-      - skill: deadline-miss-escalator
-        schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: daily-needs-you-digest
-        schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: discovery-response-tracker
-        schedule: '17 7 * * 1-5' # weekday 0717 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: client-verification-tracker
-        schedule: '41 7 * * 1-5' # weekday 0741 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: motion-calendar-tracker
-        schedule: '27 7 * * 1-5' # weekday 0727 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: service-confirmation-watcher
-        schedule: '51 7 * * 1-5' # weekday 0751 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: medical-chronology-maintainer
-        schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: medical-records-chaser
-        schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: lien-ledger-tracker
-        schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: mediation-settlement-tracker
-        schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: minors-compromise-packet
-        schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: trial-binder-assembler
-        schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
+    # ---- CRON PAUSED 2026-07-08 (rehearsal between test cycles) ----
+    # Ashton & Price returned feedback on the litigation lifecycle; the skills
+    # below are about to be reworked, so the daily rehearsal was burning tokens
+    # (~$10-15/day) exercising soon-to-be-obsolete behavior. Paused to stop the
+    # waste. The machine stays warm (min_machines_running=1) so inbound email
+    # testing still works; only the scheduled wakes are silenced.
+    #
+    # TO RESTORE: uncomment the `cron:` block below, then re-materialize to the
+    # live seat with `operator/bin/reprovision.sh pilot-smokeball`. The change
+    # agent reworking the lifecycle should do this once the new behavior is
+    # ready to rehearse. (Validator treats a missing cron key as zero jobs.)
+    #
+    # cron:
+    #   - skill: deadline-miss-escalator
+    #     schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: daily-needs-you-digest
+    #     schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: discovery-response-tracker
+    #     schedule: '17 7 * * 1-5' # weekday 0717 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: client-verification-tracker
+    #     schedule: '41 7 * * 1-5' # weekday 0741 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: motion-calendar-tracker
+    #     schedule: '27 7 * * 1-5' # weekday 0727 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: service-confirmation-watcher
+    #     schedule: '51 7 * * 1-5' # weekday 0751 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: medical-chronology-maintainer
+    #     schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: medical-records-chaser
+    #     schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: lien-ledger-tracker
+    #     schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: mediation-settlement-tracker
+    #     schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: minors-compromise-packet
+    #     schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
+    #   - skill: trial-binder-assembler
+    #     schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
       - google-workspace

@@ -15,7 +15,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # a place-and-route mechanic; the reasoning is small, the discipline is in what it refuses
-    trust_ceiling: draft_for_review # the staging writes are gated and the target is surfaced for confirmation until the firm's convention is established and the write path is verified; raisable toward autonomous per the entitlement model once both are true
     action_class: read + internal_write # reads the matter; writes only inside the matter (folder/file placement, task, memo); no external send, ever
     content_ceiling: connective # it moves documents and routes them; it never authors the response or any legal work product
     connectors:

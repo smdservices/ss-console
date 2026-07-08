@@ -36,7 +36,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: medium # a bounded collation with a strict no-argument line; the read/match work is the bulk
-    trust_ceiling: draft_for_review # produces a staged artifact for the attorney to finalize and file; never files, serves, or authors argument
     action_class: read + internal_write # reads matter documents; the one write is the internal log (create_memo). No external send.
     content_ceiling: connective # collates authored components into a required structure; never legal work product, never argument
     connectors:

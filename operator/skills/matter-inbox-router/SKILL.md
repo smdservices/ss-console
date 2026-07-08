@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: respond + route (inbox coordinator)
-    trust_ceiling: draft_for_review
     action_class: read + reply + route
     connectors:
       - email # customer-bound (mcp:m365-mail in prod; build:google-gmail in the sandbox)

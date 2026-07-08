@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: drafting (relationship)
-    trust_ceiling: draft_for_review
     action_class: read + external_send
     connectors:
       - smokeball # PracticeManagement — matter → referral source contact (read)
