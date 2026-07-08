@@ -67,7 +67,7 @@ State the skill's authored ceiling for each recipient class it sends to, and def
 here for the rest. A law skill that emails clients: "outside sends are
 `draft_for_review` (the law-firm floor); internal alerts to rostered staff follow the
 authored `external_send_internal` ceiling — see `operator/references/send-posture.md`."
-Do not restate the floors, and never write the retired universal "drafts only."
+Do not restate the floors, and never re-introduce the retired universal framing.
 
 ## History — why the universal framing is banned
 

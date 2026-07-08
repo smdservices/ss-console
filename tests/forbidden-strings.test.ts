@@ -902,3 +902,93 @@ describe('calm register: UI-PATTERNS R8 enforcement', () => {
     expect(stale, `stale PENDING entries:\n${stale.join('\n')}`).toEqual([])
   })
 })
+
+describe('operator send-posture doctrine guard (recipient-aware send; ADR 0025/0035/0055)', () => {
+  // The "nothing ever sends" regression regrew every time from (a) the retired
+  // universal drafts-only doctrine re-taught in prose and (b) the vestigial
+  // per-skill trust_ceiling scalar. This block is the string-HYGIENE backstop;
+  // the anti-regression GUARANTEE is behavioral and lives in the golden
+  // enforcement tests (operator/adapter/tests/test_external_send_internal.py +
+  // test_recipient_classifier.py, and the overlay evaluate_tool_call tests) —
+  // drop the recipient classification and those go red with no banned string
+  // present. The one source is operator/references/send-posture.md.
+  const RETIRED_DOCTRINE: ReadonlyArray<{ re: RegExp; label: string }> = [
+    {
+      re: /no outbound external send without confirmation/i,
+      label: 'retired invariant-#2 wording',
+    },
+    { re: /agent drafts only/i, label: 'retired universal drafts-only framing' },
+    { re: /always draft-for-review/i, label: 'retired universal draft-for-review framing' },
+    { re: /drafts only unless/i, label: 'retired universal drafts-only framing' },
+  ]
+  const DOCTRINE_ROOTS = [
+    resolve('operator/skills'),
+    resolve('operator/references'),
+    resolve('operator/safety-substrate'),
+    resolve('operator/verticals'),
+    resolve('docs/specs/operator'),
+  ]
+
+  function collectDoctrineFiles(dir: string): string[] {
+    const out: string[] = []
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return out
+    }
+    for (const entry of entries) {
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- dir is a hardcoded repo root; entry is readdirSync output, not user input (same pattern as collectSourceFiles above).
+      const full = join(dir, entry)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      // Skip test fixtures — they legitimately narrate the retired doctrine when
+      // documenting the reform (e.g. the invariant-2 test docstring).
+      if (st.isDirectory()) {
+        if (entry === 'tests') continue
+        out.push(...collectDoctrineFiles(full))
+      } else if (/\.(md|py)$/.test(entry)) {
+        out.push(full)
+      }
+    }
+    return out
+  }
+
+  it('no retired universal drafts-only doctrine wording (defer to send-posture.md)', () => {
+    const violations: string[] = []
+    for (const root of DOCTRINE_ROOTS) {
+      for (const file of collectDoctrineFiles(root)) {
+        const content = readFileSync(file, 'utf-8')
+        const rel = file.replace(resolve('.') + '/', '')
+        for (const { re, label } of RETIRED_DOCTRINE) {
+          if (re.test(content)) violations.push(`${rel}: ${label}`)
+        }
+      }
+    }
+    expect(
+      violations,
+      `retired send-posture doctrine re-introduced:\n${violations.join('\n')}\n` +
+        `State the authored ceiling and defer to operator/references/send-posture.md.`
+    ).toEqual([])
+  })
+
+  it('no SKILL.md carries the retired metadata.smd.trust_ceiling scalar (ADR 0056)', () => {
+    const offenders: string[] = []
+    for (const file of collectDoctrineFiles(resolve('operator/skills'))) {
+      if (!file.endsWith('SKILL.md')) continue
+      const content = readFileSync(file, 'utf-8')
+      if (/^\s*trust_ceiling:/m.test(content)) {
+        offenders.push(file.replace(resolve('.') + '/', ''))
+      }
+    }
+    expect(
+      offenders,
+      `retired per-skill trust_ceiling scalar (replaced by persona exposure, ADR 0056):\n` +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+})
