@@ -8,6 +8,8 @@ import {
 } from '../../../../lib/portal/product-access'
 import PromotionCardList from '../../../../components/portal/operator/PromotionCardList.astro'
 import OperatorHero from '../../../../components/portal/operator/facets/OperatorHero.astro'
+import Card from '../../../../components/portal/Card.astro'
+import CardHeader from '../../../../components/portal/CardHeader.astro'
 import { resolveOperatorHero } from '../../../../lib/portal/operator/facets/identity/hero'
 import {
   listPromotionReadySkills,
@@ -126,16 +128,11 @@ if (access) {
   // duplicated nav items already present (Connections, Team) and is noise for a
   // running operator (ADR 0069 sub-page coherence pass). The onboarding page
   // still exists by URL; it is simply not featured.
-  const ACTIVE_DOER_ROLES = ['staff', 'principal']
-  const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
-  if (canAct) {
-    sectionCards.push({
-      href: '/portal/products/operator/calendar',
-      label: 'Calendar',
-      description: 'Appointments and deadlines your Operator has scheduled or proposed.',
-      group: 'direct',
-    })
-  }
+  // "Calendar" removed from the landing: it was a dead stub (a filter over no
+  // data) that conflated a calendar of appointments with scheduling the
+  // operator's recurring jobs. The real need is a Schedule view of authored
+  // crons, built separately. The page still exists by URL (ADR 0069 sub-page
+  // coherence pass).
   sectionCards.push({
     href: '/portal/products/operator/activity',
     label: 'Activity',
@@ -261,16 +258,14 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
 >
   {
     /* A console lead, not a marketing masthead: the nav tab and the hero below
-      already say "Operator", so we drop the oversized wordmark and keep only a
-      quiet breadcrumb (ADR 0069 landing restructure). */
+      already say "Operator", so we keep only a quiet breadcrumb. Calm register
+      (UI-PATTERNS Rule 8): a text-label crumb, no black-weight arrow. */
   }
   <a
     href="/portal"
-    class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 md:text-sm"
+    class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 text-label uppercase text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
   >
-    <span aria-hidden="true" class="font-body font-black text-[color:var(--ss-color-primary)]"
-      >←</span
-    >
+    <span aria-hidden="true" class="text-[color:var(--color-text-muted)]">←</span>
     Home
   </a>
 
@@ -278,10 +273,10 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
     crMessage && (
       <div
         role="status"
-        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+        class={`mt-6 rounded-card border p-4 text-caption font-medium ${
           crTone === 'complete'
-            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
-            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+            ? 'border-[color:var(--color-complete)] text-[color:var(--color-complete)]'
+            : 'border-[color:var(--color-error)] text-[color:var(--color-error)]'
         }`}
       >
         {crMessage}
@@ -291,56 +286,48 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
 
   {
     surfaceState === 'no_subscription' && (
-      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-          Not subscribed
-        </p>
-        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+      <Card class="mt-10 text-center">
+        <p class="text-title text-[color:var(--color-text-primary)]">Not subscribed</p>
+        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
           Your account doesn't include the Operator product. Contact us if you'd like to talk about
           adding it.
         </p>
-      </div>
+      </Card>
     )
   }
 
   {
     surfaceState === 'provisioning' && (
-      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-          Setup in progress
-        </p>
-        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+      <Card class="mt-10 text-center">
+        <p class="text-title text-[color:var(--color-text-primary)]">Setup in progress</p>
+        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
           Your Operator is being configured.
         </p>
-      </div>
+      </Card>
     )
   }
 
   {
     surfaceState === 'paused' && (
-      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-          Paused
-        </p>
-        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+      <Card class="mt-10 text-center">
+        <p class="text-title text-[color:var(--color-text-primary)]">Paused</p>
+        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
           Your Operator subscription is paused. Audit history remains accessible; new drafts are
           suspended until the subscription resumes.
         </p>
-      </div>
+      </Card>
     )
   }
 
   {
     surfaceState === 'no_role' && (
-      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-          Access pending
-        </p>
-        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+      <Card class="mt-10 text-center">
+        <p class="text-title text-[color:var(--color-text-primary)]">Access pending</p>
+        <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
           The Operator is set up for your firm, but you haven't been granted a role yet. Contact
           your firm's principal to be added.
         </p>
-      </div>
+      </Card>
     )
   }
 
@@ -357,72 +344,57 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
         {homeFeeds && (
           <section class="mt-8 flex flex-col gap-8" aria-label="What's happening">
             {homeFeeds.needsAttentionCount > 0 && (
-              <section class="border-[3px] border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                  What needs you
-                </div>
-                <a
-                  href="/portal/products/operator/activity"
-                  class="block px-5 md:px-7 py-5 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                >
-                  <p class="font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                    {homeFeeds.needsAttentionCount}{' '}
-                    {homeFeeds.needsAttentionCount === 1 ? 'item needs' : 'items need'} your review
-                  </p>
-                </a>
-              </section>
+              <Card href="/portal/products/operator/activity" ariaLabel="Items need your review">
+                <p class="text-label uppercase text-[color:var(--color-action)]">What needs you</p>
+                <p class="mt-1 text-heading text-[color:var(--color-text-primary)]">
+                  {homeFeeds.needsAttentionCount}{' '}
+                  {homeFeeds.needsAttentionCount === 1 ? 'item needs' : 'items need'} your review
+                </p>
+              </Card>
             )}
 
-            <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-              <div class="flex items-center justify-between gap-4 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5">
-                <span class="font-mono text-label uppercase tracking-[0.18em] font-bold">
-                  Recent activity
-                </span>
-                <a
-                  href="/portal/products/operator/activity"
-                  class="font-mono text-label uppercase tracking-[0.14em] font-bold underline underline-offset-2 hover:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-background)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-text-primary)]"
-                >
-                  Full record
-                </a>
-              </div>
+            <Card>
+              <CardHeader
+                title="Recent activity"
+                actionLabel="Full record"
+                actionHref="/portal/products/operator/activity"
+              />
               {homeFeeds.recentActivity.length === 0 ? (
-                <p class="px-5 md:px-7 py-8 text-sm text-[color:var(--ss-color-text-secondary)]">
+                <p class="mt-stack text-caption text-[color:var(--color-text-secondary)]">
                   No activity to show yet.
                 </p>
               ) : (
-                <ul role="list" class="divide-y-[2px] divide-[color:var(--ss-color-border)]">
-                  {homeFeeds.recentActivity.map((item) => (
-                    <li class="px-5 md:px-7 py-4">
-                      <p class="text-sm text-[color:var(--ss-color-text-primary)]">
-                        {item.summary}
-                      </p>
-                      <p class="mt-1 font-mono text-xs text-[color:var(--ss-color-text-secondary)]">
+                <ul role="list" class="mt-stack">
+                  {homeFeeds.recentActivity.map((item, i) => (
+                    <li
+                      class={`py-3 ${i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''}`}
+                    >
+                      <p class="text-body text-[color:var(--color-text-primary)]">{item.summary}</p>
+                      <p class="mt-1 text-caption text-[color:var(--color-text-muted)]">
                         {formatAuditTimestamp(item.at)}
                       </p>
                     </li>
                   ))}
                 </ul>
               )}
-            </section>
+            </Card>
 
             {homeFeeds.escalations.length > 0 && (
-              <section class="border-[3px] border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)]">
-                <div class="bg-[color:var(--ss-color-error)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                  Escalations
-                </div>
-                <ul role="list" class="divide-y-[2px] divide-[color:var(--ss-color-border)]">
-                  {homeFeeds.escalations.map((item) => (
-                    <li class="px-5 md:px-7 py-4">
-                      <p class="text-sm text-[color:var(--ss-color-text-primary)]">
-                        {item.summary}
-                      </p>
-                      <p class="mt-1 font-mono text-xs text-[color:var(--ss-color-text-secondary)]">
+              <Card ariaLabel="Escalations">
+                <CardHeader title="Escalations" />
+                <ul role="list" class="mt-stack">
+                  {homeFeeds.escalations.map((item, i) => (
+                    <li
+                      class={`py-3 ${i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''}`}
+                    >
+                      <p class="text-body text-[color:var(--color-text-primary)]">{item.summary}</p>
+                      <p class="mt-1 text-caption text-[color:var(--color-text-muted)]">
                         {formatAuditTimestamp(item.at)}
                       </p>
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Card>
             )}
           </section>
         )}
@@ -436,34 +408,36 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
               if (items.length === 0) return null
               return (
                 <div>
-                  <p class="mb-1 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                  <p class="mb-2 text-label uppercase text-[color:var(--color-text-muted)]">
                     {grp.label}
                   </p>
-                  <ul role="list" class="border-t-[2px] border-[color:var(--ss-color-border)]">
-                    {items.map((s) => (
-                      <li>
-                        <a
-                          href={s.href}
-                          class="group flex items-center justify-between gap-6 border-b-[2px] border-[color:var(--ss-color-border)] py-4 transition-colors hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                        >
-                          <div class="min-w-0">
-                            <p class="font-body text-base font-bold text-[color:var(--ss-color-text-primary)]">
-                              {s.label}
-                            </p>
-                            <p class="mt-0.5 text-sm text-[color:var(--ss-color-text-secondary)]">
-                              {s.description}
-                            </p>
-                          </div>
-                          <span
-                            aria-hidden="true"
-                            class="font-body font-black text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-1"
+                  <Card padded={false}>
+                    <ul role="list">
+                      {items.map((s, i) => (
+                        <li>
+                          <a
+                            href={s.href}
+                            class={`group flex items-center justify-between gap-6 p-card transition-colors hover:bg-[color:var(--color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset ${i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''}`}
                           >
-                            →
-                          </span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                            <div class="min-w-0">
+                              <p class="text-body font-semibold text-[color:var(--color-text-primary)]">
+                                {s.label}
+                              </p>
+                              <p class="mt-0.5 text-caption text-[color:var(--color-text-secondary)]">
+                                {s.description}
+                              </p>
+                            </div>
+                            <span
+                              aria-hidden="true"
+                              class="text-[color:var(--color-text-muted)] transition-transform group-hover:translate-x-0.5"
+                            >
+                              →
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
                 </div>
               )
             })}

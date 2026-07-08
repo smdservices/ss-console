@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'fs'
+import { readdirSync, readFileSync, statSync, existsSync } from 'fs'
 import { resolve, join, extname } from 'path'
 
 const SRC_ROOT = resolve('src')
@@ -778,5 +778,127 @@ describe('operator client-portal surfaces stay vertical-agnostic (ADR 0052)', ()
       }
     }
     expect(violations, violations.join('\n')).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Calm register — UI-PATTERNS Rule 8 enforcement.
+//
+// The console (client portal + admin) renders in the calm Plainspoken
+// register: white raised cards, hairline borders, sentence-case headings.
+// The loud markers below are the marketing register bleeding into a console
+// and are banned on every migrated console surface.
+//
+// CALM_REGISTER_PENDING is the set of console files still permitted to be
+// loud. It starts as the full loud-file set and SHRINKS with each migration
+// slice; the end state is an empty list — whole console calm, guard fully
+// enforcing. The list only shrinks. New console files are enforced from day
+// one (they are not in PENDING), so loudness cannot re-enter the codebase.
+// ---------------------------------------------------------------------------
+const CONSOLE_ROOTS = [
+  resolve('src/pages/portal'),
+  resolve('src/components/portal'),
+  resolve('src/pages/admin'),
+  resolve('src/components/admin'),
+]
+
+const LOUD_MARKERS: { re: RegExp; label: string }[] = [
+  { re: /border-\[3px\]/, label: 'border-[3px] (use `border` / --color-border hairline)' },
+  { re: /\bfont-black\b/, label: 'font-black (use text-title/text-heading token weights)' },
+]
+
+// Comments are stripped (via the shared stripComments above) before scanning
+// so a file that merely *documents* a loud marker — like the primitives' doc
+// blocks — is not flagged. Only real class usage should trip the guard.
+const CALM_REGISTER_PENDING: string[] = [
+  'src/components/admin/EntityContactRow.astro',
+  'src/components/admin/EntityIdentityStrip.astro',
+  'src/components/admin/HostedAgentQueueCard.astro',
+  'src/components/portal/HomeOfferingCard.astro',
+  'src/components/portal/operator/AuditEntryRow.astro',
+  'src/components/portal/operator/AuditFilterBar.astro',
+  'src/components/portal/operator/AuditLogTable.astro',
+  'src/components/portal/operator/CalendarAgenda.astro',
+  'src/components/portal/operator/CalendarItemRow.astro',
+  'src/components/portal/operator/ConnectionRowCard.astro',
+  'src/components/portal/operator/ConnectorStatusSection.astro',
+  'src/components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/ConnectorRow.astro',
+  'src/components/portal/operator/customer-yaml-editor/ConnectorsFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/EscalationFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/PersonaFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/PersonaRow.astro',
+  'src/components/portal/operator/customer-yaml-editor/ScopeFields.astro',
+  'src/components/portal/operator/PromotionCard.astro',
+  'src/components/portal/operator/SkillTogglesSection.astro',
+  'src/components/portal/operator/TrustCeilingSection.astro',
+  'src/components/portal/operator/VoiceSamplesSection.astro',
+  'src/components/portal/PortalListItem.astro',
+  'src/components/portal/PortalPageHead.astro',
+  'src/components/portal/QuoteProposalSections.astro',
+  'src/pages/admin/hosted-agent/index.astro',
+  'src/pages/portal/billing/index.astro',
+  'src/pages/portal/engagement/[id].astro',
+  'src/pages/portal/engagement/documents/index.astro',
+  'src/pages/portal/engagement/index.astro',
+  'src/pages/portal/engagement/proposals/[id].astro',
+  'src/pages/portal/index.astro',
+  'src/pages/portal/products/hosted-agent/api-key.astro',
+  'src/pages/portal/products/hosted-agent/index.astro',
+  'src/pages/portal/products/hosted-agent/intake.astro',
+  'src/pages/portal/products/operator/account/index.astro',
+  'src/pages/portal/products/operator/activity/index.astro',
+  'src/pages/portal/products/operator/calendar/index.astro',
+  'src/pages/portal/products/operator/compliance/index.astro',
+  'src/pages/portal/products/operator/configure/index.astro',
+  'src/pages/portal/products/operator/connections/index.astro',
+  'src/pages/portal/products/operator/onboarding/index.astro',
+  'src/pages/portal/products/operator/settings/advanced/index.astro',
+  'src/pages/portal/products/operator/settings/index.astro',
+  'src/pages/portal/products/operator/settings/users.astro',
+  'src/pages/portal/products/operator/team/index.astro',
+]
+
+// PENDING entries are repo-relative paths; the collected files are absolute.
+// relOf normalizes an absolute path to the repo-relative form for comparison
+// (constant `resolve('.')` only — no variable ever enters path.join/resolve).
+function relOf(absPath: string): string {
+  return absPath.replace(resolve('.') + '/', '')
+}
+
+describe('calm register: UI-PATTERNS R8 enforcement', () => {
+  const migrated = CONSOLE_ROOTS.flatMap((root) =>
+    existsSync(root) ? collectSourceFiles(root) : []
+  ).filter((f) => !CALM_REGISTER_PENDING.includes(relOf(f)))
+
+  it('finds migrated console files to check (sanity)', () => {
+    expect(migrated.length).toBeGreaterThan(0)
+  })
+
+  for (const file of migrated) {
+    const rel = relOf(file)
+    it(`${rel} — no loud markers (Rule 8)`, () => {
+      const src = stripComments(readFileSync(file, 'utf-8'))
+      const hits = LOUD_MARKERS.filter(({ re }) => re.test(src)).map(({ label }) => label)
+      expect(hits, `${rel} still loud: ${hits.join(', ')}`).toEqual([])
+    })
+  }
+
+  // Keep PENDING honest: every entry must still exist AND still be loud. Once a
+  // file is migrated clean, it MUST be removed from PENDING (else the list would
+  // silently mask a now-clean file and the guard would never enforce it). The
+  // relative paths are read relative to cwd (tests run from the repo root).
+  it('CALM_REGISTER_PENDING has no stale entries (migrated files must be removed)', () => {
+    const stale: string[] = []
+    for (const rel of CALM_REGISTER_PENDING) {
+      if (!existsSync(rel)) {
+        stale.push(`${rel} (no longer exists)`)
+        continue
+      }
+      const src = stripComments(readFileSync(rel, 'utf-8'))
+      const stillLoud = LOUD_MARKERS.some(({ re }) => re.test(src))
+      if (!stillLoud) stale.push(`${rel} (now clean — remove from PENDING)`)
+    }
+    expect(stale, `stale PENDING entries:\n${stale.join('\n')}`).toEqual([])
   })
 })
