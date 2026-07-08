@@ -51,7 +51,6 @@ import enum
 import unicodedata
 from collections.abc import Iterable, Sequence
 
-
 # Action-class strings the send router selects. These MUST equal the
 # ``ActionClass`` ``.value`` strings in ``operator/adapter/trust_ceiling.py`` (ss)
 # and ``shared/action_classes.py`` (overlay) — the shared vocabulary carried
