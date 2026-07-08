@@ -1,45 +1,97 @@
 ---
 /**
- * Operator hero — the shared "meet your operator" lead (ADR 0069 Slice 2).
+ * Operator STATUS block — the shared "is it OK?" lead (ADR 0069; landing brief
+ * 2026-07-08). Health-led: the persona is a small line, the operator's health is
+ * the headline. Answers the first of the landing's three questions at a glance.
  *
- * Renders who the operator is (persona identity) and whether it is alive and
- * in-bounds (the aliveness signal, via AlivenessHeader). ONE shared component,
- * mounted in both portals per Lock 4; the facet registry points the `identity`
- * and `status` facets at the resolver this consumes
+ * ONE shared component, mounted in both portals per Lock 4; the facet registry
+ * points the `identity` and `status` facets at the resolver this consumes
  * (lib/portal/operator/facets/identity/hero.ts).
  *
- * Calm register (UI-PATTERNS Rule 8): a raised Card, a mono `text-label`
- * eyebrow, the persona name in sentence case at `text-title`, and the aliveness
- * signal as a calm inline status — no loud 3px rules or black-uppercase name.
- *
- * Identity is authored config — nothing fabricated. With no active persona the
- * headline falls back to the generic label "Your operator" (a label, not an
- * authored value), and a null aliveness signal renders AlivenessHeader's silent
- * empty state (never a fabricated "healthy" chip).
+ * Honesty: identity is authored config (no fabrication; falls back to the generic
+ * "Your operator" label). Health is the real aliveness signal — when the runtime
+ * bridge has no data (`aliveness === null`) the block says so plainly rather than
+ * fabricating a healthy state. Only operator problems surface here (paused /
+ * offline); business work never does (landing brief §5).
  */
 import Card from '../../Card.astro'
-import AlivenessHeader from '../AlivenessHeader.astro'
+import StatusDot from '../../StatusDot.astro'
+import {
+  formatLastActionRelative,
+  formatLastActionAbsolute,
+  needsEscalationAffordance,
+  type AlivenessLevel,
+} from '../../../../lib/portal/operator/aliveness'
+import type { Tone } from '../../../../lib/portal/status'
 import type { OperatorHeroModel } from '../../../../lib/portal/operator/facets/identity/hero'
 
 interface Props {
   model: OperatorHeroModel
-  /** Passed through to AlivenessHeader's escalation affordance; null is fine. */
+  /** Escalation target for the two unhealthy states; null falls back to settings. */
   escalationHref?: string | null
 }
 
 const { model, escalationHref = null } = Astro.props
 const displayName = model.name ?? 'Your operator'
+const personaLine = model.title ? `${displayName} · ${model.title}` : displayName
+
+// Client-facing health headline for each aliveness level. Healthy states read as
+// reassurance; the two problem states name the problem and offer the fix.
+const HEALTH: Record<AlivenessLevel, { headline: string; tone: Tone; problem: boolean }> = {
+  idle: { headline: 'Running normally', tone: 'success', problem: false },
+  running: { headline: 'Working now', tone: 'success', problem: false },
+  sticky_stop: { headline: 'Paused, needs your attention', tone: 'danger', problem: true },
+  offline: { headline: 'Offline, needs your attention', tone: 'danger', problem: true },
+}
+
+const signal = model.aliveness
+const level = signal?.level ?? null
+const health = level ? HEALTH[level] : null
+const lastRel = signal ? formatLastActionRelative(signal.lastActionAt) : null
+const lastAbs = signal ? formatLastActionAbsolute(signal.lastActionAt) : null
+const currentSkill = signal?.level === 'running' ? signal.currentSkill : null
+const stickyReason = signal?.level === 'sticky_stop' ? signal.stickyStopReason : null
+const showEscalation = level ? needsEscalationAffordance(level) : false
+const escalationTarget = escalationHref ?? '/portal/products/operator/settings'
 ---
 
-<Card class="mt-8" ariaLabel="Operator identity and status">
-  <p class="text-label uppercase text-[color:var(--color-text-muted)]">Your operator</p>
-  <h2 class="mt-1 text-title text-[color:var(--color-text-primary)]">{displayName}</h2>
+<Card ariaLabel="Operator status">
+  <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-muted)]">
+    {personaLine}
+  </p>
+
   {
-    model.title && (
-      <p class="mt-1 text-caption text-[color:var(--color-text-secondary)]">{model.title}</p>
+    health ? (
+      <>
+        <div class="mt-2 flex items-center gap-2.5">
+          <StatusDot tone={health.tone} />
+          <h2 class="text-title text-[color:var(--color-text-primary)]">{health.headline}</h2>
+        </div>
+        {stickyReason && (
+          <p class="mt-2 text-caption text-[color:var(--color-text-secondary)]">{stickyReason}</p>
+        )}
+        {(currentSkill || lastRel) && (
+          <p
+            class="mt-2 text-caption text-[color:var(--color-text-secondary)]"
+            title={lastAbs ?? undefined}
+          >
+            {currentSkill ? `${currentSkill} · ` : ''}
+            {lastRel ? `Last action ${lastRel}` : ''}
+          </p>
+        )}
+        {showEscalation && (
+          <a
+            href={escalationTarget}
+            class="mt-4 inline-flex min-h-11 items-center border border-[color:var(--color-text-primary)] bg-[color:var(--color-text-primary)] px-4 text-caption font-semibold text-[color:var(--color-background)] transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+          >
+            Contact your consultant
+          </a>
+        )}
+      </>
+    ) : (
+      <p class="mt-2 text-caption text-[color:var(--color-text-secondary)]">
+        Live status isn't reporting yet.
+      </p>
     )
   }
-  <div class="mt-4">
-    <AlivenessHeader signal={model.aliveness} escalationHref={escalationHref} />
-  </div>
 </Card>

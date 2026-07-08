@@ -1,0 +1,62 @@
+---
+/**
+ * FacetDoorList — the calm-register list of operator facet doors (ADR 0069;
+ * landing brief 2026-07-08). One raised card, hairline-divided rows.
+ *
+ * A door with an `href` is a link (arrow + optional real status hint). A door
+ * with `href: null` renders as a non-interactive, muted row marked "Not yet
+ * available" — the facet is on the map but its page isn't built, and we never
+ * fabricate a destination or promise a date.
+ */
+import type { FacetDoor } from '../../../lib/portal/operator/facet-doors'
+
+interface Props {
+  doors: FacetDoor[]
+}
+
+const { doors } = Astro.props
+---
+
+<div class="border border-[color:var(--color-border)] bg-surface-raised">
+  {
+    doors.map((d, i) => {
+      const divider = i > 0 ? 'border-t border-[color:var(--color-border-subtle)]' : ''
+      return d.href ? (
+        <a
+          href={d.href}
+          class={`group flex items-center justify-between gap-6 p-card transition-colors hover:bg-[color:var(--color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset ${divider}`}
+        >
+          <div class="min-w-0">
+            <p class="text-body font-semibold text-[color:var(--color-text-primary)]">{d.label}</p>
+            <p class="mt-0.5 text-caption text-[color:var(--color-text-secondary)]">{d.desc}</p>
+          </div>
+          <div class="flex flex-none items-center gap-3">
+            {d.status && (
+              <span class="font-mono text-label uppercase tracking-[0.1em] text-[color:var(--color-error)]">
+                {d.status}
+              </span>
+            )}
+            <span
+              aria-hidden="true"
+              class="text-[color:var(--color-text-muted)] transition-transform group-hover:translate-x-0.5"
+            >
+              →
+            </span>
+          </div>
+        </a>
+      ) : (
+        <div class={`flex items-center justify-between gap-6 p-card ${divider}`}>
+          <div class="min-w-0">
+            <p class="text-body font-semibold text-[color:var(--color-text-secondary)]">
+              {d.label}
+            </p>
+            <p class="mt-0.5 text-caption text-[color:var(--color-text-muted)]">{d.desc}</p>
+          </div>
+          <span class="flex-none font-mono text-label uppercase tracking-[0.1em] text-[color:var(--color-text-muted)]">
+            Not yet available
+          </span>
+        </div>
+      )
+    })
+  }
+</div>
