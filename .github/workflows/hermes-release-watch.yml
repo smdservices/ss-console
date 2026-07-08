@@ -1,0 +1,80 @@
+# Hermes upstream release-watch (ADR 0024 — the lightweight "stay current" signal).
+#
+# WHY: the fleet drifted 7 weeks / 4 minor versions behind Hermes because the
+# cadence was manual ("Captain notices on Discord"). ADR 0024's full CI->GHCR
+# golden-image + candidate-build pipeline is over-engineering for a handful of
+# SMD-own seats; the right-sized fix is a habit, not a factory. This job is that
+# habit: it opens a tracking issue when NousResearch/hermes-agent ships a tag
+# different from the one the fleet is pinned to, so the pin can never silently
+# rot again. Promotion stays a deliberate, staged human decision (see
+# docs/runbooks/operator/hermes-v0.18-upgrade-plan.md). Build the pipeline the
+# day seat count actually demands it, not before.
+name: hermes-release-watch
+
+on:
+  schedule:
+    # Weekly, Monday 14:17 UTC (off the :00 mark). Hermes ships ~weekly.
+    - cron: '17 14 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Compare upstream latest vs blessed fleet pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Blessed fleet pin = the Dockerfile HERMES_UPSTREAM_TAG default
+          # (the standing default that new seats provision at).
+          BLESSED_TAG="$(grep -oE 'ARG HERMES_UPSTREAM_TAG=[^ ]+' operator/templates/Dockerfile | head -1 | cut -d= -f2)"
+          [ -n "$BLESSED_TAG" ] || { echo "could not read blessed HERMES_UPSTREAM_TAG from Dockerfile" >&2; exit 1; }
+
+          # Latest non-prerelease upstream release tag.
+          LATEST_TAG="$(gh api repos/NousResearch/hermes-agent/releases --jq '[.[] | select(.prerelease==false)][0].tag_name')"
+          [ -n "$LATEST_TAG" ] || { echo "could not read latest upstream release tag" >&2; exit 1; }
+
+          echo "blessed=$BLESSED_TAG latest=$LATEST_TAG"
+
+          if [ "$LATEST_TAG" = "$BLESSED_TAG" ]; then
+            echo "Fleet is current with upstream ($BLESSED_TAG). No action."
+            exit 0
+          fi
+
+          # Different tag upstream. Open a tracking issue unless one already
+          # exists for this exact latest tag (idempotent — no weekly duplicates).
+          EXISTING="$(gh issue list --state open --label hermes-release-watch --search "$LATEST_TAG in:title" --json number --jq 'length')"
+          if [ "${EXISTING:-0}" != "0" ]; then
+            echo "Tracking issue for $LATEST_TAG already open. No action."
+            exit 0
+          fi
+
+          # Ensure the label exists (idempotent).
+          gh label create hermes-release-watch --color 1D76DB --description "Upstream Hermes release the fleet is behind" 2>/dev/null || true
+
+          REL_URL="https://github.com/NousResearch/hermes-agent/releases/tag/$LATEST_TAG"
+          BODY_FILE="$(mktemp)"
+          printf '%s\n' \
+            "Upstream **$LATEST_TAG** has shipped; the SMD Operator fleet is blessed at **$BLESSED_TAG**." \
+            "" \
+            "This is a signal, not an auto-upgrade. Evaluate and promote deliberately per the staged runbook \`docs/runbooks/operator/hermes-v0.18-upgrade-plan.md\` (hook-surface diff, build, boot-smoke, staged rollout, bless)." \
+            "" \
+            "- Release notes: $REL_URL" \
+            "- All tags: https://github.com/NousResearch/hermes-agent/tags" \
+            "" \
+            "Close this issue once the fleet is promoted (or a deliberate hold is recorded)." \
+            > "$BODY_FILE"
+
+          gh issue create \
+            --title "Hermes upstream $LATEST_TAG available (fleet blessed at $BLESSED_TAG)" \
+            --label hermes-release-watch \
+            --body-file "$BODY_FILE"
+          echo "Opened tracking issue for $LATEST_TAG."
