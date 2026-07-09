@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 class Ceiling(str, enum.Enum):
     AUTONOMOUS = "autonomous"
+    CONFIRM = "confirm"  # external_send: execute after an explicit current-turn approval (ADR 0071)
     DRAFT_FOR_REVIEW = "draft_for_review"
     REFUSED = "refused"
 
@@ -66,7 +67,7 @@ _TRUST_CLASS_INTERNAL = "internal"
 class EnforcementDecision:
     allowed: bool
     reason: str
-    audit_action: str  # "allow" | "draft" | "refuse"
+    audit_action: str  # "allow" | "draft" | "refuse" | "await_approval"
 
 
 # Restrictiveness ordering: higher number == more restrictive. Used to pick
@@ -74,8 +75,9 @@ class EnforcementDecision:
 # vertical-pack floor (a floor can only narrow, never widen — ADR 0025).
 _RESTRICTIVENESS: dict[Ceiling, int] = {
     Ceiling.AUTONOMOUS: 0,
-    Ceiling.DRAFT_FOR_REVIEW: 1,
-    Ceiling.REFUSED: 2,
+    Ceiling.CONFIRM: 1,
+    Ceiling.DRAFT_FOR_REVIEW: 2,
+    Ceiling.REFUSED: 3,
 }
 
 
@@ -156,8 +158,11 @@ def enforce(
     `current_turn_approval` is True iff the operator explicitly approved this
     specific action in the current invocation. Approvals from prior turns or
     prior sessions are NOT valid (safety invariant #1). It gates the
-    reversibility classes (COMMITMENT, DESTRUCTIVE); `external_send` autonomy is
-    governed by the configured ceiling, not by an in-turn approval (ADR 0025).
+    reversibility classes (COMMITMENT, DESTRUCTIVE) and, per ADR 0071, a send
+    at the `confirm` ceiling — the one exposure value that DOES consult an
+    in-turn approval. `external_send` at an `autonomous` ceiling still sends
+    without one; at `confirm` it sends only with one (else the send is withheld
+    pending approval); at `draft_for_review` it drafts (ADR 0025/0071).
     """
     # REFUSED ceiling: nothing executes
     if ceiling == Ceiling.REFUSED:
@@ -248,16 +253,16 @@ def enforce(
         return EnforcementDecision(allowed=True, reason="destructive with current-turn approval", audit_action="allow")
 
     # EXTERNAL_SEND / EXTERNAL_SEND_INTERNAL: each governed by its OWN resolved
-    # per-action ceiling (ADR 0025/0035). The recipient axis is decided upstream
+    # per-action ceiling (ADR 0025/0035/0071). The recipient axis is decided upstream
     # (recipient_classifier) — by the time a send reaches here it is already typed
     # as the outside class (external_send) or the rostered class
     # (external_send_internal); an unclassifiable recipient never reaches here (it
-    # is a hard error at the router). autonomous → send; draft_for_review (an
-    # AUTHORED value) → draft; refused → block. Unauthored is fail-closed (refused),
-    # not draft (ADR 0035 — no imposed default). No in-turn-approval escape:
-    # exposure autonomy is configured, not approved per message. A rostered send is
-    # recipient-locked to the classified roster recipient — the classifier, not this
-    # branch, enforces that lock.
+    # is a hard error at the router). autonomous → send; confirm → send only with an
+    # explicit current-turn approval, else withhold pending approval (ADR 0071);
+    # draft_for_review (an AUTHORED value) → draft; refused → block. Unauthored is
+    # fail-closed (refused), not draft (ADR 0035 — no imposed default). A rostered
+    # send is recipient-locked to the classified roster recipient — the classifier,
+    # not this branch, enforces that lock.
     if action in (ActionClass.EXTERNAL_SEND, ActionClass.EXTERNAL_SEND_INTERNAL):
         eff = resolve_ceiling(action, ceiling, action_ceilings, vertical_floors)
         if eff == Ceiling.AUTONOMOUS:
@@ -265,6 +270,25 @@ def enforce(
                 allowed=True,
                 reason=f"{action.value} permitted: configured ceiling is autonomous",
                 audit_action="allow",
+            )
+        if eff == Ceiling.CONFIRM:
+            # confirm (ADR 0071): the send executes only with an explicit
+            # current-turn approval captured by a TRUSTED runtime path. Without
+            # one it is WITHHELD pending approval — not drafted, not refused. The
+            # taint-gate above already blocked this class on a tainted turn, so an
+            # inbound/injected "approval" can never reach here. The approval-capture
+            # round-trip is #1806; until it lands, confirm resolves to
+            # await_approval (fail-safe: nothing sends).
+            if current_turn_approval:
+                return EnforcementDecision(
+                    allowed=True,
+                    reason=f"{action.value} confirmed by explicit current-turn approval (ADR 0071)",
+                    audit_action="allow",
+                )
+            return EnforcementDecision(
+                allowed=False,
+                reason=f"{action.value} at authored confirm ceiling; withheld pending current-turn approval",
+                audit_action="await_approval",
             )
         if eff == Ceiling.REFUSED:
             return EnforcementDecision(
