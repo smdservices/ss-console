@@ -32,20 +32,22 @@ const signal: AlivenessSignal = {
 }
 
 describe('resolveOperatorHero (ADR 0069 Slice 2 — identity + status)', () => {
-  it('surfaces the active persona name + title, passing the signal through', () => {
+  it('surfaces the NEUTRAL name + the active persona title, passing the signal through', () => {
     const m = resolveOperatorHero(
       config([persona({ status: 'active', name: 'Quinn', title: 'AI Case Coordinator' })]),
       signal
     )
-    expect(m).toEqual({ name: 'Quinn', title: 'AI Case Coordinator', aliveness: signal })
+    // The client-facing name is always "Operator" — the persona name (Quinn) is
+    // never surfaced. Only the title (role) comes from the persona.
+    expect(m).toEqual({ name: 'Operator', title: 'AI Case Coordinator', aliveness: signal })
   })
 
-  it('ignores archived personas — no fabricated identity', () => {
+  it('archived personas contribute no title; name stays the neutral "Operator"', () => {
     const m = resolveOperatorHero(
       config([persona({ status: 'archived', name: 'Old', title: 'stale' })]),
       null
     )
-    expect(m.name).toBeNull()
+    expect(m.name).toBe('Operator')
     expect(m.title).toBeNull()
   })
 
@@ -59,7 +61,7 @@ describe('resolveOperatorHero (ADR 0069 Slice 2 — identity + status)', () => {
       config([persona({ status: 'active', name: 'Crane', title: null })]),
       null
     )
-    expect(m.name).toBe('Crane')
+    expect(m.name).toBe('Operator')
     expect(m.title).toBeNull()
   })
 })

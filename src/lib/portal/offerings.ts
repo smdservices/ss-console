@@ -33,21 +33,30 @@ export interface EngagementOfferings {
 /**
  * One operator the client owns (multi-operator model). An operator instance is a
  * subscription row + its config, addressed by `slug` (the config's customer_slug,
- * carried on the subscription as instance_slug). `displayName` is the active
- * persona's name (fallback: humanized slug) — the label shown in nav/home.
+ * carried on the subscription as instance_slug).
+ *
+ * `displayName` is the neutral, client-facing product name — "Operator" — never
+ * the internal persona name (Crane, Quinn), by rule (Captain 2026-07-08). `role`
+ * (the persona title, e.g. "AI Case Coordinator") is the client-facing
+ * disambiguator when a client owns more than one.
  */
 export interface OperatorInstance {
   slug: string
   subscription: SubscriptionRow
   displayName: string
+  role: string | null
   status: string
 }
 
 /** Lite view of an operator config, passed into the pure derivation. */
 export interface OperatorConfigLite {
   customer_slug: string
-  displayName: string
+  /** Active persona title/role — the client-facing disambiguator. */
+  role: string | null
 }
+
+/** The neutral client-facing operator name. A client never sees a persona name. */
+const NEUTRAL_OPERATOR_NAME = 'Operator'
 
 export interface PortalOfferings {
   engagement: EngagementOfferings
@@ -57,15 +66,6 @@ export interface PortalOfferings {
   /** Any portal-visible invoice exists (drives the Billing destination). */
   hasInvoices: boolean
   subscriptions: SubscriptionRow[]
-}
-
-/** Title-case a kebab slug for a fallback display name (e.g. "pilot-smokeball" → "Pilot Smokeball"). */
-export function humanizeSlug(slug: string): string {
-  return slug
-    .split('-')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
 }
 
 /** Pure derivation from already-fetched rows; unit-tested in isolation. */
@@ -84,18 +84,20 @@ export function deriveOfferings(input: {
   const openProposal = input.quotes.find((q) => q.status === 'sent') ?? null
 
   const bySlug = (slug: string) => input.subscriptions.find((s) => s.product_slug === slug) ?? null
-  const displayNameFor = (slug: string) =>
-    input.operatorConfigs.find((c) => c.customer_slug === slug)?.displayName ?? humanizeSlug(slug)
+  const roleFor = (slug: string) =>
+    input.operatorConfigs.find((c) => c.customer_slug === slug)?.role ?? null
 
   // One entry per operator subscription. instance_slug is the instance identity;
   // a defensive filter drops any malformed operator sub with no instance_slug so
-  // it never renders a broken (slug-less) card/URL.
+  // it never renders a broken (slug-less) card/URL. displayName is the neutral
+  // product name; role disambiguates when there are several.
   const operators: OperatorInstance[] = input.subscriptions
     .filter((s) => s.product_slug === 'operator' && !!s.instance_slug)
     .map((s) => ({
       slug: s.instance_slug as string,
       subscription: s,
-      displayName: displayNameFor(s.instance_slug as string),
+      displayName: NEUTRAL_OPERATOR_NAME,
+      role: roleFor(s.instance_slug as string),
       status: s.status,
     }))
 
@@ -138,16 +140,18 @@ export async function resolvePortalOfferings(
   ])
   const operatorConfigs: OperatorConfigLite[] = configs.map((c) => ({
     customer_slug: c.customer_slug,
-    displayName: operatorDisplayName(c.personas, c.customer_slug),
+    role: operatorRole(c.personas),
   }))
   return deriveOfferings({ engagements, quotes, subscriptions, operatorConfigs, hasInvoices })
 }
 
 /**
- * The label an operator shows in nav/home: its active persona's name, falling
- * back to the humanized slug when no persona is active/authored. Never fabricated.
+ * The client-facing ROLE of an operator — its active persona's title (e.g. "AI
+ * Case Coordinator"). This is the disambiguator shown alongside the neutral
+ * "Operator" name; it is a role, never a persona name. Null when no active
+ * persona / no title.
  */
-function operatorDisplayName(personas: { status: string; name: string }[], slug: string): string {
+function operatorRole(personas: { status: string; title: string | null }[]): string | null {
   const active = personas.find((p) => p.status === 'active')
-  return active?.name?.trim() || humanizeSlug(slug)
+  return active?.title?.trim() || null
 }

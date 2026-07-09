@@ -81,6 +81,7 @@ const seclabelClass =
                 {op.displayName}
               </p>
               <p class="mt-0.5 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                {op.role ? `${op.role} · ` : ''}
                 {op.status}
               </p>
             </div>

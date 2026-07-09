@@ -109,12 +109,14 @@ describe('deriveOfferings', () => {
     const o = deriveOfferings({
       ...NOTHING,
       subscriptions: [smd, pilot],
-      operatorConfigs: [{ customer_slug: 'smd', displayName: 'Crane' }],
+      operatorConfigs: [{ customer_slug: 'smd', role: 'AI Case Coordinator' }],
     })
     expect(o.operators.map((op) => op.slug)).toEqual(['smd', 'pilot-smokeball'])
-    // displayName from config when present; humanized slug as the honest fallback.
-    expect(o.operators[0].displayName).toBe('Crane')
-    expect(o.operators[1].displayName).toBe('Pilot Smokeball')
+    // Client-facing name is ALWAYS the neutral "Operator" — never a persona name.
+    expect(o.operators.map((op) => op.displayName)).toEqual(['Operator', 'Operator'])
+    // role (the persona title) is the disambiguator; null when no config/title.
+    expect(o.operators[0].role).toBe('AI Case Coordinator')
+    expect(o.operators[1].role).toBeNull()
   })
 })
 

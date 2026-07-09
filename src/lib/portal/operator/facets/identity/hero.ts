@@ -16,9 +16,15 @@ import type { CustomerConfigRow } from '../../../customer-config'
 import type { AlivenessSignal } from '../../aliveness'
 
 export interface OperatorHeroModel {
-  /** Persona display name, e.g. "Quinn". null when no active persona. */
+  /**
+   * Client-facing operator name. Defaults to the neutral "Operator" — a client
+   * never sees an internal persona name (Crane, Quinn). A client-chosen name
+   * would override this, but there is no rename mechanism yet, so it is "Operator"
+   * whenever a config exists, and null (→ "Your operator") when none does.
+   */
   name: string | null
-  /** Persona title / role, e.g. "AI Case Coordinator". */
+  /** Persona title / role, e.g. "AI Case Coordinator" — the client-facing
+   *  disambiguator (NOT a persona name). */
   title: string | null
   /** The live aliveness signal, or null when the customer has no fleet_status
    *  row yet (the component renders the silent empty state — never a fabricated
@@ -40,7 +46,9 @@ export function resolveOperatorHero(
   // it). Mirrors the selection in customer-config.ts::getActivePersona.
   const persona = config?.personas.find((p) => p.status === 'active') ?? null
   return {
-    name: persona?.name ?? null,
+    // Neutral by rule (Captain 2026-07-08): the client-facing name is "Operator",
+    // never the internal persona name. persona?.name is deliberately NOT surfaced.
+    name: config ? 'Operator' : null,
     title: persona?.title ?? null,
     aliveness,
   }
