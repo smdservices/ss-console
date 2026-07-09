@@ -115,6 +115,7 @@ describe('display helpers', () => {
     expect(backendLabel('mcp')).toBe('MCP server')
     expect(backendLabel('build')).toBe('Built adapter')
     expect(backendLabel('synthetic')).toBe('Synthetic (no-PM)')
+    expect(backendLabel('native')).toBe('Native provider')
     expect(backendLabel('unknown')).toBe('Unknown backend')
   })
 

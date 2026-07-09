@@ -99,12 +99,14 @@ connectors:
     enabled: true
     webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/agentmail'
   # WebSearch is ON by default for the Hosted Agent — research is the marketed
-  # product (ADR 0070). Search + extract only; no driven browser. Cost is
-  # SMD-absorbed on a shared Brave key (not BYO — no second signup), capped
-  # per-seat by safety.sticky_stop.web_search_daily_cap below.
+  # product (ADR 0070). Wired to Hermes' NATIVE web provider (brave-free), not an
+  # MCP server. The free Brave tier means $0 and no runaway spend (it rate-limits
+  # at its quota, never bills) — honoring "your only bill is Anthropic". Provider
+  # reads BRAVE_SEARCH_API_KEY. Sensitive Operator tiers use paid/customer-owned
+  # Brave instead.
   WebSearch:
     adapter: brave
-    backend: 'mcp:brave'
+    backend: 'native:brave-free'
     enabled: true
 
 webhook_triggers:
@@ -142,8 +144,9 @@ safety:
   sticky_stop:
     cost_cap_daily_cents: 1000
     inbound_daily_cap: 100
-    # Per-seat WebSearch fair-use ceiling (ADR 0070): protects the shared,
-    # SMD-absorbed Brave key. Enforced at the mcp:brave call site in the overlay.
+    # Per-seat WebSearch fair-use ceiling (ADR 0070). On the free brave-free tier
+    # this is a courtesy bound (Brave's own free quota is the hard stop; no spend
+    # to run away). Per-call enforcement is a follow-on.
     web_search_daily_cap: 200
 
 # ---- TELEGRAM ----
