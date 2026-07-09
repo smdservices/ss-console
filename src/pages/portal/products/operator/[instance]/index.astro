@@ -12,7 +12,10 @@ import {
   resolveAlivenessSignal,
   type AlivenessSignal,
 } from '../../../../../lib/portal/operator/aliveness'
-import { getCustomerConfigBySlug } from '../../../../../lib/portal/customer-config'
+import {
+  getCustomerConfigBySlug,
+  listCustomerConfigsForEntity,
+} from '../../../../../lib/portal/customer-config'
 import FacetDoorList from '../../../../../components/portal/operator/FacetDoorList.astro'
 import type { FacetDoor } from '../../../../../lib/portal/operator/facet-doors'
 import { env } from 'cloudflare:workers'
@@ -50,6 +53,13 @@ if (!portalData.client) {
 }
 
 const { user, client } = portalData
+
+// Breadcrumb parent (list → detail hierarchy): step back to the OPERATORS list
+// when the client owns more than one operator; otherwise Home, since a lone
+// operator's list just forwards straight back into this same page.
+const operatorCount = (await listCustomerConfigsForEntity(env.DB, client.id)).length
+const backHref = operatorCount > 1 ? '/portal/products/operator' : '/portal'
+const backLabel = operatorCount > 1 ? 'Operators' : 'Home'
 
 type SurfaceState = 'no_subscription' | 'provisioning' | 'paused' | 'no_role' | 'active'
 let surfaceState: SurfaceState
@@ -194,11 +204,11 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
   pathname={Astro.url.pathname}
 >
   <a
-    href="/portal"
+    href={backHref}
     class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
   >
     <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">←</span>
-    Home
+    {backLabel}
   </a>
 
   {
