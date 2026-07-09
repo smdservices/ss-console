@@ -254,7 +254,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # AgentMail email-reply channel keeps the email prompt; MCP route untouched. Not a
 # tracked pair (bootstrap/translate.py); all 4 tracked twins unchanged across
 # 2b694947→9b20a1ac, overlaySha256 stable. Superset of 33b58ad.
-ARG OVERLAY_REF="918922487e3715998cde4fecc1a248d89f49f9f6"
+ARG OVERLAY_REF="539f42c73a67d79817a6536935b02b4a81480ae8"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -385,15 +385,12 @@ RUN uv venv /opt/workspace-broker/.venv \
 # ~/.clio-mcp/tokens.enc (seeded by bootstrap.sh) under ENCRYPTION_KEY.
 RUN npm install -g @oktopeak/clio-mcp@2.0.0
 
-# ---------- Brave Search MCP server (shared web-search connector, ADR 0070) ----------
-# @brave/brave-search-mcp-server (official, MIT) is a LOCAL stdio MCP server. The
-# overlay materializes customer.yaml `mcp:brave` into the profile mcp_servers block
-# as a `brave-search-mcp-server` command server (surface narrowed to
-# brave_web_search); install it globally so the binary is on PATH for the gateway
-# to launch. Pinned to 2.0.85. It reads the shared, SMD-absorbed BRAVE_API_KEY from
-# the env block translate.py writes onto the volume. Inert until a customer.yaml
-# binds a WebSearch connector (ON by default for the Hosted Agent).
-RUN npm install -g @brave/brave-search-mcp-server@2.0.85
+# NOTE: web search needs NO installed binary. It is Hermes' NATIVE brave-free
+# provider (plugins/web/brave_free, bundled in the pinned Hermes), selected by
+# customer.yaml `backend: native:brave-free` -> config web.search_backend and
+# keyed on BRAVE_SEARCH_API_KEY. The former @brave/brave-search-mcp-server install
+# was removed with the ADR 0070 native cut (2026-07-08) — MCP-wrapping a native
+# feature was the redundant layer.
 
 # Register the plugin pack with Hermes' loader. `hermes plugins install` clones
 # the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream

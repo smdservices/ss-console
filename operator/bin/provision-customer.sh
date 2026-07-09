@@ -503,14 +503,14 @@ if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
   unset _AGENTMAIL_WH_KEY _AGENTMAIL_WH_SECRET
 fi
 
-# Brave Search (mcp:brave, ADR 0070). BRAVE_API_KEY is the SHARED, SMD-absorbed
-# subscription token — one key across every Hosted-Agent seat (keeps "your only
-# bill is Anthropic" true; not BYO). Like AgentMail's account-wide credential it
-# is staged ONLY for a customer whose customer.yaml actually binds mcp:brave.
-# Missing at boot => the overlay leaves the Brave MCP server unwired (fail-closed,
-# no crashloop), so an unbound or key-less seat simply has no web search.
-if grep -qE 'backend:[[:space:]]*.?mcp:brave' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
-  stage_secret_from_env BRAVE_API_KEY "${BRAVE_API_KEY:-}" "Brave Search subscription token (shared, account-wide; web search)"
+# Brave Search (native:brave-free, ADR 0070). BRAVE_SEARCH_API_KEY is the env var
+# Hermes' native brave-free provider reads. The Hosted-Agent tier uses Brave's
+# FREE tier (one shared, SMD-owned key; $0, no runaway spend; keeps "your only
+# bill is Anthropic" true). Staged ONLY for a customer whose customer.yaml binds a
+# native:brave-* backend. Missing at boot => the provider stays unavailable
+# (Hermes falls back / no web search), fail-closed, no crashloop.
+if grep -qE 'backend:[[:space:]]*.?native:brave' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  stage_secret_from_env BRAVE_SEARCH_API_KEY "${BRAVE_SEARCH_API_KEY:-}" "Brave Search API key (native brave-free provider; web search)"
 fi
 
 # Google service-account key (DWD). REQUIRED for any customer.yaml with
