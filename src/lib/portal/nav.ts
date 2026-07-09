@@ -6,7 +6,7 @@
  *
  *   Home        always
  *   Engagement  when any engagement or proposal exists
- *   Operator    one tab per operator the client owns (multi-operator model)
+ *   Operator    ONE tab when the client owns any operator (the list lives inside)
  *   Agent       when a hosted-agent subscription exists
  *   Billing     when any invoice or subscription exists
  *
@@ -38,13 +38,16 @@ export function buildPortalNav(offerings: PortalOfferings): PortalNavDestination
       matchPrefix: '/portal/engagement',
     })
   }
-  // One tab per operator the client owns (multi-operator model). Each links to
-  // its instance-addressed landing and matches only its own subtree.
-  for (const op of offerings.operators) {
+  // ONE "Operator" destination for the product, regardless of how many operators
+  // the client owns — the same category-per-tab shape as Engagement/Agent/Billing.
+  // It opens the operator list (which auto-forwards to the sole operator when
+  // there is only one); per-operator navigation lives inside that destination, not
+  // across the top (a client with 50 operators must not get 50 tabs).
+  if (offerings.operators.length > 0) {
     destinations.push({
-      href: `/portal/products/operator/${op.slug}`,
-      label: op.displayName,
-      matchPrefix: `/portal/products/operator/${op.slug}`,
+      href: '/portal/products/operator',
+      label: 'Operator',
+      matchPrefix: '/portal/products/operator',
     })
   }
   if (offerings.hostedAgent) {

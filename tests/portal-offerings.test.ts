@@ -150,6 +150,29 @@ describe('buildPortalNav', () => {
     const nav = buildPortalNav(deriveOfferings({ ...NOTHING, hasInvoices: true }))
     expect(nav.map((d) => d.label)).toEqual(['Home', 'Billing'])
   })
+
+  it('MANY operators still produce exactly ONE Operator tab (no per-instance tabs)', () => {
+    const op = (slug: string) =>
+      ({
+        id: `sub-${slug}`,
+        product_slug: 'operator',
+        instance_slug: slug,
+        status: 'active',
+        service_id: null,
+      }) as unknown as SubscriptionRow
+    const nav = buildPortalNav(
+      deriveOfferings({
+        ...NOTHING,
+        subscriptions: [op('smd'), op('pilot-smokeball'), op('third')],
+        operatorConfigs: [],
+      })
+    )
+    const operatorTabs = nav.filter((d) => d.label === 'Operator')
+    expect(operatorTabs).toHaveLength(1)
+    expect(operatorTabs[0].href).toBe('/portal/products/operator')
+    // The whole nav stays the small category set regardless of operator count.
+    expect(nav.map((d) => d.label)).toEqual(['Home', 'Operator', 'Billing'])
+  })
 })
 
 describe('isNavDestinationActive', () => {

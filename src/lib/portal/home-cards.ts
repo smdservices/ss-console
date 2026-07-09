@@ -64,39 +64,52 @@ function engagementCard(offerings: PortalOfferings): OfferingCard | null {
 }
 
 /**
- * One card per operator the client owns (multi-operator model). Each is
- * instance-addressed by slug; the label is the operator's display name (persona)
- * so two operators are distinguishable at a glance.
+ * ONE "Operator" card for the product — never one card per instance (a client
+ * with 50 operators must not get 50 cards). Labeled by the product, like the
+ * Agent/Billing cards, and it opens the operator list.
+ *
+ *   0 operators  → no card
+ *   1 operator   → product-labeled card with that operator's live status (parity
+ *                  with the Agent card); the list page forwards straight to it
+ *   many         → "N active" summary → the list, where the client picks one
  */
-async function operatorCards(db: D1Database, offerings: PortalOfferings): Promise<OfferingCard[]> {
-  return Promise.all(offerings.operators.map((op) => operatorCard(db, op)))
-}
-
-async function operatorCard(
+async function operatorSummaryCard(
   db: D1Database,
-  op: PortalOfferings['operators'][number]
-): Promise<OfferingCard> {
-  const sub = op.subscription
-  const base = `/portal/products/operator/${op.slug}`
+  offerings: PortalOfferings
+): Promise<OfferingCard | null> {
+  const ops = offerings.operators
+  if (ops.length === 0) return null
+  const href = '/portal/products/operator'
+
+  if (ops.length > 1) {
+    const activeCount = ops.filter((o) => o.status === 'active').length
+    return {
+      key: 'operator',
+      label: 'Operators',
+      href,
+      statusLabel: `${activeCount} of ${ops.length} active`,
+      meta: [],
+      needsYou: null,
+    }
+  }
+
+  const op = ops[0]
+  const subStatus: SubscriptionStatus =
+    op.status === 'provisioning' || op.status === 'active' || op.status === 'paused'
+      ? op.status
+      : 'unknown'
   const meta: string[] = []
   let needsYou: OfferingCard['needsYou'] = null
-  const subStatus: SubscriptionStatus =
-    sub.status === 'provisioning' || sub.status === 'active' || sub.status === 'paused'
-      ? sub.status
-      : 'unknown'
-  const statusLabel = subscriptionStatusLabel(subStatus)
-
   try {
-    const signal = await resolveAlivenessSignal(db, sub)
+    const signal = await resolveAlivenessSignal(db, op.subscription)
     if (signal?.lastActionAt) {
       meta.push(`Last action ${formatShortDate(signal.lastActionAt)}`)
     }
-    // The instance slug is authoritative here (no re-read of the config needed).
     const depth = await readDraftQueueDepth(db, op.slug)
     if (depth > 0) {
       needsYou = {
         label: `${depth} draft${depth !== 1 ? 's' : ''} waiting for review`,
-        href: base,
+        href,
       }
     }
   } catch {
@@ -104,10 +117,10 @@ async function operatorCard(
   }
 
   return {
-    key: `operator:${op.slug}`,
-    label: op.displayName,
-    href: base,
-    statusLabel,
+    key: 'operator',
+    label: 'Operator',
+    href,
+    statusLabel: subscriptionStatusLabel(subStatus),
     meta,
     needsYou,
   }
@@ -190,11 +203,11 @@ export async function loadHomeCards(
   db: D1Database,
   input: { orgId: string; entityId: string; userId: string; offerings: PortalOfferings }
 ): Promise<OfferingCard[]> {
-  const [operators, hostedAgent, billing] = await Promise.all([
-    operatorCards(db, input.offerings),
+  const [operator, hostedAgent, billing] = await Promise.all([
+    operatorSummaryCard(db, input.offerings),
     hostedAgentCard(db, input.offerings, input.userId),
     billingCard(db, input.orgId, input.entityId, input.offerings),
   ])
-  const cards = [engagementCard(input.offerings), ...operators, hostedAgent, billing]
+  const cards = [engagementCard(input.offerings), operator, hostedAgent, billing]
   return cards.filter((c): c is OfferingCard => c !== null)
 }
