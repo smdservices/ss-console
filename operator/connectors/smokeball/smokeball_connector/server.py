@@ -747,10 +747,44 @@ def file_attachment_to_matter(
 
 
 # ---- Memos ----------------------------------------------------------------
+#
+# Lean lossless representation (context-cost fix): Smokeball returns BOTH an RTF
+# `text` rendering AND a `plainText` rendering of every memo — the same content
+# twice, with the RTF markup adding ~half the payload and nothing the agent needs
+# (it reads plainText). get_memos_on_matter is the seat's single biggest retained
+# tool-result (a full memo list is ~20k tokens and is re-read many times a
+# session), so dropping the redundant rendering is a large, LOSSLESS per-turn
+# context reduction. This is instance #1 of the general connector convention:
+# return the leanest lossless form, never a second copy of the same content.
+
+
+def _slim_memo(memo: Any) -> Any:
+    """Drop the redundant RTF ``text`` field when ``plainText`` carries the same
+    content. LOSSLESS + fail-safe: keep ``text`` whenever ``plainText`` is
+    absent/empty, so a memo can never lose its only body."""
+    if isinstance(memo, dict) and (memo.get("plainText") or "").strip() and "text" in memo:
+        return {k: v for k, v in memo.items() if k != "text"}
+    return memo
+
+
+def _slim_memos(resp: Any) -> Any:
+    """Apply :func:`_slim_memo` across a memos HATEOAS envelope (or bare list).
+    Best-effort: an unexpected shape is returned untouched."""
+    if isinstance(resp, dict) and isinstance(resp.get("value"), list):
+        resp["value"] = [_slim_memo(m) for m in resp["value"]]
+        return resp
+    if isinstance(resp, list):
+        return [_slim_memo(m) for m in resp]
+    return resp
+
+
 @server.tool()
 def get_memos_on_matter(matter_id: str, limit: int = 500, offset: int = 0) -> Any:
-    """List memos (internal log entries) on a matter."""
-    return _get_client().get(f"/matters/{matter_id}/memos", Limit=limit, Offset=offset)
+    """List memos (internal log entries) on a matter. The redundant RTF ``text``
+    rendering is dropped when ``plainText`` is present (lossless — see the note
+    above; ~half the payload is RTF markup the agent does not read)."""
+    resp = _get_client().get(f"/matters/{matter_id}/memos", Limit=limit, Offset=offset)
+    return _slim_memos(resp)
 
 
 @server.tool()
