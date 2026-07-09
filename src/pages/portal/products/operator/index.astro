@@ -46,14 +46,10 @@ const seclabelClass =
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  <a
-    href="/portal"
-    class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
-  >
-    <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">←</span>
-    Home
-  </a>
-
+  {
+    /* No "← Home" here: this is the top of the Operator section and Home is
+      already the adjacent nav tab — a back-to-Home breadcrumb would be redundant. */
+  }
   <p class={`mt-8 ${seclabelClass}`}>Operators</p>
 
   {
