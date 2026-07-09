@@ -153,11 +153,65 @@ def run() -> tuple[bool, str]:
             f"FAIL: refused-scalar skill should never execute anything, got allowed ({decision.reason})",
         )
 
+    # Scenario G (ADR 0071): authored external_send=confirm WITHOUT a current-turn
+    # approval is WITHHELD pending approval — not sent, not drafted, not refused.
+    decision = enforce(
+        ceiling=Ceiling.DRAFT_FOR_REVIEW,
+        action=ActionClass.EXTERNAL_SEND,
+        skill_name="ar-chaser",
+        tool_name="gmail.send",
+        current_turn_approval=False,
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.CONFIRM},
+    )
+    if decision.allowed or decision.audit_action != "await_approval":
+        return (
+            False,
+            f"FAIL: external_send=confirm without approval must withhold pending approval, got "
+            f"allowed={decision.allowed} audit={decision.audit_action}",
+        )
+
+    # Scenario H (ADR 0071): authored external_send=confirm WITH a current-turn
+    # approval sends — the one exposure value that consults the approval flag.
+    decision = enforce(
+        ceiling=Ceiling.DRAFT_FOR_REVIEW,
+        action=ActionClass.EXTERNAL_SEND,
+        skill_name="ar-chaser",
+        tool_name="gmail.send",
+        current_turn_approval=True,
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.CONFIRM},
+    )
+    if not decision.allowed or decision.audit_action != "allow":
+        return (
+            False,
+            f"FAIL: external_send=confirm with current-turn approval should send, got "
+            f"allowed={decision.allowed} audit={decision.audit_action} ({decision.reason})",
+        )
+
+    # Scenario I (ADR 0071 ordering): a vertical floor of draft_for_review NARROWS an
+    # authored confirm (confirm < draft_for_review) — even with approval it drafts,
+    # never sends. The regulated-vertical guarantee holds against confirm too.
+    decision = enforce(
+        ceiling=Ceiling.DRAFT_FOR_REVIEW,
+        action=ActionClass.EXTERNAL_SEND,
+        skill_name="ar-chaser",
+        tool_name="gmail.send",
+        current_turn_approval=True,
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.CONFIRM},
+        vertical_floors={ActionClass.EXTERNAL_SEND: Ceiling.DRAFT_FOR_REVIEW},
+    )
+    if decision.allowed or decision.audit_action != "draft":
+        return (
+            False,
+            f"FAIL: vertical floor draft_for_review must narrow authored confirm to draft; "
+            f"expected draft, got allowed={decision.allowed} audit={decision.audit_action}",
+        )
+
     return (
         True,
         "PASS: invariant 2 holds — external send gated by configured ceiling; "
         "autonomous skill scalar does not auto-grant send; explicit override sends; "
-        "vertical floor narrows; refused scalar blocks all",
+        "vertical floor narrows; refused scalar blocks all; confirm withholds without "
+        "approval, sends with it, and is narrowed by a draft_for_review floor (ADR 0071)",
     )
 
 
