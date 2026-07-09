@@ -115,9 +115,12 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     id: 'skills',
     label: 'Skills (authored)',
     plane: 'config_projection',
-    surface: { kind: 'planned', slice: 3 },
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/skills/skills.ts',
+    },
     mounts: ['client', 'admin'],
-    note: 'personas_json narrowed — enabled/version/cost dropped from projection.',
+    note: 'Slice 3: inventory (humanized slug) + initiation, in authored order. enabled/version/cost dropped from projection and deliberately not shown; per-skill autonomy is the Governance facet (Lock 4).',
   },
   {
     id: 'agent-skills',

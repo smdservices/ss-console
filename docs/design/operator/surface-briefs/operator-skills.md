@@ -1,8 +1,14 @@
 # Surface Brief — Operator › Skills
 
-Route: `portal.smd.services/portal/products/operator/skills`
+Route: `portal.smd.services/portal/products/operator/<instance>/skills`
+(instance-addressed under the multi-operator model — the pre-multi-operator
+brief drafted this as the flat `/operator/skills`)
 Facet: `skills` (facet registry `src/lib/portal/operator/facet-registry.ts`)
-Status: **DRAFT — awaiting Captain sign-off** (drafted 2026-07-08)
+Status: **SIGNED OFF — BUILT 2026-07-08.** All three sign-off questions resolved
+as recommended: (1) show the honest cut (inventory + initiation only, no
+always-"On" state); (2) initiation labels "On request" / "On a schedule" /
+"When something happens"; (3) loud register (match siblings), registered in
+`CALM_REGISTER_PENDING`.
 
 The second facet made real under the content/functionality pass (ADR 0069). The
 landing's "Skills" door currently deep-links to the legacy Configure page; this

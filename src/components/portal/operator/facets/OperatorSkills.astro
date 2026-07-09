@@ -1,0 +1,65 @@
+---
+/**
+ * Operator SKILLS viewer — the shared inventory + initiation view (ADR 0069
+ * Slice 3; signed-off brief docs/design/operator/surface-briefs/operator-skills.md).
+ * One shared component, both portals mount (Lock 4); the facet registry points
+ * `skills` at the resolver this consumes.
+ *
+ * Shows each configured skill (humanized slug) and HOW it is set in motion (its
+ * initiation labels) in authored order — the informative payload the legacy
+ * Configure list throws away. Deliberately NOT enable/disable (the projection
+ * dropped it; Configure's "On" is a hardcoded constant), ceilings, versions, or
+ * costs (brief §5). Honest empty state when the list is empty.
+ *
+ * Loud register to match its siblings (Configure, the landing, OperatorHero)
+ * while the calm migration is parked; registered in CALM_REGISTER_PENDING so the
+ * whole operator area flips to calm together, not one lone page at a time.
+ */
+import type { OperatorSkillsModel } from '../../../../lib/portal/operator/facets/skills/skills'
+
+interface Props {
+  model: OperatorSkillsModel
+}
+
+const { model } = Astro.props
+const { skills } = model
+---
+
+<section
+  class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+  aria-label="Operator skills"
+>
+  <div
+    class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]"
+  >
+    Skills
+  </div>
+  <div class="px-5 py-6 md:px-7">
+    {
+      skills.length === 0 ? (
+        <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+          Your operator's skills appear here once they're configured.
+        </p>
+      ) : (
+        <ul role="list" class="flex flex-col">
+          {skills.map((s, i) => (
+            <li
+              class={`flex flex-col gap-1 py-3 md:flex-row md:items-baseline md:justify-between md:gap-6 ${
+                i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''
+              }`}
+            >
+              <span class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+                {s.name}
+              </span>
+              {s.initiation.length > 0 && (
+                <span class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                  {s.initiation.join(' · ')}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+</section>
