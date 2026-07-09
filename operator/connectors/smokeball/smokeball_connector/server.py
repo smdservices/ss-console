@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 from typing import Any
 
 from operator_connector_sdk.server import ConnectorServer
@@ -56,6 +57,145 @@ def _body(**fields: Any) -> dict[str, Any]:
     return {k: v for k, v in fields.items() if v is not None}
 
 
+# ---- Matter caption composition -------------------------------------------
+#
+# WHY (ss churn fix): the overlay's tier-2 citation gate refuses agent output
+# containing a case-name pattern ("Alvarez v. Draper") to block FABRICATED case
+# law, with an allowlist escape for any caption the agent actually READ this
+# session (ss #1758). But Smokeball matter reads carry parties only as
+# ``clientIds``/``otherSideIds`` UUID refs — never a joined "X v. Y" string — so
+# the overlay's regex harvester finds nothing, the allowlist stays empty, and the
+# agent's memo naming the matter by its OWN caption is blocked → refuse-and-redraft
+# churn (~25-35% of active-day tokens; graders confirmed the blocked memos carry
+# the matter's own caption). We compose the caption HERE from the matter's own
+# structured party contacts and return it as a ``caption`` field, so the existing
+# harvester catches it and the gate exempts the matter's own caption. This never
+# weakens the fabrication protection: the allowlist exempts only the case-name
+# pattern for these exact parties; reporter-cite/statute/rule patterns are NEVER
+# allowlisted, so a poisoned party label cannot smuggle a cite through. Composition
+# is best-effort — provenance enrichment must never break a read (a loud rollout
+# assertion on the seat, not a raise here, catches a genuine happy-path failure).
+
+# Max distinct contact lookups per ``list_matters`` call (bounds the bulk-list
+# path: up to 500 matters x 2 parties would be untenable). ``get_matter`` (one
+# matter) always resolves fully.
+_CAPTION_MAX_LOOKUPS = 40
+
+
+def _party_surname(contact: Any) -> str | None:
+    """Resolve a contact object to a single plain party label (person surname or
+    company name). Tolerates the nested (``person``/``company``) shape confirmed
+    live 2026-07-08 and a flat fallback. Structured fields only, never free text;
+    stripped and length-bounded; rejects a label that itself looks like a caption
+    or a cite so the emitted caption stays a clean single "X v. Y"."""
+    if not isinstance(contact, dict):
+        return None
+    label: str | None = None
+    person = contact.get("person")
+    company = contact.get("company")
+    if isinstance(person, dict):
+        label = (person.get("lastName") or "").strip() or None
+    elif isinstance(company, dict):
+        label = (company.get("name") or "").strip() or None
+    if label is None:  # flat fallback
+        label = (contact.get("lastName") or contact.get("name") or "").strip() or None
+    if not label:
+        return None
+    # A party label is a name, not a caption or citation. If it already contains a
+    # " v. " join or a reporter-cite-shaped number run, drop it (fail-safe: no
+    # caption rather than a malformed/poisoned one).
+    if re.search(r"\bv\.?\s", label, re.IGNORECASE) or re.search(r"\d{2,}", label):
+        return None
+    return label[:60]
+
+
+def _orient_parties(matter: dict[str, Any]) -> tuple[str, list[str]] | None:
+    """Return ``(plaintiff_contact_id, defendant_contact_ids)`` for the caption, or
+    None when the matter has no two-sided caption (lead / missing party).
+
+    The caption convention is *Plaintiff v. Defendant*. Orientation is derived from
+    the matter-type side suffix ("... - Plaintiff" / "... - Defendant", present on
+    both ``get_matter`` and ``list_matters`` items), NOT a hardcoded client=plaintiff
+    assumption: for a plaintiff-side matter the firm's client is the plaintiff; for
+    a defense-side matter the client is the defendant, so the caption flips."""
+    clients = [c for c in (matter.get("clientIds") or []) if c]
+    others = [o for o in (matter.get("otherSideIds") or []) if o]
+    if not clients or not others:
+        return None
+    mt_name = ((matter.get("matterType") or {}).get("name") or "").strip().lower()
+    if mt_name.endswith("defendant"):
+        return others[0], clients  # firm defends; plaintiff is the other side
+    return clients[0], others  # plaintiff-side (default): client is the plaintiff
+
+
+def _resolve_surname(
+    client: Any, contact_id: str, cache: dict[str, str | None], budget: list[int] | None
+) -> str | None:
+    """get_contact -> surname, memoized in ``cache``; ``budget`` (a 1-elem list)
+    caps live lookups on the list path. Best-effort: a failed fetch yields None."""
+    if contact_id in cache:
+        return cache[contact_id]
+    if budget is not None:
+        if budget[0] <= 0:
+            return None
+        budget[0] -= 1
+    label: str | None = None
+    try:
+        label = _party_surname(client.get(f"/contacts/{contact_id}"))
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        label = None
+    cache[contact_id] = label
+    return label
+
+
+def _attach_caption(
+    client: Any,
+    matter: Any,
+    *,
+    cache: dict[str, str | None] | None = None,
+    budget: list[int] | None = None,
+) -> None:
+    """Mutate ``matter`` in place, adding a ``caption`` ("Plaintiff v. Defendant"
+    surname form) composed from its own party contacts. No-op (no ``caption`` key)
+    for party-less matters or unresolved parties — fail-safe: a missing caption can
+    only fail to exempt, never help a fabricated cite. The surname-v-surname form is
+    required so the overlay harvester (which expands the right party from its first
+    token) registers the exact string the agent writes."""
+    if not isinstance(matter, dict):
+        return
+    try:
+        orient = _orient_parties(matter)
+        if orient is None:
+            return
+        plaintiff_id, defendant_ids = orient
+        if cache is None:
+            cache = {}
+        plaintiff = _resolve_surname(client, plaintiff_id, cache, budget)
+        defendant = _resolve_surname(client, defendant_ids[0], cache, budget)
+        if not plaintiff or not defendant:
+            return
+        caption = f"{plaintiff} v. {defendant}"
+        if len(defendant_ids) > 1:
+            caption += " et al."
+        matter["caption"] = caption
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        return
+
+
+def _attach_captions_to_list(client: Any, resp: Any) -> None:
+    """Best-effort caption enrichment over a ``list_matters`` HATEOAS envelope,
+    bounded to ``_CAPTION_MAX_LOOKUPS`` distinct contact lookups (shared cache)."""
+    if not isinstance(resp, dict):
+        return
+    items = resp.get("value")
+    if not isinstance(items, list):
+        return
+    cache: dict[str, str | None] = {}
+    budget = [_CAPTION_MAX_LOOKUPS]
+    for item in items:
+        _attach_caption(client, item, cache=cache, budget=budget)
+
+
 # ---- Auth -----------------------------------------------------------------
 @server.tool()
 def auth_status() -> dict[str, Any]:
@@ -83,8 +223,12 @@ def list_matters(
     `search` here is a PLAIN full-text keyword (live-verified 2026-07-03:
     "Johnson" matches the matter title; field-scoped syntax like
     "name:*Johnson*" is NOT an error but silently returns zero results —
-    the opposite of the /contacts contract)."""
-    return _get_client().get(
+    the opposite of the /contacts contract).
+
+    Each item is enriched with a composed ``caption`` ("Plaintiff v. Defendant")
+    from its own party contacts (best-effort, bounded) — see the caption block."""
+    client = _get_client()
+    resp = client.get(
         "/matters",
         Status=status,
         IsLead=is_lead,
@@ -96,12 +240,20 @@ def list_matters(
         Limit=limit,
         Offset=offset,
     )
+    _attach_captions_to_list(client, resp)
+    return resp
 
 
 @server.tool()
 def get_matter(matter_id: str) -> Any:
-    """Get one matter by id (includes personResponsibleStaffId, status, isLead)."""
-    return _get_client().get(f"/matters/{matter_id}")
+    """Get one matter by id (includes personResponsibleStaffId, status, isLead).
+
+    Enriched with a composed ``caption`` ("Plaintiff v. Defendant") from the
+    matter's own party contacts (best-effort; absent for party-less matters)."""
+    client = _get_client()
+    matter = client.get(f"/matters/{matter_id}")
+    _attach_caption(client, matter)
+    return matter
 
 
 @server.tool()
