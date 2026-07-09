@@ -23,13 +23,14 @@ from __future__ import annotations
 
 from .manifest import ACTION_CLASSES, AuthModel, ConnectorManifest, SecretSpec
 from .naming import runtime_tool_name
-from .server import ConnectorServer
+from .server import ConnectorServer, ResultBound
 
 __all__ = [
     "ACTION_CLASSES",
     "AuthModel",
     "ConnectorManifest",
     "ConnectorServer",
+    "ResultBound",
     "SecretSpec",
     "runtime_tool_name",
 ]
