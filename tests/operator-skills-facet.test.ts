@@ -3,6 +3,7 @@ import {
   initiationLabels,
   resolveOperatorSkills,
 } from '../src/lib/portal/operator/facets/skills/skills'
+import { SKILL_SUMMARIES } from '../src/lib/portal/operator/facets/skills/skill-summaries'
 import type {
   CustomerConfigRow,
   PersonaConfig,
@@ -66,7 +67,7 @@ describe('initiationLabels', () => {
 })
 
 describe('resolveOperatorSkills', () => {
-  it('humanizes each skill slug for display and keeps the raw slug', () => {
+  it('humanizes each skill slug for display, keeps the raw slug, and attaches the authored summary', () => {
     const model = resolveOperatorSkills(
       config([persona({ skills: [skill('matter-inbox-router', { webhook: true })] })])
     )
@@ -74,9 +75,17 @@ describe('resolveOperatorSkills', () => {
       {
         name: 'Matter inbox router',
         slug: 'matter-inbox-router',
+        summary: SKILL_SUMMARIES['matter-inbox-router'],
         initiation: ['When something happens'],
       },
     ])
+  })
+
+  it('attaches null summary for a skill with no catalog entry (honest degradation, never fabricated)', () => {
+    const model = resolveOperatorSkills(
+      config([persona({ skills: [skill('a-skill-with-no-summary', { manual: true })] })])
+    )
+    expect(model.skills[0].summary).toBeNull()
   })
 
   it('preserves authored order', () => {
