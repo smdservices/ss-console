@@ -145,8 +145,8 @@ export const BANNED_METHOD_NAMES: Record<CapabilityName, string[]> = {
   InternalComms: [],
   PracticeManagement: [],
   // Connector-only capability (ADR 0070): no adapter interface, no methods to
-  // ban. WebSearch is a native Hermes MCP tool (mcp:brave), read-only
-  // search+extract; nothing to conform, nothing irreversible to floor.
+  // ban. WebSearch is Hermes' NATIVE web_search tool (native:brave-free),
+  // read-only search; nothing to conform, nothing irreversible to floor.
   WebSearch: [],
 }
 

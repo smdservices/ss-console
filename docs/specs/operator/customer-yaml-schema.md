@@ -97,7 +97,7 @@ connectors:
   # WebSearch
   <CapabilityName>:
     adapter: <slug> # e.g. filevine, microsoft-graph, docusign
-    backend: <string> # mcp:<url> | build:<wrapper> | synthetic:<fixture>
+    backend: <string> # mcp:<url> | build:<wrapper> | synthetic:<fixture> | native:<provider>
     enabled: <boolean> # OPTIONAL; default true
     scopes: <list<string>> # OPTIONAL; oauth scopes this connector needs
     token_ref: <string> # OPTIONAL; Infisical reference; see Secret Exclusion
@@ -202,17 +202,18 @@ The `adapter:` value is the SMD-internal adapter slug (e.g. `filevine`, `microso
 connectors:
   WebSearch:
     adapter: brave
-    backend: 'mcp:brave' # settled vendor: Brave Search API. Linkup is the documented
-    #                       swap-in fallback (one-line backend change) — do NOT wire it.
+    backend: 'native:brave-free' # Hermes' native web provider (bundled), NOT an MCP server.
+    #                              A sensitive/legal seat uses a paid/customer-owned Brave tier;
+    #                              other native providers (tavily/exa/firecrawl) are drop-in.
     enabled: true
 ```
 
-- **Altitude is search + extract only.** The driven/cloud browser is explicitly out of scope (ADR 0070) — heaviest resource cost and the largest prompt-injection surface; reserved for a future Operator-tier authored capability.
+- **Altitude is search only.** The driven/cloud browser is explicitly out of scope (ADR 0070) — heaviest resource cost and the largest prompt-injection surface; reserved for a future Operator-tier authored capability. (`native:brave-free` is search-only; extract would be a separate native provider.)
 - **The one deliberate default divergence (ADR 0035 — no imposed defaults):**
   - **Hosted Agent:** `enabled: true` in `_hosted-template` — research is the marketed product.
   - **Operator:** left **unauthored** in `_template` — the web is incidental and lower-trust in regulated verticals, so it is authored per engagement.
-- **Cost** is SMD-absorbed on a shared Brave key + a per-seat fair-use cap (`safety.sticky_stop.web_search_daily_cap`, below). Not BYO — it must not add a second signup for the unwilling-to-operate buyer.
-- **Runtime.** The overlay's `translate.py` resolves `mcp:brave` to the Brave Search MCP server; the search tool is a native Hermes MCP tool the agent calls directly. Confirm Brave's data-processing/retention terms before authoring `WebSearch` for an Operator legal seat.
+- **Cost** is SMD-absorbed on Brave's **free** tier for the Hosted Agent ($0, no runaway spend — it rate-limits at quota, never bills) + a per-seat fair-use cap (`safety.sticky_stop.web_search_daily_cap`, below). Not BYO — it must not add a second signup for the unwilling-to-operate buyer. Sensitive Operator tiers use a paid or customer-owned Brave key (one party in the query path).
+- **Runtime.** Web search is **native**: the overlay's `translate.py::_materialize_web_search` resolves `native:<provider>` to config `web.search_backend`, and Hermes' bundled provider registers the native `web_search` tool (classified READ) — no MCP server. The provider reads its key (e.g. `BRAVE_SEARCH_API_KEY`) directly. Confirm Brave's data-processing/retention terms before authoring `WebSearch` for an Operator legal seat. (The first ADR 0070 cut wrapped Brave in `mcp:brave`; that redundant layer was retired 2026-07-08.)
 
 ## Secret-exclusion enforcement
 
@@ -466,7 +467,7 @@ Field rules:
 
 - `sticky_stop.cost_cap_daily_cents` is the base of the Machine-wide daily spend ladder enforced on the durable-job path (real provider-reported cents): warn at 80%, soft-stop at 100% (exposure pinned to draft-for-review), hard-stop at 200% (segments refuse; jobs dead-letter to `needs_review`; the webhook gate parks inbound). Must be a positive integer; a malformed value falls back to the platform default with a logged warning.
 - `sticky_stop.inbound_daily_cap` is the maximum verified vendor-webhook deliveries routed to the agent per UTC day. Overflow is acknowledged (202), audited (`INVARIANT_VIOLATION` with `gate_inbound_park` metadata), and NOT routed — never a silent drop. Same positive-integer/fallback rule.
-- `sticky_stop.web_search_daily_cap` ([ADR 0070](../../adr/0070-web-search-shared-connector-divergent-defaults.md)) is the per-seat fair-use ceiling on `WebSearch` (`mcp:brave`) calls per UTC day. It protects the SMD-absorbed shared Brave key from a runaway seat, keeping the "your only bill is Anthropic" promise intact. Same positive-integer/fallback rule (default 200). Authored where `WebSearch` is enabled (`_hosted-template`); irrelevant on a seat with `WebSearch` unauthored. **Enforcement status:** the field is authored and read into config today; a dedicated per-call counter at the `mcp:brave` call site is a follow-on. The interim backstop is the Machine-wide cost breaker (`cost_cap_daily_cents`) — every search rides an LLM turn, so a runaway search loop trips the cost ladder before it can burn the shared key unbounded.
+- `sticky_stop.web_search_daily_cap` ([ADR 0070](../../adr/0070-web-search-shared-connector-divergent-defaults.md)) is the per-seat fair-use ceiling on `WebSearch` (`native:brave-free`) calls per UTC day. On the Hosted Agent's free Brave tier this is a courtesy bound (Brave's own free quota is the hard stop — there is no spend to run away, so "your only bill is Anthropic" holds by construction). Same positive-integer/fallback rule (default 200). Authored where `WebSearch` is enabled (`_hosted-template`); irrelevant on a seat with `WebSearch` unauthored. **Enforcement status:** the field is authored and read into config today; a dedicated per-call counter at the native `web_search` call site is a follow-on. The interim backstop is the Machine-wide cost breaker (`cost_cap_daily_cents`) — every search rides an LLM turn, so a runaway search loop trips the cost ladder regardless.
 - The ladder percentages (80/100/200) are platform semantics, not customer-authorable. Recovery from a hard stop is Captain `clear()` (audited `AGENT_RESUMED`), never automatic.
 - Materialization is runtime live-read (`CustomerConfig.sticky_stop` in the overlay), not a `translate.py` step — see `operator/contracts/customer-yaml-blocks.yaml` (`safety`).
 

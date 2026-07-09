@@ -109,12 +109,12 @@ _INFRA_EXACT: frozenset[str] = frozenset(
         # Shared observability (provision-customer.sh:424-425).
         "SENTRY_DSN",
         "MACHINE_HEARTBEAT_KEY",
-        # Brave Search web-search connector (provision-customer.sh, mcp:brave
-        # block; ADR 0070). BRAVE_API_KEY is SMD's SHARED, account-wide
-        # subscription token — one key across every seat, SMD-owned, not any
+        # Brave Search web-search connector (provision-customer.sh,
+        # native:brave-free block; ADR 0070). BRAVE_SEARCH_API_KEY is SMD's
+        # SHARED, account-wide key — one key across every seat, SMD-owned, not any
         # customer's credential — so it is infra, safe to be real/emulated in a
         # keyless build and never gated behind the customer-handoff door.
-        "BRAVE_API_KEY",
+        "BRAVE_SEARCH_API_KEY",
         # Per-customer keys DERIVED from an infra HMAC master (never the master).
         "OPERATOR_RUNTIME_READ_KEY",  # from OPERATOR_RUNTIME_READ_SECRET (:439)
         "WEBHOOK_SECRET_MCP",  # from OPERATOR_MCP_WEBHOOK_SECRET (:454)

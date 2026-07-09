@@ -635,7 +635,7 @@ describe('validate — connectors', () => {
   })
 
   it('accepts all documented backend prefixes', () => {
-    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
+    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture', 'native:brave-free']
     for (const backend of prefixes) {
       const f = validFixture()
       ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'] = {
@@ -672,18 +672,19 @@ describe('validate — connectors', () => {
     expect(codesOf(r.errors)).toContain('InvalidTokenRef')
   })
 
-  // ADR 0070: WebSearch is a first-class connector capability bound to mcp:brave.
-  it('accepts a WebSearch connector on the mcp:brave backend', () => {
+  // ADR 0070 (native cut): WebSearch is a first-class connector capability bound
+  // to Hermes' native web provider (native:brave-free), not an MCP server.
+  it('accepts a WebSearch connector on the native:brave-free backend', () => {
     const f = validFixture()
     ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
       adapter: 'brave',
-      backend: 'mcp:brave',
+      backend: 'native:brave-free',
       enabled: true,
     }
     const r = validate(f)
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.value.connectors.WebSearch?.backend).toBe('mcp:brave')
+    expect(r.value.connectors.WebSearch?.backend).toBe('native:brave-free')
     expect(r.value.connectors.WebSearch?.enabled).toBe(true)
   })
 

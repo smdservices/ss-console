@@ -123,13 +123,14 @@ connectors:
     enabled: true
   # WebSearch (ADR 0070) is UNAUTHORED by default for the Operator: the web is
   # incidental to the engagement and lower-trust/injectable in regulated
-  # verticals, so it is authored per engagement, not imposed (ADR 0035). To
-  # enable, uncomment and also author safety.sticky_stop.web_search_daily_cap.
-  # Confirm Brave's data-processing/retention terms before enabling on a legal
-  # seat. Search + extract only — no driven browser.
+  # verticals, so it is authored per engagement, not imposed (ADR 0035). Wired to
+  # Hermes' native web provider (no MCP wrapper). To enable, uncomment and also
+  # author safety.sticky_stop.web_search_daily_cap. For a SENSITIVE/legal seat
+  # prefer a paid or customer-owned Brave key (one party in the query path) and
+  # confirm Brave's data-processing/retention terms first. Search only.
   # WebSearch:
   #   adapter: brave
-  #   backend: 'mcp:brave'
+  #   backend: 'native:brave-free'   # or a paid/customer-owned Brave tier
   #   enabled: true
 
 # ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
