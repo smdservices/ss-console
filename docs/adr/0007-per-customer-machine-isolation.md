@@ -13,6 +13,8 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 **Source:** The platform multi-tenant model and the safety substrate (invariant #7, cross-Machine query prohibition).
 
+> **Storage-model note (2026-07-13).** The Phase-1 storage shape here — dedicated per-customer Cloudflare **D1 / R2 / Vectorize bindings** (`hermes-{slug}-{d1,r2,vectorize}`) — was corrected by [ADR 0009](./0009-cross-machine-query-prohibition.md)'s 2026-06-15 note: per-Machine storage is **SQLite on the `/opt/data` Fly volume plus R2 buckets** (`ss-operator-{slug}-skills`, shared `smd-customer-config`); the per-customer D1/Vectorize bindings described below were never built. The isolation guarantee is unchanged — it rests on the per-Machine topology (§Decision), not on these binding names.
+
 ---
 
 ## Context

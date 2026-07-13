@@ -11,6 +11,8 @@ related-adr: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0031
 
 **Status:** Accepted (Captain decision, 2026-06-01).
 
+> **Corrupted-body banner (2026-07-13) — read before the prose below.** A later blanket `ai-employee` → `operator` reverse-rename swept this file and overwrote its subject, so the body now reads self-referentially — e.g. "renamed from 'Operator' to 'Operator'" (§Decision), "'Operator' replaces 'Operator'" (§1). **The original rename target was the `/ai-employee` route/name** — the product was "Operator" (0004) → "AI Employee" → back to "Operator" here. Ground truth: `src/lib/routing/legacy-redirects.ts:51-62` (the `operator-rename` rule 301s `/ai-employee*` → `/operator*`) and `src/middleware.ts:216` ("the /ai-employee → /operator product rename, ADR 0034"). The companion migration `0048` became a self-referential no-op (`UPDATE subscriptions SET product_slug='operator' WHERE product_slug='operator'`) for the same reason. The prose is left as-is (ADRs are historical records); read "from 'Operator' to 'Operator'" as "from 'AI Employee' to 'Operator'."
+
 **Source:** Captain directive. ADR 0004 productized the offering under the working term **"Operator"** and explicitly deferred the customer-facing name: _"'Operator' is the working term in this ADR. The customer-facing brand for the SKU may differ,"_ with a filed follow-on for the service-name decision. This ADR resolves that deferral.
 
 ---
@@ -43,6 +45,8 @@ The product **acts**. It initiates, decides, and — within configured ceilings 
 - **The boot substrate** (`operator/` adapter + customer-config tree, Dockerfile, bootstrap) — **deferred to a gated cutover (see Delivery)** because it is read by a separate repo and a live Fly volume.
 
 ### 2. "Operator" is the product. Humans who operate stay operators too.
+
+> **Superseded (2026-07-13).** This section's instruction — "do not rename the human role or the RBAC enum; the `product_roles.role` value `operator` stays" — was **overridden** by migration `0065_rename_product_role_operator_to_staff.sql` (Captain resolution 2026-06-08, `docs/design/operator/02-client-portal.md §2`). The RBAC role `operator` was renamed to `staff`; the role triad is now **`principal | staff | compliance`**. Read the "stays" instruction below as historical.
 
 The word "operator" already describes **human roles** in this product, and that usage is correct and retained:
 

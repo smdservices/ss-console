@@ -12,6 +12,8 @@ related-strategy: docs/strategy/lead-gen-strategy-2026-04-25.md
 
 **Status:** Accepted (Captain decision, 2026-04-27, lead-gen strategy walkthrough).
 
+> **Context note (2026-07-13).** The **observation (5-category) taxonomy's lead-gen application** was mooted by [ADR 0060](./0060-retire-automated-lead-gen-machine.md) (2026-07-01), which retired the automated lead-gen machine and every consumer of the observation taxonomy (`src/lead-gen/`, the observation-scoring prompts, the delivery-list surface — all deleted). The 5-category schema itself survives, repurposed as the **client-assessment extraction schema** (`src/portal/assessments/extraction-schema.ts`), consumed by the assessment-extraction and assessment-to-quote flows. The **6-category delivery taxonomy** — the marketing/pricing/SOW source of truth — is unaffected and stands. 0060 deliberately did not supersede this ADR; this note records the narrowing.
+
 **Issue:** [#591](https://github.com/venturecrane/ss-console/issues/591) — Resolve taxonomy schism (5-cat observation, 6-cat delivery).
 
 **Source:** [docs/strategy/lead-gen-strategy-2026-04-25.md](../strategy/lead-gen-strategy-2026-04-25.md), Diagnosis section, item 4.
