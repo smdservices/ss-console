@@ -67,12 +67,24 @@ personas:
     entitlements:
       exposure:
         internal_write: autonomous
-        # autonomous on the STAGING seat to prove ADR 0073 (law external-send
-        # floor removed): an authored autonomous outside send must actually
-        # SEND. The content-sensitivity floor (ADR 0031) and taint gate still
-        # narrow; a real client seat authors its own posture.
-        external_send: autonomous
+        # ADR 0073 proved (merged #1843, live on this seat) that an authored
+        # autonomous outside send actually SENDS in the gateway. That proof is
+        # intentionally SUPERSEDED here by the Ashton & Price day-one grid posture
+        # (the 2026-07-09 commitment letter): every send starts at draft_for_review.
+        # Git history is the record of the autonomous proof; the letter grid
+        # (routine-grid.yaml) is the authority now. The content-sensitivity floor
+        # (ADR 0031) and taint gate still narrow further.
+        #   external_send          -> outside recipients (opposing counsel, court):
+        #                             the letter's permanent "a person sends it" cap.
+        #   external_send_client   -> the firm's own rostered client (verification
+        #                             chase): graduatable to autonomous by the firm.
+        #   external_send_vendor   -> the firm's own rostered records vendor (records
+        #                             chase): graduatable to autonomous by the firm.
+        # The two typed classes resolve via scope.outbound_roster below (ADR 0075).
+        external_send: draft_for_review
         external_send_internal: autonomous
+        external_send_client: draft_for_review
+        external_send_vendor: draft_for_review
         destructive: autonomous
     skills:
       # spine
@@ -207,6 +219,14 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
+        # PLACEHOLDER(christa): the client-verification chase numbers await the
+        # firm's real answers (2026-07-09 letter, "What we need back from you" #1 +
+        # the per-matter cadence). These STAGING defaults let the chase behavior
+        # run on pilot-smokeball; the real client seat MUST replace them with
+        # Christa's numbers before go-live (enforced by tests/customer-commitments).
+        settings:
+          chase_cadence_days: 5 # PLACEHOLDER(christa): days between verification chases
+          escalate_after_attempts: 3 # PLACEHOLDER(christa): unanswered attempts before it escalates to a person
       - name: separate-statement-assembler # CRC 3.1345 collation, person-invoked
         version: pending
         initiation:
@@ -266,6 +286,12 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
+        # PLACEHOLDER(christa): the treatment-gap flag length awaits the firm's
+        # answer (2026-07-09 letter, "What we need back from you" #2, e.g. 30 or 60
+        # days). This STAGING default lets gap-flagging run; the real client seat
+        # MUST replace it before go-live (enforced by tests/customer-commitments).
+        settings:
+          treatment_gap_flag_days: 45 # PLACEHOLDER(christa): flag treatment gaps beyond this many days
       # motions
       - name: motion-calendar-tracker # keeps motion deadlines/hearings current
         version: pending
@@ -524,10 +550,32 @@ scope:
   inbound_allow_from:
     - scott@smd.services
     - smdurgan@smdurgan.com
-  # External send (to anyone OUTSIDE the roster) follows the authored
-  # external_send ceiling above — autonomous on this staging seat (ADR 0073
-  # proof). Recipient-locked replies to rostered senders are governed by
-  # the roster above, not by this ceiling (ADR 0055 §3).
+  # Typed outbound roster (ADR 0075) — the firm's own client / records-vendor
+  # addresses, which resolve to the external_send_client / external_send_vendor
+  # action classes instead of the outside external_send ceiling. These two are
+  # the letter's only two outside-firm sends the "a person sends it" rule does
+  # NOT cover (the firm's own client and its own vendor), so they carry their own
+  # graduatable ceilings.
+  #
+  # STAGING STAND-INS: Ashton & Price's real client and records-vendor addresses
+  # do not exist on this staging seat. These are non-deliverable RFC-2606
+  # `.example` addresses on an SMD-labeled domain, so no mail can leave for a real
+  # third party regardless of send posture. WP-F re-points them to real
+  # deliverable SMD-controlled targets for its live send probes.
+  outbound_roster:
+    - address: client-standin@smd-staging-invalid.example
+      class: client
+      note: 'Staging stand-in for the firm client (the verification-chase recipient). WP-F re-points this to a real deliverable SMD-controlled target.'
+    - address: records-vendor-standin@smd-staging-invalid.example
+      class: records_vendor
+      note: 'Staging stand-in for the records vendor (the records-chase recipient). WP-F re-points this to a real deliverable SMD-controlled target.'
+  # External send (to anyone OUTSIDE the roster and NOT in outbound_roster) follows
+  # the authored external_send ceiling above — draft_for_review under the Ashton &
+  # Price day-one grid posture (2026-07-09 letter), the letter's permanent
+  # "a person sends it" cap for opposing counsel and the court. Recipient-locked
+  # replies to rostered senders are governed by inbound_allow_from above, and typed
+  # client / records-vendor sends by outbound_roster above, not by this ceiling
+  # (ADR 0055 §3 / ADR 0075).
   #
   # This is SMD's own STAGING TEST seat (not a client). The Operator manages its
   # own sample matters for testing, so it gets full document-write autonomy here:
