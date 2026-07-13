@@ -10,9 +10,12 @@ The decision determines the shape. Every tracked item is keyed to
 
 **Requested:** <date records were requested, from the authored roster>
 **Status:** outstanding (<N> days); nudge <#> of <max>
-**Decision:** cadence due — chase drafted to <provider | records vendor>.
+**Decision:** cadence due — chase <sent | drafted, per the authored external_send
+ceiling> to <provider | records vendor>.
 
-## Chase (DRAFT — reviewer/firm sends by its method)
+## Chase (sent as-is under an authored autonomous ceiling; otherwise a DRAFT the
+
+reviewer/firm sends by its method)
 
 > <short, businesslike follow-up to the provider/vendor per voice.md that names the
 > patient, the request/date, and that the records are still outstanding, asks for
@@ -54,8 +57,10 @@ judgment the skill does not make on its own.
 
 ## Rules
 
-1. **Only Shape A contains an outbound draft** (blockquote, drafted, never sent
-   without a human).
+1. **Only Shape A contains an outbound chase** (blockquote). Whether it is sent or
+   drafted follows the firm's authored `external_send` ceiling (see SKILL.md "The
+   send seam"); the recipient is always the authored roster/vendor contact, and the
+   decision line states which happened.
 2. **The skill never decides which providers to request** — it acts on the authored
    roster, and never infers a provider from a record's content.
 3. **Shape B is reachable ONLY on a confident document match** — the firm's
