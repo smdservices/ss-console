@@ -20,15 +20,22 @@ import pytest  # noqa: E402
 
 from adapter.recipient_classifier import (  # noqa: E402
     ACTION_CLASS_EXTERNAL_SEND,
+    ACTION_CLASS_EXTERNAL_SEND_CLIENT,
     ACTION_CLASS_EXTERNAL_SEND_INTERNAL,
+    ACTION_CLASS_EXTERNAL_SEND_VENDOR,
     RecipientClass,
     UnclassifiedRecipientError,
     classify_recipient,
     classify_recipients,
+    classify_recipients_typed,
     send_action_class,
 )
 
 ROSTER = ["@ashtonandprice.com", "scott@smd.services"]
+# Typed outbound roster: the firm's own client (a consumer on gmail) and a records
+# vendor. Exact addresses — a whole-@domain grant at a public provider is rejected
+# by the validator; the classifier matches these exactly.
+TYPED = [("jane@gmail.com", "client"), ("records@radiology.com", "records_vendor")]
 
 
 # ---- core behaviour -------------------------------------------------------
@@ -163,3 +170,117 @@ def test_router_unknown_is_a_hard_error_not_a_draft():
     # The keystone anti-regression guarantee: an unresolved recipient stops loudly.
     with pytest.raises(UnclassifiedRecipientError):
         send_action_class(RecipientClass.UNKNOWN)
+
+
+# ---- ADR 0075: typed outbound roster (CLIENT / VENDOR) --------------------
+
+
+def test_typed_client_and_vendor_resolve_by_class():
+    assert classify_recipients_typed(["jane@gmail.com"], ROSTER, TYPED) is RecipientClass.CLIENT
+    assert (
+        classify_recipients_typed(["records@radiology.com"], ROSTER, TYPED)
+        is RecipientClass.VENDOR
+    )
+
+
+def test_typed_internal_outranks_typed_class():
+    # An address on the internal roster classifies INTERNAL even if it also appears
+    # as a typed entry (internal-first order).
+    typed = [("scott@smd.services", "client")]
+    assert classify_recipients_typed(["scott@smd.services"], ROSTER, typed) is RecipientClass.INTERNAL
+
+
+def test_typed_unrostered_is_outside():
+    assert (
+        classify_recipients_typed(["opposing@counsel.com"], ROSTER, TYPED) is RecipientClass.OUTSIDE
+    )
+
+
+def test_typed_public_domain_exact_matches_but_grant_would_not():
+    # EXACT gmail address is a client; a DIFFERENT gmail address is not (exact only).
+    assert classify_recipients_typed(["jane@gmail.com"], [], TYPED) is RecipientClass.CLIENT
+    assert classify_recipients_typed(["bob@gmail.com"], [], TYPED) is RecipientClass.OUTSIDE
+
+
+def test_typed_plus_tag_and_display_name_and_homoglyph():
+    typed = [("jane@gmail.com", "client")]
+    assert classify_recipients_typed(["jane+x@gmail.com"], [], typed) is RecipientClass.OUTSIDE
+    assert classify_recipients_typed(["Jane <jane@gmail.com>"], [], typed) is RecipientClass.UNKNOWN
+    # U+0430 Cyrillic 'а' in the domain never matches the ASCII roster.
+    assert classify_recipients_typed(["jane@gmаil.com"], [], typed) is not RecipientClass.CLIENT
+
+
+def test_typed_multiclass_address_is_outside_never_guesses():
+    typed = [("x@firm-vendor.com", "client"), ("x@firm-vendor.com", "records_vendor")]
+    assert classify_recipients_typed(["x@firm-vendor.com"], [], typed) is RecipientClass.OUTSIDE
+
+
+def test_typed_empty_roster_is_outside():
+    assert classify_recipients_typed(["jane@gmail.com"], [], []) is RecipientClass.OUTSIDE
+
+
+def test_typed_tainted_recipient_is_outside_never_typed():
+    assert (
+        classify_recipients_typed(["jane@gmail.com"], ROSTER, TYPED, from_tainted=True)
+        is RecipientClass.OUTSIDE
+    )
+
+
+def test_typed_empty_recipient_list_is_unknown():
+    assert classify_recipients_typed([], ROSTER, TYPED) is RecipientClass.UNKNOWN
+
+
+# ---- homogeneity aggregation (prevents ceiling-shopping on mixed sends) -----
+
+
+def test_internal_plus_client_aggregates_client():
+    rs = ["scott@smd.services", "jane@gmail.com"]  # internal CC rides along
+    assert classify_recipients_typed(rs, ROSTER, TYPED) is RecipientClass.CLIENT
+
+
+def test_internal_plus_vendor_aggregates_vendor():
+    rs = ["scott@smd.services", "records@radiology.com"]
+    assert classify_recipients_typed(rs, ROSTER, TYPED) is RecipientClass.VENDOR
+
+
+def test_client_plus_vendor_mix_is_outside():
+    rs = ["jane@gmail.com", "records@radiology.com"]
+    assert classify_recipients_typed(rs, ROSTER, TYPED) is RecipientClass.OUTSIDE
+
+
+def test_any_outside_recipient_makes_typed_send_outside():
+    rs = ["jane@gmail.com", "opposing@counsel.com"]
+    assert classify_recipients_typed(rs, ROSTER, TYPED) is RecipientClass.OUTSIDE
+
+
+def test_any_unknown_recipient_makes_typed_send_unknown():
+    rs = ["jane@gmail.com", "garbage"]
+    assert classify_recipients_typed(rs, ROSTER, TYPED) is RecipientClass.UNKNOWN
+
+
+def test_typed_iterables_not_exhausted_across_recipients():
+    # One-shot generators for both rosters must be materialized, not consumed on #1.
+    roster_gen = (e for e in ROSTER)
+    typed_gen = (t for t in TYPED)
+    rs = ["records@radiology.com", "jane@gmail.com"]  # client + vendor mix → OUTSIDE
+    assert classify_recipients_typed(rs, roster_gen, typed_gen) is RecipientClass.OUTSIDE
+
+
+# ---- router maps the typed classes ----------------------------------------
+
+
+def test_router_client_and_vendor_map_to_their_action_classes():
+    assert send_action_class(RecipientClass.CLIENT) == ACTION_CLASS_EXTERNAL_SEND_CLIENT
+    assert send_action_class(RecipientClass.VENDOR) == ACTION_CLASS_EXTERNAL_SEND_VENDOR
+
+
+# ---- cross-module parity: classifier constants == adapter enum values ------
+
+
+def test_classifier_constants_match_adapter_enum_values():
+    from adapter.trust_ceiling import ActionClass
+
+    assert ACTION_CLASS_EXTERNAL_SEND == ActionClass.EXTERNAL_SEND.value
+    assert ACTION_CLASS_EXTERNAL_SEND_INTERNAL == ActionClass.EXTERNAL_SEND_INTERNAL.value
+    assert ACTION_CLASS_EXTERNAL_SEND_CLIENT == ActionClass.EXTERNAL_SEND_CLIENT.value
+    assert ACTION_CLASS_EXTERNAL_SEND_VENDOR == ActionClass.EXTERNAL_SEND_VENDOR.value

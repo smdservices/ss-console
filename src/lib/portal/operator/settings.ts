@@ -109,6 +109,8 @@ export function trustCeilingRowsFromPersona(persona: PersonaConfig | null): Trus
     'internal_write',
     'external_send',
     'external_send_internal',
+    'external_send_client',
+    'external_send_vendor',
     'commitment',
     'destructive',
     'code_execution',

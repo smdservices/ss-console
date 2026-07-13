@@ -203,6 +203,10 @@ export function actionClassLabel(actionClass: ActionClass): string {
       return 'External send (outside)'
     case 'external_send_internal':
       return 'Internal send (staff)'
+    case 'external_send_client':
+      return 'Client send'
+    case 'external_send_vendor':
+      return 'Records-vendor send'
     case 'commitment':
       return 'Commitment'
     case 'destructive':

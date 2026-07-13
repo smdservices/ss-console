@@ -2829,3 +2829,117 @@ describe('validate — relationship block (ADR 0048)', () => {
     ).toBe(true)
   })
 })
+
+describe('validate — scope.outbound_roster (ADR 0075)', () => {
+  function withOutbound(roster: unknown, inbound?: unknown): Record<string, unknown> {
+    const f = validFixture()
+    const scope = f['scope'] as Record<string, unknown>
+    scope['outbound_roster'] = roster
+    if (inbound !== undefined) scope['inbound_allow_from'] = inbound
+    return f
+  }
+
+  it('accepts a valid client + records_vendor roster and carries it through', () => {
+    const r = validate(
+      withOutbound([
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client on gmail' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+      ])
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.outbound_roster).toEqual([
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client on gmail' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+      ])
+    }
+  })
+
+  it('accepts an EXACT address at a public-mail provider (PI client on gmail)', () => {
+    const r = validate(withOutbound([{ address: 'jane@gmail.com', class: 'client' }]))
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects a whole-@domain grant at a public-mail provider', () => {
+    const r = validate(withOutbound([{ address: '@gmail.com', class: 'client' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('accepts an @domain grant at a firm/vendor domain', () => {
+    const r = validate(withOutbound([{ address: '@records-vendor.com', class: 'records_vendor' }]))
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects a class outside the closed vocabulary', () => {
+    const r = validate(withOutbound([{ address: 'a@b.com', class: 'opposing_counsel' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects a malformed address', () => {
+    const r = validate(withOutbound([{ address: 'not-an-email', class: 'client' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects one address typed as more than one class', () => {
+    const r = validate(
+      withOutbound([
+        { address: 'x@firm-vendor.com', class: 'client' },
+        { address: 'x@firm-vendor.com', class: 'records_vendor' },
+      ])
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects an address also present in inbound_allow_from', () => {
+    const r = validate(
+      withOutbound([{ address: 'scott@smd.services', class: 'client' }], ['scott@smd.services'])
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects a non-list outbound_roster', () => {
+    const r = validate(withOutbound('nope'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('defaults to [] when unauthored', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.outbound_roster).toEqual([])
+  })
+})
+
+describe('validate — send exposure classes (ADR 0075)', () => {
+  function withExposure(exposure: Record<string, unknown>): Record<string, unknown> {
+    const f = validFixture()
+    const persona = (f['personas'] as Record<string, unknown>[])[0]
+    persona['entitlements'] = { exposure }
+    return f
+  }
+
+  it('accepts external_send_client / external_send_vendor, and confirm on them', () => {
+    const r = validate(
+      withExposure({
+        external_send_client: 'autonomous',
+        external_send_vendor: 'confirm',
+      })
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.personas[0].entitlements.exposure.external_send_client).toBe('autonomous')
+      expect(r.value.personas[0].entitlements.exposure.external_send_vendor).toBe('confirm')
+    }
+  })
+
+  it('rejects confirm on a non-send class', () => {
+    const r = validate(withExposure({ internal_write: 'confirm' }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
+  })
+})

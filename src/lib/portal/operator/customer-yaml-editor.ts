@@ -395,7 +395,9 @@ export function applyEditableChanges(
     ...lockedFromCurrent(current),
     personas: mergedPersonas,
     connectors: mergeConnectors(current.connectors, changes.connectors),
-    scope: { ...changes.scope },
+    // outbound_roster (ADR 0075) is governance-sensitive and NOT portal-editable;
+    // preserve the current value verbatim (same posture as voice_cohorts below).
+    scope: { ...changes.scope, outbound_roster: current.scope.outbound_roster },
     escalation: { ...changes.escalation },
     voice_library:
       changes.voiceLibrary.samples_path === null
