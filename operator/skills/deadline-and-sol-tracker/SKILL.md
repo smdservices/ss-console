@@ -1,6 +1,6 @@
 ---
 name: deadline-and-sol-tracker
-description: Surfaces the firm's authored court dates, filing deadlines, and statute-of-limitations dates by proximity — overdue, imminent, upcoming. Reflects dates a human entered; never computes a limitation period.
+description: Surfaces the firm's authored court dates, filing deadlines, and statute-of-limitations dates by proximity — overdue, imminent, upcoming. Reflects dates a human entered; reads dates the Smokeball court-rules engine computed and presents them "unconfirmed: confirm with the responsible attorney," logging a bookkeeping memo on confirmation; never computes a limitation period itself.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -16,7 +16,7 @@ metadata:
     skill_type: read + assembly (internal surfacing)
     action_class: read + internal_write
     connectors:
-      - smokeball # PracticeManagement — list_tasks (read, due_date) for authored task deadlines
+      - smokeball # PracticeManagement — list_tasks (read, due_date) for authored + engine-computed task deadlines; get_staff (resolve the responsible attorney's full name); create_memo (write the confirmation bookkeeping memo ONLY on attorney confirm of an engine-read date)
       - m365-mail # Email/Calendar binding — list_calendar_entries (read) for authored court/appointment dates
 ---
 
@@ -24,7 +24,9 @@ metadata:
 
 Surfaces the firm's **authored** critical dates — court dates, filing deadlines, response windows, and statute-of-limitations dates that a human has entered into the system — bucketed by proximity so nothing critical arrives by surprise. It is the date-awareness layer for the practice.
 
-This skill is the **nearest of all the law skills to legal judgment**, so it is drawn with the hardest line: **it tracks dates a human authored; it never computes one.** A statute of limitations is a legal determination — the date the deadline falls is the lawyer's to set. This skill reads the date the lawyer set and tells them it is coming. It does not calculate "three years from the incident," does not infer a filing window from a rule, and does not advise. Authored in, surfaced out.
+This skill is the **nearest of all the law skills to legal judgment**, so it is drawn with the hardest line: **it tracks dates it reads; it never computes one.** A statute of limitations is a legal determination — the date the deadline falls is the lawyer's to set. This skill reads the date the lawyer set and tells them it is coming. It does not calculate "three years from the incident," does not infer a filing window from a rule, and does not advise. Read in, surfaced out.
+
+**Two provenances, read the same way, presented differently.** A date the skill reads is either **human-authored** (a person entered it as a task due date or a calendar entry — settled, surfaced as-is) or **engine-computed** (the Smokeball court-rules calendaring engine computed it and posted it into the matter — read, not settled). Per the 07-09 letter's Deadlines commitment, the Operator "reads those computed dates from Smokeball and confirms them with the attorney rather than computing its own." So an engine-computed date is presented **"unconfirmed: confirm with the responsible attorney,"** and on the attorney's confirmation the skill writes a bookkeeping memo (name, timestamp, date, source). Reading the engine's number is **not** computing one: the engine did the math, the skill only reads and confirms it. The never-computes line is unchanged.
 
 ## When to Use
 
@@ -57,43 +59,75 @@ Enumerate open matters, then per matter pull `list_calendar_entries` (court date
 Per `references/algorithm.md`:
 
 1. **Bucket by proximity** — `overdue` (past, still open), `imminent` (within the firm's near window), `upcoming` (within the scan window). Buckets are date arithmetic on authored dates only.
-2. **Label the source** — each date is tagged court-date / filing-deadline / SOL / task-deadline as authored. The label is read from how the human entered it; the skill does not classify a date as an SOL on its own.
+2. **Label the source and the provenance** — each date is tagged court-date / filing-deadline / SOL / task-deadline as authored. The label is read from how the human entered it; the skill does not classify a date as an SOL on its own. Each date also carries its **provenance**: **human-authored** (settled) or **engine-computed** (read from the court-rules engine's entry, identified by the engine's source tag / category on the entry — a firm-configuration fact confirmed at connect, never guessed). An engine-computed date is surfaced **unconfirmed** per the confirmation flow below; a human-authored date is surfaced settled, as before.
 3. **Flag missing-where-expected** — if firm policy says a matter type should carry an SOL date and none is authored, surface **"no authored deadline on file"** for a human to address. This is the one place the skill points at an absence — and it points, it does not fill.
 4. **Assemble the surface** — dates per matter, by bucket, each sourced and labeled, to the firm-internal surface per `references/output-format.md`.
 
+## Engine-read dates: present unconfirmed, confirm, and log (never compute)
+
+This flow adds **confirmation bookkeeping for dates the skill reads**. It adds no
+computation — the engine computes the date, the skill reads it, and the attorney
+confirms it. The read-not-compute invariant is untouched.
+
+1. **Present unconfirmed.** An engine-computed date is surfaced with the explicit label
+   **"unconfirmed: confirm with the responsible attorney."** It is never presented as a
+   settled deadline, and nothing is written for it until the attorney confirms. The
+   responsible attorney is read from the matter's `personResponsibleStaffId`.
+2. **On confirmation, log a bookkeeping memo.** When the responsible attorney confirms an
+   engine-read date, the skill writes one `create_memo` on the matter recording, exactly:
+   - the **confirming attorney's full name**, resolved from `personResponsibleStaffId` via
+     `get_staff` (never a bare staff id, never a guessed name);
+   - an **ISO-8601 timestamp** of when the confirmation was captured;
+   - the **confirmed date**;
+   - the **source**: `Smokeball court-rules engine` for an engine-read date. (The shared
+     confirmation-memo vocabulary also defines `proposed by Operator` for a by-hand-proposed
+     date, but **this skill never proposes or computes a date**, so it only ever records
+     `Smokeball court-rules engine`. Recording `proposed by Operator` here would mean the
+     skill computed a date, which it must never do.)
+3. **The memo is bookkeeping, not a calendar write.** This skill does not calendar. The
+   confirmation writes the memo only; it does not create or move a calendar entry or a task,
+   and it writes nothing before the confirm.
+
+If the provenance of a read date cannot be determined (the engine source tag is not yet
+configured), the skill does not guess: it surfaces the date and asks whether it is
+engine-computed or human-authored, rather than silently treating an engine date as settled.
+
 ## Trust Ceiling
 
-**Read + assemble + surface autonomous; internal-only; zero date computation.**
+**Read + assemble + surface autonomous; internal-only; zero date computation. On the
+responsible attorney's confirmation of an engine-read date, one internal bookkeeping memo.**
 
-The agent MAY: read authored calendar entries and task due dates; bucket them by proximity; flag a matter that lacks an expected authored deadline; write the surface to the firm-internal notes surface.
+The agent MAY: read authored calendar entries and task due dates; read an engine-computed date and present it unconfirmed for the responsible attorney to confirm; bucket dates by proximity; flag a matter that lacks an expected authored deadline; write the surface to the firm-internal notes surface; on the responsible attorney's confirmation of an engine-read date, write one internal bookkeeping memo (name, ISO-8601 timestamp, confirmed date, source).
 
-The agent MUST NOT: compute, infer, or estimate a limitation period or any deadline; advise on timeliness; move a date; send anything to a client; present a computed date as if authored.
+The agent MUST NOT: compute, infer, or estimate a limitation period or any deadline; propose a date of its own; advise on timeliness; move a date; send anything to a client; present a computed date as if authored; present an engine-computed date as settled rather than unconfirmed; write any confirmation memo before the attorney confirms.
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
-1. **Never computes a deadline.** Every date surfaced is one a human authored. The skill does no date math beyond comparing authored dates to today for bucketing.
+1. **Never computes a deadline.** Every date surfaced is one the skill **read** — either a human authored it, or the court-rules engine computed it and the skill read the engine's number. The skill does no date math beyond comparing read dates to today for bucketing. It never computes, proposes, or estimates a date of its own; reading the engine's date is not computing one.
 2. **No legal advice.** It surfaces "this date is coming"; it never says whether a filing is timely or what the limitation is.
 3. **Missing is flagged, not filled.** An absent expected deadline is surfaced as absent; the skill never supplies a plausible date.
-4. **No fabrication.** Every date traces to a read with its authored source label — a Smokeball `list_tasks` `due_date` or a calendar-binding `list_calendar_entries` entry.
+4. **No fabrication.** Every date traces to a read with its source label and provenance — a Smokeball `list_tasks` `due_date`, a calendar-binding `list_calendar_entries` entry, or a court-rules-engine entry (surfaced unconfirmed).
 5. **Internal + privilege.** The surface is for the firm; it stays on firm surfaces.
+6. **Engine dates are unconfirmed until the attorney confirms.** An engine-computed date is surfaced "unconfirmed: confirm with the responsible attorney," never as a settled deadline; the confirmation memo (name, ISO-8601 timestamp, date, source) is written only on the attorney's confirm, never before.
 
 ## Pitfalls
 
-Computing "X years from the incident" — the cardinal sin here; inferring a filing window from a court rule; labeling a generic calendar entry as an SOL the human didn't mark; presenting a missing deadline as though a date were known; sending date reminders to clients (this skill is internal — client-facing date communication is a separate, reviewer-sent concern).
+Computing "X years from the incident" — the cardinal sin here; inferring a filing window from a court rule; labeling a generic calendar entry as an SOL the human didn't mark; presenting a missing deadline as though a date were known; **presenting an engine-computed date as settled instead of unconfirmed, or writing a confirmation memo before the attorney confirms**; recording an engine-read date's source as `proposed by Operator` (this skill never proposes a date); sending date reminders to clients (this skill is internal — client-facing date communication is a separate, reviewer-sent concern).
 
 ## Verification
 
-1. Every surfaced date traces to an authored source — a calendar-binding `list_calendar_entries` entry or a Smokeball task `due_date` — none computed.
+1. Every surfaced date traces to a read source — a calendar-binding `list_calendar_entries` entry, a Smokeball task `due_date`, or a court-rules-engine entry — none computed by the skill.
 2. Buckets (overdue/imminent/upcoming) are correct date arithmetic against today.
 3. Source labels match how the human authored each date; no date is self-classified as an SOL.
 4. Matters missing an expected authored deadline are flagged as missing, not filled.
 5. Nothing is sent to a client; the surface is firm-internal.
+6. Engine-computed dates are surfaced "unconfirmed: confirm with the responsible attorney," never as settled; a confirmation memo (attorney full name, ISO-8601 timestamp, confirmed date, source) is written only on the attorney's confirm, never before, and only ever with `source: Smokeball court-rules engine`.
 
 ## References
 
-- `references/algorithm.md` — the proximity buckets, the authored-only rule, and the missing-where-expected flag logic
-- `references/output-format.md` — the by-matter, by-bucket date surface (plus the Plain-calendar and Missing-where-expected sections)
-- `references/test-cases.md` — the five fixtures: overdue/imminent/upcoming bucketing, an authored SOL, a missing-expected-deadline matter, and two adversarial cases (computation-bait, bare-calendar-not-deadline)
+- `references/algorithm.md` — the proximity buckets, the read-only rule, the provenance / engine-confirm flow, and the missing-where-expected flag logic
+- `references/output-format.md` — the by-matter, by-bucket date surface (plus the Plain-calendar and Missing-where-expected sections, the unconfirmed-engine-date marker, and the confirmation-memo shape)
+- `references/test-cases.md` — the seven fixtures: overdue/imminent/upcoming bucketing, an authored SOL, a missing-expected-deadline matter, two adversarial cases (computation-bait, bare-calendar-not-deadline), an engine-date-unconfirmed case, and an engine-confirm-memo case
 - `tests/selector_test.md` — selector targets this skill for a "what's coming due" date scan, not the digest or stalled-nudge
 
 ## Delivery channels + refusal fallback (law seat rule)
