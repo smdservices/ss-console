@@ -282,7 +282,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # instead of defaulting below it (the ADR 0073 live proof drafted a chase its
 # autonomous ceiling allowed it to send). translate.py + tests only — no
 # tracked twin moved. Superset of 17d33d7.
-ARG OVERLAY_REF="5b7318cbb138038d0f1a33cd263b9354e377ef6b"
+# f3e48d6b (#157, ss #1806, ADR 0071): the confirm-over-channel approval stamp —
+# a send withheld at the confirm ceiling is captured, an allowlisted-Telegram
+# bare-affirmative marks it approved, and the STORED payload is replayed verbatim
+# on the re-invoke (shared/pending_send.py + plugins/hermes-smd-trust/{approval,
+# enforce,__init__}.py + tests). None are tracked twins, so every overlaySha256 is
+# unchanged; only overlayRef. Superset of 5b7318cb.
+ARG OVERLAY_REF="f3e48d6b2f03370a15f3e44074a38660b508424c"
 
 ARG CUSTOMER_SLUG=customer-zero
 
