@@ -78,7 +78,7 @@ describe('splitList', () => {
 describe('option sources are real schema constants', () => {
   it('exposes verticals, ceilings, roles, capabilities', () => {
     expect(verticalOptions()).toContain('law-firm')
-    expect(trustCeilingOptions()).toEqual(['autonomous', 'draft_for_review', 'refused'])
+    expect(trustCeilingOptions()).toEqual(['autonomous', 'confirm', 'draft_for_review', 'refused'])
     expect(userRoleOptions()).toEqual(['principal', 'staff', 'compliance'])
     expect(capabilityOptions()).toContain('Email')
     expect(addonOptionsFor('law-firm')).toContain('pi')
