@@ -264,7 +264,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # compelled floors. Range 0c9d165..d5187194 touches shared/action_classes.py +
 # enforce.py + config_applier/safety.py + tests — NOT tracked twins, so every
 # overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
-ARG OVERLAY_REF="d5187194ba06701a8b7b22689319f53d8c12b35c"
+ARG OVERLAY_REF="880609907787cdca057631605db73a5122f59c99"
 
 ARG CUSTOMER_SLUG=customer-zero
 
