@@ -16,11 +16,12 @@ related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated
 
 ## Context
 
-The Operator touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of three backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
+The Operator touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of the backend patterns below, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
 
 - `mcp:<server>` — Model Context Protocol server (vendor-official or vetted community)
 - `build:<vendor>` — Python adapter we maintain in `operator/connectors/<vendor>/`
 - `synthetic:<name>` — In-process substrate using per-customer D1+R2 (e.g., `no_pm`)
+- `native:<provider>` — a Hermes-native provider surfaced without wrapping it in a connector (e.g. `native:brave-free` for web search); materialized by `_materialize_web_search` in `bootstrap/translate.py`. **Added 2026-07-13, forward-linking [ADR 0070](./0070-web-search-shared-connector-divergent-defaults.md)'s native cut** — 0070's first cut wired web search as `mcp:brave`, then replaced it with this `native:` prefix because wrapping a native Hermes feature in an MCP server was a redundant layer. This ADR originally named **three** backend patterns; `native:` is the fourth.
 
 **Composio is dropped.** An earlier revision of this ADR reserved a fourth `composio:<connector>` backend as a long-tail fallback. As of the 2026-05-30 revision it is removed entirely: every vendor we plan to wire has a vendor-direct or vetted-community MCP, or a BUILD adapter, and we connect to MCPs directly. The `composio:` prefix is no longer an accepted backend and the per-connection runtime guard has been retired. New vendors with no first-party MCP are wired with a BUILD adapter.
 

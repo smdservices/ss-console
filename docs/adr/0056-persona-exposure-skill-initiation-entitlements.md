@@ -4,6 +4,8 @@ Status: Accepted
 
 Date: 2026-06-26
 
+> **Forward-note (2026-07-13).** This entitlement substrate was later extended (not superseded) by two ADRs: [ADR 0071](./0071-confirm-ceiling-and-hosted-agent-tier-ladder.md) adds a fourth ceiling value `confirm` (`autonomous < confirm < draft_for_review < refused`), and [ADR 0072](./0072-recipient-aware-proactive-send.md) adds the `external_send_internal` exposure class plus a recipient classifier. Both layer cleanly on the exposure/initiation model here.
+
 ## Context
 
 The Operator previously mixed authorization concepts across scalar skill
