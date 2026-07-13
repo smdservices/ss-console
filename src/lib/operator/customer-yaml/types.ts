@@ -161,9 +161,13 @@ export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
  *
  * `external_send` is a send to a NON-roster (outside) recipient;
  * `external_send_internal` is a send to a human-rostered internal recipient
- * (the firm's own staff). The recipient axis is resolved upstream by
- * `recipient_classifier`, so an internal notification never collapses onto the
- * outside ceiling. Both are fail-closed when unauthored (ADR 0035).
+ * (the firm's own staff); `external_send_client` / `external_send_vendor` are
+ * sends to the firm's own rostered client / records vendor (ADR 0075), each with
+ * its own authored ceiling, graduatable to autonomous independently of the
+ * outside class. The recipient axis is resolved upstream by
+ * `recipient_classifier`, so an internal/client/vendor notification never
+ * collapses onto the outside ceiling. All are fail-closed when unauthored (ADR
+ * 0035).
  *
  * The values must stay byte-identical to the Python enum's `.value` strings;
  * the overlay materializer (`hermes-smd bootstrap`) carries this map across
@@ -174,12 +178,51 @@ export const ACCEPTED_ACTION_CLASSES = [
   'internal_write',
   'external_send',
   'external_send_internal',
+  'external_send_client',
+  'external_send_vendor',
   'commitment',
   'destructive',
   'code_execution',
 ] as const
 export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
 export type AuthoredExposureActionClass = Exclude<ActionClass, 'read'>
+
+/**
+ * The send action classes — the only classes for which the `confirm` ceiling
+ * (ADR 0071) has defined enforcement behavior, and the classes the recipient
+ * classifier resolves a send to. Mirrors `SEND_ACTION_CLASSES` in the overlay
+ * validator and the Python adapter enum's send members.
+ */
+export const SEND_ACTION_CLASSES = [
+  'external_send',
+  'external_send_internal',
+  'external_send_client',
+  'external_send_vendor',
+] as const
+export type SendActionClass = (typeof SEND_ACTION_CLASSES)[number]
+
+/**
+ * Closed vocabulary for a `scope.outbound_roster` entry's `class` (ADR 0075).
+ * A typed outbound-roster address is either the firm's own `client` or a
+ * `records_vendor`; these map to the `external_send_client` / `external_send_vendor`
+ * action classes. There is deliberately NO opposing-counsel / court class — an
+ * un-rostered outside recipient stays governed by `external_send`.
+ */
+export const OUTBOUND_ROSTER_CLASSES = ['client', 'records_vendor'] as const
+export type OutboundRosterClass = (typeof OUTBOUND_ROSTER_CLASSES)[number]
+
+/**
+ * One entry in `scope.outbound_roster` (ADR 0075). Human-authored OUTBOUND
+ * authorization — never grown from inbound. `address` is an exact `local@domain`
+ * or an `@domain` grant (a whole-@domain grant at a public-mail provider is
+ * rejected; an EXACT address at such a domain is valid — PI clients are consumers
+ * on gmail). `class` is the closed vocabulary; `note` is optional free text.
+ */
+export interface OutboundRosterEntry {
+  address: string
+  class: OutboundRosterClass
+  note?: string
+}
 
 export interface PersonaEntitlements {
   /**
@@ -585,6 +628,13 @@ export interface Scope {
   matter_blocks: string[]
   /** Senders allowed to trigger autonomous reply from crane's own inbox. */
   inbound_allow_from: string[]
+  /**
+   * Typed outbound roster (ADR 0075) — the firm's own clients / records vendors,
+   * each resolving to the `external_send_client` / `external_send_vendor` action
+   * class. Empty array when unauthored (fail-closed: every outside send stays on
+   * the `external_send` ceiling). See {@link OutboundRosterEntry}.
+   */
+  outbound_roster: OutboundRosterEntry[]
 }
 
 export interface Escalation {
@@ -977,6 +1027,7 @@ export type ValidationErrorCode =
   | 'UnknownAddon'
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
+  | 'InvalidOutboundRoster'
   | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'

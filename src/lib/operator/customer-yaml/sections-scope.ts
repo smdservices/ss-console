@@ -1,5 +1,31 @@
-import { type Scope, type ValidationError } from './types'
+import {
+  OUTBOUND_ROSTER_CLASSES,
+  type OutboundRosterClass,
+  type OutboundRosterEntry,
+  type Scope,
+  type ValidationError,
+} from './types'
 import { isPlainObject, optionalStringList, requireStringList } from './helpers'
+
+/**
+ * Public-mail providers where a whole-@domain grant is meaningless (the domain is
+ * shared by millions), so a DOMAIN-form outbound_roster entry is rejected — but an
+ * EXACT address at one of these domains is valid (a PI client is a consumer on
+ * gmail). Mirrors `_PUBLIC_MAIL_DOMAINS` in the overlay validator.
+ */
+const PUBLIC_MAIL_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'yahoo.com',
+  'icloud.com',
+  'me.com',
+  'aol.com',
+  'proton.me',
+  'protonmail.com',
+])
 
 export function checkScope(root: Record<string, unknown>, errors: ValidationError[]): Scope {
   const raw = root['scope']
@@ -11,6 +37,12 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     errors.push({ code: 'TypeMismatch', path: 'scope', message: 'scope must be an object' })
     return emptyScope()
   }
+  const inboundAllowFrom = optionalStringList(
+    raw,
+    'inbound_allow_from',
+    'scope.inbound_allow_from',
+    errors
+  )
   return {
     email_folders_visible: requireStringList(
       raw,
@@ -32,13 +64,154 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     ),
     domain_blocks: requireStringList(raw, 'domain_blocks', 'scope.domain_blocks', errors),
     matter_blocks: optionalStringList(raw, 'matter_blocks', 'scope.matter_blocks', errors),
-    inbound_allow_from: optionalStringList(
-      raw,
-      'inbound_allow_from',
-      'scope.inbound_allow_from',
-      errors
-    ),
+    inbound_allow_from: inboundAllowFrom,
+    outbound_roster: checkOutboundRoster(raw['outbound_roster'], inboundAllowFrom, errors),
   }
+}
+
+/**
+ * Canonicalize an outbound-roster address to `@domain` or `local@domain`, or
+ * `null` when malformed. Mirrors the runtime classifier's `_canonicalize_roster_entry`
+ * (strict: lowercased, no display-name/list/whitespace, exact-domain, no plus-tag
+ * widening) so the validator's notion of "same address" matches the classifier's.
+ */
+function canonRosterAddress(raw: string): string | null {
+  const s = raw.trim().toLowerCase()
+  if (!s || /[<>"\s,;]/.test(s)) return null
+  if (s.startsWith('@')) {
+    const domain = s.slice(1)
+    const labels = domain.split('.')
+    if (labels.length < 2 || labels.some((l) => l === '')) return null
+    return `@${domain}`
+  }
+  if ((s.match(/@/g) ?? []).length !== 1) return null
+  const [local, domain] = s.split('@')
+  if (!local || !domain) return null
+  const labels = domain.split('.')
+  if (labels.length < 2 || labels.some((l) => l === '')) return null
+  return `${local}@${domain}`
+}
+
+/**
+ * Validate `scope.outbound_roster` (ADR 0075): a list of `{address, class, note?}`
+ * where `class` is the closed vocabulary. A whole-@domain grant at a public-mail
+ * provider is rejected; a canonical address appearing under more than one class,
+ * or also in `inbound_allow_from`, is rejected. Same rules as the overlay validator.
+ */
+function checkOutboundRoster(
+  raw: unknown,
+  inboundAllowFrom: string[],
+  errors: ValidationError[]
+): OutboundRosterEntry[] {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'scope.outbound_roster',
+      message: 'scope.outbound_roster must be a list',
+    })
+    return []
+  }
+  const inboundKeys = new Set<string>()
+  for (const e of inboundAllowFrom) {
+    const c = canonRosterAddress(e)
+    if (c !== null) inboundKeys.add(c)
+  }
+  const seenClass = new Map<string, OutboundRosterClass>()
+  const out: OutboundRosterEntry[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const entry = checkOneOutboundEntry(raw[i], i, inboundKeys, seenClass, errors)
+    if (entry !== null) out.push(entry)
+  }
+  return out
+}
+
+function checkOneOutboundEntry(
+  raw: unknown,
+  i: number,
+  inboundKeys: Set<string>,
+  seenClass: Map<string, OutboundRosterClass>,
+  errors: ValidationError[]
+): OutboundRosterEntry | null {
+  const path = `scope.outbound_roster[${i}]`
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: 'outbound_roster entries must be objects' })
+    return null
+  }
+  const address = raw['address']
+  const cls = raw['class']
+  const note = raw['note']
+  if (typeof address !== 'string' || address.trim().length === 0) {
+    errors.push({ code: 'MissingField', path: `${path}.address`, message: 'address is required' })
+    return null
+  }
+  if (typeof cls !== 'string' || !(OUTBOUND_ROSTER_CLASSES as readonly string[]).includes(cls)) {
+    errors.push({
+      code: 'EnumViolation',
+      path: `${path}.class`,
+      message: `class must be one of: ${OUTBOUND_ROSTER_CLASSES.join(', ')}`,
+    })
+    return null
+  }
+  if (note !== undefined && note !== null && typeof note !== 'string') {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `${path}.note`,
+      message: 'note must be a string when present',
+    })
+  }
+  const canon = canonRosterAddress(address)
+  const err = outboundAddressError(canon, cls, inboundKeys, seenClass, path)
+  if (err !== null) {
+    errors.push(err)
+    return null
+  }
+  seenClass.set(canon as string, cls as OutboundRosterClass)
+  const entry: OutboundRosterEntry = { address: canon as string, class: cls as OutboundRosterClass }
+  if (typeof note === 'string') entry.note = note
+  return entry
+}
+
+/** The address-shape + collision checks, factored out to keep the entry checker
+ * under the complexity ceiling. Returns the first violating error, or null. */
+function outboundAddressError(
+  canon: string | null,
+  cls: string,
+  inboundKeys: Set<string>,
+  seenClass: Map<string, OutboundRosterClass>,
+  path: string
+): ValidationError | null {
+  const p = `${path}.address`
+  if (canon === null) {
+    return {
+      code: 'InvalidOutboundRoster',
+      path: p,
+      message: 'address must be an exact address (local@domain) or an @domain grant',
+    }
+  }
+  if (canon.startsWith('@') && PUBLIC_MAIL_DOMAINS.has(canon.slice(1))) {
+    return {
+      code: 'InvalidOutboundRoster',
+      path: p,
+      message: `a whole-@domain grant at a public-mail provider (${canon.slice(1)}) is not allowed; author the exact address`,
+    }
+  }
+  if (inboundKeys.has(canon)) {
+    return {
+      code: 'InvalidOutboundRoster',
+      path: p,
+      message: `${canon} is already in scope.inbound_allow_from; a recipient cannot be both internal and a typed outbound class`,
+    }
+  }
+  const prior = seenClass.get(canon)
+  if (prior !== undefined && prior !== cls) {
+    return {
+      code: 'InvalidOutboundRoster',
+      path: p,
+      message: `${canon} appears in more than one outbound roster class (${prior}, ${cls})`,
+    }
+  }
+  return null
 }
 
 function emptyScope(): Scope {
@@ -49,5 +222,6 @@ function emptyScope(): Scope {
     domain_blocks: [],
     matter_blocks: [],
     inbound_allow_from: [],
+    outbound_roster: [],
   }
 }

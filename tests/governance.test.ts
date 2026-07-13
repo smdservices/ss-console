@@ -86,13 +86,15 @@ describe('resolveCell — the ADR-0035 keystone', () => {
     }
   })
 
-  it('resolveSkillCells covers all seven action classes', () => {
+  it('resolveSkillCells covers all nine action classes', () => {
     const cells = resolveSkillCells(exposure({ internal_write: 'draft_for_review' }), null)
     expect(cells.map((c) => c.actionClass)).toEqual([
       'read',
       'internal_write',
       'external_send',
       'external_send_internal',
+      'external_send_client',
+      'external_send_vendor',
       'commitment',
       'destructive',
       'code_execution',

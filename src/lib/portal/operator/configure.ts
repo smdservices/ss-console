@@ -15,7 +15,10 @@
 import { getVerticalFloor, type Ceiling } from './config-governance'
 import {
   ACCEPTED_ACTION_CLASSES,
+  OUTBOUND_ROSTER_CLASSES,
   type ActionClass,
+  type OutboundRosterClass,
+  type OutboundRosterEntry,
   type Scope,
   type BusinessHours,
 } from '../../operator/customer-yaml/types'
@@ -25,6 +28,8 @@ export const ACTION_CLASS_LABEL: Record<ActionClass, string> = {
   internal_write: 'Internal write',
   external_send: 'External send (outside)',
   external_send_internal: 'Internal send (staff)',
+  external_send_client: 'Client send',
+  external_send_vendor: 'Records-vendor send',
   commitment: 'Commitment',
   destructive: 'Destructive',
   code_execution: 'Code execution',
@@ -55,9 +60,11 @@ export function buildGovernanceFloorRows(vertical: string | null): GovernanceFlo
 export function formatCeiling(c: Ceiling): string {
   return c === 'autonomous'
     ? 'Autonomous'
-    : c === 'draft_for_review'
-      ? 'Draft for review'
-      : 'Refused'
+    : c === 'confirm'
+      ? 'Confirm'
+      : c === 'draft_for_review'
+        ? 'Draft for review'
+        : 'Refused'
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -78,7 +85,34 @@ export function parseScope(raw: unknown): Scope | null {
     domain_blocks: strArray(raw['domain_blocks']),
     matter_blocks: strArray(raw['matter_blocks']),
     inbound_allow_from: strArray(raw['inbound_allow_from']),
+    outbound_roster: parseOutboundRoster(raw['outbound_roster']),
   }
+}
+
+/**
+ * Read-side parser for the projected `outbound_roster` (ADR 0075). Lenient:
+ * keeps only well-formed entries (a non-empty address string + a class in the
+ * closed vocabulary), so a hand-edited or partial projection renders its valid
+ * rows and silently drops malformed ones. The authoring-time validator is the
+ * strict gate; this is display-only.
+ */
+function parseOutboundRoster(raw: unknown): OutboundRosterEntry[] {
+  if (!Array.isArray(raw)) return []
+  const out: OutboundRosterEntry[] = []
+  for (const e of raw) {
+    if (!isRecord(e)) continue
+    const address = e['address']
+    const cls = e['class']
+    if (typeof address !== 'string' || address.length === 0) continue
+    if (typeof cls !== 'string' || !(OUTBOUND_ROSTER_CLASSES as readonly string[]).includes(cls)) {
+      continue
+    }
+    const entry: OutboundRosterEntry = { address, class: cls as OutboundRosterClass }
+    const note = e['note']
+    if (typeof note === 'string') entry.note = note
+    out.push(entry)
+  }
+  return out
 }
 
 /** Parse the projected `business_hours` blob, or null when absent/malformed. */

@@ -67,6 +67,7 @@ describe('parseScope', () => {
       domain_blocks: [],
       matter_blocks: [],
       inbound_allow_from: [],
+      outbound_roster: [],
     })
     expect(parseScope(null)).toBeNull()
     expect(parseScope('nope')).toBeNull()
@@ -74,6 +75,27 @@ describe('parseScope', () => {
   it('drops non-string entries from arrays', () => {
     const s = parseScope({ email_folders_visible: ['Inbox', 3, null, 'Sent'] })
     expect(s?.email_folders_visible).toEqual(['Inbox', 'Sent'])
+  })
+
+  it('parses outbound_roster and drops malformed entries (ADR 0075)', () => {
+    const s = parseScope({
+      outbound_roster: [
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+        { address: 'x@y.com', class: 'opposing_counsel' }, // bad class → dropped
+        { class: 'client' }, // missing address → dropped
+        'not-an-object', // dropped
+      ],
+    })
+    expect(s?.outbound_roster).toEqual([
+      { address: 'jane@gmail.com', class: 'client', note: 'PI client' },
+      { address: 'records@radiology.com', class: 'records_vendor' },
+    ])
+  })
+
+  it('outbound_roster defaults to [] when absent/non-array', () => {
+    expect(parseScope({})?.outbound_roster).toEqual([])
+    expect(parseScope({ outbound_roster: 'nope' })?.outbound_roster).toEqual([])
   })
 })
 
@@ -100,9 +122,23 @@ describe('parseBusinessHours', () => {
 })
 
 describe('formatCeiling', () => {
-  it('labels every ceiling', () => {
+  it('labels every ceiling, including confirm (ADR 0071)', () => {
     expect(formatCeiling('autonomous')).toBe('Autonomous')
+    expect(formatCeiling('confirm')).toBe('Confirm')
     expect(formatCeiling('draft_for_review')).toBe('Draft for review')
     expect(formatCeiling('refused')).toBe('Refused')
+  })
+})
+
+describe('ACTION_CLASS_LABEL (ADR 0075 send classes)', () => {
+  it('labels every accepted action class (no gaps)', () => {
+    for (const ac of ACCEPTED_ACTION_CLASSES) {
+      expect(ACTION_CLASS_LABEL[ac]).toBeTruthy()
+    }
+  })
+
+  it('has distinct labels for the client and vendor send classes', () => {
+    expect(ACTION_CLASS_LABEL['external_send_client']).toBe('Client send')
+    expect(ACTION_CLASS_LABEL['external_send_vendor']).toBe('Records-vendor send')
   })
 })

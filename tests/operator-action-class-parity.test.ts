@@ -1,0 +1,61 @@
+/**
+ * Cross-language action-class parity (ADR 0075).
+ *
+ * The TS authoring surface (`ACCEPTED_ACTION_CLASSES` / `SEND_ACTION_CLASSES`) and
+ * the Python enforcement adapter (`operator/adapter/trust_ceiling.py`'s
+ * `ActionClass`) must agree on the action-class vocabulary — the overlay
+ * materializer carries the authored strings across the seam to the runtime
+ * `enforce()` call. If a send class exists on one side and not the other, an
+ * authored ceiling is silently dropped or a runtime send resolves to an
+ * unhandled class. This pins the agreement by reading the Python enum directly.
+ */
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+import {
+  ACCEPTED_ACTION_CLASSES,
+  SEND_ACTION_CLASSES,
+} from '../src/lib/operator/customer-yaml/types'
+
+const ADAPTER_PATH = resolve('operator/adapter/trust_ceiling.py')
+
+/** Extract the `ActionClass` enum's string `.value`s from the Python adapter. */
+function pythonActionClassValues(): string[] {
+  const src = readFileSync(ADAPTER_PATH, 'utf-8')
+  const start = src.indexOf('class ActionClass')
+  expect(start, 'ActionClass enum not found in adapter').toBeGreaterThan(-1)
+  const after = src.slice(start)
+  // The enum body ends at the next top-level `class ` (EnforcementDecision).
+  const endRel = after.indexOf('\nclass ')
+  const body = endRel > -1 ? after.slice(0, endRel) : after
+  // Enum members are indented `NAME = "value"`; a top-level module constant has no
+  // leading whitespace and is excluded by the `^\s+` anchor.
+  const re = /^\s+[A-Z_]+\s*=\s*"([a-z_]+)"/gm
+  const out: string[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(body)) !== null) out.push(m[1])
+  return out
+}
+
+describe('action-class parity: TS ⇄ Python adapter (ADR 0075)', () => {
+  const pyValues = pythonActionClassValues()
+
+  it('extracts a non-trivial enum (sanity)', () => {
+    expect(pyValues).toContain('external_send')
+    expect(pyValues.length).toBeGreaterThanOrEqual(6)
+  })
+
+  it('every Python ActionClass value is an accepted TS action class', () => {
+    const accepted = new Set<string>(ACCEPTED_ACTION_CLASSES as readonly string[])
+    for (const v of pyValues) {
+      expect(accepted.has(v), `Python enum value "${v}" missing from ACCEPTED_ACTION_CLASSES`).toBe(
+        true
+      )
+    }
+  })
+
+  it('the send classes agree between TS SEND_ACTION_CLASSES and the Python enum', () => {
+    const pySend = new Set(pyValues.filter((v) => v.startsWith('external_send')))
+    expect(pySend).toEqual(new Set<string>(SEND_ACTION_CLASSES as readonly string[]))
+  })
+})
