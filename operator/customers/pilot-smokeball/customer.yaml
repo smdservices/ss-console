@@ -83,8 +83,8 @@ personas:
         # The two typed classes resolve via scope.outbound_roster below (ADR 0075).
         external_send: draft_for_review
         external_send_internal: autonomous
-        external_send_client: draft_for_review
-        external_send_vendor: draft_for_review
+        external_send_client: autonomous # GRADUATED (ADR 0075 probe 3/15 proof; the letter's one-line change)
+        external_send_vendor: autonomous # GRADUATED (ADR 0075 probe 6 proof; the letter's one-line change)
         destructive: autonomous
     skills:
       # spine
