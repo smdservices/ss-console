@@ -337,7 +337,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // action_classes web_search READ, validate accepts native:. Range
     // 9189224..539f42c7 touches bootstrap/{translate,mcp_registry,validate}.py +
     // shared/action_classes.py + tests; no tracked twin moved (overlaySha256 unchanged).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="539f42c73a67d79817a6536935b02b4a81480ae8"')
+    // 0c9d165 (#151, ss #1804, ADR 0071): add `confirm` ceiling value +
+    // external_send enforcement to plugins/hermes-smd-trust/enforce.py (mirrors
+    // the in-tree operator/adapter/trust_ceiling.py). Range 539f42c7..0c9d165
+    // touches enforce.py + test; no tracked twin moved (overlaySha256 unchanged).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0c9d165aeadca7b2889d9620f5639cbb1347e41f"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
