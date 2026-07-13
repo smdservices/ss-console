@@ -1,0 +1,105 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { resolveOperatorScope } from '../../../../../../lib/portal/operator/facets/scope/scope'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import OperatorScope from '../../../../../../components/portal/operator/facets/OperatorScope.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — Scope (ADR 0069; signed-off brief
+ * docs/design/operator/surface-briefs/operator-scope.md; first Boundaries
+ * chapter per ADR 0076). What the operator can see, who it responds to (the
+ * ADR 0055 roster, surfaced for the first time), and what's off limits.
+ * Replaces the landing's Scope → Configure deep-link.
+ *
+ * URL: portal.smd.services/portal/products/operator/<instance>/scope
+ *
+ * Read for all account roles (principal / staff / compliance), matching
+ * Configure's read posture. The one forward action is "Request a change" via
+ * the same <DomainSurface> (configuration domain) mechanism Configure uses.
+ *
+ * The view model is the one shared resolver; it renders through the one shared
+ * <OperatorScope> viewer both portals mount (Lock 4). Reads the
+ * customer_configs projection (real authored data); nothing fabricated.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { client, roles } = access
+
+const model = resolveOperatorScope(access.config)
+
+const RETURN_TO = `${operatorBase}/scope`
+
+const cr = Astro.url.searchParams.get('cr')
+const crMessage =
+  cr === 'filed'
+    ? 'Your request was sent.'
+    : cr === 'invalid'
+      ? "That request couldn't be filed. Please add a short description and try again."
+      : cr === 'error'
+        ? 'Something went wrong filing your request. Please try again.'
+        : null
+---
+
+<PortalShell
+  title="Operator · Scope"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref={operatorBase}
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Scope"
+    meta={null}
+  />
+
+  {
+    crMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          cr === 'filed'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {crMessage}
+      </div>
+    )
+  }
+
+  <p
+    class="mt-8 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
+  >
+    What it can see, who it responds to, and what's off limits.
+  </p>
+
+  <div class="mt-4">
+    <DomainSurface
+      authority={access.config?.authority ?? null}
+      domain="configuration"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="scope"
+    >
+      <div slot="read">
+        <OperatorScope model={model} />
+      </div>
+    </DomainSurface>
+  </div>
+</PortalShell>

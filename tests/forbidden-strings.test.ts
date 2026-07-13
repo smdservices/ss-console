@@ -817,6 +817,7 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/operator/[instance]/index.astro',
   'src/components/portal/operator/facets/OperatorHero.astro',
   'src/components/portal/operator/facets/OperatorSkills.astro',
+  'src/components/portal/operator/facets/OperatorScope.astro',
   'src/components/portal/operator/FacetDoorList.astro',
   'src/components/admin/EntityContactRow.astro',
   'src/components/admin/EntityIdentityStrip.astro',
@@ -864,6 +865,7 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/operator/[instance]/settings/index.astro',
   'src/pages/portal/products/operator/[instance]/settings/users.astro',
   'src/pages/portal/products/operator/[instance]/skills/index.astro',
+  'src/pages/portal/products/operator/[instance]/scope/index.astro',
   'src/pages/portal/products/operator/[instance]/team/index.astro',
 ]
 

@@ -190,8 +190,12 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     id: 'scope',
     label: 'Scope',
     plane: 'config_projection',
-    surface: { kind: 'planned', slice: 5 },
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/scope/scope.ts',
+    },
     mounts: ['client', 'admin'],
+    note: 'Boundaries chapter (ADR 0076): folders seen/blind, the ADR 0055 roster, and the three block lists, separately labeled. Admin mount is a follow-up.',
   },
   {
     id: 'business-hours',
