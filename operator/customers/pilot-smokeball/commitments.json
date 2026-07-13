@@ -13,8 +13,14 @@
     "tier_vocabulary": ["flag-only", "prepare-and-route", "auto-handle"]
   },
   "outbound_roster": [
-    { "address": "client-standin@smd-staging-invalid.example", "class": "client" },
-    { "address": "records-vendor-standin@smd-staging-invalid.example", "class": "records_vendor" }
+    {
+      "address": "ap-client-standin@agentmail.to",
+      "class": "client"
+    },
+    {
+      "address": "ap-records-standin@agentmail.to",
+      "class": "records_vendor"
+    }
   ],
   "settings_placeholders": {
     "note": "PLACEHOLDER(christa) values on pilot-smokeball await the firm's real answers (letter section 'What we need back from you'). They are permitted on this staging seat but MUST NEVER appear under operator/customers/ashton-price/ (the client go-live gate, enforced by test (d)).",

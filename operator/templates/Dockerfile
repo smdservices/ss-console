@@ -271,8 +271,24 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # overlaySha256 is unchanged; only overlayRef. Range 78064d3..3724e78 (overlay#155,
 # ss #1781 trigger cooldown) touches shared/gate_trigger_throttle.py (new) +
 # webhook_gate.py + bootstrap/validate.py + contract tests — NOT tracked twins,
-# so every overlaySha256 is unchanged; only overlayRef.
-ARG OVERLAY_REF="3724e78f91e44db9678e1adee1d0ad62b15e8d7c"
+# so every overlaySha256 is unchanged; only overlayRef. Range 3724e78..17d33d7
+# (overlay#156, ADR 0075 recipient-class enrichment) moves ONE tracked twin —
+# shared/recipient_classifier.py (CLIENT/VENDOR classes + typed classifier) —
+# so that pair's overlaySha256 is re-recorded alongside this bump; the other
+# changed files (enforce.py, action_classes.py, customer_config.py,
+# bootstrap/validate.py, bootstrap/translate.py) are not tracked twins.
+# 5b7318cb (#158, ss ADR 0073): renders the persona's AUTHORED exposure into
+# SOUL.md ("Authored autonomy") so the agent acts AT its authored ceiling
+# instead of defaulting below it (the ADR 0073 live proof drafted a chase its
+# autonomous ceiling allowed it to send). translate.py + tests only — no
+# tracked twin moved. Superset of 17d33d7.
+# f3e48d6b (#157, ss #1806, ADR 0071): the confirm-over-channel approval stamp —
+# a send withheld at the confirm ceiling is captured, an allowlisted-Telegram
+# bare-affirmative marks it approved, and the STORED payload is replayed verbatim
+# on the re-invoke (shared/pending_send.py + plugins/hermes-smd-trust/{approval,
+# enforce,__init__}.py + tests). None are tracked twins, so every overlaySha256 is
+# unchanged; only overlayRef. Superset of 5b7318cb.
+ARG OVERLAY_REF="f3e48d6b2f03370a15f3e44074a38660b508424c"
 
 ARG CUSTOMER_SLUG=customer-zero
 
