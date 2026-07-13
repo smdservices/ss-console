@@ -371,7 +371,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // shared/pending_send.py + plugins/hermes-smd-trust/{approval,enforce,__init__}.py
     // + tests. None are tracked twins, so every overlaySha256 is unchanged; only
     // overlayRef. Superset of 5b7318cb.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="f3e48d6b2f03370a15f3e44074a38660b508424c"')
+    // ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks — #158 committed
+    // live worktree checkouts with no .gitmodules, breaking `uv pip install git+@sha`
+    // (git submodule update failed) on EVERY seat rebuild. Untracks + gitignores them.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ba5b8179de9e52c114c67898b1f556bef6aac4b9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
