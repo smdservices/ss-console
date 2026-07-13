@@ -26,6 +26,7 @@ import type {
   ValidationError,
   WebhookTrigger,
   WebhookTriggerExclude,
+  WebhookTriggerThrottle,
 } from './types'
 import { isPlainObject } from './helpers'
 
@@ -140,7 +141,9 @@ function checkOneTrigger(
   }
   const exclude = checkTriggerExclude(raw['exclude'], `${path}.exclude`, errors)
   if (exclude === undefined) return null
-  return { source, event_type: eventType, skill, persona, exclude }
+  const throttle = checkTriggerThrottle(raw['throttle'], `${path}.throttle`, errors)
+  if (throttle === undefined) return null
+  return { source, event_type: eventType, skill, persona, exclude, throttle }
 }
 
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -195,6 +198,49 @@ function checkTriggerExclude(
     return undefined
   }
   return { matters: lists.matters, actors: lists.actors }
+}
+
+/**
+ * Parse the optional per-trigger cooldown block (#1781). Returns null when
+ * absent (the overlay gate applies its platform default), the parsed block
+ * when valid, or `undefined` on a validation error (the caller drops the
+ * trigger). A typo here must fail authoring loudly: the runtime resolver
+ * deliberately falls back to the platform default on a malformed block, so a
+ * silently-accepted typo would silently replace the authored intent.
+ * Mirrors the overlay validator (`bootstrap/validate.py`
+ * `_validate_trigger_throttle`) — parity pinned by the fixtures contract.
+ */
+function checkTriggerThrottle(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): WebhookTriggerThrottle | null | undefined {
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: 'throttle must be an object when present' })
+    return undefined
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== 'cooldown_minutes') {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `unknown throttle key "${key}" (known: cooldown_minutes)`,
+      })
+      return undefined
+    }
+  }
+  const minutes = raw['cooldown_minutes']
+  if (minutes === undefined || minutes === null) return { cooldown_minutes: null }
+  if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `${path}.cooldown_minutes`,
+      message: 'cooldown_minutes must be a non-negative integer (0 disables the throttle)',
+    })
+    return undefined
+  }
+  return { cooldown_minutes: minutes }
 }
 
 function checkTriggerString(raw: unknown, path: string, errors: ValidationError[]): string | null {
