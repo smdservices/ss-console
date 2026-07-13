@@ -140,10 +140,16 @@ const CONFIG_COLUMNS = [
  * `customer_configs` (re-projection overwrites every column but the PK) plus a
  * `customer_config_history` event that mirrors `recordCustomerConfigSync` —
  * `prev_git_sha` = the slug's latest recorded sha, and the insert is skipped
- * when this exact sha is already recorded (the no-op guard). `synced_by` is
- * `'manual'` because a human runs this under Captain approval.
+ * when this exact sha is already recorded (the no-op guard). `syncedBy` is
+ * `'manual'` when a human runs this under Captain approval, `'ci'` when the
+ * merge-triggered sync job (#1308, deploy.yml sync-customer-configs) runs it —
+ * both values are in the migration-0045 CHECK constraint.
  */
-export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): string {
+export function buildProjectionSql(
+  row: CustomerConfigDbRow,
+  actor: string,
+  syncedBy: 'manual' | 'ci' = 'manual'
+): string {
   const e = escapeSqlLiteral
   const values: string[] = [
     e(row.entity_id),
@@ -186,7 +192,7 @@ ${updates};
 
 INSERT INTO customer_config_history
   (customer_slug, git_sha, synced_at, synced_by, actor, prev_git_sha, r2_shadow_key)
-SELECT ${slug}, ${sha}, ${e(row.synced_at)}, 'manual', ${e(actor)},
+SELECT ${slug}, ${sha}, ${e(row.synced_at)}, ${e(syncedBy)}, ${e(actor)},
   (SELECT git_sha FROM customer_config_history WHERE customer_slug = ${slug} ORDER BY id DESC LIMIT 1),
   NULL
 WHERE NOT EXISTS (

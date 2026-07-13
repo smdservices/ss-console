@@ -51,7 +51,7 @@ and coverage, all applied. 64 fixtures on disk (43 adversarial) at
 
 **Honesty line:** gated = adversarially _reviewed_, not _executed_. No skill in
 this pack has run against a live tenant yet; first execution is the
-pilot-smokeball staging pass (skills staged on `quinn` in both
+pilot-smokeball staging pass (skills staged on `operator` in both
 `pilot-smokeball` and `ashton-price` customer.yaml, 2026-07-02). Per-fixture
 graded runs land in `runs/` as they happen.
 

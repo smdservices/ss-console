@@ -40,13 +40,13 @@ def _customer():
                 "source": "smokeball",
                 "event_type": "matter.updated",
                 "skill": "x",
-                "persona": "quinn",
+                "persona": "operator",
             },
             {
                 "source": "agentmail",
                 "event_type": "message.received",
                 "skill": "y",
-                "persona": "quinn",
+                "persona": "operator",
             },
         ],
     }

@@ -430,7 +430,7 @@ describe('loadMcpCustomer and migration 0072', () => {
     await insertGrant(db, {
       clerk_user_id: 'user_grantonly',
       email: 'grantee@example.com',
-      profile: 'quinn',
+      profile: 'operator',
       expires_at: '2999-01-01T00:00:00.000Z',
     })
     const customer = await loadMcpCustomer(db, 'smd')
@@ -438,7 +438,7 @@ describe('loadMcpCustomer and migration 0072', () => {
       localUserId: 'user_grantonly',
       clerkUserId: 'user_grantonly',
       email: 'grantee@example.com',
-      profile: 'quinn',
+      profile: 'operator',
     })
   })
 
@@ -446,7 +446,7 @@ describe('loadMcpCustomer and migration 0072', () => {
     await insertGrant(db, {
       clerk_user_id: 'user_expired',
       email: 'expired@example.com',
-      profile: 'quinn',
+      profile: 'operator',
       expires_at: '2000-01-01T00:00:00.000Z',
     })
     const customer = await loadMcpCustomer(db, 'smd')
@@ -457,7 +457,7 @@ describe('loadMcpCustomer and migration 0072', () => {
     await insertGrant(db, {
       clerk_user_id: 'user_revoked',
       email: 'revoked@example.com',
-      profile: 'quinn',
+      profile: 'operator',
       expires_at: '2999-01-01T00:00:00.000Z',
       revoked_at: '2026-01-01T00:00:00.000Z',
     })
@@ -469,7 +469,7 @@ describe('loadMcpCustomer and migration 0072', () => {
     await insertGrant(db, {
       clerk_user_id: CLERK_USER_ID, // already authored as pilot@example.com / crane
       email: 'someone-else@example.com',
-      profile: 'quinn',
+      profile: 'operator',
       expires_at: '2999-01-01T00:00:00.000Z',
     })
     const customer = await loadMcpCustomer(db, 'smd')

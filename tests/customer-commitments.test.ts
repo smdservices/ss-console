@@ -125,8 +125,8 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
   // live customer.yaml values, and its skills reference real seat skills.
   it('(c) every grid row traces to the live config (tiers, exposure keys, skills)', () => {
     const seat = seatValue()
-    const exposure = seat.personas.find((p) => p.slug === 'quinn')?.entitlements.exposure
-    expect(exposure, 'persona quinn must exist').toBeTruthy()
+    const exposure = seat.personas.find((p) => p.slug === 'operator')?.entitlements.exposure
+    expect(exposure, 'persona operator must exist').toBeTruthy()
     const seatSkills = new Set(seat.personas.flatMap((p) => p.skills.map((s) => s.name)))
 
     for (const row of gridRows()) {

@@ -49,6 +49,7 @@ interface Args {
   entityId: string
   orgId: string
   actor: string
+  syncedBy: 'manual' | 'ci'
   out: string
   applyLocal: boolean
 }
@@ -68,7 +69,7 @@ function parseArgs(argv: string[]): Args {
   if (!slug || !entityId) {
     fail(
       2,
-      'Usage: project-customer-config.ts <slug> <entity_id> [--org-id=] [--actor=] [--out=] [--apply-local]'
+      'Usage: project-customer-config.ts <slug> <entity_id> [--org-id=] [--actor=] [--synced-by=manual|ci] [--out=] [--apply-local]'
     )
   }
   return {
@@ -76,6 +77,7 @@ function parseArgs(argv: string[]): Args {
     entityId,
     orgId: flags.get('org-id') || ORG_ID,
     actor: flags.get('actor') || 'scott@smd.services',
+    syncedBy: flags.get('synced-by') === 'ci' ? 'ci' : 'manual',
     out: flags.get('out') || join(REPO_ROOT, 'scripts/.generated', `project-${slug}.sql`),
     applyLocal,
   }
@@ -134,7 +136,7 @@ function main(): void {
     syncedAt: new Date().toISOString(),
   })
 
-  const sql = buildProjectionSql(row, args.actor)
+  const sql = buildProjectionSql(row, args.actor, args.syncedBy)
   mkdirSync(dirname(args.out), { recursive: true })
   writeFileSync(args.out, sql, 'utf-8')
 

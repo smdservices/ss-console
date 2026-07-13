@@ -78,7 +78,7 @@ users:
 # integrity ones (irreversibility adapter ban + taint-gate), never these ceilings.
 # Name/voice are likewise a PROPOSED default; the firm authors the final identity.
 personas:
-  - slug: quinn
+  - slug: operator
     status: active
     # Neutral display identity (Captain call 2026-07-02): SMD proposes no
     # persona name. The firm authors a name at onboarding if it wants one at
@@ -425,7 +425,7 @@ mcp_connector:
   data_posture: open
   access:
     - email: scott@smd.services
-      profile: quinn
+      profile: operator
       clerk_subjects:
         - user_3EEs0aMBRgu6PRxBa4g5YhHjggD
         - user_3E1RPGrTMxkSqciXMTyybUNSJWu
@@ -466,7 +466,7 @@ webhook_triggers:
   - source: smokeball
     event_type: matter.updated
     skill: matter-memo-on-update
-    persona: quinn
+    persona: operator
     # Per-(trigger, matter) cooldown (#1781): breaks the create_memo →
     # matter.updated echo loop at the gate (202 + WEBHOOK_SUPPRESSED; the echo
     # never wakes the agent). Proven live on pilot-smokeball 2026-07-06→07 —
@@ -482,7 +482,7 @@ webhook_triggers:
   - source: agentmail
     event_type: message.received
     skill: matter-inbox-router
-    persona: quinn
+    persona: operator
 
 # ---- SCOPE ----
 scope:

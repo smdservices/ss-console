@@ -21,7 +21,7 @@
 #   to its lower bound, flag-only (a judgment call, noted on that row).
 #
 # EXPOSURE-KEY TRACEABILITY: each row's `enforcement.exposure_keys` names the
-# persona-`quinn` exposure action class(es) that gate the routine's OUTPUT, pinned to
+# persona-`operator` exposure action class(es) that gate the routine's OUTPUT, pinned to
 # their LIVE customer.yaml values. tests/customer-commitments.test.ts asserts every
 # value here equals the live seat value (grid <-> config drift gate).
 #
@@ -33,7 +33,7 @@
 
 adr: '0075'
 seat: pilot-smokeball
-persona: quinn
+persona: operator
 source_letter: operator/customers/ashton-price/correspondence/07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md
 
 rows:
