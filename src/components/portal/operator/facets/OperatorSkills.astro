@@ -44,15 +44,22 @@ const { skills } = model
         <ul role="list" class="flex flex-col">
           {skills.map((s, i) => (
             <li
-              class={`flex flex-col gap-1 py-3 md:flex-row md:items-baseline md:justify-between md:gap-6 ${
+              class={`flex flex-col gap-2 py-4 md:flex-row md:items-start md:justify-between md:gap-8 ${
                 i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''
               }`}
             >
-              <span class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
-                {s.name}
-              </span>
+              <div class="min-w-0 md:max-w-[46rem]">
+                <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+                  {s.name}
+                </p>
+                {s.summary && (
+                  <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                    {s.summary}
+                  </p>
+                )}
+              </div>
               {s.initiation.length > 0 && (
-                <span class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                <span class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] md:pt-0.5">
                   {s.initiation.join(' · ')}
                 </span>
               )}

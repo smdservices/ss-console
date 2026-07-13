@@ -26,6 +26,7 @@
 
 import type { CustomerConfigRow, PersonaSkill } from '../../../customer-config'
 import type { SkillInitiation } from '../../../../operator/customer-yaml/types'
+import { SKILL_SUMMARIES } from './skill-summaries'
 
 /**
  * Reformat a skill slug into a client-legible display name — SENTENCE case
@@ -48,6 +49,12 @@ export interface OperatorSkillView {
   name: string
   /** The raw authored slug — stable key / title, never shown as prose. */
   slug: string
+  /**
+   * Client-facing one-line "what it does", from the reviewed SKILL_SUMMARIES
+   * catalog. null when the skill has no authored summary (renders name-only —
+   * honest degradation, never a fabricated line).
+   */
+  summary: string | null
   /** Client-legible initiation labels; empty when no mode is set (show nothing). */
   initiation: string[]
 }
@@ -80,6 +87,7 @@ export function resolveOperatorSkills(config: CustomerConfigRow | null): Operato
   const skills: OperatorSkillView[] = (persona?.skills ?? []).map((s: PersonaSkill) => ({
     name: humanizeSkillName(s.name),
     slug: s.name,
+    summary: SKILL_SUMMARIES[s.name] ?? null,
     initiation: initiationLabels(s.initiation),
   }))
   return { skills }
