@@ -1002,3 +1002,71 @@ describe('operator send-posture doctrine guard (recipient-aware send; ADR 0025/0
     ).toEqual([])
   })
 })
+
+describe('retired persona name stays retired (Captain directive 2026-07-13)', () => {
+  // The pilot/A&P persona's original name was retired by repeated Captain
+  // directive: the display name went first (name: Operator, 2026-07-02), and
+  // the slug + every active reference were renamed 2026-07-13 after the word
+  // kept resurfacing in configs, fixtures, and agent conversation. This guard
+  // makes any reintroduction a CI failure.
+  //
+  // Historical records keep the word legitimately and are excluded: dated
+  // grading run logs and the A&P correspondence archive (rewriting dated
+  // records would falsify them). This test file excludes itself (it must
+  // spell the pattern to ban it).
+  const RETIRED_NAME = /quinn/i
+  const SCAN_ROOTS = ['operator', 'src', 'tests', 'scripts', 'docs/design', 'docs/handbook']
+  const EXCLUDED = [
+    resolve('operator/grading/runs'),
+    resolve('operator/customers/ashton-price/correspondence'),
+    resolve('tests/forbidden-strings.test.ts'),
+  ]
+
+  function scanFiles(dir: string): string[] {
+    const out: string[] = []
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return out
+    }
+    for (const entry of entries) {
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- dir is a hardcoded repo root; entry is readdirSync output, not user input (same pattern as collectSourceFiles above).
+      const full = join(dir, entry)
+      if (EXCLUDED.some((e) => isWithinDir(full, e))) continue
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        if (entry === 'node_modules') continue
+        out.push(...scanFiles(full))
+      } else if (
+        ['.ts', '.tsx', '.astro', '.md', '.yaml', '.yml', '.json', '.py', '.sh'].includes(
+          extname(entry)
+        )
+      ) {
+        out.push(full)
+      }
+    }
+    return out
+  }
+
+  it('the retired persona name appears in no active file', () => {
+    const offenders: string[] = []
+    for (const root of SCAN_ROOTS) {
+      for (const file of scanFiles(resolve(root))) {
+        if (RETIRED_NAME.test(readFileSync(file, 'utf-8'))) {
+          offenders.push(file.replace(resolve('.') + '/', ''))
+        }
+      }
+    }
+    expect(
+      offenders,
+      `the retired persona name must not return (Captain directive; historical records excluded):\n` +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+})

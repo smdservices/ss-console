@@ -16,7 +16,7 @@ import type { CustomerConfigRow } from '../../../customer-config'
 import type { AlivenessSignal } from '../../aliveness'
 
 export interface OperatorHeroModel {
-  /** Persona display name, e.g. "Quinn". null when no active persona. */
+  /** Persona display name, e.g. "Crane". null when no active persona. */
   name: string | null
   /** Persona title / role, e.g. "AI Case Coordinator". */
   title: string | null

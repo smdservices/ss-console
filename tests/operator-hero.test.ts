@@ -34,10 +34,10 @@ const signal: AlivenessSignal = {
 describe('resolveOperatorHero (ADR 0069 Slice 2 — identity + status)', () => {
   it('surfaces the active persona name + title, passing the signal through', () => {
     const m = resolveOperatorHero(
-      config([persona({ status: 'active', name: 'Quinn', title: 'AI Case Coordinator' })]),
+      config([persona({ status: 'active', name: 'Avery', title: 'AI Case Coordinator' })]),
       signal
     )
-    expect(m).toEqual({ name: 'Quinn', title: 'AI Case Coordinator', aliveness: signal })
+    expect(m).toEqual({ name: 'Avery', title: 'AI Case Coordinator', aliveness: signal })
   })
 
   it('ignores archived personas — no fabricated identity', () => {

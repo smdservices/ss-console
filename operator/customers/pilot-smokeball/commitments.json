@@ -1,7 +1,7 @@
 {
   "adr": "0075",
   "seat": "pilot-smokeball",
-  "persona": "quinn",
+  "persona": "operator",
   "source_letter": "operator/customers/ashton-price/correspondence/07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md",
   "description": "Machine-readable commitments contract for the Ashton & Price 2026-07-09 routine-settings grid. tests/customer-commitments.test.ts parses the LIVE customer.yaml + routine-grid.yaml and asserts these commitments still hold. Any change to the live outbound_roster forces a same-PR bump to the outbound_roster list below, so a roster change is always a reviewed diff.",
   "invariants": {
