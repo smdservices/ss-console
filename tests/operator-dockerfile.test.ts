@@ -347,7 +347,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // 0c9d165..d5187194 touches shared/action_classes.py + enforce.py +
     // config_applier/safety.py + tests — NOT tracked twins, so every
     // overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d5187194ba06701a8b7b22689319f53d8c12b35c"')
+    // 8806099 (#153, ADR 0028 §2 / #855 voice live-gate): fail-closed voice
+    // gate on allowed autonomous OUTSIDE external_send for voice_library-authored
+    // seats — samples + per-turn transform-applied marker (shared/voice_status.py)
+    // required, else draft + VOICE_GATE_TRIGGERED. Range d5187194..8806099
+    // touches plugins/hermes-smd-trust/{enforce.py,voice_gate.py} +
+    // plugins/hermes-smd-voice/__init__.py + shared/voice_status.py + tests —
+    // NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="880609907787cdca057631605db73a5122f59c99"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
