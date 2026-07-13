@@ -1,12 +1,7 @@
 {
   "_comment": "Cross-repo validator parity contract (ADR 0044). The `fixtures` DATA is identical in ss-console (src/lib/operator/customer-yaml/__contract__/) and hermes-smd-overlay (tests/contract/); file FORMATTING may differ (the console runs prettier on commit). Both validators MUST classify each fixture as its `expect`. The contract is pinned by a canonical-content hash of `fixtures` (formatting-independent). To change: edit the fixtures in BOTH repos and update PINNED_CONTENT_SHA256 / _PINNED_CONTENT_SHA256 in BOTH test files (customer-yaml-parity-contract.test.ts / test_validator_parity_contract.py).",
   "schema": {
-    "fixture": [
-      "name",
-      "expect(accept|reject)",
-      "note",
-      "yaml"
-    ]
+    "fixture": ["name", "expect(accept|reject)", "note", "yaml"]
   },
   "fixtures": [
     {

@@ -53,7 +53,7 @@ personas:
     entitlements:
       exposure:
         internal_write: autonomous
-        external_send: draft_for_review
+        external_send: confirm
     skills:
       - name: inbox-triage
         version: pending
