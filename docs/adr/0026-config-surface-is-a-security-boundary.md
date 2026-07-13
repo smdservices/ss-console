@@ -11,6 +11,8 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 **Status:** Accepted (Captain decision, 2026-05-29). Companion to ADR 0025; required by it.
 
+> **Successor-endpoint note (2026-07-13).** The `trust-ceiling.ts` endpoint this ADR centers on was **retired** under the [ADR 0056](./0056-persona-exposure-skill-initiation-entitlements.md) flag-day model — it now returns **410 Gone** (the scalar trust ceiling is gone). The doctrine below (principal-authentication, immutable audit on success and on rejected attempts, floor/locked-field checks) is unchanged and now lives in its successor, `src/pages/api/portal/operator/settings/customer-yaml-update.ts`. Read that handler for the live implementation; read the endpoint references below as historical.
+
 **Source:** Direct consequence of ADR 0025. Once autonomy ceilings are configurable, the act of _changing a ceiling_ is the act of changing what the agent may do without a human — which is a privileged operation. The 2026-05-29 build audit (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) found the one config-change surface that exists today, `src/pages/api/portal/operator/settings/trust-ceiling.ts`, logs the intent and returns (`:68`) — no persistence, and no write to the immutable audit log. That is the gap this ADR closes as doctrine.
 
 ---

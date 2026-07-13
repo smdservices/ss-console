@@ -10,6 +10,8 @@ related-adr: 0037-operator-thesis.md, 0035-no-imposed-entitlement-defaults.md, 0
 
 **Status:** Accepted (Captain decision, 2026-06-24).
 
+> **Forward-note (2026-07-13).** The `external_send` axis this ADR reasons about was later refined by [ADR 0071](./0071-confirm-ceiling-and-hosted-agent-tier-ladder.md) (adds the `confirm` ceiling value) and [ADR 0072](./0072-recipient-aware-proactive-send.md) (splits sends into `external_send` / `external_send_internal` with a recipient classifier; "reaching outside the roster" is now the `external_send` class specifically). The employee frame here is unchanged; the send enum/classes grew.
+
 **Source:** Wiring the default communication channel for the Ashton & Price pilot surfaced two category errors in how the team (and the codebase) had been reasoning about Operator communication. Correcting them required naming the frame they both violate. This ADR names it.
 
 ---

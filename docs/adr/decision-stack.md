@@ -23,7 +23,7 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 | **Payment terms**       | 50% deposit at signing, 50% at completion                                                                                                                                            |
 | **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                                                                                                        |
 | **Voice standard**      | We / our team throughout. Never I / the consultant.                                                                                                                                  |
-| **Decisions locked**    | 37 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)                                                                                       |
+| **Decisions locked**    | 34 active decisions across 6 layers (including venture-wide #20 positioning standard), numbered through #51; 3 superseded (#2, #12, #43)                                             |
 | **Deliverables queued** | 11 artifacts ready to build                                                                                                                                                          |
 
 ---
@@ -945,6 +945,8 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007)           |
 | #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)                        |
 | #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                                 |
+| #50   | Operator launch pricing - $5,000/mo flat + $4,000 stand-up, internal, never published (see ADR 0063)                                 |
+| #51   | Hosted Agent self-serve SKU - $79/mo BYO-key personal Hermes agent, 25 founding seats at $49/mo (see ADR 0067)                       |
 
 ---
 

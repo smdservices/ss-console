@@ -14,6 +14,8 @@ related-issue: TBD
 
 **Status (original):** Accepted (Captain decision 2026-05-26).
 
+> **Forward-note (2026-07-13).** The **cost-telemetry** portions of this ADR are now owned by [ADR 0062](./0062-operator-cost-plane.md) (Operator cost plane, 2026-07-03), the current source of truth for cost — it moves `cost_telemetry` + `captain_time_events` to the central console D1 with a `customer_slug` column and defines the sticky-stop breaker. The observability composition here (Sentry, heartbeat, fleet view, alert routing) stands; read 0062 for the cost plane.
+
 **Source:** Per-customer Fly Machine isolation (ADR 0007) is the runtime architecture, but no ADR ties together what observability looks like across an engagement. Several detailed specs in `docs/specs/operator/` cover individual observability primitives — audit log, retention, cost telemetry, cost rollup, dashboard roles — but they were authored independently and there is no single document naming what composes the stack, what is genuinely new, and which cross-cutting calls are locked.
 
 ---
