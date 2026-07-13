@@ -282,7 +282,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # instead of defaulting below it (the ADR 0073 live proof drafted a chase its
 # autonomous ceiling allowed it to send). translate.py + tests only — no
 # tracked twin moved. Superset of 17d33d7.
-ARG OVERLAY_REF="5b7318cbb138038d0f1a33cd263b9354e377ef6b"
+ARG OVERLAY_REF="ba5b8179de9e52c114c67898b1f556bef6aac4b9"
 
 ARG CUSTOMER_SLUG=customer-zero
 

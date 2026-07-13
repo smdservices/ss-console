@@ -367,7 +367,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // 5b7318cb (#158, ss ADR 0073): authored-exposure SOUL section — the agent
     // acts AT its authored ceiling instead of defaulting below it. translate.py
     // + tests only; no tracked twin moved. Superset of 17d33d7.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5b7318cbb138038d0f1a33cd263b9354e377ef6b"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ba5b8179de9e52c114c67898b1f556bef6aac4b9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
