@@ -14,6 +14,7 @@ external send. Every row cites its source. When an ask crosses the content ceili
 **Run:** <YYYY-MM-DD> - supersedes the prior chronology memo on this matter
 **Records covered this run:** <document names / ids read>
 **Prior chronology:** <folded in / first build>
+**Treatment-gap threshold (authored):** <N days | not authored - treatment gaps not flagged this run>
 
 ## Treatment timeline
 
@@ -23,9 +24,9 @@ external send. Every row cites its source. When an ask crosses the content ceili
 
 ## Gaps / conflicts / missing records
 
-- <treatment gap: no records between <date> and <date>> - _<source>_
-- <conflict: <doc A, p.n> records <date/diagnosis>; <doc B, p.n> records <other>> - surfaced, not resolved
-- <referenced but absent: <ordered study> ordered <doc, p.n>, no report in the file>
+- <treatment gap: <N> days between <date> and <date>, exceeds the authored threshold> - _<source>_ (this line appears only when the interval exceeds `treatment_gap_flag_days`; below-threshold intervals are not flagged, and when the threshold is unauthored no treatment-gap line appears and the header carries "not authored")
+- <conflict: <doc A, p.n> records <date/diagnosis>; <doc B, p.n> records <other>> - surfaced, not resolved (not threshold-gated)
+- <referenced but absent: <ordered study> ordered <doc, p.n>, no report in the file> (not threshold-gated)
 
 ## Could not read
 
@@ -77,6 +78,13 @@ diagnosis; a treatment gap needs a clinical explanation.
 8. **Confirm by read.** The chronology is reported as written only after
    `get_memos_on_matter` shows it landed; otherwise the run surfaces the write
    failure and asserts nothing.
+9. **Treatment-gap flags are threshold-gated.** A treatment-gap line is raised only
+   when the interval between two consecutive treatment dates exceeds the authored
+   `treatment_gap_flag_days`. An interval at or below the threshold is not flagged
+   (its dates still appear in the timeline). When `treatment_gap_flag_days` is
+   unauthored, no treatment-gap line is raised at all and the header states
+   "treatment-gap threshold not authored." The threshold never gates conflict or
+   referenced-but-absent flags, and never licenses any characterization of a gap.
 
 ## Worked example
 
@@ -86,6 +94,7 @@ diagnosis; a treatment gap needs a clinical explanation.
 **Run:** 2026-06-30 - supersedes the prior chronology memo on this matter
 **Records covered this run:** Sutter ED records, Dignity PT notes, Almasi ortho consult
 **Prior chronology:** first build
+**Treatment-gap threshold (authored):** 30 days
 
 ## Treatment timeline
 
@@ -98,8 +107,8 @@ diagnosis; a treatment gap needs a clinical explanation.
 
 ## Gaps / conflicts / missing records
 
-- No PT notes between 2026-04-30 and the 2026-05-14 consult - treatment interval - _Dignity PT notes_
-- MRI referenced as "to follow" but no MRI report in the file - _Sutter ED records, p.3_
+- No treatment gap flagged: the longest interval (2026-04-30 to 2026-05-14, 14 days) is at or below the authored 30-day threshold - dates stay in the timeline, no gap line raised
+- MRI referenced as "to follow" but no MRI report in the file - _Sutter ED records, p.3_ (referenced-but-absent; not threshold-gated)
 
 ## Could not read
 
@@ -112,14 +121,15 @@ into the running chronology.
 **Why:** the cited treatment timeline is what the demand and case valuation are built
 on; it decays as records arrive in pieces.
 **Next:** the attorney / CoCounsel works from it; further records will extend it.
-**Attorney if:** the ordered MRI report is needed before the demand; the 04-30 to
-05-14 interval needs a clinical explanation.
+**Attorney if:** the ordered MRI report is needed before the demand.
 ```
 
 Note what the example does **not** do: it extracts "MMI noted" as the record's own
 words, and it does **not** conclude the plaintiff has reached MMI, does **not** say
-the strain was caused by the accident, and attaches **no** value. The gap is a plain
-time interval, not "a gap that weakens the case."
+the strain was caused by the accident, and attaches **no** value. No treatment-gap
+line is raised because the longest interval sits below the authored 30-day threshold;
+had it exceeded the threshold, the flag would still be a plain time interval, never "a
+gap that weakens the case."
 
 ## The decline-to-draft response (ask over the ceiling)
 
