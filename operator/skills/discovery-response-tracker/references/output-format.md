@@ -69,6 +69,37 @@ received <date> appears thin: <what was observed, factual, not a sufficiency rul
 ## Internal log (create_memo body - includes the training note)
 ```
 
+## The confirmation memo (inbound, `create_memo` body written ON attorney confirm)
+
+When the responsible attorney confirms an inbound deadline (Shape A or Shape B), the
+skill writes the calendar event and matter task and, in the same step, a `create_memo`
+that records the confirmation as an auditable bookkeeping entry. The memo MUST carry all
+four fields, exactly:
+
+```markdown
+# Deadline confirmed - <matter number> - <discovery type> - inbound
+
+**Confirmed by:** <responsible attorney full name> (resolved from `personResponsibleStaffId` via `get_staff`)
+**Confirmed at:** <ISO-8601 timestamp, e.g. 2026-07-14T16:32:05Z>
+**Confirmed date:** <the response deadline date the attorney confirmed>
+**Source:** <"Smokeball court-rules engine" (engine-read branch) | "proposed by Operator" (by-hand branch)>
+
+<training note>
+```
+
+- **Confirming attorney's full name** comes from the roster (`get_staff` on the matter's
+  `personResponsibleStaffId`), never a bare staff id and never a guessed name.
+- **The timestamp is ISO-8601** and records when the confirmation was captured.
+- **The confirmed date** is the date the attorney approved, verbatim.
+- **The source** names which branch produced the date: `Smokeball court-rules engine`
+  when the engine's date was read (Shape A), `proposed by Operator` when the skill
+  computed the date by hand for confirm (Shape B). This keeps the provenance auditable:
+  a reader can always tell whether the confirmed date was engine-read or by-hand-proposed.
+
+The memo is written only after the attorney confirms; nothing about the confirmation is
+logged before it. The confirmation memo does not restate the compel section or any
+day-count the skill is not entitled to assert.
+
 ## Shape D - Surface to a human (fail-closed)
 
 ```markdown
@@ -110,3 +141,8 @@ nothing sent. This is a judgment the skill does not make on its own.
 8. **Outbound surfaces the track, never the compel section.** No/late/unverified → the
    no-response track; thin verified → the compel-further track (window from service of the
    verified response). The compel section and day-count belong to `meet-and-confer-drafter`.
+9. **The inbound confirmation memo carries all four fields.** On attorney confirm, the
+   `create_memo` records the confirming attorney's full name (from `get_staff`), an
+   ISO-8601 timestamp, the confirmed date, and the source branch (`Smokeball court-rules
+engine` vs `proposed by Operator`). A confirmation logged without any one of the four
+   is incomplete. Nothing is logged before the confirm.

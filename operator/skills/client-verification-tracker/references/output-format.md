@@ -28,22 +28,25 @@ The decision determines the shape. Every verification is keyed to
 > for approval; not yet sent. Response deadline <date, from the deadline lane>.
 ```
 
-## Shape B — Chase (open, unsigned, cadence due)
+## Shape B — Chase (open, unsigned, authored cadence due, attempt ceiling not yet reached)
 
 ```markdown
 # Verification Chase — <plaintiff> — <response-set> — matter <id> — YYYY-MM-DD
 
-**Status:** sent <date> by <method>, unsigned (<N> days); nudge <#> of <max>
-**Decision:** cadence due — reminder drafted to the signer.
+**Status:** sent <date> by <method>, unsigned (<N> days); attempt <#> of <escalate_after_attempts>
+**Cadence:** authored `chase_cadence_days` = <days>; next chase due <date>
+**Decision:** cadence due, attempt ceiling not reached — chase the signer via `send_message` (never `reply_to_message`).
 
-## Reminder (DRAFT — reviewer/firm sends)
+## Reminder (proactive send to the signer per voice.md — subject to the authored exposure)
 
-> <short, warm reminder to the signer per voice.md — points to where to sign>
+> <short, warm reminder to the signer — points to where to sign>
 
 ## Internal log (create_memo body)
 
-> Verification chase <#> for <plaintiff>/<response-set>; still unsigned.
+> Verification chase attempt <#> of <escalate_after_attempts> for <plaintiff>/<response-set>; still unsigned. Sent via send_message.
 ```
+
+State-read note: this turn reads matter metadata only (`list_tasks`, `get_files_on_matter`, `get_memos_on_matter`) — no message body — so the proactive chase send is not fenced by the taint gate.
 
 ## Shape C — Signed, logged & closed (ONLY on a confident match)
 
@@ -64,9 +67,12 @@ to <response-set> v<version>; item closed; cadence stopped.
 # ⚠ Verification — needs a human — <plaintiff> — matter <id> — YYYY-MM-DD
 
 **Situation:** <signer ambiguous | approval not authenticated | client says-signed but no
-matching document | firm file-naming convention not yet confirmed | RFA near deadline unsigned>
-**Decision:** surfaced for a person. Not sent / not closed. This is a judgment the skill
-does not make on its own.
+matching document | firm file-naming convention not yet confirmed | RFA near deadline unsigned |
+chase attempts reached `escalate_after_attempts` (stop chasing the client) | chase cadence or
+escalation attempt-count not authored>
+**Decision:** surfaced for a person. Not sent / not closed. When the situation is the attempt
+ceiling, the client chase is stopped and the open item is handed to the responsible attorney;
+the skill does not send another nudge. This is a judgment the skill does not make on its own.
 ```
 
 ## Rules
@@ -80,3 +86,11 @@ does not make on its own.
    document is Shape D (surface), never Shape C (auto-close).
 4. No verification term, response, or legal consequence appears interpreted anywhere.
 5. The decision and its reason are always stated, so the cadence is auditable.
+6. **The chase cadence is the authored `chase_cadence_days`; the attempt ceiling is the
+   authored `escalate_after_attempts`.** Both are fail-closed when unauthored (no chase;
+   surface the missing-setting note). A chase is sent with `send_message`, never
+   `reply_to_message`, and the chase-send turn reads matter metadata only (no message
+   body), so the send is not fenced by the taint gate.
+7. **Attempt-count and deadline-proximity escalation are independent** — either sends the
+   open item to the attorney; reaching `escalate_after_attempts` also stops the client
+   chase (Shape D), it does not draft another Shape B nudge.
