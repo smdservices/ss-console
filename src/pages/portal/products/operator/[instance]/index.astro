@@ -103,9 +103,9 @@ if (access) {
 }
 const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 
-// The operator's facet map (brief §5). Scope/Skills/Governance/Voice deep-link to
-// today's Configure page until each is split into its own briefed surface; the
-// facets with no page yet (Persona, Schedule, Workflows, Memory) carry href: null.
+// The operator's facet map (brief §5). Governance/Voice deep-link to today's
+// Configure page until each is split into its own briefed surface; the facets
+// with no page yet (Persona, Schedule, Workflows, Memory) carry href: null.
 const CONFIGURE = `${operatorBase}/configure`
 const roleDoors: FacetDoor[] = [
   {
@@ -113,7 +113,11 @@ const roleDoors: FacetDoor[] = [
     desc: 'Who it is: its name, role, and the identities it can operate as.',
     href: null,
   },
-  { label: 'Scope', desc: 'What it handles for you, and the shape of its job.', href: CONFIGURE },
+  {
+    label: 'Scope',
+    desc: "What it can see, who it responds to, and what's off limits.",
+    href: `${operatorBase}/scope`,
+  },
   {
     label: 'Skills',
     desc: 'Everything it can do, and how each one gets set in motion.',
