@@ -271,8 +271,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # overlaySha256 is unchanged; only overlayRef. Range 78064d3..3724e78 (overlay#155,
 # ss #1781 trigger cooldown) touches shared/gate_trigger_throttle.py (new) +
 # webhook_gate.py + bootstrap/validate.py + contract tests — NOT tracked twins,
-# so every overlaySha256 is unchanged; only overlayRef.
-ARG OVERLAY_REF="3724e78f91e44db9678e1adee1d0ad62b15e8d7c"
+# so every overlaySha256 is unchanged; only overlayRef. Range 3724e78..17d33d7
+# (overlay#156, ADR 0075 recipient-class enrichment) moves ONE tracked twin —
+# shared/recipient_classifier.py (CLIENT/VENDOR classes + typed classifier) —
+# so that pair's overlaySha256 is re-recorded alongside this bump; the other
+# changed files (enforce.py, action_classes.py, customer_config.py,
+# bootstrap/validate.py, bootstrap/translate.py) are not tracked twins.
+ARG OVERLAY_REF="17d33d7baeb8fd5f31dbdde528abc2b03d378338"
 
 ARG CUSTOMER_SLUG=customer-zero
 
