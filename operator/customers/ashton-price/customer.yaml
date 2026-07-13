@@ -467,6 +467,17 @@ webhook_triggers:
     event_type: matter.updated
     skill: matter-memo-on-update
     persona: quinn
+    # Per-(trigger, matter) cooldown (#1781): breaks the create_memo →
+    # matter.updated echo loop at the gate (202 + WEBHOOK_SUPPRESSED; the echo
+    # never wakes the agent). Proven live on pilot-smokeball 2026-07-06→07 —
+    # on THIS seat the loop would write unbounded agent memos into the firm's
+    # production Smokeball. 30 = platform default, authored explicitly.
+    # AT PRODUCTION CONNECT (plan §3/M3, issue #1671): additionally author the
+    # seat's own Smokeball userId (known after the firm's OAuth) into
+    # exclude.actors so the Operator's writes are excluded precisely, not just
+    # coalesced.
+    throttle:
+      cooldown_minutes: 30
   # An inbound email to the Operator routes through the spine to the right skill.
   - source: agentmail
     event_type: message.received

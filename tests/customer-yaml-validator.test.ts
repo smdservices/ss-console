@@ -169,6 +169,53 @@ describe('webhook_triggers.exclude (authored trigger exceptions)', () => {
   })
 })
 
+describe('webhook_triggers.throttle (per-trigger cooldown, #1781)', () => {
+  function withThrottle(throttle: unknown) {
+    const f = withWebhooks()
+    const triggers = f['webhook_triggers'] as Record<string, unknown>[]
+    triggers[0]['throttle'] = throttle
+    return f
+  }
+
+  it('accepts an authored cooldown and carries it through', () => {
+    const result = validate(withThrottle({ cooldown_minutes: 30 }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: 30 })
+    }
+  })
+
+  it('accepts 0 (authored disable) and an empty block (gate default)', () => {
+    const zero = validate(withThrottle({ cooldown_minutes: 0 }))
+    expect(zero.ok).toBe(true)
+    if (zero.ok) expect(zero.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: 0 })
+    const empty = validate(withThrottle({}))
+    expect(empty.ok).toBe(true)
+    if (empty.ok) {
+      expect(empty.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: null })
+    }
+  })
+
+  it('is null when unauthored', () => {
+    const result = validate(withWebhooks())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.webhook_triggers[0]?.throttle ?? null).toBeNull()
+  })
+
+  it('rejects negative, non-integer, non-object, and unknown-key blocks', () => {
+    for (const bad of [
+      { cooldown_minutes: -5 },
+      { cooldown_minutes: 2.5 },
+      { cooldown_minutes: '30' },
+      'nope',
+      { cooldown_mins: 30 },
+    ]) {
+      const result = validate(withThrottle(bad))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
 describe('digest (authored digest home, #1742)', () => {
   it('accepts a valid home_matter_id GUID and carries it through', () => {
     const f = validFixture()
