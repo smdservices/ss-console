@@ -268,8 +268,11 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # exposure ceiling for external_send (rejects it off the send classes) — keeps the
 # on-box config_applier validator in lockstep with the console. Range 8806099..78064d3
 # touches bootstrap/validate.py + contract tests — NOT tracked twins, so every
-# overlaySha256 is unchanged; only overlayRef.
-ARG OVERLAY_REF="78064d366fac97646bdab5441b054b40d4201493"
+# overlaySha256 is unchanged; only overlayRef. Range 78064d3..3724e78 (overlay#155,
+# ss #1781 trigger cooldown) touches shared/gate_trigger_throttle.py (new) +
+# webhook_gate.py + bootstrap/validate.py + contract tests — NOT tracked twins,
+# so every overlaySha256 is unchanged; only overlayRef.
+ARG OVERLAY_REF="3724e78f91e44db9678e1adee1d0ad62b15e8d7c"
 
 ARG CUSTOMER_SLUG=customer-zero
 

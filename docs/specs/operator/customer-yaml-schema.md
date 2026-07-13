@@ -415,6 +415,7 @@ Validation rules:
 - `webhook_triggers` is OPTIONAL; default is `[]`.
 - A trigger whose `source` has no connector with `webhook_url` configured is rejected (`UnknownWebhookSource`) — either add the URL or drop the trigger.
 - `event_type` is opaque to the validator; the source vendor defines the value (e.g. `matter.created`, `document.added`, `payment.received`). Must be a non-empty string.
+- `webhook_triggers[].throttle` is OPTIONAL (#1781): `{ cooldown_minutes: <non-negative integer> }`. The overlay gate parks any delivery for a (source, event_type, matter) already inside an open cooldown window (202 + `WEBHOOK_SUPPRESSED`, reason `trigger-cooldown:<matter>`) — the deterministic break for write-then-echo loops (the seat's own `create_memo` echoing back as `matter.updated`). Unauthored = the gate's platform default (30 min, an integrity control); `cooldown_minutes: 0` disables for that trigger. Malformed blocks are rejected at authoring/provision time in BOTH validators (parity-pinned): the runtime resolver falls back to the platform default on malformed input, so a silently-accepted typo would silently replace the authored intent.
 
 **Selection rule (Layer 2 fallback ladder).** Given a draft, a reviewer, and a recipient cohort, the transform picks profiles in this priority order:
 
