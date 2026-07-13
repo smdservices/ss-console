@@ -52,6 +52,13 @@ class ActionClass(str, enum.Enum):
     # recipient axis is resolved upstream (recipient_classifier.send_action_class);
     # an UNCLASSIFIABLE recipient is a hard error there, never routed here as a draft.
     EXTERNAL_SEND_INTERNAL = "external_send_internal"
+    # Send to a firm's own rostered CLIENT / RECORDS VENDOR (scope.outbound_roster).
+    # Each has its own authored, fail-closed ceiling — graduatable to autonomous
+    # independently of the outside class (ADR 0075). The recipient axis is resolved
+    # upstream (recipient_classifier.send_action_class / classify_recipients_typed);
+    # an UNCLASSIFIABLE recipient is a hard error there, never routed here as a draft.
+    EXTERNAL_SEND_CLIENT = "external_send_client"
+    EXTERNAL_SEND_VENDOR = "external_send_vendor"
     COMMITMENT = "commitment"  # Sign, accept terms, agree to dates — never autonomous
     DESTRUCTIVE = "destructive"  # Delete, drop, irreversible — explicit per-call approval
     CODE_EXECUTION = "code_execution"  # Arbitrary code / shell / subagent — authored-only, fail-closed
@@ -102,12 +109,13 @@ def _unauthored_resolution(action: ActionClass, skill_ceiling: Ceiling) -> Ceili
         return Ceiling.AUTONOMOUS
     if action == ActionClass.INTERNAL_WRITE:
         return skill_ceiling
-    # EXTERNAL_SEND, EXTERNAL_SEND_INTERNAL, and any unrecognized entitled class:
-    # no authored grant means no action (ADR 0035 fail-closed). A rostered internal
-    # send is NOT autonomous-by-default — the engagement must author
-    # external_send_internal, exactly like the outside class; unauthored is refused,
-    # never a silent draft or a silent send. COMMITMENT / DESTRUCTIVE additionally
-    # carry their own current-turn-approval reversibility floors in enforce().
+    # EXTERNAL_SEND, EXTERNAL_SEND_INTERNAL, EXTERNAL_SEND_CLIENT,
+    # EXTERNAL_SEND_VENDOR, and any unrecognized entitled class: no authored grant
+    # means no action (ADR 0035 fail-closed). A rostered internal / client / vendor
+    # send is NOT autonomous-by-default — the engagement must author its class,
+    # exactly like the outside class; unauthored is refused, never a silent draft or
+    # a silent send. COMMITMENT / DESTRUCTIVE additionally carry their own
+    # current-turn-approval reversibility floors in enforce().
     return Ceiling.REFUSED
 
 
@@ -183,6 +191,8 @@ def enforce(
     if inbound_trust_class != _TRUST_CLASS_INTERNAL and action in (
         ActionClass.EXTERNAL_SEND,
         ActionClass.EXTERNAL_SEND_INTERNAL,
+        ActionClass.EXTERNAL_SEND_CLIENT,
+        ActionClass.EXTERNAL_SEND_VENDOR,
         ActionClass.DESTRUCTIVE,
         ActionClass.COMMITMENT,
         ActionClass.CODE_EXECUTION,
@@ -252,18 +262,26 @@ def enforce(
             )
         return EnforcementDecision(allowed=True, reason="destructive with current-turn approval", audit_action="allow")
 
-    # EXTERNAL_SEND / EXTERNAL_SEND_INTERNAL: each governed by its OWN resolved
-    # per-action ceiling (ADR 0025/0035/0071). The recipient axis is decided upstream
+    # EXTERNAL_SEND / EXTERNAL_SEND_INTERNAL / EXTERNAL_SEND_CLIENT /
+    # EXTERNAL_SEND_VENDOR: each governed by its OWN resolved per-action ceiling
+    # (ADR 0025/0035/0071/0075). The recipient axis is decided upstream
     # (recipient_classifier) — by the time a send reaches here it is already typed
-    # as the outside class (external_send) or the rostered class
-    # (external_send_internal); an unclassifiable recipient never reaches here (it
-    # is a hard error at the router). autonomous → send; confirm → send only with an
+    # as the outside class (external_send), the rostered internal class
+    # (external_send_internal), or the typed client / records-vendor class
+    # (external_send_client / external_send_vendor); an unclassifiable recipient
+    # never reaches here (it is a hard error at the router). autonomous → send;
+    # confirm → send only with an
     # explicit current-turn approval, else withhold pending approval (ADR 0071);
     # draft_for_review (an AUTHORED value) → draft; refused → block. Unauthored is
     # fail-closed (refused), not draft (ADR 0035 — no imposed default). A rostered
     # send is recipient-locked to the classified roster recipient — the classifier,
     # not this branch, enforces that lock.
-    if action in (ActionClass.EXTERNAL_SEND, ActionClass.EXTERNAL_SEND_INTERNAL):
+    if action in (
+        ActionClass.EXTERNAL_SEND,
+        ActionClass.EXTERNAL_SEND_INTERNAL,
+        ActionClass.EXTERNAL_SEND_CLIENT,
+        ActionClass.EXTERNAL_SEND_VENDOR,
+    ):
         eff = resolve_ceiling(action, ceiling, action_ceilings, vertical_floors)
         if eff == Ceiling.AUTONOMOUS:
             return EnforcementDecision(

@@ -48,8 +48,8 @@
     {
       "adapterPath": "operator/adapter/recipient_classifier.py",
       "overlayPath": "shared/recipient_classifier.py",
-      "syncNote": "NEW PAIR 2026-07-08 (overlay#149 / ss#1822, ADR 0072): the recipient classifier that decides internal (external_send_internal) vs outside (external_send) for a proactive send. Byte-identical twin \u2014 the proactive send gate (hermes-smd-trust) and the reactive reply gate (hermes-smd-reply) MUST classify recipients identically, so the two sha256s match by design. Pure, no I/O.",
-      "sha256": "0a54887f10c8edc903add80b3bd58b009728fc9c6c5af129c8e6b981f18f4459",
+      "syncNote": "NEW PAIR 2026-07-08 (overlay#149 / ss#1822, ADR 0072): the recipient classifier that decides internal (external_send_internal) vs outside (external_send) for a proactive send. Byte-identical twin \u2014 the proactive send gate (hermes-smd-trust) and the reactive reply gate (hermes-smd-reply) MUST classify recipients identically, so the two sha256s match by design. Pure, no I/O. 2026-07-13 (ADR 0075, recipient-class enrichment): twin gains RecipientClass.CLIENT/VENDOR + classify_recipients_typed (typed outbound roster \u2192 external_send_client/external_send_vendor); the 3-class functions are unchanged. Byte-identical twin re-authored once and copied verbatim to both repos \u2014 ss-side sha256 updated to 2d686f78 here; overlaySha256 + overlayRef are re-recorded together by the integration PR when OVERLAY_REF bumps to the merged overlay commit (WP-F).",
+      "sha256": "2d686f785b04f89015f3343fcb9ca4edbd0657632e7162e851a8073d39a278dd",
       "overlaySha256": "0a54887f10c8edc903add80b3bd58b009728fc9c6c5af129c8e6b981f18f4459"
     }
   ]
