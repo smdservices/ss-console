@@ -48,11 +48,10 @@ users:
 # ---- PERSONAS ----
 # One coordinator persona. Name/title/voice are a PROPOSED default — the firm
 # authors the final identity and tunes the writing voice from real samples.
-# Every external-bound message stays draft_for_review (the law external-send
-# floor, ADR 0005, non-raisable). The two committed deliverables —
-# matter-memo-on-update (internal supervision memo) and matter-document-review
-# (surface-only, never drafts) — write only internally; draft_for_review here is
-# the conservative authored cap (it governs external send; internal writes pass).
+# Outside sends follow the authored external_send ceiling below (ADR 0035/0073;
+# the former non-raisable law draft floor is removed). The two committed
+# deliverables — matter-memo-on-update (internal supervision memo) and
+# matter-document-review (surface-only, never drafts) — write only internally.
 personas:
   - slug: quinn
     status: active
@@ -349,6 +348,17 @@ personas:
     # agent reworking the lifecycle should do this once the new behavior is
     # ready to rehearse. (Validator treats a missing cron key as zero jobs.)
     #
+    # PROOF CADENCE (2026-07-13, ADR 0073): the records chaser alone is
+    # restored on a temporary fast cadence to live-prove the authored
+    # autonomous outside send in the gateway (in-process audit, clean-trust
+    # scheduled turn). Remove after the proof; the production slot is the
+    # weekly Tuesday line in the paused block below. Cadence discipline makes
+    # repeat wakes quiet: chase #1 sends, later wakes find cadence not due.
+    cron:
+      - skill: medical-records-chaser
+        schedule: '*/17 * * * *' # PROOF ONLY - see note above; remove after
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
     # cron:
     #   - skill: deadline-miss-escalator
     #     schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
