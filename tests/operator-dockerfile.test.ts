@@ -364,7 +364,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // classes wired through enforce/validate/translate. Range 3724e78..17d33d7
     // moves ONE tracked twin (shared/recipient_classifier.py), so that pair's
     // overlaySha256 is re-recorded in overlay-pairs.json alongside this bump.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="17d33d7baeb8fd5f31dbdde528abc2b03d378338"')
+    // 5b7318cb (#158, ss ADR 0073): authored-exposure SOUL section — the agent
+    // acts AT its authored ceiling instead of defaulting below it. translate.py
+    // + tests only; no tracked twin moved. Superset of 17d33d7.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5b7318cbb138038d0f1a33cd263b9354e377ef6b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
