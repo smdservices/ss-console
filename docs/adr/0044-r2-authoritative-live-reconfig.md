@@ -73,6 +73,37 @@ Therefore, **before the R2-authoritative apply path ships on any `execute_code`-
 - ADR 0012's git-first invariant is relaxed to git-reviewed; the reconciler and the reprovision-reads-R2 change are load-bearing and ship in the same wave.
 - The control/data-plane separation of ADR 0026 is preserved by construction (root applier + no agent-reachable config-bucket write credential), not by added checks — **contingent on Decision 8 (OP-P2-1) for any `execute_code`-enabled customer**. The gateway env is already clean; the apply path must not ship on an `execute_code` customer while the account-wide R2 key is still reachable from a sibling process's environ.
 
+## Realized (2026-07-13, #1840)
+
+Decisions 2 and 4 shipped with one deliberate reshaping, recorded here so the
+ADR matches what runs:
+
+- **Decision 2 is realized as a provenance-stamped divergence guard + an
+  explicit adopt-R2 mode, not an unconditional read-from-R2.** While the
+  portal write-back spine is unbuilt, git PRs are the only reviewed authoring
+  path, and the git → R2 projection _is_ how a merged config change deploys —
+  an unconditional reads-from-R2 reprovision would make merged changes
+  undeployable. Instead: every git projection stamps the uploaded object with
+  `projected-sha256` user metadata; `provision-customer.sh` (Step 0.5)
+  classifies the current R2 object before overwriting (`absent` /
+  `identical` / `clean-projection` → proceed; anything else → **fail closed**
+  with the diff that would be lost). A missing or mismatched stamp can never
+  allow a clobber — live-apply writes carry no stamp, so they are always
+  guarded. `SS_CONFIG_SOURCE=r2` provisions from the live R2 config (the
+  Decision 2 read path, on demand), and `SS_CONFIG_FORCE_GIT=1` is the
+  explicit revert. Verdict logic: `operator/bin/lib/config_divergence.py`;
+  tests: `operator/bin/tests/test_config_divergence.py`. The silent-revert
+  primitive in Context fact 1 is closed either way.
+- **Decision 4 reconciler:** `operator/bin/reconcile-r2-config.sh` (local via
+  Infisical, or CI) compares every provisioned customer's live R2 config
+  against git and, in `--pr` mode, opens a `reconcile/r2-<slug>` PR carrying
+  the R2 version as the reviewed record. Scheduled daily by
+  `.github/workflows/r2-config-reconcile.yml`, which **fails loudly** until
+  its scoped read credentials (`R2_ENDPOINT_URL`,
+  `R2_RECONCILE_ACCESS_KEY_ID`, `R2_RECONCILE_SECRET_ACCESS_KEY`) are
+  provisioned as repo secrets — a silently-skipping reconciler would be
+  paper compliance.
+
 ## Out of scope
 
 Portal client self-serve apply (admin-driven first); proactive entitlement-promotion nudges.
