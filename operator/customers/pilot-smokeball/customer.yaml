@@ -539,6 +539,11 @@ scope:
   inbound_allow_from:
     - scott@smd.services
     - smdurgan@smdurgan.com
+    # Staging-only probe channel (ADR 0075 verification). A rostered SMD-owned
+    # AgentMail sender so the probe ladder can drive clean-trust gateway turns
+    # programmatically (the CLI channel is PID-gated out of the audit broker).
+    # Never copy to a client seat.
+    - ss-probe-runner@agentmail.to
   # Typed outbound roster (ADR 0075) — the firm's own client / records-vendor
   # addresses, which resolve to the external_send_client / external_send_vendor
   # action classes instead of the outside external_send ceiling. These two are
