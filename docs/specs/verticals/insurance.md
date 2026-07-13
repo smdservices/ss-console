@@ -30,7 +30,7 @@ That coordination is a real seat, the customer service representative or account
 
 ## Skill catalog
 
-Twelve insurance-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve insurance-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### New business intake
 
@@ -91,7 +91,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 
 - **Coverage-advice boundary** — connective service only. Never coverage advice, never a recommended limit or carrier, never an opinion on whether a loss is covered. The twelve skills are intake, renewal logistics, certificates, endorsement relay, document retrieval, billing status, FNOL routing, and retention nudges. This scope discipline is the insurance analog of the law pack's UPL boundary.
 - **No binding authority** — the Operator never binds, changes, cancels, or reinstates coverage. Those acts route to a licensed producer or the carrier.
-- **External-send draft floor** — external mail ships under a human reviewer's identity, one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)); the insurance pack pins it **non-raisable for certificates** and any representation of coverage to a third party, because a misstated certificate is direct E&O exposure.
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md), ADR 0035). For certificates and any representation of coverage to a third party the pack's **recommended** posture is `draft_for_review` — a misstated certificate is direct E&O exposure — and the content-sensitivity floor (ADR 0031) narrows money/contract content to draft even under an authored autonomous ceiling.
 - **Nonpublic personal information** — agencies hold a great deal of NPI (Social Security numbers, dates of birth, license numbers, VINs, property details) under GLBA and, in the states that have adopted it, the NAIC Insurance Data Security Model Law. NPI stays inside the agency's surfaces; the Operator does not exfiltrate it.
 - **Licensed-producer routing** — quotes, binding, coverage questions, and claims-coverage questions route to a licensed producer; the Operator handles logistics only.
 

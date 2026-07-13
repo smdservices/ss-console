@@ -26,7 +26,6 @@ compliance:
   - benefits-relay-no-guarantee # relay payer-returned benefits; never guarantee coverage or out-of-pocket
   - emergency-escalation-fail-open # possible emergencies go to a human immediately; never handled async
   - hipaa-phi-in-practice-surfaces # PHI stays inside practice surfaces
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

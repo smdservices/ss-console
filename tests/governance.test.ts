@@ -21,7 +21,11 @@ import path from 'node:path'
 import { POST } from '../src/pages/api/admin/operator/[customer]/governance'
 import { env as testEnv } from 'cloudflare:workers'
 import { readGovernanceConfig, resolveCell, resolveSkillCells } from '../src/lib/admin/governance'
-import { listConfigChangeAudit } from '../src/lib/portal/operator/config-governance'
+import {
+  listConfigChangeAudit,
+  VERTICAL_FLOORS,
+} from '../src/lib/portal/operator/config-governance'
+import type { ActionClass } from '../src/lib/operator/customer-yaml/types'
 import { getCustomerConfig } from '../src/lib/portal/customer-config'
 import type { AuthoredExposureActionClass } from '../src/lib/operator/customer-yaml/types'
 import type { Ceiling } from '../src/lib/portal/operator/config-governance'
@@ -59,12 +63,27 @@ describe('resolveCell — the ADR-0035 keystone', () => {
     expect(cell.effective).toBe('draft_for_review')
   })
 
-  it('the vertical floor wins when more restrictive than the authored value', () => {
-    // law-firm floors external_send at draft_for_review; an authored 'autonomous'
-    // resolves DOWN to the floor.
+  it('law-firm authored autonomous is NOT floored (floor removed 2026-07, ADR 0073)', () => {
+    // THE 2026-07 behavior change: outside-send is the firm's authored dial.
     const cell = resolveCell(exposure({ external_send: 'autonomous' }), 'external_send', 'law-firm')
-    expect(cell.floor).toBe('draft_for_review')
-    expect(cell.effective).toBe('draft_for_review')
+    expect(cell.floor).toBeNull()
+    expect(cell.effective).toBe('autonomous')
+  })
+
+  it('a declared vertical floor wins when more restrictive than the authored value (synthetic)', () => {
+    const floors = VERTICAL_FLOORS as Record<string, Partial<Record<ActionClass, Ceiling>>>
+    floors['floored-test-vertical'] = { external_send: 'draft_for_review' }
+    try {
+      const cell = resolveCell(
+        exposure({ external_send: 'autonomous' }),
+        'external_send',
+        'floored-test-vertical'
+      )
+      expect(cell.floor).toBe('draft_for_review')
+      expect(cell.effective).toBe('draft_for_review')
+    } finally {
+      delete floors['floored-test-vertical']
+    }
   })
 
   it('resolveSkillCells covers all seven action classes', () => {
@@ -270,7 +289,8 @@ describe('POST /api/admin/operator/[customer]/governance', () => {
     expect(res.status).toBe(401)
   })
 
-  it('blocks a raise above the vertical floor and records the rejection', async () => {
+  it('accepts a law-firm external_send raise to autonomous (floor removed, ADR 0073)', async () => {
+    // THE 2026-07 behavior change: outside-send is the firm's authored dial.
     await seedConfig('law-firm')
     const res = await POST(
       buildCtx({
@@ -284,11 +304,40 @@ describe('POST /api/admin/operator/[customer]/governance', () => {
         },
       })
     )
-    expect(locationOf(res)).toContain('status=floor_blocked')
-    // The rejected attempt is itself an audited compliance event.
+    expect(locationOf(res)).toContain('status=saved')
     const audit = await listConfigChangeAudit(testEnv.DB, ENTITY_ID)
     expect(audit).toHaveLength(1)
-    expect(audit[0].outcome).toBe('rejected_floor')
+    expect(audit[0].outcome).toBe('accepted')
+    expect(audit[0].direction).toBe('raise')
+  })
+
+  it('blocks a raise above a declared vertical floor and records the rejection (synthetic)', async () => {
+    // Machinery coverage: no production vertical declares a floor today, so a
+    // synthetic one is injected for the duration of the test.
+    const floors = VERTICAL_FLOORS as Record<string, Partial<Record<ActionClass, Ceiling>>>
+    floors['floored-test-vertical'] = { external_send: 'draft_for_review' }
+    try {
+      await seedConfig('floored-test-vertical')
+      const res = await POST(
+        buildCtx({
+          session: adminSession(),
+          slug: SLUG,
+          form: {
+            persona_slug: 'marcus',
+            skill_name: 'inbox-triage',
+            action_class: 'external_send',
+            level: 'autonomous',
+          },
+        })
+      )
+      expect(locationOf(res)).toContain('status=floor_blocked')
+      // The rejected attempt is itself an audited compliance event.
+      const audit = await listConfigChangeAudit(testEnv.DB, ENTITY_ID)
+      expect(audit).toHaveLength(1)
+      expect(audit[0].outcome).toBe('rejected_floor')
+    } finally {
+      delete floors['floored-test-vertical']
+    }
   })
 
   it('accepts an in-floor exposure change, records it, and does NOT mutate the replica', async () => {

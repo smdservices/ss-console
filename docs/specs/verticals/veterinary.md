@@ -30,7 +30,7 @@ That coordination is a real seat, the client service representative or reception
 
 ## Skill catalog
 
-Twelve veterinary-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve veterinary-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### New client and scheduling
 
@@ -89,7 +89,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No veterinary medical advice** — connective front-desk work only. Never a diagnosis, never a treatment recommendation, never an interpretation of a result, never a urgency or triage judgment. The twelve skills are intake, scheduling, reminders, recall, refill relay, result delivery of authored content, estimates, boarding, follow-up, and escalation. This scope discipline is the veterinary analog of the law pack's UPL boundary.
 - **Emergency escalation (fail-open to a human)** — a message that may describe an emergency is handed to a person at the clinic immediately, never handled async and never answered with medical content. `emergency-escalation-router` errs toward escalation by design.
 - **No prescription authorization** — refill requests route to the doctor for authorization; the Operator never authorizes a refill, sets a dose, or advises on medication, and flags controlled substances for the doctor.
-- **External-send draft floor** — external mail ships under a human reviewer's identity, one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md), ADR 0035); `draft_for_review` is the recommended starting posture.
 - **Records stay in clinic surfaces** — client and patient records stay inside the clinic's systems; the Operator does not exfiltrate them.
 
 ## Labor-market context (the demand, without presumption)
