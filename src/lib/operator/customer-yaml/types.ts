@@ -611,6 +611,16 @@ export interface WebhookTrigger {
    * added as new keys here. Unauthored = no exceptions (ADR 0035).
    */
   exclude: WebhookTriggerExclude | null
+  /**
+   * Per-(trigger, matter) cooldown (#1781, overlay gate enforcement): after a
+   * delivery for a matter forwards, further deliveries for the same (source,
+   * event_type, matter) inside the window are acknowledged 202, audited
+   * (WEBHOOK_SUPPRESSED), and never forwarded — the deterministic break for
+   * write-then-echo loops (the seat's own create_memo echoing back as
+   * matter.updated). Unauthored = the gate's platform default (30 min, an
+   * integrity control); `cooldown_minutes: 0` disables for this trigger.
+   */
+  throttle: WebhookTriggerThrottle | null
 }
 
 export interface WebhookTriggerExclude {
@@ -618,6 +628,11 @@ export interface WebhookTriggerExclude {
   matters: string[]
   /** Vendor user GUIDs whose own changes are exempt (e.g. the supervising principal). */
   actors: string[]
+}
+
+export interface WebhookTriggerThrottle {
+  /** Non-negative integer minutes; 0 disables; null = block authored empty (gate default). */
+  cooldown_minutes: number | null
 }
 
 export interface Scope {
