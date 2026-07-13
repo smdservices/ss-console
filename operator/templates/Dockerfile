@@ -288,7 +288,12 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # on the re-invoke (shared/pending_send.py + plugins/hermes-smd-trust/{approval,
 # enforce,__init__}.py + tests). None are tracked twins, so every overlaySha256 is
 # unchanged; only overlayRef. Superset of 5b7318cb.
-ARG OVERLAY_REF="f3e48d6b2f03370a15f3e44074a38660b508424c"
+# ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks. #158 accidentally
+# committed two live git-worktree checkouts as gitlinks with no .gitmodules, so
+# `uv pip install "git+<repo>@<sha>"` here died on `git submodule update --init`
+# — it broke EVERY seat image build from #158 (f3e48d6/5b7318cb) onward. Untracked +
+# gitignored. Twin recipient_classifier.py unchanged, so its overlaySha256 is unchanged.
+ARG OVERLAY_REF="ba5b8179de9e52c114c67898b1f556bef6aac4b9"
 
 ARG CUSTOMER_SLUG=customer-zero
 

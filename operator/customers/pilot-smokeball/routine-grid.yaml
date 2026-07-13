@@ -90,7 +90,7 @@ rows:
     enforcement:
       initiation: 'manual + scheduled (chase cadence)'
       exposure_keys:
-        external_send_client: autonomous
+        external_send_client: draft_for_review
       content_floor: false
       banned_tools: []
       notes: >-
@@ -241,7 +241,7 @@ rows:
     enforcement:
       initiation: 'manual + scheduled (weekly provider chase)'
       exposure_keys:
-        external_send_vendor: autonomous
+        external_send_vendor: draft_for_review
       content_floor: false
       banned_tools: []
       notes: >-
