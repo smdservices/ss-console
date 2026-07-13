@@ -38,6 +38,8 @@ Wire Telegram as an **env-enabled native polling platform**, no new public surfa
 
 ## Evolution (deferred, documented — not built now)
 
+> **Shipped-note (2026-07-13).** The first two items below have since been **built** — read this section's "not built now" framing as historical so a future agent does not re-build them. `_materialize_telegram_platform` is live in the overlay `bootstrap/translate.py` (invoked at boot), and the fail-closed launch guard shipped **stronger** than proposed: the materializer itself `raise`s when `telegram.enabled` is set with an empty `allow_from`, so an enabled-but-unrestricted bot can never be materialized (not merely refused in `bootstrap.sh`).
+
 The token+allowlist live as Fly secrets, which works but keeps the allowlist out of the reviewable config-as-source-of-truth. The product-grade shape, when a second customer needs it:
 
 - **`translate.py` `_materialize_telegram_platform`** (overlay repo) — emit a `telegram:` block (`allow_from`, `require_mention: false`, `reactions`) into the profile config from an authored `customer.yaml` `telegram:` section, mirroring `_materialize_webhook_platform`. The native-polling-platform seam; Slack/Discord reuse it.

@@ -7,7 +7,14 @@ related-adr: 0009-cross-machine-query-prohibition.md, 0015-hermes-fork-vs-upstre
 related-issue: TBD
 ---
 
-# ADR 0069 — Independent Oversight Plane
+# ADR 0074 — Independent Oversight Plane
+
+> **Renumbered 2026-07-13.** Originally authored as ADR 0069 (2026-07-07), colliding with
+> [0069-operator-legibility-progressive-configurability.md](./0069-operator-legibility-progressive-configurability.md)
+> (also 2026-07-07, the record wired into shipped code and cited by number). Renumbered to
+> the next free slot: 0073 was taken in the interim by
+> [0073-remove-law-external-send-floor.md](./0073-remove-law-external-send-floor.md),
+> so this record is **0074**. Content unchanged.
 
 **Status:** Proposed — build deferred (Captain decision 2026-07-07). This ADR scopes a decision; it does **not** presume the answer is yes. The recommendation below (a narrow console-side tracer bullet) is **accepted in principle**, but the build is **deferred** behind an explicit trigger — see [Decision (2026-07-07)](#decision-2026-07-07). The full "second always-on agent per customer" framing is rejected for now.
 

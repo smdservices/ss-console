@@ -13,6 +13,8 @@ related-issue: Operator task #21 (overlay PR venturecrane/hermes-smd-overlay#22,
 
 **Status:** Accepted (Captain decision, customer-zero onboarding interview, 2026-05-31).
 
+> **Amendment (2026-07-13).** [ADR 0072](./0072-recipient-aware-proactive-send.md) split external send into two classes: `external_send` (outside recipients) and `external_send_internal` (rostered internal staff). Post-0072 this content-sensitivity floor pins the **outside** class (`external_send`) **only** — internal alerts are deliberately **not** content-floored, because an internal alert must carry its money/matter context to be useful. This ADR predates the split and reads as if the floor applies to all external send; the live behavior narrows it to the outside class.
+
 ## Context
 
 ADR 0025 made autonomous external send a **configurable per-action ceiling**: a

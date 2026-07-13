@@ -11,6 +11,8 @@ related-doc: docs/security/smd-services-security-overview.md
 
 **Status:** Accepted (Captain decision, 2026-06-20).
 
+> **Forward-note (2026-07-13).** The portal was later restructured to **instance-addressed multi-operator** routes (`src/pages/portal/products/operator/[instance]/*`, 2026-07-08, PRs #1823/#1825) so one client/login/entity can own several operators. This ADR's three-jobs doctrine (Direct / Account / Administer) is **unchanged** and maps straight onto the per-instance pages; only the route shape moved from the flat `products/operator/*` layout the Source below cites.
+
 **Source:** A page-by-page review of the Operator client portal (`src/pages/portal/products/operator/*`, 24 pages + 47 components) found law-firm vertical concepts baked into a product sold as vertical-agnostic, several surfaces that mirror or store the client's own business data, and redundant/orphaned pages. The "Matters" surface — a per-engagement detail view rendering a statement of facts, a document/communication timeline, and deadlines (`MatterFactsSection.astro`, `MatterTimelineSection.astro`, `MatterDraftsSection.astro`) — was the trigger: it makes the portal a window into the client's system of record, which the external security overview tells partners we do not build.
 
 This ADR fixes the boundary at the doctrine level so the question is decided once, not re-litigated per page or per vertical.

@@ -11,6 +11,8 @@ related-adr: docs/adr/0004-productized-operator-offering.md, docs/adr/0034-opera
 **Status:** Accepted (Captain decision, 2026-06-10). The model and information architecture for the SMD admin console
 now that the venture sells two kinds of service. Supersedes how Entities/pipeline are framed in the current admin nav.
 
+> **Implemented-note (2026-07-13).** The "IA/data-model direction only — no schema is created here" framing is now historical. The polymorphic `service` spine **shipped** as DDL in `migrations/0068_service_spine_ddl.sql` (with `src/lib/db/services.ts`), and the flow-ordered nav (`Home · Leads · Clients · Services · Billing · Operator`) shipped in `src/layouts/AdminLayout.astro`. Read the "does not exist yet" language below as the originating direction, since built.
+
 ## Context
 
 The admin console grew up around one business: a lead-to-client consulting funnel. Its top nav is six flat tabs —
