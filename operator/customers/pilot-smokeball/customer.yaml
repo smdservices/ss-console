@@ -68,7 +68,11 @@ personas:
     entitlements:
       exposure:
         internal_write: autonomous
-        external_send: draft_for_review
+        # autonomous on the STAGING seat to prove ADR 0073 (law external-send
+        # floor removed): an authored autonomous outside send must actually
+        # SEND. The content-sensitivity floor (ADR 0031) and taint gate still
+        # narrow; a real client seat authors its own posture.
+        external_send: autonomous
         external_send_internal: autonomous
         destructive: autonomous
     skills:
@@ -501,8 +505,9 @@ scope:
   inbound_allow_from:
     - scott@smd.services
     - smdurgan@smdurgan.com
-  # External send (to anyone OUTSIDE the roster / a chosen recipient) is drafted,
-  # never autonomous. Recipient-locked replies to rostered senders are governed by
+  # External send (to anyone OUTSIDE the roster) follows the authored
+  # external_send ceiling above — autonomous on this staging seat (ADR 0073
+  # proof). Recipient-locked replies to rostered senders are governed by
   # the roster above, not by this ceiling (ADR 0055 §3).
   #
   # This is SMD's own STAGING TEST seat (not a client). The Operator manages its
