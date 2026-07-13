@@ -359,7 +359,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // classes) — keeps the on-box config_applier validator in lockstep with the
     // console. Range 8806099..78064d3 touches bootstrap/validate.py + contract
     // tests — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="78064d366fac97646bdab5441b054b40d4201493"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3724e78f91e44db9678e1adee1d0ad62b15e8d7c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

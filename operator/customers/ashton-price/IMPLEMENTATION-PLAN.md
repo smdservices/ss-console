@@ -206,6 +206,14 @@ connect flow (settings hub); refresh token vaulted; smoke read
 (`auth_status` → `list_matters`) against A&P's **real** matters through the
 seat's MCP, verified in the room or immediately after.
 
+**Loop-guard authoring at connect (#1781).** Once the firm's OAuth completes,
+the seat's own Smokeball `userId` is known — author it into the
+`matter.updated` trigger's `exclude.actors` in `customer.yaml` so the
+Operator's own writes never wake the supervision-memo skill (the precise
+self-actor break). The per-(trigger, matter) `throttle` cooldown is already
+authored and holds regardless (it covers absent-`userId` deliveries), but the
+actor exclusion is the exact fix and must not be skipped at connect.
+
 - **Blocked by:** M0 (seat) + M2 (the authorization happens at the session).
 - **Exit:** verify record of a real-matter list read through the live seat,
   including `matters/write` present in the `auth_status` decoded scopes (the

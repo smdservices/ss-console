@@ -519,6 +519,15 @@ webhook_triggers:
     exclude:
       matters:
         - 3c191bed-cdda-48b9-a6ed-a51a349f3f94 # 2026-OPS-001 (digest home)
+    # Per-(trigger, matter) cooldown (#1781): the seat's own create_memo echoes
+    # back as matter.updated (~12 min vendor latency, proven live 2026-07-06→07)
+    # and re-wakes this skill — a self-sustaining loop. The gate parks any
+    # delivery for a matter already inside the window (202 + WEBHOOK_SUPPRESSED,
+    # trigger-cooldown:<matter>), so the echo never wakes the agent and the
+    # chain terminates. 30 = the gate's platform default, authored explicitly
+    # here so the loop-break is visible in the seat's config, not implicit.
+    throttle:
+      cooldown_minutes: 30
   # An inbound email to the Operator routes through the spine to the right skill.
   - source: agentmail
     event_type: message.received
