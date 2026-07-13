@@ -359,7 +359,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // classes) — keeps the on-box config_applier validator in lockstep with the
     // console. Range 8806099..78064d3 touches bootstrap/validate.py + contract
     // tests — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3724e78f91e44db9678e1adee1d0ad62b15e8d7c"')
+    // 17d33d7 (#156, ADR 0075): recipient-class enrichment — RecipientClass gains
+    // CLIENT/VENDOR, typed outbound roster, external_send_client/_vendor action
+    // classes wired through enforce/validate/translate. Range 3724e78..17d33d7
+    // moves ONE tracked twin (shared/recipient_classifier.py), so that pair's
+    // overlaySha256 is re-recorded in overlay-pairs.json alongside this bump.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="17d33d7baeb8fd5f31dbdde528abc2b03d378338"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

@@ -362,78 +362,67 @@ personas:
     # bills tokens, so the cadence matches how fast each item actually changes.
     # All times are seat-local (business_hours.timezone -> HERMES_TIMEZONE):
     # authored as Pacific.
-    # ---- CRON PAUSED 2026-07-08 (rehearsal between test cycles) ----
-    # Ashton & Price returned feedback on the litigation lifecycle; the skills
-    # below are about to be reworked, so the daily rehearsal was burning tokens
-    # (~$10-15/day) exercising soon-to-be-obsolete behavior. Paused to stop the
-    # waste. The machine stays warm (min_machines_running=1) so inbound email
-    # testing still works; only the scheduled wakes are silenced.
-    #
-    # TO RESTORE: uncomment the `cron:` block below, then re-materialize to the
-    # live seat with `operator/bin/reprovision.sh pilot-smokeball`. The change
-    # agent reworking the lifecycle should do this once the new behavior is
-    # ready to rehearse. (Validator treats a missing cron key as zero jobs.)
-    #
-    # PROOF CADENCE (2026-07-13, ADR 0073): the records chaser alone is
-    # restored on a temporary fast cadence to live-prove the authored
-    # autonomous outside send in the gateway (in-process audit, clean-trust
-    # scheduled turn). Remove after the proof; the production slot is the
-    # weekly Tuesday line in the paused block below. Cadence discipline makes
-    # repeat wakes quiet: chase #1 sends, later wakes find cadence not due.
+    # ---- CRON RESTORED 2026-07-13 (routine-grid rehearsal, ADR 0075) ----
+    # The 2026-07-08 pause ("rehearsal between test cycles") ends here: the
+    # litigation-lifecycle rework the pause was waiting on has landed (the
+    # 07-09 letter grid is authored above + routine-grid.yaml), and rehearsing
+    # it is exactly what these wakes are for. Cost posture vs the paused era:
+    # the two measured burn drivers are fixed (fabrication-gate churn #1831,
+    # redundant memo RTF #1836), every entry stays pre_run-gated and staggered,
+    # and the ADR 0073 */17 proof cadence is REMOVED (superseded: the authored
+    # autonomous send is now live-proven through the typed client/vendor
+    # classes — see ADR 0075 verification). Deeper zero-delta wake suppression
+    # stays a follow-on gated on verifying Smokeball's updated_since wire
+    # format at connect (see pre_run_gate.py docstring).
     cron:
-      - skill: medical-records-chaser
-        schedule: '*/17 * * * *' # PROOF ONLY - see note above; remove after
+      - skill: deadline-miss-escalator
+        schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
         pre_run: pre_run.py
         wake_policy: pre_run_decides
-    # cron:
-    #   - skill: deadline-miss-escalator
-    #     schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: daily-needs-you-digest
-    #     schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: discovery-response-tracker
-    #     schedule: '17 7 * * 1-5' # weekday 0717 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: client-verification-tracker
-    #     schedule: '41 7 * * 1-5' # weekday 0741 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: motion-calendar-tracker
-    #     schedule: '27 7 * * 1-5' # weekday 0727 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: service-confirmation-watcher
-    #     schedule: '51 7 * * 1-5' # weekday 0751 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: medical-chronology-maintainer
-    #     schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: medical-records-chaser
-    #     schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: lien-ledger-tracker
-    #     schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: mediation-settlement-tracker
-    #     schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: minors-compromise-packet
-    #     schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
-    #   - skill: trial-binder-assembler
-    #     schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
-    #     pre_run: pre_run.py
-    #     wake_policy: pre_run_decides
+      - skill: daily-needs-you-digest
+        schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: discovery-response-tracker
+        schedule: '17 7 * * 1-5' # weekday 0717 seat-local
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: client-verification-tracker
+        schedule: '41 7 * * 1-5' # weekday 0741 seat-local
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: motion-calendar-tracker
+        schedule: '27 7 * * 1-5' # weekday 0727 seat-local
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: service-confirmation-watcher
+        schedule: '51 7 * * 1-5' # weekday 0751 seat-local
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: medical-chronology-maintainer
+        schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: medical-records-chaser
+        schedule: '9 8 * * 2' # weekly Tue 0809 seat-local — production slot (the */17 ADR 0073 proof cadence is retired)
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: lien-ledger-tracker
+        schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: mediation-settlement-tracker
+        schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: minors-compromise-packet
+        schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+      - skill: trial-binder-assembler
+        schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
       - google-workspace
