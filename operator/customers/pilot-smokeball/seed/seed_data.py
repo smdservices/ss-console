@@ -107,6 +107,17 @@ TASKS: dict[str, dict] = {
         "note": "Verification sent to client 2026-06-25; not yet returned. Responses cannot be served without it.",
         "due": "2026-07-10",
     },
+    "records-roster-alvarez": {
+        "matter": "mva-alvarez",
+        "subject": "Medical records outstanding - Valley Imaging Center (request roster)",
+        "note": (
+            "Records request roster for Alvarez. Provider: Valley Imaging Center, "
+            "records requested 2026-06-20 via the records vendor; not yet received. "
+            "Vendor contact for status and follow-up: team@smd.services. "
+            "Chase cadence: weekly until the records land in the matter."
+        ),
+        "due": "2026-07-11",
+    },
     "records-whitfield": {
         "matter": "liens-whitfield",
         "subject": "Chase Medi-Cal (DHCS) final lien payoff demand",
