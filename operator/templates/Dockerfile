@@ -288,7 +288,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # on the re-invoke (shared/pending_send.py + plugins/hermes-smd-trust/{approval,
 # enforce,__init__}.py + tests). None are tracked twins, so every overlaySha256 is
 # unchanged; only overlayRef. Superset of 5b7318cb.
-ARG OVERLAY_REF="f3e48d6b2f03370a15f3e44074a38660b508424c"
+# ba5b8179 (#159, build hygiene): stop tracking in-repo .worktrees/ gitlinks —
+# commit 5b7318c had committed them as submodule gitlinks (mode 160000) with no
+# .gitmodules, which broke `uv pip install git+...@<ref>` (git submodule update
+# --init fails) for every ref since #158. The ss #1806 scott reprovision was the
+# first build to hit it. No source touched; unblocks the seat build. Superset of
+# f3e48d6b.
+ARG OVERLAY_REF="ba5b8179de9e52c114c67898b1f556bef6aac4b9"
 
 ARG CUSTOMER_SLUG=customer-zero
 
