@@ -549,15 +549,15 @@ scope:
   # STAGING STAND-INS: Ashton & Price's real client and records-vendor addresses
   # do not exist on this staging seat. These are non-deliverable RFC-2606
   # `.example` addresses on an SMD-labeled domain, so no mail can leave for a real
-  # third party regardless of send posture. WP-F re-points them to real
-  # deliverable SMD-controlled targets for its live send probes.
+  # third party regardless of send posture. Re-pointed 2026-07-13 to dedicated
+  # deliverable SMD-controlled AgentMail inboxes for the ADR 0075 live probes.
   outbound_roster:
-    - address: client-standin@smd-staging-invalid.example
+    - address: ap-client-standin@agentmail.to
       class: client
-      note: 'Staging stand-in for the firm client (the verification-chase recipient). WP-F re-points this to a real deliverable SMD-controlled target.'
-    - address: records-vendor-standin@smd-staging-invalid.example
+      note: 'client stand-in inbox for the live send probes'
+    - address: ap-records-standin@agentmail.to
       class: records_vendor
-      note: 'Staging stand-in for the records vendor (the records-chase recipient). WP-F re-points this to a real deliverable SMD-controlled target.'
+      note: 'records vendor stand-in inbox for the live send probes'
   # External send (to anyone OUTSIDE the roster and NOT in outbound_roster) follows
   # the authored external_send ceiling above — draft_for_review under the Ashton &
   # Price day-one grid posture (2026-07-09 letter), the letter's permanent
