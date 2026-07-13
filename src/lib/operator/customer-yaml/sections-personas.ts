@@ -353,6 +353,18 @@ function checkExposureMap(
       })
       continue
     }
+    // `confirm` (send after an explicit in-turn approval, ADR 0071) is only
+    // meaningful for the send classes — enforce()'s confirm branch lives in
+    // EXTERNAL_SEND. Reject it on any other class so it can't be authored where
+    // it has no defined behavior.
+    if (value === 'confirm' && key !== 'external_send' && key !== 'external_send_internal') {
+      errors.push({
+        code: 'InvalidActionCeiling',
+        path: `${path}.${key}`,
+        message: `exposure.${key} may not be 'confirm' — confirm is only valid for external_send / external_send_internal (ADR 0071)`,
+      })
+      continue
+    }
     out[key as AuthoredExposureActionClass] = value as ExposureCeiling
   }
   return out
