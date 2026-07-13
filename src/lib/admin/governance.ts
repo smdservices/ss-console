@@ -183,6 +183,8 @@ export function ceilingLabel(ceiling: Ceiling): string {
   switch (ceiling) {
     case 'autonomous':
       return 'Autonomous'
+    case 'confirm':
+      return 'Confirm to send'
     case 'draft_for_review':
       return 'Draft for review'
     case 'refused':

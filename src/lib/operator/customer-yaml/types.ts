@@ -144,7 +144,7 @@ export const VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: Readonly<Record<Vertical, number>
  */
 export const AUDIT_LOG_DAYS_MAX = 36500
 
-export const ACCEPTED_EXPOSURE_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
+export const ACCEPTED_EXPOSURE_CEILINGS = ['autonomous', 'confirm', 'draft_for_review', 'refused'] as const
 export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
 
 /**

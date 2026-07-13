@@ -21,7 +21,7 @@
 import type { ActionClass } from '../../operator/customer-yaml/types'
 import type { D1Database } from '@cloudflare/workers-types'
 
-export type Ceiling = 'autonomous' | 'draft_for_review' | 'refused'
+export type Ceiling = 'autonomous' | 'confirm' | 'draft_for_review' | 'refused'
 
 /**
  * Restrictiveness ordering — mirrors `operator/adapter/trust_ceiling.py`
@@ -30,12 +30,18 @@ export type Ceiling = 'autonomous' | 'draft_for_review' | 'refused'
  */
 const RESTRICTIVENESS: Record<Ceiling, number> = {
   autonomous: 0,
-  draft_for_review: 1,
-  refused: 2,
+  confirm: 1,
+  draft_for_review: 2,
+  refused: 3,
 }
 
 export function isCeiling(value: unknown): value is Ceiling {
-  return value === 'autonomous' || value === 'draft_for_review' || value === 'refused'
+  return (
+    value === 'autonomous' ||
+    value === 'confirm' ||
+    value === 'draft_for_review' ||
+    value === 'refused'
+  )
 }
 
 export function restrictiveness(c: Ceiling): number {
