@@ -21,7 +21,6 @@ compliance:
   - upl-boundary # connective work only; never legal advice or substance
   - privilege # privileged content stays inside firm surfaces
   - conflict-routing # capture + route to a human; never auto-clear
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005), non-raisable floor
   - trust-funds-read-only # report trust balances; never move money
   - aba-512-supervision # maps to ABA Model Rule 5.3 / Formal Opinion 512
 

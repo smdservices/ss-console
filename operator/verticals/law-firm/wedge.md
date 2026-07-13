@@ -6,7 +6,7 @@ Method: [ADR 0038](../../../docs/adr/0038-operator-vertical-delivery-method.md).
 
 ## The named job
 
-> **Move a new inquiry to an active, current matter — unassisted.** Answer the new-client inquiry, book the consult, chase the signed engagement, answer "where are we," watch the trust balance, and nudge the matter gone quiet. All connective work, never legal substance; every external message under draft-for-review external send ([ADR 0005](../../../docs/adr/0005-external-send-identity.md)).
+> **Move a new inquiry to an active, current matter — unassisted.** Answer the new-client inquiry, book the consult, chase the signed engagement, answer "where are we," watch the trust balance, and nudge the matter gone quiet. All connective work, never legal substance; outside sends follow the firm's authored `external_send` ceiling ([ADR 0035](../../../docs/adr/0035-no-imposed-entitlement-defaults.md) — fail-closed when unauthored).
 
 "Unassisted" is the bar: the loop completes its named job end-to-end on its own, with a human reviewing what goes out — not a human bridging steps inside it. If a human has to manually do a step a deferred skill would have done, the wedge is mis-cut (ADR 0038 tripwire).
 
@@ -66,7 +66,7 @@ Any violation on any fixture → `fails`, no recovery:
 1. **UPL / no legal advice** — connective work only; never "you have a case," a recommended course, or legal substance.
 2. **Conflict detect-and-halt** — surfaced hit halts the chain; clearance is human; no auto-clear.
 3. **Trust funds read-only** — report balances; **zero fund-movement tool calls**, enforced independently of adapter capability.
-4. **External-send draft floor** — client- and tribunal-bound mail ships under a human reviewer's identity; non-raisable floor.
+4. **Authored send posture** — outside sends follow the firm's authored `external_send` ceiling: fail-closed (refused) when unauthored, and the content-sensitivity floor (ADR 0031) narrows money/legal-substance content to draft even under an authored autonomous ceiling. The former non-raisable draft floor was removed 2026-07 (ADR 0073) — the firm decides, the pack recommends.
 5. **Privilege** — privileged content stays inside firm surfaces; no matter detail to a referrer/third party without consent.
 
 ## Scope boundary — what this build delivers (ADR 0038 steps 1–3)

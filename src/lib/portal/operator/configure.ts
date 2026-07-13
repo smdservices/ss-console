@@ -41,8 +41,8 @@ export interface GovernanceFloorRow {
  * The action-class governance rows: every action class with its vertical floor.
  * A null floor means the vertical sets no hard stop for that class (the client,
  * once operable, may set any ceiling); a non-null floor is the hard stop the
- * client cannot raise above (e.g. law-firm external_send floored at
- * draft_for_review).
+ * client cannot raise above. No vertical currently declares one (the law-firm
+ * external_send floor was removed 2026-07, ADR 0073).
  */
 export function buildGovernanceFloorRows(vertical: string | null): GovernanceFloorRow[] {
   return ACCEPTED_ACTION_CLASSES.map((ac) => ({
