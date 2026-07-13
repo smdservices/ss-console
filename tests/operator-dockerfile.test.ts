@@ -354,7 +354,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // touches plugins/hermes-smd-trust/{enforce.py,voice_gate.py} +
     // plugins/hermes-smd-voice/__init__.py + shared/voice_status.py + tests —
     // NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="880609907787cdca057631605db73a5122f59c99"')
+    // 78064d3 (#154, ss #1805, ADR 0071): bootstrap/validate.py accepts the
+    // `confirm` exposure ceiling for external_send (rejects it off the send
+    // classes) — keeps the on-box config_applier validator in lockstep with the
+    // console. Range 8806099..78064d3 touches bootstrap/validate.py + contract
+    // tests — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="78064d366fac97646bdab5441b054b40d4201493"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
