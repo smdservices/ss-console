@@ -97,6 +97,15 @@ customer's Machine image against a new overlay commit. The flow:
    `yes s | operator/bin/reprovision.sh <slug>` to skip the secret prompts
    non-interactively (Machine secrets persist across deploy, so there is nothing
    to re-enter).
+
+   **Divergence guard (ADR 0044, #1840).** R2 is the operational source of
+   truth for the live config, so the provisioner refuses to project git over
+   an R2 customer.yaml that carries live-applied changes (it prints the diff
+   that would be lost). Resolve deliberately: `SS_CONFIG_SOURCE=r2` provisions
+   FROM the live R2 config (reconcile it into git afterwards with
+   `operator/bin/reconcile-r2-config.sh`), or `SS_CONFIG_FORCE_GIT=1`
+   knowingly reverts the live change. The daily `r2-config-reconcile.yml`
+   workflow PRs any R2-only state back into git as the reviewed record.
 4. **Pass the verify gate.** Confirm the runtime came up against the live read
    seam (a correct key returns 200; a wrong key or wrong slug returns 401) and
    the boot smoke test passed - not just that the config validated.

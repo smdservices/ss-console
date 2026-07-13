@@ -109,6 +109,62 @@ R2_HINT="R2 creds missing. Run via: operator/bin/reprovision.sh ${SLUG}  (= infi
 command -v aws >/dev/null 2>&1 || die "aws CLI not found (required for R2 customer.yaml upload)"
 command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
+# ---------- Step 0.5: config source + divergence guard (ADR 0044, #1840) ----------
+# R2 is the operational source of truth (ADR 0044 Decision 1): the console
+# live-apply writes it and the root config applier pulls from it. Projecting
+# the git working copy over a live-applied R2 config silently reverts the
+# live change (the exact primitive that crash-looped pilot-smokeball on
+# 2026-07-13 when two checkouts raced). Every git projection therefore
+# carries a provenance stamp (user metadata `projected-sha256`), and this
+# guard classifies the current R2 object before anything overwrites it:
+#   absent / identical / clean-projection -> proceed (normal deploy)
+#   diverged (live-applied content)       -> FAIL CLOSED with the diff
+# Overrides, both explicit human decisions:
+#   SS_CONFIG_SOURCE=r2    provision FROM the live R2 config (Decision 2's
+#                          read path): the R2 copy becomes the materialized
+#                          yaml for this run; R2 is not touched; reconcile it
+#                          into git afterwards (reconcile-r2-config.sh).
+#   SS_CONFIG_FORCE_GIT=1  knowingly revert the live change to git's version.
+R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
+R2_CURRENT_TMP="$(mktemp -t "ss-r2-current-${SLUG}")"
+trap 'rm -f "${R2_CURRENT_TMP}"' EXIT
+HAVE_R2_CURRENT=0
+if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 cp "s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}" "${R2_CURRENT_TMP}" \
+      --endpoint-url "${R2_ENDPOINT_URL}" --only-show-errors >/dev/null 2>&1; then
+  HAVE_R2_CURRENT=1
+fi
+R2_PROJECTED_STAMP=""
+if [ "${HAVE_R2_CURRENT}" = "1" ]; then
+  R2_PROJECTED_STAMP="$(AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3api head-object --bucket "${R2_BUCKET_CONFIG}" --key "${R2_CONFIG_KEY}" \
+      --endpoint-url "${R2_ENDPOINT_URL}" \
+      --query 'Metadata."projected-sha256"' --output text 2>/dev/null || true)"
+fi
+SKIP_R2_UPLOAD=0
+if [ "${SS_CONFIG_SOURCE:-git}" = "r2" ]; then
+  [ "${HAVE_R2_CURRENT}" = "1" ] || die "SS_CONFIG_SOURCE=r2 but no R2 config exists at s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}"
+  CUSTOMER_YAML="${R2_CURRENT_TMP}"
+  SKIP_R2_UPLOAD=1
+  log "Config source: R2 (live operative config; git working copy IGNORED this run — reconcile afterwards)"
+elif [ "${HAVE_R2_CURRENT}" = "1" ]; then
+  GUARD_ARGS=(--git-file "${CUSTOMER_YAML}" --r2-file "${R2_CURRENT_TMP}")
+  [ -n "${R2_PROJECTED_STAMP}" ] && GUARD_ARGS+=(--projected-sha256 "${R2_PROJECTED_STAMP}")
+  GUARD_STATUS=0
+  GUARD_VERDICT="$(python3 "${BIN_DIR}/lib/config_divergence.py" "${GUARD_ARGS[@]}")" || GUARD_STATUS=$?
+  case "${GUARD_STATUS}" in
+    0) log "Divergence guard: ${GUARD_VERDICT} — safe to project git -> R2" ;;
+    3)
+      if [ "${SS_CONFIG_FORCE_GIT:-0}" = "1" ]; then
+        log "WARNING: SS_CONFIG_FORCE_GIT=1 — REVERTING the live R2 config to git's version (diff above shows what is being lost)"
+      else
+        die "R2 config has live-applied changes git would revert (see diff above). Rerun with SS_CONFIG_SOURCE=r2 to deploy the live config, or SS_CONFIG_FORCE_GIT=1 to knowingly revert it."
+      fi
+      ;;
+    *) die "divergence guard failed (exit ${GUARD_STATUS}); refusing to project blind" ;;
+  esac
+fi
+
 # ---------- Step 1: validate customer.yaml ----------
 # The canonical pre-merge gate is the TS validator in
 # src/lib/operator/customer-yaml/ (per ADR 0019). The retired in-tree
@@ -174,15 +230,28 @@ log "Hermes upstream pin: ${HERMES_UPSTREAM_TAG} @ ${HERMES_UPSTREAM_SHA}"
 # first Machine boot can succeed (otherwise the boot would race against a
 # missing config). The customer-sync sidecar (from the overlay bootstrap/
 # package) polls this same key for non-structural updates.
-R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
-log "Uploading customer.yaml to R2: s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}"
-AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
-AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
-  aws s3 cp "${CUSTOMER_YAML}" "s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}" \
-    --endpoint-url "${R2_ENDPOINT_URL}" \
-    --only-show-errors \
-  || die "R2 upload failed; bootstrap.sh would not be able to fetch customer.yaml"
-log "R2 upload OK"
+#
+# The upload carries the `projected-sha256` provenance stamp the Step 0.5
+# divergence guard reads: stamp == object digest marks an untouched git
+# projection (safe to overwrite on the next deploy); anything else the guard
+# treats as live-applied and refuses to clobber (ADR 0044, #1840). In
+# SS_CONFIG_SOURCE=r2 mode the upload is skipped entirely — R2 is already
+# the source being deployed, and re-stamping it would launder a live apply
+# into a "clean projection" the next run would silently overwrite.
+if [ "${SKIP_R2_UPLOAD}" = "1" ]; then
+  log "Skipping R2 upload (SS_CONFIG_SOURCE=r2 — R2 is the source this run)"
+else
+  CUSTOMER_YAML_SHA256="$(shasum -a 256 "${CUSTOMER_YAML}" | cut -d' ' -f1)"
+  log "Uploading customer.yaml to R2: s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY} (projected-sha256=${CUSTOMER_YAML_SHA256})"
+  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+  AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 cp "${CUSTOMER_YAML}" "s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}" \
+      --endpoint-url "${R2_ENDPOINT_URL}" \
+      --metadata "projected-sha256=${CUSTOMER_YAML_SHA256}" \
+      --only-show-errors \
+    || die "R2 upload failed; bootstrap.sh would not be able to fetch customer.yaml"
+  log "R2 upload OK"
+fi
 
 # ---------- Step 3: render fly.toml ----------
 log "Rendering fly.toml..."
