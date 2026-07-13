@@ -24,7 +24,6 @@ version: 0.1.0
 compliance:
   - coverage-advice-boundary # connective service only; never coverage advice or substance
   - no-binding-authority # never binds, changes, cancels, or reinstates coverage
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005); non-raisable for certificates
   - npi-handling # GLBA / NAIC Insurance Data Security Model Law; NPI stays in agency surfaces
   - licensed-producer-routing # quotes, binding, coverage and claims-coverage questions route to a producer
 

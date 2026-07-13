@@ -24,7 +24,7 @@ name: pi
 version: 0.2.0
 
 # Additive floors on top of the base law-firm compliance set (upl-boundary,
-# privilege, conflict-routing, external-send-draft-floor, trust-funds-read-only,
+# privilege, conflict-routing, trust-funds-read-only,
 # aba-512-supervision). One slug per bright line the adversarial gates verified;
 # every pi skill registers under all of these, and the per-skill enforcement
 # language lives in each SKILL.md.

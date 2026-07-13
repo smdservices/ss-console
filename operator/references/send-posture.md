@@ -50,9 +50,11 @@ These narrow an autonomous send; they never widen a draft:
   **refused** — no send, no draft. `external_send_internal` autonomy is _authored_,
   not a default: an unconfigured seat sends nothing.
 - **Vertical floor (ADR 0025 / 0022).** A pack may pin a class no customer can raise
-  — e.g. law-firm floors **`external_send`** (outside) to `draft_for_review`. The
-  floor is authored and non-raisable; it pins the **outside** class only, not the
-  internal class.
+  — reserved for a genuinely regulation-compelled constraint. No vertical currently
+  declares one: the law-firm `external_send` draft floor was removed 2026-07
+  ([ADR 0073](../../docs/adr/0073-remove-law-external-send-floor.md)) — outside-send
+  is the firm's authored dial, and the recommended (not imposed) starting posture
+  for a new engagement is `draft_for_review`, graduating as the customer chooses.
 - **Content-sensitivity floor (ADR 0031).** Money / contract / scope / legal content
   bound **outside** drops an autonomous send to a draft. An internal staff alert is
   deliberately not content-floored — carrying that context to a colleague is its job.
@@ -64,8 +66,8 @@ These narrow an autonomous send; they never widen a draft:
 ## What a skill writes
 
 State the skill's authored ceiling for each recipient class it sends to, and defer
-here for the rest. A law skill that emails clients: "outside sends are
-`draft_for_review` (the law-firm floor); internal alerts to rostered staff follow the
+here for the rest. A law skill that emails clients: "outside sends follow the
+authored `external_send` ceiling; internal alerts to rostered staff follow the
 authored `external_send_internal` ceiling — see `operator/references/send-posture.md`."
 Do not restate the floors, and never re-introduce the retired universal framing.
 

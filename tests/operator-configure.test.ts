@@ -7,6 +7,9 @@ import {
   ACTION_CLASS_LABEL,
 } from '../src/lib/portal/operator/configure'
 import { ACCEPTED_ACTION_CLASSES } from '../src/lib/operator/customer-yaml/types'
+import type { ActionClass } from '../src/lib/operator/customer-yaml/types'
+import { VERTICAL_FLOORS } from '../src/lib/portal/operator/config-governance'
+import type { Ceiling } from '../src/lib/portal/operator/config-governance'
 
 describe('buildGovernanceFloorRows (action-class model)', () => {
   it('returns one row per action class, in canonical order', () => {
@@ -15,13 +18,27 @@ describe('buildGovernanceFloorRows (action-class model)', () => {
     expect(rows.every((r) => r.label === ACTION_CLASS_LABEL[r.actionClass])).toBe(true)
   })
 
-  it('surfaces the law-firm external_send floor (draft_for_review), the others null', () => {
+  it('law-firm has NO floors (external_send floor removed 2026-07, ADR 0073)', () => {
     const byClass = Object.fromEntries(
       buildGovernanceFloorRows('law-firm').map((r) => [r.actionClass, r.floor])
     )
-    expect(byClass['external_send']).toBe('draft_for_review')
+    expect(byClass['external_send']).toBeNull()
     expect(byClass['read']).toBeNull()
     expect(byClass['destructive']).toBeNull()
+  })
+
+  it('surfaces a declared floor (machinery coverage, synthetic vertical)', () => {
+    const floors = VERTICAL_FLOORS as Record<string, Partial<Record<ActionClass, Ceiling>>>
+    floors['floored-test-vertical'] = { external_send: 'draft_for_review' }
+    try {
+      const byClass = Object.fromEntries(
+        buildGovernanceFloorRows('floored-test-vertical').map((r) => [r.actionClass, r.floor])
+      )
+      expect(byClass['external_send']).toBe('draft_for_review')
+      expect(byClass['read']).toBeNull()
+    } finally {
+      delete floors['floored-test-vertical']
+    }
   })
 
   it('a null/unknown vertical has no floors (all null) — never a fabricated default', () => {

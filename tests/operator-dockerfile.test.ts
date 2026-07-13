@@ -341,7 +341,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // external_send enforcement to plugins/hermes-smd-trust/enforce.py (mirrors
     // the in-tree operator/adapter/trust_ceiling.py). Range 539f42c7..0c9d165
     // touches enforce.py + test; no tracked twin moved (overlaySha256 unchanged).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0c9d165aeadca7b2889d9620f5639cbb1347e41f"')
+    // d5187194 (#152, ss ADR 0073): remove the law-firm external_send entry from
+    // VERTICAL_FLOORS — outside-send is the firm's authored dial; the floor
+    // machinery stays (empty) for future regulation-compelled floors. Range
+    // 0c9d165..d5187194 touches shared/action_classes.py + enforce.py +
+    // config_applier/safety.py + tests — NOT tracked twins, so every
+    // overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d5187194ba06701a8b7b22689319f53d8c12b35c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

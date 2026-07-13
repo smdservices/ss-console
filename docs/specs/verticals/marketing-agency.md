@@ -28,7 +28,7 @@ That coordination is a real seat, the account coordinator or project manager who
 
 ## Skill catalog
 
-Twelve marketing-agency-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve marketing-agency-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### Onboarding and status
 
@@ -83,7 +83,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No fabrication** — the Operator delivers only authored deliverables, authored report metrics, and authored status. It never invents, estimates, or adjusts a number, result, or claim. This is the sharp line, reports and status carry only what the agency authored.
 - **Client confidentiality** — no client's information, assets, or results cross into another client's communications.
 - **No unilateral scope or commitment** — the Operator relays the agency's authored scope, terms, and timelines; it never commits scope, deliverables, dates, or price on its own.
-- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)); `draft_for_review` is the recommended starting posture.
 
 ## Labor-market context (the demand, without presumption)
 
