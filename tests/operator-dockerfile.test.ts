@@ -367,7 +367,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // 5b7318cb (#158, ss ADR 0073): authored-exposure SOUL section — the agent
     // acts AT its authored ceiling instead of defaulting below it. translate.py
     // + tests only; no tracked twin moved. Superset of 17d33d7.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5b7318cbb138038d0f1a33cd263b9354e377ef6b"')
+    // f3e48d6b (#157, ss #1806, ADR 0071): confirm-over-channel approval stamp —
+    // shared/pending_send.py + plugins/hermes-smd-trust/{approval,enforce,__init__}.py
+    // + tests. None are tracked twins, so every overlaySha256 is unchanged; only
+    // overlayRef. Superset of 5b7318cb.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="f3e48d6b2f03370a15f3e44074a38660b508424c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
