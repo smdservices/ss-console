@@ -277,7 +277,12 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # so that pair's overlaySha256 is re-recorded alongside this bump; the other
 # changed files (enforce.py, action_classes.py, customer_config.py,
 # bootstrap/validate.py, bootstrap/translate.py) are not tracked twins.
-ARG OVERLAY_REF="17d33d7baeb8fd5f31dbdde528abc2b03d378338"
+# 5b7318cb (#158, ss ADR 0073): renders the persona's AUTHORED exposure into
+# SOUL.md ("Authored autonomy") so the agent acts AT its authored ceiling
+# instead of defaulting below it (the ADR 0073 live proof drafted a chase its
+# autonomous ceiling allowed it to send). translate.py + tests only — no
+# tracked twin moved. Superset of 17d33d7.
+ARG OVERLAY_REF="5b7318cbb138038d0f1a33cd263b9354e377ef6b"
 
 ARG CUSTOMER_SLUG=customer-zero
 
