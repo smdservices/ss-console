@@ -150,6 +150,73 @@ version)` — by folder/naming convention + response-set identifier + a recency
   auto-closed. Where no automatic signal exists, the skill follows up by asking
   ("has the GAL signed the verification on Reyes?") rather than assuming.
 
+## The chase: authored cadence, attempt-count escalation, taint-safe reads, proactive send (READ THIS)
+
+This is the connective heart of the skill, and the 07-09 letter pins four things about
+it. All four are contract, not preference.
+
+### Cadence is authored, and fail-closed when it is not
+
+The chase interval comes from the authored **`chase_cadence_days`** setting (read from
+this skill's per-skill settings in the seat's materialized profile config; the letter:
+"chases the client on a cadence you set per matter"). The skill does not pick an
+interval of its own. **Fail-closed when unauthored:** if `chase_cadence_days` is not
+authored, the skill sends **no chase** and surfaces once **"chase cadence not
+authored"** for a person to set the number. A missing cadence is never a reason to
+default to some interval; an unset dial holds the chase, it does not release it.
+
+### Attempt-count escalation: stop chasing, escalate to a person
+
+Separately from any deadline, the skill counts how many chase attempts have gone
+**unanswered** on a verification (the count lives in the verification's own task/memo
+trail on the matter, which the skill already maintains). After the authored
+**`escalate_after_attempts`** number of unanswered attempts, the skill **stops chasing
+the client and red-flags the responsible attorney instead** — the letter, verbatim:
+"After a set number of unanswered attempts it stops chasing the client and escalates to
+a person rather than nagging indefinitely." Once the ceiling is reached the client
+chase is done; the open item moves to the attorney, not another nudge. **Fail-closed
+when unauthored:** if `escalate_after_attempts` is not authored, the skill surfaces
+**"escalation attempt-count not authored"** and holds — it does not chase indefinitely
+and it does not invent a number.
+
+This attempt-count escalation and the existing **deadline-proximity** escalation
+(nearing the response deadline unsigned; RFA highest severity) are **two independent
+triggers**. Either can fire; neither replaces the other. A verification that hits the
+attempt ceiling is escalated even if the deadline is far off, and one nearing its
+deadline is escalated even if it is only on attempt two.
+
+### Taint-safe state reads: metadata only in a chase turn
+
+A chase is a proactive send, and the overlay **taints a session** on certain reads,
+which makes any autonomous send **refused for that turn**. The fenced reads include:
+`mcp_agentmail_get_thread`, `mcp_agentmail_list_threads`, `mcp_agentmail_search_threads`,
+`mcp_agentmail_list_messages`, `mcp_agentmail_search_messages`,
+`mcp_agentmail_get_attachment`, `mcp_agentmail_get_draft`, `mcp_smokeball_read_document`,
+`email_get_message`, `email_get_thread`, `email_list_messages`, `email_search`,
+`web_search`, `web_extract`, and calendar reads. Unfenced and safe: **all other
+`mcp_smokeball_*` metadata reads** (`get_matter`, `list_tasks`, `get_task`,
+`get_files_on_matter`, `get_memos_on_matter`, `get_roles_on_matter`) and
+`mcp_agentmail_list_inboxes` / `get_inbox`.
+
+**Invariant: in a turn that will issue a chase send, state checks use matter metadata
+reads only; never read a message body in that turn — a fenced read taints the turn and
+forfeits the send.** In particular, **signature-landed detection watches for the signed
+verification FILE landing on the matter via `get_files_on_matter` (metadata), never by
+reading an email body.** The attempt count and the open-item state come from
+`list_tasks` / `get_memos_on_matter` (metadata), not from reading the chase thread.
+(Reading an inbound reply body is fine on a turn that only surfaces to a human and
+sends nothing — for example the say-so case — because there is no send to forfeit; the
+invariant is specifically about the chase-send turn.)
+
+### Proactive send: `send_message`, never `reply_to_message`
+
+**A chase send MUST use `mcp_agentmail_send_message`** (a classified proactive send, so
+recipient classification runs and the authored exposure for that recipient applies).
+**It MUST NOT use `mcp_agentmail_reply_to_message`:** an in-thread reply bypasses
+recipient classification and silently degrades to a held draft, so a chase authored to
+send autonomously would quietly never go out. The chase is addressed to the resolved
+signer as a fresh proactive send, not a reply to the signer's thread.
+
 ## How it works (mapped to the real connector tools)
 
 1. **Resolve** — read the matter (`get_matter` → `personResponsibleStaffId`,
@@ -169,18 +236,31 @@ version)` — by folder/naming convention + response-set identifier + a recency
    (today's only path) or use a connect-verified e-sign path if authored. Log with
    `create_memo`; open a tracked item with `create_task` (assigned to the
    responsible staff, keyed to the plaintiff/response-set/version, dated to the
-   firm's cadence).
+   authored `chase_cadence_days` cadence).
 5. **Track + chase** — a scheduled job re-checks open verification tasks
    (`list_tasks(matter_id, is_completed=false)`) and looks for the matched signed
-   document (`get_files_on_matter`):
+   document (`get_files_on_matter`). These are metadata reads only; the turn reads no
+   message body, so a chase send stays un-fenced (see the taint-safe rule above):
    - matched with confidence (only once the firm's convention is confirmed) → close
      (`update_task`), log (`create_memo`), let it fall into the daily digest.
-   - not found / ambiguous / convention-unconfirmed → chase the signer on the
-     cadence, and tell the attorney only if it stalls (quiet by design). Never
+   - not found / ambiguous / convention-unconfirmed, and the unanswered-attempt count
+     (from the task/memo trail) is **below `escalate_after_attempts`**, and
+     `chase_cadence_days` is authored → chase the signer with
+     `mcp_agentmail_send_message` (never `reply_to_message`) on the authored cadence,
+     log the attempt, and tell the attorney only if it stalls (quiet by design). Never
      auto-close on an ambiguous match.
-6. **Escalate** — if a verification is approaching the response deadline unsigned,
-   raise it to the responsible attorney; an **RFA** verification near deadline is a
-   higher-severity flag (deemed-admissions exposure, §2033.280).
+   - unanswered-attempt count **has reached `escalate_after_attempts`** → **stop
+     chasing the client** and red-flag the responsible attorney (Shape D); the client
+     chase is done, the open item moves to a person.
+   - `chase_cadence_days` unauthored → send no chase; surface "chase cadence not
+     authored" once.
+6. **Escalate** — two independent triggers, either of which fires on its own:
+   - **Deadline proximity** — a verification approaching the response deadline unsigned
+     is raised to the responsible attorney; an **RFA** verification near deadline is a
+     higher-severity flag (deemed-admissions exposure, §2033.280).
+   - **Attempt count** — a verification whose unanswered chases have reached
+     `escalate_after_attempts` is raised to the responsible attorney and the client
+     chase stops, regardless of how far off the deadline is.
 
 ## The autonomy dial (not a hard "never")
 
@@ -203,6 +283,16 @@ not an immutable invariant.
   document match** — only on a confident match to a specific response-set.
 - **Never move or compute a deadline** — it reads the deadline the deadline lane
   surfaced.
+- **Never chase on an unauthored cadence** — no `chase_cadence_days`, no chase;
+  surface "chase cadence not authored" and hold.
+- **Never nag indefinitely** — once unanswered attempts reach `escalate_after_attempts`,
+  stop chasing the client and red-flag the responsible attorney.
+- **Never read a message body in a chase-send turn** — a fenced read taints the turn
+  and forfeits the send; signature detection and the attempt count come from matter
+  metadata reads (`get_files_on_matter`, `list_tasks`, `get_memos_on_matter`).
+- **Never chase with `reply_to_message`** — a chase is a proactive
+  `mcp_agentmail_send_message`; an in-thread reply bypasses recipient classification
+  and silently degrades to a held draft.
 
 ## Training output (built into every run)
 
@@ -227,9 +317,12 @@ hermes run client-verification-tracker --action chase
 
 Red-flag to the responsible attorney (and the escalation recipients) when: a
 verification is unsigned and its response deadline is near (RFAs highest severity);
-the signer cannot be resolved with confidence; no authenticated approval path or
-firm send method is available; or the signature signal cannot be confirmed for a
-matter. Fail closed: surface and ask; never assert, auto-send, or auto-close.
+**the unanswered chase attempts have reached `escalate_after_attempts` (stop chasing
+the client, hand the open item to the attorney)**; the signer cannot be resolved with
+confidence; the chase cadence or the escalation attempt-count is not authored; no
+authenticated approval path or firm send method is available; or the signature signal
+cannot be confirmed for a matter. Fail closed: surface and ask; never assert,
+auto-send, or auto-close.
 
 ## Delivery channels + refusal fallback (law seat rule)
 
