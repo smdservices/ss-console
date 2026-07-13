@@ -28,7 +28,7 @@ That coordination is a real seat, the patient coordinator or front desk who runs
 
 ## Skill catalog
 
-Twelve med-spa-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve med-spa-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### Lead and scheduling
 

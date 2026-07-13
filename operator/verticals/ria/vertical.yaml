@@ -29,7 +29,6 @@ compliance:
   - reg-s-p-privacy # client NPI stays in firm surfaces (Reg S-P)
   - sec-books-and-records # comms retained/archivable (Rule 204-2); draft-for-review external send + audit trail
   - marketing-rule-compliance # review/testimonial asks comply with SEC Rule 206(4)-1
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

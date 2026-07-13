@@ -258,7 +258,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # enforcement to plugins/hermes-smd-trust/enforce.py (mirrors the in-tree
 # operator/adapter/trust_ceiling.py). Range 539f42c7..0c9d165 touches enforce.py +
 # test only — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
-ARG OVERLAY_REF="0c9d165aeadca7b2889d9620f5639cbb1347e41f"
+# d5187194 (#152, ss ADR 0073): remove the law-firm external_send entry from
+# VERTICAL_FLOORS (shared/action_classes.py) — outside-send is the firm's authored
+# dial per ADR 0035; the floor machinery stays (empty) for future regulation-
+# compelled floors. Range 0c9d165..d5187194 touches shared/action_classes.py +
+# enforce.py + config_applier/safety.py + tests — NOT tracked twins, so every
+# overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
+ARG OVERLAY_REF="d5187194ba06701a8b7b22689319f53d8c12b35c"
 
 ARG CUSTOMER_SLUG=customer-zero
 

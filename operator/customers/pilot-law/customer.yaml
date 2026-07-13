@@ -228,7 +228,7 @@ scope:
   domain_blocks: []
   # No trusted_sender_domains and no autonomous external_send: the wedge is
   # draft-and-surface. Every client-/tribunal-bound message ships under the
-  # human reviewer's identity (external-send draft floor, non-raisable).
+  # human reviewer's identity (authored posture — the firm's dial, ADR 0035).
 escalation:
   red_flag_recipients:
     - scott@smd.services

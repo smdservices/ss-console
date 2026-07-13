@@ -28,7 +28,7 @@ That coordination is a real seat, the closing coordinator or escrow assistant wh
 
 ## Skill catalog
 
-Twelve title-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve title-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### Opening and documents
 
@@ -84,7 +84,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No fund movement or disbursement** — the Operator never moves, requests, directs, or confirms the disbursement of escrow funds. Funds are the escrow officer's, under the company's controls.
 - **Wire-instruction safety (fail-closed)** — the Operator never transmits, confirms, or changes wire instructions. Any message touching wire or banking details routes to the verified human process, and the party is told wire details are confirmed only through the company's secure channel. Seller impersonation and wire fraud are the dominant industry threats; this floor is non-raisable.
 - **NPI / GLBA and ALTA Best Practices** — nonpublic personal information stays inside company surfaces, consistent with ALTA Best Practices and GLBA.
-- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)); `draft_for_review` is the recommended starting posture.
 
 ## Labor-market context (the demand, without presumption)
 

@@ -28,7 +28,7 @@ That coordination is a real seat, the loan processor or loan-officer assistant w
 
 ## Skill catalog
 
-Twelve mortgage-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve mortgage-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### Application and conditions
 
@@ -84,7 +84,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No credit or underwriting decision** — the Operator never approves, denies, or conditions a loan; the underwriter decides.
 - **Wire-instruction safety (fail-closed)** — the Operator never transmits, confirms, or changes wire instructions; any such message routes to the verified human process. Closing wire fraud is a real threat; this floor is non-raisable.
 - **NPI / GLBA** — nonpublic personal information stays inside the shop's surfaces.
-- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)); `draft_for_review` is the recommended starting posture.
 
 ## Labor-market context (the demand, without presumption)
 
