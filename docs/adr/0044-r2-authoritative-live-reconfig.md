@@ -1,7 +1,7 @@
 ---
 title: R2-Authoritative Live Reconfiguration — Broker-Owned Apply
 date: 2026-06-14
-status: accepted
+status: reverted
 captain: Scott Durgan
 related-adr: docs/adr/0012-customer-yaml-storage.md, docs/adr/0026-config-surface-is-a-security-boundary.md, docs/adr/0043-operator-runtime-read-path.md, docs/adr/0007-per-customer-machine-isolation.md
 amends: docs/adr/0012-customer-yaml-storage.md
@@ -9,7 +9,23 @@ amends: docs/adr/0012-customer-yaml-storage.md
 
 # ADR 0044 — R2-Authoritative Live Reconfiguration
 
-**Status:** Accepted (Captain decision, 2026-06-14). Enables applying a `customer.yaml` change to a running Operator without a reboot, durably and reversibly, in service of pilot-time responsiveness.
+> **REVERTED 2026-07-14 (Captain decision).** The realization (#1840) — the
+> `config_divergence.py` guard, the `SS_CONFIG_SOURCE=r2` / `SS_CONFIG_FORCE_GIT`
+> provisioning modes, `reconcile-r2-config.sh`, and the daily
+> `r2-config-reconcile.yml` workflow — has been removed. It was scaffolding for
+> a live-apply-to-R2 feature (Decision 5, the root config applier) that was
+> **never built**: the portal write-back spine is unbuilt and there is no admin
+> live-apply endpoint, so R2 never diverges from git and the reconciler guarded
+> a window that cannot open. The daily workflow failed loud every morning on a
+> scoped read credential that was never minted. Per venture ethos (build only
+> what we use), it was ripped root-and-all. In practice **git is the single
+> source of truth for `customer.yaml`** — [ADR 0012](./0012-customer-yaml-storage.md)
+> §1's git-first invariant that this ADR amended is back in force. The design
+> below stands as the plan for **if/when** live reconfiguration is actually
+> needed; nothing in it is wired today. Do not treat any part of it as running
+> code without rebuilding and re-deciding at that time.
+
+**Status:** Reverted (Captain decision, 2026-07-14). Originally accepted 2026-06-14 to enable applying a `customer.yaml` change to a running Operator without a reboot, durably and reversibly, in service of pilot-time responsiveness — but the apply path was never built and the realized guard/reconciler were removed as unused. Design retained for future reference only.
 
 ## Context
 
