@@ -604,6 +604,14 @@ escalation:
     - scott@smd.services
   failure_recipients:
     - scott@smd.services
+  # Deadline-miss-escalator re-fire policy (WP-A). These are PACK-DEFAULT
+  # rehearsal values, not client commitments: refire_days is legitimate
+  # pack-authored content (a repetitive deadline watcher beats a silent one),
+  # and ack_snooze_days keeps an acked-but-unresolved deadline from going
+  # permanently dark. read live from this file by the escalator's pre_run
+  # (SMD_CUSTOMER_YAML_PATH); absent => the same pack defaults.
+  refire_days: 3 # re-fire an unacked, still-open deadline only this many days after the last raise
+  ack_snooze_days: 7 # an acked-but-unresolved deadline re-surfaces this many days after the ack
 
 # ---- VOICE LIBRARY ----
 # Empty until the firm supplies writing samples to tune the voice; ships with the

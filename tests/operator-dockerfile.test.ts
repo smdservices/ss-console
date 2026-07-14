@@ -380,7 +380,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // reliably re-invoke on "yes"), re-authorized through the same evaluate_tool_call
     // gate + CONFIRM_SEND_DISPATCHED/FAILED audit rows. Child of #162; carries it.
     // No tracked twin moved; overlayRef-only. Superset of 63a3bca (#162).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fdf8870a77c9a95b6ebe16db4d344acefcb686e6"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d6739132516d691dc5fd832676e81de57c432337"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

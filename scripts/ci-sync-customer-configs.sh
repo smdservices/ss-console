@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# CI auto-sync: customer.yaml (git source of truth) → customer_configs D1
-# projection (#1308, ADR 0012 §5).
+# CI auto-sync: customer.yaml + routine-grid.yaml (git source of truth) →
+# customer_configs D1 projection (#1308 auto-sync extension, ADR 0012 §5,
+# ADR 0075).
 #
 # Closes the stale-projection window: before this job, a merged customer.yaml
 # change never reached the live portal until someone remembered to re-project
 # by hand — the mechanism behind the "removed in git but still shows live"
-# failure class (see feedback: the persona-name saga, 2026-07-08/13).
+# failure class (see feedback: the persona-name saga, 2026-07-08/13). The
+# routine-grid.yaml (ADR 0075) is a sibling artifact projected into the same
+# row, so a grid-only merge must sync too.
 #
-# Behavior per changed slug:
+# Behavior per changed slug (deduped across both watched files):
 #   - Row exists in customer_configs  → re-project via the canonical script
-#     (validates, provenance-guarded, idempotent SQL) and apply --remote.
-#     The upsert deliberately never updates entity_id, so a routine CI sync
-#     can never repoint a config to a different client (cross-tenant guard,
-#     see customer-config-projection.ts).
+#     (validates BOTH files, provenance-guarded, idempotent SQL) and apply
+#     --remote. The upsert deliberately never updates entity_id, so a routine
+#     CI sync can never repoint a config to a different client (cross-tenant
+#     guard, see customer-config-projection.ts).
 #   - No row (never seeded)           → WARN and skip. The FIRST projection
 #     of a new customer stays a Captain-gated manual step (it binds the
 #     config to an owning entity).
@@ -31,23 +34,37 @@ if [[ "$BEFORE" =~ ^0+$ ]]; then
   BEFORE="${AFTER}~1"
 fi
 
-mapfile -t changed < <(git diff --name-only "$BEFORE" "$AFTER" -- 'operator/customers/*/customer.yaml' || true)
+# Watch BOTH the config and its sibling routine grid; a change to either
+# re-projects the slug. Dedupe to unique slugs so a commit that touched both
+# files for one seat projects exactly once.
+mapfile -t changed < <(git diff --name-only "$BEFORE" "$AFTER" -- \
+  'operator/customers/*/customer.yaml' 'operator/customers/*/routine-grid.yaml' || true)
 
 if [[ ${#changed[@]} -eq 0 ]]; then
-  echo "No customer.yaml changes in ${BEFORE}..${AFTER} — nothing to sync."
+  echo "No customer.yaml / routine-grid.yaml changes in ${BEFORE}..${AFTER} — nothing to sync."
   exit 0
 fi
 
-fail=0
+declare -A seen_slug=()
+slugs=()
 for path in "${changed[@]}"; do
-  # A deleted customer dir yields a path with no file on disk — retirement is
-  # a manual, Captain-gated operation, never an automatic row drop.
-  if [[ ! -f "$path" ]]; then
-    echo "::warning::$path was removed; customer retirement is manual (no automatic projection drop)."
+  slug=$(basename "$(dirname "$path")")
+  [[ -n "${seen_slug[$slug]:-}" ]] && continue
+  seen_slug[$slug]=1
+  slugs+=("$slug")
+done
+
+fail=0
+for slug in "${slugs[@]}"; do
+  cfg="operator/customers/${slug}/customer.yaml"
+  # customer.yaml gone → the customer dir was retired (or a grid-only path for a
+  # dir with no config). Retirement is a manual, Captain-gated operation, never
+  # an automatic row drop.
+  if [[ ! -f "$cfg" ]]; then
+    echo "::warning::$cfg is absent; customer retirement is manual (no automatic projection drop)."
     continue
   fi
 
-  slug=$(basename "$(dirname "$path")")
   # Template/staging dirs are not live customers.
   if [[ "$slug" == _* ]]; then
     echo "Skipping template dir: $slug"
@@ -75,9 +92,17 @@ for path in "${changed[@]}"; do
     --actor="system:deploy.yml/sync-customer-configs" --synced-by=ci --out="$out"
   npx wrangler d1 execute "$DB" --remote --file="$out"
 
-  # Prove the write landed: the live row's git_sha must now name this commit's
-  # version of the file.
-  want=$(git log -1 --format=%H -- "$path")
+  # Prove the write landed: the live row's git_sha must equal the SHA the
+  # projection STAMPED — always customer.yaml's SHA, even for a grid-only change
+  # (see resolveGitSha in project-customer-config.ts). Read it back out of the
+  # generated SQL header rather than recomputing per-file, so this stays correct
+  # regardless of which of the two files triggered the sync.
+  want=$(grep -oE 'git_sha [0-9a-f]{40}' "$out" | head -1 | awk '{print $2}')
+  if [[ -z "$want" ]]; then
+    echo "::error::$slug: could not read stamped git_sha from $out"
+    fail=1
+    continue
+  fi
   got=$(npx wrangler d1 execute "$DB" --remote --json \
     --command "SELECT git_sha FROM customer_configs WHERE customer_slug = '$slug'" |
     node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s)[0].results;process.stdout.write(r.length?r[0].git_sha:'')})")
