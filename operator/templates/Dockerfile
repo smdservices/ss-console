@@ -293,7 +293,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # `uv pip install "git+<repo>@<sha>"` here died on `git submodule update --init`
 # — it broke EVERY seat image build from #158 (f3e48d6/5b7318cb) onward. Untracked +
 # gitignored. Twin recipient_classifier.py unchanged, so its overlaySha256 is unchanged.
-ARG OVERLAY_REF="0f3e9291405b959aa358da7e7370e9bd39b26892"
+ARG OVERLAY_REF="63a3bca6806ef42f64e518ac521df362705319a9"
 
 ARG CUSTOMER_SLUG=customer-zero
 

@@ -374,7 +374,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks — #158 committed
     // live worktree checkouts with no .gitmodules, breaking `uv pip install git+@sha`
     // (git submodule update failed) on EVERY seat rebuild. Untracks + gitignores them.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0f3e9291405b959aa358da7e7370e9bd39b26892"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="63a3bca6806ef42f64e518ac521df362705319a9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
