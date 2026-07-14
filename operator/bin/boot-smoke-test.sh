@@ -107,6 +107,17 @@ ssh_exec "hermes-plugins-installed" "/opt/hermes/.venv/bin/hermes plugins list |
 # curator.enabled:false in every profile config; --check re-verifies it held.
 ssh_exec "curator-disabled" "/opt/hermes/.venv/bin/python3 /app/ensure-curator-disabled.py --check /opt/data"
 
+# ---------- Step 8b: customer-disabled bundled skills stayed off the menu (#1198) ----------
+# customer.yaml personas[].skills_disabled is the per-customer authority over
+# Hermes' bundled catalog (e.g. google-workspace + himalaya, which the DWD-broker
+# model replaces — ADR 0045). bootstrap step 7b.1 prunes them from the profile
+# skill tree + prompt snapshot, and a startup reconciler re-prunes after Hermes'
+# gateway sync. This --check FAILS the boot if any disabled skill reappeared —
+# the fail-closed guard against a Hermes-upgrade rehydration regression (a
+# re-exposed google-workspace skill is a governance-bypass path back to the raw
+# credential, exactly what ADR 0045 closes). No-op when no skills_disabled authored.
+ssh_exec "disabled-skills-pruned" "/opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py --check /var/lib/smd-config/customer.yaml /opt/data"
+
 # ---------- Step 9: audit ledger is broker-owned and NOT agent-writable (OP-P1-4) ----------
 # The immutable ledger must be owned by the broker uid (workspace-broker), the
 # dir setgid 2750, and the agent uid (hermes) must be physically unable to write
