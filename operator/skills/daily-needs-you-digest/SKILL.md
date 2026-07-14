@@ -7,7 +7,7 @@ description: >-
   of a stream of pings, surfaces only items that genuinely need attention, and takes no action on
   any item (each points to the skill/step that owns it). Runs on a schedule. Never acts, never
   manufactures urgency, never invents an item not in the record.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -155,6 +155,10 @@ Enumerate open matters (`list_matters`, filtered by `--status`), then per matter
 chase items the owning skills created), and near-window calendar entries via
 `list_events(matter_id, from_, to)` for response/motion/hearing/SOL dates. Use
 `list_matters(updatedSince)` / `LastUpdated` for the stalled-item recency check.
+Also read the escalation ledger in this same block (the vendored
+`escalation_ledger.py`: `read_ledger()` + `derive_state()`) so Phase 2 can tell
+which items another skill is already actively escalating. Reading is all the
+digest ever does with the ledger; it never writes it.
 Accumulate in-process; `print()` one JSON document. A single matter's read failure is
 a `parse_failed` row; the scan does not abort and the failure is surfaced, not hidden.
 
@@ -168,7 +172,11 @@ Per `references/output-format.md`:
    one-line quiet digest and the heartbeat, and stop. Do not pad.
 2. **Group and order.** Batch surviving items into sections (Deadlines near, Due soon,
    Unsigned, Stalled), most time-critical first. Each line: matter, the item, the
-   sourced date/age, and the **owning skill/step** for the next action.
+   sourced date/age, and the **owning skill/step** for the next action. An item
+   already under active escalation by another skill (a `fired`/`chased` ledger
+   event within `escalation.refire_days`) renders as a one-line pointer, not a
+   full band entry, so the digest and the escalator do not double-hand the reader
+   the same item (`references/output-format.md`).
 3. **Attach the training note.** Per `references/_shared-training-output.md` (pack
    shared): a short note per item on what needs doing, why it matters (the governing
    rule where the owning step has one), which step owns it, and when to bring the
@@ -249,6 +257,10 @@ guess a window and do not manufacture a digest.
   neighbors (`matter-status-digest`, the owning chase skills, `deadline-miss-escalator`)
 - `_shared-training-output.md` (pack shared) — the training-note property every line
   carries
+- `escalation_ledger.py` — the shared ledger module (byte-identical to
+  `operator/workspace_broker/escalation_ledger.py`), read-only here: it tells the
+  digest which items are already under active escalation so they collapse to a
+  one-line pointer. Do not edit the copy; edit the canonical and restamp.
 
 ## Delivery channels + refusal fallback (law seat rule)
 

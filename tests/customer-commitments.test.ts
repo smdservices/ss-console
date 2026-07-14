@@ -26,6 +26,7 @@ import { readFileSync, readdirSync, statSync } from 'fs'
 import { resolve, join } from 'path'
 import { parse as parseYaml } from 'yaml'
 import { validate, type CustomerYaml } from '../src/lib/operator/customer-yaml'
+import { validateRoutineGrid, type RoutineGridRow } from '../src/lib/operator/routine-grid'
 
 const SEAT_YAML_PATH = resolve('operator/customers/pilot-smokeball/customer.yaml')
 const GRID_YAML_PATH = resolve('operator/customers/pilot-smokeball/routine-grid.yaml')
@@ -45,20 +46,21 @@ function seatValue(): CustomerYaml {
   return result.value
 }
 
-interface GridRow {
-  routine: string
-  letter_section: string
-  skills: string[]
-  start_tier: string
-  ceiling_tier: string
-  enforcement: {
-    exposure_keys: Record<string, string>
+/**
+ * Parse + validate the LIVE routine-grid.yaml through the canonical parser
+ * (src/lib/operator/routine-grid.ts), throwing if it no longer validates. The
+ * parser owns the tier vocabulary + field shape; this suite asserts the
+ * grid<->config drift invariants on top of the parsed rows.
+ */
+function gridRows(): RoutineGridRow[] {
+  const raw = parseYaml(readFileSync(GRID_YAML_PATH, 'utf-8'))
+  const result = validateRoutineGrid(raw)
+  if (!result.ok) {
+    throw new Error(
+      `routine-grid.yaml no longer validates:\n${JSON.stringify(result.errors, null, 2)}`
+    )
   }
-}
-
-function gridRows(): GridRow[] {
-  const grid = parseYaml(readFileSync(GRID_YAML_PATH, 'utf-8')) as { rows: GridRow[] }
-  return grid.rows
+  return result.value.rows
 }
 
 function commitments(): {

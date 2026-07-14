@@ -28,9 +28,15 @@ import { env } from 'cloudflare:workers'
  * work (a draft to review) flows through the real channels — the mailbox, the
  * alert — never here. The surface answers three questions:
  *   Status     — is it OK? (operator health only; no business-work queue)
- *   Role       — what does it do? (Persona · Scope · Skills · Schedule · Workflows)
- *   Management — fix, change, or retrieve (Governance · Voice · Connections ·
- *                Team · Memory · Activity), with Account (the commercial layer) last.
+ *   Role       — what does it do? (Persona · Scope · The work)
+ *   Management — fix, change, or retrieve (Voice · Connections · Team · Memory ·
+ *                Activity), with Account (the commercial layer) last.
+ *
+ * "The work" (ADR 0076; console structure doc §3.2) is the console spine — the
+ * rendered routine grid, stage by stage, with how much the operator does on its
+ * own per duty. It absorbs the former Skills, Schedule, Workflows (Role) and
+ * Governance (Management) doors into one destination; the Skills page stays
+ * routable as the grid's gridless fallback but no longer has a door.
  *
  * Every door leads to a facet's own page. Facets whose page isn't built yet carry
  * href: null and render as present-but-not-yet-built (honest, never "coming
@@ -103,9 +109,10 @@ if (access) {
 }
 const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 
-// The operator's facet map (brief §5). Governance/Voice deep-link to today's
-// Configure page until each is split into its own briefed surface; the facets
-// with no page yet (Persona, Schedule, Workflows, Memory) carry href: null.
+// The operator's facet map (brief §5). Voice deep-links to today's Configure
+// page until it is split into its own briefed surface; the facets with no page
+// yet (Persona, Memory) carry href: null. "The work" is the built spine that
+// absorbs Skills/Schedule/Workflows/Governance (structure doc §3.2).
 const CONFIGURE = `${operatorBase}/configure`
 const roleDoors: FacetDoor[] = [
   {
@@ -119,27 +126,12 @@ const roleDoors: FacetDoor[] = [
     href: `${operatorBase}/scope`,
   },
   {
-    label: 'Skills',
-    desc: 'Everything it can do, and how each one gets set in motion.',
-    href: `${operatorBase}/skills`,
-  },
-  {
-    label: 'Schedule',
-    desc: 'The recurring jobs it runs, and the hours it works.',
-    href: null,
-  },
-  {
-    label: 'Workflows',
-    desc: 'The multi-step processes it follows to get work done.',
-    href: null,
+    label: 'The work',
+    desc: 'Everything it does, stage by stage, and how much it does on its own.',
+    href: `${operatorBase}/work`,
   },
 ]
 const manageDoors: FacetDoor[] = [
-  {
-    label: 'Governance',
-    desc: 'What it may do on its own vs. what needs your sign-off.',
-    href: CONFIGURE,
-  },
   { label: 'Voice', desc: 'How it sounds when it writes on your behalf.', href: CONFIGURE },
   {
     label: 'Connections',

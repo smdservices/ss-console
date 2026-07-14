@@ -120,7 +120,7 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
       viewerModule: 'src/lib/portal/operator/facets/skills/skills.ts',
     },
     mounts: ['client', 'admin'],
-    note: 'Slice 3: inventory (humanized slug) + initiation, in authored order. enabled/version/cost dropped from projection and deliberately not shown; per-skill autonomy is the Governance facet (Lock 4).',
+    note: 'Inventory (humanized slug) + initiation, in authored order. Now the DETAIL/FALLBACK of The work (ADR 0076, structure doc §3.2): implementing-skill rows within a grid routine, and the whole-page gridless fallback for seats with no routine-grid. Skills page stays routable, loses its landing door. enabled/version/cost dropped from projection and deliberately not shown.',
   },
   {
     id: 'agent-skills',
@@ -136,7 +136,7 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     plane: 'config_projection',
     surface: { kind: 'planned', slice: 3 },
     mounts: ['client', 'admin'],
-    note: 'Persona-level exposure × per-skill initiation; vertical floors non-raisable. Coarse-vs-rich matrix is an open decision.',
+    note: "Persona-level exposure × per-skill initiation; vertical floors non-raisable. Rendered on The work (ADR 0076) from the routine grid: each row's start/ceiling tier is the authored per-routine autonomy dial, with permanent caps read verbatim. Coarse-vs-rich matrix is an open decision.",
   },
   {
     id: 'schedule',
@@ -144,7 +144,7 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     plane: 'config_unprojected',
     surface: { kind: 'planned', slice: 7 },
     mounts: ['client', 'admin'],
-    note: 'personas[].cron[] authored but dropped from projection — needs projection extension.',
+    note: 'The "starts on a schedule" signal is rendered on The work (ADR 0076) from each grid row\'s initiation. The concrete cron detail (personas[].cron[]) is authored but dropped from the projection — still pending a projection extension before the recurring-job specifics can show.',
   },
   {
     id: 'bundles',
@@ -157,10 +157,13 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
   {
     id: 'workflow',
     label: 'Workflows / process',
-    plane: 'no_schema',
-    surface: { kind: 'planned', slice: 10 },
+    plane: 'config_projection',
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/work/work.ts',
+    },
     mounts: ['client', 'admin'],
-    note: 'No config facet exists. Generic (vertical-neutral) schema must be designed first.',
+    note: 'The work chapter (ADR 0076, console structure doc §3.2). The routine grid (routine-grid.yaml, ADR 0075) is the schema that "no config facet exists" once anticipated — plane no_schema → config_projection now that the grid projects into customer_configs. Renders the lifecycle-grouped routine matrix; a seat with no grid degrades to the skills inventory fallback.',
   },
   {
     id: 'memory',
