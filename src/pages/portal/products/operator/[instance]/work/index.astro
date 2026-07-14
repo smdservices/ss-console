@@ -1,0 +1,101 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { resolveOperatorWork } from '../../../../../../lib/portal/operator/facets/work/work'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import OperatorWork from '../../../../../../components/portal/operator/facets/OperatorWork.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — The work (ADR 0076; console structure doc §3.2; signed-off brief
+ * docs/design/operator/surface-briefs/operator-the-work.md). Chapter 2, the
+ * console spine: the operator's whole job rendered stage by stage, with how each
+ * duty starts and how much it does on its own. Absorbs the Skills, Schedule,
+ * Workflows, and Governance doors from the landing.
+ *
+ * URL: portal.smd.services/portal/products/operator/<instance>/work
+ *
+ * Read for all account roles (principal / staff / compliance), matching the
+ * other operator surfaces. The one forward action is the generic "Request a
+ * change" via the same <DomainSurface> (configuration domain) the Skills page
+ * uses — no per-routine actions in this read-only build (Captain reset
+ * 2026-07-14).
+ *
+ * The view model is the one shared resolver; it renders through the one shared
+ * <OperatorWork> viewer both portals mount (Lock 4). Grid mode renders the
+ * projected routine grid; a gridless seat degrades to the Skills inventory.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { client, roles } = access
+
+const model = resolveOperatorWork(access.config)
+
+const RETURN_TO = `${operatorBase}/work`
+
+const cr = Astro.url.searchParams.get('cr')
+const crMessage =
+  cr === 'filed'
+    ? 'Your request was sent.'
+    : cr === 'invalid'
+      ? "That request couldn't be filed. Please add a short description and try again."
+      : cr === 'error'
+        ? 'Something went wrong filing your request. Please try again.'
+        : null
+---
+
+<PortalShell
+  title="Operator · The work"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead crumbHref={operatorBase} crumbLabel="Operator" h1="The work" meta={null} />
+
+  {
+    crMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          cr === 'filed'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {crMessage}
+      </div>
+    )
+  }
+
+  <p
+    class="mt-8 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
+  >
+    Everything your operator does, stage by stage, and how much it does on its own.
+  </p>
+
+  <div class="mt-4">
+    <DomainSurface
+      authority={access.config?.authority ?? null}
+      domain="configuration"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="the work"
+    >
+      <div slot="read">
+        <OperatorWork model={model} />
+      </div>
+    </DomainSurface>
+  </div>
+</PortalShell>
