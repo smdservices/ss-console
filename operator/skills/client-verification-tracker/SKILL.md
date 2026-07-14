@@ -257,12 +257,16 @@ matter for the chase:
   signed-document close) is likewise terminal.
 
 The **internal escalation-to-a-person** (both the ceiling hand-off and the
-single "cadence/attempt-count not authored" surface) therefore follows the same
-fire-once, terminal-aware rule the deadline lane uses — it never re-sends the
-same alert on a later wake. When `chase_cadence_days` or `escalate_after_attempts`
-is unauthored, the pre_run surfaces the missing-config note **once** (recorded on
-a config sentinel in the ledger) and then holds quiet, rather than either
-defaulting to an interval or re-surfacing daily.
+"cadence/attempt-count not authored" surface) therefore follows the same
+fire-once + re-fire-window, terminal-aware rule the deadline lane uses — it
+never re-sends the same alert on the next wake. When `chase_cadence_days` or
+`escalate_after_attempts` is unauthored, the pre_run surfaces the missing-config
+note (recorded on a config sentinel in the ledger), holds quiet through the
+re-fire window, and then **re-surfaces every `escalation.refire_days`** until
+the dials are authored (#1899) — a held chase must not go permanently dark on
+one missed notice. An `acked` on the sentinel snoozes it for the same window;
+authoring the dials ends the loop. It never defaults to an interval and never
+re-surfaces daily.
 
 If the ledger cannot be read, the pre_run **fires open** (wakes) rather than going
 silent — a chase watcher that goes quiet is the dangerous failure. If the config
@@ -310,8 +314,9 @@ surface), never a silent default.
      ledger event so the hand-off fires once; the client chase is done, the open item
      moves to a person.
    - `chase_cadence_days` or `escalate_after_attempts` unauthored → send no chase;
-     surface the missing-config note once (recorded on the ledger config sentinel),
-     then hold quiet.
+     surface the missing-config note (append a `fired` event on the ledger config
+     sentinel so the raise is remembered), hold quiet through the re-fire window,
+     and re-surface every `escalation.refire_days` until the dials are authored.
 6. **Escalate** — two independent triggers, either of which fires on its own; the
    chase's own trigger is the attempt count, and it points to the deadline lane for
    the other rather than duplicating it:

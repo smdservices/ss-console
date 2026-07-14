@@ -20,11 +20,7 @@ export interface Assessment {
 }
 
 export type AssessmentStatus =
-  | 'scheduled'
-  | 'completed'
-  | 'disqualified'
-  | 'converted'
-  | 'cancelled'
+  'scheduled' | 'completed' | 'disqualified' | 'converted' | 'cancelled'
 
 export const ASSESSMENT_STATUSES: { value: AssessmentStatus; label: string }[] = [
   { value: 'scheduled', label: 'Scheduled' },
