@@ -435,9 +435,7 @@ export function applyEditableChanges(
   }
 }
 
-function lockedFromCurrent(
-  current: CustomerYaml
-): Pick<
+function lockedFromCurrent(current: CustomerYaml): Pick<
   CustomerYaml,
   | 'schema_version'
   | 'customer_id'
@@ -460,9 +458,12 @@ function lockedFromCurrent(
   | 'mcp_connector'
   | 'relationship'
   | 'digest'
+  // governance-sensitive custody acceptance (ADR 0044 D8 / #1841) — never portal-editable
+  | 'custody_exceptions'
 > {
   return {
     schema_version: current.schema_version,
+    custody_exceptions: current.custody_exceptions,
     customer_id: current.customer_id,
     customer_name: current.customer_name,
     vertical: current.vertical,
