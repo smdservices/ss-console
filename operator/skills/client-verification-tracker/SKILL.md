@@ -1,7 +1,7 @@
 ---
 name: client-verification-tracker
 description: Prepares a client's discovery-response verification (interrogatories, RFPs, and requests for admission), routes it for authenticated attorney approval, tracks it as an open item per plaintiff per response-set, and chases the signer on a cadence until it is signed — the connective chase for the firm's most-slipped discovery step. Never decides which responses need verification, never sends to the signer without authenticated attorney approval, never signs, and never asserts a signature it cannot see.
-version: 0.2.0
+version: 0.3.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -168,8 +168,11 @@ default to some interval; an unset dial holds the chase, it does not release it.
 ### Attempt-count escalation: stop chasing, escalate to a person
 
 Separately from any deadline, the skill counts how many chase attempts have gone
-**unanswered** on a verification (the count lives in the verification's own task/memo
-trail on the matter, which the skill already maintains). After the authored
+**unanswered** on a verification. The machine-readable count is the `chased` raises
+in the escalation ledger (what the pre_run reads to gate the wake and fill
+`nudge <#>`); the verification's own task/memo trail on the matter stays the
+firm-visible mirror the skill already maintains (loss-safety: if the ledger state
+is lost, the memos let a person reconstruct the history). After the authored
 **`escalate_after_attempts`** number of unanswered attempts, the skill **stops chasing
 the client and red-flags the responsible attorney instead** — the letter, verbatim:
 "After a set number of unanswered attempts it stops chasing the client and escalates to
@@ -179,11 +182,17 @@ when unauthored:** if `escalate_after_attempts` is not authored, the skill surfa
 **"escalation attempt-count not authored"** and holds — it does not chase indefinitely
 and it does not invent a number.
 
-This attempt-count escalation and the existing **deadline-proximity** escalation
-(nearing the response deadline unsigned; RFA highest severity) are **two independent
-triggers**. Either can fire; neither replaces the other. A verification that hits the
-attempt ceiling is escalated even if the deadline is far off, and one nearing its
-deadline is escalated even if it is only on attempt two.
+This attempt-count escalation and the **deadline-proximity** escalation (nearing
+the response deadline unsigned; RFA highest severity) are **two independent
+triggers**. Either can fire; neither replaces the other. A verification that hits
+the attempt ceiling is escalated even if the deadline is far off, and one nearing
+its deadline is escalated even if it is only on attempt two. The two are **owned by
+different lanes** so they never double-send: the attempt ceiling is THIS skill's
+own raise, while deadline proximity is owned by `deadline-miss-escalator` (it pulls
+verification response deadlines with every other authored date). Where this skill
+needs to name a nearing-deadline verification, it points to the deadline lane by a
+one-line pointer rather than duplicating the escalation (see the dedup rule in
+`references/output-format.md`).
 
 ### Taint-safe state reads: metadata only in a chase turn
 
@@ -217,6 +226,49 @@ recipient classification and silently degrades to a held draft, so a chase autho
 send autonomously would quietly never go out. The chase is addressed to the resolved
 signer as a fresh proactive send, not a reply to the signer's thread.
 
+### The state ledger, the wake gate, and fire-once escalation (READ THIS)
+
+The cadence, the attempt count, and "has this already been handed off" live in the
+shared **escalation ledger** — the same broker-owned telemetry state the
+deadline lane uses (`escalation_ledger.py`, vendored byte-identical into this
+skill; canonical at `operator/workspace_broker/escalation_ledger.py`). This skill
+has a **bespoke `pre_run.py`** (it graduated off the shared empty-seat gate) that
+reads that ledger and the authored cadence/ceiling BEFORE the agent wakes, and
+wakes the turn only when a real transition is due. That is what stops the chase
+from waking every weekday and stops the internal escalation email from repeating
+daily (the July 6 / 7 / 8 / 14 defect).
+
+The item's identity is its stable Smokeball tracking-task id, via
+`item_key(matter_id, task_id, label, authored_date)`. Two ledger raise events
+matter for the chase:
+
+- **`chased`** — one per client nudge that actually sent. The count of `chased`
+  raises on an item is the `nudge <#>` numerator; it is what the ceiling counts.
+  Append it **only after both the send AND the ledger write succeed** (never
+  report a chase that did not go out). Write it through the broker's
+  `escalation_event_append` verb (the same door shape as the deadline lane; the
+  snippet lives in `deadline-miss-escalator/references/algorithm.md`). The LLM
+  turn never writes the ledger file directly — the state that governs a chase must
+  pass broker validation.
+- **`handed_off`** — one when the attempt count reaches `escalate_after_attempts`
+  and the client chase stops. `handed_off` is **terminal** for autonomous wakes:
+  the pre_run will not re-raise the item, so the hand-off alert to the attorney
+  fires **once**, not on every wake. A `resolved` event (written on a confident
+  signed-document close) is likewise terminal.
+
+The **internal escalation-to-a-person** (both the ceiling hand-off and the
+single "cadence/attempt-count not authored" surface) therefore follows the same
+fire-once, terminal-aware rule the deadline lane uses — it never re-sends the
+same alert on a later wake. When `chase_cadence_days` or `escalate_after_attempts`
+is unauthored, the pre_run surfaces the missing-config note **once** (recorded on
+a config sentinel in the ledger) and then holds quiet, rather than either
+defaulting to an interval or re-surfacing daily.
+
+If the ledger cannot be read, the pre_run **fires open** (wakes) rather than going
+silent — a chase watcher that goes quiet is the dangerous failure. If the config
+cannot be read, it is treated as unauthored (fail-closed hold + the single
+surface), never a silent default.
+
 ## How it works (mapped to the real connector tools)
 
 1. **Resolve** — read the matter (`get_matter` → `personResponsibleStaffId`,
@@ -237,30 +289,42 @@ signer as a fresh proactive send, not a reply to the signer's thread.
    `create_memo`; open a tracked item with `create_task` (assigned to the
    responsible staff, keyed to the plaintiff/response-set/version, dated to the
    authored `chase_cadence_days` cadence).
-5. **Track + chase** — a scheduled job re-checks open verification tasks
-   (`list_tasks(matter_id, is_completed=false)`) and looks for the matched signed
-   document (`get_files_on_matter`). These are metadata reads only; the turn reads no
-   message body, so a chase send stays un-fenced (see the taint-safe rule above):
+5. **Track + chase** — the bespoke `pre_run.py` gates the wake off the ledger +
+   authored cadence/ceiling (see "The state ledger" above); on a woken turn the
+   skill re-checks open verification tasks (`list_tasks(matter_id, is_completed=false)`)
+   and looks for the matched signed document (`get_files_on_matter`). These are
+   metadata reads only; the turn reads no message body, so a chase send stays
+   un-fenced (see the taint-safe rule above):
    - matched with confidence (only once the firm's convention is confirmed) → close
-     (`update_task`), log (`create_memo`), let it fall into the daily digest.
-   - not found / ambiguous / convention-unconfirmed, and the unanswered-attempt count
-     (from the task/memo trail) is **below `escalate_after_attempts`**, and
+     (`update_task`), log (`create_memo`), append a `resolved` ledger event, let it
+     fall into the daily digest.
+   - not found / ambiguous / convention-unconfirmed, and the attempt count (the
+     `chased` raises in the ledger) is **below `escalate_after_attempts`**, and
      `chase_cadence_days` is authored → chase the signer with
-     `mcp_agentmail_send_message` (never `reply_to_message`) on the authored cadence,
-     log the attempt, and tell the attorney only if it stalls (quiet by design). Never
-     auto-close on an ambiguous match.
-   - unanswered-attempt count **has reached `escalate_after_attempts`** → **stop
-     chasing the client** and red-flag the responsible attorney (Shape D); the client
-     chase is done, the open item moves to a person.
-   - `chase_cadence_days` unauthored → send no chase; surface "chase cadence not
-     authored" once.
-6. **Escalate** — two independent triggers, either of which fires on its own:
-   - **Deadline proximity** — a verification approaching the response deadline unsigned
-     is raised to the responsible attorney; an **RFA** verification near deadline is a
-     higher-severity flag (deemed-admissions exposure, §2033.280).
+     `mcp_agentmail_send_message` (never `reply_to_message`) on the authored cadence;
+     after the send succeeds, log the attempt (`create_memo`) AND append a `chased`
+     ledger event (attempt = the new count); tell the attorney only if it stalls
+     (quiet by design). Never auto-close on an ambiguous match.
+   - attempt count **has reached `escalate_after_attempts`** → **stop chasing the
+     client** and red-flag the responsible attorney (Shape D); append a `handed_off`
+     ledger event so the hand-off fires once; the client chase is done, the open item
+     moves to a person.
+   - `chase_cadence_days` or `escalate_after_attempts` unauthored → send no chase;
+     surface the missing-config note once (recorded on the ledger config sentinel),
+     then hold quiet.
+6. **Escalate** — two independent triggers, either of which fires on its own; the
+   chase's own trigger is the attempt count, and it points to the deadline lane for
+   the other rather than duplicating it:
+   - **Deadline proximity** — owned by `deadline-miss-escalator`, which pulls
+     verification response deadlines with the rest of the firm's authored dates and
+     escalates a verification approaching its deadline unsigned (an **RFA** near
+     deadline is higher severity — deemed-admissions exposure). The chase does not run
+     a second deadline pull; where it needs to name this, it renders a one-line
+     pointer to the owning lane (see `references/output-format.md` "Dedup"), so a
+     nearing-deadline verification does not produce two overlapping morning emails.
    - **Attempt count** — a verification whose unanswered chases have reached
-     `escalate_after_attempts` is raised to the responsible attorney and the client
-     chase stops, regardless of how far off the deadline is.
+     `escalate_after_attempts` is raised by THIS skill to the responsible attorney and
+     the client chase stops, regardless of how far off the deadline is.
 
 ## The autonomy dial (not a hard "never")
 
@@ -286,7 +350,14 @@ not an immutable invariant.
 - **Never chase on an unauthored cadence** — no `chase_cadence_days`, no chase;
   surface "chase cadence not authored" and hold.
 - **Never nag indefinitely** — once unanswered attempts reach `escalate_after_attempts`,
-  stop chasing the client and red-flag the responsible attorney.
+  stop chasing the client and red-flag the responsible attorney (once — the ledger
+  `handed_off` event makes the hand-off terminal, so it does not repeat on later wakes).
+- **Never write the wording that trips the content floor into a client-facing chase**
+  — the graduated client send is re-scanned by the content-sensitivity floor
+  (ADR 0031); "sign" / "signature" / "signing", "deadline", and "attorney" each HOLD
+  the send. Write the floor-clean equivalents from `references/verification-request.md`
+  ("complete and return", "due date", "the team"); the meaning is unchanged (the
+  signer still attests under penalty of perjury on the verification form itself).
 - **Never read a message body in a chase-send turn** — a fenced read taints the turn
   and forfeits the send; signature detection and the attempt count come from matter
   metadata reads (`get_files_on_matter`, `list_tasks`, `get_memos_on_matter`).
