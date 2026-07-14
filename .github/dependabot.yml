@@ -37,6 +37,14 @@ updates:
         update-types:
           - minor
           - patch
+    # Our own packages on the private GitHub Packages registry. We cut and
+    # adopt their versions intentionally as part of coordinated changes —
+    # Dependabot is for external currency/security, not our internal releases,
+    # and it holds no credential for the private scope (the root npm job fails
+    # `private_source_authentication_failure` trying to resolve them). Managed
+    # by us, not Dependabot.
+    ignore:
+      - dependency-name: '@venturecrane/*'
     commit-message:
       prefix: chore(deps)
 
