@@ -25,7 +25,7 @@
   "dependencies": {
     "@astrojs/cloudflare": "^13.1.10",
     "@astrojs/sitemap": "^3.7.3",
-    "@clerk/astro": "^3.4.12",
+    "@clerk/astro": "^3.4.13",
     "@elevenlabs/client": "^1.14.1",
     "@formepdf/core": "^0.10.5",
     "@formepdf/react": "^0.10.4",
@@ -37,7 +37,7 @@
     "ics": "^3.12.0",
     "jose": "^6.2.3",
     "react": "^19.2.7",
-    "wrangler": "^4.107.0",
+    "wrangler": "^4.107.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
