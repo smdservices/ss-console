@@ -84,13 +84,14 @@ Page 1 contains all engagement details: header, scope, deliverables, timeline, a
 - 1pt `#e2e8f0` horizontal rule below header, full printable width
 
 **Placeholder fields:**
-| Field | Source |
-| ------------------------------ | -------------------------- |
-| `{{client.business_name}}` | Client record |
-| `{{client.contact_name}}` | Client contact record |
-| `{{document.date}}` | Generation date |
+
+| Field                          | Source                   |
+| ------------------------------ | ------------------------ |
+| `{{client.business_name}}`     | Client record            |
+| `{{client.contact_name}}`      | Client contact record    |
+| `{{document.date}}`            | Generation date          |
 | `{{document.expiration_date}}` | Generation date + 5 days |
-| `{{document.sow_number}}` | Auto-generated sequence |
+| `{{document.sow_number}}`      | Auto-generated sequence  |
 
 ### 4.2 Engagement Overview
 
@@ -113,8 +114,9 @@ A brief paragraph summarizing what we discussed and what this engagement will ad
 - Max 3-4 sentences. Generated from assessment extraction, reviewed by admin before sending.
 
 **Placeholder fields:**
-| Field | Source |
-| --------------------------- | -------------------------------------- |
+
+| Field                     | Source                                |
+| ------------------------- | ------------------------------------- |
 | `{{engagement.overview}}` | Admin-written from assessment capture |
 
 **Voice requirement (Decision #20):** Use "we" throughout. Example: "Based on our conversation on [date], we identified three areas where your operation can improve: [problem 1], [problem 2], and [problem 3]. This engagement scopes the work to address those areas together."
@@ -150,10 +152,11 @@ The deliverables table. Each row is a line item from the quote builder.
 - Typical row count: 3-6 items. Template must handle up to 8 gracefully.
 
 **Placeholder fields:**
-| Field | Source |
-| ------------------------- | ------------------- |
-| `{{items[n].name}}` | Quote line item |
-| `{{items[n].description}}`| Quote line item |
+
+| Field                      | Source          |
+| -------------------------- | --------------- |
+| `{{items[n].name}}`        | Quote line item |
+| `{{items[n].description}}` | Quote line item |
 
 ### 4.4 Timeline
 
@@ -179,10 +182,11 @@ A simple two-column layout showing engagement phases and their sequence.
 - No per-phase durations. Timeline is scoped per engagement — the SOW shows start and estimated completion only.
 
 **Placeholder fields:**
-| Field | Source |
-| ----------------------------- | ------------------------------ |
-| `{{engagement.start_date}}` | Sprint slot date |
-| `{{engagement.end_date}}` | Calculated from scope estimate |
+
+| Field                       | Source                         |
+| --------------------------- | ------------------------------ |
+| `{{engagement.start_date}}` | Sprint slot date               |
+| `{{engagement.end_date}}`   | Calculated from scope estimate |
 
 ### 4.5 Project Investment
 
@@ -214,12 +218,13 @@ The total project price. No line-item pricing, no hourly breakdown.
 - For 40+ hour engagements with 3-milestone split: show three rows instead of two (deposit / milestone / completion). Template must handle both cases.
 
 **Placeholder fields:**
-| Field | Source |
-| ------------------------- | ----------------------------------------- |
-| `{{quote.total_price}}` | Quote calculated total |
-| `{{payment.deposit}}` | 50% of total (or configured percentage) |
-| `{{payment.completion}}` | 50% of total (or remaining balance) |
-| `{{payment.milestone}}` | Only present for 3-milestone engagements |
+
+| Field                    | Source                                   |
+| ------------------------ | ---------------------------------------- |
+| `{{quote.total_price}}`  | Quote calculated total                   |
+| `{{payment.deposit}}`    | 50% of total (or configured percentage)  |
+| `{{payment.completion}}` | 50% of total (or remaining balance)      |
+| `{{payment.milestone}}`  | Only present for 3-milestone engagements |
 
 **Payment terms note (below container):**
 Inter 400 8pt `#64748b`. Text: "Payment is due regardless of scope additions surfaced during the engagement." (Decision #14)
@@ -381,12 +386,13 @@ Field placement uses **SignWell text tags** embedded in the PDF — not hardcode
 - Source: `src/lib/pdf/sow-template.tsx` (tag embedding) and `src/lib/sow/service.ts` (the `text_tags: true` flag).
 
 **Placeholder fields:**
-| Field | Source |
-| ------------------------- | ------------------------------------------- |
-| `{{s:1}}` | SignWell signature field (text-tag placed) |
-| `{{client.contact_name}}` | Client contact record |
-| `{{client.contact_title}}`| Client contact record |
-| `{{d:1}}` | SignWell date field — auto-filled on sign |
+
+| Field                      | Source                                     |
+| -------------------------- | ------------------------------------------ |
+| `{{s:1}}`                  | SignWell signature field (text-tag placed) |
+| `{{client.contact_name}}`  | Client contact record                      |
+| `{{client.contact_title}}` | Client contact record                      |
+| `{{d:1}}`                  | SignWell date field — auto-filled on sign  |
 
 ### 5.5 Footer
 

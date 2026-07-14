@@ -66,12 +66,7 @@ export interface CreateSOWSendAuthorizationData {
 }
 
 export type SignatureRequestStatus =
-  | 'send_failed'
-  | 'sent'
-  | 'completed_pending_artifact'
-  | 'completed'
-  | 'declined'
-  | 'expired'
+  'send_failed' | 'sent' | 'completed_pending_artifact' | 'completed' | 'declined' | 'expired'
 
 export interface SignatureRequest {
   id: string
@@ -113,9 +108,7 @@ export interface CreateSignatureRequestData {
 }
 
 export type OutboxJobType =
-  | 'send_sow_signed_email'
-  | 'send_deposit_invoice'
-  | 'send_portal_invitation'
+  'send_sow_signed_email' | 'send_deposit_invoice' | 'send_portal_invitation'
 export type OutboxJobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface OutboxJob {
