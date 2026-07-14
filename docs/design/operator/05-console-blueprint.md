@@ -1,6 +1,8 @@
 # Operator Console Blueprint — the rendered current configuration
 
-Status: **DRAFT for Captain lock — 2026-07-14.** Supersedes
+Status: **LOCKED — Captain approval 2026-07-14** (reviewed and approved as
+written, including the §6 vocabulary recommendations and the §7a seat
+recommendation). Supersedes
 [04-console-structure.md](04-console-structure.md) as the governing design
 document for the client portal's operator section (04 is preserved as history;
 its locked resolutions are dispositioned in §1 below). Evolves ADR 0076: the
