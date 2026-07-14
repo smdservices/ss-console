@@ -115,8 +115,7 @@ export interface UpdateEntityData {
 }
 
 export type FindOrCreateResult =
-  | { status: 'created'; entity: Entity }
-  | { status: 'found'; entity: Entity }
+  { status: 'created'; entity: Entity } | { status: 'found'; entity: Entity }
 
 export interface TransitionStageOptions {
   /** Override reason — bypasses pre-condition checks where documented. */

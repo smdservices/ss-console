@@ -266,8 +266,7 @@ async function main(): Promise<void> {
     }
 
     const flags = extraction.disqualification_flags as
-      | Record<string, Record<string, boolean>>
-      | undefined
+      Record<string, Record<string, boolean>> | undefined
     if (flags) {
       console.log('\n  Disqualification flags:')
       const hardTriggered = Object.entries(flags.hard || {})

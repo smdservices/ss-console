@@ -32,11 +32,7 @@ interface QuoteShape {
 }
 
 export type MeetingSubstate =
-  | 'awaiting-booking'
-  | 'upcoming'
-  | 'completed-awaiting-proposal'
-  | 'past-due'
-  | 'other'
+  'awaiting-booking' | 'upcoming' | 'completed-awaiting-proposal' | 'past-due' | 'other'
 
 export const MEETING_SUBSTATE_LABEL: Record<MeetingSubstate, string> = {
   'awaiting-booking': 'Awaiting booking',
