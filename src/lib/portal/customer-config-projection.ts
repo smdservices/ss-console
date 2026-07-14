@@ -22,6 +22,7 @@
  */
 
 import type { CustomerYaml, Persona } from '../operator/customer-yaml/types'
+import type { RoutineGrid } from '../operator/routine-grid'
 import type { CustomerConfigDbRow, PersonaConfig } from './customer-config'
 
 export interface ProjectionContext {
@@ -67,10 +68,17 @@ function toPersonaConfig(p: Persona): PersonaConfig {
  *
  * The output is exactly what `projectRow` consumes on read, so a round-trip
  * `projectRow(projectCustomerYamlToConfigRow(yaml, ctx))` must never throw.
+ *
+ * `routineGrid` (ADR 0075) is projected from the seat's routine-grid.yaml when
+ * one exists next to customer.yaml. It is validated BY THE CALLER (the script
+ * hard-fails on an invalid grid) and passed through here already typed — this
+ * mapper only serializes it. Absent → `routine_grid_json: null`, which the read
+ * side resolves to the gridless console fallback.
  */
 export function projectCustomerYamlToConfigRow(
   yaml: CustomerYaml,
-  ctx: ProjectionContext
+  ctx: ProjectionContext,
+  routineGrid?: RoutineGrid | null
 ): CustomerConfigDbRow {
   const personas: PersonaConfig[] = yaml.personas.map(toPersonaConfig)
 
@@ -97,6 +105,8 @@ export function projectCustomerYamlToConfigRow(
     // defaults it to disabled); guard for null anyway, which the read side
     // resolves to the same fail-closed default via parseMcpConnector.
     mcp_connector_json: yaml.mcp_connector ? JSON.stringify(yaml.mcp_connector) : null,
+    // Nullable: no routine-grid.yaml on the seat → null → gridless console.
+    routine_grid_json: routineGrid ? JSON.stringify(routineGrid) : null,
     git_sha: ctx.gitSha,
     synced_at: ctx.syncedAt,
   }
@@ -131,6 +141,7 @@ const CONFIG_COLUMNS = [
   'authority_json',
   'credential_custody_default',
   'mcp_connector_json',
+  'routine_grid_json',
   'git_sha',
   'synced_at',
 ] as const
@@ -167,6 +178,7 @@ export function buildProjectionSql(
     e(row.authority_json),
     e(row.credential_custody_default),
     e(row.mcp_connector_json),
+    e(row.routine_grid_json),
     e(row.git_sha),
     e(row.synced_at),
   ]

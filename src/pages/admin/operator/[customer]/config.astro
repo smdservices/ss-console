@@ -4,6 +4,8 @@ import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
 import { sectionPresence, presenceBadge, toneSummary } from '../../../../lib/admin/config-view'
 import { personaStatusDisplay, skillCountLabel } from '../../../../lib/admin/operator-overview'
 import { getCustomerConfig, type CustomerConfigRow } from '../../../../lib/portal/customer-config'
+import { resolveOperatorWork } from '../../../../lib/portal/operator/facets/work/work'
+import OperatorWork from '../../../../components/portal/operator/facets/OperatorWork.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -45,6 +47,11 @@ const sections = config
       { label: 'Escalation', presence: sectionPresence(config.escalation) },
     ]
   : []
+
+// "The work" chapter (ADR 0076 / console structure doc §3.2) — the same shared
+// resolver + viewer the client portal mounts, reading the same routine-grid
+// projection. Admin gets the plain read (no DomainSurface / request path).
+const workModel = config ? resolveOperatorWork(config) : null
 ---
 
 <AdminLayout
@@ -180,6 +187,18 @@ const sections = config
                 These sections are shown as configured / not set; their detailed editors land with
                 the config-authoring write path.
               </p>
+            </div>
+
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1">
+                The work
+              </h3>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mb-4">
+                What this operator does, stage by stage, and how much it does on its own — the same
+                view the client sees. Grid-backed when a routine grid is projected; otherwise the
+                skills inventory.
+              </p>
+              {workModel && <OperatorWork model={workModel} />}
             </div>
           </>
         )

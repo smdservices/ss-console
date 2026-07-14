@@ -1,0 +1,87 @@
+---
+/**
+ * One routine row of "The work" grid (ADR 0076; console structure doc §3.2).
+ * Extracted from OperatorWork.astro so each component stays small; it renders a
+ * single WorkRoutineView: the routine name, how it starts, the Today tier
+ * sentence, the Can-become line (only where the ceiling exceeds the start) or
+ * the standing cap verbatim, and the implementing skills with their reviewed
+ * summaries. Every string traces to authored grid data, the reviewed skill
+ * summaries, or the fixed tier / starts label maps in the resolver — no invented
+ * copy, no vertical vocabulary.
+ */
+import type { WorkRoutineView } from '../../../../lib/portal/operator/facets/work/work'
+
+interface Props {
+  routine: WorkRoutineView
+  /** True for every row after the first in a section — draws the divider rule. */
+  divided: boolean
+}
+
+const { routine: r, divided } = Astro.props
+---
+
+<li class={`py-5 ${divided ? 'border-t-[2px] border-[color:var(--color-border)]' : ''}`}>
+  <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-8">
+    <p class="min-w-0 font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+      {r.routine}
+    </p>
+    {
+      r.startsLabels.length > 0 && (
+        <span class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] md:pt-0.5">
+          {r.startsLabels.join(' · ')}
+        </span>
+      )
+    }
+  </div>
+
+  <div class="mt-2 flex flex-col gap-1">
+    <p class="font-body text-sm text-[color:var(--color-text-primary)]">
+      <span
+        class="font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
+      >
+        Today:{' '}
+      </span>
+      {r.todaySentence}
+    </p>
+    {
+      r.canBecomeSentence && (
+        <p class="font-body text-sm text-[color:var(--color-text-primary)]">
+          <span class="font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+            Can become:{' '}
+          </span>
+          {r.canBecomeSentence}
+          {r.canBecomeVerbatim && (
+            <span class="text-[color:var(--color-text-secondary)]"> ({r.canBecomeVerbatim})</span>
+          )}
+        </p>
+      )
+    }
+    {
+      r.capVerbatim && (
+        <p class="font-body text-sm text-[color:var(--color-text-secondary)]">{r.capVerbatim}</p>
+      )
+    }
+  </div>
+
+  {
+    r.skills.length > 0 && (
+      <ul
+        role="list"
+        class="mt-3 flex flex-col gap-2 border-l-[2px] border-[color:var(--color-border)] pl-4"
+      >
+        {r.skills.map((s) => (
+          <li>
+            <p class="font-body text-sm font-semibold leading-snug text-[color:var(--color-text-primary)]">
+              {s.name}
+            </p>
+            {s.summary && (
+              <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                {s.summary}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</li>

@@ -48,21 +48,36 @@ edition of the same authored document that governs it.
    manual through governed paths (ADR 0069 Tier 0 write-back when real,
    Request-a-change until then).
 
-2. **Doors regroup around client questions, not config keys.** The landing's
-   map evolves from config-shaped doors to the employee-file structure:
+2. **Doors regroup around client questions, not config keys.**
+   _(Amended 2026-07-14: the table of contents below is superseded by the
+   locked structure document
+   [docs/design/operator/04-console-structure.md](../design/operator/04-console-structure.md),
+   which grounds each chapter in a standard employment artifact and makes the
+   ADR 0075 routine grid the spine. The doctrine of this decision — client
+   questions over config keys — is unchanged; the chapter set sharpened.)_
+
+   The console's six chapters, each corresponding to a standard employment
+   document (see the structure doc §2b for the full mapping and sources):
    - **Status** — present and healthy (unchanged).
-   - **The job** — the lifecycle the operator works as the organizing spine:
-     phases, what it does per phase (skills grouped by phase rather than a
-     flat list), and how each duty is set in motion. This is the `workflow`
-     facet grown into the Role section's centerpiece, with the Skills
-     inventory as its detail view.
-   - **Boundaries** — one surface answering "what are the limits": what it
-     can see and who it responds to (the `scope` facet) together with what it
-     may do on its own (the `entitlements`/`authority` governance facets).
-     Composed as one door mounting the per-facet viewers.
-   - **Working together** — Persona/Voice, Connections, Team, Memory.
+   - **The work** — the rendered routine grid, grouped by lifecycle section:
+     every routine with what it does, where, when it starts, and how much it
+     does alone (its Delegation-of-Authority tier, in plain sentences). This
+     absorbs Skills, Schedule, Governance, and Workflows _as pages_; the
+     Skills inventory survives as the grid's detail view and the gridless
+     fallback. The earlier "Boundaries" composition is superseded: autonomy
+     lives per-routine on the grid, not on a separate limits page.
+   - **Access** — the systems and accounts it holds keys to, per system
+     (mailbox identity + folder visibility, connected systems, web search).
+   - **People** — who it responds to (inbound roster), who it writes to for
+     the firm (outbound roster classes), escalation, team, and blocks.
    - **The record** — Activity (compliance folded in, role-scoped).
    - **The arrangement** — Account.
+
+   A further Captain directive is structural: **configurability is the
+   substrate** — every rendered fact declares its change-path from day one
+   (request-a-change today, governed self-service write-back when a domain's
+   authority flips), so client configurability is a permission change, never
+   a rebuild. See the structure doc §5b.
 
 3. **The facet system underneath is unchanged.** The facet registry remains
    the closed truth; Lock 4 (one shared viewer per facet, mounted by both
