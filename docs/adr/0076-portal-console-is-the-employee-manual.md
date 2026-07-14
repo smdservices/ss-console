@@ -49,12 +49,18 @@ edition of the same authored document that governs it.
    Request-a-change until then).
 
 2. **Doors regroup around client questions, not config keys.**
-   _(Amended 2026-07-14: the table of contents below is superseded by the
-   locked structure document
-   [docs/design/operator/04-console-structure.md](../design/operator/04-console-structure.md),
-   which grounds each chapter in a standard employment artifact and makes the
-   ADR 0075 routine grid the spine. The doctrine of this decision — client
-   questions over config keys — is unchanged; the chapter set sharpened.)_
+   _(Amended 2026-07-14, second revision: the table of contents below is
+   superseded by the console blueprint
+   [docs/design/operator/05-console-blueprint.md](../design/operator/05-console-blueprint.md),
+   which is now the governing design document for the console. The blueprint
+   reframes the console's job as rendering the current authored configuration,
+   comprehensively, in client language — driven by falsifiable visit-occasion
+   tests rather than a governing metaphor; the employee-manual frame survives
+   as the honesty rule (every sentence traces to the authored config). An
+   intermediate structure document, 04-console-structure.md, held this pointer
+   earlier the same day and is preserved as history; the blueprint dispositions
+   its locked resolutions in its §1. The doctrine of this decision — client
+   questions over config keys — is unchanged.)_
 
    The console's six chapters, each corresponding to a standard employment
    document (see the structure doc §2b for the full mapping and sources):
