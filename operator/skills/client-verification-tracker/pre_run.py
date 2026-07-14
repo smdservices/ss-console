@@ -31,9 +31,12 @@ Plus one seat-level condition:
 
   (c) CONFIG MISSING — ``chase_cadence_days`` or ``escalate_after_attempts`` is
       not authored: these are client-commitment numbers (File 07), so there is NO
-      pack default. Fail-closed: wake ONCE to surface "chase cadence / escalation
-      attempt-count not authored", record that surface in the ledger, then stay
-      quiet. An unset dial holds the chase; it never releases it and never spams.
+      pack default. Fail-closed: wake to surface "chase cadence / escalation
+      attempt-count not authored", record that surface in the ledger, and then
+      re-surface on the shared fire-once + re-fire-window rule (every
+      ``refire_days``) until the dials are authored — a chase held dark must not
+      go permanently silent on one missed notice (#1899). An unset dial holds
+      the client chase; it never releases it and never daily-spams.
 
 Everything else -> a ``SUPPRESSED_WAKE`` heartbeat through the broker, then
 ``{"wakeAgent": false}``. The heartbeat IS the dead-man's-switch: a scheduled
@@ -58,8 +61,8 @@ Fail direction (per the plan)
   pre-graduation behavior. Never silently skip a chase.
 - Smokeball pull failure / unrecognized envelope -> FIRE-OPEN (wake).
 - Config file unreadable / unauthored -> treat as unauthored: fail-CLOSED hold
-  plus the single "config missing" surface (condition (c)), never a silent
-  default and never a spam loop.
+  plus the re-fired "config missing" surface (condition (c)), never a silent
+  default and never a daily spam loop.
 
 ``decide()`` is a pure function (no I/O), unit-tested with fake inputs.
 ``run_once()`` wires the real verification-task source + broker heartbeat + stdout.
@@ -85,7 +88,8 @@ from typing import Protocol, Sequence
 SKILL_NAME = "client-verification-tracker"
 
 # The config-missing surface is seat-level, not per-item. It is remembered in the
-# ledger under a stable sentinel item_key so it fires exactly once (then quiet).
+# ledger under a stable sentinel item_key so it fires on the re-fire window
+# (every refire_days until authored), never daily (#1899).
 _CONFIG_SENTINEL_SOURCE_ID = "__chase_config__"
 _CONFIG_SENTINEL_LABEL = "chase-config-missing"
 
@@ -136,7 +140,7 @@ class VerificationSource(Protocol):
 
 # ---------------------------------------------------------------------------
 # Chase config — CLIENT-COMMITMENT numbers (File 07). No pack default: unset is
-# fail-closed hold + single surface, never a silent interval (ADR 0035).
+# fail-closed hold + re-fired surface, never a silent interval (ADR 0035).
 # ---------------------------------------------------------------------------
 
 
@@ -277,7 +281,7 @@ def _load_ledger_module():
 # Per-item actions the decision can reach.
 ACTION_CHASE = "chase"  # a client nudge is due (attempt < ceiling)
 ACTION_HANDOFF = "handoff"  # ceiling reached; stop chasing, hand to the attorney (once)
-ACTION_SURFACE_CONFIG = "surface_config_missing"  # seat-level, once
+ACTION_SURFACE_CONFIG = "surface_config_missing"  # seat-level, on the refire window
 ACTION_SUPPRESS = "suppress"  # nothing due for this item
 
 
@@ -335,22 +339,27 @@ def decide(
     """
     states = ledger.derive_state(events)
 
-    # (c) Seat-level: config unauthored → fail-closed hold + single surface.
+    # (c) Seat-level: config unauthored → fail-closed hold + re-fired surface.
+    # The sentinel follows the same fire-once + re-fire-window rule as every
+    # other internal raise (never daily, but never once-ever either): a held
+    # chase re-surfaces every refire_days until the dials are authored (#1899).
     if not config.authored:
         sentinel_key = ledger.item_key(
             "", _CONFIG_SENTINEL_SOURCE_ID, _CONFIG_SENTINEL_LABEL, ""
         )
-        already_surfaced = sentinel_key in states  # any prior raise = surfaced once
-        if already_surfaced:
+        sentinel_state = states.get(sentinel_key)
+        if not ledger.should_fire(
+            sentinel_state, today, refire_days=refire_days, ack_snooze_days=refire_days
+        ):
             return WakeDecision(
                 wake=False,
-                decision_basis="chase_config_unauthored_already_surfaced",
+                decision_basis="chase_config_unauthored_within_refire_window",
                 pre_run_inputs_digest=raw_inputs_for_digest,
                 extra_metadata={"open_item_count": len(items)},
             )
         return WakeDecision(
             wake=True,
-            decision_basis="chase_config_unauthored_surface_once",
+            decision_basis="chase_config_unauthored_surface",
             pre_run_inputs_digest=raw_inputs_for_digest,
             plans=(
                 ItemPlan(
@@ -358,7 +367,7 @@ def decide(
                     task_id=None,
                     item_key=sentinel_key,
                     action=ACTION_SURFACE_CONFIG,
-                    attempt=0,
+                    attempt=ledger.next_attempt(sentinel_state),
                 ),
             ),
             extra_metadata={
@@ -487,7 +496,7 @@ async def run_once(
 
     Fail-open on ledger loss: if the ledger module cannot be loaded, wake (the
     pre-graduation behavior). Config-read is the unauthored path on failure, but
-    that is handled inside ``decide`` (surface-once), not here.
+    that is handled inside ``decide`` (re-fired surface), not here.
     ``config``/``refire_days``/``ledger_events`` default to the live config +
     on-disk ledger; tests inject them directly."""
     now = now or datetime.now(timezone.utc)
