@@ -293,7 +293,17 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # `uv pip install "git+<repo>@<sha>"` here died on `git submodule update --init`
 # — it broke EVERY seat image build from #158 (f3e48d6/5b7318cb) onward. Untracked +
 # gitignored. Twin recipient_classifier.py unchanged, so its overlaySha256 is unchanged.
-ARG OVERLAY_REF="63a3bca6806ef42f64e518ac521df362705319a9"
+# 63a3bca (#162, ADR 0075): proactive outbound relay — deliver graduated chases to
+# rostered client/vendor. (Comment carried through the #163 rebase; #163 is its child.)
+# fdf8870a (#163, ss #1806, ADR 0071 harden): out-of-band send of the approved
+# confirm payload — the overlay dispatches the approved send itself (the LLM does
+# not reliably re-invoke on "yes"), re-authorized through the SAME evaluate_tool_call
+# gate + emitting CONFIRM_SEND_DISPATCHED/FAILED audit rows. Carries #162
+# (proactive outbound relay, ADR 0075) which merged just ahead of it. Range
+# 0f3e929..fdf8870 touches plugins/hermes-smd-trust/{outbound_send.py(new),__init__.py}
+# + plugins/hermes-smd-reply + tests — NOT tracked twins, so every overlaySha256 is
+# unchanged; only overlayRef. Superset of 63a3bca (#162) / 0f3e9291 (#161).
+ARG OVERLAY_REF="fdf8870a77c9a95b6ebe16db4d344acefcb686e6"
 
 ARG CUSTOMER_SLUG=customer-zero
 
