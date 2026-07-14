@@ -67,18 +67,19 @@
 
 **Kernel-capability finding (the long pole):** Fly.io does **NOT document** whether `CAP_NET_ADMIN`/nftables is available inside a Machine. The nftables (kernel-firewall) leg is therefore **unproven — must be tested on a throwaway `smd-staging` Machine** before committing.
 
-**Proxy-only fallback (deployable now):** tinyproxy on **loopback 127.0.0.1:3128**, `HTTPS_PROXY` on the gateway (uid 10000), set at entrypoint after broker startup (~`:70`) before exec to hermes (~`:77`). Allowlist **auto-derives** from a base set + `customer.yaml.connectors{}` (~100-line python → tinyproxy `allowlist.conf`). Proxy crash → connection refused → agent observes error, no silent exfil (fail-closed).
+**Proxy-only fallback (deployable now):** tinyproxy on **loopback 127.0.0.1:3128**, `HTTPS_PROXY` on the gateway (uid 10000), set at entrypoint after broker startup (~~`:70`) before exec to hermes (~~`:77`). Allowlist **auto-derives** from a base set + `customer.yaml.connectors{}` (~100-line python → tinyproxy `allowlist.conf`). Proxy crash → connection refused → agent observes error, no silent exfil (fail-closed).
 
 **Per-connector compatibility matrix:**
-| Connector | Host | Proxy honor | Status |
-|---|---|---|---|
-| Anthropic | api.anthropic.com | **via WS2c relay base_url, NOT proxy** (see note) | reconcile w/ WS2c |
-| Google (broker) | googleapis.com | broker uid 10001 env-i'd, bypasses proxy | sound |
-| AgentMail (Node MCP) | mcp.agentmail.to | unknown | **MUST test** |
-| Clio (stdio MCP) | _.clio.com | subprocess inherits HTTPS_PROXY? | **MUST test** |
-| Sentry / Healthchecks | sentry.io / hc.io | likely | confirm |
-| R2 bootstrap fetch | s3._.r2.cloudflarestorage.com | runs **before** proxy starts | **GAP — reorder or accept** |
-| Fly internals | varies | unknown | audit entrypoint |
+
+| Connector             | Host                          | Proxy honor                                       | Status                      |
+| --------------------- | ----------------------------- | ------------------------------------------------- | --------------------------- |
+| Anthropic             | api.anthropic.com             | **via WS2c relay base_url, NOT proxy** (see note) | reconcile w/ WS2c           |
+| Google (broker)       | googleapis.com                | broker uid 10001 env-i'd, bypasses proxy          | sound                       |
+| AgentMail (Node MCP)  | mcp.agentmail.to              | unknown                                           | **MUST test**               |
+| Clio (stdio MCP)      | _.clio.com                    | subprocess inherits HTTPS_PROXY?                  | **MUST test**               |
+| Sentry / Healthchecks | sentry.io / hc.io             | likely                                            | confirm                     |
+| R2 bootstrap fetch    | s3._.r2.cloudflarestorage.com | runs **before** proxy starts                      | **GAP — reorder or accept** |
+| Fly internals         | varies                        | unknown                                           | audit entrypoint            |
 
 **Residual without the kernel firewall (proxy-only):** `HTTPS_PROXY` is a _voluntarily-honored env var_ — LD*PRELOAD socket hijack, raw UDP/DNS, and **a raw socket opened by arbitrary `execute_code` all bypass it**. ws6 labels these "acceptable." **REVIEW NOTE for the panel:** proxy-only does NOT contain a malicious code-exec payload; only the kernel firewall does. On customer-zero this is reconciled by Phase-1 leaving `code_execution` \_unauthored/fail-closed* — so the raw-socket vector is already closed there, and proxy-only is defense-in-depth for the well-behaved library paths. The egress allowlist's marginal value is conditional on whether `code_execution` is ever authored.
 
@@ -109,7 +110,7 @@ Consumers: AGENT = uid 10000 model loop · PRE = pre-agent bootstrap step · SUB
 **Ordering is the whole game.** A secret may only be unset AFTER its last pre-agent consumer and BEFORE the gateway exec. R2/CLIO last consumers live in `bootstrap.sh`, which **runs as the gateway process** (`entrypoint.sh:77-82 exec /app/bootstrap.sh`) — so `entrypoint.sh:72-73` is **too early** for them.
 
 - **ANTHROPIC_API_KEY** → strip in `entrypoint.sh` (after relay readiness check), extend the unset block: `unset ANTHROPIC_API_KEY ANTHROPIC_TOKEN CLAUDE_CODE_OAUTH_TOKEN`.
-- **R2*\* and CLIO*\*** → strip at the **END of `bootstrap.sh`, immediately before `exec` at `:680`** (new block, load-bearing comment).
+- _*R2*\* and CLIO_\*** → strip at the **END of `bootstrap.sh`, immediately before `exec` at `:680`** (new block, load-bearing comment).
 - **R2*SKILL_BODIES*\*** → NOT stripped (agent-reachable; WS2a is its fix).
 
 ### (c) Anthropic key behind a broker relay — CORE-FREE seam (verified in cloned hermes-agent @ eeb2fff)

@@ -19,13 +19,7 @@ import type { DraftRef } from './email'
 // ---------------------------------------------------------------------------
 
 export type EnvelopeStatus =
-  | 'sent'
-  | 'delivered'
-  | 'partial_signed'
-  | 'completed'
-  | 'declined'
-  | 'voided'
-  | 'expired'
+  'sent' | 'delivered' | 'partial_signed' | 'completed' | 'declined' | 'voided' | 'expired'
 
 export interface Signer {
   email: string
