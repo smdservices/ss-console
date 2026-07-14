@@ -19,11 +19,7 @@ export interface TimeEntry {
 }
 
 export type TimeEntryCategory =
-  | 'solution_design'
-  | 'implementation'
-  | 'training'
-  | 'admin'
-  | 'other'
+  'solution_design' | 'implementation' | 'training' | 'admin' | 'other'
 
 export const TIME_ENTRY_CATEGORIES: { value: TimeEntryCategory; label: string }[] = [
   { value: 'solution_design', label: 'Solution Design' },

@@ -48,12 +48,7 @@ export type Tone = 'info' | 'success' | 'danger' | 'warning' | 'neutral' | 'outl
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'superseded'
 export type EngagementStatus =
-  | 'scheduled'
-  | 'active'
-  | 'handoff'
-  | 'safety_net'
-  | 'completed'
-  | 'cancelled'
+  'scheduled' | 'active' | 'handoff' | 'safety_net' | 'completed' | 'cancelled'
 
 const INVOICE_TONE: Record<InvoiceStatus, Tone> = {
   draft: 'neutral',

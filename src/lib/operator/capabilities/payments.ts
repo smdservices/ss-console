@@ -18,12 +18,7 @@ import type { AdapterBase, DateRange } from './types'
 // ---------------------------------------------------------------------------
 
 export type TransactionType =
-  | 'payment'
-  | 'refund'
-  | 'chargeback'
-  | 'trust_deposit'
-  | 'trust_disbursement'
-  | 'transfer'
+  'payment' | 'refund' | 'chargeback' | 'trust_deposit' | 'trust_disbursement' | 'transfer'
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed' | 'disputed'
 
