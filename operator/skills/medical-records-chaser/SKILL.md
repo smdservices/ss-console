@@ -128,6 +128,23 @@ channel; a firm that prefers a firm-branded send path authors that preference at
 connect. Deliverability and professionalism are the firm's call to make (ADR
 0035), stated plainly at connect — not a gate we impose silently.
 
+### The chase send MUST use `send_message` (never `create_draft`)
+
+The "sent or drafted follows the ceiling" behavior above only works if the chase is
+issued as a **classified proactive send**: **the chase MUST use
+`mcp_agentmail_send_message`.** That is the tool the trust gate inspects — it
+classifies the recipient (the rostered records-vendor resolves to the
+`external_send_vendor` class), re-applies the content and voice floors, and then
+**holds the send as a draft at `draft_for_review` or delivers it at `autonomous`**.
+The ceiling does the sent-vs-drafted decision; the skill always calls the same tool.
+
+Do **NOT** issue the chase with `mcp_agentmail_create_draft`. `create_draft` is an
+`internal_write` — it produces a draft that no one sends, so a chase authored to
+send autonomously would silently never go out (the ceiling would be inert). And do
+**NOT** use `mcp_agentmail_reply_to_message`: an in-thread reply bypasses recipient
+classification and degrades to a held draft. The chase is a fresh proactive
+`send_message` to the resolved records-vendor / provider contact.
+
 ## How it works (mapped to the real connector tools)
 
 Every run emits exactly one of three output shapes — **A** (chase), **B** (received,
@@ -148,9 +165,11 @@ never Shape B (the firm's file-naming convention is unconfirmed).
    surface for confirmation, never auto-close.
 3. **Compute outstanding** — outstanding = authored roster minus confidently-received.
    Modeled from the roster and the observed documents, never from a status API.
-4. **Chase** — for each outstanding provider whose cadence is due, draft a chase to
-   the provider / records vendor in the firm's voice from the pack template
-   (`references/voice.md`, derived from `_shared-chase-voice.md`). Connective
+4. **Chase** — for each outstanding provider whose cadence is due, compose the chase
+   to the provider / records vendor in the firm's voice from the pack template
+   (`references/voice.md`, derived from `_shared-chase-voice.md`) and issue it with
+   `mcp_agentmail_send_message` (never `create_draft` — see "The send seam" above; the
+   ceiling decides sent-vs-held). Connective
    follow-up; it states what is outstanding and asks for status or an expected date;
    it characterizes no treatment. Log with `create_memo`; open or refresh a tracked
    item with `create_task` (assigned to the responsible staff, keyed to
