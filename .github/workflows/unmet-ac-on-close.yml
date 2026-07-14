@@ -9,6 +9,6 @@ on:
 
 jobs:
   check:
-    uses: venturecrane/crane-console/.github/workflows/unmet-ac-on-close-reusable.yml@ec197443b763c444751ce4ea50558130c9c856c2 # tick-acs-v1
+    uses: venturecrane/crane-console/.github/workflows/unmet-ac-on-close-reusable.yml@6e2af4c88202f34843176538c95da9d3ec3946f7 # tick-acs-v1
     permissions:
       issues: write
