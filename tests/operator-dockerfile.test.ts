@@ -374,7 +374,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks — #158 committed
     // live worktree checkouts with no .gitmodules, breaking `uv pip install git+@sha`
     // (git submodule update failed) on EVERY seat rebuild. Untracks + gitignores them.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="63a3bca6806ef42f64e518ac521df362705319a9"')
+    // 63a3bca (#162, ADR 0075): proactive outbound relay to rostered client/vendor.
+    // fdf8870a (#163, ss #1806, ADR 0071 harden): out-of-band send of the approved
+    // confirm payload — the overlay dispatches the send itself (the LLM does not
+    // reliably re-invoke on "yes"), re-authorized through the same evaluate_tool_call
+    // gate + CONFIRM_SEND_DISPATCHED/FAILED audit rows. Child of #162; carries it.
+    // No tracked twin moved; overlayRef-only. Superset of 63a3bca (#162).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fdf8870a77c9a95b6ebe16db4d344acefcb686e6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
