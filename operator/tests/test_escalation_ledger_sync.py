@@ -13,11 +13,11 @@ from pathlib import Path
 _OPERATOR_ROOT = Path(__file__).resolve().parents[1]
 _CANONICAL = _OPERATOR_ROOT / "workspace_broker" / "escalation_ledger.py"
 
-# Every skill that imports the shared ledger carries a vendored copy. WP-B adds
-# client-verification-tracker here when it graduates to a bespoke gate.
+# Every skill that imports the shared ledger carries a vendored copy.
 VENDORED_SKILLS = (
     "deadline-miss-escalator",
     "daily-needs-you-digest",
+    "client-verification-tracker",
 )
 
 
