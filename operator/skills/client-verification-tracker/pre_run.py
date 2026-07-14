@@ -462,7 +462,8 @@ def _item_to_dict(item: VerificationItem) -> dict:
     return {
         "matter_id": item.matter_id,
         "task_id": item.task_id,
-        "authored_date": item.authored_date.isoformat(),
+        # authored_date is None in production (identity is the stable task_id).
+        "authored_date": item.authored_date.isoformat() if item.authored_date else None,
         "next_chase_due": item.next_chase_due.isoformat(),
         "label": item.label,
     }
