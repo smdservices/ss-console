@@ -1,0 +1,22 @@
+-- Migration 0091: customer_configs gains routine_grid_json.
+--
+-- The routine grid (ADR 0075, operator/customers/<slug>/routine-grid.yaml) is
+-- the compiled traceability artifact that maps a client commitment letter's
+-- per-routine autonomy tiers onto the seat's skills and records how each tier
+-- is enforced. It becomes the data plane for the console "the work" chapter
+-- (docs/design/operator/04-console-structure.md §6 / §7 step 3): the portal
+-- reads this projected column to render the grid instead of the current
+-- gridless fallback.
+--
+-- Projected alongside the rest of customer.yaml on every merge (ADR 0012):
+-- the projection serializes the validated grid to JSON here, and the portal
+-- read side (src/lib/portal/customer-config.ts) resolves it defensively —
+-- a null or malformed value degrades to the gridless console, never a 500.
+-- Nullable and no default: a seat with no routine-grid.yaml, and every row
+-- that predates this column, resolves to "no grid" cleanly.
+--
+-- Pure additive column on a table whose PK is customer_slug (migration 0090);
+-- no data backfill (the next projection populates it), no index (never queried
+-- by this column). Manual-only rollback would DROP the column.
+
+ALTER TABLE customer_configs ADD COLUMN routine_grid_json TEXT;
