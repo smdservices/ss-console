@@ -1,9 +1,14 @@
 # Operator Console Structure — the work is the spine
 
-Status: **LOCKED — Captain approval 2026-07-14** (directional approval of the
-structure + resolutions on naming grounding, tier language, and configurability;
-execution plan approved same day). Evolves ADR 0076 §2 (same employee-manual
-doctrine, sharper table of contents); grounded in
+Status: **SUPERSEDED as governing doc by
+[05-console-blueprint.md](05-console-blueprint.md) — 2026-07-14** (same day as
+its lock; the blueprint dispositions every resolution locked here in its §1,
+carrying the honesty rules, one-viewer-two-mounts, the grid-as-spine, and the
+§5b configurability substrate, and revising the chapter set and naming).
+Preserved as history. Original status: LOCKED — Captain approval 2026-07-14
+(directional approval of the structure + resolutions on naming grounding, tier
+language, and configurability; execution plan approved same day). Evolves ADR
+0076 §2 (same employee-manual doctrine, sharper table of contents); grounded in
 `operator/customers/pilot-smokeball/routine-grid.yaml` (ADR 0075), the facet
 registry, and three build iterations of the console.
 
