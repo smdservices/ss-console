@@ -201,6 +201,19 @@ connectors: {}
 # is empty (telegram.py: `if not allowed_csv: return True`); the materializer raises on
 # an empty allow_from, and the bootstrap guard (ensure-telegram-allowlist.py) refuses to
 # launch if the token is set without a resolvable allowlist. Proven live 2026-06-01.
+# ---- CUSTODY EXCEPTIONS (ADR 0044 Decision 8 / ADR 0045 §7, #1841) ----
+# Crane authors `code_execution: autonomous` (delegate_task escalate-up per ADR
+# 0049; health self-check). The custody guard therefore requires every
+# gateway-held credential surface to be broker-mediated OR explicitly accepted
+# here. Crane's only gateway surfaces are IDENTITY CHANNELS — its own Telegram
+# bot and its own AgentMail inbox (the persona send_as identity). Their blast
+# radius is the seat impersonating ITSELF, never reading a client's system of
+# record, so they are exception-eligible (client-data connectors never are).
+# Rationale + per-connector verdicts: operator/contracts/connector-custody-dispositions.md.
+custody_exceptions:
+  - telegram
+  - agentmail
+
 telegram:
   enabled: true
   # Permitted Telegram numeric user id(s). DM-only. 7367659986 = Scott Durgan.

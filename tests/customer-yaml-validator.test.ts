@@ -216,6 +216,89 @@ describe('webhook_triggers.throttle (per-trigger cooldown, #1781)', () => {
   })
 })
 
+describe('custody guard (code_execution vs gateway-held creds, ADR 0044 D8 / #1841)', () => {
+  function withCodeExecution(extra?: (f: Record<string, unknown>) => void) {
+    const f = validFixture()
+    const personas = f['personas'] as Record<string, unknown>[]
+    const entitlements = personas[0]['entitlements'] as Record<string, unknown>
+    entitlements['exposure'] = {
+      ...(entitlements['exposure'] as Record<string, unknown>),
+      code_execution: 'autonomous',
+    }
+    extra?.(f)
+    return f
+  }
+
+  it('rejects non-refused code_execution alongside enabled gateway connectors', () => {
+    const result = validate(withCodeExecution())
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      const hit = result.errors.find((e) => e.code === 'CustodyGuardViolation')
+      expect(hit).toBeDefined()
+      expect(hit?.message).toContain('filevine')
+    }
+  })
+
+  it('counts the telegram channel and agentmail send identity as surfaces', () => {
+    const tg = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        f['telegram'] = { enabled: true, allow_from: ['7367659986'] }
+      })
+    )
+    expect(tg.ok).toBe(false)
+    if (!tg.ok) expect(tg.errors.some((e) => e.message.includes('telegram'))).toBe(true)
+
+    const am = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        const personas = f['personas'] as Record<string, unknown>[]
+        personas[0]['send_as'] = { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' }
+      })
+    )
+    expect(am.ok).toBe(false)
+    if (!am.ok) expect(am.errors.some((e) => e.message.includes('agentmail'))).toBe(true)
+  })
+
+  it('an authored identity-channel exception accepts (the smd shape)', () => {
+    const result = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        const personas = f['personas'] as Record<string, unknown>[]
+        delete personas[0]['send_as'] // fixture persona carries an agentmail identity
+        f['telegram'] = { enabled: true, allow_from: ['7367659986'] }
+        f['custody_exceptions'] = ['telegram']
+      })
+    )
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(true)
+    if (result.ok) expect(result.value.custody_exceptions).toEqual(['telegram'])
+  })
+
+  it('client-data adapters can never be excepted', () => {
+    const result = validate(withCodeExecution((f) => (f['custody_exceptions'] = ['filevine'])))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.code === 'IneligibleCustodyException')).toBe(true)
+    }
+  })
+
+  it('code_execution refused or unauthored passes with connectors present', () => {
+    const refused = withCodeExecution()
+    const personas = refused['personas'] as Record<string, unknown>[]
+    const entitlements = personas[0]['entitlements'] as Record<string, unknown>
+    ;(entitlements['exposure'] as Record<string, unknown>)['code_execution'] = 'refused'
+    expect(validate(refused).ok).toBe(true)
+    expect(validate(validFixture()).ok).toBe(true)
+  })
+
+  it('rejects malformed and duplicate exception lists', () => {
+    for (const bad of ['telegram', ['telegram', 'telegram'], [42]]) {
+      const result = validate(withCodeExecution((f) => (f['custody_exceptions'] = bad)))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
 describe('digest (authored digest home, #1742)', () => {
   it('accepts a valid home_matter_id GUID and carries it through', () => {
     const f = validFixture()

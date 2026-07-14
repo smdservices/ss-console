@@ -952,6 +952,12 @@ export interface CustomerYaml {
    */
   webhook_triggers: WebhookTrigger[]
   /**
+   * Authored identity-channel custody exceptions (ADR 0044 D8 / #1841):
+   * gateway-held surfaces a non-refused code_execution seat explicitly
+   * accepts. Empty when unauthored (the guard then rejects any surface).
+   */
+  custody_exceptions: string[]
+  /**
    * Whether the Compliance dashboard view is enabled for this firm.
    *
    * Defaults to `false` when the field is omitted. Sub-50-attorney PI
@@ -1046,6 +1052,8 @@ export type ValidationErrorCode =
   | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'
+  | 'CustodyGuardViolation'
+  | 'IneligibleCustodyException'
 
 export interface ValidationError {
   code: ValidationErrorCode

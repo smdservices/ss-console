@@ -214,6 +214,16 @@ self-actor break). The per-(trigger, matter) `throttle` cooldown is already
 authored and holds regardless (it covers absent-`userId` deliveries), but the
 actor exclusion is the exact fix and must not be skipped at connect.
 
+**Custody constraint before any `code_execution` (#1841 / ADR 0045).** The A&P
+seat binds Smokeball, a client-data connector whose refresh token sits in the
+gateway env. The custody guard (ADR 0044 D8) refuses to author non-refused
+`code_execution` on this seat while that is true — Smokeball is NOT
+exception-eligible (a paying client's system of record). Today the seat leaves
+`code_execution` unauthored (fail-closed), so this is not a blocker for M3. If
+a lane ever needs `code_execution` on this seat, the prerequisite is
+broker-mediating the Smokeball credential first
+(`operator/contracts/connector-custody-dispositions.md`), not an exception.
+
 - **Blocked by:** M0 (seat) + M2 (the authorization happens at the session).
 - **Exit:** verify record of a real-matter list read through the live seat,
   including `matters/write` present in the `auth_status` decoded scopes (the
