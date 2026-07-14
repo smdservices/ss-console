@@ -66,8 +66,7 @@ This is a judgment the skill does not make on its own.
 
 ## Rules
 
-1. **Only Shape B contains an outbound draft** (a blockquote, drafted, never sent by
-   the skill; the firm sends). Shapes A and C are internal; Shape D is a surface.
+1. **Only Shape B contains an outbound draft** (a blockquote, drafted for review; the firm sends per its authored ceiling). Shapes A and C are internal; Shape D is a surface.
 2. **The skill never computes a reduction or payoff** - Medi-Cal §14124.78 /
    §14124.72(d), hospital/provider reductions, "net after fees": all Shape D, routed
    to the attorney, never a number the skill produces.

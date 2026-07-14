@@ -61,7 +61,7 @@ Triggered when `inbox-triage` routes a client status question.
 2. **No fabrication.** Every status fact is sourced to a Smokeball read (or a calendar-binding read); an unknown is stated as unknown, never filled.
 3. **Privilege.** Status is disclosed only to the client/authorized contact on the matter.
 4. **Conflict-hold gate.** No response on a held matter.
-5. **External-send draft floor.** The reply is drafted, never sent.
+5. **External send follows the authored ceiling.** The reply is an `external_send`; whether it sends or drafts is the firm's authored `external_send` ceiling, not a fixed rule (`draft_for_review` is the recommended starting posture). See `operator/references/send-posture.md`.
 
 ## Voice Rules
 
