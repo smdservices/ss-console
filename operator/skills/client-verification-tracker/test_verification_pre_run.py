@@ -261,39 +261,74 @@ def test_resolved_is_terminal_and_suppresses():
 
 
 # ---------------------------------------------------------------------------
-# decide() — unauthored config (condition c): single surface, then quiet
+# decide() — unauthored config (condition c): surface, hold, re-fire until
+# authored (#1899). Never daily, never once-ever.
 # ---------------------------------------------------------------------------
 
 
-def _config_sentinel_fired():
+def _config_sentinel_fired(*, ts="2026-07-10T09:00:00.000Z", attempt=1):
     key = _ledger.item_key("", "__chase_config__", "chase-config-missing", "")
     return _ledger.make_event(
         skill="client-verification-tracker",
         matter_id=None,
         item_key=key,
         event="fired",
-        attempt=1,
-        ts="2026-07-10T09:00:00.000Z",
+        attempt=attempt,
+        ts=ts,
     )
 
 
-def test_unauthored_config_surfaces_once():
-    # Cadence missing → surface once, no chase of the open item.
+def test_unauthored_config_surfaces():
+    # Cadence missing → surface, no chase of the open item.
     d = _decide([_item(next_chase_due=TODAY)], [], config=ChaseConfig(escalate_after_attempts=3))
     assert d.wake is True
     assert d.plans[0].action == ACTION_SURFACE_CONFIG
+    assert d.plans[0].attempt == 1  # first surface
     assert "chase_cadence_days" in d.extra_metadata["missing"]
 
 
-def test_unauthored_config_quiet_after_surface():
-    # A prior config-missing raise in the ledger → do not surface again.
+def test_unauthored_config_quiet_within_refire_window():
+    # Surfaced 2 days ago, refire window 3 → hold quiet, do not re-surface yet.
     d = _decide(
         [_item(next_chase_due=TODAY)],
-        [_config_sentinel_fired()],
+        [_config_sentinel_fired(ts="2026-07-12T09:00:00.000Z")],
         config=ChaseConfig(chase_cadence_days=5),  # ceiling missing
     )
     assert d.wake is False
-    assert d.decision_basis == "chase_config_unauthored_already_surfaced"
+    assert d.decision_basis == "chase_config_unauthored_within_refire_window"
+
+
+def test_unauthored_config_resurfaces_after_refire_window():
+    # Surfaced 4 days ago, refire window 3, dials still unauthored → re-surface
+    # (#1899: a held chase must not go permanently dark on one missed notice).
+    d = _decide(
+        [_item(next_chase_due=TODAY)],
+        [_config_sentinel_fired(ts="2026-07-10T09:00:00.000Z")],
+        config=ChaseConfig(chase_cadence_days=5),  # ceiling missing
+    )
+    assert d.wake is True
+    assert d.plans[0].action == ACTION_SURFACE_CONFIG
+    assert d.plans[0].attempt == 2  # second surface, numbered from the ledger
+
+
+def test_unauthored_config_ack_snoozes_the_surface():
+    # Staff acked the config notice yesterday → snoozed (ack window = refire
+    # window), not re-fired, and still no chase.
+    key = _ledger.item_key("", "__chase_config__", "chase-config-missing", "")
+    events = [
+        _config_sentinel_fired(ts="2026-07-10T09:00:00.000Z"),
+        _ledger.make_event(
+            skill="client-verification-tracker",
+            matter_id=None,
+            item_key=key,
+            event="acked",
+            attempt=1,
+            ts="2026-07-13T09:00:00.000Z",
+        ),
+    ]
+    d = _decide([_item(next_chase_due=TODAY)], events, config=ChaseConfig())
+    assert d.wake is False
+    assert d.decision_basis == "chase_config_unauthored_within_refire_window"
 
 
 def test_unauthored_config_never_chases():
