@@ -87,8 +87,7 @@ export interface CredentialSecretAudit {
 export type SecretWriteError = 'invalid_connector' | 'empty_secret' | 'too_long' | 'write_failed'
 
 export type SecretWriteResult =
-  | { ok: true; masked: string; ref: string }
-  | { ok: false; error: SecretWriteError }
+  { ok: true; masked: string; ref: string } | { ok: false; error: SecretWriteError }
 
 /**
  * Mask a secret for confirmation display. Reveals at most the last four

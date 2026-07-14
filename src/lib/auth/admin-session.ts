@@ -7,8 +7,7 @@ export interface AdminSession {
 }
 
 export type RequireAdminSessionResult =
-  | { ok: true; session: AdminSession }
-  | { ok: false; response: Response }
+  { ok: true; session: AdminSession } | { ok: false; response: Response }
 
 export function requireAdminSession(
   locals: Pick<App.Locals, 'session'>
