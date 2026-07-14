@@ -1,166 +1,748 @@
 #!/usr/bin/env python3
-"""Shared cron pre-run gate — the empty-seat wake suppressor (ADR 0021 Stream B).
+"""client-verification-tracker pre-run gate — ADR 0021 Stream B (WP-B, #1889).
 
-CANONICAL SOURCE: ``operator/templates/pre_run_gate.py``. The copies stamped
-into skill directories as ``pre_run.py`` MUST be byte-identical to this file —
-``operator/tests/test_pre_run_gate.py`` enforces the sync. Edit here, restamp.
+Runs BEFORE the Hermes cron daemon wakes the agent. Decides whether any open
+verification item actually needs a turn today, so the expensive chase agent does
+NOT wake every weekday when nothing is due.
 
-What this gate decides
-----------------------
-Scheduled tracker/watch/chase skills re-derive their work from the matter set
-in the practice-management system (they keep no local state — the matter is
-the system of record). On a seat with ZERO open matters there is provably no
-work for any of them, so waking the model is pure token burn. This gate:
+Why this skill graduated off the shared empty-seat gate
+-------------------------------------------------------
+The shared ``operator/templates/pre_run_gate.py`` wakes on *any* open matter — a
+seat with live matters wakes the chase daily even when no chase is due and the
+internal escalation-to-a-person email repeats on every wake (observed live:
+identical alerts July 6, 7, 8, 14). The template's own docstring calls a deeper
+state-delta gate the intended follow-on; this is that follow-on. The chase now
+reads the escalation ledger (the shared, broker-owned telemetry state, WP-A) and
+the firm's authored cadence/ceiling, and wakes only on a real transition.
 
-  1. Probes Smokeball for open matters (one ``GET /matters?Status=Open&Limit=1``
-     via the connector's own venv — the connector package is not importable
-     from the Hermes venv this script runs in).
-  2. Any open matter, any probe failure, any unknown response envelope, any
-     heartbeat-write failure → ``{"wakeAgent": true}`` (fail-open; the agent
-     wakes exactly as it would with no gate).
-  3. Zero open matters → writes a SUPPRESSED_WAKE heartbeat row through the
-     broker's uid-gated ``suppressed_wake_append`` verb, THEN emits
-     ``{"wakeAgent": false}``. Suppress-without-heartbeat never happens
-     (mirror-don't-gate): if the broker write fails, the agent wakes.
+Wake / suppress decision
+------------------------
+For each open verification tracking item the skill maintains:
 
-What this gate deliberately does NOT decide
--------------------------------------------
-It is NOT a per-skill "is there work" check. A hydrated seat (any open
-matter) always wakes — deeper UpdatedSince/state-delta gates are follow-on
-work once the Smokeball ``updated_since`` wire format is verified at connect.
-Lead-stage and inbound-driven work is unaffected either way: webhook and
-inbound wakes are ungated by design.
+  (a) CHASE DUE — cadence authored, the last ``chased`` raise is at least
+      ``chase_cadence_days`` old (or there is no prior chase and the tracking
+      task's authored due date has arrived), and attempts are below the ceiling.
+  (b) CEILING HAND-OFF — attempts have reached ``escalate_after_attempts`` and
+      the ledger holds no ``handed_off`` event yet: wake ONCE to stop chasing the
+      client and hand the open item to the responsible attorney. A ``handed_off``
+      item is terminal for autonomous wakes.
 
-Skill identity
---------------
-The scheduler stages this file to ``<profile>/scripts/<skill>/pre_run.py`` and
-runs it with cwd = that directory, so the skill name is the cwd basename. That
-keeps every stamped copy byte-identical.
+Plus one seat-level condition:
 
-Verification hook
------------------
-``pre_run.py --assume-empty`` skips the Smokeball probe and behaves as if the
-seat were empty — it exercises the heartbeat write + suppress path end-to-end
-on a live Machine without needing an actually-empty tenant. The cron daemon
-never passes arguments, so this path cannot trigger on a scheduled fire.
+  (c) CONFIG MISSING — ``chase_cadence_days`` or ``escalate_after_attempts`` is
+      not authored: these are client-commitment numbers (File 07), so there is NO
+      pack default. Fail-closed: wake ONCE to surface "chase cadence / escalation
+      attempt-count not authored", record that surface in the ledger, then stay
+      quiet. An unset dial holds the chase; it never releases it and never spams.
+
+Everything else -> a ``SUPPRESSED_WAKE`` heartbeat through the broker, then
+``{"wakeAgent": false}``. The heartbeat IS the dead-man's-switch: a scheduled
+tick with no audit row is the alarm the watcher-health view fires on.
+
+What this gate deliberately does NOT own
+----------------------------------------
+Deadline-proximity escalation on an unsigned verification (a verification nearing
+its authored response deadline; RFA highest severity) is owned by
+``deadline-miss-escalator``, which pulls every authored deadline — verification
+response deadlines included — and applies its own re-fire policy. The chase does
+not run a second deadline pull; its internal escalation references the deadline
+lane by pointer (the dedup rule), so a nearing-deadline verification is escalated
+once by the owning lane, not duplicated into a second morning email. The
+attempt-ceiling hand-off here and the deadline-proximity escalation there remain
+the two independent triggers the skill contract promises; only the ownership is
+split, which removes the duplicate-signal defect.
+
+Fail direction (per the plan)
+-----------------------------
+- Ledger unreadable (module load / read failure) -> FIRE-OPEN (wake), the
+  pre-graduation behavior. Never silently skip a chase.
+- Smokeball pull failure / unrecognized envelope -> FIRE-OPEN (wake).
+- Config file unreadable / unauthored -> treat as unauthored: fail-CLOSED hold
+  plus the single "config missing" surface (condition (c)), never a silent
+  default and never a spam loop.
+
+``decide()`` is a pure function (no I/O), unit-tested with fake inputs.
+``run_once()`` wires the real verification-task source + broker heartbeat + stdout.
+
+Exit codes:
+    0 — decision emitted (wake or suppress)
 """
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import os
 import socket
 import subprocess
 import sys
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Protocol, Sequence
 
-# Timeout budget: the Hermes scheduler kills the whole script at 120s
-# (cron/scheduler.py _DEFAULT_SCRIPT_TIMEOUT); the probe gets well under that.
-_PROBE_TIMEOUT_SECONDS = 45
-_HEARTBEAT_TIMEOUT_SECONDS = 10
+SKILL_NAME = "client-verification-tracker"
 
-_CONNECTOR_PYTHON_DEFAULT = "/opt/connectors/smokeball/.venv/bin/python"
-
-# Runs inside the connector venv, where smokeball_connector IS importable and
-# build_client_from_env() owns auth (token mint + refresh-token self-heal).
-# Envelope parsing is deliberately defensive: the live /matters list shape is
-# connect-time-unverified, so an unrecognized shape reports null → wake.
-_PROBE_SNIPPET = """\
-import json
-from smokeball_connector.client import build_client_from_env
-
-r = build_client_from_env().get("/matters", Status="Open", Limit=1)
-items = None
-if isinstance(r, list):
-    items = r
-elif isinstance(r, dict):
-    for key in ("items", "value", "results", "matters", "data"):
-        v = r.get(key)
-        if isinstance(v, list):
-            items = v
-            break
-print(json.dumps({"openMatterCount": len(items) if items is not None else None}))
-"""
+# The config-missing surface is seat-level, not per-item. It is remembered in the
+# ledger under a stable sentinel item_key so it fires exactly once (then quiet).
+_CONFIG_SENTINEL_SOURCE_ID = "__chase_config__"
+_CONFIG_SENTINEL_LABEL = "chase-config-missing"
 
 
-def _emit(wake: bool) -> int:
-    print(json.dumps({"wakeAgent": wake}))
+# ---------------------------------------------------------------------------
+# Verification-item source protocol — the real adapter reads the open
+# verification TRACKING tasks the skill maintains on each matter (one per
+# plaintiff/response-set/version). The tracking task's authored due date is the
+# first-chase-due date the skill set when it opened the item.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class VerificationItem:
+    """One open verification the skill is tracking.
+
+    Item identity is the tracking task's STABLE Smokeball id (``task_id``); the
+    ``item_key`` is ``item_key(matter_id, task_id, label, authored_date)``.
+    ``authored_date`` must be a value that does NOT move over the item's life —
+    the tracking task's due date is re-dated on each chase, so it is NOT used for
+    identity (that would change the key and orphan the ledger history). The pull
+    has no separate stable response-set date, so it leaves ``authored_date`` None
+    and lets ``task_id`` carry identity; ``label`` is the fixed
+    ``"client-verification"``. The agent MUST compute the same tuple when it
+    appends a ``chased`` / ``handed_off`` / ``resolved`` event (see SKILL.md).
+
+    ``next_chase_due`` is the tracking task's authored due date: the date the
+    skill set for the FIRST chase. Once the item has a ``chased`` event in the
+    ledger, cadence is computed from that raise instead (see ``_chase_due``), so
+    a stale task date cannot re-open a chased item early. ``task_id`` is ``None``
+    only for an item with no stable id (blanket-only, and then not per-item
+    tokenizable)."""
+
+    matter_id: str
+    task_id: str | None
+    next_chase_due: date
+    authored_date: date | None = None
+    label: str = "client-verification"
+
+
+class VerificationSource(Protocol):
+    """Adapter the real Smokeball reader satisfies: one VerificationItem per open
+    verification tracking task the skill maintains."""
+
+    def pull_open_verifications(self) -> Sequence[VerificationItem]:
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Chase config — CLIENT-COMMITMENT numbers (File 07). No pack default: unset is
+# fail-closed hold + single surface, never a silent interval (ADR 0035).
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ChaseConfig:
+    chase_cadence_days: int | None = None  # days between verification chases; None = unauthored
+    escalate_after_attempts: int | None = None  # unanswered chases before hand-off; None = unauthored
+
+    @property
+    def authored(self) -> bool:
+        """Both dials must be authored for the chase to run at all."""
+        return self.chase_cadence_days is not None and self.escalate_after_attempts is not None
+
+
+# The internal escalation-to-a-person raise (the ceiling hand-off, and the
+# config-missing surface) follows the shared fire-once + re-fire-window rule so
+# it never repeats on every wake. refire_days is legitimate pack-authored content
+# (a repetitive internal alert beats a silent one), read from the top-level
+# escalation: block the same way the escalator reads it.
+_DEFAULT_REFIRE_DAYS = 3
+
+
+def _pos_int_or_none(value):
+    """A positive int, else None. Any junk (bool, str, <=0, missing) -> None so
+    the caller treats the dial as unauthored (fail-closed), never as a default."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value > 0:
+        return value
+    return None
+
+
+def _pos_int(value, fallback: int) -> int:
+    if isinstance(value, bool):
+        return fallback
+    if isinstance(value, int) and value > 0:
+        return value
+    return fallback
+
+
+def _find_skill_settings(data) -> dict:
+    """Return this skill's per-skill ``settings:`` block from the materialized
+    customer.yaml, searching every persona's ``skills:`` list. Empty dict when
+    the entry or its settings are absent/malformed (-> unauthored)."""
+    if not isinstance(data, dict):
+        return {}
+    personas = data.get("personas")
+    if not isinstance(personas, list):
+        return {}
+    for persona in personas:
+        if not isinstance(persona, dict):
+            continue
+        skills = persona.get("skills")
+        if not isinstance(skills, list):
+            continue
+        for entry in skills:
+            if not isinstance(entry, dict) or entry.get("name") != SKILL_NAME:
+                continue
+            settings = entry.get("settings")
+            return settings if isinstance(settings, dict) else {}
+    return {}
+
+
+def load_chase_config(customer_yaml_path: str | None = None) -> tuple[ChaseConfig, int]:
+    """Read (ChaseConfig, refire_days) from the trusted volume customer.yaml
+    (``SMD_CUSTOMER_YAML_PATH`` — the root-owned copy the ADR-0044 applier
+    live-updates, so a value change reaches pre_run without a rebuild).
+
+    ``chase_cadence_days`` / ``escalate_after_attempts`` come from THIS skill's
+    per-skill ``settings:`` block (never the top-level ``escalation:`` block —
+    that carries the escalator's windows). ``refire_days`` for the internal
+    escalation comes from ``escalation.refire_days`` (pack default 3).
+
+    Missing file, missing PyYAML, or an unparseable file -> unauthored config
+    (fail-closed) with the pack-default refire window. Config-read failure is the
+    unauthored path by design (never a silent cadence)."""
+    path = customer_yaml_path or os.environ.get("SMD_CUSTOMER_YAML_PATH")
+    if not path:
+        return ChaseConfig(), _DEFAULT_REFIRE_DAYS
+    try:
+        import yaml  # available in the Hermes venv (the overlay's config reader uses it)
+    except ImportError:
+        return ChaseConfig(), _DEFAULT_REFIRE_DAYS
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except (OSError, yaml.YAMLError):
+        return ChaseConfig(), _DEFAULT_REFIRE_DAYS
+    settings = _find_skill_settings(data)
+    config = ChaseConfig(
+        chase_cadence_days=_pos_int_or_none(settings.get("chase_cadence_days")),
+        escalate_after_attempts=_pos_int_or_none(settings.get("escalate_after_attempts")),
+    )
+    esc = data.get("escalation") if isinstance(data, dict) else None
+    refire_days = _pos_int(
+        esc.get("refire_days") if isinstance(esc, dict) else None, _DEFAULT_REFIRE_DAYS
+    )
+    return config, refire_days
+
+
+# ---------------------------------------------------------------------------
+# Escalation ledger — vendored copy of the shared module (byte-identical to
+# operator/workspace_broker/escalation_ledger.py; test_escalation_ledger_sync).
+# Loaded by absolute path because the cron scheduler may run pre_run from a
+# staged scripts dir, not the skill dir. If it cannot be loaded, the chase fails
+# OPEN — it wakes (the pre-graduation behavior) rather than going silent.
+# ---------------------------------------------------------------------------
+
+
+def _load_ledger_module():
+    import importlib.util
+
+    candidates = [Path(__file__).resolve().parent]
+    for base in ("/opt/data/skills", "/app/skills"):
+        candidates.append(Path(base) / SKILL_NAME)
+    for cand in candidates:
+        module_path = cand / "escalation_ledger.py"
+        if module_path.is_file():
+            spec = importlib.util.spec_from_file_location(
+                "escalation_ledger_vendored_cvt", module_path
+            )
+            if spec is None or spec.loader is None:
+                continue
+            module = importlib.util.module_from_spec(spec)
+            # Register BEFORE exec: on Python 3.14 a `@dataclass` under
+            # `from __future__ import annotations` resolves its string
+            # annotations via sys.modules[cls.__module__] at class-creation time.
+            sys.modules[spec.name] = module
+            spec.loader.exec_module(module)
+            return module
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Decision engine — pure, no I/O. Unit-tested directly.
+# ---------------------------------------------------------------------------
+
+# Per-item actions the decision can reach.
+ACTION_CHASE = "chase"  # a client nudge is due (attempt < ceiling)
+ACTION_HANDOFF = "handoff"  # ceiling reached; stop chasing, hand to the attorney (once)
+ACTION_SURFACE_CONFIG = "surface_config_missing"  # seat-level, once
+ACTION_SUPPRESS = "suppress"  # nothing due for this item
+
+
+@dataclass(frozen=True)
+class ItemPlan:
+    """What the next turn should do for one item, plus the attempt number a chase
+    would carry (the ``nudge <#> of <max>`` numerator)."""
+
+    matter_id: str
+    task_id: str | None
+    item_key: str
+    action: str
+    attempt: int  # for a chase: the nudge number this chase would be
+
+
+@dataclass(frozen=True)
+class WakeDecision:
+    wake: bool
+    decision_basis: str
+    pre_run_inputs_digest: bytes
+    plans: tuple[ItemPlan, ...] = ()
+    extra_metadata: dict = field(default_factory=dict)
+
+
+def _chase_due(
+    state,
+    next_chase_due: date,
+    today: date,
+    *,
+    cadence_days: int,
+) -> bool:
+    """True iff a client chase is due now. With a prior ``chased`` raise, cadence
+    is measured from it (the last raise + cadence). With no prior chase, the
+    tracking task's authored due date seeds the first chase."""
+    if state is None or state.last_raised_date is None:
+        return today >= next_chase_due
+    return today >= state.last_raised_date + timedelta(days=max(0, cadence_days))
+
+
+def decide(
+    items: Sequence[VerificationItem],
+    config: ChaseConfig,
+    ledger,
+    events: Sequence[dict],
+    *,
+    raw_inputs_for_digest: bytes,
+    today: date,
+    refire_days: int,
+) -> WakeDecision:
+    """Pure decision: does any open verification need a turn today?
+
+    ``ledger`` is the loaded ledger module (or None → caller fires open before
+    reaching here). ``events`` are the ledger rows. Wake iff any item plan is
+    actionable; otherwise suppress.
+    """
+    states = ledger.derive_state(events)
+
+    # (c) Seat-level: config unauthored → fail-closed hold + single surface.
+    if not config.authored:
+        sentinel_key = ledger.item_key(
+            "", _CONFIG_SENTINEL_SOURCE_ID, _CONFIG_SENTINEL_LABEL, ""
+        )
+        already_surfaced = sentinel_key in states  # any prior raise = surfaced once
+        if already_surfaced:
+            return WakeDecision(
+                wake=False,
+                decision_basis="chase_config_unauthored_already_surfaced",
+                pre_run_inputs_digest=raw_inputs_for_digest,
+                extra_metadata={"open_item_count": len(items)},
+            )
+        return WakeDecision(
+            wake=True,
+            decision_basis="chase_config_unauthored_surface_once",
+            pre_run_inputs_digest=raw_inputs_for_digest,
+            plans=(
+                ItemPlan(
+                    matter_id="",
+                    task_id=None,
+                    item_key=sentinel_key,
+                    action=ACTION_SURFACE_CONFIG,
+                    attempt=0,
+                ),
+            ),
+            extra_metadata={
+                "open_item_count": len(items),
+                "missing": [
+                    name
+                    for name, val in (
+                        ("chase_cadence_days", config.chase_cadence_days),
+                        ("escalate_after_attempts", config.escalate_after_attempts),
+                    )
+                    if val is None
+                ],
+            },
+        )
+
+    cadence_days = int(config.chase_cadence_days or 0)
+    ceiling = int(config.escalate_after_attempts or 0)
+    plans: list[ItemPlan] = []
+    for item in items:
+        key = ledger.item_key(item.matter_id, item.task_id, item.label, item.authored_date)
+        state = states.get(key)
+        # Terminal: resolved, or already handed off (a person owns it now).
+        if state is not None and (state.resolved or state.handed_off):
+            continue
+        attempts = 0 if state is None else state.attempts
+        if attempts >= ceiling:
+            # (b) Ceiling reached, not yet handed off → wake once to hand off.
+            plans.append(
+                ItemPlan(
+                    matter_id=item.matter_id,
+                    task_id=item.task_id,
+                    item_key=key,
+                    action=ACTION_HANDOFF,
+                    attempt=attempts,
+                )
+            )
+            continue
+        # (a) Chase due?
+        if _chase_due(state, item.next_chase_due, today, cadence_days=cadence_days):
+            plans.append(
+                ItemPlan(
+                    matter_id=item.matter_id,
+                    task_id=item.task_id,
+                    item_key=key,
+                    action=ACTION_CHASE,
+                    attempt=ledger.next_attempt(state),  # the nudge number this chase carries
+                )
+            )
+    actionable = tuple(p for p in plans if p.action != ACTION_SUPPRESS)
+    if actionable:
+        chases = sum(1 for p in actionable if p.action == ACTION_CHASE)
+        handoffs = sum(1 for p in actionable if p.action == ACTION_HANDOFF)
+        return WakeDecision(
+            wake=True,
+            decision_basis="verification_action_due",
+            pre_run_inputs_digest=raw_inputs_for_digest,
+            plans=actionable,
+            extra_metadata={
+                "chase_due": chases,
+                "handoff_due": handoffs,
+                "open_item_count": len(items),
+                "items": [
+                    {
+                        "matter_id": p.matter_id,
+                        "action": p.action,
+                        "attempt": p.attempt,
+                        "ceiling": ceiling,
+                    }
+                    for p in actionable
+                ],
+            },
+        )
+    return WakeDecision(
+        wake=False,
+        decision_basis="no_verification_action_due",
+        pre_run_inputs_digest=raw_inputs_for_digest,
+        extra_metadata={"open_item_count": len(items)},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Runtime entrypoint — wires the verification source + broker heartbeat + stdout.
+# ---------------------------------------------------------------------------
+
+
+def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
+    return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _emit_wake() -> int:
+    print(json.dumps({"wakeAgent": True}))
     return 0
 
 
-def _skill_name() -> str:
-    return Path.cwd().name or "unknown-skill"
+def _emit_suppress() -> int:
+    print(json.dumps({"wakeAgent": False}))
+    return 0
 
 
-def probe_open_matter_count() -> int | None:
-    """Return the open-matter count, or None when it cannot be determined."""
-    connector_python = os.environ.get(
-        "SMD_CONNECTOR_VENV_PYTHON", _CONNECTOR_PYTHON_DEFAULT
+def _item_to_dict(item: VerificationItem) -> dict:
+    return {
+        "matter_id": item.matter_id,
+        "task_id": item.task_id,
+        "authored_date": item.authored_date.isoformat(),
+        "next_chase_due": item.next_chase_due.isoformat(),
+        "label": item.label,
+    }
+
+
+async def run_once(
+    sources: Sequence[VerificationSource],
+    audit_writer_factory,  # () -> SuppressedWakeWriter | None
+    *,
+    today: date | None = None,
+    now: datetime | None = None,
+    config: ChaseConfig | None = None,
+    refire_days: int | None = None,
+    ledger_module=None,
+    ledger_events: Sequence[dict] | None = None,
+) -> int:
+    """Driver. Returns the exit code; emits stdout JSON as a side effect.
+
+    ``audit_writer_factory`` is called only when we would suppress; it may return
+    None (dev mode) → suppression falls back to wake (mirror-don't-gate).
+
+    Fail-open on ledger loss: if the ledger module cannot be loaded, wake (the
+    pre-graduation behavior). Config-read is the unauthored path on failure, but
+    that is handled inside ``decide`` (surface-once), not here.
+    ``config``/``refire_days``/``ledger_events`` default to the live config +
+    on-disk ledger; tests inject them directly."""
+    now = now or datetime.now(timezone.utc)
+    today = today or now.date()
+    if config is None or refire_days is None:
+        loaded_config, loaded_refire = load_chase_config()
+        config = config or loaded_config
+        refire_days = refire_days if refire_days is not None else loaded_refire
+
+    ledger = ledger_module if ledger_module is not None else _load_ledger_module()
+    if ledger is None:
+        # Fire-open: a chase watcher that goes silent is the dangerous failure.
+        sys.stderr.write("[pre_run] escalation ledger unavailable; waking\n")
+        return _emit_wake()
+    if ledger_events is None:
+        ledger_events = ledger.read_ledger()
+
+    items: list[VerificationItem] = []
+    raw_input_blob: bytes = b""
+    for source in sources:
+        pulled = list(source.pull_open_verifications())
+        items.extend(pulled)
+        raw_input_blob += json.dumps(
+            [_item_to_dict(i) for i in pulled], sort_keys=True
+        ).encode("utf-8")
+
+    decision = decide(
+        items,
+        config,
+        ledger,
+        ledger_events,
+        raw_inputs_for_digest=raw_input_blob,
+        today=today,
+        refire_days=refire_days,
     )
-    if not Path(connector_python).exists():
-        sys.stderr.write(f"[pre_run] connector python missing: {connector_python}\n")
+    if decision.wake:
+        return _emit_wake()
+
+    writer = audit_writer_factory()
+    if writer is None:
+        # Mirror-don't-gate: no writer = no heartbeat trail = always wake.
+        return _emit_wake()
+    try:
+        await writer.write_suppressed_wake(
+            skill_name=SKILL_NAME,
+            pre_run_inputs=decision.pre_run_inputs_digest,
+            decision_basis=decision.decision_basis,
+            next_scheduled_at=_next_scheduled_at(now),
+            extra_metadata=decision.extra_metadata,
+        )
+    except Exception:  # noqa: BLE001 — any audit failure → wake (dead-man's-switch)
+        return _emit_wake()
+    return _emit_suppress()
+
+
+# ---------------------------------------------------------------------------
+# Production wiring. The Smokeball pull runs in the connector's own venv via
+# subprocess (smokeball_connector is not importable from the Hermes venv this
+# script runs in); the SUPPRESSED_WAKE heartbeat goes through the broker's
+# uid-gated `suppressed_wake_append` verb. Every unknown stays conservative:
+# pull failure, unrecognized envelope, heartbeat failure — all wake.
+# ---------------------------------------------------------------------------
+
+_CONNECTOR_PYTHON_DEFAULT = "/opt/connectors/smokeball/.venv/bin/python"
+_PULL_TIMEOUT_SECONDS = 60
+_HEARTBEAT_TIMEOUT_SECONDS = 10
+
+# The verification tracking tasks the skill maintains carry a stable marker in
+# their subject so the pull can subset them out of the open-task list. The
+# skill authors this subject (SKILL.md step 4 / How it works). The exact firm
+# convention is connect-verified; the marker match is deliberately broad.
+_VERIFICATION_SUBJECT_MARKER = "verification"
+
+# Runs inside the connector venv. Pull failure is REPORTED, not swallowed — a
+# partial view must wake, never suppress.
+_PULL_SNIPPET = """\
+import json
+
+from smokeball_connector.client import build_client_from_env
+
+client = build_client_from_env()
+out = {}
+try:
+    out["tasks"] = client.get("/tasks", IsCompleted=False, Limit=500)
+except Exception as exc:
+    out["tasksError"] = str(exc)[:300]
+print(json.dumps(out, default=str))
+"""
+
+_TASK_DATE_KEYS = ("dueDate", "DueDate", "due_date")
+_TASK_SUBJECT_KEYS = ("subject", "Subject", "name", "Name", "title", "Title", "description")
+_MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id")
+_SOURCE_ID_KEYS = ("id", "Id", "taskId", "TaskId")
+
+
+def _extract_items(payload) -> list | None:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("items", "value", "results", "tasks", "data"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+    return None
+
+
+def _parse_iso_date(value) -> date | None:
+    if not isinstance(value, str) or len(value) < 10:
         return None
     try:
-        result = subprocess.run(
-            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args — argv[0] is the module-constant connector-venv interpreter, overridable only via SMD_CONNECTOR_VENV_PYTHON, which comes from the Machine's own boot env (same trust domain as this file; the test seam). The snippet argument is a module constant; no request/agent-controlled data reaches argv.
-            [connector_python, "-c", _PROBE_SNIPPET],
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+def _first_date(item: dict, keys: Sequence[str]) -> date | None:
+    for key in keys:
+        parsed = _parse_iso_date(item.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _first_str(item: dict, keys: Sequence[str]) -> str:
+    for key in keys:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
+def _matter_id_of(item: dict) -> str:
+    for key in _MATTER_ID_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return "unknown-matter"
+
+
+def _source_id_of(item: dict) -> str | None:
+    for key in _SOURCE_ID_KEYS:
+        value = item.get(key)
+        if isinstance(value, (str, int)) and str(value).strip():
+            return str(value)
+    return None
+
+
+def _is_verification_task(subject: str) -> bool:
+    return _VERIFICATION_SUBJECT_MARKER in subject.lower()
+
+
+def parse_pull(raw: dict, *, today: date) -> tuple[list[VerificationItem], str | None]:
+    """Pure parse of the connector pull. Returns (items, problem).
+
+    A non-None problem means the view is partial or unrecognizable and the caller
+    MUST wake. Only tasks carrying the verification marker in their subject are
+    tracked verifications; other open tasks are ignored (they belong to other
+    skills). A verification task with no due date seeds its first chase to today
+    (it is already open and overdue for a first touch)."""
+    if raw.get("tasksError"):
+        return [], f"pull error: tasksError={raw['tasksError']}"
+    tasks = _extract_items(raw.get("tasks"))
+    if tasks is None:
+        return [], "unrecognized pull envelope"
+    items: list[VerificationItem] = []
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        subject = _first_str(task, _TASK_SUBJECT_KEYS)
+        if not _is_verification_task(subject):
+            continue
+        due = _first_date(task, _TASK_DATE_KEYS) or today
+        items.append(
+            VerificationItem(
+                matter_id=_matter_id_of(task),
+                task_id=_source_id_of(task),
+                next_chase_due=due,
+                # authored_date stays None: identity is the stable task_id, never
+                # the moving tracking-task due date (see VerificationItem).
+                authored_date=None,
+                label="client-verification",
+            )
+        )
+    return items, None
+
+
+class SmokeballSubprocessSource:
+    """VerificationSource over a connector-venv subprocess pull."""
+
+    def __init__(self, today: date) -> None:
+        self._today = today
+
+    def pull_open_verifications(self) -> Sequence[VerificationItem]:
+        connector_python = os.environ.get(
+            "SMD_CONNECTOR_VENV_PYTHON", _CONNECTOR_PYTHON_DEFAULT
+        )
+        result = subprocess.run(  # raises on timeout → caller wakes
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args — argv[0] is the module-constant connector-venv interpreter, overridable only via SMD_CONNECTOR_VENV_PYTHON from the Machine's own boot env (same trust domain; the test seam). The snippet is a module constant; no request/agent-controlled data reaches argv.
+            [connector_python, "-c", _PULL_SNIPPET],
             capture_output=True,
             text=True,
-            timeout=_PROBE_TIMEOUT_SECONDS,
+            timeout=_PULL_TIMEOUT_SECONDS,
         )
-    except subprocess.TimeoutExpired:
-        sys.stderr.write("[pre_run] smokeball probe timed out\n")
-        return None
-    except Exception as exc:  # noqa: BLE001 — any probe failure → unknown → wake
-        sys.stderr.write(f"[pre_run] smokeball probe failed: {exc}\n")
-        return None
-    if result.returncode != 0:
-        sys.stderr.write(
-            f"[pre_run] smokeball probe exit {result.returncode}: "
-            f"{(result.stderr or '').strip()[:500]}\n"
-        )
-        return None
-    try:
-        payload = json.loads((result.stdout or "").strip().splitlines()[-1])
-        count = payload.get("openMatterCount")
-    except Exception:  # noqa: BLE001 — malformed probe output → unknown → wake
-        sys.stderr.write("[pre_run] smokeball probe output unparseable\n")
-        return None
-    if isinstance(count, bool) or not isinstance(count, int):
-        return None
-    return count
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"smokeball pull exit {result.returncode}: "
+                f"{(result.stderr or '').strip()[:500]}"
+            )
+        raw = json.loads((result.stdout or "").strip().splitlines()[-1])
+        items, problem = parse_pull(raw, today=self._today)
+        if problem:
+            raise RuntimeError(problem)
+        return items
 
 
-def write_suppressed_wake_heartbeat(skill_name: str) -> bool:
-    """Append the SUPPRESSED_WAKE row via the broker. True only on ack."""
-    socket_path = os.environ.get("SMD_AUDIT_BROKER_SOCKET") or os.environ.get(
-        "SMD_WORKSPACE_BROKER_SOCKET"
-    )
-    if not socket_path:
-        sys.stderr.write("[pre_run] no broker socket in env; cannot heartbeat\n")
-        return False
-    request = {
-        "action": "suppressed_wake_append",
-        "row": {
-            "action_type": "SUPPRESSED_WAKE",
-            "actor": "agent",
-            "actor_role": "agent",
-            "skill_name": skill_name,
-            "metadata": json.dumps(
-                {
-                    "decision_basis": "empty_seat:no_open_matters",
-                    "platform": "cron-pre-run",
-                    "customer": os.environ.get("CUSTOMER_SLUG", ""),
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-            ),
-        },
-    }
-    try:
+class BrokerSuppressedWakeWriter:
+    """SuppressedWakeWriter over the broker's uid-gated heartbeat verb."""
+
+    def __init__(self, socket_path: str, customer_slug: str) -> None:
+        self._socket_path = socket_path
+        self._customer_slug = customer_slug
+
+    async def write_suppressed_wake(
+        self,
+        *,
+        skill_name: str,
+        pre_run_inputs: bytes,
+        decision_basis: str,
+        next_scheduled_at: str,
+        extra_metadata: dict | None = None,
+    ) -> str:
+        request = {
+            "action": "suppressed_wake_append",
+            "row": {
+                "action_type": "SUPPRESSED_WAKE",
+                "actor": "agent",
+                "actor_role": "agent",
+                "skill_name": skill_name,
+                "input_digest": hashlib.sha256(pre_run_inputs).hexdigest(),
+                "metadata": json.dumps(
+                    {
+                        "decision_basis": decision_basis,
+                        "next_scheduled_at": next_scheduled_at,
+                        "platform": "cron-pre-run",
+                        "customer": self._customer_slug,
+                        **(extra_metadata or {}),
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ),
+            },
+        }
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
             sock.settimeout(_HEARTBEAT_TIMEOUT_SECONDS)
-            sock.connect(socket_path)
+            sock.connect(self._socket_path)
             sock.sendall(json.dumps(request).encode("utf-8") + b"\n")
             raw = b""
             while not raw.endswith(b"\n"):
@@ -169,34 +751,43 @@ def write_suppressed_wake_heartbeat(skill_name: str) -> bool:
                     break
                 raw += chunk
         response = json.loads(raw.decode("utf-8"))
-        if response.get("ok") is True:
-            return True
-        sys.stderr.write(f"[pre_run] heartbeat rejected: {response}\n")
-        return False
-    except Exception as exc:  # noqa: BLE001 — any heartbeat failure → wake
-        sys.stderr.write(f"[pre_run] heartbeat write failed: {exc}\n")
-        return False
+        if response.get("ok") is not True:
+            raise RuntimeError(f"heartbeat rejected: {response}")
+        return str(response.get("id", ""))
 
 
-def decide_and_emit(count: int | None, skill_name: str) -> int:
-    """Pure-ish core: count → wake/suppress emission (heartbeat before suppress)."""
-    if count is None or count > 0:
-        return _emit(wake=True)
-    if not write_suppressed_wake_heartbeat(skill_name):
-        # Mirror-don't-gate: a silent suppress with no audit trail is
-        # indistinguishable from a broken pre_run. Wake instead — the full
-        # agent run is observable and the failure becomes visible.
-        return _emit(wake=True)
-    return _emit(wake=False)
+def _writer_factory():
+    socket_path = os.environ.get("SMD_AUDIT_BROKER_SOCKET") or os.environ.get(
+        "SMD_WORKSPACE_BROKER_SOCKET"
+    )
+    if not socket_path:
+        return None  # run_once treats None as "no writer wired" → wake
+    return BrokerSuppressedWakeWriter(
+        socket_path, os.environ.get("CUSTOMER_SLUG", "")
+    )
 
 
-def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    skill_name = _skill_name()
-    if "--assume-empty" in argv:
-        sys.stderr.write("[pre_run] --assume-empty: skipping smokeball probe\n")
-        return decide_and_emit(0, skill_name)
-    return decide_and_emit(probe_open_matter_count(), skill_name)
+def main() -> int:
+    customer_slug = os.environ.get("CUSTOMER_SLUG")
+    if not customer_slug:
+        sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
+        return _emit_wake()
+    config, refire_days = load_chase_config()
+    today = datetime.now(timezone.utc).date()
+    source = SmokeballSubprocessSource(today)
+    try:
+        return asyncio.run(
+            run_once(
+                [source],
+                _writer_factory,
+                today=today,
+                config=config,
+                refire_days=refire_days,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
+        sys.stderr.write(f"[pre_run] chase pre_run failed ({exc}); waking\n")
+        return _emit_wake()
 
 
 if __name__ == "__main__":
