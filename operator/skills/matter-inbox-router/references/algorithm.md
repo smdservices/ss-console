@@ -16,7 +16,7 @@ Per message, in this fixed order:
 
 3. **Classify** into one inbound class (`references/routing-rubric.md` tells). Multi-intent → apply the tie-breaks: conflict wins over everything except served-document capture; primary = the action that advances the matter furthest; record the secondary; a legal question routes to acknowledge-and-defer, never to "answer."
 
-4. **Build the handoff.** Emit `{ target_skill, contact_id?, matter_id?, message_id, inbound_class, extracted_ask, secondary? }`. The `message_id` lets the routed-to skill reply in-thread under the draft-for-review posture; the resolved IDs save it a lookup.
+4. **Build the handoff.** Emit `{ target_skill, contact_id?, matter_id?, message_id, inbound_class, extracted_ask, secondary? }`. The `message_id` lets the routed-to skill reply in-thread under the firm's authored send posture; the resolved IDs save it a lookup.
 
 5. **Surface.** One list for the team: each message, its class, its route; the conflict-held and ambiguous ones called out in their own sections so a human sees the exceptions first.
 

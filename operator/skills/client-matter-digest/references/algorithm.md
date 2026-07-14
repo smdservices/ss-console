@@ -46,6 +46,6 @@ A matter with little recent activity gets an honest short update ("no major deve
 
 `cadence` is firm-authored per matter or practice area (from `customer.yaml` where set). The run selects matters whose last-update age exceeds their cadence. No date math produces client-facing content beyond reflecting authored Smokeball dates.
 
-## External-send draft floor
+## External send — the firm's authored ceiling
 
-The output is always a draft. A human reviews and sends under their own identity. There is no autonomous-send path for client-bound mail in any phase (ADR 0005 floor, non-raisable).
+Whether the update sends or drafts is the firm's authored `external_send` ceiling (ADR 0035; see `operator/references/send-posture.md`). `draft_for_review` — a human reviews and sends under their own identity — is the recommended starting posture, not a non-raisable floor: the law-firm `external_send` floor was removed (ADR 0073).

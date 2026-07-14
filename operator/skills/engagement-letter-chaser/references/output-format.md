@@ -51,6 +51,6 @@ The decision determines the shape.
 
 ## Rules
 
-1. **Only Shape A contains a client-facing draft** (blockquote, drafted, never sent).
+1. **Only Shape A contains a client-facing draft** (blockquote, drafted for review).
 2. **No term of the letter appears interpreted** anywhere.
 3. The decision and its reason are always stated, so the cadence is auditable.

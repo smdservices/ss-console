@@ -33,7 +33,7 @@
 
 ## Rules
 
-1. **Only genuinely-stalled matters get a follow-up draft** (blockquote, drafted, never sent).
+1. **Only genuinely-stalled matters get a follow-up draft** (blockquote, drafted for review).
 2. **The Waiting list is shown** so the firm can see what was excluded and why (specificity is auditable).
 3. **Held matters never get a client follow-up.**
 4. **No follow-up states a next legal step.**
