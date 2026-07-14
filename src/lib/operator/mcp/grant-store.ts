@@ -181,8 +181,7 @@ export async function countActiveGrants(db: D1Database, customerSlug: string): P
 }
 
 export type JitResult =
-  | { issued: true; expiresAt: string }
-  | { issued: false; reason: 'revoked' | 'cap_exceeded' }
+  { issued: true; expiresAt: string } | { issued: false; reason: 'revoked' | 'cap_exceeded' }
 
 /**
  * Open-by-domain JIT mint (slice 2e). STICKY REVOKE: refuses if a revoked grant

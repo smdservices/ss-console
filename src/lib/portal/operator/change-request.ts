@@ -44,8 +44,7 @@ export interface CreateChangeRequestInput {
 }
 
 export type CreateChangeRequestResult =
-  | { ok: true; id: number }
-  | { ok: false; error: 'invalid_domain' | 'empty_summary' }
+  { ok: true; id: number } | { ok: false; error: 'invalid_domain' | 'empty_summary' }
 
 /** Max accepted request text — generous for a paragraph, rejects pasted blobs. */
 export const MAX_SUMMARY_LENGTH = 4000
