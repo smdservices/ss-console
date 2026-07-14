@@ -48,6 +48,7 @@ import {
 } from './sections-identity'
 import { checkPersonas } from './sections-personas'
 import { checkConnectors } from './sections-connectors'
+import { checkCustodyExceptions, checkCustodyGuard } from './sections-custody-guard'
 import { checkScope } from './sections-scope'
 import {
   checkBusinessHours,
@@ -244,6 +245,7 @@ interface ParsedSections {
   pause: ReturnType<typeof checkPause>
   observability: Observability
   webhookTriggers: ReturnType<typeof checkWebhookTriggers>
+  custodyExceptions: ReturnType<typeof checkCustodyExceptions>
   complianceEnabled: boolean
   authority: AuthorityPosture
   credentialCustodyDefault: CredentialCustody
@@ -279,6 +281,9 @@ function validateSections(
   const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
   const mcpConnector = checkMcpConnector(root, users, personas, errors)
+  // ADR 0044 Decision 8 / ADR 0045 §7 (#1841): code_execution vs gateway-held creds
+  const custodyExceptions = checkCustodyExceptions(root, errors)
+  checkCustodyGuard(root, personas, connectors, custodyExceptions, errors)
   return {
     schemaVersion,
     customerId,
@@ -302,6 +307,7 @@ function validateSections(
     pause: checkPause(root, errors),
     observability: checkObservability(root, errors),
     webhookTriggers,
+    custodyExceptions,
     complianceEnabled: checkComplianceEnabled(root, errors),
     authority: checkAuthority(root, errors),
     credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
@@ -341,6 +347,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     pause: p.pause,
     observability: p.observability,
     webhook_triggers: p.webhookTriggers,
+    custody_exceptions: p.custodyExceptions ?? [],
     compliance_enabled: p.complianceEnabled,
     authority: p.authority,
     credential_custody_default: p.credentialCustodyDefault,

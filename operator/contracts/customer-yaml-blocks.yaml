@@ -130,6 +130,14 @@ top_level:
   telegram:
     status: implemented
     materializer: translate _materialize_telegram_platform (config.yaml platforms)
+  custody_exceptions:
+    status: implemented
+    materializer: >-
+      validation-consumed, not materialized: console validator
+      (src/lib/operator/customer-yaml/sections-custody-guard.ts) + on-box
+      bootstrap/validate.py _validate_custody_guard (ADR 0044 D8 / ADR 0045 / #1841).
+      Authored identity-channel acceptance for the code_execution custody guard;
+      dispositions in operator/contracts/connector-custody-dispositions.md.
   gmail_push:
     status: inert
     materializer: src/lib/operator/customer-yaml/sections-gmail-push.ts (validation only)

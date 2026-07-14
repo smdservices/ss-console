@@ -1,0 +1,41 @@
+# Connector Custody Dispositions (ADR 0045 §migration step 7, #1841)
+
+ADR 0045 requires the custody audit — "behind the broker vs accepted-in-gateway
+with rationale" — repeated for **every** connector, not just Google. This file
+is that per-connector disposition record. It is the authored source of truth the
+`code_execution` custody guard (ADR 0044 Decision 8) enforces: a seat may author
+non-refused `code_execution` only if every gateway-held credential surface is
+either broker-mediated or an authored identity-channel `custody_exceptions`
+entry.
+
+**The bright line (ADR 0045):** no paying client launches with a raw privileged
+_client-data_ connector credential reachable from the gateway. Identity-channel
+credentials (the seat's own messaging channels) are a different, bounded risk —
+their blast radius is the seat impersonating _itself_, not reading a client's
+system of record — so they are the only surfaces eligible for an authored
+exception.
+
+## Verdicts
+
+| Connector / surface                              | Credential today                                    | Custody               | Exception-eligible                             | Disposition                                                                                                                                                                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------- | --------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google Workspace (DWD)                           | broker-only (`google_auth` block; 0600, broker uid) | **behind the broker** | n/a                                            | Done — ADR 0045 reference implementation; negative read tests pass (vfy_01KXE6CCSAAZEJP6TBKQF2KD3H).                                                                                                                                         |
+| Smokeball (`mcp:smokeball`)                      | `SMOKEBALL_REFRESH_TOKEN` in gateway env            | in-gateway            | **No** (client system of record)               | Must move behind the broker before a paying seat authors `code_execution`. Until then the guard refuses `code_execution` on any seat with Smokeball enabled. Tracked here; broker migration is the ADR 0045 step-7 build for this connector. |
+| Microsoft Graph (`build:microsoft_graph`, #1055) | OAuth token, gateway env (when built)               | in-gateway            | **No** (client system of record)               | Same as Smokeball — broker-mediate before pairing with `code_execution`.                                                                                                                                                                     |
+| AgentMail (`mcp:agentmail`)                      | `AGENTMAIL_API_KEY` in gateway env                  | in-gateway            | **Yes** (the seat's own inbox identity)        | Accept via `custody_exceptions: [agentmail]` on a seat that authors `code_execution`. The key sends/reads the seat's own mailbox, not a client's. Broker-mediation is a later hardening, not a launch blocker.                               |
+| Telegram channel                                 | `TELEGRAM_BOT_TOKEN` (Fly secret → gateway env)     | in-gateway            | **Yes** (the seat's own bot identity)          | Accept via `custody_exceptions: [telegram]`. Same posture as AgentMail.                                                                                                                                                                      |
+| Web search (`native:brave-free`)                 | `BRAVE_SEARCH_API_KEY` in gateway env               | in-gateway            | **Yes** (no client data; a metered search key) | Accept via `custody_exceptions: [brave]`. Read-only search, no client-data authority; blast radius is quota, not a system of record.                                                                                                         |
+
+## Per-seat state (2026-07-13)
+
+- **smd (Crane):** authors `code_execution: autonomous` (delegate_task escalate-up, ADR 0049; health self-check). Gateway surfaces are identity channels only — `telegram` and the persona agentmail identity. Both authored in `custody_exceptions`; **guard passes.** No client-data connector on this seat.
+- **pilot-smokeball / ashton-price / pilot-law:** `code_execution` unauthored (fail-closed → refused), so the guard is not engaged. This is why Smokeball-in-gateway is not a live exposure today (ADR 0044 D8's fail-closed residual). It becomes a launch blocker the moment any of these seats needs `code_execution`; that is the trigger to broker-mediate Smokeball.
+- **scott:** `code_execution` unauthored; no client-data connector.
+
+## When you move a connector behind the broker
+
+Add its backend prefix to `BROKER_MEDIATED_BACKENDS` in both validators
+(`src/lib/operator/customer-yaml/sections-custody-guard.ts` and
+`bootstrap/validate.py`), give it the same negative read tests Google has
+(ADR 0045 verification items 1–3, 10), and update its row above to
+**behind the broker**. The guard then stops counting it as a gateway surface.
