@@ -77,8 +77,7 @@ the skill does not send another nudge. This is a judgment the skill does not mak
 
 ## Rules
 
-1. **Only Shapes A and B contain outbound drafts** (blockquotes, drafted, never sent
-   without authenticated approval).
+1. **Only Shapes A and B contain outbound drafts** (blockquotes, drafted for review; sending follows the firm's authored ceiling).
 2. **The skill never decides whether a response needs verification** — it acts on the
    attorney's flag; objections-only responses are excluded (the attorney signs those).
 3. **Shape C is reachable ONLY on a confident document match** — the firm's file-naming
