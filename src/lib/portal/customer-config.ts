@@ -21,6 +21,7 @@
 
 import { z } from 'zod'
 import { parseAuthorityPosture, type AuthorityPosture } from '../operator/authority'
+import { validateRoutineGrid, type RoutineGrid } from '../operator/routine-grid'
 import {
   DEFAULT_CREDENTIAL_CUSTODY,
   parseCredentialCustody,
@@ -119,6 +120,18 @@ export interface CustomerConfigRow {
    * `access[]` mapping; the Clerk binding lives separately in mcp_clerk_bindings.
    */
   mcp_connector: McpConnector
+  /**
+   * Resolved routine grid (ADR 0075) — the compiled per-routine autonomy
+   * traceability the console "the work" chapter renders. Projected from the
+   * seat's routine-grid.yaml (when one exists next to customer.yaml).
+   *
+   * NULLABLE BY DESIGN, and resolved with a DELIBERATELY DIFFERENT posture
+   * from personas (which throws): a seat with no grid, a null column, or a
+   * malformed projected value all resolve to null via {@link resolveRoutineGrid}.
+   * A bad grid must degrade to the gridless console fallback, never 500 the
+   * live portal — see the resolver's contract.
+   */
+  routine_grid: RoutineGrid | null
   git_sha: string
   synced_at: string
 }
@@ -139,6 +152,7 @@ export interface CustomerConfigDbRow {
   authority_json: string | null
   credential_custody_default: string | null
   mcp_connector_json: string | null
+  routine_grid_json: string | null
   git_sha: string
   synced_at: string
 }
@@ -278,6 +292,34 @@ export function parseMcpConnector(json: string | null | undefined): McpConnector
   }
 }
 
+/**
+ * Resolve the projected `routine_grid_json` column into a runtime `RoutineGrid`.
+ *
+ * DELIBERATELY FAIL-SOFT, unlike `parseJsonRequired` (used for personas_json,
+ * which THROWS): a null column, malformed JSON, or a value that fails the
+ * routine-grid validator all resolve to `null` rather than throwing. Two
+ * reasons, the same shape as `parseMcpConnector`:
+ *   1. This is read on the live client portal. A corrupt grid must not 500 the
+ *      page — it degrades to the gridless console fallback (ADR 0075, the
+ *      console "the work" chapter renders nothing rather than crashing).
+ *   2. A seat that has never authored a routine-grid.yaml is the common case,
+ *      not corruption: absence is a first-class "no grid" state.
+ *
+ * Note this catches malformed JSON, which `parseJsonNullable` does not — the
+ * catch is what makes "never throw" hold for an arbitrary stored string.
+ */
+export function resolveRoutineGrid(json: string | null | undefined): RoutineGrid | null {
+  if (json === null || json === undefined) return null
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return null
+  }
+  const result = validateRoutineGrid(raw)
+  return result.ok ? result.value : null
+}
+
 export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
   return {
     entity_id: row.entity_id,
@@ -299,6 +341,8 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     credential_custody_default:
       parseCredentialCustody(row.credential_custody_default) ?? DEFAULT_CREDENTIAL_CUSTODY,
     mcp_connector: parseMcpConnector(row.mcp_connector_json),
+    // Fail-soft to null (NOT the throwing personas posture) — see resolveRoutineGrid.
+    routine_grid: resolveRoutineGrid(row.routine_grid_json),
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }

@@ -1,48 +1,104 @@
 # Deadline Miss Escalator — Output Format
 
-Two internal surfaces: the escalation list (firm-internal) and the notify alert (to the authored red-flag recipient). Nothing here is client- or tribunal-bound.
+One internal alert to the firm's authored red-flag recipients, triaged so the
+consequential items are read first and the routine ones do not bury them.
+Nothing here is client- or tribunal-bound. No em dashes anywhere; refer to a
+matter by its number, never its caption; state the governing rule in plain
+words, never as a citation.
 
-## The escalation surface (firm-internal)
+## The triaged alert (internal, to the red-flag recipient)
+
+The alert leads with the few items that genuinely need a person today, collapses
+the routine confirmations to per-matter counts, and carries a per-item ACK code
+so the reader can acknowledge one item without silencing the rest.
 
 ```markdown
-# Deadline Escalations — YYYY-MM-DD
+Subject: [Deadlines] <N> need you, YYYY-MM-DD
 
-**Windows:** escalation <E>d / near <N>d / notify <Y>d (firm-authored; defaults stated when unset)
-**In escalation range:** <R> | **Notified:** <Nt> | **Held (clearance):** <H>
+## Needs you today (<count>)
 
-## Notify — alert raised
+Ranked by what the record says, most consequential first. Three to five items.
 
-### matter <id> — <client> — <label> <date> (<days_out> days)
+1. matter <id>, <label> <date> (<overdue by N days | due in N days>) [ACK-XXXXXX]
+   <one plain line of why it is consequential: the authored signal only, e.g.
+   "an unverified response is treated as no response" / "disbursement blocked
+   until the lien payoff is confirmed" / "opposing-counsel letter held N days">
+2. ...
 
-- **ESCALATION_FIRED** → <authored red_flag_recipients> · awaiting `ESCALATION_ACKNOWLEDGED`
+## Admin confirms (<count> across <M> matters)
 
-## Re-route — flagged to the firm
+Routine confirmations, collapsed per matter. Reply with a matter's ACK codes to
+clear its items, or open the item in Smokeball.
 
-- matter <id> — <client>: <label> <date> in <days_out> days → flagged to <red_flag_recipients>.
+- matter <id>: <k> routine confirmation(s). [ACK-XXXXXX] [ACK-XXXXXX] ...
+- ...
 
-## Re-surface — elevated on the tracker
+## Under active escalation elsewhere (<count>)
 
-- matter <id> — <client>: <label> <date> in <days_out> days → elevated flag.
+Already raised by another step, shown so it is not double-counted. No action
+here beyond what that step owns.
 
-## Held — clearance, not escalation
+- matter <id>, <item>: under active escalation by <owning skill> (last raised <date>).
 
-- matter <id> — <client>: on CONFLICT-HOLD with <label> <date> approaching → surfaced for human clearance; no client step.
+## Awaiting clearance (<count>)
+
+Held matters with an approaching date. Surfaced for a person to clear; never a
+client-facing step.
+
+- matter <id>: on CONFLICT-HOLD with <label> <date> approaching.
+
+## Blanket-ack only (<count>)
+
+Items with no stable task id, so they carry no individual ACK code. A blanket
+acknowledgement (below) acks exactly the ones quoted here.
+
+- matter <id>: <label> <date> (<overdue by N days | due in N days>).
+
+Reply with the ACK code(s) above to acknowledge. Reply ESCALATION_ACKNOWLEDGED
+to ack every item quoted in this message; items you do not quote stay open. An
+acked item goes quiet for <ack_snooze_days> days, then re-surfaces if it is still
+open in Smokeball. Completing the item in Smokeball is the only thing that closes
+it. This is an internal alert to a person at the firm; no client message has been
+sent.
 ```
 
-## The notify alert (internal, to the red-flag recipient)
+## The confirmation reply (internal, after an ack)
+
+When a rostered person replies acking codes, the confirmation reply enumerates
+exactly what was acked and counts what remains, so an under-ack (a mail client
+trimming quoted text) stays visible.
 
 ```markdown
-Subject: [Deadline] matter <id> — <client> — <label> due <date> (<days_out> days)
-
-An authored <label> on matter <id> (<client>) is <overdue by N days | due in N days>.
-This is an internal alert for a named human; no client message has been sent.
-Acknowledge to close the escalation.
+Acknowledged <A> item(s): <ACK-XXXXXX> matter <id>, <label>; ...
+Still open and not acked: <R> item(s). They will surface again on the next run.
+Acked items go quiet for <ack_snooze_days> days unless resolved sooner in Smokeball.
 ```
 
 ## Rules
 
-1. **Every rung is internal.** Re-surface and re-route write the internal surface; notify alerts the authored red-flag recipient. No client/tribunal send on any path.
-2. **The notify alert names the authored date and its source label** — never a computed or "estimated" date.
-3. **With no authored red-flag recipient, the Notify section is empty** and the surface says so (fail-closed); re-surface/re-route still run.
-4. **Held matters appear only under Clearance,** never with a client-facing step.
-5. **A `SUPPRESSED_WAKE` row stands in for the whole surface on a quiet tick** — the heartbeat; the agent does not wake to write an empty surface.
+1. **Triage by authored signal only.** Order "Needs you today" by what the
+   record carries: a task-label marker (CRITICAL / URGENT / HIGH PRIORITY on the
+   Smokeball task), a consequential category (deemed-admission exposure, a money
+   or disbursement blocker, opposing-counsel inbound held), then overdue age.
+   Never invent an urgency the data does not state. If nothing carries a high
+   signal, the top block is simply the most overdue items, plainly labeled.
+2. **Three to five in the top block.** More than five is not a priority list.
+   Everything else is a per-matter count in Admin confirms, with its items
+   reachable by their ACK codes.
+3. **Per-item ACK codes, keyed on the stable task id.** Each item with a stable
+   Smokeball id carries its own `ACK-XXXXXX`. Acking one code suppresses only
+   that item. Items with no stable id carry no code and live in Blanket-ack only;
+   a blanket ack covers exactly the items quoted in the message.
+4. **One disclaimer, in the footer.** The ack mechanics and the "internal alert,
+   no client message sent" line appear once, at the end, not per item.
+5. **Reader-facing section names.** "Needs you today", "Admin confirms", "Under
+   active escalation elsewhere", "Awaiting clearance". No internal ladder jargon
+   (no "notify" / "re-route" / "re-surface") in the reader's copy.
+6. **Every rung is internal.** No client or tribunal send on any path. With no
+   authored red-flag recipient, the alert has nowhere to fire and does not fire
+   (fail-closed); the escalation ledger still records the fire for the record.
+7. **Dates and figures are authored, never computed.** The alert names the
+   authored date and its source label, never an estimated or derived date, and
+   states a dollar figure only when an authored source on the matter carries it.
+8. **A `SUPPRESSED_WAKE` row stands in for the whole alert on a quiet tick.** It
+   is the heartbeat; the agent does not wake to send an empty alert.

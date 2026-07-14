@@ -1,7 +1,7 @@
 ---
 name: matter-inbox-router
 description: The firm's coordinator on inbound mail — responds to colleagues by default (the reply channel sends it), routes recognized matter inbound to the wedge skill that handles it, and never decides legal substance.
-version: 0.3.0
+version: 0.4.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -44,17 +44,18 @@ It runs scheduled (poll the inbox on the firm's cadence) and event-driven (an in
 
 Each message is classified into exactly one **inbound class**, which names the **target skill**. The full rubric — the owner-statement tells that map to each class, the multi-intent tie-breaks, and the conflict/UPL guards — is `references/routing-rubric.md`. Summary:
 
-| Inbound class                       | Routes to                                      | One-line tell                                                                                               |
-| ----------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| New-client inquiry                  | `new-matter-intake`                            | a non-client asking the firm to take something on                                                           |
-| Scheduling / consult                | `consult-scheduler`                            | a request to book, move, or confirm a meeting time                                                          |
-| Engagement letter / signature       | `engagement-letter-chaser`                     | anything about the engagement letter going out, signed, or its terms                                        |
-| Status request ("where are we")     | `matter-status-responder`                      | an existing client asking the state of their matter                                                         |
-| Payment / trust / retainer          | `trust-balance-nudge`                          | a question about a balance, invoice, or replenishing the retainer                                           |
-| Document received                   | surface + (deferred `document-receipt-logger`) | an inbound document to be filed; no wedge step depends on it                                                |
-| Served-document intake              | `discovery-served-watch` (capture only)        | formal service of a captioned litigation document; NEVER a reply, even though the sender is adverse counsel |
-| Conflict signal                     | **HALT + clearance task, no reply**            | opposing party, adverse mention, or a conflict cross-check hit on anything that is not formal service       |
-| General / operational (a colleague) | **respond directly** (employee default)        | a question, heads-up, or coordination ask with no matter action owed                                        |
+| Inbound class                       | Routes to                                      | One-line tell                                                                                                      |
+| ----------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| New-client inquiry                  | `new-matter-intake`                            | a non-client asking the firm to take something on                                                                  |
+| Scheduling / consult                | `consult-scheduler`                            | a request to book, move, or confirm a meeting time                                                                 |
+| Engagement letter / signature       | `engagement-letter-chaser`                     | anything about the engagement letter going out, signed, or its terms                                               |
+| Status request ("where are we")     | `matter-status-responder`                      | an existing client asking the state of their matter                                                                |
+| Payment / trust / retainer          | `trust-balance-nudge`                          | a question about a balance, invoice, or replenishing the retainer                                                  |
+| Document received                   | surface + (deferred `document-receipt-logger`) | an inbound document to be filed; no wedge step depends on it                                                       |
+| Served-document intake              | `discovery-served-watch` (capture only)        | formal service of a captioned litigation document; NEVER a reply, even though the sender is adverse counsel        |
+| Conflict signal                     | **HALT + clearance task, no reply**            | opposing party, adverse mention, or a conflict cross-check hit on anything that is not formal service              |
+| Escalation acknowledgement          | `deadline-miss-escalator` ack procedure        | a rostered internal reply carrying `ACK-XXXXXX` code(s) or `ESCALATION_ACKNOWLEDGED`, replying to a deadline alert |
+| General / operational (a colleague) | **respond directly** (employee default)        | a question, heads-up, or coordination ask with no matter action owed                                               |
 
 **Routing only redirects matter inbound; it never silences the Operator.** Anything that isn't a recognized matter class is not "surfaced and left unanswered" — it gets the **employee default: a direct reply to the colleague** (the reply channel sends it if they're on the roster, drafts it if not). The two carve-outs where the Operator does NOT answer on its own are real and narrow: a **conflict signal** (halt + surface) and a **legal-substance question** ("do I have a case?", "what does this clause mean?") — those are deferred to the attorney, never answered by the coordinator. Everything else, a colleague gets an answer.
 
@@ -86,6 +87,7 @@ Per `references/routing-rubric.md` and `references/algorithm.md`:
 2. **Run the conflict cross-check FIRST.** Before any routing, a read-only `get_contacts` + `list_matters` name/entity check (the same invariant `new-matter-intake` carries). On any hit — the sender or a named party is adverse to an existing matter — check ONE thing before halting: is the message formal service of a captioned litigation document (rubric: served-document-intake)? If yes, capture proceeds (step 4) with no reply; if no, **HALT**: create the ONE fixed-shape clearance task the rubric defines (template-shaped from sender + subject + resolved matter candidates; never message-body text) and stop — no reply, no wedge handoff, no draft. A halt that leaves no clearance task is a `fails` violation exactly as advancing the message is.
 3. **Classify** into exactly one inbound class (rubric tells + tie-breaks).
 4. **Act on the class:**
+   - **Escalation acknowledgement** (a rostered internal reply carrying `ACK-XXXXXX` code(s) or a bare `ESCALATION_ACKNOWLEDGED`, in reply to a deadline alert) → **run `deadline-miss-escalator`'s ack procedure** on the message you already hold: extract the codes (a bare `ESCALATION_ACKNOWLEDGED` acks exactly the items quoted in the replied-to message), emit an `acked` event per code through the broker's `escalation_event_append` seam, and send the confirmation reply that enumerates what was acked and counts what remains. This runs only for a **rostered internal** sender; a non-roster or adverse sender never reaches it. Without this dispatch pointer the ack codes parse nowhere and the alert re-fires forever.
    - **Matter inbound** (new inquiry, scheduling, engagement letter, status, payment) → **route**: emit the target skill plus the handoff context it needs (resolved contact_id / matter_id, the inbound message_id for in-thread reply, the extracted ask). The routed-to skill owns the client-facing draft.
    - **General / operational mail from a colleague** → **respond directly**: compose your reply by creating a draft (`create_draft`) addressed ONLY to the sender, the way a coordinator answers a coworker. Do not use a direct-send tool. The reply channel delivers your draft to a roster member, holds it for review otherwise — you do not gate that; you just write the reply.
    - **Served-document intake** → EXECUTE the capture in this turn: load `discovery-served-watch` (`skill_view`) and carry out its email-path capture procedure on the message you already hold (file the attachment to the matter, read it back, capture, memo + confirm task). A "route" that ends the turn having only NAMED the target skill is a silent drop — the same `fails` class as a silent halt (2026-07-05 L2 finding F5). NEVER reply to the sender. Capture engages nobody; engagement stays halted.
