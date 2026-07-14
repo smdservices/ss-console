@@ -63,11 +63,7 @@ export interface RoutineGrid {
 }
 
 export type RoutineGridErrorCode =
-  | 'MissingField'
-  | 'EmptyField'
-  | 'EmptyList'
-  | 'TypeMismatch'
-  | 'EnumViolation'
+  'MissingField' | 'EmptyField' | 'EmptyList' | 'TypeMismatch' | 'EnumViolation'
 
 export interface RoutineGridValidationError {
   code: RoutineGridErrorCode
@@ -76,8 +72,7 @@ export interface RoutineGridValidationError {
 }
 
 export type RoutineGridValidationResult =
-  | { ok: true; value: RoutineGrid }
-  | { ok: false; errors: RoutineGridValidationError[] }
+  { ok: true; value: RoutineGrid } | { ok: false; errors: RoutineGridValidationError[] }
 
 type Errors = RoutineGridValidationError[]
 

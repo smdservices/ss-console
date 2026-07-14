@@ -102,8 +102,7 @@ export interface WorkSection {
  * viewer flags which introduction sentence to show.
  */
 export type OperatorWorkModel =
-  | { mode: 'grid'; sections: WorkSection[] }
-  | { mode: 'gridless'; skills: OperatorSkillView[] }
+  { mode: 'grid'; sections: WorkSection[] } | { mode: 'gridless'; skills: OperatorSkillView[] }
 
 /**
  * Parse the authored free-text initiation string into the established plain
