@@ -45,6 +45,26 @@ digest points; it never acts.
 - <matter id> — reads failed this tick (parse_failed); surfaced, not hidden.
 ```
 
+### Items already under active escalation (dedup pointer)
+
+An item another skill is actively escalating is NOT listed in full in its band.
+It renders as a one-line pointer instead, so the digest and the escalator do not
+both hand the reader the same item on the same morning.
+
+"Active escalation" is read from the escalation ledger (the shared
+`escalation_ledger.py` state), NOT from same-day prediction: the digest fires
+before the escalator, so "escalated to you separately today" would be false.
+An item is under active escalation when the ledger holds a `fired` or `chased`
+event for it, by another skill, whose age is within the firm's
+`escalation.refire_days` window. Render it as:
+
+```markdown
+- <matter> (<matter id>) — <item>: under active escalation by <owning skill> (last raised <date>).
+```
+
+The pointer is a pure surface line. The digest reads the ledger; it never writes
+it and never acts on the item.
+
 ## Shape B — The quiet-day digest (nothing genuinely needs a person)
 
 One line. No sections. No padding. Plus the heartbeat, so the tick is auditable.
@@ -71,3 +91,7 @@ listed. (Heartbeat: needs_you_digest_tick, decision_basis: nothing_in_needs_you_
    and stops when it has what it needs.
 6. **A tick always leaves a heartbeat row** (Shape A or Shape B). A silent suppression
    is a failure.
+7. **An item under active escalation renders as a one-line pointer, never a full
+   band entry.** Active escalation is defined off the escalation ledger (a
+   `fired`/`chased` event by another skill within `escalation.refire_days`), not
+   off same-day prediction. The digest reads the ledger; it never writes it.
