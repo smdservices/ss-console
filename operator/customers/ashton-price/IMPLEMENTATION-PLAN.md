@@ -185,8 +185,14 @@ principal) to correct the model and lock what only the firm can give:
    this unilaterally; it sets the deadline-lane shape).
 5. **CoCounsel / drafting division** — outcome of her Thomson Reuters
    meeting; sets motion/response orchestration.
-6. **Voice samples** — firm letters/templates into the voice library
-   (path is set, library is empty).
+6. **Voice samples** — ~30 firm-authored letters/templates (the ADR 0028
+   anchor-pack size) into the voice library, so Layer 2 has a real corpus to
+   transform toward instead of the general fallback. Christa provides the
+   samples; we ingest them through the leak-guarded differ
+   (`operator/bin/voice-ingest-corpus.py`) to content-free structural-diff
+   cohort JSONs in the seat vault — raw letter text never lands in the vault
+   or logs. The portal self-serve upload path (#1851) is a later
+   convenience; at onboarding we ingest the pack directly.
 7. **Monitored-inbox decision** — owned address vs forwarding vs Graph watch
    (feeds M6).
 8. **Starting matter set** — which live matters observation watches first.
