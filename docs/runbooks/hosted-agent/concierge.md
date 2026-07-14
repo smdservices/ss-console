@@ -22,7 +22,7 @@ Email to team@smd.services ("Hosted Agent purchase") + a new row in the admin qu
 
 ## Hard rules
 
-- `external_send: draft_for_review` and a non-empty `inbound_allow_from` are the tier's channel constraint (ADR 0067 / ADR 0032 deferred list). Do not loosen per customer.
+- `external_send: confirm` (ADR 0071, supersedes ADR 0067's launch draft-only posture) and a non-empty `inbound_allow_from` are the tier's channel constraint (ADR 0032 deferred list). `confirm` means the agent prepares the send and completes it only after an explicit in-turn owner approval over channel; the taint-gate still blocks even a confirmed send on a tainted turn. Do not raise to `autonomous` per customer during authoring — promotion is a per-skill control-plane act the owner performs later (ADR 0071 decision 5). Tightening to `draft_for_review` (agent never sends) is allowed if a customer asks for it.
 - The Machine's `ANTHROPIC_API_KEY` is the CUSTOMER'S key. Never stage an SMD org key on a hosted seat.
 - Payment failure handling follows ADR 0065: alert-and-wait, Captain decides, never a webhook side effect.
 
