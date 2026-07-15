@@ -64,15 +64,15 @@ Reads Smokeball (`list_tasks` `due_date`) for authored task deadlines and the ma
 
 1. **Pre-run (cron, no agent):** `pre_run.py` compares each authored date to today and joins the escalation ledger. Wakes the agent iff some open, in-range item **should fire now** (never fired, or its re-fire window elapsed, or an ack has snoozed out); otherwise writes `SUPPRESSED_WAKE` and prints `{"wakeAgent": false}`. Audit-write failure falls back to wake (the date must not go dark).
 2. **On wake — triage the firing items** by authored signal (task-label markers, consequential category, overdue age): a top "Needs you today" block of three to five, routine confirmations collapsed to per-matter counts, dedup pointers for items another skill is already escalating. See `references/output-format.md`.
-3. **Send the alert, then record the fire.** Deliver the internal alert to `red_flag_recipients` with a per-item `ACK-XXXXXX` code. After a successful send, emit one `fired` event per item through the broker's `escalation_event_append` seam (`references/algorithm.md`). Never report an item as raised unless both the send and the ledger write succeeded.
-4. **On a rostered internal reply (routed here by the inbox skill):** run the per-item ack procedure — extract the `ACK` codes, emit an `acked` event per code through the broker seam, and reply enumerating what was acked and counting what remains.
+3. **Send the alert, then record the fire.** Deliver the internal alert to `red_flag_recipients` with a per-item `ACK-XXXXXX` code. After a successful send, emit one `fired` event per item with the **`escalation_append` tool** (it carries the event to the broker's validated `escalation_event_append` verb; `references/algorithm.md`). Never report an item as raised unless both the send and the ledger write succeeded.
+4. **On a rostered internal reply (routed here by the inbox skill):** run the per-item ack procedure — extract the `ACK` codes (resolve them against `escalation_state` output), emit an `acked` event per code with `escalation_append`, and reply enumerating what was acked and counting what remains.
 5. **Never compute, never send to a client.** No date is produced; no client/tribunal-bound message is drafted or sent.
 
 ## Trust Ceiling
 
 **Read + internal surface + internal named-human notify; zero date computation; zero external send.**
 
-The agent MAY: read authored dates; compare them to today; read the escalation ledger; emit the triaged alert to the firm's authored red-flag channel; append `fired`/`acked` escalation events **through the broker's validated `escalation_event_append` seam** (the broker rejects an `acked` with no prior `fired`).
+The agent MAY: read authored dates; compare them to today; read the escalation ledger (`escalation_state`); emit the triaged alert to the firm's authored red-flag channel; append `fired`/`acked` escalation events **with the `escalation_append` tool through the broker's validated `escalation_event_append` verb** (the broker rejects an `acked` with no prior `fired`).
 
 The agent MUST NOT: compute or infer a deadline; send anything to a client or tribunal; move or author a date; escalate a held matter into a client-facing step; write the escalation ledger file directly (every event goes through the broker seam, so an injected reply cannot silence an alarm that never rang). **Fail-closed (ADR 0035):** if the firm has authored no `red_flag_recipients`, the notify rung has nowhere to fire — the escalator raises no named-human alert and never invents a recipient.
 
@@ -83,7 +83,7 @@ The agent MUST NOT: compute or infer a deadline; send anything to a client or tr
 3. **Fail-closed notify.** With no authored red-flag recipient, no named-human alert fires (re-surface/re-route still run).
 4. **Held matters route to clearance,** never a client-facing escalation.
 5. **Heartbeat integrity.** Every quiet tick writes a `SUPPRESSED_WAKE` row; an audit-write failure forces wake. A scheduled tick with no audit row is the dead-man's-switch signal — the watch is advisory, never the firm's system of record (`compliance-floor.md`).
-6. **Ledger writes are validated, never direct.** Every `fired`/`acked` event goes through the broker's `escalation_event_append` seam; the agent never writes the ledger file. An `acked` with no prior `fired` is rejected. An ack is a snooze, not a tombstone — only resolution in Smokeball is terminal.
+6. **Ledger writes are validated, never direct.** Every `fired`/`acked` event goes through the `escalation_append` tool to the broker's `escalation_event_append` verb; the agent never writes the ledger file and never reaches the broker socket via `execute_code` (that class is unauthored on customer seats and refused — ss #1915). An `acked` with no prior `fired` is rejected. An ack is a snooze, not a tombstone — only resolution in Smokeball is terminal.
 7. **No invented urgency.** The triage orders by signals the record carries (task-label markers, consequential category, overdue age) and never manufactures an urgency the data does not state.
 
 ## Pitfalls

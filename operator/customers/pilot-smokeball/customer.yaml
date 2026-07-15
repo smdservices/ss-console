@@ -86,6 +86,15 @@ personas:
         external_send_client: draft_for_review # day-one grid posture (graduation proven config-correct; see ADR 0075 + the send-delivery follow-on)
         external_send_vendor: draft_for_review # day-one grid posture
         destructive: autonomous
+        # code_execution stays UNAUTHORED (= refused) on this seat, and the
+        # custody guard (#1841, ADR 0044 Decision 8) enforces it: gateway-held
+        # credential surfaces exist (agentmail/brave/smokeball), executed code
+        # could read them from the env, and smokeball is a client-data
+        # connector — never custody-exception eligible. Consequence: the
+        # ADR 0021 Stream-A execute_code fetch skills are inert here by
+        # posture; their revival is #1917 (broker-mediated fetch or connector
+        # custody move), NOT this dial. Ledger writes stopped needing it in
+        # ss #1915 (escalation_append/escalation_state mediated tools).
     skills:
       # spine
       - name: matter-inbox-router

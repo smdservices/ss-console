@@ -178,7 +178,7 @@ def read_ledger(path: str | None = None) -> list[dict]:
     """
     path = path or ledger_path()
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             raw_lines = handle.readlines()
     except FileNotFoundError:
         return []
@@ -337,9 +337,7 @@ def validate_append(existing_events, new_event: dict) -> None:
                 raised = True
                 break
         if not raised:
-            raise ValueError(
-                "acked event has no prior fired/chased raise for its token/item_key"
-            )
+            raise ValueError("acked event has no prior fired/chased raise for its token/item_key")
 
 
 def _ulid() -> str:
