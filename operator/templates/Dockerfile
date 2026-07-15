@@ -311,7 +311,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # left both tool sets inert at runtime — found by the WP-D live proof). NEW
 # tracked twin pair: shared/escalation_ledger.py <-> operator/workspace_broker/
 # escalation_ledger.py (byte-identical, sha c4882668). Superset of d6739132.
-ARG OVERLAY_REF="a16f9580c3d100fe257536765bb70c69a4079912"
+# 3ffc2d1f (overlay #170, ss #1941): peer-memory capture nudge — the ADR 0048
+# learned lane's WRITE side. pre_llm_call now injects the record_peer_preference
+# capture instruction on every sender-attributed turn (zero rows on every seat
+# because nothing ever told the agent to record). Touches only
+# plugins/hermes-smd-peer-memory + its tests — no tracked twins, overlaySha256
+# values unchanged; only overlayRef. Superset of a16f9580.
+ARG OVERLAY_REF="3ffc2d1ffd1dad559c7bd037caa7a618b8fe1b01"
 
 ARG CUSTOMER_SLUG=customer-zero
 
