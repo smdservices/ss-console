@@ -397,7 +397,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // record_peer_preference capture instruction on every sender-attributed
     // turn (fleet-wide zero rows: the tool existed, nothing prompted its use).
     // No tracked twin moved; overlayRef-only. Superset of a16f9580 (#169).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3ffc2d1ffd1dad559c7bd037caa7a618b8fe1b01"')
+    // aa7d78f2 (#171, ss #1941 probe find): peer-memory keys the peer on the
+    // Svix-verified sender via a claim-once unbound-origin handoff (dispatch
+    // session_id is empty on the live email path; Hermes threads the ROUTE as
+    // sender_id — the first live capture keyed webhook:agentmail, a channel
+    // not a person). overlayRef-only. Superset of 3ffc2d1f (#170).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="aa7d78f2ca4f6657ebc5051d7bd58406a758beb0"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
