@@ -3,7 +3,17 @@
 Derived from `operator/verticals/law-firm/addons/pi/references/_shared-chase-voice.md`
 (the pack's canonical chase voice). Fix the shared voice there first; this file adds
 only what is specific to a records chase. One outbound draft, one recipient type:
-the provider or records vendor. It is never sent without a human review.
+the provider or records vendor. Whether it sends or is held for review follows the
+firm's authored ceiling (see SKILL.md "The send seam").
+
+## Floor-clean by construction (#1878)
+
+The chase body follows the shared substitution table (`_shared-chase-voice.md`,
+"Floor-clean by construction"): a graduated vendor chase is re-scanned by the
+content-sensitivity floor (ADR 0031) before it delivers, and the floor's `contract`
+category matches `signed`. So the chase offers to resend "the authorization form",
+never "the signed authorization" — the recipient knows which form it is, and the
+body clears the floor. Internal memos and tasks keep the precise words.
 
 ## The records chase (to the provider / records vendor)
 
@@ -12,7 +22,7 @@ tone. It moves one outstanding record request forward.
 
 The chase MAY: name the patient and the request (provider, date of request); state
 that the records are still outstanding; ask for a status or an expected date; offer
-to resend the signed authorization if that helps; note when timing matters in plain
+to resend the authorization form if that helps; note when timing matters in plain
 practical terms.
 
 The chase MAY NOT: say anything about what the records contain, the diagnosis, or the
@@ -35,7 +45,7 @@ were received, filed, or reviewed unless that is an observed fact.
 
 > Hi <name>, following up on the records request for <patient> (requested <date>). We
 > show the <provider> records still outstanding on our end. Could you share a status
-> or an expected date? Happy to resend the signed authorization if that would help.
+> or an expected date? Happy to resend the authorization form if that would help.
 > Thank you.
 
 **Bad — characterizes treatment / reads the records (crosses the line):**

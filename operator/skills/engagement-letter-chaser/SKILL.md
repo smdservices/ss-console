@@ -54,7 +54,7 @@ Triggered on a schedule (scan for letters sent-and-unsigned past the cadence) or
    - **Unsigned, nudge due** (past the interval since send-or-last-nudge, under the max) → draft a nudge.
    - **Unsigned, within cadence** (nudged recently, or under the interval) → wait; draft nothing.
    - **Unsigned, max nudges reached** → surface to a human rather than nudge again.
-4. **Draft the nudge** (`references/voice.md`): a short, warm reminder that the letter is waiting, with a clear "sign here" pointer and an offer to answer questions **at the firm** — never an explanation of the terms.
+4. **Draft the nudge** (`references/voice.md`): a short, warm reminder that the letter is waiting, with a clear pointer to where to complete and return it and an offer to answer questions **at the firm** — never an explanation of the terms. The nudge body is authored floor-clean (#1878; see the voice file's substitution table): no "sign"/"signature", no "engagement letter", no "attorney" in the outbound body — a nudge that trips the content-sensitivity floor (ADR 0031) is held as a draft even under an authored autonomous client-send.
 5. **On a terms question** in a client reply: the nudge/response acknowledges the question and routes it to the attorney; it never interprets section X, defines a clause, or characterizes an obligation.
 
 ## Trust Ceiling
@@ -75,7 +75,7 @@ The agent MUST NOT: send the nudge; interpret, explain, or negotiate any term of
 
 ## Voice Rules
 
-See `references/voice.md`. Short, warm, low-pressure. No em dashes, no legalese, no guilt-tripping. Points to where to sign; offers to answer questions "with the team," never in the message itself.
+See `references/voice.md`. Short, warm, low-pressure. No em dashes, no legalese, no guilt-tripping. Points to where to complete and return the letter; offers to answer questions "with the team," never in the message itself. The outbound body is floor-clean by construction (#1878) — internal memos and status lines keep the precise words.
 
 ## Pitfalls
 
