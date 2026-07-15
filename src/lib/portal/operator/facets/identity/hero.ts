@@ -51,12 +51,16 @@ function humanizeTone(t: string): string {
 }
 
 /**
- * The landing's VOICE block lines (Captain finding 2026-07-15: voice detail is
- * configuration, not status — it renders in its own block, not on the health
- * hero). Each line is present only when authored; an all-null result means the
- * block is absent entirely (empty-chapter rule).
+ * The landing's PERSONA block lines — the operator's own authored identity
+ * detail: tone descriptors, mailbox identity, other authored identities.
+ * (Captain vocabulary call, 2026-07-15: "voice" is reserved for the CLIENT's
+ * voice — the ADR 0028 voice_library / sample-driven fidelity subsystem —
+ * while these fields are the operator's persona. Configuration, not status:
+ * they render in their own block, not on the health hero.) Each line is
+ * present only when authored; an all-null result means the block is absent
+ * entirely (empty-chapter rule).
  */
-export function voiceLines(model: OperatorHeroModel): {
+export function personaLines(model: OperatorHeroModel): {
   tone: string | null
   writesFrom: string | null
   alsoOperatesAs: string | null

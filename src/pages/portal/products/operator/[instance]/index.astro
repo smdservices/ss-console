@@ -8,8 +8,8 @@ import {
 } from '../../../../../lib/portal/product-access'
 import OperatorHero from '../../../../../components/portal/operator/facets/OperatorHero.astro'
 import {
+  personaLines,
   resolveOperatorHero,
-  voiceLines,
 } from '../../../../../lib/portal/operator/facets/identity/hero'
 import {
   resolveAlivenessSignal,
@@ -128,13 +128,13 @@ const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 const overview = resolveOperatorOverview(customerConfig)
 const job = jobLines(overview.job)
 
-// VOICE — the persona's authored writing posture (tone descriptors, mailbox
-// identity, other authored identities). Configuration, not status: it moved
-// here from the status hero (Captain finding, 2026-07-15 — persona flavor
-// text has no business inside the health block). No chapter link yet; the
-// voice library is a later slice by design (blueprint §4).
-const voice = voiceLines(heroModel)
-const hasVoice = Boolean(voice.tone || voice.writesFrom || voice.alsoOperatesAs)
+// PERSONA — the operator's own authored identity detail (tone descriptors,
+// mailbox identity, other authored identities). Labeled Persona, not Voice
+// (Captain vocabulary call, 2026-07-15): "voice" is reserved for the CLIENT's
+// voice — the sample-driven fidelity subsystem (ADR 0028 voice_library) —
+// which gets its own chapter when the voice-establishment work lands.
+const persona = personaLines(heroModel)
+const hasPersona = Boolean(persona.tone || persona.writesFrom || persona.alsoOperatesAs)
 
 // Change-request filing outcome (returns via ?cr=filed|invalid|error).
 const crStatus = Astro.url.searchParams.get('cr')
@@ -265,22 +265,22 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             </OperatorOverviewBlock>
           )}
 
-          {hasVoice && (
-            <OperatorOverviewBlock label="Voice">
+          {hasPersona && (
+            <OperatorOverviewBlock label="Persona">
               <div class="flex flex-col gap-1">
-                {voice.tone && (
+                {persona.tone && (
                   <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Sounds: {voice.tone}
+                    Sounds: {persona.tone}
                   </p>
                 )}
-                {voice.writesFrom && (
+                {persona.writesFrom && (
                   <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Writes from: {voice.writesFrom}
+                    Writes from: {persona.writesFrom}
                   </p>
                 )}
-                {voice.alsoOperatesAs && (
+                {persona.alsoOperatesAs && (
                   <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Also operates as: {voice.alsoOperatesAs}
+                    Also operates as: {persona.alsoOperatesAs}
                   </p>
                 )}
               </div>
