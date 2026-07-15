@@ -311,7 +311,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # left both tool sets inert at runtime — found by the WP-D live proof). NEW
 # tracked twin pair: shared/escalation_ledger.py <-> operator/workspace_broker/
 # escalation_ledger.py (byte-identical, sha c4882668). Superset of d6739132.
-ARG OVERLAY_REF="36fa158d46209f211eb8653462758888280846c7"
+ARG OVERLAY_REF="4d0be7ec282759e83c6283fc374be4398caee6ce"
 
 ARG CUSTOMER_SLUG=customer-zero
 
