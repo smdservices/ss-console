@@ -82,24 +82,22 @@ lead the "Needs you today" block; near/watch routine items collapse into
 ## Writing the ledger (through the validated broker seam)
 
 The ledger file is broker-owned; the agent reads it but never writes it
-directly. Every write goes through the broker's uid-gated
-`escalation_event_append` verb (the same door shape as `suppressed_wake_append`),
-over the `SMD_WORKSPACE_BROKER_SOCKET` unix socket, in one `execute_code` block:
+directly. Every write goes through the **`escalation_append` tool** (the
+`hermes-smd-escalation` plugin, ss #1915), which carries one event to the
+broker's uid-gated `escalation_event_append` verb — the broker keeps all
+validation and stamps `ts`/`id` server-side. To read state, use the
+**`escalation_state` tool** (per-item attempts, last raise, acked/handed_off/
+resolved, ACK token; optionally filtered by `skill`). Do NOT reach the broker
+socket via `execute_code` — the `code_execution` action class is unauthored on
+customer seats and the trust layer refuses it (that dead path is how ss #1915
+was found).
 
-```python
-import json, os, socket
-sock_path = os.environ["SMD_WORKSPACE_BROKER_SOCKET"]
-def _emit(event):
-    req = {"action": "escalation_event_append", "event": event}
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.settimeout(10); s.connect(sock_path)
-        s.sendall(json.dumps(req).encode() + b"\n")
-        raw = b""
-        while not raw.endswith(b"\n"):
-            chunk = s.recv(4096)
-            if not chunk: break
-            raw += chunk
-    return json.loads(raw)
+```
+escalation_append(skill=..., matter_id=..., item_key=..., event=...,
+                  attempt=N, token="ACK-XXXXXX")
+  -> {"ok": true, "id": "..."} or the broker's validation error, verbatim
+escalation_state(skill=...)
+  -> {"event_count": N, "item_count": N, "items": {item_key: {..., "token": ...}}}
 ```
 
 - **fired** — after the alert is successfully sent, emit one `fired` event per
