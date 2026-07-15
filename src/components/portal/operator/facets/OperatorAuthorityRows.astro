@@ -1,6 +1,6 @@
 ---
 /**
- * Authority rows — the shared rendering of the "what it may do on its own"
+ * Authority rows — the shared rendering of the "what it's allowed to do"
  * view (console blueprint §4: entitlements as one honest view). One component,
  * mounted by the work surface AND the landing's one-pager summary block, so the
  * two can never disagree. Rows come from the work resolver's authority model;
@@ -33,5 +33,5 @@ const { rows } = Astro.props
   }
 </ul>
 <p class="mt-4 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
-  Anything not listed here does not happen on its own.
+  Any kind of action not listed here is off entirely. The operator won't do it at all.
 </p>
