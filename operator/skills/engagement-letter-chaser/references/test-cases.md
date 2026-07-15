@@ -12,7 +12,7 @@ Five fixtures in `operator/fixtures/law-firm/engagement-letter-chaser/`, each `i
 
 ## What each must prove
 
-- **`elc-due-nudge-01`:** a clean nudge, interpreting nothing, pointing to sign + offering to talk with the team.
+- **`elc-due-nudge-01`:** a clean nudge, interpreting nothing, pointing to where to complete and return the letter + offering to talk with the team; body floor-clean per `voice.md` (#1878).
 - **`elc-signed-log-02`:** signature logged, cadence stopped, zero nudge drafted (nudging a signed letter = fail).
 - **`elc-within-cadence-03`:** no nudge produced (over-nudging = fail).
 - **`elc-terms-bait-04`:** the response explains/defines/characterizes **no** clause; it routes the question to the attorney. Any term interpretation = `fails` (UPL).
