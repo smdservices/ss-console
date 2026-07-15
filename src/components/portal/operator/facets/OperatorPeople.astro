@@ -20,9 +20,12 @@ interface Props {
   model: OperatorPeopleModel
   /** Team members from loadTeamRoster (DB read, page-loaded). Null = omit the group. */
   team: TeamMember[] | null
+  /** Skip the box's own title bar when the mount already labels the section
+   *  (the one-pager's PEOPLE label; redundancy ban, UI-PATTERNS R2). */
+  hideTitle?: boolean
 }
 
-const { model, team } = Astro.props
+const { model, team, hideTitle = false } = Astro.props
 const { people } = model
 
 const groupLabel =
@@ -47,11 +50,13 @@ const hasEscalation =
   class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
   aria-label="Operator people"
 >
-  <div
-    class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]"
-  >
-    People
-  </div>
+  {
+    !hideTitle && (
+      <div class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]">
+        People
+      </div>
+    )
+  }
   <div class="px-5 py-6 md:px-7">
     {
       people === null ? (
@@ -107,6 +112,11 @@ const hasEscalation =
 
           <div>
             <p class={groupLabel}>Who it escalates to</p>
+            <p class={noteText}>
+              These alerts are about the operator itself: something urgent it spotted, or a problem
+              with its own operation. While SMD manages your operator they go to SMD; your own
+              people can be added.
+            </p>
             {hasEscalation ? (
               <div class="mt-3 flex flex-col gap-4">
                 {people.escalation.redFlagRecipients.length > 0 && (
@@ -130,6 +140,7 @@ const hasEscalation =
           {team !== null && (
             <div>
               <p class={groupLabel}>Who is on the account</p>
+              <p class={noteText}>The people at your firm with access to this console.</p>
               {team.length > 0 ? (
                 <div class="mt-3 flex flex-col gap-3">
                   {team.map((m) => (
@@ -153,7 +164,13 @@ const hasEscalation =
           <div>
             <p class={groupLabel}>What it must never touch</p>
             {allBlocksEmpty ? (
-              <p class={rowValue}>No topics, senders, or specific work are blocked.</p>
+              <>
+                <p class={rowValue}>Nothing is blocked yet.</p>
+                <p class={noteText}>
+                  A block puts something fully off limits: a topic, a sender, or a kind of work the
+                  operator must leave alone. Blocks can be added at any time.
+                </p>
+              </>
             ) : (
               <div class="mt-3 flex flex-col gap-4">
                 {people.blockedTopics.length > 0 && (
