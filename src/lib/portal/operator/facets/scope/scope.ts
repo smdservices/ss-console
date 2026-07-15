@@ -4,7 +4,7 @@
  * chapter per ADR 0076).
  *
  * Answers "what are the limits?" from the `scope_json` projection, grouped as
- * three client-legible questions:
+ * four client-legible questions:
  *   - what it can see        — email_folders_visible / email_folders_blind
  *   - who it responds to     — inbound_allow_from, the ADR 0055 organization
  *                              roster (addresses and @domains). The single most
@@ -14,21 +14,50 @@
  *                              the operator drafts but never responds on its
  *                              own — and the viewer says so plainly, never as
  *                              an error.
+ *   - who it writes to       — outbound_roster (ADR 0075), the human-authored
+ *                              standing outbound recipients with their class
+ *                              rendered through the closed label map. Coverage
+ *                              gap closed per the console blueprint §4 (the
+ *                              resolver predated `outbound_roster`). Empty is
+ *                              the honest default: no standing recipients are
+ *                              configured.
  *   - what's off limits      — the three block lists, separately labeled
  *                              (Configure mashes them into one line, losing
  *                              which kind each is). matter_blocks is vertical
  *                              vocabulary and renders only when non-empty.
  *
- * Deliberately NOT surfaced (brief §5): the external-send ceiling (Governance
- * facet, Lock 4), business hours (Schedule facet), and the unvalidated
- * `trusted_sender_domains` yaml key (never reaches the projection).
+ * Deliberately NOT surfaced (brief §5): the external-send ceiling (rendered on
+ * The work as the authority view, Lock 4), business hours (Schedule facet), and
+ * the unvalidated `trusted_sender_domains` yaml key (never reaches the
+ * projection).
  *
  * Pure and total: a null config or missing scope blob yields `scope: null` and
  * the viewer renders the honest empty state (docs/style/empty-state-pattern.md).
  */
 
 import type { CustomerConfigRow } from '../../../customer-config'
+import type { OutboundRosterClass } from '../../../../operator/customer-yaml/types'
 import { parseScope } from '../../configure'
+
+/**
+ * Closed plain-language labels for the outbound-roster class vocabulary
+ * (OUTBOUND_ROSTER_CLASSES). Display-only; the authored class token never
+ * reaches the page.
+ */
+const OUTBOUND_CLASS_LABEL: Record<OutboundRosterClass, string> = {
+  client: 'Client',
+  records_vendor: 'Records vendor',
+}
+
+/** One standing outbound recipient, rendered from the authored roster entry. */
+export interface OutboundRosterView {
+  /** The authored address or @domain grant, verbatim. */
+  address: string
+  /** Plain-language class label from the closed map. */
+  classLabel: string
+  /** The authored free-text note, or null. */
+  note: string | null
+}
 
 export interface OperatorScopeModel {
   /** null when the projection carries no scope blob — page-level empty state. */
@@ -39,6 +68,12 @@ export interface OperatorScopeModel {
     neverSees: string[]
     /** The ADR 0055 roster: who gets real replies and action (inbound_allow_from). */
     respondsTo: string[]
+    /**
+     * The ADR 0075 outbound roster: the standing recipients a person authored
+     * for outbound work, each with its plain-language class. Empty means no
+     * standing outside recipients are configured.
+     */
+    writesTo: OutboundRosterView[]
     /** email_keyword_blocks — topics it must not touch. */
     blockedTopics: string[]
     /** domain_blocks — senders and domains it must not engage. */
@@ -68,6 +103,11 @@ export function resolveOperatorScope(config: CustomerConfigRow | null): Operator
       sees: scope.email_folders_visible,
       neverSees: scope.email_folders_blind,
       respondsTo: scope.inbound_allow_from,
+      writesTo: scope.outbound_roster.map((e) => ({
+        address: e.address,
+        classLabel: OUTBOUND_CLASS_LABEL[e.class],
+        note: e.note ?? null,
+      })),
       blockedTopics: scope.email_keyword_blocks,
       blockedSenders: scope.domain_blocks,
       blockedWork: scope.matter_blocks,

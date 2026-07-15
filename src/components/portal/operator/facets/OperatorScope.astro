@@ -82,6 +82,37 @@ const rowValue = 'mt-1 font-body text-sm leading-snug text-[color:var(--color-te
           </div>
 
           <div>
+            <p class={groupLabel}>Who it writes to for the firm</p>
+            {scope.writesTo.length > 0 ? (
+              <>
+                <div class="mt-3 flex flex-col gap-3">
+                  {scope.writesTo.map((w) => (
+                    <div>
+                      <p class={rowValue}>
+                        {w.address}
+                        <span class="ml-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                          {w.classLabel}
+                        </span>
+                      </p>
+                      {w.note && (
+                        <p class="mt-0.5 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                          {w.note}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                  Standing recipients a person has authorized for outbound work. This list never
+                  grows on its own.
+                </p>
+              </>
+            ) : (
+              <p class={rowValue}>No standing outside recipients are configured.</p>
+            )}
+          </div>
+
+          <div>
             <p class={groupLabel}>What's off limits</p>
             <div class="mt-3 flex flex-col gap-4">
               <div>

@@ -26,6 +26,14 @@ const { model, escalationHref = null } = Astro.props
 const displayName = model.name ?? 'Your operator'
 const personaLine = model.title ? `${displayName} · ${model.title}` : displayName
 
+// "Who it is" detail (console blueprint §4 coverage: persona identity + voice
+// posture). All authored config; each line renders only when authored.
+const toneLine = model.tone.length > 0 ? model.tone.join(' · ') : null
+const alsoLine =
+  model.alsoOperatesAs.length > 0
+    ? model.alsoOperatesAs.map((p) => (p.title ? `${p.name} (${p.title})` : p.name)).join(', ')
+    : null
+
 const HEALTH: Record<AlivenessLevel, { headline: string; dot: string; problem: boolean }> = {
   idle: { headline: 'Running normally', dot: 'bg-[color:var(--color-complete)]', problem: false },
   running: { headline: 'Working now', dot: 'bg-[color:var(--color-complete)]', problem: false },
@@ -61,6 +69,28 @@ const escalationTarget = escalationHref ?? '/portal/products/operator/settings'
   >
     {personaLine}
   </p>
+
+  {
+    (toneLine || model.sendAs || alsoLine) && (
+      <div class="mt-1 flex flex-col gap-0.5">
+        {toneLine && (
+          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+            Sounds: {toneLine}
+          </p>
+        )}
+        {model.sendAs && (
+          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+            Writes from: {model.sendAs}
+          </p>
+        )}
+        {alsoLine && (
+          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+            Also operates as: {alsoLine}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   {
     health ? (
