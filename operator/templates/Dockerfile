@@ -325,7 +325,16 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # shared/inbound.py (contract-tested vendored copy, not a sha-tracked twin) +
 # plugins/hermes-smd-peer-memory + tests — every overlaySha256 unchanged,
 # only overlayRef. Superset of 3ffc2d1f.
-ARG OVERLAY_REF="aa7d78f2ca4f6657ebc5051d7bd58406a758beb0"
+# eb17f3cb (overlay #172, ss #1943): inbound taint/fence rendezvous — the
+# chokepoint claims the fresh dispatch-unkeyed PENDING bucket and fences +
+# taints under the turn's own session id (the live email path enqueues under
+# session=''; the wall never fired). Rostered senders (scope.inbound_allow_from
+# — the list that already authorizes autonomous replies) classify internal: no
+# fence/taint, keeping the ADR 0048 capture lane alive; strangers stay
+# unknown_external and now actually hit the wall. shared/inbound.py +
+# webhook-router + hermes-smd-inbound + tests — no sha-tracked twins,
+# overlayRef-only. Superset of aa7d78f2.
+ARG OVERLAY_REF="eb17f3cb5b830683980c20c1b1b3485f40985b49"
 
 ARG CUSTOMER_SLUG=customer-zero
 
