@@ -67,15 +67,18 @@ const operatorCount = (await listCustomerConfigsForEntity(env.DB, client.id)).le
 const backHref = operatorCount > 1 ? '/portal/products/operator' : '/portal'
 const backLabel = operatorCount > 1 ? 'Operators' : 'Home'
 
-type SurfaceState = 'no_subscription' | 'provisioning' | 'paused' | 'no_role' | 'active'
+type SurfaceState = 'no_subscription' | 'paused' | 'no_role' | 'active'
 let surfaceState: SurfaceState
 let access: ProductAccess | null = null
 
+// A provisioning subscription no longer blanks the console (console blueprint
+// 05-console-blueprint.md §7b): the configuration below is the projected current
+// state — exactly what a negotiation-phase client needs to read — so it renders
+// in full, with a status line saying setup is still in progress. This matches
+// resolveOperatorAccess, which already admits provisioning on every subpage.
 const subscription = await getOperatorSubscriptionByInstance(env.DB, client.id, instance)
 if (!subscription) {
   surfaceState = 'no_subscription'
-} else if (subscription.status === 'provisioning') {
-  surfaceState = 'provisioning'
 } else if (subscription.status === 'paused') {
   surfaceState = 'paused'
 } else {
@@ -87,6 +90,7 @@ if (!subscription) {
     access = { subscription, roles }
   }
 }
+const isProvisioning = subscription?.status === 'provisioning'
 
 let customerConfig = null
 if (access) {
@@ -179,7 +183,6 @@ const EMPTY: Record<Exclude<SurfaceState, 'active'>, { title: string; body: stri
     title: 'Not subscribed',
     body: "Your account doesn't include the Operator product. Contact us if you'd like to talk about adding it.",
   },
-  provisioning: { title: 'Setup in progress', body: 'Your Operator is being configured.' },
   paused: {
     title: 'Paused',
     body: 'Your Operator subscription is paused. Audit history remains accessible; new drafts are suspended until the subscription resumes.',
@@ -231,6 +234,17 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
         <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
           {empty.body}
         </p>
+      </div>
+    )
+  }
+
+  {
+    surfaceState === 'active' && isProvisioning && (
+      <div
+        role="status"
+        class="mt-6 border-[3px] border-[color:var(--color-text-primary)] px-5 py-3 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
+      >
+        Setup in progress. Your Operator is being configured.
       </div>
     )
   }
