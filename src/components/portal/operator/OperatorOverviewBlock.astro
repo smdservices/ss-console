@@ -1,0 +1,41 @@
+---
+/**
+ * One landing summary block (console blueprint §5 — the one-pager). A labeled
+ * bordered section whose CONTENT answers the question and whose footer link
+ * flows into the chapter for depth. Replaces the door pattern: the client
+ * learns by reading, not by choosing a door.
+ *
+ * Loud register to match its sibling viewers while the calm migration is
+ * parked; in CALM_REGISTER_PENDING with the rest of the operator area.
+ */
+interface Props {
+  label: string
+  href: string
+  linkLabel: string
+}
+
+const { label, href, linkLabel } = Astro.props
+---
+
+<section
+  class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+  aria-label={label}
+>
+  <div
+    class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]"
+  >
+    {label}
+  </div>
+  <div class="px-5 py-5 md:px-7">
+    <slot />
+    <a
+      href={href}
+      class="mt-4 inline-flex min-h-11 items-center gap-2 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] hover:text-[color:var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+    >
+      {linkLabel}
+      <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]"
+        >→</span
+      >
+    </a>
+  </div>
+</section>

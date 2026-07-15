@@ -16,32 +16,31 @@ import {
   getCustomerConfigBySlug,
   listCustomerConfigsForEntity,
 } from '../../../../../lib/portal/customer-config'
-import FacetDoorList from '../../../../../components/portal/operator/FacetDoorList.astro'
-import type { FacetDoor } from '../../../../../lib/portal/operator/facet-doors'
+import OperatorOverviewBlock from '../../../../../components/portal/operator/OperatorOverviewBlock.astro'
+import OperatorAuthorityRows from '../../../../../components/portal/operator/facets/OperatorAuthorityRows.astro'
+import {
+  jobLines,
+  resolveOperatorOverview,
+} from '../../../../../lib/portal/operator/facets/overview/overview'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator landing — the operator's front door (ADR 0069; signed-off landing
- * brief docs/design/operator/surface-briefs/operator-landing.md, 2026-07-08).
+ * Operator landing — the ONE-PAGER (console blueprint
+ * docs/design/operator/05-console-blueprint.md §5, LOCKED 2026-07-14).
  *
- * This console is about the OPERATOR itself, not the work it produces. Business
- * work (a draft to review) flows through the real channels — the mailbox, the
- * alert — never here. The surface answers three questions:
- *   Status     — is it OK? (operator health only; no business-work queue)
- *   Role       — what does it do? (Persona · Scope · The work)
- *   Management — fix, change, or retrieve (Voice · Connections · Team · Memory ·
- *                Activity), with Account (the commercial layer) last.
+ * The landing reads as a document, not a hall of doors: the whole operator
+ * summarized top to bottom — identity + status, the currency stamp, the job in
+ * numbers, the authority posture, systems, people, plan — each block flowing
+ * into its chapter for depth. A first-time reader learns the operator by
+ * reading one screen; the chapters are where they verify detail.
  *
- * "The work" (ADR 0076; console structure doc §3.2) is the console spine — the
- * rendered routine grid, stage by stage, with how much the operator does on its
- * own per duty. It absorbs the former Skills, Schedule, Workflows (Role) and
- * Governance (Management) doors into one destination; the Skills page stays
- * routable as the grid's gridless fallback but no longer has a door.
- *
- * Every door leads to a facet's own page. Facets whose page isn't built yet carry
- * href: null and render as present-but-not-yet-built (honest, never "coming
- * soon"); each becomes its own Surface Brief. Access is gated per destination
- * (resolveOperatorAccess) — this landing only maps the doors.
+ * This console is about the OPERATOR itself, not the work it produces (ADR
+ * 0052). Business work flows through the real channels — the mailbox, the
+ * alert — never here. Every summary derives from the same shared facet
+ * resolvers the chapters render (overview resolver), so the landing and its
+ * chapters can never disagree; the empty-chapter rule means a block with no
+ * data is absent, never a hollow door. Access is gated per destination
+ * (resolveOperatorAccess).
  */
 
 const PRODUCT_SLUG = 'operator'
@@ -113,54 +112,17 @@ if (access) {
 }
 const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 
-// The operator's facet map (brief §5). Voice deep-links to today's Configure
-// page until it is split into its own briefed surface; the facets with no page
-// yet (Persona, Memory) carry href: null. "The work" is the built spine that
-// absorbs Skills/Schedule/Workflows/Governance (structure doc §3.2).
-const CONFIGURE = `${operatorBase}/configure`
-const roleDoors: FacetDoor[] = [
-  {
-    label: 'Persona',
-    desc: 'Who it is: its name, role, and the identities it can operate as.',
-    href: null,
-  },
-  {
-    label: 'Scope',
-    desc: "What it can see, who it responds to, and what's off limits.",
-    href: `${operatorBase}/scope`,
-  },
-  {
-    label: 'The work',
-    desc: 'Everything it does, stage by stage, and how much it does on its own.',
-    href: `${operatorBase}/work`,
-  },
-]
-const manageDoors: FacetDoor[] = [
-  { label: 'Voice', desc: 'How it sounds when it writes on your behalf.', href: CONFIGURE },
-  {
-    label: 'Connections',
-    desc: 'The systems and channels it works through.',
-    href: `${operatorBase}/connections`,
-  },
-  {
-    label: 'Team',
-    desc: 'People on the account and who gets alerted.',
-    href: `${operatorBase}/team`,
-  },
-  { label: 'Memory', desc: 'What it knows about your business, to view or export.', href: null },
-  {
-    label: 'Activity',
-    desc: 'The full record of everything it has done.',
-    href: `${operatorBase}/activity`,
-  },
-]
-const accountDoors: FacetDoor[] = [
-  {
-    label: 'Account',
-    desc: 'Subscription, data export, and cancellation.',
-    href: `${operatorBase}/account`,
-  },
-]
+// THE ONE-PAGER (console blueprint §5). The landing reads as a document: the
+// whole operator summarized top to bottom, each block flowing into its chapter
+// for depth. Every number and list comes from the SAME shared facet resolvers
+// the chapters render (overview resolver), so the landing can never disagree
+// with a chapter. Blocks with no data are absent (empty-chapter rule) — which
+// also retires the dead Persona/Memory doors (persona identity renders on the
+// hero now), the Voice door (its authored posture renders on the hero; the
+// Configure page stays routable until its retirement slice), and the Activity
+// door (runtime seam unwired — it returns when the seam lands).
+const overview = resolveOperatorOverview(customerConfig)
+const job = jobLines(overview.job)
 
 // Change-request filing outcome (returns via ?cr=filed|invalid|error).
 const crStatus = Astro.url.searchParams.get('cr')
@@ -256,19 +218,82 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
         <div class="mt-3">
           <OperatorHero model={heroModel} escalationHref={`${operatorBase}/settings`} />
         </div>
+        {overview.publishedOn && (
+          <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+            Configuration as published {overview.publishedOn}
+          </p>
+        )}
 
-        <p class={`mt-10 ${seclabelClass}`}>Role</p>
-        <div class="mt-3">
-          <FacetDoorList doors={roleDoors} />
-        </div>
+        <div class="mt-10 flex flex-col gap-8">
+          {job && (
+            <OperatorOverviewBlock
+              label="The job"
+              href={`${operatorBase}/work`}
+              linkLabel="The work"
+            >
+              <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+                {job.headline}
+              </p>
+              {job.detail && (
+                <p class="mt-1 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                  {job.detail}
+                </p>
+              )}
+            </OperatorOverviewBlock>
+          )}
 
-        <p class={`mt-10 ${seclabelClass}`}>Management</p>
-        <div class="mt-3">
-          <FacetDoorList doors={manageDoors} />
-        </div>
+          {overview.authority.length > 0 && (
+            <OperatorOverviewBlock
+              label="What it may do on its own"
+              href={`${operatorBase}/work`}
+              linkLabel="The work"
+            >
+              <OperatorAuthorityRows rows={overview.authority} />
+            </OperatorOverviewBlock>
+          )}
 
-        <div class="mt-8">
-          <FacetDoorList doors={accountDoors} />
+          {overview.systems.length > 0 && (
+            <OperatorOverviewBlock
+              label="Systems"
+              href={`${operatorBase}/connections`}
+              linkLabel="Connections"
+            >
+              <p class="font-body text-base text-[color:var(--color-text-primary)]">
+                {overview.systems.join(' · ')}
+              </p>
+            </OperatorOverviewBlock>
+          )}
+
+          <OperatorOverviewBlock label="People" href={`${operatorBase}/scope`} linkLabel="Scope">
+            {overview.respondsTo.length > 0 ? (
+              <p class="font-body text-base text-[color:var(--color-text-primary)]">
+                Responds to: {overview.respondsTo.join(', ')}
+              </p>
+            ) : (
+              <p class="font-body text-base text-[color:var(--color-text-primary)]">
+                No one yet. Until someone is added here, your operator drafts replies for review and
+                sends nothing on its own.
+              </p>
+            )}
+            {overview.writesToCount > 0 && (
+              <p class="mt-1 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                {overview.writesToCount} standing outside{' '}
+                {overview.writesToCount === 1 ? 'recipient' : 'recipients'}
+              </p>
+            )}
+          </OperatorOverviewBlock>
+
+          <OperatorOverviewBlock label="The team" href={`${operatorBase}/team`} linkLabel="Team">
+            <p class="font-body text-base text-[color:var(--color-text-primary)]">
+              People on the account and who gets alerted.
+            </p>
+          </OperatorOverviewBlock>
+
+          <OperatorOverviewBlock label="Plan" href={`${operatorBase}/account`} linkLabel="Account">
+            <p class="font-body text-base text-[color:var(--color-text-primary)]">
+              Subscription, data export, and cancellation.
+            </p>
+          </OperatorOverviewBlock>
         </div>
       </>
     )
