@@ -8,7 +8,7 @@
  * dead cold-origin stage) is never shown; `lost` sits behind an opt-in filter.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
-import { listEntities, ENTITY_VERTICALS } from '../../../lib/db/entities'
+import { listEntities } from '../../../lib/db/entities'
 import { getInvoiceRollupForEntities } from '../../../lib/db/invoices'
 import { listFleetRoster } from '../../../lib/admin/fleet-roster'
 import { formatMoney, clientStageBadge } from '../../../lib/admin/client-hub'
@@ -39,11 +39,7 @@ const rollups = await getInvoiceRollupForEntities(
 const operatorEntityIds = new Set(roster.map((r) => r.entity_id))
 const lostCount = all.filter((e) => e.stage === 'lost').length
 
-function verticalLabel(v: string | null): string {
-  return ENTITY_VERTICALS.find((x) => x.value === v)?.label ?? v ?? '—'
-}
-
-const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
+const COL = 'grid grid-cols-[1.8fr_0.9fr_0.9fr_1fr] gap-4 items-center'
 const ADD_BTN =
   'inline-flex items-center gap-1.5 border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)]'
 ---
@@ -84,7 +80,6 @@ const ADD_BTN =
           class={`${COL} border-b border-[color:var(--ss-color-text-primary)] px-3.5 pb-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]`}
         >
           <span>Business</span>
-          <span>Vertical</span>
           <span>Stage</span>
           <span>Services</span>
           <span class="text-right">Outstanding</span>
@@ -100,9 +95,6 @@ const ADD_BTN =
               class={`${COL} border-b border-[color:var(--ss-color-border-subtle)] px-3.5 py-3.5 transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
             >
               <span class="font-semibold text-[color:var(--ss-color-text-primary)]">{c.name}</span>
-              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                {verticalLabel(c.vertical)}
-              </span>
               <span
                 class:list={[
                   'font-mono text-[11px] font-bold uppercase tracking-[0.08em]',
