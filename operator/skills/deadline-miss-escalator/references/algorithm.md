@@ -92,10 +92,21 @@ socket via `execute_code` — the `code_execution` action class is unauthored on
 customer seats and the trust layer refuses it (that dead path is how ss #1915
 was found).
 
+The tool derives `item_key` and the ACK token ITSELF from the identity
+components — never pass a hand-built key (the first live probe proved a
+model-authored key forks the pre_run join). The components MUST be the exact
+tuple this skill's pre_run computes: the matter id, the STABLE Smokeball
+task/event id (`source_id`; null only for idless items, which get no token),
+the fixed label, and the authored date per the skill's identity convention.
+
 ```
-escalation_append(skill=..., matter_id=..., item_key=..., event=...,
-                  attempt=N, token="ACK-XXXXXX")
-  -> {"ok": true, "id": "..."} or the broker's validation error, verbatim
+# raises (fired / chased / handed_off / resolved): identity by components
+escalation_append(skill=..., matter_id=..., source_id=..., label=...,
+                  authored_date=... or null, event=..., attempt=N)
+  -> {"ok": true, "id": "...", "item_key": <derived>, "token": <derived>}
+# acked: identity by the quoted ACK code (resolved against prior raises;
+# an alarm that never rang cannot be acked)
+escalation_append(skill=..., event="acked", attempt=N, ack_token="ACK-XXXXXX")
 escalation_state(skill=...)
   -> {"event_count": N, "item_count": N, "items": {item_key: {..., "token": ...}}}
 ```
