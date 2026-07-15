@@ -1,13 +1,9 @@
 /**
- * Tests for the Operator settings resolver
- * (src/lib/portal/operator/settings.ts).
- *
- * The settings page composes four pure projections from
- * customer.yaml plus two subsystem-bound reads (voice samples,
- * connector health) that are stubbed empty today. We cover the
- * pure projections directly and assert that the stubbed reads
- * keep returning empty arrays so a future change cannot silently
- * fabricate rows.
+ * Tests for the Operator settings contracts
+ * (src/lib/portal/operator/settings.ts): the pure customer.yaml
+ * projections the facet resolvers consume (trust ceilings, skill
+ * toggles, connector rows). The voice-sample family was removed
+ * 2026-07-15 (inert chrome close-out).
  */
 
 import { describe, it, expect } from 'vitest'
@@ -16,13 +12,11 @@ import {
   connectorRowsFromCustomerYaml,
   formatConnectorHealth,
   formatTrustCeilingLevel,
-  formatVoiceSampleStatus,
   isTrustCeilingLevel,
   skillToggleRowsFromPersona,
   trustCeilingRowsFromPersona,
   type ConnectorHealth,
   type TrustCeilingLevel,
-  type VoiceSampleStatus,
 } from '../src/lib/portal/operator/settings'
 import type { PersonaConfig } from '../src/lib/portal/customer-config'
 
@@ -194,19 +188,6 @@ describe('formatConnectorHealth', () => {
     ]
     for (const [value, label] of cases) {
       expect(formatConnectorHealth(value)).toBe(label)
-    }
-  })
-})
-
-describe('formatVoiceSampleStatus', () => {
-  it('maps every value to a friendly label', () => {
-    const cases: Array<[VoiceSampleStatus, string]> = [
-      ['ready', 'Ready'],
-      ['pending', 'Pending'],
-      ['error', 'Error'],
-    ]
-    for (const [value, label] of cases) {
-      expect(formatVoiceSampleStatus(value)).toBe(label)
     }
   })
 })

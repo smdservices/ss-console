@@ -847,7 +847,6 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/components/portal/operator/PromotionCard.astro',
   'src/components/portal/operator/SkillTogglesSection.astro',
   'src/components/portal/operator/TrustCeilingSection.astro',
-  'src/components/portal/operator/VoiceSamplesSection.astro',
   'src/components/portal/PortalListItem.astro',
   'src/components/portal/PortalPageHead.astro',
   'src/components/portal/QuoteProposalSections.astro',
