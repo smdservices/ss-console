@@ -2,7 +2,12 @@
 
 Status: **LOCKED — Captain approval 2026-07-14** (reviewed and approved as
 written, including the §6 vocabulary recommendations and the §7a seat
-recommendation). Supersedes
+recommendation). **Amended 2026-07-15 (Captain):** the chapters collapse into
+the one-pager itself — the landing renders everything inline (full duties
+grid, access, people, persona) and Settings becomes the single act surface
+(§5, §6, §8 revised). The summary-blocks-flowing-into-chapters structure
+still read as a wall of doors; this amendment finishes the one-pager thought.
+Supersedes
 [04-console-structure.md](04-console-structure.md) as the governing design
 document for the client portal's operator section (04 is preserved as history;
 its locked resolutions are dispositioned in §1 below). Evolves ADR 0076: the
@@ -21,20 +26,20 @@ by definition.
 shipped as PR #1896). Nothing locked there is silently dropped; every
 resolution is dispositioned here.
 
-| 04 resolution / element                                                             | Disposition                                                                                                                                                                                                                                                                           |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Honesty rules (render only authored data; Lock 2 nothing-effective-that-isn't)      | **Carried**, unchanged. The employee-manual idea survives as exactly this rule (§2).                                                                                                                                                                                                  |
-| One shared viewer per facet, both portals mount (ADR 0069 Lock 4)                   | **Carried**, unchanged.                                                                                                                                                                                                                                                               |
-| Facet registry as the closed truth                                                  | **Carried and promoted** — the registry becomes the coverage contract's ledger (§4).                                                                                                                                                                                                  |
-| The routine grid as the console spine                                               | **Carried.** The grid page remains the centerpiece; it is renamed (§6).                                                                                                                                                                                                               |
-| Six-chapter structure grounded in employment artifacts                              | **Revised.** The grouping instinct survives as five chapters + a header (§5); the employment-document grounding is dropped as a naming authority — no real manual has a chapter called "The work," and no metaphor governs (§2).                                                      |
-| Tier language: plain sentences ("Surfaces it / Prepares it for you / Handles it")   | **Carried** as the tier _values_. The row _labels_ around them ("Today" / "Can become") are replaced (§6).                                                                                                                                                                            |
-| §5b configurability is the substrate — every rendered fact declares its change-path | **Carried, explicitly.** Each viewer's view model knows which config field it renders and how that value changes (request-a-change today, governed write-back when a domain flips). The occasion table's "request path on every surface" (§3) is the floor, not a relaxation of this. |
-| §6 data plane (grid → `routine_grid_json` projection, auto-sync on merge)           | **Carried; built** (PR #1891, live).                                                                                                                                                                                                                                                  |
-| Retire the Scope page and Configure                                                 | **Carried** (build slice 4, §8).                                                                                                                                                                                                                                                      |
-| Per-routine graduation request designed into chapter 2                              | **Deferred** (Captain, 2026-07-14): no change-control mechanics beyond the generic request path until a client needs one. The row structure does not preclude it; nothing is rebuilt when it lands.                                                                                   |
-| Memory's home                                                                       | **Carried as parked** — decided when the memory facet becomes real.                                                                                                                                                                                                                   |
-| Chapter names ("The work", "The record", "The arrangement")                         | **Superseded** by the vocabulary table (§6).                                                                                                                                                                                                                                          |
+| 04 resolution / element                                                             | Disposition                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Honesty rules (render only authored data; Lock 2 nothing-effective-that-isn't)      | **Carried**, unchanged. The employee-manual idea survives as exactly this rule (§2).                                                                                                                                                                                                                     |
+| One shared viewer per facet, both portals mount (ADR 0069 Lock 4)                   | **Carried**, unchanged.                                                                                                                                                                                                                                                                                  |
+| Facet registry as the closed truth                                                  | **Carried and promoted** — the registry becomes the coverage contract's ledger (§4).                                                                                                                                                                                                                     |
+| The routine grid as the console spine                                               | **Carried.** The grid page remains the centerpiece; it is renamed (§6).                                                                                                                                                                                                                                  |
+| Six-chapter structure grounded in employment artifacts                              | **Revised twice.** The grouping instinct survives as the one-pager's labeled sections (§5, amended 2026-07-15 — chapters collapsed into the landing); the employment-document grounding is dropped as a naming authority — no real manual has a chapter called "The work," and no metaphor governs (§2). |
+| Tier language: plain sentences ("Surfaces it / Prepares it for you / Handles it")   | **Carried** as the tier _values_. The row _labels_ around them ("Today" / "Can become") are replaced (§6).                                                                                                                                                                                               |
+| §5b configurability is the substrate — every rendered fact declares its change-path | **Carried, explicitly.** Each viewer's view model knows which config field it renders and how that value changes (request-a-change today, governed write-back when a domain flips). The occasion table's "request path on every surface" (§3) is the floor, not a relaxation of this.                    |
+| §6 data plane (grid → `routine_grid_json` projection, auto-sync on merge)           | **Carried; built** (PR #1891, live).                                                                                                                                                                                                                                                                     |
+| Retire the Scope page and Configure                                                 | **Carried** (§8 slice 1, amended 2026-07-15).                                                                                                                                                                                                                                                            |
+| Per-routine graduation request designed into chapter 2                              | **Deferred** (Captain, 2026-07-14): no change-control mechanics beyond the generic request path until a client needs one. The row structure does not preclude it; nothing is rebuilt when it lands.                                                                                                      |
+| Memory's home                                                                       | **Carried as parked** — decided when the memory facet becomes real.                                                                                                                                                                                                                                      |
+| Chapter names ("The work", "The record", "The arrangement")                         | **Superseded** by the vocabulary table (§6).                                                                                                                                                                                                                                                             |
 
 ## 2. The frame
 
@@ -84,7 +89,7 @@ surface earns its place by making one of these pass.
 | 1   | **Agreement / negotiation** — "this is what we think the operator is for you" (the driver) | principal, with Captain       | **File-07 parity**: everything the emailed routine matrix carried — every duty, its trigger, both autonomy dials, the named permanent caps, and a way to ask for a change — the console carries, checkable row by row against `operator/customers/ashton-price/correspondence/07_…routine-matrix.md`. |
 | 2   | **Confirmation** — "does it handle X? will it act on its own?"                             | principal/staff, months later | Any duty and its autonomy level findable in at most 2 clicks from the landing.                                                                                                                                                                                                                        |
 | 3   | **Change** — "more rope / rein it in / add something"                                      | principal                     | The generic request path is present on every config surface (the floor; §1's change-path-per-fact directive is the substrate it grows from).                                                                                                                                                          |
-| 4   | **Investigation** — "something went wrong; what happened?"                                 | principal/compliance          | The record is findable from the landing but never prominent. (Runtime seam; later slice — see §5 empty-chapter rule.)                                                                                                                                                                                 |
+| 4   | **Investigation** — "something went wrong; what happened?"                                 | principal/compliance          | The record is findable from the landing but never prominent. (Runtime seam; later slice — see §5 empty-section rule.)                                                                                                                                                                                 |
 | 5   | **Admin** — billing, users, cancellation                                                   | principal                     | As built today.                                                                                                                                                                                                                                                                                       |
 
 Occasion 1 is the design driver. The A&P negotiation is the proof case: the
@@ -114,7 +119,7 @@ the stale-projection failure mode in document form.)
 | Identity (persona name, title)                          | Landing hero                                               | Rendered                                                                                 |
 | Duties + per-duty autonomy (routine grid)               | Work page (grid seats)                                     | Rendered                                                                                 |
 | Skills + initiation                                     | Skills page; gridless fallback                             | Rendered                                                                                 |
-| Visibility (folders), inbound roster, blocks (`scope:`) | Scope page                                                 | Rendered (page retires into chapters, slice 4)                                           |
+| Visibility (folders), inbound roster, blocks (`scope:`) | Scope page                                                 | Rendered (page retires into the one-pager sections, §8 slice 1)                          |
 | Connected systems (`connectors:`)                       | Connections page                                           | Rendered (health is authored-static and says so)                                         |
 | Escalation contacts                                     | Account page                                               | Rendered                                                                                 |
 | **Entitlements / authority ceilings**                   | Floors buried in Configure; per-skill ceilings in Settings | **Fragmented** — no single honest "how much may it do" view (registry slice 3)           |
@@ -123,40 +128,57 @@ the stale-projection failure mode in document form.)
 | **Schedule (cron) + bundles**                           | Nowhere                                                    | **Missing** — plane `config_unprojected`; needs projection extension (registry slice 7)  |
 | **Voice**                                               | Tone rows inside Configure                                 | **Fragmented/thin** (registry slice 5)                                                   |
 | Business hours                                          | Configure (timezone only, honestly)                        | Rendered-partial by design (Lock 2: days/hours are inert and never display as effective) |
-| Memory, agent-authored skills, activity/audit           | Nowhere (runtime seams unwired)                            | Parked by Captain — join when their seam lands (§5 empty-chapter rule)                   |
+| Memory, agent-authored skills, activity/audit           | Nowhere (runtime seams unwired)                            | Parked by Captain — join when their seam lands (§5 empty-section rule)                   |
 | mcp-connector, addons, practice-areas, digest, webhooks | Admin-only / suppressed per registry                       | Deliberate; unchanged                                                                    |
 
 The bolded rows are the build's substance (slice 1, §8). They — not another
 reorganization — are what stands between today's console and "comprehensive."
 
-## 5. Information architecture
+## 5. Information architecture (amended 2026-07-15)
 
-### The landing is a one-pager, not a hall of doors
+### One read page, one act page
 
-The landing reads as a document — the whole operator, summarized top to
-bottom, each block flowing into its chapter for depth. A first-time reader
-(Christa, week one) learns the operator by _reading one screen_; the chapters
-are where she goes to verify detail, not where she must guess to start.
+> If you're learning what the operator **is**, you're on the operator page.
+> If you're **changing** something, you're in Settings.
 
-Composition, top to bottom:
+The 07-14 structure (summary blocks flowing into chapters) was a halfway
+house: every block was still a teaser whose payload lived somewhere else, so
+the landing still presented as a wall of doors (Captain, 2026-07-15). This
+amendment finishes the thought: **the landing IS the manual** — everything
+the operator is renders inline, in full, on one page. There are no chapter
+routes. A first-time reader (Christa, week one) learns the operator by
+reading one document top to bottom; File-07 parity is satisfied by that one
+document.
 
-1. **Identity header** — persona name, title, the seat's state, and the
-   currency stamp (below). Health lives here, de-emphasized (Captain,
-   2026-07-14): a quiet presence line, not a hero panel.
-2. **The job in numbers** — rendered from the grid where one exists: "19
-   duties across 8 stages of your case lifecycle — 14 prepared for a person's
-   review, 3 surfaced for you, 2 handled on its own." (Counts derived from
-   authored tiers; nothing invented.) Gridless seats render the skills-count
-   sentence instead. → Duties chapter.
-3. **Autonomy posture** — the permanent caps in one short reviewed block
-   (deadlines, money, opposing counsel, court — sourced from grid cap
-   verbatims + banned tools, per the descoped chapter-2 brief item, revived
-   here). → Duties chapter.
-4. **Systems** — one line per connected system with its identity ("works in
-   the `records@…` mailbox; reads Inbox and Sent"). → Access chapter.
-5. **People** — who it responds to, who it may write to for the firm, who it
-   escalates to. → People chapter.
-6. **Plan** — the commercial line. → Plan & billing chapter.
+### The one-pager, top to bottom
+
+1. **Identity header** — persona name, title, the seat's state, the currency
+   stamp (below), and the single **Settings** entry (top-right; it never
+   appears in the reading flow). Health lives here, de-emphasized (Captain,
+   2026-07-14): a quiet presence line, not a hero panel. Nothing
+   billing-shaped renders on the read page (Captain, 2026-07-15) — the
+   header's status is purely operational.
+2. **Duties** — the FULL routine grid inline: every duty, its trigger, both
+   autonomy dials (Captain, 2026-07-15: full grid, not a condensed teaser —
+   parity is row-by-row, and a condensed view reintroduces a door). The
+   job-in-numbers sentence renders as this section's lede. Gridless seats
+   render the authority rows + skills sentence here instead.
+3. **Access** — systems it works in with their identities ("works in the
+   `records@…` mailbox; reads Inbox and Sent"), entitlement posture, standing
+   outside recipients.
+4. **People** — the full roster inline: who it responds to, who it may write
+   to for the firm, who it escalates to.
+5. **Persona** — sounds / writes from / also operates as. The client-voice
+   subsystem joins here when voice-establishment lands (#1938).
+
+**In-page navigation.** A sticky anchor rail (Duties · Access · People ·
+Persona) replaces chapter navigation. Anchors are deep-linkable (`#duties`),
+so occasion 2's "findable in ≤2 clicks" improves to zero clicks and one
+scroll.
+
+**Change paths.** §5b is untouched: each section keeps its inline
+request-a-change affordance; every rendered fact still knows which config
+field it renders and how that value changes.
 
 **Currency stamp semantics.** The header carries **"Configuration as
 published <date>"**, derived from the projection's `synced_at` + `git_sha`
@@ -165,28 +187,44 @@ rendered configuration was published — it never claims to describe the live
 seat's runtime state. If projection and seat can drift, the stamp stays
 honest because it only asserts publication.
 
-### Five chapters behind it
+### Settings — the act surface
 
-Duties · Access · People · Activity · Plan & billing (names per §6, Captain
-to mark up). Chapters are compositions that mount the existing shared facet
-viewers (Lock 4 unchanged); the facet registry underneath does not change
-shape.
+One entry, from the identity header only. It holds everything a client
+_does_ to the operator, growing a section per domain that mirrors the read
+page one-for-one:
 
-### The empty-chapter rule
+- **Plan & billing** — the commercial plane (what the Account page held),
+  moved out of the manual entirely: billing is not part of what the operator
+  is.
+- **People & access** — portal user management (principal-gated); the future
+  home of roster changes.
+- **Future config domains** — Duties, Access, Persona sections appear here as
+  each becomes self-serve (a domain's authority switch flips, ADR 0041).
+  Until then a domain has no Settings section; its only affordance is the
+  read page's request-a-change. The empty-section rule applies to Settings
+  too — never a placeholder door.
 
-**A chapter mounts only when its plane has authored or derivable data;
+### The empty-section rule
+
+**A section renders only when its plane has authored or derivable data;
 otherwise it is absent entirely.** Never a hollow door, never "coming soon"
-(banned string anyway). Concretely: Activity joins the chapter set when the
-runtime read seam is wired, not before. A console that claims
+(banned string anyway). Concretely: an Activity section joins the one-pager
+when the runtime read seam is wired, not before. A console that claims
 comprehensiveness must not contain rooms with nothing in them.
 
 ### What retires
 
-Configure (dissolves once Duties/Access/People carry its content), the
-standalone Scope page (visibility → Access; rosters/blocks → People — the
+The chapter routes themselves: `work/` and `people/` 301 to the landing's
+anchors (redirect doctrine — old bookmarks keep working); `account/` folds
+into Settings. `connections/` survives as the connectors ACT surface under
+Settings (OAuth re-authorize and secret entry need a home; the one-pager's
+Access section renders the read view) — labels rename, identifiers never. Configure and the standalone Scope page
+dissolve as before (visibility → Access; rosters/blocks → People — the
 resolver survives, extended with `outbound_roster`), and the dead Persona and
-Memory doors (Persona's content joins the identity header / Access; Memory
-returns under the empty-chapter rule when real).
+Memory doors stay dead (Persona renders inline; Memory returns under the
+empty-section rule when real). The facet registry and shared viewers do not
+change shape (Lock 4): sections are compositions that mount the same shared
+facet viewers the chapters mounted.
 
 ## 6. Vocabulary (locked once, then guard-enforced)
 
@@ -203,10 +241,10 @@ display terms from client-facing surfaces.
 | Current-autonomy row label    | "Today"                                        | **Autonomy:**                         | Current setting                      |
 | Ceiling row label             | "Can become"                                   | **Can be raised to:**                 | Available setting; Maximum           |
 | Tier values (plain sentences) | Surfaces it / Prepares it for you / Handles it | **unchanged**                         | —                                    |
-| Access chapter                | (unbuilt)                                      | **Access**                            | Systems                              |
-| People chapter                | (unbuilt)                                      | **People**                            | Working with                         |
-| Record chapter                | "Activity"                                     | **Activity** (keep)                   | The record                           |
-| Commercial chapter            | "Account"                                      | **Plan & billing**                    | Account (keep)                       |
+| Access section                | (unbuilt)                                      | **Access**                            | Systems                              |
+| People section                | (unbuilt)                                      | **People**                            | Working with                         |
+| Record section                | "Activity"                                     | **Activity** (keep)                   | The record                           |
+| Commercial plane (Settings)   | "Account"                                      | **Plan & billing**                    | Account (keep)                       |
 | Currency stamp                | (new)                                          | **Configuration as published <date>** | Current as of (rejected: overclaims) |
 
 The "The X" naming pattern ("The work", "The record", "The arrangement") is
@@ -246,15 +284,17 @@ citing this blueprint.
 0. **Minimum sendable console** — §7(a) seat decision executed + §7(b)
    provisioning-state visibility. Passes occasion 1's parity test on the
    duties half.
-1. **Coverage** — the bolded §4 rows: entitlements as one honest view,
+1. **One-pager collapse + Settings split** (amended 2026-07-15; absorbs the
+   old slices 2 and 4, plus #1934) — the landing renders everything inline
+   per §5 (full grid, access, people, persona; anchor rail); Settings rebuilt
+   as the act hub (Plan & billing moves there); `work/`, `connections/`,
+   `people/` 301 to anchors, `account/` folds into Settings; Configure and
+   Scope dissolve.
+2. **Coverage** — the bolded §4 rows: entitlements as one honest view,
    outbound roster (extend the scope resolver), persona/identities, schedule
-   projection + rendering, voice. Rendered into the existing chapter set.
-2. **Landing recomposition** — the §5 one-pager (job in numbers, autonomy
-   posture, systems, people; stamp).
+   projection + rendering, voice. Rendered into the one-pager's sections.
 3. **Vocabulary pass** — apply §6 labels + extend the forbidden-strings
    guard.
-4. **Retirements** — Configure and the Scope page dissolve into
-   Duties/Access/People; dead doors removed.
 
 Later, unchanged in priority by this document: Activity/audit (runtime
 seam), memory, health emphasis, per-routine graduation mechanics.

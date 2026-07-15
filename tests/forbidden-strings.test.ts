@@ -527,12 +527,14 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // status/document record-row vocabulary. The .map( iterates members; the
   // people_access domain is Read + Request at launch (ADR 0041).
   resolve('src/pages/portal/products/operator/[instance]/team/index.astro'),
-  // `products/operator/[instance]/account/index.astro` (§5.9) renders escalation
-  // recipients as plain contact rows (one email per row) inside read-only
-  // domain surfaces — not the PortalListItem status/document record-row
-  // vocabulary. The .map( iterates authored escalation recipients; subscription
-  // is the SMD-only provisioning domain shown as an honest status surface.
-  resolve('src/pages/portal/products/operator/[instance]/account/index.astro'),
+  // `products/operator/[instance]/index.astro` is the operator ONE-PAGER
+  // (console blueprint §5, amended 2026-07-15): the whole configuration
+  // rendered inline as a document, not a list of records. Its .map( hits are
+  // the sticky anchor-rail links and the Access section's connector rows —
+  // the latter render through the dedicated <ConnectionRowCard> primitive
+  // (same justification as the connections act surface below); duties and
+  // people render through the shared <OperatorWork>/<OperatorPeople> viewers.
+  resolve('src/pages/portal/products/operator/[instance]/index.astro'),
   // `products/operator/[instance]/settings/index.astro` is the settings hub — a
   // NAVIGATION menu, not a list of records. The `.map(` iterates
   // SETTINGS_LINKS (label + description → link) to render nav rows pointing
@@ -819,13 +821,9 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/components/portal/operator/facets/OperatorSkills.astro',
   'src/components/portal/operator/facets/OperatorWork.astro',
   'src/components/portal/operator/facets/OperatorScope.astro',
-  // One-pager landing summary block + People chapter (console blueprint §5):
-  // match their loud operator-area siblings until the whole area flips to calm
-  // together.
-  'src/components/portal/operator/OperatorOverviewBlock.astro',
+  // People viewer (console blueprint §5): matches its loud operator-area
+  // siblings until the whole area flips to calm together.
   'src/components/portal/operator/facets/OperatorPeople.astro',
-  'src/pages/portal/products/operator/[instance]/people/index.astro',
-  'src/components/portal/operator/FacetDoorList.astro',
   'src/components/admin/EntityContactRow.astro',
   'src/components/admin/EntityIdentityStrip.astro',
   'src/components/admin/HostedAgentQueueCard.astro',
@@ -860,7 +858,6 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/hosted-agent/api-key.astro',
   'src/pages/portal/products/hosted-agent/index.astro',
   'src/pages/portal/products/hosted-agent/intake.astro',
-  'src/pages/portal/products/operator/[instance]/account/index.astro',
   'src/pages/portal/products/operator/[instance]/activity/index.astro',
   'src/pages/portal/products/operator/[instance]/calendar/index.astro',
   'src/pages/portal/products/operator/[instance]/compliance/index.astro',
@@ -870,7 +867,6 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/operator/[instance]/settings/index.astro',
   'src/pages/portal/products/operator/[instance]/settings/users.astro',
   'src/pages/portal/products/operator/[instance]/skills/index.astro',
-  'src/pages/portal/products/operator/[instance]/work/index.astro',
   'src/pages/portal/products/operator/[instance]/team/index.astro',
 ]
 
