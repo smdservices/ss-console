@@ -1,0 +1,37 @@
+---
+/**
+ * Authority rows — the shared rendering of the "what it may do on its own"
+ * view (console blueprint §4: entitlements as one honest view). One component,
+ * mounted by the work surface AND the landing's one-pager summary block, so the
+ * two can never disagree. Rows come from the work resolver's authority model;
+ * the fixed footer sentence states the fail-closed default once.
+ *
+ * Loud register with its siblings while the calm migration is parked
+ * (CALM_REGISTER_PENDING).
+ */
+import type { WorkAuthorityRow } from '../../../../lib/portal/operator/facets/work/work'
+
+interface Props {
+  rows: WorkAuthorityRow[]
+}
+
+const { rows } = Astro.props
+---
+
+<ul role="list" class="flex flex-col gap-2">
+  {
+    rows.map((row) => (
+      <li class="flex flex-col gap-0.5 md:flex-row md:items-baseline md:justify-between md:gap-8">
+        <span class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+          {row.label}
+        </span>
+        <span class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+          {row.sentence}
+        </span>
+      </li>
+    ))
+  }
+</ul>
+<p class="mt-4 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+  Anything not listed here does not happen on its own.
+</p>
