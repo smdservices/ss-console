@@ -1,56 +1,58 @@
 ---
 import PortalShell from '../../../../../../layouts/PortalShell.astro'
-import { getPortalClient } from '../../../../../../lib/portal/session'
-import { getOperatorSubscriptionByInstance } from '../../../../../../lib/portal/product-access'
-import { getCustomerConfigBySlug } from '../../../../../../lib/portal/customer-config'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { getStripeCustomerIdForSubscription } from '../../../../../../lib/portal/billing'
+import {
+  loadAccountState,
+  subscriptionStatusLabel,
+  subscriptionStatusProse,
+} from '../../../../../../lib/portal/operator/account-read'
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator — settings hub.
+ * Operator — Settings, the ACT surface (console blueprint §5, amended
+ * 2026-07-15). One read page, one act page: the one-pager is where a client
+ * learns what the operator is; Settings is where they change something. It
+ * holds Plan & billing (the commercial plane, moved off the read page
+ * entirely) and the entries to the operable sub-surfaces (Connections, Team
+ * access, Advanced). Future config domains grow sections here as each becomes
+ * self-serve (ADR 0041 authority switches); until then a domain's only
+ * affordance is the read page's request-a-change.
  *
- * URL: portal.smd.services/portal/products/operator/settings
+ * URL: portal.smd.services/portal/products/operator/<instance>/settings
  *
- * The landing surface for Operator settings, and the redirect target for
- * the customer-facing OAuth connect flow (oauth/[connector]/callback.ts →
- * `?status=connected` on success, `?status=failed&reason=<short>` on
- * failure) plus the initiate-failure path. Before this page existed those
- * flows 404'd — a client who connected a system landed on a missing page.
+ * Also the redirect target for the customer-facing OAuth connect flow
+ * (oauth/[connector]/callback.ts → `?status=connected` on success,
+ * `?status=failed&reason=<short>` on failure) plus the initiate-failure path.
  *
- * Access gate: Clerk session (middleware) + an active Operator
- * subscription. No role gate here — the hub is a read-only landing; each
- * sub-surface (Users, Advanced) enforces its own principal/operable gate.
- *
- * This page owns no mutations. It renders the connect-status banner and
- * links to the settings sub-surfaces.
+ * Read access is all three client roles (matching the retired Account page);
+ * each operable sub-surface enforces its own principal/operable gate.
+ * Subscription is the `provisioning` domain — SMD-only, non-switchable —
+ * rendered read-only with NO request form.
  */
 
 const instance = Astro.params.instance
 if (!instance) return Astro.redirect('/portal/products/operator')
 const operatorBase = `/portal/products/operator/${instance}`
 
-const portalData = await getPortalClient(env.DB, Astro.locals)
-if (!portalData) {
-  return Astro.redirect('/auth/sign-in')
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
 }
-if (!portalData.client) {
-  return Astro.redirect('/auth/sign-in?status=no_subscription')
-}
+const { client, roles } = access
+const config = access.config
 
-const { client } = portalData
+const account = await loadAccountState(env.DB, client.id)
+// Manage-Billing door renders only when a Stripe customer exists on the
+// subscription (no fabricated door).
+const stripeCustomerId = await getStripeCustomerIdForSubscription(env.DB, client.id, 'operator')
 
-const subscription = await getOperatorSubscriptionByInstance(env.DB, client.id, instance)
-if (!subscription) {
-  return Astro.redirect('/portal/products/operator')
-}
-
-// Ownership guard: the addressed instance's config must belong to THIS client's
-// entity before rendering (defense in depth beyond the entity-scoped
-// subscription read above).
-const config = await getCustomerConfigBySlug(env.DB, instance)
-if (!config || config.entity_id !== client.id) {
-  return Astro.redirect('/portal/products/operator')
-}
+const RETURN_TO = `${operatorBase}/settings`
 
 // Connect-status banner — set by the OAuth callback / initiate on redirect.
 const status = Astro.url.searchParams.get('status')
@@ -85,9 +87,22 @@ function resolveBanner(status: string | null, reason: string | null): Banner | n
 
 const banner = resolveBanner(status, reason)
 
-// The settings sub-surfaces. Each links to an existing page; the hub is
-// purely navigational so a client (or an OAuth redirect) always lands
-// somewhere real.
+const subStatus = account.subscription?.status ?? null
+const statusToneClass =
+  subStatus === 'active'
+    ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+    : subStatus === 'paused'
+      ? 'border-[color:var(--ss-color-warning)] text-[color:var(--ss-color-warning)]'
+      : 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]'
+
+const cardClass = 'border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8'
+const sectionLabelClass =
+  'mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]'
+const emptyNoteClass =
+  'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]'
+
+// The operable sub-surfaces. Each links to an existing page; a client (or an
+// OAuth redirect) always lands somewhere real.
 const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: string }> = [
   {
     href: `${operatorBase}/connections`,
@@ -115,7 +130,7 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  <PortalPageHead crumbHref={operatorBase} crumbLabel="Operator" tag="Settings" h1="Overview" />
+  <PortalPageHead crumbHref={operatorBase} crumbLabel="Operator" h1="Settings" meta={null} />
 
   {
     banner && (
@@ -135,35 +150,92 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
     )
   }
 
-  <section class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)]">
-    {
-      SETTINGS_LINKS.map((link, idx) => (
-        <a
-          href={link.href}
-          class:list={[
-            'block px-5 py-5 md:px-6 md:py-6 group hover:bg-[color:var(--ss-color-border-subtle)] transition-colors',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
-            idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
-          ]}
-        >
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex flex-col gap-1 min-w-0">
-              <span class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                {link.label}
+  <!-- Plan & billing — provisioning domain: SMD-only, read-only, no request form -->
+  <section class="mt-8" aria-label="Plan and billing">
+    <p class={sectionLabelClass}>Plan & billing</p>
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="provisioning"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="your subscription"
+    >
+      <div slot="read" class={cardClass}>
+        {
+          account.subscription ? (
+            <div class="flex flex-col gap-3">
+              <span
+                class={`inline-flex w-fit items-center px-3 py-1.5 text-caption font-mono uppercase tracking-[0.12em] font-bold border-[2px] ${statusToneClass}`}
+              >
+                {subscriptionStatusLabel(account.subscription.status)}
               </span>
-              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                {link.description}
+              {/* The chip states the status; the prose only adds value when the
+                  status needs explaining (paused, etc.), so skip it for active. */}
+              {account.subscription.status !== 'active' && (
+                <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
+                  {subscriptionStatusProse(account.subscription.status)}
+                </p>
+              )}
+              {stripeCustomerId && (
+                <form method="POST" action="/api/portal/billing/manage" class="mt-2">
+                  <input type="hidden" name="product_slug" value="operator" />
+                  <input type="hidden" name="instance" value={instance} />
+                  <button
+                    type="submit"
+                    class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                  >
+                    Manage Billing
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : (
+            <div class="flex flex-col gap-2">
+              <p class="m-0 font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                Not provisioned yet
+              </p>
+              <p class={`m-0 ${emptyNoteClass}`}>
+                Your operator subscription has not been set up yet.
+              </p>
+            </div>
+          )
+        }
+      </div>
+    </DomainSurface>
+  </section>
+
+  <section class="mt-10" aria-label="Configuration">
+    <p class={sectionLabelClass}>Configuration</p>
+    <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+      {
+        SETTINGS_LINKS.map((link, idx) => (
+          <a
+            href={link.href}
+            class:list={[
+              'block px-5 py-5 md:px-6 md:py-6 group hover:bg-[color:var(--ss-color-border-subtle)] transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+              idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+            ]}
+          >
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-1 min-w-0">
+                <span class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  {link.label}
+                </span>
+                <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                  {link.description}
+                </span>
+              </div>
+              <span
+                aria-hidden="true"
+                class="font-body text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
+              >
+                →
               </span>
             </div>
-            <span
-              aria-hidden="true"
-              class="font-body text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
-            >
-              →
-            </span>
-          </div>
-        </a>
-      ))
-    }
+          </a>
+        ))
+      }
+    </div>
   </section>
 </PortalShell>

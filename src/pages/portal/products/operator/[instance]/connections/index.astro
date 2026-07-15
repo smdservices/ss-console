@@ -110,10 +110,10 @@ const banner = csMessage
   pathname={Astro.url.pathname}
 >
   <PortalPageHead
-    crumbHref={operatorBase}
-    crumbLabel="Operator"
-    tag="Section"
-    h1="Access"
+    crumbHref={`${operatorBase}/settings`}
+    crumbLabel="Settings"
+    tag="Settings"
+    h1="Connections"
     meta={rows.length > 0 ? `${rows.length} connector${rows.length === 1 ? '' : 's'}` : null}
   />
 

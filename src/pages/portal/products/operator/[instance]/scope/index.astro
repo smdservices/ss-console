@@ -9,5 +9,5 @@
  */
 const instance = Astro.params.instance
 if (!instance) return Astro.redirect('/portal/products/operator')
-return Astro.redirect(`/portal/products/operator/${instance}/people`)
+return Astro.redirect(`/portal/products/operator/${instance}#people`)
 ---
