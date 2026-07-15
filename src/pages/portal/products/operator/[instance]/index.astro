@@ -226,11 +226,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
 
         <div class="mt-10 flex flex-col gap-8">
           {job && (
-            <OperatorOverviewBlock
-              label="The job"
-              href={`${operatorBase}/work`}
-              linkLabel="The work"
-            >
+            <OperatorOverviewBlock label="The job" href={`${operatorBase}/work`} linkLabel="Duties">
               <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
                 {job.headline}
               </p>
@@ -246,7 +242,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             <OperatorOverviewBlock
               label="What it may do on its own"
               href={`${operatorBase}/work`}
-              linkLabel="The work"
+              linkLabel="Duties"
             >
               <OperatorAuthorityRows rows={overview.authority} />
             </OperatorOverviewBlock>
@@ -289,7 +285,11 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             </p>
           </OperatorOverviewBlock>
 
-          <OperatorOverviewBlock label="Plan" href={`${operatorBase}/account`} linkLabel="Account">
+          <OperatorOverviewBlock
+            label="Plan & billing"
+            href={`${operatorBase}/account`}
+            linkLabel="Plan & billing"
+          >
             <p class="font-body text-base text-[color:var(--color-text-primary)]">
               Subscription, data export, and cancellation.
             </p>

@@ -1,13 +1,13 @@
 ---
 /**
- * One routine row of "The work" grid (ADR 0076; console structure doc §3.2).
- * Extracted from OperatorWork.astro so each component stays small; it renders a
- * single WorkRoutineView: the routine name, how it starts, the Today tier
- * sentence, the Can-become line (only where the ceiling exceeds the start) or
- * the standing cap verbatim, and the implementing skills with their reviewed
- * summaries. Every string traces to authored grid data, the reviewed skill
- * summaries, or the fixed tier / starts label maps in the resolver — no invented
- * copy, no vertical vocabulary.
+ * One routine row of the Duties grid (ADR 0076; console blueprint §6
+ * vocabulary). Extracted from OperatorWork.astro so each component stays small;
+ * it renders a single WorkRoutineView: the routine name, how it starts, the
+ * current autonomy sentence, the can-be-raised-to line (only where the ceiling
+ * exceeds the start) or the standing cap verbatim, and the implementing skills
+ * with their reviewed summaries. Every string traces to authored grid data, the
+ * reviewed skill summaries, or the fixed tier / starts label maps in the
+ * resolver — no invented copy, no vertical vocabulary.
  */
 import type { WorkRoutineView } from '../../../../lib/portal/operator/facets/work/work'
 
@@ -39,7 +39,7 @@ const { routine: r, divided } = Astro.props
       <span
         class="font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
       >
-        Today:{' '}
+        Autonomy:{' '}
       </span>
       {r.todaySentence}
     </p>
@@ -47,7 +47,7 @@ const { routine: r, divided } = Astro.props
       r.canBecomeSentence && (
         <p class="font-body text-sm text-[color:var(--color-text-primary)]">
           <span class="font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
-            Can become:{' '}
+            Can be raised to:{' '}
           </span>
           {r.canBecomeSentence}
           {r.canBecomeVerbatim && (
