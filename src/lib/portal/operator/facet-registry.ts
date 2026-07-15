@@ -190,7 +190,7 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     plane: 'config_projection',
     surface: { kind: 'planned', slice: 4 },
     mounts: ['client', 'admin'],
-    note: 'Health is authored-static, not live. Channels (telegram) fold in here.',
+    note: 'The Access chapter (blueprint §5) is LIVE as page-level composition (email visibility block + connector rows with custody); stays planned until the read view consolidates into a shared facet viewer (Lock 4 shape). Health is authored-static, not live. Channels (telegram) fold in here.',
   },
   {
     id: 'scope',
@@ -201,22 +201,26 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
       viewerModule: 'src/lib/portal/operator/facets/scope/scope.ts',
     },
     mounts: ['client', 'admin'],
-    note: 'Boundaries chapter (ADR 0076): folders seen/blind, the ADR 0055 roster, and the three block lists, separately labeled. Admin mount is a follow-up.',
+    note: 'PAGE RETIRED (console blueprint §5): the standalone Scope page redirects; the resolver survives and mounts in the chapters — visibility on Access (email block), rosters/blocks on People. Admin mount is a follow-up.',
   },
   {
     id: 'business-hours',
     label: 'Business hours',
     plane: 'config_projection',
     surface: { kind: 'planned', slice: 5 },
-    mounts: ['client', 'admin'],
-    note: 'Only timezone materializes; days/start/end sub-fields are INERT — the viewer must not imply they take effect (Lock 2).',
+    mounts: ['client'],
+    note: 'Timezone-only header line RENDERS on Duties today (page-level, blueprint §5); stays planned until consolidated into a shared facet viewer (Lock 4 shape). Days/start/end sub-fields are INERT — never rendered as effective (Lock 2).',
   },
   {
     id: 'escalation',
     label: 'Escalation contacts',
     plane: 'config_projection',
-    surface: { kind: 'planned', slice: 5 },
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/people/people.ts',
+    },
     mounts: ['client', 'admin'],
+    note: 'Rendered in the People chapter (who it escalates to) and on Account (existing view).',
   },
 
   // ---- Administer: relationship + governance posture ----
@@ -232,9 +236,12 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     id: 'people',
     label: 'People / roles',
     plane: 'config_projection',
-    surface: { kind: 'planned', slice: 6 },
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/people/people.ts',
+    },
     mounts: ['client', 'admin'],
-    note: 'A working client write path already exists (settings/users); consolidate to the shared viewer.',
+    note: 'People chapter (console blueprint §5): rosters + escalation + team + blocks in one shared viewer. The working client write path (settings/users) stays for mutations. Admin mount is a follow-up.',
   },
   {
     id: 'compliance',

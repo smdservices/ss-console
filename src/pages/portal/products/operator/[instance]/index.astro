@@ -226,11 +226,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
 
         <div class="mt-10 flex flex-col gap-8">
           {job && (
-            <OperatorOverviewBlock
-              label="The job"
-              href={`${operatorBase}/work`}
-              linkLabel="The work"
-            >
+            <OperatorOverviewBlock label="The job" href={`${operatorBase}/work`} linkLabel="Duties">
               <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
                 {job.headline}
               </p>
@@ -246,7 +242,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             <OperatorOverviewBlock
               label="What it may do on its own"
               href={`${operatorBase}/work`}
-              linkLabel="The work"
+              linkLabel="Duties"
             >
               <OperatorAuthorityRows rows={overview.authority} />
             </OperatorOverviewBlock>
@@ -256,7 +252,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             <OperatorOverviewBlock
               label="Systems"
               href={`${operatorBase}/connections`}
-              linkLabel="Connections"
+              linkLabel="Access"
             >
               <p class="font-body text-base text-[color:var(--color-text-primary)]">
                 {overview.systems.join(' · ')}
@@ -264,7 +260,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             </OperatorOverviewBlock>
           )}
 
-          <OperatorOverviewBlock label="People" href={`${operatorBase}/scope`} linkLabel="Scope">
+          <OperatorOverviewBlock label="People" href={`${operatorBase}/people`} linkLabel="People">
             {overview.respondsTo.length > 0 ? (
               <p class="font-body text-base text-[color:var(--color-text-primary)]">
                 Responds to: {overview.respondsTo.join(', ')}
@@ -283,13 +279,11 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             )}
           </OperatorOverviewBlock>
 
-          <OperatorOverviewBlock label="The team" href={`${operatorBase}/team`} linkLabel="Team">
-            <p class="font-body text-base text-[color:var(--color-text-primary)]">
-              People on the account and who gets alerted.
-            </p>
-          </OperatorOverviewBlock>
-
-          <OperatorOverviewBlock label="Plan" href={`${operatorBase}/account`} linkLabel="Account">
+          <OperatorOverviewBlock
+            label="Plan & billing"
+            href={`${operatorBase}/account`}
+            linkLabel="Plan & billing"
+          >
             <p class="font-body text-base text-[color:var(--color-text-primary)]">
               Subscription, data export, and cancellation.
             </p>

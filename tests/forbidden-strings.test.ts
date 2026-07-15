@@ -819,9 +819,12 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/components/portal/operator/facets/OperatorSkills.astro',
   'src/components/portal/operator/facets/OperatorWork.astro',
   'src/components/portal/operator/facets/OperatorScope.astro',
-  // One-pager landing summary block (console blueprint §5): matches its loud
-  // operator-area siblings until the whole area flips to calm together.
+  // One-pager landing summary block + People chapter (console blueprint §5):
+  // match their loud operator-area siblings until the whole area flips to calm
+  // together.
   'src/components/portal/operator/OperatorOverviewBlock.astro',
+  'src/components/portal/operator/facets/OperatorPeople.astro',
+  'src/pages/portal/products/operator/[instance]/people/index.astro',
   'src/components/portal/operator/FacetDoorList.astro',
   'src/components/admin/EntityContactRow.astro',
   'src/components/admin/EntityIdentityStrip.astro',
@@ -862,7 +865,6 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/operator/[instance]/activity/index.astro',
   'src/pages/portal/products/operator/[instance]/calendar/index.astro',
   'src/pages/portal/products/operator/[instance]/compliance/index.astro',
-  'src/pages/portal/products/operator/[instance]/configure/index.astro',
   'src/pages/portal/products/operator/[instance]/connections/index.astro',
   'src/pages/portal/products/operator/[instance]/onboarding/index.astro',
   'src/pages/portal/products/operator/[instance]/settings/advanced/index.astro',
@@ -870,7 +872,6 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/pages/portal/products/operator/[instance]/settings/users.astro',
   'src/pages/portal/products/operator/[instance]/skills/index.astro',
   'src/pages/portal/products/operator/[instance]/work/index.astro',
-  'src/pages/portal/products/operator/[instance]/scope/index.astro',
   'src/pages/portal/products/operator/[instance]/team/index.astro',
 ]
 
@@ -1074,4 +1075,41 @@ describe('retired persona name stays retired (Captain directive 2026-07-13)', ()
         offenders.join('\n')
     ).toEqual([])
   })
+})
+
+// ---------------------------------------------------------------------------
+// Console vocabulary guard (console blueprint §6 — locked once, then enforced).
+// The §6 table is decided by Captain exactly once; this guard keeps the retired
+// display labels from re-entering the operator console surfaces, so naming
+// stops being re-litigated per page. Comments are stripped first — only real
+// template text can trip it. Registry ids and route paths are deliberately NOT
+// scanned (labels rename; identifiers stay stable).
+// ---------------------------------------------------------------------------
+describe('console vocabulary guard (blueprint §6 — retired display labels)', () => {
+  const RETIRED_VOCAB: ReadonlyArray<{ re: RegExp; label: string }> = [
+    { re: /The work\b/, label: '"The work" (§6: renamed to Duties)' },
+    { re: /Today:/, label: '"Today:" autonomy row label (§6: renamed to Autonomy:)' },
+    { re: /Can become/, label: '"Can become" (§6: renamed to Can be raised to:)' },
+  ]
+  const VOCAB_ROOTS = [
+    resolve('src/components/portal/operator'),
+    resolve('src/pages/portal/products/operator'),
+    resolve('src/pages/admin/operator'),
+  ]
+  const files = VOCAB_ROOTS.flatMap((root) =>
+    existsSync(root) ? collectSourceFiles(root) : []
+  ).filter((f) => f.endsWith('.astro'))
+
+  it('finds console files to scan (sanity)', () => {
+    expect(files.length).toBeGreaterThan(0)
+  })
+
+  for (const file of files) {
+    const rel = relOf(file)
+    it(`${rel} — no retired vocabulary (§6)`, () => {
+      const src = stripComments(readFileSync(file, 'utf-8'))
+      const hits = RETIRED_VOCAB.filter(({ re }) => re.test(src)).map(({ label }) => label)
+      expect(hits, `${rel} uses retired labels: ${hits.join(', ')}`).toEqual([])
+    })
+  }
 })

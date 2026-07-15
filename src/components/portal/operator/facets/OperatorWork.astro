@@ -1,16 +1,16 @@
 ---
 /**
- * Operator "The work" viewer — the shared routine-grid view (ADR 0076; console
- * structure doc §3.2; signed-off brief
+ * Operator Duties viewer — the shared routine-grid view (ADR 0076; console
+ * blueprint §5/§6; original brief
  * docs/design/operator/surface-briefs/operator-the-work.md). One shared
- * component, both portals mount it (client work page + admin config surface),
+ * component, both portals mount it (client duties page + admin config surface),
  * per ADR 0069 Lock 4.
  *
  * GRID mode renders the lifecycle-grouped routine matrix: one section block per
  * authored `letter_section`, each row showing the routine name, how it starts,
- * the "Today" tier sentence, the "Can become" line (only where the ceiling
- * exceeds the start) or the standing cap verbatim, and the implementing skills
- * with their reviewed summaries. GRIDLESS mode renders the exact Skills
+ * the current autonomy sentence, the can-be-raised-to line (only where the
+ * ceiling exceeds the start) or the standing cap verbatim, and the implementing
+ * skills with their reviewed summaries. GRIDLESS mode renders the exact Skills
  * inventory the Skills page shows today (honest degradation), introduced by one
  * true sentence.
  *
