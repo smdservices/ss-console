@@ -100,6 +100,11 @@ task/event id (`source_id`; null only for idless items, which get no token),
 the fixed label, and the authored date per the skill's identity convention.
 
 ```
+# BEFORE composing an alert: derive the real ACK code, write NOTHING
+escalation_append(skill=..., matter_id=..., source_id=..., label=...,
+                  authored_date=... or null, event="fired", attempt=N,
+                  derive_only=true)
+  -> {"ok": true, "written": false, "item_key": <derived>, "token": <derived>}
 # raises (fired / chased / handed_off / resolved): identity by components
 escalation_append(skill=..., matter_id=..., source_id=..., label=...,
                   authored_date=... or null, event=..., attempt=N)
@@ -111,11 +116,20 @@ escalation_state(skill=...)
   -> {"event_count": N, "item_count": N, "items": {item_key: {..., "token": ...}}}
 ```
 
-- **fired** — after the alert is successfully sent, emit one `fired` event per
-  item in the alert (`event="fired"`, its `item_key`, `attempt`, `token`). The
-  broker stamps `ts`/`id`. If the send did not happen, write nothing (the item
-  re-fires next run: annoying, never dangerous). Never report an item as raised
-  unless the send AND the ledger write both succeeded.
+- **fired** — three steps, in this order (ss #1935):
+  1. For each firing item, call `escalation_append` with `derive_only=true` to
+     get its real `item_key` + ACK token. Nothing is written.
+  2. Compose and send ONE alert quoting exactly those returned tokens. NEVER
+     print a code the tool did not return this run — an invented code
+     (`ACK-A1`, `ACK-PENDING`) resolves to nothing, and a code remembered from
+     a prior alert belongs to a DIFFERENT item and would silently ack the
+     wrong thing. No follow-up "codes confirmed" email; the first email is the
+     only email.
+  3. After the send succeeds, emit one `fired` event per item (same identity
+     components, no `derive_only`). The broker stamps `ts`/`id`. If the send
+     did not happen, write nothing (the item re-fires next run: annoying,
+     never dangerous). Never report an item as raised unless the send AND the
+     ledger write both succeeded.
 - **acked** — on a rostered internal reply (routed here by the inbox skill), emit
   one `acked` event per quoted token. The broker REJECTS an `acked` whose token
   has no prior `fired`, so a stray or forged code cannot silence an alarm that
