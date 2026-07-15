@@ -37,6 +37,7 @@ import {
   type ExposureCeiling,
 } from '../../../../operator/customer-yaml/types'
 import { humanizeSkillName, resolveOperatorSkills, type OperatorSkillView } from '../skills/skills'
+import { scheduleDetailBySkill } from '../schedule/schedule'
 import { SKILL_SUMMARIES } from '../skills/skill-summaries'
 
 /**
@@ -145,6 +146,12 @@ export interface WorkRoutineView {
   capVerbatim: string | null
   /** The implementing skill(s), humanized + summarized. */
   skills: WorkRoutineSkill[]
+  /**
+   * Plain-language schedule prose for the routine's scheduled skills
+   * ("Weekdays at 7:17 a.m."), from the projected cron entries via the
+   * deterministic describer. Null when nothing scheduled or not describable.
+   */
+  scheduleDetail: string | null
 }
 
 /** A lifecycle section: the authored `letter_section` name and its routines. */
@@ -179,8 +186,11 @@ export function startsLabels(initiation: string): string[] {
   return labels
 }
 
-function toRoutineView(row: RoutineGridRow): WorkRoutineView {
+function toRoutineView(row: RoutineGridRow, schedules: Map<string, string>): WorkRoutineView {
   const graduates = row.ceiling_tier !== row.start_tier
+  const scheduleProse = row.skills
+    .map((slug) => schedules.get(slug))
+    .filter((s): s is string => !!s)
   return {
     routine: row.routine,
     startsLabels: startsLabels(row.enforcement.initiation),
@@ -195,6 +205,7 @@ function toRoutineView(row: RoutineGridRow): WorkRoutineView {
       slug,
       summary: SKILL_SUMMARIES[slug] ?? null,
     })),
+    scheduleDetail: scheduleProse.length > 0 ? scheduleProse.join(' · ') : null,
   }
 }
 
@@ -205,7 +216,7 @@ function toRoutineView(row: RoutineGridRow): WorkRoutineView {
  * insertion order for its keys; `order` records first appearance explicitly for
  * clarity.
  */
-function group(rows: readonly RoutineGridRow[]): WorkSection[] {
+function group(rows: readonly RoutineGridRow[], schedules: Map<string, string>): WorkSection[] {
   const order: string[] = []
   const bySection = new Map<string, WorkRoutineView[]>()
   for (const row of rows) {
@@ -213,7 +224,7 @@ function group(rows: readonly RoutineGridRow[]): WorkSection[] {
       bySection.set(row.letter_section, [])
       order.push(row.letter_section)
     }
-    bySection.get(row.letter_section)!.push(toRoutineView(row))
+    bySection.get(row.letter_section)!.push(toRoutineView(row, schedules))
   }
   return order.map((name) => ({ name, routines: bySection.get(name)! }))
 }
@@ -231,5 +242,7 @@ export function resolveOperatorWork(config: CustomerConfigRow | null): OperatorW
   if (!grid) {
     return { mode: 'gridless', skills: resolveOperatorSkills(config).skills, authority }
   }
-  return { mode: 'grid', sections: group(grid.rows), authority }
+  const persona = config?.personas.find((p) => p.status === 'active') ?? null
+  const schedules = scheduleDetailBySkill(persona?.cron ?? [])
+  return { mode: 'grid', sections: group(grid.rows, schedules), authority }
 }

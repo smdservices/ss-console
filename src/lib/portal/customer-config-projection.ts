@@ -40,8 +40,12 @@ export interface ProjectionContext {
 /**
  * Narrow a full schema `Persona` to the read-side `PersonaConfig`. Drops the
  * fields the portal projection does not surface (version, enabled,
- * cost_estimate, scope, bundles, cron, avatar, pronouns, overrides). Nullable
+ * cost_estimate, scope, bundles, avatar, pronouns, overrides). Nullable
  * scalars are coerced to `null` so the serialized JSON always carries the key.
+ *
+ * `cron` projects skill + schedule only (console blueprint §4 — the schedule
+ * coverage gap): the portal renders WHEN things run; pre_run / wake_policy are
+ * runtime mechanics and stay unprojected.
  */
 function toPersonaConfig(p: Persona): PersonaConfig {
   return {
@@ -54,6 +58,7 @@ function toPersonaConfig(p: Persona): PersonaConfig {
     send_as: p.send_as ?? null,
     entitlements: p.entitlements,
     skills: (p.skills ?? []).map((s) => ({ name: s.name, initiation: s.initiation })),
+    cron: (p.cron ?? []).map((c) => ({ skill: c.skill, schedule: c.schedule })),
     channel_bindings: (p.channel_bindings ?? []).map((c) => ({
       integration: c.integration,
       channels: c.channels ?? [],

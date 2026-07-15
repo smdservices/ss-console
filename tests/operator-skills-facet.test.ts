@@ -77,6 +77,7 @@ describe('resolveOperatorSkills', () => {
         slug: 'matter-inbox-router',
         summary: SKILL_SUMMARIES['matter-inbox-router'],
         initiation: ['When something happens'],
+        scheduleDetail: null,
       },
     ])
   })

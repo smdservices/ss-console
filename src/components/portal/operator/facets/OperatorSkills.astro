@@ -61,6 +61,7 @@ const { skills } = model
               {s.initiation.length > 0 && (
                 <span class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] md:pt-0.5">
                   {s.initiation.join(' · ')}
+                  {s.scheduleDetail ? ` (${s.scheduleDetail})` : ''}
                 </span>
               )}
             </li>
