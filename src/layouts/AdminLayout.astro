@@ -3,6 +3,8 @@ import { GOOGLE_FONTS_URL } from '../lib/fonts'
 import '../styles/global.css'
 import SkipToMain from '../components/SkipToMain.astro'
 import SmdLogo from '../components/SmdLogo.astro'
+import AdminNav from '../components/admin/AdminNav.astro'
+import { buildAdminNav } from '../lib/admin/nav'
 import { SignOutButton } from '@clerk/astro/components'
 
 interface BreadcrumbItem {
@@ -21,53 +23,15 @@ const { title, breadcrumbs = [], maxWidth = 'max-w-5xl', mainClass = '' } = Astr
 const session = Astro.locals.session!
 const pathname = Astro.url.pathname
 
-// Top-level IA (ADR 0046): flow-ordered — acquire, serve, deliver, get
-// paid, run, measure. Leads is the lead working view (entities); Clients
-// is the post-acceptance hub. Generators + Follow-ups are demoted to
-// Settings (sub-functions of the funnel, not product lines).
-const navItems = [
-  { label: 'Home', href: '/admin', match: (p: string) => p === '/admin' || p === '/admin/' },
-  {
-    label: 'Leads',
-    href: '/admin/entities',
-    match: (p: string) => p.startsWith('/admin/entities'),
-  },
-  {
-    label: 'Clients',
-    href: '/admin/clients',
-    match: (p: string) => p.startsWith('/admin/clients'),
-  },
-  {
-    label: 'Services',
-    href: '/admin/services',
-    match: (p: string) => p.startsWith('/admin/services'),
-  },
-  {
-    label: 'Billing',
-    href: '/admin/billing',
-    match: (p: string) => p.startsWith('/admin/billing'),
-  },
-  {
-    label: 'Operator',
-    href: '/admin/operator',
-    match: (p: string) => p.startsWith('/admin/operator'),
-  },
-  {
-    label: 'Analytics',
-    href: '/admin/analytics',
-    match: (p: string) => p.startsWith('/admin/analytics'),
-  },
-  {
-    label: 'Playbook',
-    href: '/admin/playbook',
-    match: (p: string) => p.startsWith('/admin/playbook'),
-  },
-  {
-    label: 'Settings',
-    href: '/admin/settings',
-    match: (p: string) => p.startsWith('/admin/settings'),
-  },
-]
+// Five-destination spine (ADR 0077): the admin console mirrors the client
+// portal — same object graph, guide's side. Nav is a dedicated band below the
+// header (AdminNav), not crammed into the header row; the ADMIN badge is gone;
+// Settings is an account affordance here in the header, not a spine word.
+const destinations = buildAdminNav()
+
+const iconClasses =
+  'inline-flex items-center justify-center w-11 h-11 rounded-[var(--ss-radius-button)] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] active:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
+const settingsActive = pathname.startsWith('/admin/settings')
 ---
 
 <!doctype html>
@@ -92,94 +56,40 @@ const navItems = [
       role="banner"
       class="sticky top-0 z-50 h-14 md:h-16 bg-[color:var(--ss-color-background)] border-b-[3px] border-[color:var(--ss-color-text-primary)]"
     >
-      <div class={`${maxWidth} mx-auto h-full px-4 md:px-6 flex items-center justify-between`}>
-        <SmdLogo href="/admin" badge="Admin" />
+      <div
+        class={`${maxWidth} mx-auto h-full px-4 md:px-6 flex items-center justify-between gap-3`}
+      >
+        <div class="flex items-baseline gap-3 md:gap-4 min-w-0">
+          <SmdLogo href="/admin" />
+          <span
+            class="hidden sm:block font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] truncate"
+          >
+            {session.email}
+          </span>
+        </div>
 
-        <!-- Desktop: inline nav tabs + email + sign out -->
-        <div class="hidden md:flex items-center gap-4">
-          <nav aria-label="Primary" class="flex items-center gap-4">
-            {
-              navItems.map((item) => {
-                const active = item.match(pathname)
-                return (
-                  <a
-                    href={item.href}
-                    aria-current={active ? 'page' : undefined}
-                    class:list={[
-                      'inline-flex items-center min-h-11 px-2 -mx-2 font-mono text-sm font-semibold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
-                      active
-                        ? 'text-[color:var(--ss-color-primary)] border-b-2 border-[color:var(--ss-color-primary)]'
-                        : 'text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)]',
-                    ]}
-                  >
-                    {item.label}
-                  </a>
-                )
-              })
-            }
-          </nav>
-          <span class="text-sm text-[color:var(--ss-color-text-muted)]" aria-hidden="true">|</span>
-          <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{session.email}</span>
+        <div class="flex items-center gap-1">
+          <a
+            href="/admin/settings"
+            aria-label="Settings"
+            title="Settings"
+            aria-current={settingsActive ? 'page' : undefined}
+            class:list={[iconClasses, settingsActive ? 'text-[color:var(--ss-color-primary)]' : '']}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+          </a>
           <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-            <button
-              type="button"
-              class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
-            >
-              Sign out
+            <button type="button" aria-label="Sign out" title="Sign out" class={iconClasses}>
+              <span class="material-symbols-outlined" aria-hidden="true">logout</span>
             </button>
           </SignOutButton>
         </div>
-
-        <!-- Mobile: <details> menu trigger -->
-        <details class="relative md:hidden">
-          <summary
-            aria-label="Open menu"
-            class="list-none w-11 h-11 flex items-center justify-center rounded-[var(--ss-radius-card)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border-subtle)] active:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 cursor-pointer"
-          >
-            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
-          </summary>
-          <div
-            class="absolute right-0 top-12 w-64 bg-[color:var(--ss-color-background)] border-[3px] border-[color:var(--ss-color-text-primary)] p-2 z-50"
-          >
-            <nav aria-label="Primary" class="flex flex-col">
-              {
-                navItems.map((item) => {
-                  const active = item.match(pathname)
-                  return (
-                    <a
-                      href={item.href}
-                      aria-current={active ? 'page' : undefined}
-                      class:list={[
-                        'block px-3 py-2.5 text-sm rounded hover:bg-[color:var(--ss-color-border-subtle)] active:bg-[color:var(--ss-color-border-subtle)]',
-                        active
-                          ? 'text-[color:var(--ss-color-primary)] font-medium'
-                          : 'text-[color:var(--ss-color-text-primary)]',
-                      ]}
-                    >
-                      {item.label}
-                    </a>
-                  )
-                })
-              }
-            </nav>
-            <hr class="my-2 border-[color:var(--ss-color-border)]" />
-            <p class="px-3 py-1.5 text-xs text-[color:var(--ss-color-text-secondary)] break-all">
-              {session.email}
-            </p>
-            <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-              <button
-                type="button"
-                class="w-full text-left px-3 py-2.5 text-sm text-[color:var(--ss-color-text-primary)] rounded hover:bg-[color:var(--ss-color-border-subtle)] active:bg-[color:var(--ss-color-border-subtle)]"
-              >
-                Sign out
-              </button>
-            </SignOutButton>
-          </div>
-        </details>
       </div>
     </header>
 
-    <main id="main" role="main" class={`${maxWidth} mx-auto px-4 py-8 ${mainClass}`}>
+    <AdminNav destinations={destinations} pathname={pathname} maxWidth={maxWidth} />
+
+    <main id="main" role="main" class={`${maxWidth} mx-auto px-4 py-8 pb-24 md:pb-8 ${mainClass}`}>
       {
         breadcrumbs.length > 0 && (
           <nav aria-label="Breadcrumb" class="mb-4">
