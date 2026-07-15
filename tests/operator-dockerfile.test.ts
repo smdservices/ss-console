@@ -407,7 +407,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // taints under the turn's own session id; rostered senders classify
     // internal (no fence/taint), strangers now actually hit the wall.
     // overlayRef-only. Superset of aa7d78f2 (#171).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="eb17f3cb5b830683980c20c1b1b3485f40985b49"')
+    // f8808c6c (#173, ss #1946): per-turn tool-surface trim — translate emits
+    // agent.disabled_toolsets on every profile config (browser/computer_use/
+    // media/social/session_search, + workspace when no google_auth) and
+    // agentmail blocked_tools excludes 8 inbox-admin/destructive tools via
+    // native mcp_servers.tools.exclude. No send/draft/read tool leaves the
+    // menu (ADR 0025 unchanged). Measured -7,272 tokens/turn of prompt-cache
+    // write on the live payload (vfy_01KXKJEEV1R4EPYFKA6J7YDH16).
+    // overlayRef-only. Superset of eb17f3cb (#172).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="f8808c6c9c53585ee0a0001d06669e404d7f01f4"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
