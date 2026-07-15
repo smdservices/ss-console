@@ -34,7 +34,7 @@ Runs scheduled (e.g., a fortnightly per-matter cadence the firm sets).
 
 ## Prerequisites
 
-Reads Smokeball (`get_matter`, `list_tasks`) for the status facts, the **mail/calendar binding** (Google/M365) for upcoming appointments, and the customer-bound **Email** connector to draft the client update. Requires `python3` for the fetch block. Whether the update sends or drafts follows the firm's authored `external_send` ceiling (`draft_for_review` recommended; see `operator/references/send-posture.md`).
+Reads Smokeball (`get_matter`, `list_tasks`) for the status facts, the **mail/calendar binding** (Google/M365) for upcoming appointments, and the customer-bound **Email** connector to draft the client update. Whether the update sends or drafts follows the firm's authored `external_send` ceiling (`draft_for_review` recommended; see `operator/references/send-posture.md`).
 
 ## How to Run
 
@@ -45,11 +45,11 @@ hermes run client-matter-digest --matter <id>      # one matter's client update
 
 ## Procedure
 
-Two phases (ADR 0021 Stream A). The mechanical per-matter Smokeball fetch runs in one `execute_code` block; the client-appropriate framing and drafting stay in the agent's reasoning loop.
+Two phases. The per-matter fetch uses the governed connector tools directly; the client-appropriate framing and drafting stay in the agent's reasoning loop.
 
-### Phase 1 — Fetch (single `execute_code` block)
+### Phase 1 — Fetch (mediated connector reads)
 
-For each matter due for an update, pull `get_matter` (status), `list_tasks` (open items, including anything `waiting on client`), and calendar appointments from the **mail/calendar binding** (upcoming dates the client should know). Accumulate in-process; `print()` one JSON document of (matter → status facts). A matter that can't be read is `parse_failed`; the run continues.
+**Do NOT run the fetch through `execute_code`** — the `code_execution` action class is unauthorable on customer seats holding gateway credentials (the #1841 custody guard; ss #1917) and the call is REFUSED. For each matter due for an update, pull `get_matter` (status), `list_tasks` (open items, including anything `waiting on client`), and calendar appointments from the **mail/calendar binding** (upcoming dates the client should know) as ordinary governed tool calls, keeping each read tight (status facts and in-window dates, never full documents). A matter that can't be read is `parse_failed`; the run continues. If a firm's matter count ever makes per-matter reads untenable, that is the ss #1917 batch-fetch design conversation — never `execute_code`.
 
 ### Phase 2 — Reason (agent, in-context)
 
