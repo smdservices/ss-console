@@ -27,6 +27,7 @@
 import type { CustomerConfigRow, PersonaSkill } from '../../../customer-config'
 import type { SkillInitiation } from '../../../../operator/customer-yaml/types'
 import { SKILL_SUMMARIES } from './skill-summaries'
+import { scheduleDetailBySkill } from '../schedule/schedule'
 
 /**
  * Reformat a skill slug into a client-legible display name — SENTENCE case
@@ -57,6 +58,12 @@ export interface OperatorSkillView {
   summary: string | null
   /** Client-legible initiation labels; empty when no mode is set (show nothing). */
   initiation: string[]
+  /**
+   * Plain-language schedule prose from the projected cron entries via the
+   * work facet's deterministic describer ("Weekdays at 7:17 a.m."), or null
+   * (nothing scheduled / not describable — never mistranslated).
+   */
+  scheduleDetail: string | null
 }
 
 export interface OperatorSkillsModel {
@@ -84,11 +91,13 @@ export function initiationLabels(init: SkillInitiation): string[] {
  */
 export function resolveOperatorSkills(config: CustomerConfigRow | null): OperatorSkillsModel {
   const persona = config?.personas.find((p) => p.status === 'active') ?? null
+  const schedules = scheduleDetailBySkill(persona?.cron ?? [])
   const skills: OperatorSkillView[] = (persona?.skills ?? []).map((s: PersonaSkill) => ({
     name: humanizeSkillName(s.name),
     slug: s.name,
     summary: SKILL_SUMMARIES[s.name] ?? null,
     initiation: initiationLabels(s.initiation),
+    scheduleDetail: schedules.get(s.name) ?? null,
   }))
   return { skills }
 }

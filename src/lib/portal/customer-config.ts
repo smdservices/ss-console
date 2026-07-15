@@ -53,6 +53,12 @@ export interface PersonaChannelBinding {
   channels: string[]
 }
 
+/** One projected cron entry: WHEN a skill runs (schedule detail only). */
+export interface PersonaCronEntry {
+  skill: string
+  schedule: string
+}
+
 export interface PersonaConfig {
   slug: string
   status: PersonaStatus
@@ -63,6 +69,11 @@ export interface PersonaConfig {
   send_as: PersonaSendAs | null
   entitlements: PersonaEntitlements
   skills: PersonaSkill[]
+  /**
+   * Projected cron schedules (console blueprint §4 schedule coverage). Rows
+   * projected before this field existed parse as [] (defensive read side).
+   */
+  cron?: PersonaCronEntry[]
   channel_bindings: PersonaChannelBinding[]
 }
 
