@@ -10,11 +10,13 @@
  */
 interface Props {
   label: string
-  href: string
-  linkLabel: string
+  /** Chapter link. Omit both for a block whose fact has no deeper chapter
+   *  (e.g. Voice until the voice-library slice lands). */
+  href?: string | null
+  linkLabel?: string | null
 }
 
-const { label, href, linkLabel } = Astro.props
+const { label, href = null, linkLabel = null } = Astro.props
 ---
 
 <section
@@ -28,14 +30,18 @@ const { label, href, linkLabel } = Astro.props
   </div>
   <div class="px-5 py-5 md:px-7">
     <slot />
-    <a
-      href={href}
-      class="mt-4 inline-flex min-h-11 items-center gap-2 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] hover:text-[color:var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
-    >
-      {linkLabel}
-      <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]"
-        >→</span
-      >
-    </a>
+    {
+      href && linkLabel && (
+        <a
+          href={href}
+          class="mt-4 inline-flex min-h-11 items-center gap-2 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] hover:text-[color:var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+        >
+          {linkLabel}
+          <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">
+            →
+          </span>
+        </a>
+      )
+    }
   </div>
 </section>

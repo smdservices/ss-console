@@ -174,7 +174,10 @@ async function billingCard(
   if (!offerings.hasInvoices && offerings.subscriptions.length === 0) return null
 
   let needsYou: OfferingCard['needsYou'] = null
-  let statusLabel = 'Up to date'
+  // "Up to date" is a claim about invoice history — it needs history to be
+  // true of. A client who has never been invoiced sees the honest fact
+  // instead (Captain finding, 2026-07-15: the label read as a placeholder).
+  let statusLabel = offerings.hasInvoices ? 'Up to date' : 'No invoices yet'
   const meta: string[] = []
 
   try {

@@ -89,11 +89,13 @@ export function parseEscalation(raw: unknown): EscalationView {
   }
 }
 
-/** One-line human label for a subscription status. */
+/** One-line human label for a subscription status. Client language, not
+ *  infrastructure language — "Being set up", never "Provisioning" (admin
+ *  surfaces keep their own internal vocabulary). */
 export function subscriptionStatusLabel(status: SubscriptionStatus): string {
   switch (status) {
     case 'provisioning':
-      return 'Provisioning'
+      return 'Being set up'
     case 'active':
       return 'Active'
     case 'paused':

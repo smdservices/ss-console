@@ -5,6 +5,15 @@
  * headline) rendered in the original loud Plainspoken register (Captain call
  * 2026-07-08: keep the reshaped content, revert the calm register for now).
  *
+ * This block is STATUS ONLY (Captain walk, 2026-07-15): the persona's voice
+ * detail (tone / writes-from / also-operates-as) is configuration, not
+ * status — it renders in the landing's Voice block, not here.
+ *
+ * A provisioning subscription suppresses the aliveness alarm entirely: the
+ * operator is not in service, so "offline, needs your attention" would be a
+ * false flag (Captain finding, 2026-07-15). The hero states the setup posture
+ * instead, and the escalation affordance stays hidden.
+ *
  * Honesty unchanged: identity is authored config (falls back to "Your operator");
  * health is the real aliveness signal and says so plainly when the bridge has no
  * data (never a fabricated healthy state); only operator problems surface here.
@@ -20,19 +29,17 @@ import type { OperatorHeroModel } from '../../../../lib/portal/operator/facets/i
 interface Props {
   model: OperatorHeroModel
   escalationHref?: string | null
+  /** True while the subscription is still provisioning — renders the setup
+   *  posture instead of the aliveness signal. */
+  provisioning?: boolean
 }
 
-const { model, escalationHref = null } = Astro.props
+// "Contact your consultant" contacts a person (Captain finding, 2026-07-15:
+// it previously routed to the settings hub, which answers nothing when the
+// operator is down). team@smd.services is the operational-escalation address.
+const { model, escalationHref = 'mailto:team@smd.services', provisioning = false } = Astro.props
 const displayName = model.name ?? 'Your operator'
 const personaLine = model.title ? `${displayName} · ${model.title}` : displayName
-
-// "Who it is" detail (console blueprint §4 coverage: persona identity + voice
-// posture). All authored config; each line renders only when authored.
-const toneLine = model.tone.length > 0 ? model.tone.join(' · ') : null
-const alsoLine =
-  model.alsoOperatesAs.length > 0
-    ? model.alsoOperatesAs.map((p) => (p.title ? `${p.name} (${p.title})` : p.name)).join(', ')
-    : null
 
 const HEALTH: Record<AlivenessLevel, { headline: string; dot: string; problem: boolean }> = {
   idle: { headline: 'Running normally', dot: 'bg-[color:var(--color-complete)]', problem: false },
@@ -56,8 +63,7 @@ const lastRel = signal ? formatLastActionRelative(signal.lastActionAt) : null
 const lastAbs = signal ? formatLastActionAbsolute(signal.lastActionAt) : null
 const currentSkill = signal?.level === 'running' ? signal.currentSkill : null
 const stickyReason = signal?.level === 'sticky_stop' ? signal.stickyStopReason : null
-const showEscalation = level ? needsEscalationAffordance(level) : false
-const escalationTarget = escalationHref ?? '/portal/products/operator/settings'
+const showEscalation = !provisioning && level ? needsEscalationAffordance(level) : false
 ---
 
 <section
@@ -71,29 +77,16 @@ const escalationTarget = escalationHref ?? '/portal/products/operator/settings'
   </p>
 
   {
-    (toneLine || model.sendAs || alsoLine) && (
-      <div class="mt-1 flex flex-col gap-0.5">
-        {toneLine && (
-          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
-            Sounds: {toneLine}
-          </p>
-        )}
-        {model.sendAs && (
-          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
-            Writes from: {model.sendAs}
-          </p>
-        )}
-        {alsoLine && (
-          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
-            Also operates as: {alsoLine}
-          </p>
-        )}
-      </div>
-    )
-  }
-
-  {
-    health ? (
+    provisioning ? (
+      <>
+        <h2 class="mt-2 font-body text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)] md:text-3xl">
+          Being set up
+        </h2>
+        <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+          Setup in progress. Your Operator is being configured.
+        </p>
+      </>
+    ) : health ? (
       <>
         <div class="mt-2 flex items-center gap-3">
           <span class={`inline-block h-3 w-3 rounded-full ${health.dot}`} aria-hidden="true" />
@@ -115,9 +108,9 @@ const escalationTarget = escalationHref ?? '/portal/products/operator/settings'
             {lastRel ? `Last action ${lastRel}` : ''}
           </p>
         )}
-        {showEscalation && (
+        {showEscalation && escalationHref && (
           <a
-            href={escalationTarget}
+            href={escalationHref}
             class="mt-4 inline-flex min-h-11 items-center border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-text-primary)] px-4 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-background)] transition-colors hover:bg-[color:var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
           >
             Contact your consultant

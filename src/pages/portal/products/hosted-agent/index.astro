@@ -167,13 +167,11 @@ const stMessage =
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  <PortalPageHead
-    crumbHref="/portal"
-    crumbLabel="Home"
-    tag="Product"
-    h1="Hosted Agent"
-    meta={null}
-  />
+  {
+    /* No crumb: this page is the Agent nav tab's destination — a "← Home"
+      crumb would duplicate the Home tab directly above it. */
+  }
+  <PortalPageHead tag="Product" h1="Hosted Agent" meta={null} />
 
   {
     stMessage && (
