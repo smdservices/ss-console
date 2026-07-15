@@ -3,6 +3,11 @@ import { env } from 'cloudflare:workers'
 import { resolveOperatorAccess } from '../../../../lib/portal/operator-access'
 import { createChangeRequest } from '../../../../lib/portal/operator/change-request'
 import { safeReturnTo, instanceFromOperatorPath } from '../../../../lib/portal/operator/return-to'
+import { changeRequestDomainLabel } from '../../../../lib/admin/change-request-inbox'
+import { isSwitchableDomain } from '../../../../lib/operator/authority'
+import { getAdminBaseUrl } from '../../../../lib/config/app-url'
+import { sendEmail } from '../../../../lib/email/resend'
+import { operatorChangeRequestNotificationEmailHtml } from '../../../../lib/email/operator-templates'
 
 /**
  * POST /api/portal/operator/change-request
@@ -75,6 +80,27 @@ export const POST: APIRoute = async ({ locals, request }) => {
 
   if (!result.ok) {
     return redirect(returnTo, 'invalid')
+  }
+
+  // Operational baton to team@ — without it the request sits silently in the
+  // admin inbox until someone happens to look (a request filed 2026-06-23 went
+  // unnoticed for three weeks). Best-effort: never blocks or fails the filing.
+  try {
+    const adminBase = getAdminBaseUrl(env) ?? 'https://admin.smd.services'
+    await sendEmail(env.RESEND_API_KEY, {
+      to: 'team@smd.services',
+      subject: `Operator change request: ${access.client.name} (${access.customerSlug})`,
+      html: operatorChangeRequestNotificationEmailHtml({
+        entityName: access.client.name,
+        customerSlug: access.customerSlug,
+        domainLabel: isSwitchableDomain(domain) ? changeRequestDomainLabel(domain) : domain,
+        requestedByEmail: access.user.email,
+        summary: summary.trim(),
+        adminInboxUrl: `${adminBase}/admin/operator/requests`,
+      }),
+    })
+  } catch (err) {
+    console.error('[operator/change-request] team notification failed:', err)
   }
   return redirect(returnTo, 'filed')
 }
