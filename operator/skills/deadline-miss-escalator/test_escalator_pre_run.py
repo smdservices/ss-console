@@ -268,6 +268,27 @@ def test_parse_pull_clean_tasks_and_events() -> None:
     }
 
 
+def test_parse_pull_reads_nested_matter_link_object() -> None:
+    # The live Smokeball /tasks payload nests the matter as a link object —
+    # the flat-key miss put "unknown-matter" (or worse, the task's own id via
+    # the bare-"id" fallback) into item identity (WP-D probe find, ss #1915).
+    raw = {
+        "tasks": {
+            "items": [
+                {
+                    "id": "t-1",
+                    "matter": {"id": "m-real", "href": "https://api/matters/m-real"},
+                    "dueDate": "2026-07-20T00:00:00Z",
+                }
+            ]
+        },
+        "events": [],
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert deadlines[0].matter_id == "m-real"
+
+
 def test_parse_pull_bare_list_envelope() -> None:
     raw = {"tasks": [{"matterId": "m-1", "dueDate": "2026-07-20"}], "events": []}
     deadlines, problem = parse_pull(raw)
