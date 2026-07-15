@@ -9,6 +9,7 @@
  * The `service` spine is deferred — this renders the unified view today.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
 import { loadEntityDetailPage, formatDate } from '../../../lib/admin/entity-detail-page'
 import { listFleetRoster, personaSummary, posturePill } from '../../../lib/admin/fleet-roster'
@@ -17,8 +18,9 @@ import {
   engagementToServiceRow,
   formatMoney,
   serviceToneDotClass,
+  clientStageBadge,
 } from '../../../lib/admin/client-hub'
-import { ENTITY_VERTICALS, ENTITY_STAGES } from '../../../lib/db/entities'
+import { ENTITY_VERTICALS } from '../../../lib/db/entities'
 import { getOperatorServiceForEntity } from '../../../lib/db/services'
 import { getSubscriptionForBilling } from '../../../lib/db/subscriptions'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
@@ -56,7 +58,8 @@ const serviceRows = engagements.map((eng) => engagementToServiceRow(eng, quotes)
 
 const verticalLabel =
   ENTITY_VERTICALS.find((v) => v.value === entity.vertical)?.label ?? entity.vertical ?? '—'
-const stageLabel = ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage
+const badge = clientStageBadge(entity.stage)
+const created = Astro.url.searchParams.get('created')
 const primaryContact = contacts[0] ?? null
 
 const earliestStart = engagements
@@ -79,6 +82,8 @@ const LINK_ACT =
   breadcrumbs={[{ label: 'Clients', href: '/admin/clients' }, { label: entity.name }]}
   maxWidth="max-w-6xl"
 >
+  {created && <AdminFlashNotice message={`${entity.name} added.`} />}
+
   <a
     href="/admin/clients"
     class="mb-5 inline-flex items-center gap-1 text-sm text-[color:var(--ss-color-text-secondary)] transition-colors hover:text-[color:var(--ss-color-primary)]"
@@ -98,11 +103,21 @@ const LINK_ACT =
       <span
         class="inline-flex items-center gap-2 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em]"
       >
-        <span class="h-[7px] w-[7px] rounded-full bg-[color:var(--ss-color-complete)]"></span>
-        Client · {stageLabel}
+        <span
+          class:list={[
+            'h-[7px] w-[7px] rounded-full',
+            entity.stage === 'lost'
+              ? 'bg-[color:var(--ss-color-text-muted)]'
+              : badge.signed
+                ? 'bg-[color:var(--ss-color-complete)]'
+                : 'bg-[color:var(--ss-color-primary)]',
+          ]}></span>
+        {badge.label}
       </span>
       {primaryContact && <div class="mt-2">Primary: {primaryContact.name}</div>}
-      <div>Client since {clientSince}</div>
+      <div>
+        {badge.signed ? `Client since ${clientSince}` : `Added ${formatDate(entity.created_at)}`}
+      </div>
     </div>
   </div>
 
