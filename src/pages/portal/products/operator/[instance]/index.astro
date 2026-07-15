@@ -7,7 +7,10 @@ import {
   type ProductAccess,
 } from '../../../../../lib/portal/product-access'
 import OperatorHero from '../../../../../components/portal/operator/facets/OperatorHero.astro'
-import { resolveOperatorHero } from '../../../../../lib/portal/operator/facets/identity/hero'
+import {
+  resolveOperatorHero,
+  voiceLines,
+} from '../../../../../lib/portal/operator/facets/identity/hero'
 import {
   resolveAlivenessSignal,
   type AlivenessSignal,
@@ -60,11 +63,12 @@ if (!portalData.client) {
 const { user, client } = portalData
 
 // Breadcrumb parent (list → detail hierarchy): step back to the OPERATORS list
-// when the client owns more than one operator; otherwise Home, since a lone
-// operator's list just forwards straight back into this same page.
+// only when the client owns more than one operator. With a single operator the
+// list forwards straight here, making this page the nav tab's destination — a
+// "← Home" crumb would duplicate the Home tab one inch above it (Captain
+// finding, 2026-07-15: top-level nav destinations carry no crumb).
 const operatorCount = (await listCustomerConfigsForEntity(env.DB, client.id)).length
-const backHref = operatorCount > 1 ? '/portal/products/operator' : '/portal'
-const backLabel = operatorCount > 1 ? 'Operators' : 'Home'
+const showCrumb = operatorCount > 1
 
 type SurfaceState = 'no_subscription' | 'paused' | 'no_role' | 'active'
 let surfaceState: SurfaceState
@@ -124,6 +128,14 @@ const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 const overview = resolveOperatorOverview(customerConfig)
 const job = jobLines(overview.job)
 
+// VOICE — the persona's authored writing posture (tone descriptors, mailbox
+// identity, other authored identities). Configuration, not status: it moved
+// here from the status hero (Captain finding, 2026-07-15 — persona flavor
+// text has no business inside the health block). No chapter link yet; the
+// voice library is a later slice by design (blueprint §4).
+const voice = voiceLines(heroModel)
+const hasVoice = Boolean(voice.tone || voice.writesFrom || voice.alsoOperatesAs)
+
 // Change-request filing outcome (returns via ?cr=filed|invalid|error).
 const crStatus = Astro.url.searchParams.get('cr')
 const crMessage =
@@ -164,13 +176,19 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
   entityId={client.id}
   pathname={Astro.url.pathname}
 >
-  <a
-    href={backHref}
-    class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
-  >
-    <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">←</span>
-    {backLabel}
-  </a>
+  {
+    showCrumb && (
+      <a
+        href="/portal/products/operator"
+        class="mt-6 -mx-1 inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+      >
+        <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">
+          ←
+        </span>
+        Operators
+      </a>
+    )
+  }
 
   {
     crMessage && (
@@ -201,22 +219,13 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
   }
 
   {
-    surfaceState === 'active' && isProvisioning && (
-      <div
-        role="status"
-        class="mt-6 border-[3px] border-[color:var(--color-text-primary)] px-5 py-3 font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
-      >
-        Setup in progress. Your Operator is being configured.
-      </div>
-    )
-  }
-
-  {
     surfaceState === 'active' && (
       <>
         <p class={`mt-8 ${seclabelClass}`}>Status</p>
         <div class="mt-3">
-          <OperatorHero model={heroModel} escalationHref={`${operatorBase}/settings`} />
+          {/* One status signal: while provisioning, the hero itself states the
+              setup posture (no aliveness alarm, no separate banner). */}
+          <OperatorHero model={heroModel} provisioning={isProvisioning} />
         </div>
         {overview.publishedOn && (
           <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
@@ -253,6 +262,28 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
               linkLabel="Duties"
             >
               <OperatorAuthorityRows rows={overview.authority} />
+            </OperatorOverviewBlock>
+          )}
+
+          {hasVoice && (
+            <OperatorOverviewBlock label="Voice">
+              <div class="flex flex-col gap-1">
+                {voice.tone && (
+                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
+                    Sounds: {voice.tone}
+                  </p>
+                )}
+                {voice.writesFrom && (
+                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
+                    Writes from: {voice.writesFrom}
+                  </p>
+                )}
+                {voice.alsoOperatesAs && (
+                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
+                    Also operates as: {voice.alsoOperatesAs}
+                  </p>
+                )}
+              </div>
             </OperatorOverviewBlock>
           )}
 

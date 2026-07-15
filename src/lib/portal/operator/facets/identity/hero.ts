@@ -51,6 +51,27 @@ function humanizeTone(t: string): string {
 }
 
 /**
+ * The landing's VOICE block lines (Captain finding 2026-07-15: voice detail is
+ * configuration, not status — it renders in its own block, not on the health
+ * hero). Each line is present only when authored; an all-null result means the
+ * block is absent entirely (empty-chapter rule).
+ */
+export function voiceLines(model: OperatorHeroModel): {
+  tone: string | null
+  writesFrom: string | null
+  alsoOperatesAs: string | null
+} {
+  return {
+    tone: model.tone.length > 0 ? model.tone.join(' · ') : null,
+    writesFrom: model.sendAs,
+    alsoOperatesAs:
+      model.alsoOperatesAs.length > 0
+        ? model.alsoOperatesAs.map((p) => (p.title ? `${p.name} (${p.title})` : p.name)).join(', ')
+        : null,
+  }
+}
+
+/**
  * Compose the hero view model from the config projection + the resolved
  * aliveness signal. Pure and total: a null config or no-active-persona yields
  * null identity fields; the caller passes the already-resolved signal.

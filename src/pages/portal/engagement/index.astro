@@ -77,9 +77,11 @@ const headMeta = engagement
   pathname={Astro.url.pathname}
   offerings={offerings}
 >
+  {
+    /* No crumb: this page is the Engagement nav tab's destination — a "← Home"
+      crumb would duplicate the Home tab directly above it. */
+  }
   <PortalPageHead
-    crumbHref="/portal"
-    crumbLabel="Home"
     tag={engagement ? `Engagement № ${engagement.id.slice(0, 2).toUpperCase()}` : 'Engagement'}
     h1="Engagement"
     meta={headMeta}
