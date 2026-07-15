@@ -106,7 +106,7 @@ scheduled tick begins with a `pre_run`-style wake decision, so a quiet day costs
 nothing and a scheduled tick is never silent (the dead-man's-switch rule: a tick
 always leaves a heartbeat):
 
-1. Enumerate open matters and their open tasks + near dates (the Phase 1 fetch).
+1. Enumerate open matters and their open tasks + near dates (the Phase 1 mediated fetch).
 2. If **nothing** is in the firm's needs-a-person bands, the tick **suppresses**:
    write a heartbeat/quiet row (`decision_basis: nothing_in_needs_you_band`), emit the
    one-line quiet digest, and do not assemble a full digest or invent items.
@@ -143,11 +143,16 @@ hermes run daily-needs-you-digest --status open   # scope (open matters by defau
 
 ## Procedure
 
-Two phases (ADR 0021 Stream A). The mechanical per-matter Smokeball fetch runs in one
-`execute_code` block so per-matter reads never flood context; the band logic and the
-sectioning stay in the agent's reasoning loop.
+Two phases. The per-matter fetch uses the governed connector tools directly; the band
+logic and the sectioning stay in the agent's reasoning loop.
 
-### Phase 1 — Fetch (single `execute_code` block)
+### Phase 1 — Fetch (mediated connector reads)
+
+**Do NOT run the fetch through `execute_code`.** The `code_execution` action class is
+unauthorable on customer seats holding gateway credentials (the #1841 custody guard —
+ss #1917), so that path is REFUSED. The fetch is the same reads, made as ordinary
+governed tool calls — live-proven on the 2026-07-15 scheduled run, which produced a
+complete digest this way.
 
 Enumerate open matters (`list_matters`, filtered by `--status`), then per matter pull
 `get_matter` (status, `personResponsibleStaffId`), `list_tasks(matter_id, is_completed=false)`
@@ -155,12 +160,16 @@ Enumerate open matters (`list_matters`, filtered by `--status`), then per matter
 chase items the owning skills created), and near-window calendar entries via
 `list_events(matter_id, from_, to)` for response/motion/hearing/SOL dates. Use
 `list_matters(updatedSince)` / `LastUpdated` for the stalled-item recency check.
-Also read the escalation ledger in this same block (the vendored
-`escalation_ledger.py`: `read_ledger()` + `derive_state()`) so Phase 2 can tell
-which items another skill is already actively escalating. Reading is all the
-digest ever does with the ledger; it never writes it.
-Accumulate in-process; `print()` one JSON document. A single matter's read failure is
-a `parse_failed` row; the scan does not abort and the failure is surfaced, not hidden.
+Read the escalation ledger with the **`escalation_state` tool** (never the file, never
+a code snippet) so Phase 2 can tell which items another skill is already actively
+escalating. Reading is all the digest ever does with the ledger; it never writes it.
+A single matter's read failure is a `parse_failed` row; the scan does not abort and
+the failure is surfaced, not hidden.
+
+Per-matter reads land in context, so keep each read tight (open tasks and in-window
+events only, never full documents). If a firm's matter count ever makes per-matter
+reads untenable, that is the ss #1917 batch-fetch design conversation — do not reach
+for `execute_code` as the workaround.
 
 ### Phase 2 — Reason (agent, in-context)
 

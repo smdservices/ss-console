@@ -387,7 +387,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // unmapped ⇒ REFUSED class). NEW tracked twin pair
     // shared/escalation_ledger.py <-> operator/workspace_broker/
     // escalation_ledger.py (sha c4882668). Superset of d6739132 (#164).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4d0be7ec282759e83c6283fc374be4398caee6ce"')
+    // a16f9580 (#169, ss #1935/#1932/#1931): escalation_append derive_only
+    // (real ACK codes before the alert sends) + recipient-aware reply floor
+    // (INTERNAL recipients not content-floored, mirrors ADR 0072 send path) +
+    // per-skill settings live-writable in the config applier. No tracked twin
+    // moved; overlayRef-only. Superset of 4d0be7ec (#168).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a16f9580c3d100fe257536765bb70c69a4079912"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
