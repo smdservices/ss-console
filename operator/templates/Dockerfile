@@ -317,7 +317,15 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # because nothing ever told the agent to record). Touches only
 # plugins/hermes-smd-peer-memory + its tests — no tracked twins, overlaySha256
 # values unchanged; only overlayRef. Superset of a16f9580.
-ARG OVERLAY_REF="3ffc2d1ffd1dad559c7bd037caa7a618b8fe1b01"
+# aa7d78f2 (overlay #171, ss #1941 probe find): peer-memory keys the peer on
+# the Svix-verified sender via a claim-once unbound-origin handoff on
+# SessionInboundOrigin (the dispatch session_id is empty on the live email
+# path, and Hermes threads the ROUTE as sender_id — the first captured
+# preference keyed webhook:agentmail, a channel not a person). Touches
+# shared/inbound.py (contract-tested vendored copy, not a sha-tracked twin) +
+# plugins/hermes-smd-peer-memory + tests — every overlaySha256 unchanged,
+# only overlayRef. Superset of 3ffc2d1f.
+ARG OVERLAY_REF="aa7d78f2ca4f6657ebc5051d7bd58406a758beb0"
 
 ARG CUSTOMER_SLUG=customer-zero
 
