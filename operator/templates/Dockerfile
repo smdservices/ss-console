@@ -303,7 +303,15 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # 0f3e929..fdf8870 touches plugins/hermes-smd-trust/{outbound_send.py(new),__init__.py}
 # + plugins/hermes-smd-reply + tests — NOT tracked twins, so every overlaySha256 is
 # unchanged; only overlayRef. Superset of 63a3bca (#162) / 0f3e9291 (#161).
-ARG OVERLAY_REF="d6739132516d691dc5fd832676e81de57c432337"
+#
+# 36fa158d (overlay #165 + #167, ss #1915/#1916): the escalation-ledger mediated
+# tools (hermes-smd-escalation plugin: escalation_append via the broker verb +
+# escalation_state over the ledger twin) that replace the refused execute_code
+# append snippet, plus the durable-job tool mappings (unmapped ⇒ REFUSED had
+# left both tool sets inert at runtime — found by the WP-D live proof). NEW
+# tracked twin pair: shared/escalation_ledger.py <-> operator/workspace_broker/
+# escalation_ledger.py (byte-identical, sha c4882668). Superset of d6739132.
+ARG OVERLAY_REF="36fa158d46209f211eb8653462758888280846c7"
 
 ARG CUSTOMER_SLUG=customer-zero
 

@@ -245,11 +245,14 @@ matter for the chase:
 - **`chased`** — one per client nudge that actually sent. The count of `chased`
   raises on an item is the `nudge <#>` numerator; it is what the ceiling counts.
   Append it **only after both the send AND the ledger write succeed** (never
-  report a chase that did not go out). Write it through the broker's
-  `escalation_event_append` verb (the same door shape as the deadline lane; the
-  snippet lives in `deadline-miss-escalator/references/algorithm.md`). The LLM
-  turn never writes the ledger file directly — the state that governs a chase must
-  pass broker validation.
+  report a chase that did not go out). Write it with the **`escalation_append`
+  tool**, which carries the event to the broker's validated
+  `escalation_event_append` verb (the same door as the deadline lane; tool
+  contract in `deadline-miss-escalator/references/algorithm.md` — never an
+  `execute_code` socket snippet, that class is refused on customer seats,
+  ss #1915). Read current per-item state and tokens with `escalation_state`.
+  The LLM turn never writes the ledger file directly — the state that governs a
+  chase must pass broker validation.
 - **`handed_off`** — one when the attempt count reaches `escalate_after_attempts`
   and the client chase stops. `handed_off` is **terminal** for autonomous wakes:
   the pre_run will not re-raise the item, so the hand-off alert to the attorney

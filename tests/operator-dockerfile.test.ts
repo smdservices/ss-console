@@ -380,7 +380,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // reliably re-invoke on "yes"), re-authorized through the same evaluate_tool_call
     // gate + CONFIRM_SEND_DISPATCHED/FAILED audit rows. Child of #162; carries it.
     // No tracked twin moved; overlayRef-only. Superset of 63a3bca (#162).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d6739132516d691dc5fd832676e81de57c432337"')
+    // 36fa158d (#165 + #167, ss #1915/#1916): hermes-smd-escalation mediated
+    // ledger tools (escalation_append via the broker verb + escalation_state
+    // over the ledger twin — replaces the refused execute_code append snippet
+    // found dead by the WP-D live proof) + durable-job tool mappings (the same
+    // unmapped ⇒ REFUSED class). NEW tracked twin pair
+    // shared/escalation_ledger.py <-> operator/workspace_broker/
+    // escalation_ledger.py (sha c4882668). Superset of d6739132 (#164).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="36fa158d46209f211eb8653462758888280846c7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
