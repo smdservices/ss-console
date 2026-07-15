@@ -402,7 +402,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // session_id is empty on the live email path; Hermes threads the ROUTE as
     // sender_id — the first live capture keyed webhook:agentmail, a channel
     // not a person). overlayRef-only. Superset of 3ffc2d1f (#170).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="aa7d78f2ca4f6657ebc5051d7bd58406a758beb0"')
+    // eb17f3cb (#172, ss #1943): inbound taint/fence rendezvous — the
+    // chokepoint claims the fresh dispatch-unkeyed PENDING bucket and fences +
+    // taints under the turn's own session id; rostered senders classify
+    // internal (no fence/taint), strangers now actually hit the wall.
+    // overlayRef-only. Superset of aa7d78f2 (#171).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="eb17f3cb5b830683980c20c1b1b3485f40985b49"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
