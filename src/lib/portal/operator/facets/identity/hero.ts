@@ -20,10 +20,34 @@ export interface OperatorHeroModel {
   name: string | null
   /** Persona title / role, e.g. "AI Case Coordinator". */
   title: string | null
+  /**
+   * The active persona's authored tone descriptors (customer.yaml
+   * persona.tone), humanized for display ("warm-but-professional" → "warm but
+   * professional"). Empty when unauthored — the line simply doesn't render.
+   * Closes the voice-posture half of the blueprint §4 coverage gap; the voice
+   * LIBRARY (samples) stays a later slice.
+   */
+  tone: string[]
+  /**
+   * The mailbox identity the active persona sends as (persona.send_as), or
+   * null when unauthored. Authored config, rendered verbatim.
+   */
+  sendAs: string | null
+  /**
+   * Every OTHER authored persona (ADR 0011 multi-persona) — the identities
+   * this operator can also operate as. Empty for single-persona seats; the
+   * component renders the line only when non-empty.
+   */
+  alsoOperatesAs: { name: string; title: string | null }[]
   /** The live aliveness signal, or null when the customer has no fleet_status
    *  row yet (the component renders the silent empty state — never a fabricated
    *  "healthy" chip). */
   aliveness: AlivenessSignal | null
+}
+
+/** "warm-but-professional" → "warm but professional" (display only). */
+function humanizeTone(t: string): string {
+  return t.replace(/-/g, ' ')
 }
 
 /**
@@ -39,9 +63,13 @@ export function resolveOperatorHero(
   // second DB read, no reparse of personas_json (the projection already parsed
   // it). Mirrors the selection in customer-config.ts::getActivePersona.
   const persona = config?.personas.find((p) => p.status === 'active') ?? null
+  const others = (config?.personas ?? []).filter((p) => p.status === 'active' && p !== persona)
   return {
     name: persona?.name ?? null,
     title: persona?.title ?? null,
+    tone: (persona?.tone ?? []).map(humanizeTone),
+    sendAs: persona?.send_as?.agentmail_identity ?? null,
+    alsoOperatesAs: others.map((p) => ({ name: p.name, title: p.title })),
     aliveness,
   }
 }
