@@ -392,7 +392,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // (INTERNAL recipients not content-floored, mirrors ADR 0072 send path) +
     // per-skill settings live-writable in the config applier. No tracked twin
     // moved; overlayRef-only. Superset of 4d0be7ec (#168).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a16f9580c3d100fe257536765bb70c69a4079912"')
+    // 3ffc2d1f (#170, ss #1941): peer-memory capture nudge — the ADR 0048
+    // learned lane's write side. pre_llm_call injects the
+    // record_peer_preference capture instruction on every sender-attributed
+    // turn (fleet-wide zero rows: the tool existed, nothing prompted its use).
+    // No tracked twin moved; overlayRef-only. Superset of a16f9580 (#169).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3ffc2d1ffd1dad559c7bd037caa7a618b8fe1b01"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
