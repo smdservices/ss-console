@@ -239,8 +239,12 @@ from waking every weekday and stops the internal escalation email from repeating
 daily (the July 6 / 7 / 8 / 14 defect).
 
 The item's identity is its stable Smokeball tracking-task id, via
-`item_key(matter_id, task_id, label, authored_date)`. Two ledger raise events
-matter for the chase:
+`item_key(matter_id, task_id, label, authored_date)`. **Never build this key by
+hand** — pass the components to `escalation_append` (`matter_id`, `source_id` =
+the tracking task's stable id, `label` = `client-verification`,
+`authored_date` = null — a re-dated tracking task must not change identity) and
+the tool derives the key and token with the same helpers the pre_run gate uses.
+Two ledger raise events matter for the chase:
 
 - **`chased`** — one per client nudge that actually sent. The count of `chased`
   raises on an item is the `nudge <#>` numerator; it is what the ceiling counts.

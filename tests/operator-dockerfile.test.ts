@@ -387,7 +387,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // unmapped ⇒ REFUSED class). NEW tracked twin pair
     // shared/escalation_ledger.py <-> operator/workspace_broker/
     // escalation_ledger.py (sha c4882668). Superset of d6739132 (#164).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="36fa158d46209f211eb8653462758888280846c7"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4d0be7ec282759e83c6283fc374be4398caee6ce"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
