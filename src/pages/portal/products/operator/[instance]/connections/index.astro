@@ -2,17 +2,23 @@
 import PortalShell from '../../../../../../layouts/PortalShell.astro'
 import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
 import { buildConnectionRows } from '../../../../../../lib/portal/operator/connections'
+import { resolveOperatorScope } from '../../../../../../lib/portal/operator/facets/scope/scope'
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import ConnectionRowCard from '../../../../../../components/portal/operator/ConnectionRowCard.astro'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator — Connections + credential custody (client-portal §5.8). The one
- * domain where client self-service is a security UPGRADE, so it is the first
- * surface built for client operability (gated by the connections switch).
+ * Operator — ACCESS (chapter 3, console blueprint §5): the systems and
+ * accounts the operator holds keys to, per system. Evolves the Connections
+ * page (client-portal §5.8) by absorbing the seeing-half of the retired Scope
+ * page: mailbox folder visibility renders here, attached to the email system
+ * it describes — answering "which inbox?" structurally. Connector rows +
+ * credential custody are unchanged; connections stays the one domain where
+ * client self-service is a security UPGRADE (gated by the connectors switch).
  *
- * URL: portal.smd.services/portal/products/operator/connections
+ * URL: portal.smd.services/portal/products/operator/<instance>/connections
+ * (route stays stable — labels rename, identifiers never; blueprint §6)
  *
  * Dual-mode via <DomainSurface domain="connectors">:
  *   - Read + Request (launch, switch off): every connector's status, health,
@@ -50,6 +56,18 @@ const rows = buildConnectionRows(
   config?.credential_custody_default ?? 'delegated'
 )
 
+// The seeing-half of the retired Scope page, attached to the email system it
+// describes (blueprint §5 Access chapter): folder visibility + the mailbox
+// identity it writes from. All authored config; the block renders only when
+// any of it is authored.
+const scopeView = resolveOperatorScope(config).scope
+const sendAs =
+  config?.personas.find((p) => p.status === 'active')?.send_as?.agentmail_identity ?? null
+const emailAccess =
+  scopeView && (scopeView.sees.length > 0 || scopeView.neverSees.length > 0 || sendAs)
+    ? { sees: scopeView.sees, neverSees: scopeView.neverSees, sendAs }
+    : null
+
 const RETURN_TO = `${operatorBase}/connections`
 
 // Secret-write outcome banner (from the connector secret endpoint redirect).
@@ -85,7 +103,7 @@ const banner = csMessage
 ---
 
 <PortalShell
-  title="Operator · Connections"
+  title="Operator · Access"
   clientName={client.name}
   orgId={client.org_id}
   entityId={client.id}
@@ -95,9 +113,50 @@ const banner = csMessage
     crumbHref={operatorBase}
     crumbLabel="Operator"
     tag="Section"
-    h1="Connections"
+    h1="Access"
     meta={rows.length > 0 ? `${rows.length} connector${rows.length === 1 ? '' : 's'}` : null}
   />
+
+  {
+    emailAccess && (
+      <section
+        aria-label="Email access"
+        class="mt-8 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+      >
+        <div class="bg-[color:var(--ss-color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--ss-color-background)]">
+          Email
+        </div>
+        <div class="px-5 py-6 md:px-7 flex flex-col gap-4">
+          {emailAccess.sendAs && (
+            <div>
+              <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Works in
+              </p>
+              <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                {emailAccess.sendAs}
+              </p>
+            </div>
+          )}
+          <div>
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              Reads
+            </p>
+            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+              {emailAccess.sees.length > 0 ? emailAccess.sees.join(', ') : 'None set'}
+            </p>
+          </div>
+          <div>
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              Never sees
+            </p>
+            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+              {emailAccess.neverSees.length > 0 ? emailAccess.neverSees.join(', ') : 'None set'}
+            </p>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   {
     banner && (
