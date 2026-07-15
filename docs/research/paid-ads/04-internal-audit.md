@@ -44,10 +44,11 @@ build here than in a typical Calendly setup.
   whitelisted client-side and re-validated server-side. This is a deliberate
   privacy choice, and it means **UTM / gclid / fbclid never enter the
   first-party pipeline**.
-- There is an admin analytics view (`src/pages/admin/analytics/index.astro`,
-  `src/lib/db/events-analytics.ts`, `getPipelineConversion` in
-  `src/lib/db/analytics.ts`) with a 7-day conversion funnel over these events.
-  So SMD already has a home for funnel reporting; it is just blind to ad source.
+- At the time of this audit there was an admin analytics view with a 7-day
+  conversion funnel over these events. **(Retired 2026-07-14, ADR 0077: the
+  dashboard and its query layer were deleted as a dead pipeline-funnel surface.
+  The `events` capture pipeline still writes; funnel reporting comes back only
+  when there is a real question to answer.)**
 
 ### 3. Booking funnel is fully first-party (a real advantage)
 
