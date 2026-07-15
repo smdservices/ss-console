@@ -629,6 +629,15 @@ def _first_str(item: dict, keys: Sequence[str]) -> str:
 
 
 def _matter_id_of(item: dict) -> str:
+    # The live Smokeball /tasks payload carries the matter as a NESTED link
+    # object ({"matter": {"id": ..., "href": ...}}), not a flat matterId —
+    # found by the WP-D probe when the flat-key miss put "unknown-matter" into
+    # every item identity and forked the ledger join (ss #1915).
+    matter = item.get("matter") or item.get("Matter")
+    if isinstance(matter, dict):
+        nested = matter.get("id") or matter.get("Id")
+        if isinstance(nested, str) and nested:
+            return nested
     for key in _MATTER_ID_KEYS:
         value = item.get(key)
         if isinstance(value, str) and value:
