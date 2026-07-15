@@ -2,6 +2,7 @@
 import PortalShell from '../../../../../../layouts/PortalShell.astro'
 import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
 import { resolveOperatorWork } from '../../../../../../lib/portal/operator/facets/work/work'
+import { parseBusinessHours } from '../../../../../../lib/portal/operator/configure'
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import OperatorWork from '../../../../../../components/portal/operator/facets/OperatorWork.astro'
@@ -41,6 +42,25 @@ if (access.kind === 'redirect') {
 const { client, roles } = access
 
 const model = resolveOperatorWork(access.config)
+
+// Business-hours header line (blueprint §5 / Lock 2): ONLY the timezone
+// materializes on the seat today, so only the timezone renders — days/hours
+// are inert and never display as effective. The display name is a
+// deterministic Intl translation of the authored IANA zone (never invented).
+const hours = parseBusinessHours(access.config?.business_hours)
+let timezoneLine: string | null = null
+if (hours?.timezone) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: hours.timezone,
+      timeZoneName: 'longGeneric',
+    }).formatToParts(new Date(0))
+    const tzName = parts.find((p) => p.type === 'timeZoneName')?.value ?? null
+    timezoneLine = tzName ? `Works on ${tzName}` : null
+  } catch {
+    timezoneLine = null
+  }
+}
 
 const RETURN_TO = `${operatorBase}/work`
 
@@ -85,13 +105,21 @@ const crMessage =
     Everything your operator does, stage by stage, and how much it does on its own.
   </p>
 
+  {
+    timezoneLine && (
+      <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+        {timezoneLine}
+      </p>
+    )
+  }
+
   <div class="mt-4">
     <DomainSurface
       authority={access.config?.authority ?? null}
       domain="configuration"
       roles={roles}
       returnTo={RETURN_TO}
-      domainLabel="the work"
+      domainLabel="duties"
     >
       <div slot="read">
         <OperatorWork model={model} />

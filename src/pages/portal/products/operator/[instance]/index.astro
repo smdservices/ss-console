@@ -252,7 +252,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             <OperatorOverviewBlock
               label="Systems"
               href={`${operatorBase}/connections`}
-              linkLabel="Connections"
+              linkLabel="Access"
             >
               <p class="font-body text-base text-[color:var(--color-text-primary)]">
                 {overview.systems.join(' · ')}
@@ -260,7 +260,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             </OperatorOverviewBlock>
           )}
 
-          <OperatorOverviewBlock label="People" href={`${operatorBase}/scope`} linkLabel="Scope">
+          <OperatorOverviewBlock label="People" href={`${operatorBase}/people`} linkLabel="People">
             {overview.respondsTo.length > 0 ? (
               <p class="font-body text-base text-[color:var(--color-text-primary)]">
                 Responds to: {overview.respondsTo.join(', ')}
@@ -277,12 +277,6 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                 {overview.writesToCount === 1 ? 'recipient' : 'recipients'}
               </p>
             )}
-          </OperatorOverviewBlock>
-
-          <OperatorOverviewBlock label="The team" href={`${operatorBase}/team`} linkLabel="Team">
-            <p class="font-body text-base text-[color:var(--color-text-primary)]">
-              People on the account and who gets alerted.
-            </p>
           </OperatorOverviewBlock>
 
           <OperatorOverviewBlock
