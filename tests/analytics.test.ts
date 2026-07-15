@@ -289,11 +289,10 @@ describe('analytics: dashboard page', () => {
 describe('analytics: admin dashboard integration', () => {
   const source = () => readFileSync(resolve('src/pages/admin/index.astro'), 'utf-8')
 
-  it('admin layout shows Analytics nav link', () => {
-    const layout = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
-    expect(layout).toContain('Analytics')
-    expect(layout).toContain('/admin/analytics')
-  })
+  // The Analytics nav-link assertion was removed 2026-07-14 (ADR 0077): the
+  // admin nav is the five-destination spine (Home / Clients / Fleet / Billing /
+  // Playbook) and Analytics — corpse of the retired lead machine — is no longer
+  // a nav destination. The page/data tests below stay until the scrap PR.
 
   it('admin home shows the delivery (in-motion) metric', () => {
     expect(source()).toContain('deliveryStats')
