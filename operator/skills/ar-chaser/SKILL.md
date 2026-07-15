@@ -146,6 +146,14 @@ Detailed cadence-stage thresholds, payment-promise detection rules, voice-matchi
 
 **draft_for_review** is non-negotiable. AR touches money + client relationships. Even if a customer says "you can send these for me," the SOW does not authorize it and the substrate enforces draft-only on `gmail.send` for this skill.
 
+**Content-sensitivity floor disposition (#1878).** This skill is deliberately NOT
+authored floor-clean, unlike the graduatable law-pack chases. An AR chase is money
+content by definition (invoice number, amount, due date are the substance of the
+message), the ceiling above is non-negotiable draft-only, and the skill writes
+drafts rather than issuing a classified proactive send — so the ADR 0031 floor never
+gates it and never needs to. Do not strip "invoice"/"payment"/amounts from AR drafts
+to chase floor-cleanliness; that would gut the draft a human reviews.
+
 The agent MAY:
 
 - Read QBO Aging Detail and individual invoice records

@@ -249,3 +249,56 @@ describe('resolveOperatorWork — gridless fallback', () => {
     expect(model.skills).toEqual([])
   })
 })
+
+describe('authority view (console blueprint §4 — entitlements as one honest view)', () => {
+  it('renders the active persona exposure map as plain rows in stable action-class order', () => {
+    const model = resolveOperatorWork(
+      gridlessConfig([
+        persona({
+          entitlements: {
+            exposure: {
+              external_send_client: 'draft_for_review',
+              internal_write: 'autonomous',
+              destructive: 'refused',
+              external_send: 'confirm',
+            },
+          },
+        }),
+      ])
+    )
+    expect(model.authority).toEqual([
+      { label: 'Writing inside your systems', sentence: 'Handles it on its own' },
+      { label: 'Sending outside the firm', sentence: 'Asks first' },
+      { label: 'Email to your clients', sentence: 'Prepares it for a person' },
+      { label: 'Deleting or changing records', sentence: 'Never' },
+    ])
+  })
+
+  it('unauthored classes NEVER render as rows (fail-closed stays invisible, not invented)', () => {
+    const model = resolveOperatorWork(
+      gridlessConfig([persona({ entitlements: { exposure: { internal_write: 'autonomous' } } })])
+    )
+    expect(model.authority).toHaveLength(1)
+  })
+
+  it('is empty for a null config, no active persona, or an empty exposure map', () => {
+    expect(resolveOperatorWork(null).authority).toEqual([])
+    expect(
+      resolveOperatorWork(gridlessConfig([persona({ status: 'archived' })])).authority
+    ).toEqual([])
+    expect(
+      resolveOperatorWork(gridlessConfig([persona({ entitlements: { exposure: {} } })])).authority
+    ).toEqual([])
+  })
+
+  it('grid mode carries the same authority block', () => {
+    const model = resolveOperatorWork({
+      routine_grid: { adr: '0075', seat: 's', persona: 'p', source_letter: 'x', rows: [row()] },
+      personas: [persona({ entitlements: { exposure: { internal_write: 'draft_for_review' } } })],
+    } as unknown as CustomerConfigRow)
+    expect(model.mode).toBe('grid')
+    expect(model.authority).toEqual([
+      { label: 'Writing inside your systems', sentence: 'Prepares it for a person' },
+    ])
+  })
+})

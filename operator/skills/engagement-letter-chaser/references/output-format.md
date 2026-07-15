@@ -10,9 +10,11 @@ The decision determines the shape.
 **Status:** sent <date>, unsigned (<N> days); last nudge <date or "none">; nudge <#> of <max>
 **Decision:** nudge due
 
-## Nudge (DRAFT — reviewer sends)
+## Nudge (sent or held per the authored ceiling; see SKILL.md invariant 4)
 
-> <short, warm reminder per voice.md — points to where to sign; offers to answer questions with the team; interprets nothing>
+> <short, warm reminder per voice.md: floor-clean body (#1878) that points to where
+> to complete and return the letter; offers to answer questions with the team;
+> interprets nothing>
 
 ## Internal log (create_memo body)
 
@@ -51,6 +53,7 @@ The decision determines the shape.
 
 ## Rules
 
-1. **Only Shape A contains a client-facing draft** (blockquote, drafted for review).
-2. **No term of the letter appears interpreted** anywhere.
-3. The decision and its reason are always stated, so the cadence is auditable.
+1. **Only Shape A contains a client-facing body** (blockquote); whether it sends or is held follows the firm's authored ceiling (SKILL.md invariant 4).
+2. **The Shape A body is floor-clean (#1878)** — no "sign"/"signature"/"engagement letter"/"attorney" in the outbound text (substitution table in `references/voice.md`). Internal shapes (headers, status lines, memo bodies) keep the precise words: the floor scans what leaves the firm, not the matter file.
+3. **No term of the letter appears interpreted** anywhere.
+4. The decision and its reason are always stated, so the cadence is auditable.

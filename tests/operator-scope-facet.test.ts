@@ -30,6 +30,7 @@ describe('resolveOperatorScope', () => {
       sees: ['Inbox', 'Sent'],
       neverSees: ['Legal'],
       respondsTo: ['scott@smd.services', '@smd.services'],
+      writesTo: [],
       blockedTopics: ['payroll'],
       blockedSenders: ['competitor.com'],
       blockedWork: ['Smith v. Jones'],
@@ -55,6 +56,44 @@ describe('resolveOperatorScope', () => {
     expect(model.scope?.respondsTo).toEqual([])
   })
 
+  it('maps outbound_roster entries to plain class labels, address verbatim, note carried (ADR 0075)', () => {
+    const model = resolveOperatorScope(
+      config({
+        ...FULL_SCOPE,
+        outbound_roster: [
+          { address: 'records@vendor.example', class: 'records_vendor', note: 'chase inbox' },
+          { address: 'owner@client.example', class: 'client' },
+        ],
+      })
+    )
+    expect(model.scope?.writesTo).toEqual([
+      { address: 'records@vendor.example', classLabel: 'Records vendor', note: 'chase inbox' },
+      { address: 'owner@client.example', classLabel: 'Client', note: null },
+    ])
+  })
+
+  it('drops malformed outbound entries (unknown class, missing address) — parser is lenient, never throws', () => {
+    const model = resolveOperatorScope(
+      config({
+        ...FULL_SCOPE,
+        outbound_roster: [
+          { address: 'ok@client.example', class: 'client' },
+          { address: 'bad@x.example', class: 'opposing_counsel' },
+          { class: 'client' },
+          'not-an-object',
+        ],
+      })
+    )
+    expect(model.scope?.writesTo).toEqual([
+      { address: 'ok@client.example', classLabel: 'Client', note: null },
+    ])
+  })
+
+  it('an absent outbound_roster renders the honest empty ([] — no standing recipients configured)', () => {
+    const model = resolveOperatorScope(config(FULL_SCOPE))
+    expect(model.scope?.writesTo).toEqual([])
+  })
+
   it('is null when config is null (page-level honest empty state)', () => {
     expect(resolveOperatorScope(null).scope).toBeNull()
   })
@@ -75,6 +114,7 @@ describe('resolveOperatorScope', () => {
       sees: ['Inbox'],
       neverSees: [],
       respondsTo: [],
+      writesTo: [],
       blockedTopics: [],
       blockedSenders: [],
       blockedWork: [],
