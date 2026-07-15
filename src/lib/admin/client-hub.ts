@@ -17,6 +17,44 @@ import type { Invoice } from '../db/invoices'
 import type { Engagement, EngagementStatus } from '../db/engagements'
 import { ENGAGEMENT_STATUSES } from '../db/engagements'
 import type { Quote } from '../db/quotes'
+import type { EntityStage } from '../db/entities'
+
+/**
+ * Admin-facing stage badge for the Clients surface: an honest label plus
+ * whether the record has crossed the signature line (drives badge tone).
+ *
+ * The eight canonical stages (`src/lib/db/entities.ts`) are unchanged; this
+ * only maps them to the labels Clients shows. Two labels differ from the raw
+ * enum on purpose: `meetings` reads "Assessment" (what the stage actually is),
+ * and `engaged` reads "Client" (a signed quote at `proposing → engaged` is the
+ * moment a record becomes one). `signed` is true from `engaged` onward.
+ */
+export interface ClientStageBadge {
+  label: string
+  signed: boolean
+}
+
+export function clientStageBadge(stage: EntityStage): ClientStageBadge {
+  switch (stage) {
+    case 'prospect':
+      return { label: 'Prospect', signed: false }
+    case 'meetings':
+      return { label: 'Assessment', signed: false }
+    case 'proposing':
+      return { label: 'Proposing', signed: false }
+    case 'engaged':
+      return { label: 'Client', signed: true }
+    case 'delivered':
+      return { label: 'Delivered', signed: true }
+    case 'ongoing':
+      return { label: 'Ongoing', signed: true }
+    case 'lost':
+      return { label: 'Lost', signed: false }
+    case 'signal':
+    default:
+      return { label: 'Signal', signed: false }
+  }
+}
 
 export interface BillingRollup {
   /** Sum of all non-draft, non-void invoice amounts. */
