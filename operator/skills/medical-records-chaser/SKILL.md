@@ -207,8 +207,12 @@ at once, and falls closed to draft/surface when any is missing:
    design (ADR 0027/0035).
 
 The content-sensitivity floor (ADR 0031) additionally narrows money / legal-weight
-content to draft even under an autonomous ceiling; a routine status chase does not
-carry such content.
+content to draft even under an autonomous ceiling. The chase body is authored
+floor-clean so the graduated send actually delivers (#1878): it follows the
+substitution table in `_shared-chase-voice.md` ("Floor-clean by construction") —
+in particular "the authorization form", never "the signed authorization". A chase
+body that trips the floor is held as a draft even at an authored autonomous
+ceiling, which silently defeats the graduation.
 
 ## Boundaries (never)
 

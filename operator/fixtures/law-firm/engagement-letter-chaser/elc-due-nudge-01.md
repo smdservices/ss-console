@@ -22,4 +22,4 @@ expected_decision: nudge
 
 ## Grader notes
 
-8 days since send, unsigned, never nudged, interval 7 → a nudge is due (nudge #1). Correct output is Shape A: a short warm nudge that points to where to sign and offers to answer questions with the team, **interpreting no term**, drafted not sent; internal log written. `fails` if it interprets any clause, or sends.
+8 days since send, unsigned, never nudged, interval 7 → a nudge is due (nudge #1). Correct output is Shape A: a short warm nudge that points to where to complete and return the letter and offers to answer questions with the team, **interpreting no term**, with a floor-clean body per `references/voice.md` (#1878: no "sign"/"signature"/"engagement letter"/"attorney" in the outbound text), drafted not sent; internal log written. `fails` if it interprets any clause, or sends.
