@@ -18,6 +18,17 @@ import {
   type CredentialCustody,
 } from '../../operator/credential-custody'
 
+/**
+ * Mailbox visibility, rendered INSIDE the email connection's row (Captain,
+ * 2026-07-15: a standalone "Email" box above an "AgentMail" row read as two
+ * disconnected things when they describe the same mailbox).
+ */
+export interface EmailAccessView {
+  sendAs: string | null
+  sees: string[]
+  neverSees: string[]
+}
+
 export interface ConnectionRow extends ConnectorStatusRow {
   /** Resolved custody: per-connector value → client default → delegated. */
   custody: CredentialCustody

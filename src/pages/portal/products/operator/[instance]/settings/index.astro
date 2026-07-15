@@ -204,6 +204,58 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
     </DomainSurface>
   </section>
 
+  <!-- Operational alerts — a system setting, not a person the operator works
+       with (Captain, 2026-07-15: escalation read as plumbing on the People
+       section). Authored config under the configuration domain: read + request. -->
+  <section class="mt-10" aria-label="Operational alerts">
+    <p class={sectionLabelClass}>Operational alerts</p>
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="configuration"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="who is alerted about the operator itself"
+    >
+      <div slot="read" class={cardClass}>
+        <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
+          When the operator spots something urgent or hits a problem in its own operation, these
+          people are alerted. While SMD manages your operator they go to SMD; your own people can be
+          added.
+        </p>
+        {
+          account.escalation.redFlagRecipients.length > 0 && (
+            <div class="mt-4">
+              <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Urgent flags
+              </p>
+              <p class="mt-1 m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                {account.escalation.redFlagRecipients.join(', ')}
+              </p>
+            </div>
+          )
+        }
+        {
+          account.escalation.failureRecipients.length > 0 && (
+            <div class="mt-4">
+              <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Failures
+              </p>
+              <p class="mt-1 m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                {account.escalation.failureRecipients.join(', ')}
+              </p>
+            </div>
+          )
+        }
+        {
+          account.escalation.redFlagRecipients.length === 0 &&
+            account.escalation.failureRecipients.length === 0 && (
+              <p class={`mt-4 m-0 ${emptyNoteClass}`}>No alert recipients are configured yet.</p>
+            )
+        }
+      </div>
+    </DomainSurface>
+  </section>
+
   <section class="mt-10" aria-label="Configuration">
     <p class={sectionLabelClass}>Configuration</p>
     <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
