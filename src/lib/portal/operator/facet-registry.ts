@@ -144,10 +144,13 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
   {
     id: 'schedule',
     label: 'Schedule / recurring jobs',
-    plane: 'config_unprojected',
-    surface: { kind: 'planned', slice: 7 },
+    plane: 'config_projection',
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/schedule/schedule.ts',
+    },
     mounts: ['client', 'admin'],
-    note: 'The "starts on a schedule" signal is rendered on The work (ADR 0076) from each grid row\'s initiation. The concrete cron detail (personas[].cron[]) is authored but dropped from the projection — still pending a projection extension before the recurring-job specifics can show.',
+    note: 'Projected (personas[].cron -> skill+schedule, console blueprint §4) and rendered as plain-language prose on Duties rows and the Skills inventory via the deterministic cron describer; non-describable expressions render no prose (never mistranslated).',
   },
   {
     id: 'bundles',
