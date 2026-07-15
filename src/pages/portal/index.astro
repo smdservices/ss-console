@@ -252,15 +252,21 @@ const touchpointText: string | null = (() => {
           ))}
         </div>
 
-        <section class="mt-12 min-w-0">
-          <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
-            Recent activity
-          </p>
-          <h2 class="mt-2 font-body text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-            Log
-          </h2>
+        {/* The log records engagement-lifecycle events (proposals sent/signed,
+            invoices sent/paid, milestones completed). When nothing has
+            happened yet — or the client owns only products that don't feed
+            it — the section is absent, not an empty frame (empty-chapter
+            rule; Captain finding 2026-07-15: the empty box read as filler,
+            and its old copy promised a "next touchpoint" nobody authored). */}
+        {timelineEntries.length > 0 && (
+          <section class="mt-12 min-w-0">
+            <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              Recent activity
+            </p>
+            <h2 class="mt-2 font-body text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              Log
+            </h2>
 
-          {timelineEntries.length > 0 ? (
             <div class="mt-6 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-5 md:p-7 space-y-6">
               {timelineEntries.map((entry) => (
                 <TimelineEntry
@@ -272,14 +278,8 @@ const touchpointText: string | null = (() => {
                 />
               ))}
             </div>
-          ) : (
-            <div class="mt-6 border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
-              <p class="text-[color:var(--ss-color-text-secondary)]">
-                Nothing here yet. First entry lands after your next touchpoint.
-              </p>
-            </div>
-          )}
-        </section>
+          </section>
+        )}
       </>
     )
   }

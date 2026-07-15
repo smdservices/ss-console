@@ -89,9 +89,11 @@ const csMessage =
   pathname={Astro.url.pathname}
   offerings={offerings}
 >
+  {
+    /* No crumb: this page is the Billing nav tab's destination — a "← Home"
+      crumb would duplicate the Home tab directly above it. */
+  }
   <PortalPageHead
-    crumbHref="/portal"
-    crumbLabel="Home"
     tag="Ledger"
     h1="Billing"
     meta={invoices.length > 0
