@@ -494,6 +494,16 @@ def _first_date(item: dict, keys: Sequence[str]) -> date | None:
 
 
 def _matter_id_of(item: dict) -> str:
+    # The live Smokeball /tasks payload carries the matter as a NESTED link
+    # object ({"matter": {"id": ..., "href": ...}}), not a flat matterId —
+    # found by the WP-D probe (ss #1915). The flat keys stay as fallbacks; the
+    # bare "id" fallback is last (it is the TASK's own id, kept only for the
+    # calendar-entry shapes that flatten differently).
+    matter = item.get("matter") or item.get("Matter")
+    if isinstance(matter, dict):
+        nested = matter.get("id") or matter.get("Id")
+        if isinstance(nested, str) and nested:
+            return nested
     for key in _MATTER_ID_KEYS:
         value = item.get(key)
         if isinstance(value, str) and value:

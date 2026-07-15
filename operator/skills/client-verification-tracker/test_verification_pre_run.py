@@ -463,6 +463,27 @@ def test_run_once_falls_back_to_wake_when_no_writer():
 # ---------------------------------------------------------------------------
 
 
+def test_parse_pull_reads_nested_matter_link_object():
+    # The live Smokeball /tasks payload nests the matter as a link object —
+    # the flat-key miss put "unknown-matter" into every item identity and
+    # forked the ledger join (WP-D probe find, ss #1915).
+    raw = {
+        "tasks": {
+            "items": [
+                {
+                    "id": "t-1",
+                    "matter": {"id": "m-real", "href": "https://api/matters/m-real"},
+                    "subject": "Client verification outstanding",
+                    "dueDate": "2026-07-20",
+                }
+            ]
+        }
+    }
+    items, problem = parse_pull(raw, today=TODAY)
+    assert problem is None
+    assert items[0].matter_id == "m-real"
+
+
 def test_parse_pull_filters_to_verification_tasks():
     raw = {
         "tasks": {
