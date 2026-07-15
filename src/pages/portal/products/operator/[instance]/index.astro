@@ -194,11 +194,13 @@ interface RailSection {
   id: string
   label: string
 }
+// Persona leads (Captain, 2026-07-15: tucked at the bottom it read as a stray
+// footer; the manual opens with who the operator is, then what it does).
 const railSections: RailSection[] = []
+if (showPersona) railSections.push({ id: 'persona', label: 'Persona' })
 if (showDuties) railSections.push({ id: 'duties', label: 'Duties' })
 if (showAccess) railSections.push({ id: 'access', label: 'Access' })
 if (showPeople) railSections.push({ id: 'people', label: 'People' })
-if (showPersona) railSections.push({ id: 'persona', label: 'Persona' })
 
 const RETURN_TO = operatorBase
 
@@ -311,6 +313,10 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             Configuration as published {overview.publishedOn}
           </p>
         )}
+        <p class="mt-3 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+          This page is how your operator is set up today. Any of it can be changed. Each section
+          below has a request link.
+        </p>
 
         {/* Sticky anchor rail — in-page navigation over the one-pager's
             sections. Deep-linkable (#duties); lists only sections that render. */}
@@ -331,9 +337,68 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
         )}
 
         <div class="mt-10 flex flex-col gap-12">
+          {showPersona && (
+            <section id="persona" aria-label="Persona" class="scroll-mt-16">
+              <p class={seclabelClass}>Persona</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                Who your operator is and how it carries itself in writing.
+              </p>
+              <div class="mt-4">
+                <DomainSurface
+                  authority={customerConfig?.authority ?? null}
+                  domain="configuration"
+                  roles={access?.roles ?? []}
+                  returnTo={RETURN_TO}
+                  domainLabel="persona"
+                >
+                  <div
+                    slot="read"
+                    class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+                  >
+                    <div class="flex flex-col gap-4 px-5 py-6 md:px-7">
+                      {persona.tone && (
+                        <div>
+                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                            Sounds
+                          </p>
+                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                            {persona.tone}
+                          </p>
+                        </div>
+                      )}
+                      {persona.writesFrom && (
+                        <div>
+                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                            Writes from
+                          </p>
+                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                            {persona.writesFrom}
+                          </p>
+                        </div>
+                      )}
+                      {persona.alsoOperatesAs && (
+                        <div>
+                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                            Also operates as
+                          </p>
+                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                            {persona.alsoOperatesAs}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DomainSurface>
+              </div>
+            </section>
+          )}
+
           {showDuties && workModel && (
             <section id="duties" aria-label="Duties" class="scroll-mt-16">
               <p class={seclabelClass}>Duties</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                Everything your operator does, and how much it does on its own.
+              </p>
               {job && (
                 <p class="mt-3 font-body text-base font-semibold text-[color:var(--color-text-primary)]">
                   {job.headline}
@@ -366,7 +431,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                   domainLabel="duties"
                 >
                   <div slot="read">
-                    <OperatorWork model={workModel} />
+                    <OperatorWork model={workModel} hideTitle={true} />
                   </div>
                 </DomainSurface>
               </div>
@@ -376,6 +441,9 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
           {showAccess && (
             <section id="access" aria-label="Access" class="scroll-mt-16">
               <p class={seclabelClass}>Access</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                The systems your operator works in, and what it can see there.
+              </p>
               {emailAccess && (
                 <div class="mt-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
                   <div class="bg-[color:var(--ss-color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--ss-color-background)]">
@@ -447,6 +515,9 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
           {showPeople && (
             <section id="people" aria-label="People" class="scroll-mt-16">
               <p class={seclabelClass}>People</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                Who your operator works with, and on what terms.
+              </p>
               <div class="mt-4">
                 <DomainSurface
                   authority={customerConfig?.authority ?? null}
@@ -456,32 +527,9 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                   domainLabel="people"
                 >
                   <div slot="read">
-                    <OperatorPeople model={peopleModel} team={teamMembers} />
+                    <OperatorPeople model={peopleModel} team={teamMembers} hideTitle={true} />
                   </div>
                 </DomainSurface>
-              </div>
-            </section>
-          )}
-
-          {showPersona && (
-            <section id="persona" aria-label="Persona" class="scroll-mt-16">
-              <p class={seclabelClass}>Persona</p>
-              <div class="mt-4 flex flex-col gap-1">
-                {persona.tone && (
-                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Sounds: {persona.tone}
-                  </p>
-                )}
-                {persona.writesFrom && (
-                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Writes from: {persona.writesFrom}
-                  </p>
-                )}
-                {persona.alsoOperatesAs && (
-                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Also operates as: {persona.alsoOperatesAs}
-                  </p>
-                )}
               </div>
             </section>
           )}

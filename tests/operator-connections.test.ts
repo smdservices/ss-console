@@ -3,6 +3,9 @@ import {
   buildConnectionRows,
   formatCustody,
   describeCustody,
+  adapterDisplayName,
+  capabilityDisplayName,
+  connectionDefaultNote,
 } from '../src/lib/portal/operator/connections'
 
 describe('buildConnectionRows', () => {
@@ -46,12 +49,34 @@ describe('buildConnectionRows', () => {
 })
 
 describe('custody labels', () => {
-  it('formatCustody', () => {
-    expect(formatCustody('self_held')).toBe('Self-held')
-    expect(formatCustody('delegated')).toBe('Delegated to SMD')
+  it('formatCustody speaks client language (Captain, 2026-07-15: "delegated" read as loss of control)', () => {
+    expect(formatCustody('self_held')).toBe('Key held by your firm')
+    expect(formatCustody('delegated')).toBe('Managed by SMD')
   })
   it('describeCustody is honest about the recovery trade', () => {
     expect(describeCustody('self_held')).toContain('Only you')
     expect(describeCustody('delegated')).toContain('SMD')
+  })
+})
+
+describe('client display names (no raw slugs on the page)', () => {
+  it('maps known adapter slugs to product names and unknown slugs to null', () => {
+    expect(adapterDisplayName('agentmail')).toBe('AgentMail')
+    expect(adapterDisplayName('smokeball')).toBe('Smokeball')
+    expect(adapterDisplayName('some-new-adapter')).toBeNull()
+  })
+  it('renders capability keys in client language', () => {
+    expect(capabilityDisplayName('PracticeManagement')).toBe('Practice management')
+    expect(capabilityDisplayName('Email')).toBe('Email')
+  })
+  it('marks the AgentMail mailbox as an SMD-provided default, nothing else', () => {
+    const rows = buildConnectionRows(
+      { Email: { adapter: 'agentmail' }, PracticeManagement: { adapter: 'smokeball' } },
+      'delegated'
+    )
+    const email = rows.find((r) => r.adapter === 'agentmail')!
+    const pm = rows.find((r) => r.adapter === 'smokeball')!
+    expect(connectionDefaultNote(email)).toContain('default')
+    expect(connectionDefaultNote(pm)).toBeNull()
   })
 })
