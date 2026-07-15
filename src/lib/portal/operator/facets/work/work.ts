@@ -31,6 +31,11 @@
 
 import type { CustomerConfigRow } from '../../../customer-config'
 import type { RoutineGridRow, RoutineTier } from '../../../../operator/routine-grid'
+import {
+  ACCEPTED_ACTION_CLASSES,
+  type AuthoredExposureActionClass,
+  type ExposureCeiling,
+} from '../../../../operator/customer-yaml/types'
 import { humanizeSkillName, resolveOperatorSkills, type OperatorSkillView } from '../skills/skills'
 import { SKILL_SUMMARIES } from '../skills/skill-summaries'
 
@@ -44,6 +49,59 @@ const TIER_SENTENCE: Record<RoutineTier, string> = {
   'flag-only': 'Surfaces it',
   'prepare-and-route': 'Prepares it for you',
   'auto-handle': 'Handles it',
+}
+
+/**
+ * THE AUTHORITY VIEW (console blueprint §4 — the "entitlements as one honest
+ * view" coverage gap). The active persona's authored exposure map, rendered as
+ * one block: each authored action class in plain language with its ceiling as
+ * a plain sentence. Sparse by design — an UNAUTHORED class fails closed at
+ * runtime (ADR 0035) and renders only through the fixed footer sentence in the
+ * viewer, never as an invented row. Both display maps are closed and
+ * display-only; the authored tokens never reach the page.
+ */
+const AUTHORITY_CLASS_LABEL: Record<AuthoredExposureActionClass, string> = {
+  internal_write: 'Writing inside your systems',
+  external_send: 'Sending outside the firm',
+  external_send_internal: 'Email to your own team',
+  external_send_client: 'Email to your clients',
+  external_send_vendor: 'Email to your vendors',
+  commitment: 'Making commitments for the firm',
+  destructive: 'Deleting or changing records',
+  code_execution: 'Running code',
+}
+
+const CEILING_SENTENCE: Record<ExposureCeiling, string> = {
+  autonomous: 'Handles it on its own',
+  confirm: 'Asks first',
+  draft_for_review: 'Prepares it for a person',
+  refused: 'Never',
+}
+
+/** One authority row: an authored exposure ceiling in plain language. */
+export interface WorkAuthorityRow {
+  /** Plain-language action-class label from the closed map. */
+  label: string
+  /** The authored ceiling as a plain sentence. */
+  sentence: string
+}
+
+/**
+ * Map the active persona's sparse exposure map into authority rows, in the
+ * stable ACCEPTED_ACTION_CLASSES order. Only authored keys render; `read` is
+ * never authored (it is not an exposure class).
+ */
+function resolveAuthority(config: CustomerConfigRow | null): WorkAuthorityRow[] {
+  const persona = config?.personas.find((p) => p.status === 'active') ?? null
+  const exposure = persona?.entitlements.exposure ?? {}
+  const rows: WorkAuthorityRow[] = []
+  for (const ac of ACCEPTED_ACTION_CLASSES) {
+    if (ac === 'read') continue
+    const ceiling = exposure[ac]
+    if (!ceiling) continue
+    rows.push({ label: AUTHORITY_CLASS_LABEL[ac], sentence: CEILING_SENTENCE[ceiling] })
+  }
+  return rows
 }
 
 /** One implementing skill on a routine: humanized name + its reviewed summary. */
@@ -102,7 +160,8 @@ export interface WorkSection {
  * viewer flags which introduction sentence to show.
  */
 export type OperatorWorkModel =
-  { mode: 'grid'; sections: WorkSection[] } | { mode: 'gridless'; skills: OperatorSkillView[] }
+  | { mode: 'grid'; sections: WorkSection[]; authority: WorkAuthorityRow[] }
+  | { mode: 'gridless'; skills: OperatorSkillView[]; authority: WorkAuthorityRow[] }
 
 /**
  * Parse the authored free-text initiation string into the established plain
@@ -167,9 +226,10 @@ function group(rows: readonly RoutineGridRow[]): WorkSection[] {
  * today's Skills page.
  */
 export function resolveOperatorWork(config: CustomerConfigRow | null): OperatorWorkModel {
+  const authority = resolveAuthority(config)
   const grid = config?.routine_grid ?? null
   if (!grid) {
-    return { mode: 'gridless', skills: resolveOperatorSkills(config).skills }
+    return { mode: 'gridless', skills: resolveOperatorSkills(config).skills, authority }
   }
-  return { mode: 'grid', sections: group(grid.rows) }
+  return { mode: 'grid', sections: group(grid.rows), authority }
 }

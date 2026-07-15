@@ -134,9 +134,12 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     id: 'entitlements',
     label: 'Entitlements / exposure',
     plane: 'config_projection',
-    surface: { kind: 'planned', slice: 3 },
+    surface: {
+      kind: 'has_viewer',
+      viewerModule: 'src/lib/portal/operator/facets/work/work.ts',
+    },
     mounts: ['client', 'admin'],
-    note: "Persona-level exposure × per-skill initiation; vertical floors non-raisable. Rendered on The work (ADR 0076) from the routine grid: each row's start/ceiling tier is the authored per-routine autonomy dial, with permanent caps read verbatim. Coarse-vs-rich matrix is an open decision.",
+    note: "Persona-level exposure × per-skill initiation; vertical floors non-raisable. Rendered on the work surface (console blueprint §4): the authority block is the one honest view of the active persona's authored exposure map (sparse; unauthored fails closed and never renders as a row), and on grid seats each row's start/ceiling tier is the authored per-routine autonomy dial with permanent caps read verbatim.",
   },
   {
     id: 'schedule',
