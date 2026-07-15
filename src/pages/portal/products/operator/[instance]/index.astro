@@ -238,7 +238,15 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             </OperatorOverviewBlock>
           )}
 
-          {overview.authority.length > 0 && (
+          {/* One landing block owns the autonomy story (Captain, 2026-07-14:
+               "The job" + a global-authority block both read as "how much does
+               it do alone" and double-linked to Duties). Grid seats: the job
+               block's tier counts carry it; the authority view lives on the
+               Duties page as the global-ceilings header over the per-routine
+               dials. Gridless seats have no tier counts, so the authority
+               block remains the landing's only autonomy signal and renders
+               ONLY there. */}
+          {overview.job.kind !== 'grid' && overview.authority.length > 0 && (
             <OperatorOverviewBlock
               label="What it may do on its own"
               href={`${operatorBase}/work`}
