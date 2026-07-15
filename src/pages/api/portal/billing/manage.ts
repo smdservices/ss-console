@@ -42,13 +42,14 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const target = ALLOWED[slug]
   if (!target) return back('/portal', 'billing_invalid')
 
-  // Operator is instance-addressed: return to the addressed instance's account
-  // page when the form carries an instance; else the bare product path.
+  // Operator is instance-addressed: return to the addressed instance's
+  // Settings (the act surface holding Plan & billing) when the form carries an
+  // instance; else the bare product path.
   let returnPath = target.returnPath
   if (slug === 'operator') {
     const instanceRaw = form.get('instance')
     const instance = typeof instanceRaw === 'string' && instanceRaw !== '' ? instanceRaw : null
-    if (instance) returnPath = `/portal/products/operator/${instance}/account`
+    if (instance) returnPath = `/portal/products/operator/${instance}/settings`
   }
 
   const access = await resolveProductAccess(env.DB, user.id, client.id, slug)
