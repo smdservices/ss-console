@@ -71,3 +71,35 @@ describe('entities INSERT persists area column (regression for silent area-drop 
     expect(second.entity.area).toBe('Tempe, AZ')
   })
 })
+
+describe('entities INSERT persists vertical column (add-a-client, ADR 0077)', () => {
+  it('createEntity stores vertical and prospect stage on the row', async () => {
+    const db = await setup()
+    // Mirrors the add-a-client endpoint (POST /api/admin/clients): a manual
+    // record is created at stage `prospect` with its vertical. Before the DAL
+    // fix the INSERT silently dropped vertical (column existed, INSERT omitted
+    // it), so a new client always listed with no vertical.
+    const e = await createEntity(db, ORG, {
+      name: 'Acme Plumbing',
+      vertical: 'home_services',
+      stage: 'prospect',
+      source_pipeline: 'admin_manual',
+    })
+    expect(e.vertical).toBe('home_services')
+    expect(e.stage).toBe('prospect')
+
+    // Read back from the row, not the return value, to prove it persisted.
+    const row = await db
+      .prepare('SELECT vertical, stage FROM entities WHERE id = ?')
+      .bind(e.id)
+      .first<{ vertical: string | null; stage: string }>()
+    expect(row?.vertical).toBe('home_services')
+    expect(row?.stage).toBe('prospect')
+  })
+
+  it('createEntity stores null when vertical is omitted', async () => {
+    const db = await setup()
+    const e = await createEntity(db, ORG, { name: 'No Vertical Co' })
+    expect(e.vertical).toBeNull()
+  })
+})
