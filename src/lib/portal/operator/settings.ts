@@ -197,6 +197,10 @@ export function formatConnectorHealth(health: ConnectorHealth): string {
 export interface ConnectorStatusRow {
   capabilityName: string
   adapter: string
+  /** Authored `auth_mode` (e.g. 'authorization_code') — decides whether SMD
+   *  can re-establish the connection alone or the firm must approve a fresh
+   *  authorization. Null when not authored. */
+  authMode: string | null
   health: ConnectorHealth
   reconsentRequired: boolean
 }
@@ -226,9 +230,11 @@ export function connectorRowsFromCustomerYaml(connectorsYaml: unknown): Connecto
     if (!raw || typeof raw !== 'object') continue
     const entry = raw as ConnectorYamlEntry
     const adapter = typeof entry.adapter === 'string' ? entry.adapter : ''
+    const authModeRaw = (entry as Record<string, unknown>)['auth_mode']
     rows.push({
       capabilityName,
       adapter,
+      authMode: typeof authModeRaw === 'string' ? authModeRaw : null,
       health: 'unconfigured',
       reconsentRequired: false,
     })
