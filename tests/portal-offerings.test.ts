@@ -124,7 +124,7 @@ describe('buildPortalNav', () => {
     expect(nav.map((d) => d.label)).toEqual(['Home'])
   })
 
-  it('everything owned: all five destinations in fixed order with sequential anchors', () => {
+  it('everything owned: all five destinations in fixed order', () => {
     const nav = buildPortalNav(
       deriveOfferings({
         engagements: [engagement('in_progress')],
@@ -135,7 +135,6 @@ describe('buildPortalNav', () => {
       })
     )
     expect(nav.map((d) => d.label)).toEqual(['Home', 'Engagement', 'Operator', 'Agent', 'Billing'])
-    expect(nav.map((d) => d.anchor)).toEqual(['01', '02', '03', '04', '05'])
   })
 
   it('agent-only subscriber: Home, Agent, Billing (subscription implies billing)', () => {
@@ -143,7 +142,6 @@ describe('buildPortalNav', () => {
       deriveOfferings({ ...NOTHING, subscriptions: [subscription('hosted-agent')] })
     )
     expect(nav.map((d) => d.label)).toEqual(['Home', 'Agent', 'Billing'])
-    expect(nav.map((d) => d.anchor)).toEqual(['01', '02', '03'])
   })
 
   it('invoices alone light up Billing', () => {

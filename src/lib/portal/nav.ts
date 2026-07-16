@@ -4,14 +4,12 @@
  * Pure function from PortalOfferings to the ordered destination list —
  * offerings as destinations, fully composed (Captain decisions 1, 2, 10):
  *
- *   Home        always
+ *   Home        unless a pre-go-live operator-only client (then hidden; they
+ *               land on the operator itself — see offerings.preGoLiveLanding)
  *   Engagement  when any engagement or proposal exists
  *   Operator    ONE tab when the client owns any operator (the list lives inside)
  *   Agent       when a hosted-agent subscription exists
  *   Billing     once a billing relationship exists (invoice history or a live subscription)
- *
- * Section anchors are assigned sequentially at build time so there is no
- * conditional-anchor arithmetic anywhere.
  */
 
 import type { PortalOfferings } from './offerings'
@@ -21,14 +19,13 @@ export interface PortalNavDestination {
   label: string
   /** Escape hatch for narrow mobile cells; unused initially. */
   mobileLabel?: string
-  anchor: string
   matchPrefix: string
   /** Home matches exactly; everything else matches by prefix. */
   exact?: boolean
 }
 
 export function buildPortalNav(offerings: PortalOfferings): PortalNavDestination[] {
-  const destinations: Omit<PortalNavDestination, 'anchor'>[] = []
+  const destinations: PortalNavDestination[] = []
   // Home is hidden for a pre-go-live operator-only client: they land in the
   // operator area and have no hub to return to (Captain, 2026-07-16). Same
   // shape as the Billing gate below — a tab appears only when it has a purpose.
@@ -72,7 +69,7 @@ export function buildPortalNav(offerings: PortalOfferings): PortalNavDestination
       matchPrefix: '/portal/billing',
     })
   }
-  return destinations.map((d, i) => ({ ...d, anchor: String(i + 1).padStart(2, '0') }))
+  return destinations
 }
 
 export function isNavDestinationActive(dest: PortalNavDestination, pathname: string): boolean {

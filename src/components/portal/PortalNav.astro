@@ -33,7 +33,7 @@ const dense = destinations.length >= 5
         destinations.map((dest, i) => {
           const active = isNavDestinationActive(dest, pathname)
           const base =
-            'inline-flex items-baseline gap-2 px-5 py-3 min-h-[44px] font-mono text-sm font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
+            'inline-flex items-center px-5 py-3 min-h-[44px] font-mono text-sm font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
           const state = active
             ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
             : 'bg-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)]'
@@ -46,12 +46,6 @@ const dense = destinations.length >= 5
                 aria-current={active ? 'page' : undefined}
                 class={`${base} ${state}`}
               >
-                <span
-                  aria-hidden="true"
-                  class={`font-mono text-xs tracking-[0.06em] ${active ? 'text-[color:var(--ss-color-background)]' : 'text-[color:var(--ss-color-primary)]'}`}
-                >
-                  § {dest.anchor}
-                </span>
                 <span>{dest.label}</span>
               </a>
             </li>
@@ -83,12 +77,6 @@ const dense = destinations.length >= 5
               aria-current={active ? 'page' : undefined}
               class={`${base} w-full ${state}`}
             >
-              <span
-                aria-hidden="true"
-                class={`font-mono text-[11px] leading-none tracking-[0.06em] ${active ? 'text-[color:var(--ss-color-background)]' : 'text-[color:var(--ss-color-primary)]'}`}
-              >
-                § {dest.anchor}
-              </span>
               <span class="leading-none">{dest.mobileLabel ?? dest.label}</span>
             </a>
           </li>
