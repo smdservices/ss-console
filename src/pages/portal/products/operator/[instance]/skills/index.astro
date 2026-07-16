@@ -6,6 +6,7 @@ import PortalPageHead from '../../../../../../components/portal/PortalPageHead.a
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import OperatorSkills from '../../../../../../components/portal/operator/facets/OperatorSkills.astro'
 import { env } from 'cloudflare:workers'
+import { readChangeRequestFlash } from '../../../../../../lib/portal/operator/change-request-flash'
 
 /**
  * Operator — Skills (ADR 0069 Slice 3; signed-off brief
@@ -43,7 +44,7 @@ const model = resolveOperatorSkills(access.config)
 
 const RETURN_TO = `${operatorBase}/skills`
 
-const cr = Astro.url.searchParams.get('cr')
+const cr = readChangeRequestFlash(Astro.cookies)
 const crMessage =
   cr === 'filed'
     ? 'Your request was sent.'

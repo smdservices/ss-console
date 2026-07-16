@@ -8,6 +8,7 @@ import { isSwitchableDomain } from '../../../../lib/operator/authority'
 import { getAdminBaseUrl } from '../../../../lib/config/app-url'
 import { sendEmail } from '../../../../lib/email/resend'
 import { operatorChangeRequestNotificationEmailHtml } from '../../../../lib/email/operator-templates'
+import { changeRequestFlashCookie } from '../../../../lib/portal/operator/change-request-flash'
 
 /**
  * POST /api/portal/operator/change-request
@@ -36,10 +37,12 @@ import { operatorChangeRequestNotificationEmailHtml } from '../../../../lib/emai
 const ALL_CLIENT_ROLES = ['principal', 'staff', 'compliance'] as const
 
 function redirect(returnTo: string, status: 'filed' | 'invalid' | 'error'): Response {
-  const sep = returnTo.includes('?') ? '&' : '?'
+  // Show-once flash cookie, not a query param: a `?cr=` banner survives
+  // reloads and bookmarks; the flash renders exactly once (Captain,
+  // 2026-07-15). Surfaces read it via readChangeRequestFlash.
   return new Response(null, {
     status: 303,
-    headers: { Location: `${returnTo}${sep}cr=${status}` },
+    headers: { Location: returnTo, 'Set-Cookie': changeRequestFlashCookie(status) },
   })
 }
 

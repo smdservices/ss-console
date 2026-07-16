@@ -21,6 +21,7 @@ import {
   capabilityDisplayName,
   connectionDefaultNote,
   type ConnectionRow,
+  type EmailAccessView,
 } from '../../../lib/portal/operator/connections'
 import type { ConnectorHealth } from '../../../lib/portal/operator/settings'
 
@@ -31,9 +32,13 @@ interface Props {
   /** The addressed operator instance's slug — threaded to the endpoints so a
    *  POST from this row is attributed to the right operator. */
   instance: string
+  /** Mailbox visibility, rendered inside the email connection's own row (it
+   *  describes THIS mailbox, not a separate "Email" concept). Pass only on
+   *  the email-capability row. */
+  emailAccess?: EmailAccessView | null
 }
 
-const { row, operable, returnTo, instance } = Astro.props
+const { row, operable, returnTo, instance, emailAccess = null } = Astro.props
 const connectorId = row.adapter || row.capabilityName
 
 // Headline is the real product name (AgentMail, Smokeball); the capability
@@ -93,6 +98,39 @@ const btn =
     {
       defaultNote && (
         <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">{defaultNote}</p>
+      )
+    }
+
+    {
+      emailAccess && (
+        <div class="mt-2 flex flex-col gap-3">
+          {emailAccess.sendAs && (
+            <div>
+              <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0">
+                Address
+              </p>
+              <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)] m-0">
+                {emailAccess.sendAs}
+              </p>
+            </div>
+          )}
+          <div>
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0">
+              Reads
+            </p>
+            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)] m-0">
+              {emailAccess.sees.length > 0 ? emailAccess.sees.join(', ') : 'None set'}
+            </p>
+          </div>
+          <div>
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0">
+              Never sees
+            </p>
+            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)] m-0">
+              {emailAccess.neverSees.length > 0 ? emailAccess.neverSees.join(', ') : 'None set'}
+            </p>
+          </div>
+        </div>
       )
     }
 
