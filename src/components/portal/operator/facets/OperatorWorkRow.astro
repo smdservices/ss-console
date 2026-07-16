@@ -10,6 +10,7 @@
  * resolver — no invented copy, no vertical vocabulary.
  */
 import type { WorkRoutineView } from '../../../../lib/portal/operator/facets/work/work'
+import InitiationChips from './InitiationChips.astro'
 
 interface Props {
   routine: WorkRoutineView
@@ -18,44 +19,36 @@ interface Props {
 }
 
 const { routine: r, divided } = Astro.props
+
+// One quiet mono eyebrow for the autonomy labels — tightened to the system's own
+// 0.08em label tracking (was 0.14em) so the sentence that follows reads as the
+// row's headline status, not the label. Kept at text-secondary (AA) not muted.
+const microLabel =
+  'mb-0.5 block font-mono text-label font-bold uppercase tracking-[0.08em] text-[color:var(--color-text-secondary)]'
 ---
 
 <li class={`py-5 ${divided ? 'border-t-[2px] border-[color:var(--color-border)]' : ''}`}>
-  <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-8">
-    <p class="min-w-0 font-body text-base font-semibold text-[color:var(--color-text-primary)]">
-      {r.routine}
-    </p>
-    {
-      r.startsLabels.length > 0 && (
-        <span
-          class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] md:pt-0.5"
-          title={r.scheduleDetail ?? undefined}
-        >
-          {r.startsLabels.join(' · ')}
-          {r.scheduleDetail ? ` (${r.scheduleDetail})` : ''}
-        </span>
-      )
-    }
-  </div>
+  <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+    {r.routine}
+  </p>
 
-  <div class="mt-2 flex flex-col gap-1">
+  <InitiationChips labels={r.startsLabels} scheduleDetail={r.scheduleDetail} />
+
+  <div class="mt-3 flex flex-col gap-2">
     <p class="font-body text-sm text-[color:var(--color-text-primary)]">
-      <span
-        class="font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
-      >
-        Autonomy:{' '}
-      </span>
-      {r.todaySentence}
+      <span class={microLabel}>Autonomy</span>
+      <span class="font-semibold">{r.todaySentence}</span>
     </p>
     {
       r.canBecomeSentence && (
         <p class="font-body text-sm text-[color:var(--color-text-primary)]">
-          <span class="font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
-            Can be raised to:{' '}
-          </span>
+          <span class={microLabel}>Can be raised to</span>
           {r.canBecomeSentence}
           {r.canBecomeVerbatim && (
-            <span class="text-[color:var(--color-text-secondary)]"> ({r.canBecomeVerbatim})</span>
+            <span class="text-[color:var(--color-text-secondary)]">
+              {' · '}
+              {r.canBecomeVerbatim}
+            </span>
           )}
         </p>
       )
