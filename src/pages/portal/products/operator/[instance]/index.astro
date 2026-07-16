@@ -19,31 +19,42 @@ import {
   getCustomerConfigBySlug,
   listCustomerConfigsForEntity,
 } from '../../../../../lib/portal/customer-config'
-import OperatorOverviewBlock from '../../../../../components/portal/operator/OperatorOverviewBlock.astro'
+import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
 import OperatorAuthorityRows from '../../../../../components/portal/operator/facets/OperatorAuthorityRows.astro'
+import OperatorWork from '../../../../../components/portal/operator/facets/OperatorWork.astro'
+import OperatorPeople from '../../../../../components/portal/operator/facets/OperatorPeople.astro'
+import ConnectionRowCard from '../../../../../components/portal/operator/ConnectionRowCard.astro'
 import {
   jobLines,
   resolveOperatorOverview,
 } from '../../../../../lib/portal/operator/facets/overview/overview'
+import { resolveOperatorWork } from '../../../../../lib/portal/operator/facets/work/work'
+import { resolveOperatorPeople } from '../../../../../lib/portal/operator/facets/people/people'
+import { resolveOperatorScope } from '../../../../../lib/portal/operator/facets/scope/scope'
+import { buildConnectionRows } from '../../../../../lib/portal/operator/connections'
+import { parseBusinessHours } from '../../../../../lib/portal/operator/configure'
+import { loadTeamRoster, type TeamMember } from '../../../../../lib/portal/operator/team-read'
 import { env } from 'cloudflare:workers'
 
 /**
  * Operator landing — the ONE-PAGER (console blueprint
- * docs/design/operator/05-console-blueprint.md §5, LOCKED 2026-07-14).
+ * docs/design/operator/05-console-blueprint.md §5, amended 2026-07-15).
  *
- * The landing reads as a document, not a hall of doors: the whole operator
- * summarized top to bottom — identity + status, the currency stamp, the job in
- * numbers, the authority posture, systems, people, plan — each block flowing
- * into its chapter for depth. A first-time reader learns the operator by
- * reading one screen; the chapters are where they verify detail.
+ * The landing IS the manual: everything the operator is renders inline, in
+ * full, on one page — the complete duties grid, access, people, persona —
+ * with a sticky anchor rail for in-page navigation. There are no chapter
+ * routes behind it (the old work/ and people/ routes 301 to anchors here).
+ * One read page, one act page: learning what the operator is happens here;
+ * changing it happens in Settings (plan & billing, user management, and each
+ * config domain as it becomes self-serve). Nothing billing-shaped renders on
+ * this page.
  *
  * This console is about the OPERATOR itself, not the work it produces (ADR
- * 0052). Business work flows through the real channels — the mailbox, the
- * alert — never here. Every summary derives from the same shared facet
- * resolvers the chapters render (overview resolver), so the landing and its
- * chapters can never disagree; the empty-chapter rule means a block with no
- * data is absent, never a hollow door. Access is gated per destination
- * (resolveOperatorAccess).
+ * 0052). Every section mounts the same shared facet resolvers/viewers the
+ * chapters mounted (Lock 4 — one viewer per facet), so this page can never
+ * disagree with the admin mount; the empty-section rule means a section with
+ * no authored data is absent, never a hollow door. Each section keeps its
+ * inline request-a-change path (§5b).
  */
 
 const PRODUCT_SLUG = 'operator'
@@ -107,8 +118,8 @@ if (access) {
   customerConfig = cfg
 }
 
-// STATUS — persona identity + the real aliveness signal (brief §5). Both are real
-// from the config projection / fleet_status; the block is honest-empty when the
+// STATUS — persona identity + the real aliveness signal. Both are real from
+// the config projection / fleet_status; the block is honest-empty when the
 // runtime bridge has no data (never a fabricated "healthy").
 let alivenessSignal: AlivenessSignal | null = null
 if (access) {
@@ -116,25 +127,82 @@ if (access) {
 }
 const heroModel = resolveOperatorHero(customerConfig, alivenessSignal)
 
-// THE ONE-PAGER (console blueprint §5). The landing reads as a document: the
-// whole operator summarized top to bottom, each block flowing into its chapter
-// for depth. Every number and list comes from the SAME shared facet resolvers
-// the chapters render (overview resolver), so the landing can never disagree
-// with a chapter. Blocks with no data are absent (empty-chapter rule) — which
-// also retires the dead Persona/Memory doors (persona identity renders on the
-// hero now), the Voice door (its authored posture renders on the hero; the
-// Configure page stays routable until its retirement slice), and the Activity
-// door (runtime seam unwired — it returns when the seam lands).
+// THE SECTIONS. Every model comes from the SAME shared facet resolvers the
+// chapter routes mounted, so nothing here can disagree with the admin mount.
 const overview = resolveOperatorOverview(customerConfig)
 const job = jobLines(overview.job)
 
-// PERSONA — the operator's own authored identity detail (tone descriptors,
-// mailbox identity, other authored identities). Labeled Persona, not Voice
-// (Captain vocabulary call, 2026-07-15): "voice" is reserved for the CLIENT's
-// voice — the sample-driven fidelity subsystem (ADR 0028 voice_library) —
-// which gets its own chapter when the voice-establishment work lands.
+// DUTIES — the full routine grid (or the gridless skills inventory), inline.
+const workModel = access ? resolveOperatorWork(customerConfig) : null
+
+// Business-hours header line (Lock 2): ONLY the timezone materializes on the
+// seat today, so only the timezone renders. The display name is a
+// deterministic Intl translation of the authored IANA zone (never invented).
+const hours = parseBusinessHours(customerConfig?.business_hours)
+let timezoneLine: string | null = null
+if (hours?.timezone) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: hours.timezone,
+      timeZoneName: 'longGeneric',
+    }).formatToParts(new Date(0))
+    const tzName = parts.find((p) => p.type === 'timeZoneName')?.value ?? null
+    timezoneLine = tzName ? `Works on ${tzName}` : null
+  } catch {
+    timezoneLine = null
+  }
+}
+
+// ACCESS — connected systems + the mailbox visibility block (the seeing-half
+// of the retired Scope page, attached to the email system it describes).
+const connectionRows = buildConnectionRows(
+  customerConfig?.connectors,
+  customerConfig?.credential_custody_default ?? 'delegated'
+)
+const scopeView = resolveOperatorScope(customerConfig).scope
+const sendAs =
+  customerConfig?.personas.find((p) => p.status === 'active')?.send_as?.agentmail_identity ?? null
+const emailAccess =
+  scopeView && (scopeView.sees.length > 0 || scopeView.neverSees.length > 0 || sendAs)
+    ? { sees: scopeView.sees, neverSees: scopeView.neverSees, sendAs }
+    : null
+
+// PEOPLE — the full roster inline (inbound, outbound, escalation, blocks) +
+// who is on the account.
+const peopleModel = resolveOperatorPeople(customerConfig)
+let teamMembers: TeamMember[] = []
+if (access) {
+  teamMembers = (await loadTeamRoster(env.DB, client.id, client.org_id)).members
+}
+
+// PERSONA — the operator's own authored identity detail. Labeled Persona, not
+// Voice (Captain vocabulary call, 2026-07-15): "voice" is reserved for the
+// CLIENT's voice (ADR 0028 voice_library), which joins this section when the
+// voice-establishment work lands (#1938).
 const persona = personaLines(heroModel)
 const hasPersona = Boolean(persona.tone || persona.writesFrom || persona.alsoOperatesAs)
+
+// Empty-section rule: a section renders only when its plane has authored or
+// derivable data; otherwise it is absent entirely. The rail lists only what
+// renders.
+const showDuties = Boolean(access && job)
+const showAccess = Boolean(access && (emailAccess || connectionRows.length > 0))
+const showPeople = Boolean(access && (peopleModel.people !== null || teamMembers.length > 0))
+const showPersona = Boolean(access && hasPersona)
+
+interface RailSection {
+  id: string
+  label: string
+}
+// Persona leads (Captain, 2026-07-15: tucked at the bottom it read as a stray
+// footer; the manual opens with who the operator is, then what it does).
+const railSections: RailSection[] = []
+if (showPersona) railSections.push({ id: 'persona', label: 'Persona' })
+if (showDuties) railSections.push({ id: 'duties', label: 'Duties' })
+if (showAccess) railSections.push({ id: 'access', label: 'Access' })
+if (showPeople) railSections.push({ id: 'people', label: 'People' })
+
+const RETURN_TO = operatorBase
 
 // Change-request filing outcome (returns via ?cr=filed|invalid|error).
 const crStatus = Astro.url.searchParams.get('cr')
@@ -221,7 +289,20 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
   {
     surfaceState === 'active' && (
       <>
-        <p class={`mt-8 ${seclabelClass}`}>Status</p>
+        {/* Header row: status label left, the single Settings entry right —
+            Settings is the act surface and never appears in the reading flow. */}
+        <div class="mt-8 flex items-center justify-between gap-4">
+          <p class={seclabelClass}>Status</p>
+          <a
+            href={`${operatorBase}/settings`}
+            class="inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+          >
+            Settings
+            <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">
+              →
+            </span>
+          </a>
+        </div>
         <div class="mt-3">
           {/* One status signal: while provisioning, the hero itself states the
               setup posture (no aliveness alarm, no separate banner). */}
@@ -232,101 +313,226 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             Configuration as published {overview.publishedOn}
           </p>
         )}
+        <p class="mt-3 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+          This page is how your operator is set up today. Any of it can be changed. Each section
+          below has a request link.
+        </p>
 
-        <div class="mt-10 flex flex-col gap-8">
-          {job && (
-            <OperatorOverviewBlock label="The job" href={`${operatorBase}/work`} linkLabel="Duties">
-              <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
-                {job.headline}
+        {/* Sticky anchor rail — in-page navigation over the one-pager's
+            sections. Deep-linkable (#duties); lists only sections that render. */}
+        {railSections.length > 1 && (
+          <nav
+            aria-label="On this page"
+            class="sticky top-0 z-10 mt-8 -mx-1 flex gap-6 border-b-[2px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] px-1 py-3"
+          >
+            {railSections.map((s) => (
+              <a
+                href={`#${s.id}`}
+                class="font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+              >
+                {s.label}
+              </a>
+            ))}
+          </nav>
+        )}
+
+        <div class="mt-10 flex flex-col gap-12">
+          {showPersona && (
+            <section id="persona" aria-label="Persona" class="scroll-mt-16">
+              <p class={seclabelClass}>Persona</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                Who your operator is and how it carries itself in writing.
               </p>
-              {job.detail && (
+              <div class="mt-4">
+                <DomainSurface
+                  authority={customerConfig?.authority ?? null}
+                  domain="configuration"
+                  roles={access?.roles ?? []}
+                  returnTo={RETURN_TO}
+                  domainLabel="persona"
+                >
+                  <div
+                    slot="read"
+                    class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+                  >
+                    <div class="flex flex-col gap-4 px-5 py-6 md:px-7">
+                      {persona.tone && (
+                        <div>
+                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                            Sounds
+                          </p>
+                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                            {persona.tone}
+                          </p>
+                        </div>
+                      )}
+                      {persona.writesFrom && (
+                        <div>
+                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                            Writes from
+                          </p>
+                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                            {persona.writesFrom}
+                          </p>
+                        </div>
+                      )}
+                      {persona.alsoOperatesAs && (
+                        <div>
+                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                            Also operates as
+                          </p>
+                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                            {persona.alsoOperatesAs}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DomainSurface>
+              </div>
+            </section>
+          )}
+
+          {showDuties && workModel && (
+            <section id="duties" aria-label="Duties" class="scroll-mt-16">
+              <p class={seclabelClass}>Duties</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                Everything your operator does, and how much it does on its own.
+              </p>
+              {job && (
+                <p class="mt-3 font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+                  {job.headline}
+                </p>
+              )}
+              {job?.detail && (
                 <p class="mt-1 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
                   {job.detail}
                 </p>
               )}
-            </OperatorOverviewBlock>
-          )}
-
-          {/* One landing block owns the autonomy story (Captain, 2026-07-14:
-               "The job" + a global-authority block both read as "how much does
-               it do alone" and double-linked to Duties). Grid seats: the job
-               block's tier counts carry it; the authority view lives on the
-               Duties page as the global-ceilings header over the per-routine
-               dials. Gridless seats have no tier counts, so the authority
-               block remains the landing's only autonomy signal and renders
-               ONLY there. */}
-          {overview.job.kind !== 'grid' && overview.authority.length > 0 && (
-            <OperatorOverviewBlock
-              label="What it may do on its own"
-              href={`${operatorBase}/work`}
-              linkLabel="Duties"
-            >
-              <OperatorAuthorityRows rows={overview.authority} />
-            </OperatorOverviewBlock>
-          )}
-
-          {hasPersona && (
-            <OperatorOverviewBlock label="Persona">
-              <div class="flex flex-col gap-1">
-                {persona.tone && (
-                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Sounds: {persona.tone}
-                  </p>
-                )}
-                {persona.writesFrom && (
-                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Writes from: {persona.writesFrom}
-                  </p>
-                )}
-                {persona.alsoOperatesAs && (
-                  <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                    Also operates as: {persona.alsoOperatesAs}
-                  </p>
-                )}
+              {timezoneLine && (
+                <p class="mt-1 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                  {timezoneLine}
+                </p>
+              )}
+              {/* Gridless seats have no tier counts, so the global authority
+                  rows are the only autonomy signal and render here. Grid seats
+                  carry autonomy per-row inside the grid itself. */}
+              {overview.job.kind !== 'grid' && overview.authority.length > 0 && (
+                <div class="mt-4">
+                  <OperatorAuthorityRows rows={overview.authority} />
+                </div>
+              )}
+              <div class="mt-4">
+                <DomainSurface
+                  authority={customerConfig?.authority ?? null}
+                  domain="configuration"
+                  roles={access?.roles ?? []}
+                  returnTo={RETURN_TO}
+                  domainLabel="duties"
+                >
+                  <div slot="read">
+                    <OperatorWork model={workModel} hideTitle={true} />
+                  </div>
+                </DomainSurface>
               </div>
-            </OperatorOverviewBlock>
+            </section>
           )}
 
-          {overview.systems.length > 0 && (
-            <OperatorOverviewBlock
-              label="Systems"
-              href={`${operatorBase}/connections`}
-              linkLabel="Access"
-            >
-              <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                {overview.systems.join(' · ')}
+          {showAccess && (
+            <section id="access" aria-label="Access" class="scroll-mt-16">
+              <p class={seclabelClass}>Access</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                The systems your operator works in, and what it can see there.
               </p>
-            </OperatorOverviewBlock>
+              {emailAccess && (
+                <div class="mt-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
+                  <div class="bg-[color:var(--ss-color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--ss-color-background)]">
+                    Email
+                  </div>
+                  <div class="flex flex-col gap-4 px-5 py-6 md:px-7">
+                    {emailAccess.sendAs && (
+                      <div>
+                        <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                          Works in
+                        </p>
+                        <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                          {emailAccess.sendAs}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                        Reads
+                      </p>
+                      <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                        {emailAccess.sees.length > 0 ? emailAccess.sees.join(', ') : 'None set'}
+                      </p>
+                    </div>
+                    <div>
+                      <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                        Never sees
+                      </p>
+                      <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                        {emailAccess.neverSees.length > 0
+                          ? emailAccess.neverSees.join(', ')
+                          : 'None set'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {connectionRows.length > 0 && (
+                <div class="mt-4">
+                  {/* Read-only on the one-pager: acting on a connection (OAuth
+                      re-authorize, secret entry) lives in Settings → Connections. */}
+                  <DomainSurface
+                    authority={customerConfig?.authority ?? null}
+                    domain="connectors"
+                    roles={access?.roles ?? []}
+                    returnTo={RETURN_TO}
+                    domainLabel="connections"
+                  >
+                    <ul
+                      slot="read"
+                      role="list"
+                      class="m-0 list-none border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-0"
+                    >
+                      {connectionRows.map((row) => (
+                        <ConnectionRowCard
+                          row={row}
+                          operable={false}
+                          returnTo={RETURN_TO}
+                          instance={instance}
+                        />
+                      ))}
+                    </ul>
+                  </DomainSurface>
+                </div>
+              )}
+            </section>
           )}
 
-          <OperatorOverviewBlock label="People" href={`${operatorBase}/people`} linkLabel="People">
-            {overview.respondsTo.length > 0 ? (
-              <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                Responds to: {overview.respondsTo.join(', ')}
+          {showPeople && (
+            <section id="people" aria-label="People" class="scroll-mt-16">
+              <p class={seclabelClass}>People</p>
+              <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                Who your operator works with, and on what terms.
               </p>
-            ) : (
-              <p class="font-body text-base text-[color:var(--color-text-primary)]">
-                No one yet. Until someone is added here, your operator drafts replies for review and
-                sends nothing on its own.
-              </p>
-            )}
-            {overview.writesToCount > 0 && (
-              <p class="mt-1 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
-                {overview.writesToCount} standing outside{' '}
-                {overview.writesToCount === 1 ? 'recipient' : 'recipients'}
-              </p>
-            )}
-          </OperatorOverviewBlock>
-
-          <OperatorOverviewBlock
-            label="Plan & billing"
-            href={`${operatorBase}/account`}
-            linkLabel="Plan & billing"
-          >
-            <p class="font-body text-base text-[color:var(--color-text-primary)]">
-              Subscription, data export, and cancellation.
-            </p>
-          </OperatorOverviewBlock>
+              <div class="mt-4">
+                <DomainSurface
+                  authority={customerConfig?.authority ?? null}
+                  domain="configuration"
+                  roles={access?.roles ?? []}
+                  returnTo={RETURN_TO}
+                  domainLabel="people"
+                >
+                  <div slot="read">
+                    <OperatorPeople model={peopleModel} team={teamMembers} hideTitle={true} />
+                  </div>
+                </DomainSurface>
+              </div>
+            </section>
+          )}
         </div>
       </>
     )
