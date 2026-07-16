@@ -533,6 +533,9 @@ function mergeConnectors(
       // in the connectors authority domain, set via the dedicated custody flow,
       // never through the general config editor.
       credential_custody: existing.credential_custody,
+      // auth_mode locked — set at provisioning with the OAuth flow itself;
+      // the portal only READS it (connection care note).
+      auth_mode: existing.auth_mode,
     }
   }
   return merged

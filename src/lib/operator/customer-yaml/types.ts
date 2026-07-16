@@ -527,6 +527,14 @@ export interface Connector {
    * src/lib/operator/credential-custody.ts.
    */
   credential_custody: CredentialCustody | null
+  /**
+   * Authored OAuth flow for the connector (e.g. 'authorization_code' — the
+   * firm authorizes via login + Allow; SMD can only send a fresh
+   * authorization link, never re-establish alone). Free-form string, absent
+   * ⇒ null. The portal's connection care note keys on it (Captain,
+   * 2026-07-15: reconnect claims must match who can actually reconnect).
+   */
+  auth_mode: string | null
 }
 
 /**
