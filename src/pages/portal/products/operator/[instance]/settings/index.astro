@@ -9,6 +9,7 @@ import {
 } from '../../../../../../lib/portal/operator/account-read'
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import { hasPortalVisibleInvoices } from '../../../../../../lib/portal/offerings'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -51,6 +52,17 @@ const account = await loadAccountState(env.DB, client.id)
 // Manage-Billing door renders only when a Stripe customer exists on the
 // subscription (no fabricated door).
 const stripeCustomerId = await getStripeCustomerIdForSubscription(env.DB, client.id, 'operator')
+
+// Plan & billing renders only once a billing relationship EXISTS: invoice
+// history on the entity, or this subscription past provisioning. Same ONE
+// predicate as the nav tab and home card (empty-section rule applied to the
+// commercial plane — Captain, 2026-07-15): a pre-go-live client easing into
+// the portal reads no billing anywhere; the go-live flip or the first invoice
+// reveals it everywhere at once.
+const subscriptionLive = Boolean(
+  account.subscription && account.subscription.status !== 'provisioning'
+)
+const showPlanBilling = subscriptionLive || (await hasPortalVisibleInvoices(env.DB, client.id))
 
 const RETURN_TO = `${operatorBase}/settings`
 
@@ -150,59 +162,62 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
     )
   }
 
-  <!-- Plan & billing — provisioning domain: SMD-only, read-only, no request form -->
-  <section class="mt-8" aria-label="Plan and billing">
-    <p class={sectionLabelClass}>Plan & billing</p>
-    <DomainSurface
-      authority={config?.authority ?? null}
-      domain="provisioning"
-      roles={roles}
-      returnTo={RETURN_TO}
-      domainLabel="your subscription"
-    >
-      <div slot="read" class={cardClass}>
-        {
-          account.subscription ? (
-            <div class="flex flex-col gap-3">
-              <span
-                class={`inline-flex w-fit items-center px-3 py-1.5 text-caption font-mono uppercase tracking-[0.12em] font-bold border-[2px] ${statusToneClass}`}
-              >
-                {subscriptionStatusLabel(account.subscription.status)}
-              </span>
-              {/* The chip states the status; the prose only adds value when the
+  <!-- Plan & billing — provisioning domain: SMD-only, read-only, no request
+       form. Absent entirely pre-go-live (billing-relationship gate above). -->
+  {
+    showPlanBilling && (
+      <section class="mt-8" aria-label="Plan and billing">
+        <p class={sectionLabelClass}>Plan & billing</p>
+        <DomainSurface
+          authority={config?.authority ?? null}
+          domain="provisioning"
+          roles={roles}
+          returnTo={RETURN_TO}
+          domainLabel="your subscription"
+        >
+          <div slot="read" class={cardClass}>
+            {account.subscription ? (
+              <div class="flex flex-col gap-3">
+                <span
+                  class={`inline-flex w-fit items-center px-3 py-1.5 text-caption font-mono uppercase tracking-[0.12em] font-bold border-[2px] ${statusToneClass}`}
+                >
+                  {subscriptionStatusLabel(account.subscription.status)}
+                </span>
+                {/* The chip states the status; the prose only adds value when the
                   status needs explaining (paused, etc.), so skip it for active. */}
-              {account.subscription.status !== 'active' && (
-                <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
-                  {subscriptionStatusProse(account.subscription.status)}
+                {account.subscription.status !== 'active' && (
+                  <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
+                    {subscriptionStatusProse(account.subscription.status)}
+                  </p>
+                )}
+                {stripeCustomerId && (
+                  <form method="POST" action="/api/portal/billing/manage" class="mt-2">
+                    <input type="hidden" name="product_slug" value="operator" />
+                    <input type="hidden" name="instance" value={instance} />
+                    <button
+                      type="submit"
+                      class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                    >
+                      Manage Billing
+                    </button>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <div class="flex flex-col gap-2">
+                <p class="m-0 font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  Not provisioned yet
                 </p>
-              )}
-              {stripeCustomerId && (
-                <form method="POST" action="/api/portal/billing/manage" class="mt-2">
-                  <input type="hidden" name="product_slug" value="operator" />
-                  <input type="hidden" name="instance" value={instance} />
-                  <button
-                    type="submit"
-                    class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
-                  >
-                    Manage Billing
-                  </button>
-                </form>
-              )}
-            </div>
-          ) : (
-            <div class="flex flex-col gap-2">
-              <p class="m-0 font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                Not provisioned yet
-              </p>
-              <p class={`m-0 ${emptyNoteClass}`}>
-                Your operator subscription has not been set up yet.
-              </p>
-            </div>
-          )
-        }
-      </div>
-    </DomainSurface>
-  </section>
+                <p class={`m-0 ${emptyNoteClass}`}>
+                  Your operator subscription has not been set up yet.
+                </p>
+              </div>
+            )}
+          </div>
+        </DomainSurface>
+      </section>
+    )
+  }
 
   <!-- Operational alerts — a system setting, not a person the operator works
        with (Captain, 2026-07-15: escalation read as plumbing on the People

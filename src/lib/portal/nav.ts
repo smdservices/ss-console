@@ -8,7 +8,7 @@
  *   Engagement  when any engagement or proposal exists
  *   Operator    ONE tab when the client owns any operator (the list lives inside)
  *   Agent       when a hosted-agent subscription exists
- *   Billing     when any invoice or subscription exists
+ *   Billing     once a billing relationship exists (invoice history or a live subscription)
  *
  * Section anchors are assigned sequentially at build time so there is no
  * conditional-anchor arithmetic anywhere.
@@ -57,7 +57,10 @@ export function buildPortalNav(offerings: PortalOfferings): PortalNavDestination
       matchPrefix: '/portal/products/hosted-agent',
     })
   }
-  if (offerings.hasInvoices || offerings.subscriptions.length > 0) {
+  // Billing renders only once a billing relationship EXISTS (invoice history,
+  // or a subscription past provisioning). A pre-go-live client easing into the
+  // portal has no commercial plane to read (Captain, 2026-07-15).
+  if (offerings.hasBillingRelationship) {
     destinations.push({
       href: '/portal/billing',
       label: 'Billing',
