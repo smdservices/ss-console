@@ -10,6 +10,12 @@ Counts up top; the most time-critical section first. Every line names the matter
 item, the sourced date/age, and the **owning skill/step** for the next action. The
 digest points; it never acts.
 
+**Every band below is conditional.** A band with no in-band items is OMITTED whole
+— heading, count, and body. It is never rendered as a zero-count heading over
+"None". A band with nothing in it has nothing to disclose, so omission hides
+nothing; it just stops the reader scrolling past empty structure to reach the two
+lines that need them. (Shape B already covers the case where every band is empty.)
+
 ```markdown
 # Needs a person today — YYYY-MM-DD — <N> item(s) across <M> open matter(s)
 
@@ -95,3 +101,8 @@ listed. (Heartbeat: needs_you_digest_tick, decision_basis: nothing_in_needs_you_
    band entry.** Active escalation is defined off the escalation ledger (a
    `fired`/`chased` event by another skill within `escalation.refire_days`), not
    off same-day prediction. The digest reads the ledger; it never writes it.
+8. **An empty band is omitted whole, never rendered as a zero.** No
+   `## Unsigned (0)` followed by "None." — heading, count, and body all go. Rule
+   2 already keeps out-of-band items out; this keeps the empty _structure_ out
+   too. A band with no items has nothing to disclose. Shape B still governs the
+   day when every band is empty.
