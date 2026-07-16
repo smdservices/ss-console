@@ -26,6 +26,7 @@
 import type { OperatorWorkModel } from '../../../../lib/portal/operator/facets/work/work'
 import OperatorAuthorityRows from './OperatorAuthorityRows.astro'
 import OperatorWorkRow from './OperatorWorkRow.astro'
+import InitiationChips from './InitiationChips.astro'
 
 interface Props {
   model: OperatorWorkModel
@@ -40,10 +41,10 @@ const { model } = Astro.props
       class="mb-8 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
       aria-label="Operator authority"
     >
-      <p class="px-5 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.18em] text-[color:var(--color-text-primary)] m-0">
+      <p class="px-4 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] m-0">
         What it's allowed to do
       </p>
-      <div class="px-5 py-5 md:px-7">
+      <div class="px-4 py-5 md:px-7">
         <p class="mb-4 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
           Each kind of action your operator may take, and how much of it happens without a person.
         </p>
@@ -59,9 +60,9 @@ const { model } = Astro.props
       class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
       aria-label="Operator duties"
     >
-      <div class="px-5 py-6 md:px-7">
+      <div class="px-4 py-6 md:px-7">
         {model.skills.length === 0 ? (
-          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+          <p class="font-mono text-label uppercase tracking-[0.08em] text-[color:var(--color-text-secondary)]">
             Your operator's duties appear here once they're configured.
           </p>
         ) : (
@@ -72,26 +73,17 @@ const { model } = Astro.props
             <ul role="list" class="flex flex-col">
               {model.skills.map((s, i) => (
                 <li
-                  class={`flex flex-col gap-2 py-4 md:flex-row md:items-start md:justify-between md:gap-8 ${
-                    i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''
-                  }`}
+                  class={`py-4 ${i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''}`}
                 >
-                  <div class="min-w-0 md:max-w-[46rem]">
-                    <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
-                      {s.name}
+                  <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+                    {s.name}
+                  </p>
+                  {s.summary && (
+                    <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                      {s.summary}
                     </p>
-                    {s.summary && (
-                      <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
-                        {s.summary}
-                      </p>
-                    )}
-                  </div>
-                  {s.initiation.length > 0 && (
-                    <span class="shrink-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] md:pt-0.5">
-                      {s.initiation.join(' · ')}
-                      {s.scheduleDetail ? ` (${s.scheduleDetail})` : ''}
-                    </span>
                   )}
+                  <InitiationChips labels={s.initiation} scheduleDetail={s.scheduleDetail} />
                 </li>
               ))}
             </ul>
@@ -106,10 +98,10 @@ const { model } = Astro.props
           class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
           aria-label={section.name}
         >
-          <p class="px-5 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.18em] text-[color:var(--color-text-primary)] m-0">
+          <p class="px-4 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] m-0">
             {section.name}
           </p>
-          <div class="px-5 py-2 md:px-7">
+          <div class="px-4 py-2 md:px-7">
             <ul role="list" class="flex flex-col">
               {section.routines.map((r, i) => (
                 <OperatorWorkRow routine={r} divided={i > 0} />
