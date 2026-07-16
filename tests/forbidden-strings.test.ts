@@ -821,9 +821,11 @@ const CALM_REGISTER_PENDING: string[] = [
   'src/components/portal/operator/facets/OperatorSkills.astro',
   'src/components/portal/operator/facets/OperatorWork.astro',
   'src/components/portal/operator/facets/OperatorScope.astro',
-  // People viewer (console blueprint §5): matches its loud operator-area
-  // siblings until the whole area flips to calm together.
+  // People viewer + one-pager cards (console blueprint §5): match their loud
+  // operator-area siblings until the whole area flips to calm together.
   'src/components/portal/operator/facets/OperatorPeople.astro',
+  'src/components/portal/operator/facets/OperatorPersonaCard.astro',
+  'src/components/portal/operator/OperatorLimits.astro',
   'src/components/admin/EntityContactRow.astro',
   'src/components/admin/EntityIdentityStrip.astro',
   'src/components/admin/HostedAgentQueueCard.astro',

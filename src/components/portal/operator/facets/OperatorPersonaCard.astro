@@ -1,0 +1,66 @@
+---
+/**
+ * Persona card — the operator's own authored identity (name, role, tone,
+ * mailbox identity, other identities), rendered from personaLines. Labeled
+ * Persona, never Voice (Captain vocabulary call, 2026-07-15: "voice" is the
+ * CLIENT's voice, ADR 0028); the client-voice subsystem joins this section
+ * when voice-establishment lands (#1938). Every row is authored-only.
+ */
+
+interface Props {
+  persona: {
+    name: string | null
+    role: string | null
+    tone: string | null
+    writesFrom: string | null
+    alsoOperatesAs: string | null
+  }
+}
+
+const { persona } = Astro.props
+
+const rowLabel =
+  'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]'
+const rowValue = 'mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]'
+---
+
+<div
+  class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+>
+  <div class="flex flex-col gap-4 px-5 py-6 md:px-7">
+    {
+      persona.name && (
+        <div>
+          <p class="font-body text-heading font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0">
+            {persona.name}
+          </p>
+          {persona.role && <p class={`${rowLabel} mt-1 m-0`}>{persona.role}</p>}
+        </div>
+      )
+    }
+    {
+      persona.tone && (
+        <div>
+          <p class={rowLabel}>Tone</p>
+          <p class={rowValue}>{persona.tone}</p>
+        </div>
+      )
+    }
+    {
+      persona.writesFrom && (
+        <div>
+          <p class={rowLabel}>Writes from</p>
+          <p class={rowValue}>{persona.writesFrom}</p>
+        </div>
+      )
+    }
+    {
+      persona.alsoOperatesAs && (
+        <div>
+          <p class={rowLabel}>Also operates as</p>
+          <p class={rowValue}>{persona.alsoOperatesAs}</p>
+        </div>
+      )
+    }
+  </div>
+</div>
