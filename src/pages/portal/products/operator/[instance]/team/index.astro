@@ -5,6 +5,7 @@ import { loadTeamRoster, formatLastLogin } from '../../../../../../lib/portal/op
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { env } from 'cloudflare:workers'
+import { readChangeRequestFlash } from '../../../../../../lib/portal/operator/change-request-flash'
 
 /**
  * Operator — Team (client-portal §5.7). The people on this account: who holds
@@ -42,7 +43,7 @@ const config = access.config
 const roster = await loadTeamRoster(env.DB, client.id, user.org_id)
 
 const RETURN_TO = `${operatorBase}/team`
-const cr = Astro.url.searchParams.get('cr')
+const cr = readChangeRequestFlash(Astro.cookies)
 const crMessage =
   cr === 'filed'
     ? 'Your request was sent.'

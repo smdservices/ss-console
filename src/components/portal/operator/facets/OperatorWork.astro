@@ -29,12 +29,9 @@ import OperatorWorkRow from './OperatorWorkRow.astro'
 
 interface Props {
   model: OperatorWorkModel
-  /** Skip the gridless duty box's own title bar when the mount already labels
-   *  the section (the one-pager's DUTIES label; redundancy ban, R2). */
-  hideTitle?: boolean
 }
 
-const { model, hideTitle = false } = Astro.props
+const { model } = Astro.props
 ---
 
 {
@@ -43,10 +40,10 @@ const { model, hideTitle = false } = Astro.props
       class="mb-8 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
       aria-label="Operator authority"
     >
-      <div class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]">
+      <p class="px-5 pt-5 md:px-7 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-text-primary)] m-0">
         What it's allowed to do
-      </div>
-      <div class="px-5 py-6 md:px-7">
+      </p>
+      <div class="px-5 py-5 md:px-7">
         <p class="mb-4 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
           Each kind of action your operator may take, and how much of it happens without a person.
         </p>
@@ -62,11 +59,6 @@ const { model, hideTitle = false } = Astro.props
       class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
       aria-label="Operator duties"
     >
-      {!hideTitle && (
-        <div class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]">
-          Duties
-        </div>
-      )}
       <div class="px-5 py-6 md:px-7">
         {model.skills.length === 0 ? (
           <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
@@ -114,9 +106,9 @@ const { model, hideTitle = false } = Astro.props
           class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
           aria-label={section.name}
         >
-          <div class="bg-[color:var(--color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-background)]">
+          <p class="px-5 pt-5 md:px-7 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-text-primary)] m-0">
             {section.name}
-          </div>
+          </p>
           <div class="px-5 py-2 md:px-7">
             <ul role="list" class="flex flex-col">
               {section.routines.map((r, i) => (

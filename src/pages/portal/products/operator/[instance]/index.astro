@@ -34,6 +34,7 @@ import { resolveOperatorScope } from '../../../../../lib/portal/operator/facets/
 import { buildConnectionRows } from '../../../../../lib/portal/operator/connections'
 import { parseBusinessHours } from '../../../../../lib/portal/operator/configure'
 import { loadTeamRoster, type TeamMember } from '../../../../../lib/portal/operator/team-read'
+import { readChangeRequestFlash } from '../../../../../lib/portal/operator/change-request-flash'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -167,9 +168,21 @@ const emailAccess =
     ? { sees: scopeView.sees, neverSees: scopeView.neverSees, sendAs }
     : null
 
-// PEOPLE — the full roster inline (inbound, outbound, escalation, blocks) +
-// who is on the account.
+// PEOPLE — the roster inline (who it responds to, standing recipients) plus
+// who is on the account. Escalation renders in Settings (system setting);
+// the block lists render in the Duties section (boundaries on work, not
+// people) — both moves Captain, 2026-07-15.
 const peopleModel = resolveOperatorPeople(customerConfig)
+const blocks = peopleModel.people
+  ? {
+      topics: peopleModel.people.blockedTopics,
+      senders: peopleModel.people.blockedSenders,
+      work: peopleModel.people.blockedWork,
+    }
+  : null
+const anyBlocks = Boolean(
+  blocks && (blocks.topics.length > 0 || blocks.senders.length > 0 || blocks.work.length > 0)
+)
 let teamMembers: TeamMember[] = []
 if (access) {
   teamMembers = (await loadTeamRoster(env.DB, client.id, client.org_id)).members
@@ -186,7 +199,7 @@ const hasPersona = Boolean(persona.tone || persona.writesFrom || persona.alsoOpe
 // derivable data; otherwise it is absent entirely. The rail lists only what
 // renders.
 const showDuties = Boolean(access && job)
-const showAccess = Boolean(access && (emailAccess || connectionRows.length > 0))
+const showAccess = Boolean(access && connectionRows.length > 0)
 const showPeople = Boolean(access && (peopleModel.people !== null || teamMembers.length > 0))
 const showPersona = Boolean(access && hasPersona)
 
@@ -204,8 +217,8 @@ if (showPeople) railSections.push({ id: 'people', label: 'People' })
 
 const RETURN_TO = operatorBase
 
-// Change-request filing outcome (returns via ?cr=filed|invalid|error).
-const crStatus = Astro.url.searchParams.get('cr')
+// Change-request filing outcome: show-once flash (read + consumed here).
+const crStatus = readChangeRequestFlash(Astro.cookies)
 const crMessage =
   crStatus === 'filed'
     ? 'Your request was sent.'
@@ -431,10 +444,63 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                   domainLabel="duties"
                 >
                   <div slot="read">
-                    <OperatorWork model={workModel} hideTitle={true} />
+                    <OperatorWork model={workModel} />
                   </div>
                 </DomainSurface>
               </div>
+              {blocks && (
+                <div class="mt-8 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+                  <p class="px-5 pt-5 md:px-7 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--color-text-primary)] m-0">
+                    What it must leave alone
+                  </p>
+                  <div class="px-5 py-5 md:px-7">
+                    {anyBlocks ? (
+                      <div class="flex flex-col gap-4">
+                        {blocks.topics.length > 0 && (
+                          <div>
+                            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] m-0">
+                              Topics
+                            </p>
+                            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
+                              {blocks.topics.join(', ')}
+                            </p>
+                          </div>
+                        )}
+                        {blocks.senders.length > 0 && (
+                          <div>
+                            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] m-0">
+                              Senders and domains
+                            </p>
+                            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
+                              {blocks.senders.join(', ')}
+                            </p>
+                          </div>
+                        )}
+                        {blocks.work.length > 0 && (
+                          <div>
+                            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] m-0">
+                              Kinds of work
+                            </p>
+                            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
+                              {blocks.work.join(', ')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <p class="font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
+                          Nothing is blocked yet.
+                        </p>
+                        <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)] m-0">
+                          A block puts something fully off limits: a topic, a sender, or a kind of
+                          work the operator must leave alone. Blocks can be added at any time.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
@@ -444,47 +510,12 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
               <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
                 The systems your operator works in, and what it can see there.
               </p>
-              {emailAccess && (
-                <div class="mt-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                  <div class="bg-[color:var(--ss-color-text-primary)] px-5 py-2.5 font-mono text-label font-bold uppercase tracking-[0.18em] text-[color:var(--ss-color-background)]">
-                    Email
-                  </div>
-                  <div class="flex flex-col gap-4 px-5 py-6 md:px-7">
-                    {emailAccess.sendAs && (
-                      <div>
-                        <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                          Works in
-                        </p>
-                        <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
-                          {emailAccess.sendAs}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                        Reads
-                      </p>
-                      <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
-                        {emailAccess.sees.length > 0 ? emailAccess.sees.join(', ') : 'None set'}
-                      </p>
-                    </div>
-                    <div>
-                      <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                        Never sees
-                      </p>
-                      <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
-                        {emailAccess.neverSees.length > 0
-                          ? emailAccess.neverSees.join(', ')
-                          : 'None set'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
               {connectionRows.length > 0 && (
                 <div class="mt-4">
                   {/* Read-only on the one-pager: acting on a connection (OAuth
-                      re-authorize, secret entry) lives in Settings → Connections. */}
+                      re-authorize, secret entry) lives in Settings → Connections.
+                      Mailbox visibility renders inside the email connection's
+                      own row (it describes that mailbox, nothing separate). */}
                   <DomainSurface
                     authority={customerConfig?.authority ?? null}
                     domain="connectors"
@@ -503,6 +534,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                           operable={false}
                           returnTo={RETURN_TO}
                           instance={instance}
+                          emailAccess={row.capabilityName === 'Email' ? emailAccess : null}
                         />
                       ))}
                     </ul>
@@ -527,7 +559,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                   domainLabel="people"
                 >
                   <div slot="read">
-                    <OperatorPeople model={peopleModel} team={teamMembers} hideTitle={true} />
+                    <OperatorPeople model={peopleModel} team={teamMembers} />
                   </div>
                 </DomainSurface>
               </div>
