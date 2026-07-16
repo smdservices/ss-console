@@ -18,9 +18,10 @@ import { env } from 'cloudflare:workers'
  * learns what the operator is; Settings is where they change something. It
  * holds Plan & billing (the commercial plane, moved off the read page
  * entirely) and the entries to the operable sub-surfaces (Connections, Team
- * access, Advanced). Future config domains grow sections here as each becomes
+ * access). Future config domains grow sections here as each becomes
  * self-serve (ADR 0041 authority switches); until then a domain's only
- * affordance is the read page's request-a-change.
+ * affordance is the read page's request-a-change. (Advanced — the typed
+ * customer.yaml editor — is unlinked pending a resolver fix; see SETTINGS_LINKS.)
  *
  * URL: portal.smd.services/portal/products/operator/<instance>/settings
  *
@@ -115,6 +116,15 @@ const emptyNoteClass =
 
 // The operable sub-surfaces. Each links to an existing page; a client (or an
 // OAuth redirect) always lands somewhere real.
+//
+// "Advanced" (the typed customer.yaml editor) is intentionally NOT listed: its
+// resolver reconstructs a full config from the lossy projection and runs the
+// strict validator, which fails by construction (an injected placeholder
+// hermes_ref, plus projected persona `cron[].wake_policy` / `users` shapes the
+// validator does not accept), so the page renders a raw "CONFIGURATION ERROR /
+// CONTACT CAPTAIN" state — never fit for a client. Restoring it needs the
+// resolver to validate only the editable surface (tolerating reconstructed
+// locked fields); tracked as a follow-up. Until then it stays unlinked.
 const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: string }> = [
   {
     href: `${operatorBase}/connections`,
@@ -126,11 +136,6 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
     href: `${operatorBase}/settings/users`,
     label: 'Team access',
     description: 'Who can see and manage this Operator, and what each person can do.',
-  },
-  {
-    href: `${operatorBase}/settings/advanced`,
-    label: 'Advanced',
-    description: 'Persona, escalation, business hours, and scope configuration.',
   },
 ]
 ---
