@@ -56,6 +56,17 @@ export interface PortalOfferings {
   hostedAgent: SubscriptionRow | null
   /** Any portal-visible invoice exists (drives the Billing destination). */
   hasInvoices: boolean
+  /**
+   * A billing relationship EXISTS: invoice history, or a subscription that
+   * has gone live (any status past `provisioning`). Every billing surface
+   * (nav tab, home card, operator Settings' Plan & billing) gates on this ONE
+   * predicate: a client easing into the product pre-go-live has no commercial
+   * plane to read, so none renders (empty-section rule applied to billing —
+   * Captain, 2026-07-15). The first invoice or the go-live flip reveals it
+   * everywhere at once; a client who has billed with us on a prior engagement
+   * keeps seeing Billing throughout.
+   */
+  hasBillingRelationship: boolean
   subscriptions: SubscriptionRow[]
 }
 
@@ -109,11 +120,13 @@ export function deriveOfferings(input: {
     operators,
     hostedAgent: bySlug('hosted-agent'),
     hasInvoices: input.hasInvoices,
+    hasBillingRelationship:
+      input.hasInvoices || input.subscriptions.some((s) => s.status !== 'provisioning'),
     subscriptions: input.subscriptions,
   }
 }
 
-async function hasPortalVisibleInvoices(db: D1Database, entityId: string): Promise<boolean> {
+export async function hasPortalVisibleInvoices(db: D1Database, entityId: string): Promise<boolean> {
   const row = await db
     .prepare(
       `SELECT 1 AS present FROM invoices

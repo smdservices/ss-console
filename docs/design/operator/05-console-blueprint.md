@@ -195,7 +195,14 @@ page one-for-one:
 
 - **Plan & billing** — the commercial plane (what the Account page held),
   moved out of the manual entirely: billing is not part of what the operator
-  is.
+  is. It renders only once a **billing relationship exists** (invoice history
+  on the entity, or a subscription past `provisioning`) — the empty-section
+  rule applied to billing (Captain, 2026-07-15). One predicate
+  (`offerings.hasBillingRelationship`) gates every billing surface: the nav
+  tab, the home card, and this section. A pre-go-live client easing into the
+  portal reads no billing anywhere; go-live or the first invoice reveals it
+  everywhere at once, and a client who has billed on a prior engagement keeps
+  seeing it throughout.
 - **People & access** — portal user management (principal-gated); the future
   home of roster changes.
 - **Future config domains** — Duties, Access, Persona sections appear here as
