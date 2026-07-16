@@ -151,6 +151,31 @@ describe('buildPortalNav', () => {
     expect(nav.map((d) => d.label)).toEqual(['Home', 'Billing'])
   })
 
+  it('a provisioning-only subscription does NOT light up Billing (no billing relationship pre-go-live)', () => {
+    const o = deriveOfferings({
+      ...NOTHING,
+      subscriptions: [subscription('operator', 'provisioning')],
+    })
+    expect(o.hasBillingRelationship).toBe(false)
+    const nav = buildPortalNav(o)
+    expect(nav.map((d) => d.label)).toEqual(['Home', 'Operator'])
+  })
+
+  it('prior invoices keep Billing visible even while an operator is provisioning', () => {
+    const o = deriveOfferings({
+      ...NOTHING,
+      subscriptions: [subscription('operator', 'provisioning')],
+      hasInvoices: true,
+    })
+    expect(o.hasBillingRelationship).toBe(true)
+    expect(buildPortalNav(o).map((d) => d.label)).toEqual(['Home', 'Operator', 'Billing'])
+  })
+
+  it('go-live (active) establishes the billing relationship', () => {
+    const o = deriveOfferings({ ...NOTHING, subscriptions: [subscription('operator', 'active')] })
+    expect(o.hasBillingRelationship).toBe(true)
+  })
+
   it('MANY operators still produce exactly ONE Operator tab (no per-instance tabs)', () => {
     const op = (slug: string) =>
       ({

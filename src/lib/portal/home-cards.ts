@@ -171,7 +171,9 @@ async function billingCard(
   entityId: string,
   offerings: PortalOfferings
 ): Promise<OfferingCard | null> {
-  if (!offerings.hasInvoices && offerings.subscriptions.length === 0) return null
+  // Same gate as the nav tab: no billing relationship, no billing card
+  // (pre-go-live clients have no commercial plane to read).
+  if (!offerings.hasBillingRelationship) return null
 
   let needsYou: OfferingCard['needsYou'] = null
   // "Up to date" is a claim about invoice history — it needs history to be
