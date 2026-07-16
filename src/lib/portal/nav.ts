@@ -28,9 +28,14 @@ export interface PortalNavDestination {
 }
 
 export function buildPortalNav(offerings: PortalOfferings): PortalNavDestination[] {
-  const destinations: Omit<PortalNavDestination, 'anchor'>[] = [
-    { href: '/portal', label: 'Home', matchPrefix: '/portal', exact: true },
-  ]
+  const destinations: Omit<PortalNavDestination, 'anchor'>[] = []
+  // Home is hidden for a pre-go-live operator-only client: they land in the
+  // operator area and have no hub to return to (Captain, 2026-07-16). Same
+  // shape as the Billing gate below — a tab appears only when it has a purpose.
+  // (Billing is already absent in this state: hasBillingRelationship is false.)
+  if (!offerings.preGoLiveLanding) {
+    destinations.push({ href: '/portal', label: 'Home', matchPrefix: '/portal', exact: true })
+  }
   if (offerings.engagement.present) {
     destinations.push({
       href: '/portal/engagement',

@@ -68,6 +68,24 @@ export interface PortalOfferings {
    */
   hasBillingRelationship: boolean
   subscriptions: SubscriptionRow[]
+  /**
+   * When set, the client lands directly on the operator area instead of the
+   * Home hub, and the Home tab is hidden (Captain, 2026-07-16). Non-null ONLY
+   * while the client is pre-go-live and their whole relationship is operators:
+   * nothing initiated yet (`hasBillingRelationship` false), no engagement or
+   * proposal, and at least one operator. In that window the portal exists to
+   * review and configure, so we skip the empty Home hub:
+   *   - one operator   → its instance page, deep-linked (skips the
+   *                      list→instance redirect hop that caused a visible delay)
+   *   - many operators → the operator list, to pick one (standing up several
+   *                      operators at once, mid-onboarding, is a valid state)
+   * The instant ANY subscription goes live (`hasBillingRelationship` flips true)
+   * or an engagement appears, this is null again — Home and the full tab set
+   * (including Billing) return. Hosted-agent never triggers it: a hosted-agent
+   * client only receives portal access after implementation, when the
+   * subscription is already initiated, so they are never in this window.
+   */
+  preGoLiveLanding: string | null
 }
 
 /** Title-case a kebab slug for a fallback display name (e.g. "pilot-smokeball" → "Pilot Smokeball"). */
@@ -110,9 +128,24 @@ export function deriveOfferings(input: {
       status: s.status,
     }))
 
+  const engagementPresent =
+    activeEngagement !== null || pastEngagements.length > 0 || input.quotes.length > 0
+  const hasBillingRelationship =
+    input.hasInvoices || input.subscriptions.some((s) => s.status !== 'provisioning')
+
+  // Pre-go-live operator shortcut (see preGoLiveLanding on PortalOfferings).
+  // Fires only when nothing is live and the client's whole world is operators:
+  // one → deep-link its instance (skipping the list hop); many → the list.
+  const preGoLiveLanding =
+    !hasBillingRelationship && !engagementPresent && operators.length > 0
+      ? operators.length === 1
+        ? `/portal/products/operator/${operators[0].slug}`
+        : '/portal/products/operator'
+      : null
+
   return {
     engagement: {
-      present: activeEngagement !== null || pastEngagements.length > 0 || input.quotes.length > 0,
+      present: engagementPresent,
       activeEngagement,
       openProposal,
       pastEngagements,
@@ -120,9 +153,9 @@ export function deriveOfferings(input: {
     operators,
     hostedAgent: bySlug('hosted-agent'),
     hasInvoices: input.hasInvoices,
-    hasBillingRelationship:
-      input.hasInvoices || input.subscriptions.some((s) => s.status !== 'provisioning'),
+    hasBillingRelationship,
     subscriptions: input.subscriptions,
+    preGoLiveLanding,
   }
 }
 
