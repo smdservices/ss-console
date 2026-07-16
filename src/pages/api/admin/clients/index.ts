@@ -24,15 +24,14 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       return typeof v === 'string' ? v.trim() : ''
     }
     const name = str('name')
-    const vertical = str('vertical') || null
     const contactName = str('contact_name')
     const contactEmail = str('contact_email')
+    const contactPhone = str('contact_phone')
 
     if (!name) return redirect('/admin/clients/new?error=name_required', 302)
 
     const entity = await createEntity(env.DB, session.orgId, {
       name,
-      vertical,
       stage: 'prospect',
       source_pipeline: 'admin_manual',
     })
@@ -41,6 +40,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       await createContact(env.DB, session.orgId, entity.id, {
         name: contactName,
         email: contactEmail || null,
+        phone: contactPhone || null,
       })
     }
 
