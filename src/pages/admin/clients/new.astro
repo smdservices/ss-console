@@ -2,13 +2,15 @@
 /**
  * Add a client (ADR 0077).
  *
- * The minimal create the Captain named as a real gap: name + vertical + an
- * optional primary contact. The record is created at stage `prospect`. No
- * pipeline-intake form — the record's story is built out on its detail page.
+ * The minimal create the Captain named as a real gap: a business name plus an
+ * optional primary contact (name / email / phone). The record is created at
+ * stage `prospect`. No pipeline-intake form — the record's story is built out
+ * on its detail page. Vertical is intentionally not captured here: it is not a
+ * meaningful categorization today (the entities.vertical column is retained for
+ * if that changes).
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
-import { ENTITY_VERTICALS } from '../../../lib/db/entities'
 
 const error = Astro.url.searchParams.get('error')
 const errorMessage =
@@ -50,14 +52,6 @@ const INPUT =
         />
       </label>
 
-      <label class="block">
-        <span class={FIELD_LABEL}>Vertical</span>
-        <select name="vertical" class={INPUT}>
-          <option value="">Select a vertical</option>
-          {ENTITY_VERTICALS.map((v) => <option value={v.value}>{v.label}</option>)}
-        </select>
-      </label>
-
       <fieldset class="border border-[color:var(--ss-color-border)] px-4 py-4">
         <legend
           class="px-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
@@ -72,6 +66,10 @@ const INPUT =
           <label class="block">
             <span class={FIELD_LABEL}>Email</span>
             <input type="email" name="contact_email" placeholder="jordan@acme.com" class={INPUT} />
+          </label>
+          <label class="block">
+            <span class={FIELD_LABEL}>Phone</span>
+            <input type="tel" name="contact_phone" placeholder="(602) 555-0142" class={INPUT} />
           </label>
         </div>
       </fieldset>
