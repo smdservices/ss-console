@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildConnectionRows,
   formatCustody,
-  describeCustody,
+  connectionCareNote,
   adapterDisplayName,
   capabilityDisplayName,
   connectionDefaultNote,
@@ -53,9 +53,29 @@ describe('custody labels', () => {
     expect(formatCustody('self_held')).toBe('Key held by your firm')
     expect(formatCustody('delegated')).toBe('Managed by SMD')
   })
-  it('describeCustody is honest about the recovery trade', () => {
-    expect(describeCustody('self_held')).toContain('Only you')
-    expect(describeCustody('delegated')).toContain('SMD')
+  it('connectionCareNote is honest about who can actually reconnect', () => {
+    const base = {
+      capabilityName: 'Email',
+      adapter: 'agentmail',
+      authMode: null,
+      health: 'unconfigured',
+      reconsentRequired: false,
+      smdReachable: true,
+    } as const
+    expect(connectionCareNote({ ...base, custody: 'self_held' })).toContain('Only you')
+    // SMD-held credential: SMD really can re-establish alone.
+    expect(connectionCareNote({ ...base, custody: 'delegated' })).toContain(
+      're-establish it for you'
+    )
+    // authorization_code: the firm approves a fresh authorization; SMD only sends the link.
+    const oauth = connectionCareNote({
+      ...base,
+      adapter: 'smokeball',
+      authMode: 'authorization_code',
+      custody: 'delegated',
+    })
+    expect(oauth).toContain('authorization link')
+    expect(oauth).not.toContain('re-establish it for you')
   })
 })
 

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { startsLabels, resolveOperatorWork } from '../src/lib/portal/operator/facets/work/work'
+import {
+  startsLabels,
+  resolveOperatorWork,
+  resolveStandingCaps,
+  mappedBannedTools,
+} from '../src/lib/portal/operator/facets/work/work'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import path from 'node:path'
 import { SKILL_SUMMARIES } from '../src/lib/portal/operator/facets/skills/skill-summaries'
 import type {
   CustomerConfigRow,
@@ -300,5 +307,55 @@ describe('authority view (console blueprint §4 — entitlements as one honest v
     expect(model.authority).toEqual([
       { label: 'Writing inside your systems', sentence: 'Prepares it for a person' },
     ])
+  })
+})
+
+describe('standing caps (banned_tools display map)', () => {
+  const enforcement = (banned: string[]): RoutineGridEnforcement => ({
+    initiation: 'manual',
+    exposure_keys: {},
+    content_floor: false,
+    banned_tools: banned,
+    notes: '',
+  })
+  const row = (banned: string[]): RoutineGridRow => ({
+    routine: 'r',
+    letter_section: 'S',
+    skills: [],
+    start_tier: 'prepare-and-route',
+    ceiling_tier: 'prepare-and-route',
+    start_verbatim: 'x',
+    ceiling_verbatim: 'x',
+    enforcement: enforcement(banned),
+  })
+
+  it('dedupes across rows and never renders a raw token', () => {
+    const caps = resolveStandingCaps([
+      row(['payments_*']),
+      row(['payments_*', 'trust_ledger_write']),
+      row(['some_unmapped_token']),
+    ])
+    expect(caps).toEqual(['Moving money or making payments', 'Posting to money ledgers'])
+    expect(caps.join(' ')).not.toContain('_')
+  })
+
+  it('every banned_tools token authored in a shipped grid has a display sentence', () => {
+    // Silent drops are silent caps: a token any real grid authors must be in
+    // the closed display map, or the leave-alone box under-reports.
+    const customersDir = path.resolve(__dirname, '../operator/customers')
+    const mapped = new Set(mappedBannedTools())
+    const missing: string[] = []
+    for (const customer of readdirSync(customersDir)) {
+      const gridPath = path.join(customersDir, customer, 'routine-grid.yaml')
+      if (!existsSync(gridPath)) continue
+      const text = readFileSync(gridPath, 'utf8')
+      for (const m of text.matchAll(/banned_tools:\s*\[([^\]]*)\]/g)) {
+        for (const raw of m[1].split(',')) {
+          const token = raw.trim().replace(/^['"]|['"]$/g, '')
+          if (token && !mapped.has(token)) missing.push(`${customer}: ${token}`)
+        }
+      }
+    }
+    expect(missing, `unmapped banned_tools tokens:\n${missing.join('\n')}`).toEqual([])
   })
 })

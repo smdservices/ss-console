@@ -61,18 +61,37 @@ function humanizeTone(t: string): string {
  * entirely (empty-chapter rule).
  */
 export function personaLines(model: OperatorHeroModel): {
+  name: string | null
+  role: string | null
   tone: string | null
   writesFrom: string | null
   alsoOperatesAs: string | null
 } {
   return {
-    tone: model.tone.length > 0 ? model.tone.join(' · ') : null,
+    name: model.name,
+    role: model.title,
+    // Composed as a sentence, not raw descriptor tokens (Captain, 2026-07-15:
+    // "plainspoken · warm but professional · concise" read like a database
+    // field). The descriptors themselves stay authored data verbatim.
+    tone: toneSentence(model.tone),
     writesFrom: model.sendAs,
     alsoOperatesAs:
       model.alsoOperatesAs.length > 0
         ? model.alsoOperatesAs.map((p) => (p.title ? `${p.name} (${p.title})` : p.name)).join(', ')
         : null,
   }
+}
+
+/** "plainspoken, warm but professional, concise" → "Plainspoken, warm but professional, and concise." */
+function toneSentence(tone: string[]): string | null {
+  if (tone.length === 0) return null
+  const joined =
+    tone.length === 1
+      ? tone[0]
+      : tone.length === 2
+        ? `${tone[0]} and ${tone[1]}`
+        : `${tone.slice(0, -1).join(', ')}, and ${tone[tone.length - 1]}`
+  return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
 }
 
 /**

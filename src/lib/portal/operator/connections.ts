@@ -119,11 +119,19 @@ export function connectionDefaultNote(row: ConnectionRow): string | null {
 }
 
 /**
- * One-line explanation of what a custody mode means for help/recovery, shown at
- * the connector. Honest about the trade (ADR 0042 §boundaries).
+ * One-line explanation of what connection care means for THIS row, shown at
+ * the connector. Honest about the trade (ADR 0042 §boundaries) AND about who
+ * can actually reconnect it (Captain, 2026-07-15): an authorization_code
+ * connection can only be re-established by the firm approving a fresh
+ * authorization — SMD sends the link, the firm clicks Allow. Claiming SMD
+ * "can re-establish it for you" is only true where SMD holds the credential.
  */
-export function describeCustody(custody: CredentialCustody): string {
-  return custody === 'self_held'
-    ? 'Only you can re-establish this connection. SMD cannot read or rotate the secret.'
-    : 'SMD monitors this connection and can re-establish it for you.'
+export function connectionCareNote(row: ConnectionRow): string {
+  if (row.custody === 'self_held') {
+    return 'Only you can re-establish this connection. SMD cannot read or rotate the secret.'
+  }
+  if (row.authMode === 'authorization_code') {
+    return 'SMD monitors this connection. If it ever needs re-authorizing, SMD sends a fresh authorization link and someone at your firm approves it.'
+  }
+  return 'SMD monitors this connection and can re-establish it for you.'
 }

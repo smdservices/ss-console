@@ -16,7 +16,7 @@
 
 import {
   formatCustody,
-  describeCustody,
+  connectionCareNote,
   adapterDisplayName,
   capabilityDisplayName,
   connectionDefaultNote,
@@ -93,7 +93,7 @@ const btn =
       {subtitleLabel ? `${subtitleLabel} · ` : ''}{statusLabel}
     </p>
     <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">
-      {describeCustody(row.custody)}
+      {connectionCareNote(row)}
     </p>
     {
       defaultNote && (

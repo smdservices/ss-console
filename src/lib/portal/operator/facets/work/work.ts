@@ -167,8 +167,51 @@ export interface WorkSection {
  * viewer flags which introduction sentence to show.
  */
 export type OperatorWorkModel =
-  | { mode: 'grid'; sections: WorkSection[]; authority: WorkAuthorityRow[] }
-  | { mode: 'gridless'; skills: OperatorSkillView[]; authority: WorkAuthorityRow[] }
+  | {
+      mode: 'grid'
+      sections: WorkSection[]
+      authority: WorkAuthorityRow[]
+      standingCaps: string[]
+    }
+  | {
+      mode: 'gridless'
+      skills: OperatorSkillView[]
+      authority: WorkAuthorityRow[]
+      standingCaps: string[]
+    }
+
+/**
+ * STANDING CAPS — the grid's authored `enforcement.banned_tools` tokens
+ * rendered in plain language (Captain, 2026-07-15: the always-on hard limits,
+ * like never moving money, must surface in "What it must leave alone" instead
+ * of the box claiming nothing is blocked). Closed display map over authored
+ * enforcement tokens, same pattern as the tier sentences: the token never
+ * reaches the page, and an unmapped token renders nothing (the repo guard in
+ * tests/operator-work-facet.test.ts keeps the map covering every token any
+ * shipped grid authors, so nothing is silently dropped).
+ */
+const BANNED_TOOL_SENTENCE: Record<string, string> = {
+  'payments_*': 'Moving money or making payments',
+  trust_ledger_write: 'Posting to money ledgers',
+  mcp_smokeball_create_matter: 'Creating new files in your practice management system',
+}
+
+/** Distinct plain-language standing caps across the grid, in first-appearance order. */
+export function resolveStandingCaps(rows: readonly RoutineGridRow[]): string[] {
+  const out: string[] = []
+  for (const row of rows) {
+    for (const tool of row.enforcement.banned_tools) {
+      const sentence = BANNED_TOOL_SENTENCE[tool]
+      if (sentence && !out.includes(sentence)) out.push(sentence)
+    }
+  }
+  return out
+}
+
+/** The closed banned-tool display map's keys (for the repo coverage guard). */
+export function mappedBannedTools(): string[] {
+  return Object.keys(BANNED_TOOL_SENTENCE)
+}
 
 /**
  * Parse the authored free-text initiation string into the established plain
@@ -240,9 +283,19 @@ export function resolveOperatorWork(config: CustomerConfigRow | null): OperatorW
   const authority = resolveAuthority(config)
   const grid = config?.routine_grid ?? null
   if (!grid) {
-    return { mode: 'gridless', skills: resolveOperatorSkills(config).skills, authority }
+    return {
+      mode: 'gridless',
+      skills: resolveOperatorSkills(config).skills,
+      authority,
+      standingCaps: [],
+    }
   }
   const persona = config?.personas.find((p) => p.status === 'active') ?? null
   const schedules = scheduleDetailBySkill(persona?.cron ?? [])
-  return { mode: 'grid', sections: group(grid.rows, schedules), authority }
+  return {
+    mode: 'grid',
+    sections: group(grid.rows, schedules),
+    authority,
+    standingCaps: resolveStandingCaps(grid.rows),
+  }
 }

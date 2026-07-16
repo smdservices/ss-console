@@ -24,6 +24,8 @@ import OperatorAuthorityRows from '../../../../../components/portal/operator/fac
 import OperatorWork from '../../../../../components/portal/operator/facets/OperatorWork.astro'
 import OperatorPeople from '../../../../../components/portal/operator/facets/OperatorPeople.astro'
 import ConnectionRowCard from '../../../../../components/portal/operator/ConnectionRowCard.astro'
+import OperatorLimits from '../../../../../components/portal/operator/OperatorLimits.astro'
+import OperatorPersonaCard from '../../../../../components/portal/operator/facets/OperatorPersonaCard.astro'
 import {
   jobLines,
   resolveOperatorOverview,
@@ -180,9 +182,6 @@ const blocks = peopleModel.people
       work: peopleModel.people.blockedWork,
     }
   : null
-const anyBlocks = Boolean(
-  blocks && (blocks.topics.length > 0 || blocks.senders.length > 0 || blocks.work.length > 0)
-)
 let teamMembers: TeamMember[] = []
 if (access) {
   teamMembers = (await loadTeamRoster(env.DB, client.id, client.org_id)).members
@@ -193,7 +192,9 @@ if (access) {
 // CLIENT's voice (ADR 0028 voice_library), which joins this section when the
 // voice-establishment work lands (#1938).
 const persona = personaLines(heroModel)
-const hasPersona = Boolean(persona.tone || persona.writesFrom || persona.alsoOperatesAs)
+const hasPersona = Boolean(
+  persona.name || persona.tone || persona.writesFrom || persona.alsoOperatesAs
+)
 
 // Empty-section rule: a section renders only when its plane has authored or
 // derivable data; otherwise it is absent entirely. The rail lists only what
@@ -356,7 +357,7 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
             <section id="persona" aria-label="Persona" class="scroll-mt-16">
               <h2 class={sectionHeadClass}>Persona</h2>
               <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
-                Who your operator is and how it carries itself in writing.
+                Who your operator is and how it communicates.
               </p>
               <div class="mt-4">
                 <DomainSurface
@@ -366,42 +367,8 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                   returnTo={RETURN_TO}
                   domainLabel="persona"
                 >
-                  <div
-                    slot="read"
-                    class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-                  >
-                    <div class="flex flex-col gap-4 px-5 py-6 md:px-7">
-                      {persona.tone && (
-                        <div>
-                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                            Sounds
-                          </p>
-                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
-                            {persona.tone}
-                          </p>
-                        </div>
-                      )}
-                      {persona.writesFrom && (
-                        <div>
-                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                            Writes from
-                          </p>
-                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
-                            {persona.writesFrom}
-                          </p>
-                        </div>
-                      )}
-                      {persona.alsoOperatesAs && (
-                        <div>
-                          <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                            Also operates as
-                          </p>
-                          <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
-                            {persona.alsoOperatesAs}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                  <div slot="read">
+                    <OperatorPersonaCard persona={persona} />
                   </div>
                 </DomainSurface>
               </div>
@@ -450,58 +417,8 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
                   </div>
                 </DomainSurface>
               </div>
-              {blocks && (
-                <div class="mt-8 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
-                  <p class="px-5 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.18em] text-[color:var(--color-text-primary)] m-0">
-                    What it must leave alone
-                  </p>
-                  <div class="px-5 py-5 md:px-7">
-                    {anyBlocks ? (
-                      <div class="flex flex-col gap-4">
-                        {blocks.topics.length > 0 && (
-                          <div>
-                            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] m-0">
-                              Topics
-                            </p>
-                            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
-                              {blocks.topics.join(', ')}
-                            </p>
-                          </div>
-                        )}
-                        {blocks.senders.length > 0 && (
-                          <div>
-                            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] m-0">
-                              Senders and domains
-                            </p>
-                            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
-                              {blocks.senders.join(', ')}
-                            </p>
-                          </div>
-                        )}
-                        {blocks.work.length > 0 && (
-                          <div>
-                            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)] m-0">
-                              Kinds of work
-                            </p>
-                            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
-                              {blocks.work.join(', ')}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <p class="font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
-                          Nothing is blocked yet.
-                        </p>
-                        <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)] m-0">
-                          A block puts something fully off limits: a topic, a sender, or a kind of
-                          work the operator must leave alone. Blocks can be added at any time.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
+              {(blocks || (workModel && workModel.standingCaps.length > 0)) && (
+                <OperatorLimits standingCaps={workModel?.standingCaps ?? []} blocks={blocks} />
               )}
             </section>
           )}
