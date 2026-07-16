@@ -69,6 +69,30 @@ describe('ensureLocalUser', () => {
     expect(result.role).toBe('client')
   })
 
+  it('auto-links regardless of email CASE (IdP casing must never strand a seeded seat)', async () => {
+    // The bug this guards: users.email carries no COLLATE NOCASE, so an
+    // exact-match lookup missed when the seeded casing differed from what
+    // Clerk returned (Microsoft/Google OAuth echo the directory's casing).
+    // The JIT INSERT then succeeded — UNIQUE(org_id,email) is case-sensitive
+    // too — stranding the person on a second, entity-less row: signed in but
+    // "not connected to a customer", locked out of a waiting seat.
+    const newClerkId = 'user_uppercase_idp'
+    const upper = PRE_CLERK_EMAIL.toUpperCase()
+    expect(upper).not.toBe(PRE_CLERK_EMAIL)
+
+    const result = await ensureLocalUser(db, newClerkId, { email: upper, name: 'Pre Clerk Client' })
+
+    // Linked the SEEDED row (with its entity binding) — not a new orphan.
+    expect(result.id).toBe(PRE_CLERK_USER_ID)
+    expect(result.entity_id).toBe(PRE_CLERK_ENTITY_ID)
+
+    const rows = await db
+      .prepare('SELECT id FROM users WHERE lower(email) = lower(?)')
+      .bind(PRE_CLERK_EMAIL)
+      .all<{ id: string }>()
+    expect(rows.results).toHaveLength(1)
+  })
+
   it('auto-links a pre-Clerk row by email when clerk_user_id is NULL', async () => {
     // The bug this guards: ensureLocalUser used to only match on
     // clerk_user_id, then INSERT a new row. UNIQUE(org_id, email) made
