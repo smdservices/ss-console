@@ -106,6 +106,7 @@ function checkOneConnector(
     `connectors.${key}.credential_custody`,
     errors
   )
+  const authMode = typeof value['auth_mode'] === 'string' ? value['auth_mode'] : null
   return {
     adapter,
     backend,
@@ -114,6 +115,7 @@ function checkOneConnector(
     token_ref: tokenRef,
     webhook_url: webhookUrl,
     credential_custody: custody,
+    auth_mode: authMode,
   }
 }
 
