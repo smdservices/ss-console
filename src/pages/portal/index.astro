@@ -44,6 +44,12 @@ let completedMilestones: PortalHomeMilestone[] = []
 const offerings = await resolvePortalOfferings(env.DB, user.org_id, client.id).catch(() => null)
 if (!offerings) {
   dashboardError = true
+} else if (offerings.preGoLiveLanding && Astro.url.searchParams.get('home') !== '1') {
+  // Pre-go-live operator clients land in the operator area, not this hub
+  // (Captain, 2026-07-16): before anything goes live the portal exists to
+  // review and configure the operator, and this Home page is an empty box.
+  // ?home=1 is a QA escape hatch to reach Home directly in this state.
+  return Astro.redirect(offerings.preGoLiveLanding)
 }
 
 if (offerings) {

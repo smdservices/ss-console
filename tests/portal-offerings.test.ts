@@ -151,14 +151,15 @@ describe('buildPortalNav', () => {
     expect(nav.map((d) => d.label)).toEqual(['Home', 'Billing'])
   })
 
-  it('a provisioning-only subscription does NOT light up Billing (no billing relationship pre-go-live)', () => {
+  it('a provisioning-only operator: no Billing, and Home is hidden (pre-go-live lands on the operator)', () => {
     const o = deriveOfferings({
       ...NOTHING,
       subscriptions: [subscription('operator', 'provisioning')],
     })
     expect(o.hasBillingRelationship).toBe(false)
+    expect(o.preGoLiveLanding).toBe('/portal/products/operator/operator')
     const nav = buildPortalNav(o)
-    expect(nav.map((d) => d.label)).toEqual(['Home', 'Operator'])
+    expect(nav.map((d) => d.label)).toEqual(['Operator'])
   })
 
   it('prior invoices keep Billing visible even while an operator is provisioning', () => {
@@ -197,6 +198,63 @@ describe('buildPortalNav', () => {
     expect(operatorTabs[0].href).toBe('/portal/products/operator')
     // The whole nav stays the small category set regardless of operator count.
     expect(nav.map((d) => d.label)).toEqual(['Home', 'Operator', 'Billing'])
+  })
+})
+
+describe('preGoLiveLanding (pre-go-live operator shortcut)', () => {
+  const op = (slug: string, status = 'provisioning') =>
+    ({
+      id: `sub-${slug}`,
+      product_slug: 'operator',
+      instance_slug: slug,
+      status,
+      service_id: null,
+    }) as unknown as SubscriptionRow
+
+  it('single provisioning operator, nothing else → deep-links the instance', () => {
+    const o = deriveOfferings({ ...NOTHING, subscriptions: [op('ashton-price')] })
+    expect(o.preGoLiveLanding).toBe('/portal/products/operator/ashton-price')
+  })
+
+  it('many provisioning operators → the operator list (pick one)', () => {
+    const o = deriveOfferings({ ...NOTHING, subscriptions: [op('ashton-price'), op('second-op')] })
+    expect(o.preGoLiveLanding).toBe('/portal/products/operator')
+    // Home is hidden; the single Operator tab remains.
+    expect(buildPortalNav(o).map((d) => d.label)).toEqual(['Operator'])
+  })
+
+  it('go-live of ANY operator dissolves it → Home and Billing return', () => {
+    const o = deriveOfferings({ ...NOTHING, subscriptions: [op('a', 'active'), op('b')] })
+    expect(o.hasBillingRelationship).toBe(true)
+    expect(o.preGoLiveLanding).toBeNull()
+    expect(buildPortalNav(o).map((d) => d.label)).toEqual(['Home', 'Operator', 'Billing'])
+  })
+
+  it('an engagement suppresses it (Home has content to show)', () => {
+    const o = deriveOfferings({
+      ...NOTHING,
+      engagements: [engagement('in_progress')],
+      subscriptions: [op('ashton-price')],
+    })
+    expect(o.preGoLiveLanding).toBeNull()
+  })
+
+  it('prior invoices suppress it (a billing relationship already exists)', () => {
+    const o = deriveOfferings({
+      ...NOTHING,
+      subscriptions: [op('ashton-price')],
+      hasInvoices: true,
+    })
+    expect(o.preGoLiveLanding).toBeNull()
+  })
+
+  it('no operators → null (nothing-owned shows the welcome Home; hosted-agent never pre-go-live)', () => {
+    expect(deriveOfferings(NOTHING).preGoLiveLanding).toBeNull()
+    const ha = deriveOfferings({
+      ...NOTHING,
+      subscriptions: [subscription('hosted-agent', 'provisioning')],
+    })
+    expect(ha.preGoLiveLanding).toBeNull()
   })
 })
 
