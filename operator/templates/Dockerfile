@@ -344,7 +344,15 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # schemas; trim = -7,272 tokens/turn of 5m prompt-cache write.
 # bootstrap/translate.py + bootstrap/mcp_registry.py + tests — config
 # emission only, overlayRef-only. Superset of eb17f3cb.
-ARG OVERLAY_REF="f8808c6c9c53585ee0a0001d06669e404d7f01f4"
+# 73a2df8 — #174 report emails render an html half at send time. The report
+# skills author markdown (## headings, numbered items) that was only ever sent
+# as plaintext, so a reader saw literal hash marks. shared/report_render.py
+# renders that markdown to an inline-styled html body; hermes-smd-trust attaches
+# it in pre_tool_call AFTER every gate allows (purity invariant: the html adds
+# no content the fabrication/floor/taint scans did not already see). Block
+# structure gates the render, so prose replies stay byte-identical. Superset of
+# f8808c6.
+ARG OVERLAY_REF="73a2df84c32e0a9fc38fa1f1abb8a943a854506b"
 
 ARG CUSTOMER_SLUG=customer-zero
 

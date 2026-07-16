@@ -12,6 +12,13 @@ The alert leads with the few items that genuinely need a person today, collapses
 the routine confirmations to per-matter counts, and carries a per-item ACK code
 so the reader can acknowledge one item without silencing the rest.
 
+**Every section below is conditional.** A section with nothing in it is OMITTED
+whole: its heading, its count, and its body all go. It is never rendered as a
+zero-count heading over the word "None". Only "Needs you today" is unconditional,
+because an alert with nothing in that band is not sent at all (rule 8). Skipping
+an empty section is not hiding anything: an item exists in exactly one band, so a
+band with no items has nothing to disclose. See rule 9.
+
 ```markdown
 Subject: [Deadlines] <N> need you, YYYY-MM-DD
 
@@ -25,7 +32,7 @@ Ranked by what the record says, most consequential first. Three to five items.
    until the lien payoff is confirmed" / "opposing-counsel letter held N days">
 2. ...
 
-## Admin confirms (<count> across <M> matters)
+## Admin confirms (<count> across <M> matters) [omit section if 0]
 
 Routine confirmations, collapsed per matter. Reply with a matter's ACK codes to
 clear its items, or open the item in Smokeball.
@@ -33,21 +40,21 @@ clear its items, or open the item in Smokeball.
 - matter <id>: <k> routine confirmation(s). [ACK-XXXXXX] [ACK-XXXXXX] ...
 - ...
 
-## Under active escalation elsewhere (<count>)
+## Under active escalation elsewhere (<count>) [omit section if 0]
 
 Already raised by another step, shown so it is not double-counted. No action
 here beyond what that step owns.
 
 - matter <id>, <item>: under active escalation by <owning skill> (last raised <date>).
 
-## Awaiting clearance (<count>)
+## Awaiting clearance (<count>) [omit section if 0]
 
 Held matters with an approaching date. Surfaced for a person to clear; never a
 client-facing step.
 
 - matter <id>: on CONFLICT-HOLD with <label> <date> approaching.
 
-## Blanket-ack only (<count>)
+## Blanket-ack only (<count>) [omit section if 0]
 
 Items with no stable task id, so they carry no individual ACK code. A blanket
 acknowledgement (below) acks exactly the ones quoted here.
@@ -102,3 +109,11 @@ Acked items go quiet for <ack_snooze_days> days unless resolved sooner in Smokeb
    states a dollar figure only when an authored source on the matter carries it.
 8. **A `SUPPRESSED_WAKE` row stands in for the whole alert on a quiet tick.** It
    is the heartbeat; the agent does not wake to send an empty alert.
+9. **An empty section is omitted whole, never rendered as a zero.** No
+   `## Admin confirms (0 across 0 matters)` followed by "None." — the heading,
+   the count, and the body all go. The 2026-07-15 alert carried two real items
+   under four consecutive zero-count headings; the reader scrolled past more
+   nothing than something, and the top block is the whole point of the triage.
+   A band with no items has nothing to disclose (an item lives in exactly one
+   band), so omission hides nothing. The reader learns what needs them, not
+   which internal bands the escalator maintains.
