@@ -9,7 +9,7 @@ on:
 
 jobs:
   tick:
-    uses: venturecrane/crane-console/.github/workflows/tick-acs-on-merge-reusable.yml@ec197443b763c444751ce4ea50558130c9c856c2 # tick-acs-v1
+    uses: venturecrane/crane-console/.github/workflows/tick-acs-on-merge-reusable.yml@a89c747370c3804a3e2e38d5410855b9f73e0147 # tick-acs-v1
     permissions:
       issues: write
       pull-requests: write
