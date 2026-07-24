@@ -1,0 +1,76 @@
+# mcp:msgraph-mail — author-built connector for Microsoft Graph mail, the
+# provider-neutral operator email adapter #1 (email-channel-seam, ADR 0078).
+#
+# auth_model = client_credentials is APP-ONLY: the connector mints its own bearer
+# with the client-credentials grant against
+# https://login.microsoftonline.com/{MSGRAPH_TENANT_ID}/oauth2/v2.0/token with
+# scope https://graph.microsoft.com/.default (the app's Graph application
+# permissions). There is NO user consent round-trip and NO refresh token — unlike
+# the Smokeball authorization_code seat, an app-only token is minted purely from
+# the tenant + client id/secret, so this connector has no durable-token file and
+# no re-connect self-heal. Graph is GLOBAL: there is no region/environment host
+# pair (contrast Smokeball) — the token host and api host are the same for every
+# tenant.
+#
+# Tenant-side least privilege is NOT the app permission (Mail.ReadWrite /
+# Mail.Send are tenant-wide grants). It is enforced by an Exchange Online
+# ApplicationAccessPolicy that restricts this app to the single pinned mailbox
+# (proven against the sandbox tenant 2026-07-24): the app literally cannot read or
+# send from any mailbox but MSGRAPH_MAILBOX. This connector reinforces that at the
+# code layer — EVERY tool operates ONLY on /users/{MSGRAPH_MAILBOX}/..., pinned in
+# the client from config; NO tool accepts a mailbox/user parameter, so a compromised
+# turn cannot redirect a read or a send to another mailbox even if the tenant policy
+# were ever loosened. There is deliberately NO delete tool.
+#
+# required_secrets are the RUNTIME env-var names the connector reads; the overlay
+# registry binds the source/value per customer (tenant + mailbox differ per seat,
+# so both are per-customer runtime env, not manifest-static literals — Graph has no
+# static host to pin the way Smokeball pins REGION/ENVIRONMENT).
+#
+# tool_classes is the conformance ORACLE: every entry must agree with the
+# hand-authored overlay map (shared/action_classes.py) under the runtime name
+# mcp_msgraph_mail_<tool>. The surface is the reads (list_messages, read_message,
+# and poll_delta — the poller's delta-query primitive, also usable as a read) +
+# create_draft (internal_write) + the two external sends send_message and
+# reply_message (external_send, recipient-reclassified per ADR 0072 so an INTERNAL
+# recipient still sends rather than degrading to draft).
+#
+# COORDINATED CHANGE: the matching shared/action_classes.py entries in
+# hermes-smd-overlay (mcp_msgraph_mail_send_message / mcp_msgraph_mail_reply_message
+# = external_send; mcp_msgraph_mail_create_draft = internal_write; list_messages /
+# read_message / poll_delta = read) MUST land for the overlay manifest<=map
+# conformance test to stay green and for these tools to be governed at runtime.
+# outbound_recipient.py must ALSO normalize the Graph recipient/body nesting
+# (toRecipients[].emailAddress.address, body.content) before classification — the
+# tool argument surface here is flat (to/cc as plain addresses) precisely so
+# governance sees the recipients directly; the Graph nesting happens inside the
+# client, after governance has seen the flat args.
+[connector]
+name = "msgraph-mail"
+capability = "Email"
+auth_model = "client_credentials"
+description = "Microsoft Graph mail connector (app-only, mailbox-scoped) — provider-neutral operator email adapter."
+
+[[connector.required_secrets]]
+runtime_env = "MSGRAPH_TENANT_ID"
+purpose = "Azure AD tenant id (GUID) — selects the token endpoint {tenant}/oauth2/v2.0/token. Per-customer."
+
+[[connector.required_secrets]]
+runtime_env = "MSGRAPH_CLIENT_ID"
+purpose = "App (client) id of the registered Graph application. Per-customer."
+
+[[connector.required_secrets]]
+runtime_env = "MSGRAPH_CLIENT_SECRET"
+purpose = "App client secret (client-credentials grant). Staged per-customer per ADR 0010."
+
+[[connector.required_secrets]]
+runtime_env = "MSGRAPH_MAILBOX"
+purpose = "The pinned operator mailbox address (operator@clientdomain.com). NOT secret — the single mailbox every tool operates on; scoped tenant-side by ApplicationAccessPolicy. Per-customer."
+
+[connector.tool_classes]
+list_messages = "read"
+read_message = "read"
+poll_delta = "read"
+create_draft = "internal_write"
+send_message = "external_send"
+reply_message = "external_send"

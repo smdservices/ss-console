@@ -10,6 +10,7 @@
     "GHSA-f88m-g3jw-g9cj": "sharp inherited libvips CVEs. Not reachable: sharp is never imported/invoked; imageService is 'passthrough' and we use no astro:assets. Pure transitive dep. Cleared by the astro 7 / adapter 14 dep tree.",
     "GHSA-2p49-hgcm-8545": "svgo removeScripts leaves scripts intact. Not reachable: svgo is an Astro-internal dep, never invoked (no astro:assets SVG path). Cleared by astro 7.",
     "GHSA-4c8g-83qw-93j6": "fast-uri host confusion via failed IDN canonicalization. Not reachable: fast-uri is dev/typecheck tooling only (@astrojs/check -> language-server -> ajv), not in the Worker bundle. Cleared by @astrojs/check bump.",
-    "GHSA-v2hh-gcrm-f6hx": "fast-uri host confusion via literal backslash authority delimiter. Not reachable: same dev-only tooling path as GHSA-4c8g-83qw-93j6. Cleared by @astrojs/check bump."
+    "GHSA-v2hh-gcrm-f6hx": "fast-uri host confusion via literal backslash authority delimiter. Not reachable: same dev-only tooling path as GHSA-4c8g-83qw-93j6. Cleared by @astrojs/check bump.",
+    "GHSA-mh99-v99m-4gvg": "brace-expansion DoS via unbounded expansion length (<=5.0.7). Not reachable: sole dependent is minimatch, dev-only build/lint tooling (lockfile-verified 2026-07-24), never in the Worker bundle; DoS requires attacker-controlled brace patterns which nothing feeds it. Fix 5.0.8 published 2026-07-23 — inside the min-release-age=7 supply-chain cooldown until ~2026-07-30, same window as this file's expiry; bump the brace-expansion override to ^5.0.8 when the cooldown clears."
   }
 }
