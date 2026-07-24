@@ -32,7 +32,7 @@ from typing import Any
 
 from operator_connector_sdk.server import ConnectorServer
 
-from .client import SmokeballApiError, SmokeballClient, build_client_from_env
+from .client import SmokeballClient, build_client_from_env
 
 server = ConnectorServer("smokeball")
 
@@ -892,74 +892,3 @@ def create_webhook_subscription(
     if resolved_key:
         body["key"] = resolved_key
     return _get_client().request("POST", "/webhooks", json=body)
-
-
-# ---- boot diagnostic (OFF by default) -------------------------------------
-def _diagnose_find_matter(client: SmokeballClient) -> str | None:
-    """Resolve a matter id for the write probe: an explicit
-    SMOKEBALL_DIAGNOSE_MATTER_ID wins; otherwise search for a Johnson matter."""
-    explicit = os.environ.get("SMOKEBALL_DIAGNOSE_MATTER_ID")
-    if explicit:
-        return explicit
-    matters = client.get("/matters", Search="Johnson", Limit=5)
-    items: Any = matters
-    if isinstance(matters, dict):
-        for key in ("value", "results", "items", "matters", "data"):
-            if isinstance(matters.get(key), list):
-                items = matters[key]
-                break
-    if isinstance(items, list) and items and isinstance(items[0], dict):
-        first = items[0]
-        return first.get("id") or first.get("Id") or first.get("matterId")
-    return None
-
-
-def _boot_diagnose() -> None:
-    """One-shot live diagnostic, OFF unless SMOKEBALL_BOOT_DIAGNOSE is set. It runs
-    at import time (the boot connector-classification probe imports this module), so
-    it needs no agent turn — the agent's inbound-mail behavior was drafting replies
-    instead of calling the write tool, which made the write path untestable via the
-    normal channel. Logs the granted token scopes; when SMOKEBALL_DIAGNOSE_WRITE is
-    also set, attempts one upload and logs the literal result (HTTP status + body on
-    failure via SmokeballApiError). Fully guarded: any error is logged, never raised,
-    so it can never break the probe or the connector."""
-    import sys
-
-    if not os.environ.get("SMOKEBALL_BOOT_DIAGNOSE"):
-        return
-
-    def _log(msg: str) -> None:
-        print(f"[smokeball-diagnose] {msg}", file=sys.stderr, flush=True)
-
-    try:
-        client = _get_client()
-        status = client.auth_status()
-        _log(
-            f"auth OK mode={status.get('auth_mode')} "
-            f"granted_scopes={status.get('granted_scopes')}"
-        )
-    except Exception as exc:  # noqa: BLE001 - a diagnostic must never raise
-        _log(f"auth FAILED: {type(exc).__name__}: {exc}")
-        return
-
-    if not os.environ.get("SMOKEBALL_DIAGNOSE_WRITE"):
-        return
-
-    try:
-        matter_id = _diagnose_find_matter(client)
-        if not matter_id:
-            _log(
-                "write probe SKIPPED: no target matter (set SMOKEBALL_DIAGNOSE_MATTER_ID)"
-            )
-            return
-        res = client.add_file(
-            matter_id, "operator_boot_diagnose.txt", b"operator boot diagnose"
-        )
-        _log(f"write OK matter={matter_id} fileId={res.get('fileId')}")
-    except SmokeballApiError as exc:
-        _log(f"write FAILED HTTP {exc.status} {exc.method} {exc.path} body={exc.body}")
-    except Exception as exc:  # noqa: BLE001 - a diagnostic must never raise
-        _log(f"write FAILED: {type(exc).__name__}: {exc}")
-
-
-_boot_diagnose()
