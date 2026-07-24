@@ -32,14 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Sync canonical skills from crane-console
         # The audit script lives in crane-console/.agents/skills/ui-drift-audit/.
         # Locally, the launcher (crane-console/packages/crane-mcp/src/cli/launch-lib.ts:1185
         # syncVentureSkills) mirrors it on every `crane <venture>` launch. CI has no
         # launcher, so we sparse-clone canon and stage the script into the expected path.
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: venturecrane/crane-console
           sparse-checkout: |
