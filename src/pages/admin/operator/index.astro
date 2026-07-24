@@ -67,7 +67,10 @@ function summaryFor(c: RosterCustomer): RuntimeSummaryRow | undefined {
   return summaryByEntity.get(c.entity_id) ?? summaryBySlug.get(c.customer_slug)
 }
 function fleetFor(c: RosterCustomer): FleetStatusRow | undefined {
-  return fleetByEntity.get(c.entity_id) ?? fleetBySlug.get(c.customer_slug)
+  // Slug-first since migration 0093 re-keyed fleet_status on customer_slug:
+  // several seats share one entity_id, so the entity map fans out (last write
+  // wins) and must only be a fallback for legacy rows.
+  return fleetBySlug.get(c.customer_slug) ?? fleetByEntity.get(c.entity_id)
 }
 
 interface RosterView {
@@ -88,7 +91,11 @@ const views: RosterView[] = roster.map((customer) => {
     hb.color,
     hb.label,
     summary?.summary_status ?? null,
-    fleet?.sticky_stop_level ?? null
+    fleet?.sticky_stop_level ?? null,
+    {
+      ok: fleet?.scheduler_ok ?? null,
+      maxOverdueSeconds: fleet?.scheduler_max_overdue_seconds ?? null,
+    }
   )
   const names = customer.personas.map((p) => p.name).filter(Boolean)
   return {

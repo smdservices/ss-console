@@ -16,6 +16,16 @@
 
 import type { D1Database } from '@cloudflare/workers-types'
 
+/**
+ * Seat is "work overdue" (yellow) when its scheduled work is more than this
+ * many seconds past due. Single source of the literal 900 default: the
+ * ss-fleet-alerts Worker's `work_overdue` condition documents that its
+ * `WORK_OVERDUE_RED_SECONDS` env var must match this default (the worker is a
+ * separate wrangler package, so a runtime import across the package boundary
+ * is avoided by contract, not by a shared module — see the PR body).
+ */
+export const WORK_OVERDUE_RED_SECONDS = 900
+
 export interface FleetStatusRow {
   entity_id: string
   customer_slug: string
@@ -27,6 +37,12 @@ export interface FleetStatusRow {
   heartbeat_status: 'green' | 'yellow' | 'red' | 'unknown'
   /** Cost-breaker ladder level from the Machine (ADR 0062); NULL = not reported. */
   sticky_stop_level: string | null
+  /** Scheduler self-check verdict (WP-2): 1 healthy / 0 broken / NULL unreported. */
+  scheduler_ok: number | null
+  /** Enabled scheduled-job count the gate could read this beat; NULL unreported. */
+  scheduler_job_count: number | null
+  /** Max seconds any enabled job is past its next_run_at; NULL unreported. */
+  scheduler_max_overdue_seconds: number | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -37,6 +53,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
     .prepare(
       `SELECT entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
               process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
+              scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`
