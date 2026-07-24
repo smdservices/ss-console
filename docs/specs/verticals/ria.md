@@ -28,7 +28,7 @@ That coordination is a real seat, the client service associate who keeps the acc
 
 ## Skill catalog
 
-Twelve RIA-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve RIA-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### Onboarding and accounts
 
@@ -88,7 +88,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **Reg S-P privacy** — client nonpublic personal information stays inside the firm's surfaces; the Operator does not exfiltrate or repurpose it.
 - **SEC books-and-records** — client communications are retained and archivable (SEC Rule 204-2). Draft-for-review external send and the audit log give every external message a reviewer of record and a retained trail.
 - **Marketing Rule** — any review or testimonial-adjacent ask complies with the SEC Marketing Rule (Rule 206(4)-1); the Operator does not solicit or relay testimonials outside the firm's compliant process.
-- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)); `draft_for_review` is the recommended starting posture.
 
 ## Labor-market context (the demand, without presumption)
 

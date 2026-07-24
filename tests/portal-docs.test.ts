@@ -3,14 +3,16 @@ import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 
 describe('portal: engagement progress page', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/engagement/index.astro'), 'utf-8')
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/engagement/index.astro'), 'utf-8') +
+    readFileSync(resolve('src/layouts/PortalShell.astro'), 'utf-8')
 
   it('engagement progress page exists', () => {
     expect(existsSync(resolve('src/pages/portal/engagement/index.astro'))).toBe(true)
   })
 
   it('loads engagement data via listEngagements', () => {
-    expect(source()).toContain('listEngagements')
+    expect(source()).toContain('resolvePortalOfferings')
   })
 
   it('loads milestones via listMilestones', () => {
@@ -25,10 +27,14 @@ describe('portal: engagement progress page', () => {
     expect(code).toContain('getPortalClient(env.DB, Astro.locals)')
   })
 
-  it('filters out completed and cancelled engagements', () => {
-    const code = source()
-    expect(code).toContain("'completed'")
-    expect(code).toContain("'cancelled'")
+  it('separates terminal engagements from the active one (offerings resolver)', () => {
+    // The completed/cancelled filter moved into the shared offerings
+    // resolver during the portal IA rebuild; the page renders active and
+    // past engagements from its output.
+    const resolver = readFileSync(resolve('src/lib/portal/offerings.ts'), 'utf-8')
+    expect(resolver).toContain("'completed'")
+    expect(resolver).toContain("'cancelled'")
+    expect(source()).toContain('pastEngagements')
   })
 
   it('shows milestone status indicators for all states', () => {
@@ -59,10 +65,12 @@ describe('portal: engagement progress page', () => {
 })
 
 describe('portal: documents page', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/documents/index.astro'), 'utf-8')
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/engagement/documents/index.astro'), 'utf-8') +
+    readFileSync(resolve('src/layouts/PortalShell.astro'), 'utf-8')
 
   it('documents page exists', () => {
-    expect(existsSync(resolve('src/pages/portal/documents/index.astro'))).toBe(true)
+    expect(existsSync(resolve('src/pages/portal/engagement/documents/index.astro'))).toBe(true)
   })
 
   it('lists R2 documents via listDocuments', () => {

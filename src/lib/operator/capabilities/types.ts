@@ -13,10 +13,20 @@
  */
 
 /**
- * Canonical capability names. The eleven Platform PRD §7.2 capabilities,
- * recorded here as a closed string union so adapters cannot register against
- * an unrecognized name. Add new capabilities here only when an ADR records
- * the addition.
+ * Canonical capability names. The eleven Platform PRD §7.2 capabilities plus
+ * WebSearch (ADR 0070), recorded here as a closed string union so adapters
+ * cannot register against an unrecognized name. Add new capabilities here only
+ * when an ADR records the addition.
+ *
+ * `WebSearch` is a connector-only capability: it has NO skill-facing adapter
+ * interface in this layer (no `web-search.ts`). It exists solely so the
+ * `connectors:` map — keyed by this union — can bind a `native:<provider>`
+ * backend (ADR 0070, e.g. `native:brave-free`). The search tool is Hermes'
+ * NATIVE `web_search` (a bundled web provider), which the agent calls directly;
+ * the overlay's translate.py resolves `native:<provider>` to config
+ * `web.search_backend`. Its conformance entry (BANNED_METHOD_NAMES) is therefore
+ * empty — there is no adapter to conform. (The first ADR 0070 cut wrapped Brave
+ * in an MCP server, `mcp:brave`; that redundant layer was retired 2026-07-08.)
  */
 export type CapabilityName =
   | 'PracticeManagement'
@@ -30,6 +40,7 @@ export type CapabilityName =
   | 'IntakeCRM'
   | 'CallTracking'
   | 'InternalComms'
+  | 'WebSearch'
 
 /**
  * Inclusive-start / exclusive-end ISO 8601 date range. Used by every

@@ -112,7 +112,7 @@ M365 is the calendar source.
 
 ## Write posture (unchanged from the wedge — fail-closed)
 
-Every client-/tribunal-bound message ships under the human reviewer's identity (external-send draft floor). Every Smokeball _write_ (`create_matter`, `create_task`, `create_contact`, file/document writes) is **gated / draft-and-surface** until the connect step proves the call succeeds against staging AND the engagement authors it on (ADR 0035, no imposed defaults). Trust-account writes (`protect_funds`/`unprotect_funds`/`create_transaction`) are **never** authored on — a `fails` invariant, not a default. `create_memo` (internal log) is the one write the wedge uses this phase, analogous to Clio's `create_note`.
+Every client-/tribunal-bound message follows the firm's authored `external_send` ceiling (ADR 0035; fail-closed when unauthored). Every Smokeball _write_ (`create_matter`, `create_task`, `create_contact`, file/document writes) is **gated / draft-and-surface** until the connect step proves the call succeeds against staging AND the engagement authors it on (ADR 0035, no imposed defaults). Trust-account writes (`protect_funds`/`unprotect_funds`/`create_transaction`) are **never** authored on — a `fails` invariant, not a default. `create_memo` (internal log) is the one write the wedge uses this phase, analogous to Clio's `create_note`.
 
 ## ASSUMED — unverified vs. a live Smokeball tenant (scope the connect-step diff)
 

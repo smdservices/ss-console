@@ -1,0 +1,185 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { loadTeamRoster, formatLastLogin } from '../../../../../../lib/portal/operator/team-read'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import { env } from 'cloudflare:workers'
+import { readChangeRequestFlash } from '../../../../../../lib/portal/operator/change-request-flash'
+
+/**
+ * Operator — Team (client-portal §5.7). The people on this account: who holds
+ * which role, and who is currently away.
+ *
+ * URL: portal.smd.services/portal/products/operator/team
+ *
+ * Governed by the `people_access` authority domain (ADR 0041). At launch the
+ * switch is off (managed) so this is Read + Request: SMD manages the roster and
+ * the client requests a change. When SMD flips the switch, principals get the
+ * operable controls — which live in the detail pages (settings/users for roles
+ * & invites, settings/pto for coverage), themselves gated by the same
+ * people_access composition so there is no ungated direct door.
+ *
+ * Read access is on for every role from day one (foundations §4.1): all three
+ * client roles see the roster. Only `principal` permits operability of
+ * people_access (client-rbac matrix), so only a principal ever sees the operable
+ * slot — and only once the switch is on.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { user, client, roles } = access
+
+const config = access.config
+const roster = await loadTeamRoster(env.DB, client.id, user.org_id)
+
+const RETURN_TO = `${operatorBase}/team`
+const cr = readChangeRequestFlash(Astro.cookies)
+const crMessage =
+  cr === 'filed'
+    ? 'Your request was sent.'
+    : cr === 'invalid'
+      ? "That request couldn't be filed. Please add a short description and try again."
+      : cr === 'error'
+        ? 'Something went wrong filing your request. Please try again.'
+        : null
+
+const ROLE_LABEL: Record<string, string> = {
+  principal: 'Principal',
+  staff: 'Staff',
+  compliance: 'Compliance',
+}
+
+const listClass =
+  'm-0 list-none p-0 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]'
+const rowClass =
+  'border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 px-5 md:px-7 py-4'
+const chipClass =
+  'inline-flex items-center px-2.5 py-1 text-caption font-mono uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]'
+const manageLinkClass =
+  'inline-flex items-center gap-2 px-5 py-3 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
+---
+
+<PortalShell
+  title="Operator · Team"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref={operatorBase}
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Team"
+    meta={`${roster.members.length} ${roster.members.length === 1 ? 'person' : 'people'}`}
+  />
+
+  {
+    crMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          cr === 'filed'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {crMessage}
+      </div>
+    )
+  }
+
+  <div class="mt-8">
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="people_access"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="who's on this account and their roles"
+    >
+      <Fragment slot="read">
+        {
+          roster.members.length === 0 ? (
+            <section
+              aria-label="No members yet"
+              class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+            >
+              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                No one on the account yet
+              </p>
+              <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                As people are added to your account, they appear here with their role.
+              </p>
+            </section>
+          ) : (
+            <ul role="list" class={listClass}>
+              {roster.members.map((m) => (
+                <li class={rowClass}>
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                    <div class="min-w-0">
+                      <p class="font-body font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                        {m.name}
+                      </p>
+                      <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
+                        {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 md:justify-end">
+                      {m.roles.map((r) => (
+                        <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </Fragment>
+
+      <Fragment slot="operable">
+        {
+          roster.members.length > 0 && (
+            <ul role="list" class={`${listClass} mb-6`}>
+              {roster.members.map((m) => (
+                <li class={rowClass}>
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                    <div class="min-w-0">
+                      <p class="font-body font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                        {m.name}
+                      </p>
+                      <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
+                        {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 md:justify-end">
+                      {m.roles.map((r) => (
+                        <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+        <div class="flex flex-col sm:flex-row gap-3">
+          <a href={`${operatorBase}/settings/users`} class={manageLinkClass}>
+            <span class="material-symbols-outlined" aria-hidden="true">group</span>
+            Manage roles &amp; invites
+          </a>
+        </div>
+      </Fragment>
+    </DomainSurface>
+  </div>
+</PortalShell>

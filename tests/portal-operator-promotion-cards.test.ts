@@ -293,15 +293,15 @@ describe('isDismissalExpired', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildReviewUrl', () => {
-  it('points at the Skills settings page with the skill focused', () => {
-    expect(buildReviewUrl('conflict-check')).toBe(
-      '/portal/products/operator/settings?focus=conflict-check'
+  it('points at the instance Skills settings page with the skill focused', () => {
+    expect(buildReviewUrl('test-op', 'conflict-check')).toBe(
+      '/portal/products/operator/test-op/settings?focus=conflict-check'
     )
   })
 
   it('URL-encodes skill names containing special characters', () => {
-    expect(buildReviewUrl('intake triage')).toBe(
-      '/portal/products/operator/settings?focus=intake%20triage'
+    expect(buildReviewUrl('test-op', 'intake triage')).toBe(
+      '/portal/products/operator/test-op/settings?focus=intake%20triage'
     )
   })
 })
@@ -366,7 +366,7 @@ function makeDbStub(options: {
 describe('listPromotionReadySkills', () => {
   it('returns an empty list when the customer has no projected config', async () => {
     const db = makeDbStub({ customerConfigRow: null })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 
@@ -405,7 +405,7 @@ describe('listPromotionReadySkills', () => {
         synced_at: '2026-05-21T00:00:00Z',
       },
     })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 
@@ -448,7 +448,7 @@ describe('listPromotionReadySkills', () => {
         synced_at: '2026-05-21T00:00:00Z',
       },
     })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 
@@ -492,7 +492,7 @@ describe('listPromotionReadySkills', () => {
         synced_at: '2026-05-21T00:00:00Z',
       },
     })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 })

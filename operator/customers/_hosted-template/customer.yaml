@@ -19,7 +19,13 @@ schema_version: 1
 #   - inbound_allow_from MUST be non-empty and MUST NOT contain a bare '@'
 #     domain wildcard for a public mail provider. No public inbound
 #     address is offered at this tier (ADR 0067 channel constraint).
-#   - external_send stays draft_for_review.
+#   - external_send stays confirm (ADR 0071, supersedes ADR 0067's launch
+#     draft-only posture): the agent prepares the send and completes it
+#     only after an explicit in-turn approval from the owner over channel.
+#     Do NOT raise to autonomous per customer here — promotion is a
+#     per-skill control-plane act (ADR 0071 decision 5), not a template
+#     default. Tightening to draft_for_review is allowed if a customer
+#     wants the agent to never send at all.
 #   - The ANTHROPIC_API_KEY staged for this Machine is the CUSTOMER'S key
 #     (Infisical /ss/hosted/{slug}), never an SMD org key.
 
@@ -59,9 +65,22 @@ personas:
       - warm-but-professional
       - concise
     entitlements:
+      # Hosted Agent default tier ladder (ADR 0071 decision 4). Only the two
+      # exposure knobs below are authored in customer.yaml; the rest of the
+      # ladder is substrate-enforced (operator/adapter/trust_ceiling.py):
+      #   READ           -> autonomous (scope-bound, always allowed)
+      #   INTERNAL_WRITE -> autonomous (authored below)
+      #   EXTERNAL_SEND  -> confirm    (authored below)
+      #   COMMITMENT     -> mandatory current-turn approval (never autonomous)
+      #   DESTRUCTIVE    -> mandatory current-turn approval
+      #   CODE_EXECUTION -> unauthored -> refused (off by default)
       exposure:
         internal_write: autonomous
-        external_send: draft_for_review
+        # confirm (ADR 0071): the agent completes the send only after an
+        # explicit in-turn owner approval over channel. The taint-gate still
+        # dominates — a turn that ingested untrusted inbound content cannot
+        # reach the confirmation (read/draft only). Nothing leaves without a yes.
+        external_send: confirm
     skills:
       - name: inbox-triage
         version: pending
@@ -98,6 +117,16 @@ connectors:
     backend: 'mcp:agentmail'
     enabled: true
     webhook_url: 'https://hermes-[SLUG].fly.dev/webhooks/agentmail'
+  # WebSearch is ON by default for the Hosted Agent — research is the marketed
+  # product (ADR 0070). Wired to Hermes' NATIVE web provider (brave-free), not an
+  # MCP server. The free Brave tier means $0 and no runaway spend (it rate-limits
+  # at its quota, never bills) — honoring "your only bill is Anthropic". Provider
+  # reads BRAVE_SEARCH_API_KEY. Sensitive Operator tiers use paid/customer-owned
+  # Brave instead.
+  WebSearch:
+    adapter: brave
+    backend: 'native:brave-free'
+    enabled: true
 
 webhook_triggers:
   - source: agentmail
@@ -134,6 +163,10 @@ safety:
   sticky_stop:
     cost_cap_daily_cents: 1000
     inbound_daily_cap: 100
+    # Per-seat WebSearch fair-use ceiling (ADR 0070). On the free brave-free tier
+    # this is a courtesy bound (Brave's own free quota is the hard stop; no spend
+    # to run away). Per-call enforcement is a follow-on.
+    web_search_daily_cap: 200
 
 # ---- TELEGRAM ----
 # Per-customer bot (BotFather; see docs/runbooks/hosted-agent/). Token is

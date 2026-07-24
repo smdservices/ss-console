@@ -27,7 +27,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # per service confirmation: read one date + method + defendant off the POS and surface; bounded reasoning, no synthesis
-    trust_ceiling: draft_for_review # the captured served date and the responsive-pleading deadline are surfaced to the responsible attorney for confirmation, never treated as final; nothing is sent to another party; the internal memo/task log is the only write
     action_class: read + internal_write # reads the service confirmation + matter; writes an internal memo (log) + a confirm task; no external send
     content_ceiling: surface_only # emits a factual captured input (served date, method, defendant) + an internal log; never files or drafts a responsive pleading, never authors the deadline computation
     connectors:

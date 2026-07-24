@@ -26,7 +26,6 @@ compliance:
   - no-fund-movement-or-disbursement # never moves, directs, or confirms disbursement of escrow funds
   - wire-instruction-safety-fail-closed # never transmits/confirms/changes wire instructions; route to verified human
   - npi-glba-alta-best-practices # NPI stays in company surfaces per GLBA / ALTA Best Practices
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

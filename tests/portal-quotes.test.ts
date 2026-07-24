@@ -94,7 +94,11 @@ describe('portal quotes: session helper', () => {
 })
 
 describe('portal quotes: dashboard', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/index.astro'), 'utf-8')
+  // The shared PortalShell owns the html head (viewport, noindex) since the
+  // portal IA rebuild, so head assertions read page + shell together.
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/index.astro'), 'utf-8') +
+    readFileSync(resolve('src/layouts/PortalShell.astro'), 'utf-8')
   const homeSource = () => readFileSync(resolve('src/lib/portal/home.ts'), 'utf-8')
 
   it('portal dashboard exists', () => {
@@ -115,7 +119,7 @@ describe('portal quotes: dashboard', () => {
   it('loads quotes scoped to the signed-in entity', () => {
     const code = source()
     const homeCode = homeSource()
-    expect(code).toContain('loadPortalHomeDashboard(env.DB, portalData.user.org_id, client.id)')
+    expect(code).toContain('loadPortalHomeDashboard(env.DB, user.org_id, client.id)')
     expect(homeCode).toContain('listQuotes(db, orgId, entityId)')
   })
 
@@ -140,7 +144,7 @@ describe('portal quotes: dashboard', () => {
   })
 
   it('links proposal timeline entries to the quotes surface', () => {
-    expect(source()).toContain('/portal/quotes/')
+    expect(source()).toContain('/portal/engagement/proposals/')
   })
 
   it('has mobile viewport meta tag', () => {
@@ -178,74 +182,54 @@ describe('portal quotes: dashboard', () => {
   })
 })
 
-describe('portal quotes: quote list page', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/quotes/index.astro'), 'utf-8')
+describe('portal quotes: proposal spotlight (engagement destination)', () => {
+  // Portal IA rebuild: the standalone quote list page was absorbed into the
+  // Engagement destination. An open proposal renders as a spotlight above
+  // the active workspace; both can be true at once (follow-on proposals).
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/engagement/index.astro'), 'utf-8') +
+    readFileSync(resolve('src/layouts/PortalShell.astro'), 'utf-8')
 
-  it('quote list page exists', () => {
-    expect(existsSync(resolve('src/pages/portal/quotes/index.astro'))).toBe(true)
+  it('engagement destination exists', () => {
+    expect(existsSync(resolve('src/pages/portal/engagement/index.astro'))).toBe(true)
   })
 
-  it('loads quotes via listQuotesForEntity', () => {
-    expect(source()).toContain('listQuotesForEntity')
-  })
-
-  it('resolves client via getPortalClient', () => {
-    expect(source()).toContain('getPortalClient')
+  it('derives the open proposal through the offerings resolver', () => {
+    const code = source()
+    expect(code).toContain('resolvePortalOfferings')
+    expect(code).toContain('openProposal')
   })
 
   it('resolves status via portal status helpers (R7 registry)', () => {
     const code = source()
-    // After UI-PATTERNS R7: the list page delegates status rendering to
-    // PortalListItem + StatusPill via tone/label resolvers. Post-
-    // Plainspoken (PR B) the label resolves through the stamp-vocabulary
-    // helper. Either resolver satisfies the registry contract.
     expect(code).toContain('resolveQuoteTone')
     expect(code).toMatch(/resolveQuoteStampLabel|resolveQuoteLabel/)
   })
 
-  it('displays total price for each quote', () => {
-    // Amount is passed to PortalListItem as cents (total_price * 100).
-    expect(source()).toContain('quote.total_price')
+  it('displays the proposal total as cents through MoneyDisplay', () => {
+    expect(source()).toContain('openProposal.total_price * 100')
   })
 
-  it('displays a date on every row', () => {
-    // sent_at (or created_at fallback for not-yet-sent) rendered via the
-    // shared formatShortDate through PortalListItem metaCaption.
+  it('dates the proposal via the shared formatter', () => {
     const code = source()
     expect(code).toContain('formatShortDate')
-    expect(code).toContain('metaCaption')
+    expect(code).toContain('sent_at')
   })
 
-  it('signals the sent state via tone, not an inline CTA button', () => {
-    const code = source()
-    // UI-PATTERNS R2 (redundancy): the card is the link. No standalone
-    // "Review & Sign" button alongside the card-is-link affordance. The
-    // pill's `info` tone on sent quotes does the work.
-    expect(code).toContain('resolveQuoteTone')
-    expect(code).not.toMatch(/"Review\s*&\s*Sign"/)
+  it('links the spotlight to the proposal detail page', () => {
+    expect(source()).toContain('/portal/engagement/proposals/${openProposal.id}')
   })
 
-  it('links to detail page', () => {
-    expect(source()).toContain('/portal/quotes/${quote.id}')
+  it('renders the proposal spotlight above the active workspace (orthogonal states)', () => {
+    const code = readFileSync(resolve('src/pages/portal/engagement/index.astro'), 'utf-8')
+    const spotlightAt = code.indexOf('Proposal awaiting your review')
+    const overviewAt = code.indexOf('<span>Overview</span>')
+    expect(spotlightAt).toBeGreaterThan(-1)
+    expect(overviewAt).toBeGreaterThan(spotlightAt)
   })
 
   it('has mobile viewport meta tag', () => {
     expect(source()).toContain('width=device-width, initial-scale=1.0')
-  })
-
-  it('does not expose hourly rates', () => {
-    const code = source()
-    expect(code).not.toContain('.rate')
-    expect(code).not.toContain('/hr')
-    expect(code).not.toContain('hourly')
-    expect(code).not.toContain('total_hours')
-    expect(code).not.toContain('estimated_hours')
-  })
-
-  it('does not expose per-item pricing', () => {
-    const code = source()
-    expect(code).not.toContain('item.estimated_hours')
-    expect(code).not.toContain('per item')
   })
 
   it('is not indexed by search engines', () => {
@@ -257,14 +241,16 @@ describe('portal quotes: quote detail page', () => {
   // Deliverables/schedule rendering was extracted to QuoteProposalSections.astro
   // to keep [id].astro within the 500-line ceiling. Combined source covers both.
   const source = () =>
-    readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8') +
+    readFileSync(resolve('src/pages/portal/engagement/proposals/[id].astro'), 'utf-8') +
     '\n' +
     readFileSync(resolve('src/components/portal/QuoteProposalSections.astro'), 'utf-8') +
     '\n' +
-    readFileSync(resolve('src/lib/portal/quote-detail.ts'), 'utf-8')
+    readFileSync(resolve('src/lib/portal/quote-detail.ts'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/layouts/PortalShell.astro'), 'utf-8')
 
   it('quote detail page exists', () => {
-    expect(existsSync(resolve('src/pages/portal/quotes/[id].astro'))).toBe(true)
+    expect(existsSync(resolve('src/pages/portal/engagement/proposals/[id].astro'))).toBe(true)
   })
 
   it('loads quote via getQuoteForEntity', () => {

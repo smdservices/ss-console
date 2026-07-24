@@ -109,6 +109,11 @@ R2_HINT="R2 creds missing. Run via: operator/bin/reprovision.sh ${SLUG}  (= infi
 command -v aws >/dev/null 2>&1 || die "aws CLI not found (required for R2 customer.yaml upload)"
 command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
+# ---------- Step 0.5: R2 config key ----------
+# git is the single source of truth for customer.yaml; provisioning projects
+# it to R2 unconditionally (Step 2), and bootstrap.sh fetches this key at boot.
+R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
+
 # ---------- Step 1: validate customer.yaml ----------
 # The canonical pre-merge gate is the TS validator in
 # src/lib/operator/customer-yaml/ (per ADR 0019). The retired in-tree
@@ -135,7 +140,7 @@ print(c['customer_id'])
 print(c['fly_region'])
 print(m.get('size', 'shared-cpu-2x'))
 print(m.get('memory_mb', 2048))
-print(c.get('hermes_ref', 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'))
+print(c.get('hermes_ref', 'v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b'))
 "
 # Portable line-array read (macOS bash 3.2 doesn't have mapfile)
 FIELDS=()
@@ -174,7 +179,6 @@ log "Hermes upstream pin: ${HERMES_UPSTREAM_TAG} @ ${HERMES_UPSTREAM_SHA}"
 # first Machine boot can succeed (otherwise the boot would race against a
 # missing config). The customer-sync sidecar (from the overlay bootstrap/
 # package) polls this same key for non-structural updates.
-R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
 log "Uploading customer.yaml to R2: s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}"
 AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
 AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
@@ -501,6 +505,16 @@ if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
   # the agentmail route secret — stage them equal, or inbound never routes to a skill.
   stage_secret_from_env SMD_WEBHOOK_SIGNING_SECRET "${_AGENTMAIL_WH_SECRET}" "router forward-verify secret (== agentmail route secret)"
   unset _AGENTMAIL_WH_KEY _AGENTMAIL_WH_SECRET
+fi
+
+# Brave Search (native:brave-free, ADR 0070). BRAVE_SEARCH_API_KEY is the env var
+# Hermes' native brave-free provider reads. The Hosted-Agent tier uses Brave's
+# FREE tier (one shared, SMD-owned key; $0, no runaway spend; keeps "your only
+# bill is Anthropic" true). Staged ONLY for a customer whose customer.yaml binds a
+# native:brave-* backend. Missing at boot => the provider stays unavailable
+# (Hermes falls back / no web search), fail-closed, no crashloop.
+if grep -qE 'backend:[[:space:]]*.?native:brave' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  stage_secret_from_env BRAVE_SEARCH_API_KEY "${BRAVE_SEARCH_API_KEY:-}" "Brave Search API key (native brave-free provider; web search)"
 fi
 
 # Google service-account key (DWD). REQUIRED for any customer.yaml with

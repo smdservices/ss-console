@@ -1,0 +1,15 @@
+{
+  "$comment": "Time-boxed npm-audit exceptions. Each entry is a GHSA the CI audit gate will tolerate at high/critical severity UNTIL `expires`. After that date the allowlist is ignored and the gate fails again, forcing resolution. Consumed by scripts/ci/audit-allowlist.mjs (Security workflow). This is NOT a place to silence real exposure: every entry must be triaged non-reachable in this app and tracked to a fix.",
+  "expires": "2026-07-30",
+  "tracking": "https://github.com/venturecrane/ss-console/issues/1623",
+  "reason": "Astro 6->7 major upgrade (astro 7.1.x + @astrojs/cloudflare 14 + @clerk/astro 4 + wrangler 4.114) is the only fix for these advisories. All fix versions are <7 days old and blocked by the .npmrc min-release-age=7 supply-chain cooldown until ~2026-07-30. Every advisory below was triaged non-reachable in this app on 2026-07-23 (evidence in #1623). This exception unfreezes merges to main during the cooldown window and self-expires when the upgrade becomes installable.",
+  "allow": {
+    "GHSA-4g3v-8h47-v7g6": "Astro reflected XSS via View Transition animation props. Not reachable: we use no View Transitions (no <ViewTransitions>/transition:* directives anywhere). Fixed in astro 7.x.",
+    "GHSA-7pw4-f3q4-r2p2": "Astro XSS via transition:* directive values on hydrated islands. Not reachable: zero client-hydrated islands, no UI-framework integration. Fixed in astro 7.x.",
+    "GHSA-f48w-9m4c-m7f5": "Astro XSS via unescaped spread attribute names. Not reachable: every {...spread} in .astro uses static literal keys, never attacker-controlled. Fixed in astro 7.x.",
+    "GHSA-f88m-g3jw-g9cj": "sharp inherited libvips CVEs. Not reachable: sharp is never imported/invoked; imageService is 'passthrough' and we use no astro:assets. Pure transitive dep. Cleared by the astro 7 / adapter 14 dep tree.",
+    "GHSA-2p49-hgcm-8545": "svgo removeScripts leaves scripts intact. Not reachable: svgo is an Astro-internal dep, never invoked (no astro:assets SVG path). Cleared by astro 7.",
+    "GHSA-4c8g-83qw-93j6": "fast-uri host confusion via failed IDN canonicalization. Not reachable: fast-uri is dev/typecheck tooling only (@astrojs/check -> language-server -> ajv), not in the Worker bundle. Cleared by @astrojs/check bump.",
+    "GHSA-v2hh-gcrm-f6hx": "fast-uri host confusion via literal backslash authority delimiter. Not reachable: same dev-only tooling path as GHSA-4c8g-83qw-93j6. Cleared by @astrojs/check bump."
+  }
+}

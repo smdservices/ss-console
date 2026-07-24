@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: read + assembly (cross-system sync)
-    trust_ceiling: draft_for_review
     action_class: read + write
     connectors:
       - intake-crm # IntakeCRM (build:clio-grow) — the converted lead source (read). CRM-side, out of scope for the PM migration.

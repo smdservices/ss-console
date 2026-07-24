@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: action + drafting
-    trust_ceiling: draft_for_review
     action_class: read + draft + surfaced_write
     connectors:
       - smokeball # PracticeManagement — matter + responsible attorney (read), create_memo (internal write)
@@ -77,7 +76,7 @@ The agent MUST NOT: write the calendar entry autonomously this phase; send the c
 1. **Conflict-hold gate.** No proposal or booking on a halted matter.
 2. **Rule adherence.** Every proposed slot satisfies business hours, blackout windows, no-double-book, and buffer rules. A slot that violates any rule is a failure even if the client asked for it.
 3. **No autonomous calendar write.** Zero executed `create_calendar_entry` this phase; the booking is surfaced for confirm.
-4. **External-send draft floor.** The confirmation is drafted, never sent.
+4. **External send follows the authored ceiling.** The confirmation is an `external_send`; whether it sends or drafts is the firm's authored `external_send` ceiling, not a fixed rule (`draft_for_review` is the recommended starting posture). See `operator/references/send-posture.md`.
 5. **No legal substance.** The confirmation is scheduling-only — no advice, no qualification opinion, no merits.
 
 ## Voice Rules

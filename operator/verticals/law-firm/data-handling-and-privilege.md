@@ -14,7 +14,7 @@ The Operator reads a firm's matter documents. A litigator's first question — c
 
 3. **Audited (Model Rules 5.1 / 5.3 supervision).** Every Operator action — including document reads and the memos it writes — is recorded in a **tamper-resistant audit ledger** the firm can read (the broker-owned ledger; the agent cannot rewrite its own log). A supervising attorney can reconstruct what the Operator did, which is exactly the supervision that manual monitoring of a fast tool cannot provide.
 
-4. **Human-in-the-loop / never-drafts.** Document review **surfaces and highlights; it never drafts work product** (`matter-document-review`, content-ceiling: surface-only). Anything client-, opposing-, or tribunal-bound ships as a **draft under a human's identity** (the external-send draft floor, ADR 0005). The lawyer's judgment is never delegated to the machine — the principal's own rule, made architectural.
+4. **Human-in-the-loop / never-drafts.** Document review **surfaces and highlights; it never drafts work product** (`matter-document-review`, content-ceiling: surface-only). Anything client-, opposing-, or tribunal-bound follows the **firm's authored `external_send` ceiling** (ADR 0035 — fail-closed when unauthored; `draft_for_review` is the recommended starting posture, and the content-sensitivity floor narrows legal-substance content to draft regardless). The lawyer's judgment is never delegated to the machine — the principal's own rule, made architectural.
 
 ## On privilege specifically
 

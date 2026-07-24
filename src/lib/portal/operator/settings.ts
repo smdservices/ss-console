@@ -1,36 +1,21 @@
 /**
- * Operator settings — typed contracts + read resolver.
+ * Operator settings — typed contracts for the config-derived rows the
+ * console renders:
  *
- * This module backs the four working sections on
- * `/portal/products/operator/settings`:
+ *   - Trust ceiling rows per action class
+ *   - Skill toggles (per-persona skill list)
+ *   - Connector status rows
  *
- *   - Trust ceiling controls per skill
- *   - Voice sample management (view / add / remove)
- *   - Skill toggles (enable / disable per skill)
- *   - Connector status + re-consent paths
- *
- * Source of truth for everything on the page is `customer.yaml` per
- * [ADR 0012](../../../../docs/adr/0012-customer-yaml-storage.md). The
+ * Source of truth is `customer.yaml` per
+ * [ADR 0012](../../../../docs/adr/0012-customer-yaml-storage.md); the
  * portal D1 `customer_configs` table is the projected read replica
- * (see `src/lib/portal/customer-config.ts`); this module reads from
- * the projection. Mutations land later: the endpoints in
- * `src/pages/api/portal/operator/settings/` accept POSTs, validate,
- * and log intent today. Real propagation back to git +
- * `customer.yaml` is gated on the configs-repo write path (out of
- * scope for #874).
+ * (see `src/lib/portal/customer-config.ts`) and these helpers shape
+ * that projection for the facet resolvers that consume them
+ * (overview, skills, connections).
  *
- * Voice samples and connector health are reads that depend on
- * subsystems on the per-customer Hermes Machine (ADR 0007 + 0009)
- * and the capability conformance harness, respectively. Neither
- * has a portal-bound read path today. Following the contract in
- * `src/lib/portal/operator/drafts.ts`, both resolvers return
- * empty shapes so the page renders its empty state per
- * `docs/style/empty-state-pattern.md`. No fabrication. No mock
- * rows. No "coming soon" copy.
- *
- * When real data lands, only the fetch stubs at the bottom of this
- * file change. Types, formatting helpers, and the resolver shape
- * stay put.
+ * Voice-sample management was removed 2026-07-15 (Captain close-out):
+ * the portal surface was chrome over a stub — no ingestion wiring
+ * existed. Client-voice establishment is its own workstream.
  */
 
 import type { PersonaConfig } from '../customer-config'
@@ -108,6 +93,9 @@ export function trustCeilingRowsFromPersona(persona: PersonaConfig | null): Trus
   const classes: AuthoredExposureActionClass[] = [
     'internal_write',
     'external_send',
+    'external_send_internal',
+    'external_send_client',
+    'external_send_vendor',
     'commitment',
     'destructive',
     'code_execution',
@@ -121,60 +109,6 @@ export function trustCeilingRowsFromPersona(persona: PersonaConfig | null): Trus
       actionClass,
     }
   })
-}
-
-// ---------------------------------------------------------------------------
-// Voice samples
-// ---------------------------------------------------------------------------
-
-/**
- * One voice sample row. Voice samples carry privacy implications:
- * per PR #951 (voice ingestion pipeline) and the
- * `docs/specs/operator/voice-gate-fallback.md` spec, the portal
- * surface displays metadata only. Raw sample bodies are never
- * surfaced to the dashboard; only structural diffs are exposed.
- *
- * Field semantics:
- *
- *   id        — opaque sample identifier owned by the voice
- *               pipeline.
- *   cohort    — which voice cohort this sample belongs to (e.g.
- *               "partner-outbound", "internal-prep"). Surfaces in
- *               the UI as the row's primary discriminator.
- *   source    — short label describing where the sample came from
- *               ("imported", "captured", "manual"). Not free text;
- *               the voice pipeline emits a closed set today.
- *   addedAt   — ISO timestamp the sample was ingested.
- *   status    — `ready` once the sample is in the cohort and
- *               usable; `pending` immediately after a portal upload
- *               while the pipeline ingests it; `error` if the
- *               pipeline rejected it.
- */
-export type VoiceSampleStatus = 'ready' | 'pending' | 'error'
-
-export const VOICE_SAMPLE_STATUSES: readonly VoiceSampleStatus[] = [
-  'ready',
-  'pending',
-  'error',
-] as const
-
-export interface VoiceSample {
-  id: string
-  cohort: string
-  source: string
-  addedAt: string
-  status: VoiceSampleStatus
-}
-
-export function formatVoiceSampleStatus(status: VoiceSampleStatus): string {
-  switch (status) {
-    case 'ready':
-      return 'Ready'
-    case 'pending':
-      return 'Pending'
-    case 'error':
-      return 'Error'
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -263,6 +197,10 @@ export function formatConnectorHealth(health: ConnectorHealth): string {
 export interface ConnectorStatusRow {
   capabilityName: string
   adapter: string
+  /** Authored `auth_mode` (e.g. 'authorization_code') — decides whether SMD
+   *  can re-establish the connection alone or the firm must approve a fresh
+   *  authorization. Null when not authored. */
+  authMode: string | null
   health: ConnectorHealth
   reconsentRequired: boolean
 }
@@ -292,9 +230,11 @@ export function connectorRowsFromCustomerYaml(connectorsYaml: unknown): Connecto
     if (!raw || typeof raw !== 'object') continue
     const entry = raw as ConnectorYamlEntry
     const adapter = typeof entry.adapter === 'string' ? entry.adapter : ''
+    const authModeRaw = (entry as Record<string, unknown>)['auth_mode']
     rows.push({
       capabilityName,
       adapter,
+      authMode: typeof authModeRaw === 'string' ? authModeRaw : null,
       health: 'unconfigured',
       reconsentRequired: false,
     })
@@ -304,88 +244,12 @@ export function connectorRowsFromCustomerYaml(connectorsYaml: unknown): Connecto
 }
 
 // ---------------------------------------------------------------------------
-// Composite settings view
+// Composite settings view — REMOVED (2026-07-15, Captain close-out of inert
+// voice chrome). `loadSettingsView` had no callers; it existed to carry a
+// voice-samples list whose fetch was a stub returning [] and whose portal
+// endpoint only logged intent. Real voice-sample ingestion is the #1851 /
+// voice-establishment workstream; nothing renders sample chrome until the
+// wiring exists (feedback: never build the chrome ahead of the wiring).
+// The live exports above (trust ceilings, skill toggles, connectors) are
+// consumed by the facet resolvers and remain.
 // ---------------------------------------------------------------------------
-
-/**
- * The full settings view rendered by the page. Composing the four
- * sections in one shape keeps the page contract small (one resolver
- * call, one prop drilldown) and gives tests one place to assert on
- * the empty-state contract before subsystems wire up.
- */
-export interface SettingsView {
-  trustCeilingRows: TrustCeilingRow[]
-  voiceSamples: VoiceSample[]
-  skillToggleRows: SkillToggleRow[]
-  connectorRows: ConnectorStatusRow[]
-  personaSlug: string | null
-}
-
-/**
- * Resolve the full settings view for the given entity. Today this
- * reads the customer.yaml projection for trust ceiling + skill
- * toggles + connectors, and returns empty lists for voice samples
- * (Hermes-bound) and live connector health (harness-bound).
- *
- * No fabrication. No placeholder rows. Empty inputs produce empty
- * outputs and the page renders its empty state per
- * docs/style/empty-state-pattern.md.
- */
-export async function loadSettingsView(db: D1Database, entityId: string): Promise<SettingsView> {
-  const config = await fetchCustomerConfig(db, entityId)
-  const persona = pickActivePersona(config)
-  const voiceSamples = await fetchVoiceSamples(entityId)
-  const connectorRows = connectorRowsFromCustomerYaml(config?.connectors ?? null)
-  return {
-    trustCeilingRows: trustCeilingRowsFromPersona(persona),
-    voiceSamples,
-    skillToggleRows: skillToggleRowsFromPersona(persona),
-    connectorRows,
-    personaSlug: persona?.slug ?? null,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers (split out so tests can compose them, and so the
-// future wiring is a single-call swap)
-// ---------------------------------------------------------------------------
-
-interface MinimalCustomerConfig {
-  personas: PersonaConfig[]
-  connectors: unknown
-}
-
-/**
- * Read the projected customer config for an entity. Inlined a thin
- * wrapper around the standard resolver so the test surface can stub
- * with a fixture without pulling in a D1 mock.
- *
- * Returns null when no row exists. That is a meaningful state during
- * alpha (rows are hand-seeded today) and downstream consumers must
- * tolerate it. Per ADR 0012 we never seed a fallback config.
- */
-async function fetchCustomerConfig(
-  db: D1Database,
-  entityId: string
-): Promise<MinimalCustomerConfig | null> {
-  const { getCustomerConfig } = await import('../customer-config')
-  const row = await getCustomerConfig(db, entityId)
-  if (!row) return null
-  return { personas: row.personas, connectors: row.connectors }
-}
-
-function pickActivePersona(config: MinimalCustomerConfig | null): PersonaConfig | null {
-  if (!config) return null
-  return config.personas.find((p) => p.status === 'active') ?? null
-}
-
-/**
- * Voice sample fetch stub. Returns an empty list today. When the
- * voice pipeline (PR #951) exposes a portal-bound read endpoint or
- * D1 projection, replace the body. The `entityId` arg is here so
- * the future swap is body-only. Promise.resolve preserves the
- * async call shape.
- */
-function fetchVoiceSamples(_entityId: string): Promise<VoiceSample[]> {
-  return Promise.resolve([])
-}

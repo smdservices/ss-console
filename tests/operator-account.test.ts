@@ -54,7 +54,7 @@ describe('parseEscalation: defensive, never a fabricated contact', () => {
 
 describe('subscription status display', () => {
   it('labels every known status and falls back to Unknown', () => {
-    expect(subscriptionStatusLabel('provisioning')).toBe('Provisioning')
+    expect(subscriptionStatusLabel('provisioning')).toBe('Being set up')
     expect(subscriptionStatusLabel('active')).toBe('Active')
     expect(subscriptionStatusLabel('paused')).toBe('Paused')
     expect(subscriptionStatusLabel('unknown')).toBe('Unknown')

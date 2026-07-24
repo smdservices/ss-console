@@ -39,6 +39,8 @@ All four functions present to the human principal (ADR 0011's principal role) as
 
 ### 2. Review: the draft queue is the human-in-the-loop realization
 
+> **Superseded by [ADR 0052](0052-operator-portal-management-console-not-data-surface.md) (recorded in the Status header; marked inline here 2026-07-13).** The in-portal "review, edit, and send" surface described in this section does **not** ship. Approval happens in the native system or the conversational channel; the portal is a **read-only audit/governance lens** (ADR 0052 §4). Read this section as the original design, superseded.
+
 The draft-for-review queue is where `draft_for_review`-ceilinged output (ADR 0025) lands for human review, edit, and send (draft-for-review posture, ADR 0035). "Teach" feeds reviewer edits back as voice/behavior signal (ADR 0028 voice, ADR 0016 memory). When ADR 0025 configures an action class to autonomous, items of that class do not queue — but the queue remains the surface for everything still gated. The live populating bridge (#821) is the remaining build.
 
 ### 3. Memory control: mirror, don't gate — dismissal removes

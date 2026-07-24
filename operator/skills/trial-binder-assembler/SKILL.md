@@ -39,7 +39,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: medium # a bounded collation across several authored component lists plus a deadline-capture pass; the read/organize work is the bulk, the Bates/PDF assembly is routed out
-    trust_ceiling: draft_for_review # produces a staged binder index for the attorney to finalize; never files, serves, or authors substance
     action_class: read + internal_write # reads matter documents and calendar; the writes are the internal log (create_memo), gated tracking tasks (create_task), and the gated staging of the binder index (add_file). No external send.
     content_ceiling: connective # collates authored components into an organized structure and tracks dates; never legal work product, never the trial brief, never argument, never a deposition summary
     connectors:

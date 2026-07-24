@@ -24,7 +24,6 @@ compliance:
   - no-diagnosis-or-pricing-commitment # never state the problem, the fix, or the price; the tech/company does
   - emergency-dispatch-escalation-fail-open # gas/fire/flood/no-heat/electrical go to a human immediately; 911 for life-safety
   - no-payment-authority # follow up on invoices; never process a payment
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

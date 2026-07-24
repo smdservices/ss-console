@@ -26,7 +26,6 @@ compliance:
   - no-credit-or-underwriting-decision # never approve, deny, or condition a loan
   - wire-instruction-safety-fail-closed # never transmits/confirms/changes wire instructions
   - npi-glba # NPI stays in shop surfaces per GLBA
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

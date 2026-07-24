@@ -28,7 +28,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: medium # a bounded collation plus a deadline capture; the read/match work is the bulk, the safety is in what it refuses
-    trust_ceiling: draft_for_review # produces a staged inputs packet and surfaced deadlines for the attorney; never writes the brief, never finalizes a deadline
     action_class: read + internal_write # reads matter documents and the calendar; the writes are the internal log (create_memo) and a tracked task (create_task). No external send.
     content_ceiling: connective # collates authored components into a packet and captures deadline inputs; never the brief, never valuation, never a computed final deadline
     connectors:

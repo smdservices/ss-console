@@ -1,17 +1,8 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
-import '../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../lib/config/brand'
+import PortalShell from '../../../../layouts/PortalShell.astro'
 import { getPortalClient } from '../../../../lib/portal/session'
-import { getProductSubscription, listProductRoles } from '../../../../lib/portal/product-access'
-import {
-  getIntakeByEntity,
-  type HostedAgentIntakeRow,
-} from '../../../../lib/db/hosted-agent-intake'
-import { HOSTED_AGENT_PRODUCT_SLUG } from '../../../../lib/portal/hosted-agent-access'
-import PortalHeader from '../../../../components/portal/PortalHeader.astro'
+import { resolveHostedAgentState } from '../../../../lib/portal/hosted-agent-state'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -47,35 +38,8 @@ if (!portalData.client) {
 
 const { user, client } = portalData
 
-type SurfaceState = 'no_subscription' | 'setup' | 'paused' | 'live' | 'no_role'
-
-let surfaceState: SurfaceState
-let intake: HostedAgentIntakeRow | null = null
-
-const subscription = await getProductSubscription(env.DB, client.id, HOSTED_AGENT_PRODUCT_SLUG)
-if (!subscription) {
-  surfaceState = 'no_subscription'
-} else {
-  const roles = await listProductRoles(env.DB, user.id, client.id, HOSTED_AGENT_PRODUCT_SLUG)
-  intake = await getIntakeByEntity(env.DB, client.id)
-  if (roles.length === 0) {
-    surfaceState = 'no_role'
-  } else if (subscription.status === 'paused') {
-    surfaceState = 'paused'
-  } else if (subscription.status === 'active' && intake?.status === 'live') {
-    surfaceState = 'live'
-  } else {
-    surfaceState = 'setup'
-  }
-}
-
-const needsIntake = surfaceState === 'setup' && intake?.status === 'awaiting_intake'
-const needsKey =
-  surfaceState === 'setup' &&
-  intake !== null &&
-  intake.anthropic_key_status === 'pending' &&
-  intake.customer_slug !== null
-const keyReceived = intake?.anthropic_key_status === 'received'
+const agentState = await resolveHostedAgentState(env.DB, client.id, user.id)
+const { surfaceState, intake, needsIntake, needsKey, keyReceived } = agentState
 
 /**
  * The setup journey, rendered as a numbered step list so a new customer
@@ -196,234 +160,219 @@ const stMessage =
           : null
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Hosted Agent | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Hosted Agent"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  {
+    /* No crumb: this page is the Agent nav tab's destination — a "← Home"
+      crumb would duplicate the Home tab directly above it. */
+  }
+  <PortalPageHead tag="Product" h1="Hosted Agent" meta={null} />
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal"
-        crumbLabel="Home"
-        tag="Product"
-        h1="Hosted Agent"
-        meta={null}
-      />
+  {
+    stMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          stStatus === 'saved'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {stMessage}
+      </div>
+    )
+  }
 
-      {
-        stMessage && (
-          <div
-            role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
-              stStatus === 'saved'
-                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
-                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
-            }`}
-          >
-            {stMessage}
-          </div>
-        )
-      }
+  {
+    surfaceState === 'no_subscription' && (
+      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          Not subscribed
+        </p>
+        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          Your account doesn't include the Hosted Agent product.
+        </p>
+      </div>
+    )
+  }
 
-      {
-        surfaceState === 'no_subscription' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Not subscribed
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              Your account doesn't include the Hosted Agent product.
-            </p>
-          </div>
-        )
-      }
+  {
+    surfaceState === 'no_role' && (
+      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          Access pending
+        </p>
+        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          A Hosted Agent exists on this account, but your user has no role on it yet.
+        </p>
+      </div>
+    )
+  }
 
-      {
-        surfaceState === 'no_role' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Access pending
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              A Hosted Agent exists on this account, but your user has no role on it yet.
-            </p>
-          </div>
-        )
-      }
+  {
+    surfaceState === 'paused' && (
+      <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+        <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          Paused
+        </p>
+        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          Your subscription is paused. Your agent is not running.
+        </p>
+      </div>
+    )
+  }
 
-      {
-        surfaceState === 'paused' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Paused
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              Your subscription is paused. Your agent is not running.
-            </p>
-          </div>
-        )
-      }
+  {
+    surfaceState === 'setup' && (
+      <div class="mt-10 flex flex-col gap-6">
+        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-10">
+          <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            Setup in progress
+          </p>
+          <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
+            Your subscription is active. We build each agent by hand, and this page shows the true
+            state of every step. Anything that needs you also arrives by email.
+          </p>
+        </div>
 
-      {
-        surfaceState === 'setup' && (
-          <div class="mt-10 flex flex-col gap-6">
-            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-10">
-              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                Setup in progress
-              </p>
-              <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-                Your subscription is active. We build each agent by hand, and this page shows the
-                true state of every step. Anything that needs you also arrives by email.
-              </p>
-            </div>
-
-            <ol class="flex flex-col gap-4">
-              {setupSteps.map((step, i) => {
-                const badge = stepBadge[step.state]
-                const inner = (
-                  <>
-                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                      <p class="font-body text-lg font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                        {i + 1}. {step.title}
-                      </p>
-                      <span
-                        class={`border-[2px] px-2 py-0.5 font-mono text-xs font-bold uppercase tracking-[0.14em] ${badge.klass}`}
-                      >
-                        {badge.label}
-                      </span>
-                    </div>
-                    <p class="mt-2 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-                      {step.detail}
-                    </p>
-                  </>
-                )
-                return (
-                  <li>
-                    {step.href ? (
-                      <a
-                        href={step.href}
-                        class="block border-[3px] border-[color:var(--ss-color-primary)] p-5 md:p-6 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
-                      >
-                        {inner}
-                      </a>
-                    ) : (
-                      <div
-                        class={`border-[3px] p-5 md:p-6 ${
-                          step.state === 'done'
-                            ? 'border-[color:var(--ss-color-complete)]'
-                            : 'border-[color:var(--ss-color-text-primary)]'
-                        }`}
-                      >
-                        {inner}
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ol>
-
-            <p class="font-body text-base text-[color:var(--ss-color-text-secondary)]">
-              Questions at any point: team@smd.services. A person answers.
-            </p>
-          </div>
-        )
-      }
-
-      {
-        surfaceState === 'live' && (
-          <div class="mt-10 flex flex-col gap-6">
-            <div class="border-[3px] border-[color:var(--ss-color-complete)] p-8 md:p-10">
-              <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                {intake?.agent_name ?? 'Your agent'} is live
-              </p>
-              {intake?.channel_details && (
-                <p class="mt-4 font-body text-lg leading-relaxed whitespace-pre-wrap text-[color:var(--ss-color-text-primary)]">
-                  {intake.channel_details}
-                </p>
-              )}
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-                <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                  Who it accepts email from
-                </p>
-                {allowedSenders.length > 0 ? (
-                  <ul class="mt-3 flex flex-col gap-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
-                    {allowedSenders.map((s) => (
-                      <li>{s}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-                    No senders on file. Write to team@smd.services to set the allowlist.
+        <ol class="flex flex-col gap-4">
+          {setupSteps.map((step, i) => {
+            const badge = stepBadge[step.state]
+            const inner = (
+              <>
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <p class="font-body text-lg font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                    {i + 1}. {step.title}
                   </p>
-                )}
-                <p class="mt-3 font-body text-sm text-[color:var(--ss-color-text-secondary)]">
-                  Mail from anyone else is ignored. Changes to this list go through our team.
-                </p>
-              </div>
-
-              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-                <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                  How it works for you
-                </p>
-                <ul class="mt-3 flex flex-col gap-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
-                  {intake?.timezone && <li>Morning digest, on your clock ({intake.timezone})</li>}
-                  <li>Replies to you arrive directly</li>
-                  <li>Anything for a third party comes to you as a draft first</li>
-                </ul>
-              </div>
-            </div>
-
-            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-              <div class="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                    Billing
-                  </p>
-                  <p class="mt-2 font-body text-base text-[color:var(--ss-color-text-secondary)]">
-                    Update your card, view invoices, or cancel. Cancellation takes effect at the end
-                    of the billing period, per the{' '}
-                    <a
-                      href="https://smd.services/agent/terms"
-                      class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-text-primary)]"
-                    >
-                      Hosted Agent terms
-                    </a>
-                    .
-                  </p>
-                </div>
-                <form method="POST" action="/api/portal/products/hosted-agent/billing">
-                  <button
-                    type="submit"
-                    class="px-6 py-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                  <span
+                    class={`border-[2px] px-2 py-0.5 font-mono text-xs font-bold uppercase tracking-[0.14em] ${badge.klass}`}
                   >
-                    Manage Billing
-                  </button>
-                </form>
-              </div>
-            </div>
+                    {badge.label}
+                  </span>
+                </div>
+                <p class="mt-2 font-body text-base text-[color:var(--ss-color-text-secondary)]">
+                  {step.detail}
+                </p>
+              </>
+            )
+            return (
+              <li>
+                {step.href ? (
+                  <a
+                    href={step.href}
+                    class="block border-[3px] border-[color:var(--ss-color-primary)] p-5 md:p-6 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <div
+                    class={`border-[3px] p-5 md:p-6 ${
+                      step.state === 'done'
+                        ? 'border-[color:var(--ss-color-complete)]'
+                        : 'border-[color:var(--ss-color-text-primary)]'
+                    }`}
+                  >
+                    {inner}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ol>
 
-            <p class="font-body text-base text-[color:var(--ss-color-text-secondary)]">
-              Setup changes and questions: team@smd.services. A person answers.
+        <p class="font-body text-base text-[color:var(--ss-color-text-secondary)]">
+          Questions at any point: team@smd.services. A person answers.
+        </p>
+      </div>
+    )
+  }
+
+  {
+    surfaceState === 'live' && (
+      <div class="mt-10 flex flex-col gap-6">
+        <div class="border-[3px] border-[color:var(--ss-color-complete)] p-8 md:p-10">
+          <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            {intake?.agent_name ?? 'Your agent'} is live
+          </p>
+          {intake?.channel_details && (
+            <p class="mt-4 font-body text-lg leading-relaxed whitespace-pre-wrap text-[color:var(--ss-color-text-primary)]">
+              {intake.channel_details}
+            </p>
+          )}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              Who it accepts email from
+            </p>
+            {allowedSenders.length > 0 ? (
+              <ul class="mt-3 flex flex-col gap-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+                {allowedSenders.map((s) => (
+                  <li>{s}</li>
+                ))}
+              </ul>
+            ) : (
+              <p class="mt-3 font-body text-base text-[color:var(--ss-color-text-secondary)]">
+                No senders on file. Write to team@smd.services to set the allowlist.
+              </p>
+            )}
+            <p class="mt-3 font-body text-sm text-[color:var(--ss-color-text-secondary)]">
+              Mail from anyone else is ignored. Changes to this list go through our team.
             </p>
           </div>
-        )
-      }
-    </main>
-  </body>
-</html>
+
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+              How it works for you
+            </p>
+            <ul class="mt-3 flex flex-col gap-1 font-body text-base text-[color:var(--ss-color-text-primary)]">
+              {intake?.timezone && <li>Morning digest, on your clock ({intake.timezone})</li>}
+              <li>Replies to you arrive directly</li>
+              <li>Anything for a third party comes to you as a draft first</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Billing
+              </p>
+              <p class="mt-2 font-body text-base text-[color:var(--ss-color-text-secondary)]">
+                Update your card, view invoices, or cancel. Cancellation takes effect at the end of
+                the billing period, per the{' '}
+                <a
+                  href="https://smd.services/agent/terms"
+                  class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-text-primary)]"
+                >
+                  Hosted Agent terms
+                </a>
+                .
+              </p>
+            </div>
+            <form method="POST" action="/api/portal/billing/manage">
+              <input type="hidden" name="product_slug" value="hosted-agent" />
+              <button
+                type="submit"
+                class="px-6 py-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+              >
+                Manage Billing
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <p class="font-body text-base text-[color:var(--ss-color-text-secondary)]">
+          Setup changes and questions: team@smd.services. A person answers.
+        </p>
+      </div>
+    )
+  }
+</PortalShell>

@@ -47,6 +47,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Protocol, Sequence
 
 
@@ -68,6 +69,11 @@ class MatterDeadline:
     matter_open: bool = True
     conflict_hold: bool = False
     acknowledged: bool = False  # a human already acked this escalation → stop re-firing
+    # The stable Smokeball task/event id — the anti-collision half of item
+    # identity (two same-day tasks on one matter differ only by this). ``None``
+    # for an item with no stable id: it gets no per-item ack token and renders
+    # in the blanket-ack-only group.
+    task_id: str | None = None
 
 
 class DeadlineSource(Protocol):
@@ -89,6 +95,157 @@ class EscalationWindows:
     escalation_window_days: int = 14  # a deadline this near (or overdue) is in escalation range
     near_days: int = 7  # within this → re-route rung
     notify_days: int = 3  # within this (or overdue) → notify rung (ESCALATION_FIRED)
+
+
+# ---------------------------------------------------------------------------
+# Re-fire policy — fire once, re-fire only on the authored window (never daily);
+# ack is a snooze, not a tombstone. Pack-authored defaults are legitimate
+# content (ADR 0035): a repetitive deadline watcher is worse than a silent one,
+# so refire_days ships a default rather than fail-closing to quiet.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FirePolicy:
+    refire_days: int = 3  # re-fire an unacked, still-open item only this many days after the last raise
+    ack_snooze_days: int = 7  # an acked-but-unresolved item re-surfaces this many days after the ack
+
+
+_PACK_DEFAULT_WINDOWS = EscalationWindows()
+_PACK_DEFAULT_FIRE_POLICY = FirePolicy()
+
+
+def _pos_int(value, fallback: int) -> int:
+    """A positive int override, else the pack default. Any junk → default
+    (never crash, never silently suppress)."""
+    if isinstance(value, bool):
+        return fallback
+    if isinstance(value, int) and value > 0:
+        return value
+    return fallback
+
+
+def load_escalation_config(
+    customer_yaml_path: str | None = None,
+) -> tuple[EscalationWindows, FirePolicy]:
+    """Read the escalation windows + re-fire policy from the trusted volume
+    customer.yaml (``SMD_CUSTOMER_YAML_PATH`` — the root-owned copy the ADR-0044
+    applier live-updates, so a value change reaches pre_run without a rebuild).
+
+    Keys, all under the top-level ``escalation:`` block, all optional:
+    ``escalation_window_days`` / ``near_days`` / ``notify_days`` /
+    ``refire_days`` / ``ack_snooze_days``. Missing file, missing PyYAML, or an
+    unparseable file → pack defaults (authored content, never a crash and never
+    silent suppression)."""
+    path = customer_yaml_path or os.environ.get("SMD_CUSTOMER_YAML_PATH")
+    if not path:
+        return _PACK_DEFAULT_WINDOWS, _PACK_DEFAULT_FIRE_POLICY
+    try:
+        import yaml  # available in the Hermes venv (the overlay's config reader uses it)
+    except ImportError:
+        return _PACK_DEFAULT_WINDOWS, _PACK_DEFAULT_FIRE_POLICY
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except (OSError, yaml.YAMLError):
+        return _PACK_DEFAULT_WINDOWS, _PACK_DEFAULT_FIRE_POLICY
+    esc = data.get("escalation") if isinstance(data, dict) else None
+    if not isinstance(esc, dict):
+        return _PACK_DEFAULT_WINDOWS, _PACK_DEFAULT_FIRE_POLICY
+    windows = EscalationWindows(
+        escalation_window_days=_pos_int(
+            esc.get("escalation_window_days"), _PACK_DEFAULT_WINDOWS.escalation_window_days
+        ),
+        near_days=_pos_int(esc.get("near_days"), _PACK_DEFAULT_WINDOWS.near_days),
+        notify_days=_pos_int(esc.get("notify_days"), _PACK_DEFAULT_WINDOWS.notify_days),
+    )
+    policy = FirePolicy(
+        refire_days=_pos_int(esc.get("refire_days"), _PACK_DEFAULT_FIRE_POLICY.refire_days),
+        ack_snooze_days=_pos_int(
+            esc.get("ack_snooze_days"), _PACK_DEFAULT_FIRE_POLICY.ack_snooze_days
+        ),
+    )
+    return windows, policy
+
+
+# ---------------------------------------------------------------------------
+# Escalation ledger — the vendored copy of the shared module (byte-identical to
+# operator/workspace_broker/escalation_ledger.py; see test_escalation_ledger_sync).
+# Loaded by absolute path because the cron scheduler may run pre_run from a
+# staged scripts dir, not the skill dir. If it cannot be loaded, the escalator
+# fails OPEN — it fires every in-range item (the old behavior) rather than going
+# silent, because a silent deadline watcher is the dangerous failure.
+# ---------------------------------------------------------------------------
+
+
+def _load_ledger_module():
+    import importlib.util
+
+    candidates = [Path(__file__).resolve().parent]
+    for base in ("/opt/data/skills", "/app/skills"):
+        candidates.append(Path(base) / "deadline-miss-escalator")
+    for cand in candidates:
+        module_path = cand / "escalation_ledger.py"
+        if module_path.is_file():
+            spec = importlib.util.spec_from_file_location(
+                "escalation_ledger_vendored", module_path
+            )
+            if spec is None or spec.loader is None:
+                continue
+            module = importlib.util.module_from_spec(spec)
+            # Register BEFORE exec: on Python 3.14 a `@dataclass` under
+            # `from __future__ import annotations` resolves its string
+            # annotations via sys.modules[cls.__module__] at class-creation
+            # time, so the module must be importable by its own name first.
+            sys.modules[spec.name] = module
+            spec.loader.exec_module(module)
+            return module
+    return None
+
+
+def enrich_with_ledger(
+    deadlines: Sequence[MatterDeadline],
+    *,
+    today: date,
+    policy: FirePolicy,
+    ledger_events: Sequence[dict] | None = None,
+) -> list[MatterDeadline]:
+    """Join pulled deadlines against the escalation ledger and set each item's
+    ``acknowledged`` to the negation of "should fire now": an item is treated as
+    acknowledged (suppressed) when it fired recently (inside the re-fire window),
+    was acked and is still inside the snooze window, or was handed off/resolved.
+    An item that should fire now stays un-acknowledged and wakes the ladder.
+
+    Ledger unavailable (module load fails) → fire-open: every item's
+    ``acknowledged`` is left as pulled (False), i.e. the pre-ledger behavior."""
+    ledger = _load_ledger_module()
+    if ledger is None:
+        return list(deadlines)
+    if ledger_events is None:
+        ledger_events = ledger.read_ledger()
+    states = ledger.derive_state(ledger_events)
+    enriched: list[MatterDeadline] = []
+    for d in deadlines:
+        key = ledger.item_key(d.matter_id, d.task_id, d.label, d.authored_date)
+        state = states.get(key)
+        fire = ledger.should_fire(
+            state,
+            today,
+            refire_days=policy.refire_days,
+            ack_snooze_days=policy.ack_snooze_days,
+        )
+        enriched.append(
+            MatterDeadline(
+                matter_id=d.matter_id,
+                authored_date=d.authored_date,
+                label=d.label,
+                matter_open=d.matter_open,
+                conflict_hold=d.conflict_hold,
+                acknowledged=not fire,
+                task_id=d.task_id,
+            )
+        )
+    return enriched
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +350,7 @@ def _deadline_to_dict(d: MatterDeadline) -> dict:
         "matter_open": d.matter_open,
         "conflict_hold": d.conflict_hold,
         "acknowledged": d.acknowledged,
+        "task_id": d.task_id,
     }
 
 
@@ -204,14 +362,24 @@ async def run_once(
     skill_name: str = "deadline-miss-escalator",
     today: date | None = None,
     now: datetime | None = None,
+    fire_policy: FirePolicy | None = None,
+    ledger_events: Sequence[dict] | None = None,
 ) -> int:
     """Driver. Returns the exit code; emits stdout JSON as a side effect.
 
     ``audit_writer_factory`` is called only when we would suppress. The factory
     may return None to signal "no audit writer wired (dev mode)" — in which case
-    suppression falls back to wake (mirror-don't-gate)."""
+    suppression falls back to wake (mirror-don't-gate).
+
+    The pull is joined against the escalation ledger (``enrich_with_ledger``) so
+    an item that already fired inside its re-fire window, or was acked and is
+    still snoozed, does NOT re-wake the ladder — the fix for the daily re-fire.
+    ``fire_policy``/``ledger_events`` default to the live config + the on-disk
+    ledger; tests inject them directly."""
     now = now or datetime.now(timezone.utc)
     today = today or now.date()
+    if fire_policy is None:
+        _windows_unused, fire_policy = load_escalation_config()
     deadlines: list[MatterDeadline] = []
     raw_input_blob: bytes = b""
     for source in sources:
@@ -220,6 +388,10 @@ async def run_once(
         raw_input_blob += json.dumps(
             [_deadline_to_dict(d) for d in pulled], sort_keys=True
         ).encode("utf-8")
+
+    deadlines = enrich_with_ledger(
+        deadlines, today=today, policy=fire_policy, ledger_events=ledger_events
+    )
 
     decision = decide(
         deadlines,
@@ -287,6 +459,9 @@ print(json.dumps(out, default=str))
 _TASK_DATE_KEYS = ("dueDate", "DueDate", "due_date")
 _EVENT_DATE_KEYS = ("startTime", "StartTime", "startDate", "start", "from")
 _MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id", "id")
+# The Smokeball task/event id, extracted INDEPENDENTLY of matter id (a task's
+# own ``id`` is not its matter) — the anti-collision half of item identity.
+_SOURCE_ID_KEYS = ("id", "Id", "taskId", "TaskId", "eventId", "EventId")
 
 
 def _extract_items(payload) -> list | None:
@@ -319,11 +494,32 @@ def _first_date(item: dict, keys: Sequence[str]) -> date | None:
 
 
 def _matter_id_of(item: dict) -> str:
+    # The live Smokeball /tasks payload carries the matter as a NESTED link
+    # object ({"matter": {"id": ..., "href": ...}}), not a flat matterId —
+    # found by the WP-D probe (ss #1915). The flat keys stay as fallbacks; the
+    # bare "id" fallback is last (it is the TASK's own id, kept only for the
+    # calendar-entry shapes that flatten differently).
+    matter = item.get("matter") or item.get("Matter")
+    if isinstance(matter, dict):
+        nested = matter.get("id") or matter.get("Id")
+        if isinstance(nested, str) and nested:
+            return nested
     for key in _MATTER_ID_KEYS:
         value = item.get(key)
         if isinstance(value, str) and value:
             return value
     return "unknown-matter"
+
+
+def _source_id_of(item: dict) -> str | None:
+    """The item's own stable Smokeball id, or None. Never falls back to the
+    matter id — a per-item ack token keyed on the matter would silence every
+    item on that matter."""
+    for key in _SOURCE_ID_KEYS:
+        value = item.get(key)
+        if isinstance(value, (str, int)) and str(value).strip():
+            return str(value)
+    return None
 
 
 def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
@@ -360,11 +556,14 @@ def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
                     matter_id=_matter_id_of(item),
                     authored_date=authored,
                     label=label,
-                    # No acknowledgment ledger exists yet; conservative
-                    # defaults keep every in-range deadline waking the ladder.
                     matter_open=True,
                     conflict_hold=False,
+                    # ``acknowledged`` here is the pure-parse default; the real
+                    # per-item state is joined from the escalation ledger in
+                    # run_once (see enrich_with_ledger). Carrying the stable
+                    # source id makes that join collision-safe.
                     acknowledged=False,
+                    task_id=_source_id_of(item),
                 )
             )
     if total_items > 0 and not deadlines:
@@ -474,12 +673,14 @@ def main() -> int:
     if not customer_slug:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
         return _emit_wake()
-    windows = EscalationWindows()
+    windows, fire_policy = load_escalation_config()
     today = datetime.now(timezone.utc).date()
     source = SmokeballSubprocessSource(windows, today)
     try:
         return asyncio.run(
-            run_once([source], windows, _writer_factory, today=today)
+            run_once(
+                [source], windows, _writer_factory, today=today, fire_policy=fire_policy
+            )
         )
     except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
         sys.stderr.write(f"[pre_run] escalator pre_run failed ({exc}); waking\n")

@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   buildConnectionRows,
   formatCustody,
-  describeCustody,
+  connectionCareNote,
+  adapterDisplayName,
+  capabilityDisplayName,
+  connectionDefaultNote,
 } from '../src/lib/portal/operator/connections'
 
 describe('buildConnectionRows', () => {
@@ -46,12 +49,54 @@ describe('buildConnectionRows', () => {
 })
 
 describe('custody labels', () => {
-  it('formatCustody', () => {
-    expect(formatCustody('self_held')).toBe('Self-held')
-    expect(formatCustody('delegated')).toBe('Delegated to SMD')
+  it('formatCustody speaks client language (Captain, 2026-07-15: "delegated" read as loss of control)', () => {
+    expect(formatCustody('self_held')).toBe('Key held by your firm')
+    expect(formatCustody('delegated')).toBe('Managed by SMD')
   })
-  it('describeCustody is honest about the recovery trade', () => {
-    expect(describeCustody('self_held')).toContain('Only you')
-    expect(describeCustody('delegated')).toContain('SMD')
+  it('connectionCareNote is honest about who can actually reconnect', () => {
+    const base = {
+      capabilityName: 'Email',
+      adapter: 'agentmail',
+      authMode: null,
+      health: 'unconfigured',
+      reconsentRequired: false,
+      smdReachable: true,
+    } as const
+    expect(connectionCareNote({ ...base, custody: 'self_held' })).toContain('Only you')
+    // SMD-held credential: SMD really can re-establish alone.
+    expect(connectionCareNote({ ...base, custody: 'delegated' })).toContain(
+      're-establish it for you'
+    )
+    // authorization_code: the firm approves a fresh authorization; SMD only sends the link.
+    const oauth = connectionCareNote({
+      ...base,
+      adapter: 'smokeball',
+      authMode: 'authorization_code',
+      custody: 'delegated',
+    })
+    expect(oauth).toContain('authorization link')
+    expect(oauth).not.toContain('re-establish it for you')
+  })
+})
+
+describe('client display names (no raw slugs on the page)', () => {
+  it('maps known adapter slugs to product names and unknown slugs to null', () => {
+    expect(adapterDisplayName('agentmail')).toBe('AgentMail')
+    expect(adapterDisplayName('smokeball')).toBe('Smokeball')
+    expect(adapterDisplayName('some-new-adapter')).toBeNull()
+  })
+  it('renders capability keys in client language', () => {
+    expect(capabilityDisplayName('PracticeManagement')).toBe('Practice management')
+    expect(capabilityDisplayName('Email')).toBe('Email')
+  })
+  it('marks the AgentMail mailbox as an SMD-provided default, nothing else', () => {
+    const rows = buildConnectionRows(
+      { Email: { adapter: 'agentmail' }, PracticeManagement: { adapter: 'smokeball' } },
+      'delegated'
+    )
+    const email = rows.find((r) => r.adapter === 'agentmail')!
+    const pm = rows.find((r) => r.adapter === 'smokeball')!
+    expect(connectionDefaultNote(email)).toContain('default')
+    expect(connectionDefaultNote(pm)).toBeNull()
   })
 })

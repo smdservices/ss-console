@@ -1,12 +1,8 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
-import '../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../lib/config/brand'
+import PortalShell from '../../../../layouts/PortalShell.astro'
 import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
 import { getIntakeByEntity } from '../../../../lib/db/hosted-agent-intake'
-import PortalHeader from '../../../../components/portal/PortalHeader.astro'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
-import SkipToMain from '../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -55,92 +51,78 @@ const banner: { tone: 'complete' | 'error'; text: string } | null =
 const keyReceived = intake.anthropic_key_status === 'received'
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>API Key | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={access.client.name} />
+<PortalShell
+  title="API Key"
+  clientName={access.client.name}
+  orgId={access.client.org_id}
+  entityId={access.client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/hosted-agent"
+    crumbLabel="Hosted Agent"
+    tag="Setup"
+    h1="Anthropic API Key"
+    meta={null}
+  />
 
-    <main id="main" role="main" class="max-w-3xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal/products/hosted-agent"
-        crumbLabel="Hosted Agent"
-        tag="Setup"
-        h1="Anthropic API Key"
-        meta={null}
-      />
+  {
+    banner && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          banner.tone === 'complete'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {banner.text}
+      </div>
+    )
+  }
 
+  <div class="mt-8 flex flex-col gap-6">
+    <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
+      <p class="font-body text-base text-[color:var(--ss-color-text-primary)]">
+        Your agent runs on your own Anthropic API key. Create a dedicated key in your Anthropic
+        console, set a monthly spend limit on it there, and paste it below. The key relays straight
+        into your agent's isolated vault: it is never stored on this site, never shown back to you,
+        and never visible to anyone here.
+      </p>
       {
-        banner && (
-          <div
-            role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
-              banner.tone === 'complete'
-                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
-                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
-            }`}
-          >
-            {banner.text}
-          </div>
+        keyReceived && (
+          <p class="mt-4 font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
+            A key is on file for your agent
+          </p>
         )
       }
+    </div>
 
-      <div class="mt-8 flex flex-col gap-6">
-        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
-          <p class="font-body text-base text-[color:var(--ss-color-text-primary)]">
-            Your agent runs on your own Anthropic API key. Create a dedicated key in your Anthropic
-            console, set a monthly spend limit on it there, and paste it below. The key relays
-            straight into your agent's isolated vault: it is never stored on this site, never shown
-            back to you, and never visible to anyone here.
-          </p>
-          {
-            keyReceived && (
-              <p class="mt-4 font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
-                A key is on file for your agent
-              </p>
-            )
-          }
-        </div>
-
-        <form
-          method="POST"
-          action="/api/portal/products/hosted-agent/anthropic-key"
-          class="flex flex-col gap-4"
-        >
-          <label
-            for="secret"
-            class="block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
-          >
-            {keyReceived ? 'Replace your key' : 'Paste your key'}
-          </label>
-          <input
-            id="secret"
-            name="secret"
-            type="password"
-            autocomplete="off"
-            required
-            class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
-          />
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
-          >
-            Relay Key to Vault
-          </button>
-        </form>
-      </div>
-    </main>
-  </body>
-</html>
+    <form
+      method="POST"
+      action="/api/portal/products/hosted-agent/anthropic-key"
+      class="flex flex-col gap-4"
+    >
+      <label
+        for="secret"
+        class="block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
+      >
+        {keyReceived ? 'Replace your key' : 'Paste your key'}
+      </label>
+      <input
+        id="secret"
+        name="secret"
+        type="password"
+        autocomplete="off"
+        required
+        class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
+      />
+      <button
+        type="submit"
+        class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+      >
+        Relay Key to Vault
+      </button>
+    </form>
+  </div>
+</PortalShell>

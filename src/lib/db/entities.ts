@@ -101,6 +101,7 @@ export interface CreateEntityData {
   area?: string | null
   phone?: string | null
   website?: string | null
+  vertical?: string | null
   stage?: EntityStage
   source_pipeline?: string | null
 }
@@ -115,8 +116,7 @@ export interface UpdateEntityData {
 }
 
 export type FindOrCreateResult =
-  | { status: 'created'; entity: Entity }
-  | { status: 'found'; entity: Entity }
+  { status: 'created'; entity: Entity } | { status: 'found'; entity: Entity }
 
 export interface TransitionStageOptions {
   /** Override reason — bypasses pre-condition checks where documented. */
@@ -349,7 +349,7 @@ export async function createEntity(
   const now = new Date().toISOString()
   await db
     .prepare(
-      `INSERT INTO entities (id, org_id, name, slug, phone, website, area, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO entities (id, org_id, name, slug, phone, website, area, vertical, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -359,6 +359,7 @@ export async function createEntity(
       data.phone ?? null,
       data.website ?? null,
       data.area ?? null,
+      data.vertical ?? null,
       data.stage ?? 'signal',
       now,
       data.source_pipeline ?? null,

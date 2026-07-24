@@ -13,7 +13,6 @@ metadata:
     tags: [Health, Monitoring, SMD, Customer-Zero, Cron]
   smd:
     customer: smd
-    trust_ceiling: autonomous
 ---
 
 # SMD Fleet Health Monitor

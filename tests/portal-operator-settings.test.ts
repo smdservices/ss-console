@@ -1,13 +1,9 @@
 /**
- * Tests for the Operator settings resolver
- * (src/lib/portal/operator/settings.ts).
- *
- * The settings page composes four pure projections from
- * customer.yaml plus two subsystem-bound reads (voice samples,
- * connector health) that are stubbed empty today. We cover the
- * pure projections directly and assert that the stubbed reads
- * keep returning empty arrays so a future change cannot silently
- * fabricate rows.
+ * Tests for the Operator settings contracts
+ * (src/lib/portal/operator/settings.ts): the pure customer.yaml
+ * projections the facet resolvers consume (trust ceilings, skill
+ * toggles, connector rows). The voice-sample family was removed
+ * 2026-07-15 (inert chrome close-out).
  */
 
 import { describe, it, expect } from 'vitest'
@@ -16,13 +12,11 @@ import {
   connectorRowsFromCustomerYaml,
   formatConnectorHealth,
   formatTrustCeilingLevel,
-  formatVoiceSampleStatus,
   isTrustCeilingLevel,
   skillToggleRowsFromPersona,
   trustCeilingRowsFromPersona,
   type ConnectorHealth,
   type TrustCeilingLevel,
-  type VoiceSampleStatus,
 } from '../src/lib/portal/operator/settings'
 import type { PersonaConfig } from '../src/lib/portal/customer-config'
 
@@ -89,15 +83,20 @@ describe('trustCeilingRowsFromPersona', () => {
       { actionClass: 'destructive', ceiling: 'refused' },
     ])
     const rows = trustCeilingRowsFromPersona(persona)
-    expect(rows).toHaveLength(5)
+    // internal_write, external_send, external_send_internal, external_send_client,
+    // external_send_vendor, commitment, destructive, code_execution (ADR 0075)
+    expect(rows).toHaveLength(8)
     expect(rows[0]).toEqual({
       skillName: 'internal_write',
       currentLevel: 'draft_for_review',
       rawLevel: 'draft_for_review',
       actionClass: 'internal_write',
     })
-    expect(rows[1].currentLevel).toBe('autonomous')
-    expect(rows[3].currentLevel).toBe('refused')
+    expect(rows[1].currentLevel).toBe('autonomous') // external_send
+    expect(rows[2].currentLevel).toBeNull() // external_send_internal, unauthored → fail-closed
+    expect(rows[3].currentLevel).toBeNull() // external_send_client, unauthored → fail-closed
+    expect(rows[4].currentLevel).toBeNull() // external_send_vendor, unauthored → fail-closed
+    expect(rows[6].currentLevel).toBe('refused') // destructive
   })
 
   it('null-out currentLevel for an unknown ceiling, keeping rawLevel', () => {
@@ -189,19 +188,6 @@ describe('formatConnectorHealth', () => {
     ]
     for (const [value, label] of cases) {
       expect(formatConnectorHealth(value)).toBe(label)
-    }
-  })
-})
-
-describe('formatVoiceSampleStatus', () => {
-  it('maps every value to a friendly label', () => {
-    const cases: Array<[VoiceSampleStatus, string]> = [
-      ['ready', 'Ready'],
-      ['pending', 'Pending'],
-      ['error', 'Error'],
-    ]
-    for (const [value, label] of cases) {
-      expect(formatVoiceSampleStatus(value)).toBe(label)
     }
   })
 })

@@ -19,12 +19,13 @@ import pytest
 _OPERATOR_ROOT = Path(__file__).resolve().parents[1]
 _TEMPLATE = _OPERATOR_ROOT / "templates" / "pre_run_gate.py"
 
-# The 11 always-wake PI-pack skills gated by the empty-seat gate (#1748).
-# deadline-miss-escalator keeps its bespoke deadline pre_run and is NOT here.
+# The always-wake PI-pack skills gated by the empty-seat gate (#1748).
+# deadline-miss-escalator keeps its bespoke deadline pre_run and is NOT here;
+# client-verification-tracker graduated to its own bespoke cadence gate (WP-B,
+# #1889) and is likewise no longer on the shared template.
 GATED_SKILLS = (
     "daily-needs-you-digest",
     "discovery-response-tracker",
-    "client-verification-tracker",
     "motion-calendar-tracker",
     "service-confirmation-watcher",
     "medical-chronology-maintainer",

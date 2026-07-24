@@ -469,7 +469,7 @@ describe('portal proposal page: render gating', () => {
   // Schedule/deliverable rendering was extracted to QuoteProposalSections.astro
   // to keep [id].astro within the 500-line ceiling. Combined source covers both.
   const source = () =>
-    readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8') +
+    readFileSync(resolve('src/pages/portal/engagement/proposals/[id].astro'), 'utf-8') +
     '\n' +
     readFileSync(resolve('src/components/portal/QuoteProposalSections.astro'), 'utf-8')
 

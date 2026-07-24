@@ -1,0 +1,96 @@
+---
+/**
+ * Admin navigation band (admin portal rethink, 2026-07-14, ADR 0077).
+ *
+ * Deliberately a mirror of PortalNav.astro so the admin and client consoles
+ * read as one system: desktop sticky tabs below the header, mobile fixed
+ * bottom bar, section anchors, burnt-orange active tile. The only structural
+ * difference from the portal is that the admin spine is fixed (buildAdminNav
+ * takes no arguments) rather than derived per-client.
+ */
+import { isAdminNavActive, type AdminNavDestination } from '../../lib/admin/nav'
+
+interface Props {
+  destinations: AdminNavDestination[]
+  pathname: string
+  maxWidth?: 'max-w-5xl' | 'max-w-6xl'
+}
+
+const { destinations, pathname, maxWidth = 'max-w-5xl' } = Astro.props
+---
+
+<!-- Desktop: horizontal burnt-orange-active tabs below the header. -->
+<nav
+  aria-label="Admin sections"
+  class="hidden md:block sticky top-16 z-40 bg-[color:var(--ss-color-background)] border-b-[3px] border-[color:var(--ss-color-text-primary)]"
+>
+  <div class={`${maxWidth} mx-auto`}>
+    <ul class="flex items-stretch" role="list">
+      {
+        destinations.map((dest, i) => {
+          const active = isAdminNavActive(dest, pathname)
+          const base =
+            'inline-flex items-baseline gap-2 px-5 py-3 min-h-[44px] font-mono text-sm font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
+          const state = active
+            ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
+            : 'bg-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)]'
+          const isLast = i === destinations.length - 1
+          const divider = isLast ? '' : 'border-r-[2px] border-[color:var(--ss-color-text-primary)]'
+          return (
+            <li class={divider}>
+              <a
+                href={dest.href}
+                aria-current={active ? 'page' : undefined}
+                class={`${base} ${state}`}
+              >
+                <span
+                  aria-hidden="true"
+                  class={`font-mono text-xs tracking-[0.06em] ${active ? 'text-[color:var(--ss-color-background)]' : 'text-[color:var(--ss-color-primary)]'}`}
+                >
+                  § {dest.anchor}
+                </span>
+                <span>{dest.label}</span>
+              </a>
+            </li>
+          )
+        })
+      }
+    </ul>
+  </div>
+</nav>
+
+<!-- Mobile: fixed bottom bar, 3px ink top border, burnt-orange active tile. -->
+<nav
+  aria-label="Admin sections"
+  class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--ss-color-background)] border-t-[3px] border-[color:var(--ss-color-text-primary)] pb-[env(safe-area-inset-bottom)]"
+>
+  <ul class="flex divide-x-[2px] divide-[color:var(--ss-color-text-primary)]" role="list">
+    {
+      destinations.map((dest) => {
+        const active = isAdminNavActive(dest, pathname)
+        const base =
+          'flex flex-col items-center justify-center gap-0.5 py-2 min-h-[64px] font-mono text-xs tracking-[0.14em] font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset'
+        const state = active
+          ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
+          : 'bg-transparent text-[color:var(--ss-color-text-primary)] active:bg-[color:var(--ss-color-border-subtle)]'
+        return (
+          <li class="flex-1">
+            <a
+              href={dest.href}
+              aria-current={active ? 'page' : undefined}
+              class={`${base} w-full ${state}`}
+            >
+              <span
+                aria-hidden="true"
+                class={`font-mono text-[11px] leading-none tracking-[0.06em] ${active ? 'text-[color:var(--ss-color-background)]' : 'text-[color:var(--ss-color-primary)]'}`}
+              >
+                § {dest.anchor}
+              </span>
+              <span class="leading-none">{dest.label}</span>
+            </a>
+          </li>
+        )
+      })
+    }
+  </ul>
+</nav>

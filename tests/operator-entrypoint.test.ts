@@ -76,3 +76,47 @@ describe('Operator customer Machine entrypoint — broker respawn supervisor', (
     expect(/BROKER_PID=/.test(ENTRYPOINT_CODE)).toBe(false)
   })
 })
+
+/**
+ * Regression guard: the entrypoint must run the ADR 0009 cross-machine
+ * isolation boot check (invariant_7 `verify_at_boot`) before it hands off to
+ * the agent runtime, and must fail closed — including when the invariant module
+ * itself is missing or unimportable (SEC-22).
+ *
+ * @see operator/safety-substrate/invariants/invariant_7.py
+ * @see docs/adr/0009-cross-machine-query-prohibition.md
+ */
+describe('Operator customer Machine entrypoint — ADR 0009 / SEC-22 isolation boot check', () => {
+  it('invokes the invariant_7 boot check', () => {
+    expect(ENTRYPOINT_CODE).toMatch(/safety-substrate\/invariants\/invariant_7\.py/)
+    // Runs the module directly (its __main__ shim == verify_at_boot).
+    expect(ENTRYPOINT_CODE).toMatch(/python3\s+"\$\{INVARIANT7_BOOT_CHECK\}"/)
+  })
+
+  it('fails closed on a missing invariant module (degraded substrate is a refusal, not a skip)', () => {
+    // `[ ! -f "${INVARIANT7_BOOT_CHECK}" ]` -> exit 3, before the check can run.
+    expect(ENTRYPOINT_CODE).toMatch(
+      /\[\s*!\s+-f\s+"\$\{INVARIANT7_BOOT_CHECK\}"\s*\][\s\S]*?exit 3/
+    )
+  })
+
+  it('refuses the boot (exit 3) on any non-zero check result — violation OR import error', () => {
+    // The if/else around the python invocation must exit 3 in the else branch,
+    // so an unimportable module (non-zero exit, no verify_at_boot pass) also
+    // fails closed rather than falling through to the exec-drop.
+    expect(ENTRYPOINT_CODE).toMatch(
+      /if\s+\/opt\/hermes\/\.venv\/bin\/python3\s+"\$\{INVARIANT7_BOOT_CHECK\}";\s*then[\s\S]*?else[\s\S]*?exit 3[\s\S]*?fi/
+    )
+  })
+
+  it('runs the boot check BEFORE the exec-drop to the hermes gateway', () => {
+    const checkIdx = ENTRYPOINT_CODE.indexOf('INVARIANT7_BOOT_CHECK=')
+    const hermesExec = ENTRYPOINT_CODE.search(/exec\s+setpriv[\s\S]*?--reuid=hermes/)
+    expect(checkIdx, 'the boot check must be present').toBeGreaterThan(-1)
+    expect(hermesExec, 'hermes exec-drop must be present').toBeGreaterThan(-1)
+    expect(
+      checkIdx < hermesExec,
+      'isolation must be verified before the Machine serves any agent turn'
+    ).toBe(true)
+  })
+})

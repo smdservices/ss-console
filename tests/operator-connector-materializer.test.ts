@@ -123,12 +123,14 @@ function prefixOf(backend: string, prefixes: string[]): string | null {
 /**
  * Is a single resolved backend option materializable (will surface tools)?
  *   - mcp:*                       → yes (mcp_servers materializer)
+ *   - native:*                    → yes (overlay _materialize_web_search → web_search tool)
  *   - build:<a> where <a> impl'd  → yes (CLI adapter bridge)
  *   - build:<a> with no impl      → NO
  *   - synthetic:*                 → NO
  */
 function isMaterializable(option: string, buildAllowlist: Set<string>): boolean {
   if (option.startsWith('mcp:')) return true
+  if (option.startsWith('native:')) return true
   if (option.startsWith('build:')) {
     return buildAllowlist.has(option.slice('build:'.length))
   }
@@ -272,8 +274,9 @@ describe('guard bites — non-materializable bindings are rejected by the predic
       ok('build:google-gmail'),
       'build:google-* retired to the Workspace broker — no connector CLI impl'
     ).toBe(false)
-    // Materializable: mcp, and any menu containing a materializable option.
+    // Materializable: mcp, native (web search), and any menu containing one.
     expect(ok('mcp:clio-oktopeak')).toBe(true)
+    expect(ok('native:brave-free'), 'native web-search provider surfaces web_search').toBe(true)
     expect(ok('[build:filevine / mcp:clio-oktopeak / synthetic:no_pm]')).toBe(true)
   })
 

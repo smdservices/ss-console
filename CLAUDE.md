@@ -386,9 +386,9 @@ The canonical frame for what the Operator _is_. Load this before any Operator st
 
 The Phase 1 Operator SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all Operator work:
 
-1. **Hermes is the substrate. Trust it.** Skills, Honcho memory, the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`).
+1. **Hermes is the substrate. Trust it.** Skills, the flat-file memory core (`MEMORY.md`/`USER.md`), the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`). **Honcho is NOT deployed** — the 2026-05-30 revision of ADR 0016 deferred it to Phase 2 (demand-gated) after the first real boot exposed the in-container integration as fictional; Phase-1 seats run in-session flat-file memory only.
 2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, configurable send-posture routing (draft-for-review among the authored options), curated vertical skill catalogs, and the customer-facing business surface are what we build on top of Hermes — none are on its roadmap. (These are capabilities, not the moat: the moat is the harness + the guide + the memory, per [ADR 0037](docs/adr/0037-operator-thesis.md) Tenet 4. No single feature is the moat.)
-3. **Mirror, don't gate.** Where Hermes' learning loop creates state (Honcho conclusions, agent-authored skills), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. No approval queue stands between the agent and its work; safety is enforced by the authored entitlement ceilings (fail-closed when unauthored), not by an interposed gate.
+3. **Mirror, don't gate.** Where Hermes' learning loop creates state (today: agent-authored skills; Honcho conclusions if/when Phase 2 activates it), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. No approval queue stands between the agent and its work; safety is enforced by the authored entitlement ceilings (fail-closed when unauthored), not by an interposed gate.
 
 Load these ADRs before any Operator architectural work:
 
@@ -400,7 +400,7 @@ Load these ADRs before any Operator architectural work:
 - **ADR 0011** — Multi-persona per customer (persona = Hermes profile)
 - **ADR 0012** — customer.yaml storage (Git source of truth → D1+R2 materialized)
 - **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
-- **ADR 0016** — Honcho disposition (mirror, don't gate; tuned config; TTL archival)
+- **ADR 0016** — Honcho disposition (revised 2026-05-30: **deferred to Phase 2, demand-gated** — Phase 1 = flat-file memory core, no Honcho on any seat; the mirror/dismiss/TTL machinery is the Phase-2 shape)
 - **ADR 0017** — Skill Curator disposition (disable autonomous curator per-customer; keep in-conversation `skill_manage`; mirror to D1 inventory; supervised `--dry-run` consolidation only)
 - **ADR 0019** — customer.yaml → per-profile config translation
 - **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
@@ -420,7 +420,7 @@ The franchise operations manual lives in `docs/handbook/` and renders in the adm
 
 ## Key Reference
 
-- **Decision Stack:** `docs/adr/decision-stack.md` (36 active decisions across 6 layers, numbered through #49 — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
+- **Decision Stack:** `docs/adr/decision-stack.md` (34 active decisions across 6 layers, numbered through #51 (3 superseded: #2, #12, #43) — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
 - **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0061-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops

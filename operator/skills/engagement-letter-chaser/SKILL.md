@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: decision/surfacing + drafting
-    trust_ceiling: draft_for_review
     action_class: read + internal_write + draft
     connectors:
       - smokeball # PracticeManagement — matter + log (read; create_memo write)
@@ -55,7 +54,7 @@ Triggered on a schedule (scan for letters sent-and-unsigned past the cadence) or
    - **Unsigned, nudge due** (past the interval since send-or-last-nudge, under the max) → draft a nudge.
    - **Unsigned, within cadence** (nudged recently, or under the interval) → wait; draft nothing.
    - **Unsigned, max nudges reached** → surface to a human rather than nudge again.
-4. **Draft the nudge** (`references/voice.md`): a short, warm reminder that the letter is waiting, with a clear "sign here" pointer and an offer to answer questions **at the firm** — never an explanation of the terms.
+4. **Draft the nudge** (`references/voice.md`): a short, warm reminder that the letter is waiting, with a clear pointer to where to complete and return it and an offer to answer questions **at the firm** — never an explanation of the terms. The nudge body is authored floor-clean (#1878; see the voice file's substitution table): no "sign"/"signature", no "engagement letter", no "attorney" in the outbound body — a nudge that trips the content-sensitivity floor (ADR 0031) is held as a draft even under an authored autonomous client-send.
 5. **On a terms question** in a client reply: the nudge/response acknowledges the question and routes it to the attorney; it never interprets section X, defines a clause, or characterizes an obligation.
 
 ## Trust Ceiling
@@ -71,12 +70,12 @@ The agent MUST NOT: send the nudge; interpret, explain, or negotiate any term of
 1. **No term interpretation.** The skill never explains, defines, or characterizes a clause/obligation in the engagement letter (UPL).
 2. **Cadence respect.** No nudge before the interval; none past the max (surface to human instead); none on a signed/declined/expired letter.
 3. **Conflict-hold gate.** No chase on a held matter.
-4. **External-send draft floor.** The nudge is drafted, never sent.
+4. **External send follows the authored ceiling.** The nudge is an `external_send`; whether it sends or drafts is the firm's authored `external_send` ceiling, not a fixed rule (`draft_for_review` is the recommended starting posture). See `operator/references/send-posture.md`.
 5. **Privilege.** Letter content stays inside firm surfaces; nothing to third parties.
 
 ## Voice Rules
 
-See `references/voice.md`. Short, warm, low-pressure. No em dashes, no legalese, no guilt-tripping. Points to where to sign; offers to answer questions "with the team," never in the message itself.
+See `references/voice.md`. Short, warm, low-pressure. No em dashes, no legalese, no guilt-tripping. Points to where to complete and return the letter; offers to answer questions "with the team," never in the message itself. The outbound body is floor-clean by construction (#1878) — internal memos and status lines keep the precise words.
 
 ## Pitfalls
 

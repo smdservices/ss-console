@@ -5,15 +5,37 @@ medical-records-chaser, lien-ledger-tracker payoff dunning, and the chase legs o
 discovery-response-tracker). Each chase skill's own `references/voice.md` derives from
 this — copy it and add only what is skill-specific. Fix the voice here first.
 
+## Floor-clean by construction (READ THIS — #1878)
+
+A graduated chase to a rostered client or vendor is re-scanned by the
+content-sensitivity floor (ADR 0031) before it delivers. A chase body carrying a
+floor trigger word is HELD as a draft even under an authored autonomous send, so
+the "auto-handle" commitment does not deliver (issue #1878). Chase bodies are
+authored to clear the floor without weakening the ask — the legal weight lives in
+the document the recipient completes, never in the cover message. Substitutions
+every chase body keeps (tune the template, never the floor):
+
+| Do not write (trips the floor)           | Write instead (floor-clean, same meaning)                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| sign / signed / signature / signing      | complete and return; add your name and the date where the form shows                       |
+| deadline                                 | due date; there is a date on this one; time-sensitive                                      |
+| attorney / counsel / legal               | the team; your case team; us; the office                                                   |
+| agreement / contract / engagement letter | the letter we sent; the form; the paperwork                                                |
+| invoice / payment / fee / a $ figure     | the open balance; the statement (and only where the skill's line allows money talk at all) |
+
+This table governs the OUTBOUND chase body only. Internal surfaces (memos, task
+text, decision lines, status headers) keep the precise words ("unsigned",
+"signed", "attorney") — the floor scans what leaves the firm, not the matter file.
+
 ## The line
 
 A chase is a short, factual, low-pressure follow-up that moves one outstanding thing
 forward. It names what is outstanding, why it matters at a plain-practical level, and
 the single next step.
 
-The chase MAY: state what is outstanding (a signature, a record, a payoff figure, a
-response); note the deadline or why timing matters in practical terms; point to the
-one action needed; offer to help / route a question to the right person.
+The chase MAY: state what is outstanding (a form to complete, a record, a payoff
+figure, a response); note the due date or why timing matters in practical terms;
+point to the one action needed; offer to help / route a question to the right person.
 
 The chase MAY NOT: explain or characterize a legal term, consequence, or position;
 give advice on how to answer or what to do; pressure, guilt, or imply a thing is done

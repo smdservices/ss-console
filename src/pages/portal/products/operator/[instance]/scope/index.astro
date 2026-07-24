@@ -1,0 +1,13 @@
+---
+/**
+ * RETIRED — Operator Scope (console blueprint §5 "what retires"; 2026-07-14).
+ * The standalone Scope page dissolved into the chapters: folder visibility
+ * lives on Access (the connections/systems page, attached to the system it
+ * describes) and the rosters/blocks live on People. This route stays as a
+ * redirect so old bookmarks and links keep working (redirect sources are
+ * never deleted).
+ */
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+return Astro.redirect(`/portal/products/operator/${instance}#people`)
+---

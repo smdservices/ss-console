@@ -1,0 +1,115 @@
+---
+/**
+ * Operator Duties viewer — the shared routine-grid view (ADR 0076; console
+ * blueprint §5/§6; original brief
+ * docs/design/operator/surface-briefs/operator-the-work.md). One shared
+ * component, both portals mount it (client duties page + admin config surface),
+ * per ADR 0069 Lock 4.
+ *
+ * GRID mode renders the lifecycle-grouped routine matrix: one section block per
+ * authored `letter_section`, each row showing the routine name, how it starts,
+ * the current autonomy sentence, the can-be-raised-to line (only where the
+ * ceiling exceeds the start) or the standing cap verbatim, and the implementing
+ * skills with their reviewed summaries. GRIDLESS mode renders the exact Skills
+ * inventory the Skills page shows today (honest degradation), introduced by one
+ * true sentence.
+ *
+ * Every rendered string traces to authored grid data, the reviewed skill
+ * summaries, or the fixed tier / starts label maps in the resolver. No invented
+ * copy. This file carries NO vertical vocabulary — the section names, routine
+ * names, and verbatim tier language arrive as data.
+ *
+ * Loud register to match its sibling viewers (OperatorSkills, the landing) while
+ * the calm migration is parked; registered in CALM_REGISTER_PENDING so the whole
+ * operator area flips to calm together.
+ */
+import type { OperatorWorkModel } from '../../../../lib/portal/operator/facets/work/work'
+import OperatorAuthorityRows from './OperatorAuthorityRows.astro'
+import OperatorWorkRow from './OperatorWorkRow.astro'
+import InitiationChips from './InitiationChips.astro'
+
+interface Props {
+  model: OperatorWorkModel
+}
+
+const { model } = Astro.props
+---
+
+{
+  model.authority.length > 0 && (
+    <section
+      class="mb-8 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+      aria-label="Operator authority"
+    >
+      <p class="px-4 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] m-0">
+        What it's allowed to do
+      </p>
+      <div class="px-4 py-5 md:px-7">
+        <p class="mb-4 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+          Each kind of action your operator may take, and how much of it happens without a person.
+        </p>
+        <OperatorAuthorityRows rows={model.authority} />
+      </div>
+    </section>
+  )
+}
+
+{
+  model.mode === 'gridless' ? (
+    <section
+      class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+      aria-label="Operator duties"
+    >
+      <div class="px-4 py-6 md:px-7">
+        {model.skills.length === 0 ? (
+          <p class="font-mono text-label uppercase tracking-[0.08em] text-[color:var(--color-text-secondary)]">
+            Your operator's duties appear here once they're configured.
+          </p>
+        ) : (
+          <>
+            <p class="mb-5 font-body text-sm text-[color:var(--color-text-secondary)]">
+              Your operator's duties are listed here as configured.
+            </p>
+            <ul role="list" class="flex flex-col">
+              {model.skills.map((s, i) => (
+                <li
+                  class={`py-4 ${i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''}`}
+                >
+                  <p class="font-body text-base font-semibold text-[color:var(--color-text-primary)]">
+                    {s.name}
+                  </p>
+                  {s.summary && (
+                    <p class="mt-1 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                      {s.summary}
+                    </p>
+                  )}
+                  <InitiationChips labels={s.initiation} scheduleDetail={s.scheduleDetail} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
+  ) : (
+    <div class="flex flex-col gap-8">
+      {model.sections.map((section) => (
+        <section
+          class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+          aria-label={section.name}
+        >
+          <p class="px-4 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] m-0">
+            {section.name}
+          </p>
+          <div class="px-4 py-2 md:px-7">
+            <ul role="list" class="flex flex-col">
+              {section.routines.map((r, i) => (
+                <OperatorWorkRow routine={r} divided={i > 0} />
+              ))}
+            </ul>
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}

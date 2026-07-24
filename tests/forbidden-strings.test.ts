@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'fs'
+import { readdirSync, readFileSync, statSync, existsSync } from 'fs'
 import { resolve, join, extname } from 'path'
 
 const SRC_ROOT = resolve('src')
@@ -482,7 +482,7 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // granted role names (principal / staff / compliance) — text
   // items inside a chrome card, not a list-row card surface.
   resolve('src/pages/portal/products/operator/index.astro'),
-  // `products/operator/calendar/index.astro` is the Operator
+  // `products/operator/[instance]/calendar/index.astro` is the Operator
   // calendar agenda (#872). It renders list rows through the
   // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
   // justification — the six-cell calendar vocabulary, time-range /
@@ -491,8 +491,8 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // this page render the filter form's type checkboxes and sort
   // <option>s, not list rows. The agenda itself is rendered through
   // <CalendarAgenda>, which iterates via <CalendarItemRow>.
-  resolve('src/pages/portal/products/operator/calendar/index.astro'),
-  // `products/operator/settings/advanced/index.astro` is the
+  resolve('src/pages/portal/products/operator/[instance]/calendar/index.astro'),
+  // `products/operator/[instance]/settings/advanced/index.astro` is the
   // customer.yaml editor (#877): a structured FORM, not a list
   // surface. The only `.map(` on the page is the frontmatter
   // `resolved.errors.map((e) => e.path)` call that joins validation-
@@ -503,8 +503,8 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // render typed inputs per field group, not list-row cards. The
   // PortalListItem primitive is the wrong shape here. There is no
   // status/document repeating-card vocabulary to enforce.
-  resolve('src/pages/portal/products/operator/settings/advanced/index.astro'),
-  // `products/operator/connections/index.astro` (§5.8) iterates connectors
+  resolve('src/pages/portal/products/operator/[instance]/settings/advanced/index.astro'),
+  // `products/operator/[instance]/connections/index.astro` (§5.8) iterates connectors
   // through the dedicated <ConnectionRowCard> primitive, not PortalListItem. A
   // connection row's vocabulary (capability + adapter/health + custody badge +
   // custody description + the operable OAuth/write-only-secret controls) does
@@ -512,41 +512,43 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // justification as DraftRow / MatterRow / AuditEntryRow / CalendarItemRow /
   // NotificationRow. The .map( hits render the read-slot and operable-slot
   // connector lists; both go through <ConnectionRowCard>.
-  resolve('src/pages/portal/products/operator/connections/index.astro'),
-  // `products/operator/configure/index.astro` (§5.6) renders config FIELD rows
+  resolve('src/pages/portal/products/operator/[instance]/connections/index.astro'),
+  // `products/operator/[instance]/configure/index.astro` (§5.6) renders config FIELD rows
   // (skill name + on/off, action-class + governance floor) as plain text <li>s
   // inside config section cards — not the PortalListItem status/document
   // repeating-card vocabulary. Same justification as settings/advanced (a
   // structured config surface, not a list of records). The .map( hits iterate
   // the skill list and the action-class governance rows; neither carries a
   // money/status/document cell that PortalListItem's variants model.
-  resolve('src/pages/portal/products/operator/configure/index.astro'),
-  // `products/operator/team/index.astro` (§5.7) renders the people-on-this-
+  resolve('src/pages/portal/products/operator/[instance]/configure/index.astro'),
+  // `products/operator/[instance]/team/index.astro` (§5.7) renders the people-on-this-
   // account roster as identity rows (name + email/last-login, away badge, role
   // chips) inside the dual-mode read/operable slots — not the PortalListItem
   // status/document record-row vocabulary. The .map( iterates members; the
   // people_access domain is Read + Request at launch (ADR 0041).
-  resolve('src/pages/portal/products/operator/team/index.astro'),
-  // `products/operator/account/index.astro` (§5.9) renders escalation
-  // recipients as plain contact rows (one email per row) inside read-only
-  // domain surfaces — not the PortalListItem status/document record-row
-  // vocabulary. The .map( iterates authored escalation recipients; subscription
-  // is the SMD-only provisioning domain shown as an honest status surface.
-  resolve('src/pages/portal/products/operator/account/index.astro'),
-  // `products/operator/settings/index.astro` is the settings hub — a
+  resolve('src/pages/portal/products/operator/[instance]/team/index.astro'),
+  // `products/operator/[instance]/index.astro` is the operator ONE-PAGER
+  // (console blueprint §5, amended 2026-07-15): the whole configuration
+  // rendered inline as a document, not a list of records. Its .map( hits are
+  // the sticky anchor-rail links and the Access section's connector rows —
+  // the latter render through the dedicated <ConnectionRowCard> primitive
+  // (same justification as the connections act surface below); duties and
+  // people render through the shared <OperatorWork>/<OperatorPeople> viewers.
+  resolve('src/pages/portal/products/operator/[instance]/index.astro'),
+  // `products/operator/[instance]/settings/index.astro` is the settings hub — a
   // NAVIGATION menu, not a list of records. The `.map(` iterates
   // SETTINGS_LINKS (label + description → link) to render nav rows pointing
   // at the sub-surfaces (Connections / Users / Advanced). Menu links are not
   // the PortalListItem status/document record-row vocabulary; same category
   // as the other Operator sub-pages above.
-  resolve('src/pages/portal/products/operator/settings/index.astro'),
-  // `products/operator/onboarding/index.astro` (§6) renders the three
+  resolve('src/pages/portal/products/operator/[instance]/settings/index.astro'),
+  // `products/operator/[instance]/onboarding/index.astro` (§6) renders the three
   // get-started steps as numbered guidance cards (step number, title,
   // description, honest status badge) linking to Team/Connections/Calibration —
   // not the PortalListItem status/document record-row vocabulary. The .map(
   // iterates the derived steps; a step with no signal reads "to do", never a
   // fabricated completion.
-  resolve('src/pages/portal/products/operator/onboarding/index.astro'),
+  resolve('src/pages/portal/products/operator/[instance]/onboarding/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
@@ -708,6 +710,28 @@ describe('operator customer.yaml invariants', () => {
   })
 })
 
+describe('client surfaces render curated activity language only', () => {
+  // Portal IA rebuild, Captain decision 7 (2026-07-07): raw runtime audit
+  // vocabulary ("INVARIANT_VIOLATION" title-cased to "Invariant Violation")
+  // must never render on a client surface. formatAuditAction is the raw
+  // mechanical transform and stays admin-side; client surfaces go through
+  // src/lib/portal/operator/activity-language.ts (allowlist; unmapped
+  // renders nothing).
+  const CLIENT_SURFACE_ROOTS = [resolve('src/pages/portal'), resolve('src/components/portal')]
+
+  it('formatAuditAction is not imported by any client surface', () => {
+    for (const root of CLIENT_SURFACE_ROOTS) {
+      for (const file of collectSourceFiles(root)) {
+        const content = readFileSync(file, 'utf-8')
+        expect(
+          content.includes('formatAuditAction'),
+          `${file} references formatAuditAction — client surfaces must use activity-language`
+        ).toBe(false)
+      }
+    }
+  })
+})
+
 describe('operator client-portal surfaces stay vertical-agnostic (ADR 0052)', () => {
   // The Operator is a vertical-agnostic product (ADR 0052): client-portal
   // surfaces must not reintroduce law-vertical vocabulary or demo persona
@@ -757,4 +781,332 @@ describe('operator client-portal surfaces stay vertical-agnostic (ADR 0052)', ()
     }
     expect(violations, violations.join('\n')).toEqual([])
   })
+})
+
+// ---------------------------------------------------------------------------
+// Calm register — UI-PATTERNS Rule 8 enforcement.
+//
+// The console (client portal + admin) renders in the calm Plainspoken
+// register: white raised cards, hairline borders, sentence-case headings.
+// The loud markers below are the marketing register bleeding into a console
+// and are banned on every migrated console surface.
+//
+// CALM_REGISTER_PENDING is the set of console files still permitted to be
+// loud. It starts as the full loud-file set and SHRINKS with each migration
+// slice; the end state is an empty list — whole console calm, guard fully
+// enforcing. The list only shrinks. New console files are enforced from day
+// one (they are not in PENDING), so loudness cannot re-enter the codebase.
+// ---------------------------------------------------------------------------
+const CONSOLE_ROOTS = [
+  resolve('src/pages/portal'),
+  resolve('src/components/portal'),
+  resolve('src/pages/admin'),
+  resolve('src/components/admin'),
+]
+
+const LOUD_MARKERS: { re: RegExp; label: string }[] = [
+  { re: /border-\[3px\]/, label: 'border-[3px] (use `border` / --color-border hairline)' },
+  { re: /\bfont-black\b/, label: 'font-black (use text-title/text-heading token weights)' },
+]
+
+// Comments are stripped (via the shared stripComments above) before scanning
+// so a file that merely *documents* a loud marker — like the primitives' doc
+// blocks — is not flagged. Only real class usage should trip the guard.
+const CALM_REGISTER_PENDING: string[] = [
+  // Operator landing reverted to the loud register per Captain (2026-07-08):
+  // keep the Status/Role/Management content, drop the calm register for now.
+  'src/pages/portal/products/operator/index.astro',
+  'src/pages/portal/products/operator/[instance]/index.astro',
+  'src/components/portal/operator/facets/OperatorHero.astro',
+  'src/components/portal/operator/facets/OperatorSkills.astro',
+  'src/components/portal/operator/facets/OperatorWork.astro',
+  'src/components/portal/operator/facets/OperatorScope.astro',
+  // People viewer + one-pager cards (console blueprint §5): match their loud
+  // operator-area siblings until the whole area flips to calm together.
+  'src/components/portal/operator/facets/OperatorPeople.astro',
+  'src/components/portal/operator/facets/OperatorPersonaCard.astro',
+  'src/components/portal/operator/OperatorLimits.astro',
+  'src/components/admin/EntityContactRow.astro',
+  'src/components/admin/EntityIdentityStrip.astro',
+  'src/components/admin/HostedAgentQueueCard.astro',
+  'src/components/portal/HomeOfferingCard.astro',
+  'src/components/portal/operator/AuditEntryRow.astro',
+  'src/components/portal/operator/AuditFilterBar.astro',
+  'src/components/portal/operator/AuditLogTable.astro',
+  'src/components/portal/operator/CalendarAgenda.astro',
+  'src/components/portal/operator/CalendarItemRow.astro',
+  'src/components/portal/operator/ConnectionRowCard.astro',
+  'src/components/portal/operator/ConnectorStatusSection.astro',
+  'src/components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/ConnectorRow.astro',
+  'src/components/portal/operator/customer-yaml-editor/ConnectorsFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/EscalationFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/PersonaFields.astro',
+  'src/components/portal/operator/customer-yaml-editor/PersonaRow.astro',
+  'src/components/portal/operator/customer-yaml-editor/ScopeFields.astro',
+  'src/components/portal/operator/PromotionCard.astro',
+  'src/components/portal/operator/SkillTogglesSection.astro',
+  'src/components/portal/operator/TrustCeilingSection.astro',
+  'src/components/portal/PortalListItem.astro',
+  'src/components/portal/PortalPageHead.astro',
+  'src/components/portal/QuoteProposalSections.astro',
+  'src/pages/admin/hosted-agent/index.astro',
+  'src/pages/portal/billing/index.astro',
+  'src/pages/portal/engagement/[id].astro',
+  'src/pages/portal/engagement/documents/index.astro',
+  'src/pages/portal/engagement/index.astro',
+  'src/pages/portal/engagement/proposals/[id].astro',
+  'src/pages/portal/index.astro',
+  'src/pages/portal/products/hosted-agent/api-key.astro',
+  'src/pages/portal/products/hosted-agent/index.astro',
+  'src/pages/portal/products/hosted-agent/intake.astro',
+  'src/pages/portal/products/operator/[instance]/activity/index.astro',
+  'src/pages/portal/products/operator/[instance]/calendar/index.astro',
+  'src/pages/portal/products/operator/[instance]/compliance/index.astro',
+  'src/pages/portal/products/operator/[instance]/connections/index.astro',
+  'src/pages/portal/products/operator/[instance]/onboarding/index.astro',
+  'src/pages/portal/products/operator/[instance]/settings/advanced/index.astro',
+  'src/pages/portal/products/operator/[instance]/settings/index.astro',
+  'src/pages/portal/products/operator/[instance]/settings/users.astro',
+  'src/pages/portal/products/operator/[instance]/skills/index.astro',
+  'src/pages/portal/products/operator/[instance]/team/index.astro',
+]
+
+// PENDING entries are repo-relative paths; the collected files are absolute.
+// relOf normalizes an absolute path to the repo-relative form for comparison
+// (constant `resolve('.')` only — no variable ever enters path.join/resolve).
+function relOf(absPath: string): string {
+  return absPath.replace(resolve('.') + '/', '')
+}
+
+describe('calm register: UI-PATTERNS R8 enforcement', () => {
+  const migrated = CONSOLE_ROOTS.flatMap((root) =>
+    existsSync(root) ? collectSourceFiles(root) : []
+  ).filter((f) => !CALM_REGISTER_PENDING.includes(relOf(f)))
+
+  it('finds migrated console files to check (sanity)', () => {
+    expect(migrated.length).toBeGreaterThan(0)
+  })
+
+  for (const file of migrated) {
+    const rel = relOf(file)
+    it(`${rel} — no loud markers (Rule 8)`, () => {
+      const src = stripComments(readFileSync(file, 'utf-8'))
+      const hits = LOUD_MARKERS.filter(({ re }) => re.test(src)).map(({ label }) => label)
+      expect(hits, `${rel} still loud: ${hits.join(', ')}`).toEqual([])
+    })
+  }
+
+  // Keep PENDING honest: every entry must still exist AND still be loud. Once a
+  // file is migrated clean, it MUST be removed from PENDING (else the list would
+  // silently mask a now-clean file and the guard would never enforce it). The
+  // relative paths are read relative to cwd (tests run from the repo root).
+  it('CALM_REGISTER_PENDING has no stale entries (migrated files must be removed)', () => {
+    const stale: string[] = []
+    for (const rel of CALM_REGISTER_PENDING) {
+      if (!existsSync(rel)) {
+        stale.push(`${rel} (no longer exists)`)
+        continue
+      }
+      const src = stripComments(readFileSync(rel, 'utf-8'))
+      const stillLoud = LOUD_MARKERS.some(({ re }) => re.test(src))
+      if (!stillLoud) stale.push(`${rel} (now clean — remove from PENDING)`)
+    }
+    expect(stale, `stale PENDING entries:\n${stale.join('\n')}`).toEqual([])
+  })
+})
+
+describe('operator send-posture doctrine guard (recipient-aware send; ADR 0025/0035/0055)', () => {
+  // The "nothing ever sends" regression regrew every time from (a) the retired
+  // universal drafts-only doctrine re-taught in prose and (b) the vestigial
+  // per-skill trust_ceiling scalar. This block is the string-HYGIENE backstop;
+  // the anti-regression GUARANTEE is behavioral and lives in the golden
+  // enforcement tests (operator/adapter/tests/test_external_send_internal.py +
+  // test_recipient_classifier.py, and the overlay evaluate_tool_call tests) —
+  // drop the recipient classification and those go red with no banned string
+  // present. The one source is operator/references/send-posture.md.
+  const RETIRED_DOCTRINE: ReadonlyArray<{ re: RegExp; label: string }> = [
+    {
+      re: /no outbound external send without confirmation/i,
+      label: 'retired invariant-#2 wording',
+    },
+    { re: /agent drafts only/i, label: 'retired universal drafts-only framing' },
+    { re: /always draft-for-review/i, label: 'retired universal draft-for-review framing' },
+    { re: /drafts only unless/i, label: 'retired universal drafts-only framing' },
+  ]
+  const DOCTRINE_ROOTS = [
+    resolve('operator/skills'),
+    resolve('operator/references'),
+    resolve('operator/safety-substrate'),
+    resolve('operator/verticals'),
+    resolve('docs/specs/operator'),
+  ]
+
+  function collectDoctrineFiles(dir: string): string[] {
+    const out: string[] = []
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return out
+    }
+    for (const entry of entries) {
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- dir is a hardcoded repo root; entry is readdirSync output, not user input (same pattern as collectSourceFiles above).
+      const full = join(dir, entry)
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      // Skip test fixtures — they legitimately narrate the retired doctrine when
+      // documenting the reform (e.g. the invariant-2 test docstring).
+      if (st.isDirectory()) {
+        if (entry === 'tests') continue
+        out.push(...collectDoctrineFiles(full))
+      } else if (/\.(md|py)$/.test(entry)) {
+        out.push(full)
+      }
+    }
+    return out
+  }
+
+  it('no retired universal drafts-only doctrine wording (defer to send-posture.md)', () => {
+    const violations: string[] = []
+    for (const root of DOCTRINE_ROOTS) {
+      for (const file of collectDoctrineFiles(root)) {
+        const content = readFileSync(file, 'utf-8')
+        const rel = file.replace(resolve('.') + '/', '')
+        for (const { re, label } of RETIRED_DOCTRINE) {
+          if (re.test(content)) violations.push(`${rel}: ${label}`)
+        }
+      }
+    }
+    expect(
+      violations,
+      `retired send-posture doctrine re-introduced:\n${violations.join('\n')}\n` +
+        `State the authored ceiling and defer to operator/references/send-posture.md.`
+    ).toEqual([])
+  })
+
+  it('no SKILL.md carries the retired metadata.smd.trust_ceiling scalar (ADR 0056)', () => {
+    const offenders: string[] = []
+    for (const file of collectDoctrineFiles(resolve('operator/skills'))) {
+      if (!file.endsWith('SKILL.md')) continue
+      const content = readFileSync(file, 'utf-8')
+      if (/^\s*trust_ceiling:/m.test(content)) {
+        offenders.push(file.replace(resolve('.') + '/', ''))
+      }
+    }
+    expect(
+      offenders,
+      `retired per-skill trust_ceiling scalar (replaced by persona exposure, ADR 0056):\n` +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+})
+
+describe('retired persona name stays retired (Captain directive 2026-07-13)', () => {
+  // The pilot/A&P persona's original name was retired by repeated Captain
+  // directive: the display name went first (name: Operator, 2026-07-02), and
+  // the slug + every active reference were renamed 2026-07-13 after the word
+  // kept resurfacing in configs, fixtures, and agent conversation. This guard
+  // makes any reintroduction a CI failure.
+  //
+  // Historical records keep the word legitimately and are excluded: dated
+  // grading run logs and the A&P correspondence archive (rewriting dated
+  // records would falsify them). This test file excludes itself (it must
+  // spell the pattern to ban it).
+  const RETIRED_NAME = /quinn/i
+  const SCAN_ROOTS = ['operator', 'src', 'tests', 'scripts', 'docs/design', 'docs/handbook']
+  const EXCLUDED = [
+    resolve('operator/grading/runs'),
+    resolve('operator/customers/ashton-price/correspondence'),
+    resolve('tests/forbidden-strings.test.ts'),
+  ]
+
+  function scanFiles(dir: string): string[] {
+    const out: string[] = []
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return out
+    }
+    for (const entry of entries) {
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- dir is a hardcoded repo root; entry is readdirSync output, not user input (same pattern as collectSourceFiles above).
+      const full = join(dir, entry)
+      if (EXCLUDED.some((e) => isWithinDir(full, e))) continue
+      let st
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        if (entry === 'node_modules') continue
+        out.push(...scanFiles(full))
+      } else if (
+        ['.ts', '.tsx', '.astro', '.md', '.yaml', '.yml', '.json', '.py', '.sh'].includes(
+          extname(entry)
+        )
+      ) {
+        out.push(full)
+      }
+    }
+    return out
+  }
+
+  it('the retired persona name appears in no active file', () => {
+    const offenders: string[] = []
+    for (const root of SCAN_ROOTS) {
+      for (const file of scanFiles(resolve(root))) {
+        if (RETIRED_NAME.test(readFileSync(file, 'utf-8'))) {
+          offenders.push(file.replace(resolve('.') + '/', ''))
+        }
+      }
+    }
+    expect(
+      offenders,
+      `the retired persona name must not return (Captain directive; historical records excluded):\n` +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Console vocabulary guard (console blueprint §6 — locked once, then enforced).
+// The §6 table is decided by Captain exactly once; this guard keeps the retired
+// display labels from re-entering the operator console surfaces, so naming
+// stops being re-litigated per page. Comments are stripped first — only real
+// template text can trip it. Registry ids and route paths are deliberately NOT
+// scanned (labels rename; identifiers stay stable).
+// ---------------------------------------------------------------------------
+describe('console vocabulary guard (blueprint §6 — retired display labels)', () => {
+  const RETIRED_VOCAB: ReadonlyArray<{ re: RegExp; label: string }> = [
+    { re: /The work\b/, label: '"The work" (§6: renamed to Duties)' },
+    { re: /Today:/, label: '"Today:" autonomy row label (§6: renamed to Autonomy:)' },
+    { re: /Can become/, label: '"Can become" (§6: renamed to Can be raised to:)' },
+  ]
+  const VOCAB_ROOTS = [
+    resolve('src/components/portal/operator'),
+    resolve('src/pages/portal/products/operator'),
+    resolve('src/pages/admin/operator'),
+  ]
+  const files = VOCAB_ROOTS.flatMap((root) =>
+    existsSync(root) ? collectSourceFiles(root) : []
+  ).filter((f) => f.endsWith('.astro'))
+
+  it('finds console files to scan (sanity)', () => {
+    expect(files.length).toBeGreaterThan(0)
+  })
+
+  for (const file of files) {
+    const rel = relOf(file)
+    it(`${rel} — no retired vocabulary (§6)`, () => {
+      const src = stripComments(readFileSync(file, 'utf-8'))
+      const hits = RETIRED_VOCAB.filter(({ re }) => re.test(src)).map(({ label }) => label)
+      expect(hits, `${rel} uses retired labels: ${hits.join(', ')}`).toEqual([])
+    })
+  }
 })

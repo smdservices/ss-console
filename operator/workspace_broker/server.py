@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from . import escalation_ledger
 from .audit_ledger import LedgerWriter
 from .google_auth import materialize_credential
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
@@ -129,6 +130,22 @@ class Broker:
         # the audit_log append-only guarantee is untouched (no job verb writes
         # audit_log). Disabled when the audit DB is unconfigured (pre-B1 image).
         self.job_ledger = JobLedgerWriter(audit_db_path) if audit_db_path else None
+        # WP-A escalation ledger: append-only JSONL of escalation telemetry
+        # (fired/acked/handed_off/resolved), written ONLY by this broker so the
+        # agent uid cannot forge an ack that silences a deadline alarm. It lives
+        # beside the audit DB (same /run/smd-audit bind the broker already
+        # writes; the agent reads the /opt/data/audit twin via audit-readers).
+        # An explicit SMD_ESCALATION_LEDGER_PATH wins (the test seam).
+        explicit_ledger = os.environ.get("SMD_ESCALATION_LEDGER_PATH")
+        if explicit_ledger:
+            self.escalation_ledger_path: str | None = explicit_ledger
+        elif audit_db_path:
+            self.escalation_ledger_path = str(
+                Path(audit_db_path).parent / "escalation-ledger.jsonl"
+            )
+        else:
+            self.escalation_ledger_path = None
+        self._escalation_lock = threading.Lock()
 
     def _resolve_agent_uid(self) -> int | None:
         """Resolve (and cache) the agent uid for the heartbeat verb.
@@ -179,6 +196,57 @@ class Broker:
             if row.get("action_type") != "SUPPRESSED_WAKE":
                 raise ValueError(
                     "suppressed_wake_append only accepts action_type=SUPPRESSED_WAKE"
+                )
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id}
+        # WP-A escalation ledger append. Same caller shape as the heartbeat
+        # verbs above: a cron pre_run or the agent's execute_code turn (agent
+        # uid, non-gateway PID). Gated on the agent uid, and the write is
+        # VALIDATED (escalation_ledger.validate_append) so an ``acked`` that has
+        # no prior ``fired``/``chased`` raise is rejected — the LLM turn can
+        # append only through this seam, never the file directly, and it cannot
+        # silence an alarm that never rang. ts/id are stamped server-side, so
+        # the caller cannot backdate. Serialized by an instance lock (the server
+        # is threaded) so the tail-read + append stays consistent.
+        if action == "escalation_event_append":
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "escalation_event_append requires a caller running as the agent uid"
+                )
+            if not self.escalation_ledger_path:
+                raise ValueError("escalation ledger path not configured on this broker")
+            event = request.get("event")
+            if not isinstance(event, dict):
+                raise ValueError("escalation_event_append requires an 'event' object")
+            with self._escalation_lock:
+                existing = escalation_ledger.read_ledger(self.escalation_ledger_path)
+                escalation_ledger.validate_append(existing, event)
+                stamped = escalation_ledger.stamp_event(event)
+                escalation_ledger.append_line(self.escalation_ledger_path, stamped)
+            return {"ok": True, "id": stamped["id"]}
+        # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
+        # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the
+        # agent uid on a NON-gateway PID — the same shape as the cron pre_run
+        # children above — so the generic gateway-PID-gated audit_append refuses
+        # it. This sibling verb gates on the agent uid and locks action_type to
+        # WEBHOOK_SUPPRESSED, so it cannot forge any other row. Deliberately a
+        # separate verb (not a widened suppressed_wake_append) so each verb pins
+        # exactly one action_type and stays auditable in isolation.
+        if action == "webhook_suppressed_append":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "webhook_suppressed_append requires a caller running as the agent uid"
+                )
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("webhook_suppressed_append requires a 'row' object")
+            if row.get("action_type") != "WEBHOOK_SUPPRESSED":
+                raise ValueError(
+                    "webhook_suppressed_append only accepts action_type=WEBHOOK_SUPPRESSED"
                 )
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id}

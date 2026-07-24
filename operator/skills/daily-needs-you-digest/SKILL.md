@@ -7,7 +7,7 @@ description: >-
   of a stream of pings, surfaces only items that genuinely need attention, and takes no action on
   any item (each points to the skill/step that owns it). Runs on a schedule. Never acts, never
   manufactures urgency, never invents an item not in the record.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -21,7 +21,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # high-frequency scheduled aggregation; the reasoning is small
-    trust_ceiling: autonomous_internal_surface # a read-only internal surface digest: assembles + surfaces autonomously; internal only; would be draft_for_review only if ever delivered externally (mirrors matter-status-digest's framing). It never acts on an item, so no external-send floor applies.
     action_class: read + internal_write # reads matters/tasks/dates; writes the digest (and a heartbeat row on a quiet tick) to the firm-internal surface. No send, no chase, no close.
     content_ceiling: surface_only # MAY aggregate/summarize/point; MUST NOT act on an item, decide a legal next step, or produce work product
     connectors:
@@ -107,7 +106,7 @@ scheduled tick begins with a `pre_run`-style wake decision, so a quiet day costs
 nothing and a scheduled tick is never silent (the dead-man's-switch rule: a tick
 always leaves a heartbeat):
 
-1. Enumerate open matters and their open tasks + near dates (the Phase 1 fetch).
+1. Enumerate open matters and their open tasks + near dates (the Phase 1 mediated fetch).
 2. If **nothing** is in the firm's needs-a-person bands, the tick **suppresses**:
    write a heartbeat/quiet row (`decision_basis: nothing_in_needs_you_band`), emit the
    one-line quiet digest, and do not assemble a full digest or invent items.
@@ -144,11 +143,16 @@ hermes run daily-needs-you-digest --status open   # scope (open matters by defau
 
 ## Procedure
 
-Two phases (ADR 0021 Stream A). The mechanical per-matter Smokeball fetch runs in one
-`execute_code` block so per-matter reads never flood context; the band logic and the
-sectioning stay in the agent's reasoning loop.
+Two phases. The per-matter fetch uses the governed connector tools directly; the band
+logic and the sectioning stay in the agent's reasoning loop.
 
-### Phase 1 — Fetch (single `execute_code` block)
+### Phase 1 — Fetch (mediated connector reads)
+
+**Do NOT run the fetch through `execute_code`.** The `code_execution` action class is
+unauthorable on customer seats holding gateway credentials (the #1841 custody guard —
+ss #1917), so that path is REFUSED. The fetch is the same reads, made as ordinary
+governed tool calls — live-proven on the 2026-07-15 scheduled run, which produced a
+complete digest this way.
 
 Enumerate open matters (`list_matters`, filtered by `--status`), then per matter pull
 `get_matter` (status, `personResponsibleStaffId`), `list_tasks(matter_id, is_completed=false)`
@@ -156,8 +160,16 @@ Enumerate open matters (`list_matters`, filtered by `--status`), then per matter
 chase items the owning skills created), and near-window calendar entries via
 `list_events(matter_id, from_, to)` for response/motion/hearing/SOL dates. Use
 `list_matters(updatedSince)` / `LastUpdated` for the stalled-item recency check.
-Accumulate in-process; `print()` one JSON document. A single matter's read failure is
-a `parse_failed` row; the scan does not abort and the failure is surfaced, not hidden.
+Read the escalation ledger with the **`escalation_state` tool** (never the file, never
+a code snippet) so Phase 2 can tell which items another skill is already actively
+escalating. Reading is all the digest ever does with the ledger; it never writes it.
+A single matter's read failure is a `parse_failed` row; the scan does not abort and
+the failure is surfaced, not hidden.
+
+Per-matter reads land in context, so keep each read tight (open tasks and in-window
+events only, never full documents). If a firm's matter count ever makes per-matter
+reads untenable, that is the ss #1917 batch-fetch design conversation — do not reach
+for `execute_code` as the workaround.
 
 ### Phase 2 — Reason (agent, in-context)
 
@@ -169,7 +181,11 @@ Per `references/output-format.md`:
    one-line quiet digest and the heartbeat, and stop. Do not pad.
 2. **Group and order.** Batch surviving items into sections (Deadlines near, Due soon,
    Unsigned, Stalled), most time-critical first. Each line: matter, the item, the
-   sourced date/age, and the **owning skill/step** for the next action.
+   sourced date/age, and the **owning skill/step** for the next action. An item
+   already under active escalation by another skill (a `fired`/`chased` ledger
+   event within `escalation.refire_days`) renders as a one-line pointer, not a
+   full band entry, so the digest and the escalator do not double-hand the reader
+   the same item (`references/output-format.md`).
 3. **Attach the training note.** Per `references/_shared-training-output.md` (pack
    shared): a short note per item on what needs doing, why it matters (the governing
    rule where the owning step has one), which step owns it, and when to bring the
@@ -250,6 +266,10 @@ guess a window and do not manufacture a digest.
   neighbors (`matter-status-digest`, the owning chase skills, `deadline-miss-escalator`)
 - `_shared-training-output.md` (pack shared) — the training-note property every line
   carries
+- `escalation_ledger.py` — the shared ledger module (byte-identical to
+  `operator/workspace_broker/escalation_ledger.py`), read-only here: it tells the
+  digest which items are already under active escalation so they collapse to a
+  one-line pointer. Do not edit the copy; edit the canonical and restamp.
 
 ## Delivery channels + refusal fallback (law seat rule)
 

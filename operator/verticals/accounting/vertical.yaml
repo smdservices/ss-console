@@ -22,7 +22,6 @@ compliance:
   - no-tax-or-accounting-advice # connective work only; never a tax position or financial interpretation
   - irc-7216-taxpayer-confidentiality # taxpayer info not disclosed/used beyond the engagement without consent
   - deadline-relay-not-computation # track firm-authored dates; never compute a filing requirement or due date
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
   - records-stay-in-firm-surfaces # client financial records stay inside firm systems
 
 # Reference persona archetypes (templates, not runtime personas). See the

@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: decision/surfacing + drafting
-    trust_ceiling: draft_for_review
     action_class: read + draft
     connectors:
       - smokeball # PracticeManagement — matters + first-class recency (updatedSince / LastUpdated) (read)
@@ -66,7 +65,7 @@ The agent MUST NOT: decide or advise what a matter needs or its next legal step;
 2. **Specificity.** A legitimately-waiting matter (open task with a future due date) is not flagged stalled (false positive ≤ rubric threshold).
 3. **No fabrication.** Last-activity recency is read from the matter's `LastUpdated` (Smokeball); no invented dates.
 4. **Conflict-hold gate.** Held matters are surfaced separately, no client follow-up drafted.
-5. **External-send draft floor + privilege.** Follow-ups are drafted, never sent; no matter detail leaves firm surfaces.
+5. **Privilege.** No matter detail leaves firm surfaces. Whether a follow-up sends or drafts follows the firm's authored `external_send` ceiling (`draft_for_review` recommended), not a fixed "never sent" rule — see `operator/references/send-posture.md`.
 
 ## Voice Rules
 

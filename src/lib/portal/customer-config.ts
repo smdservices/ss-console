@@ -21,6 +21,7 @@
 
 import { z } from 'zod'
 import { parseAuthorityPosture, type AuthorityPosture } from '../operator/authority'
+import { validateRoutineGrid, type RoutineGrid } from '../operator/routine-grid'
 import {
   DEFAULT_CREDENTIAL_CUSTODY,
   parseCredentialCustody,
@@ -52,6 +53,12 @@ export interface PersonaChannelBinding {
   channels: string[]
 }
 
+/** One projected cron entry: WHEN a skill runs (schedule detail only). */
+export interface PersonaCronEntry {
+  skill: string
+  schedule: string
+}
+
 export interface PersonaConfig {
   slug: string
   status: PersonaStatus
@@ -62,6 +69,11 @@ export interface PersonaConfig {
   send_as: PersonaSendAs | null
   entitlements: PersonaEntitlements
   skills: PersonaSkill[]
+  /**
+   * Projected cron schedules (console blueprint §4 schedule coverage). Rows
+   * projected before this field existed parse as [] (defensive read side).
+   */
+  cron?: PersonaCronEntry[]
   channel_bindings: PersonaChannelBinding[]
 }
 
@@ -119,6 +131,18 @@ export interface CustomerConfigRow {
    * `access[]` mapping; the Clerk binding lives separately in mcp_clerk_bindings.
    */
   mcp_connector: McpConnector
+  /**
+   * Resolved routine grid (ADR 0075) — the compiled per-routine autonomy
+   * traceability the console "the work" chapter renders. Projected from the
+   * seat's routine-grid.yaml (when one exists next to customer.yaml).
+   *
+   * NULLABLE BY DESIGN, and resolved with a DELIBERATELY DIFFERENT posture
+   * from personas (which throws): a seat with no grid, a null column, or a
+   * malformed projected value all resolve to null via {@link resolveRoutineGrid}.
+   * A bad grid must degrade to the gridless console fallback, never 500 the
+   * live portal — see the resolver's contract.
+   */
+  routine_grid: RoutineGrid | null
   git_sha: string
   synced_at: string
 }
@@ -139,6 +163,7 @@ export interface CustomerConfigDbRow {
   authority_json: string | null
   credential_custody_default: string | null
   mcp_connector_json: string | null
+  routine_grid_json: string | null
   git_sha: string
   synced_at: string
 }
@@ -278,6 +303,34 @@ export function parseMcpConnector(json: string | null | undefined): McpConnector
   }
 }
 
+/**
+ * Resolve the projected `routine_grid_json` column into a runtime `RoutineGrid`.
+ *
+ * DELIBERATELY FAIL-SOFT, unlike `parseJsonRequired` (used for personas_json,
+ * which THROWS): a null column, malformed JSON, or a value that fails the
+ * routine-grid validator all resolve to `null` rather than throwing. Two
+ * reasons, the same shape as `parseMcpConnector`:
+ *   1. This is read on the live client portal. A corrupt grid must not 500 the
+ *      page — it degrades to the gridless console fallback (ADR 0075, the
+ *      console "the work" chapter renders nothing rather than crashing).
+ *   2. A seat that has never authored a routine-grid.yaml is the common case,
+ *      not corruption: absence is a first-class "no grid" state.
+ *
+ * Note this catches malformed JSON, which `parseJsonNullable` does not — the
+ * catch is what makes "never throw" hold for an arbitrary stored string.
+ */
+export function resolveRoutineGrid(json: string | null | undefined): RoutineGrid | null {
+  if (json === null || json === undefined) return null
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return null
+  }
+  const result = validateRoutineGrid(raw)
+  return result.ok ? result.value : null
+}
+
 export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
   return {
     entity_id: row.entity_id,
@@ -299,6 +352,8 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     credential_custody_default:
       parseCredentialCustody(row.credential_custody_default) ?? DEFAULT_CREDENTIAL_CUSTODY,
     mcp_connector: parseMcpConnector(row.mcp_connector_json),
+    // Fail-soft to null (NOT the throwing personas posture) — see resolveRoutineGrid.
+    routine_grid: resolveRoutineGrid(row.routine_grid_json),
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }
@@ -308,6 +363,12 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
  * Read the projected customer config for an entity. Returns null when no row
  * exists — a meaningful state during alpha when CI sync has not been wired
  * up yet (rows are hand-seeded only).
+ *
+ * LEGACY / single-instance only. Since migration 0090 an entity may own more
+ * than one operator config (the multi-operator model), so this `.first()` read
+ * returns an ARBITRARY row for a multi-config entity. New operator surfaces must
+ * address the instance by slug via {@link getCustomerConfigBySlug}; this remains
+ * only for the (still 1:1) callers that key on the entity alone.
  */
 export async function getCustomerConfig(
   db: D1Database,
@@ -319,6 +380,45 @@ export async function getCustomerConfig(
     .first<CustomerConfigDbRow>()
   if (!row) return null
   return projectRow(row)
+}
+
+/**
+ * Read the projected customer config for a specific operator instance, addressed
+ * by its `customer_slug` (the instance identity since migration 0090). This is
+ * the read every instance-addressed operator surface uses. Returns null when no
+ * such config exists.
+ *
+ * The CALLER is responsible for the ownership check — verify the returned
+ * `entity_id` matches the signed-in client's entity before rendering, so a user
+ * cannot view another client's operator by guessing a slug. `resolveOperatorAccess`
+ * enforces this centrally.
+ */
+export async function getCustomerConfigBySlug(
+  db: D1Database,
+  customerSlug: string
+): Promise<CustomerConfigRow | null> {
+  const row = await db
+    .prepare('SELECT * FROM customer_configs WHERE customer_slug = ?')
+    .bind(customerSlug)
+    .first<CustomerConfigDbRow>()
+  if (!row) return null
+  return projectRow(row)
+}
+
+/**
+ * List every projected operator config owned by an entity, oldest first (stable
+ * order for nav/home listing). One row per operator instance the client owns
+ * (multi-operator model, migration 0090). Empty array when the entity owns none.
+ */
+export async function listCustomerConfigsForEntity(
+  db: D1Database,
+  entityId: string
+): Promise<CustomerConfigRow[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM customer_configs WHERE entity_id = ? ORDER BY created_at ASC')
+    .bind(entityId)
+    .all<CustomerConfigDbRow>()
+  return (results ?? []).map(projectRow)
 }
 
 /**

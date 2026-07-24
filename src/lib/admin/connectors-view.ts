@@ -30,9 +30,9 @@ import type { CapabilityName } from '../operator/capabilities/types'
 
 export interface ConnectorView {
   capability: CapabilityName
-  /** Backend prefix family: mcp / build / synthetic (ADR 0020), or 'unknown'. */
+  /** Backend prefix family: mcp / build / synthetic / native (ADR 0020), or 'unknown'. */
   backend: string
-  backendKind: 'mcp' | 'build' | 'synthetic' | 'unknown'
+  backendKind: 'mcp' | 'build' | 'synthetic' | 'native' | 'unknown'
   scopes: string[]
   /** A credential reference is present (the connector has been wired). */
   configured: boolean
@@ -90,6 +90,7 @@ function backendKind(backend: string): ConnectorView['backendKind'] {
   if (backend.startsWith('mcp:')) return 'mcp'
   if (backend.startsWith('build:')) return 'build'
   if (backend.startsWith('synthetic:')) return 'synthetic'
+  if (backend.startsWith('native:')) return 'native'
   return 'unknown'
 }
 
@@ -131,6 +132,8 @@ export function backendLabel(kind: ConnectorView['backendKind']): string {
       return 'Built adapter'
     case 'synthetic':
       return 'Synthetic (no-PM)'
+    case 'native':
+      return 'Native provider'
     case 'unknown':
       return 'Unknown backend'
   }

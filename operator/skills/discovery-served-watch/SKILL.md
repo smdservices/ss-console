@@ -27,7 +27,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # per-document: classify into four types + read two fields off the proof of service + surface; bounded reasoning, no synthesis
-    trust_ceiling: draft_for_review # the captured type/date/method is surfaced to the responsible attorney for confirmation, never treated as final; nothing is sent to another party; the internal memo/task log is the only write
     action_class: read + internal_write # reads the served doc + matter; writes an internal memo (log) + a confirm task; no external send
     content_ceiling: surface_only # emits a factual captured input (type, service date, method) + an internal log; never drafts a response, never authors the deadline computation
     connectors:

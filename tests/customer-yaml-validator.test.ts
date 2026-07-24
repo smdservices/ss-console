@@ -169,6 +169,136 @@ describe('webhook_triggers.exclude (authored trigger exceptions)', () => {
   })
 })
 
+describe('webhook_triggers.throttle (per-trigger cooldown, #1781)', () => {
+  function withThrottle(throttle: unknown) {
+    const f = withWebhooks()
+    const triggers = f['webhook_triggers'] as Record<string, unknown>[]
+    triggers[0]['throttle'] = throttle
+    return f
+  }
+
+  it('accepts an authored cooldown and carries it through', () => {
+    const result = validate(withThrottle({ cooldown_minutes: 30 }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: 30 })
+    }
+  })
+
+  it('accepts 0 (authored disable) and an empty block (gate default)', () => {
+    const zero = validate(withThrottle({ cooldown_minutes: 0 }))
+    expect(zero.ok).toBe(true)
+    if (zero.ok) expect(zero.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: 0 })
+    const empty = validate(withThrottle({}))
+    expect(empty.ok).toBe(true)
+    if (empty.ok) {
+      expect(empty.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: null })
+    }
+  })
+
+  it('is null when unauthored', () => {
+    const result = validate(withWebhooks())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.webhook_triggers[0]?.throttle ?? null).toBeNull()
+  })
+
+  it('rejects negative, non-integer, non-object, and unknown-key blocks', () => {
+    for (const bad of [
+      { cooldown_minutes: -5 },
+      { cooldown_minutes: 2.5 },
+      { cooldown_minutes: '30' },
+      'nope',
+      { cooldown_mins: 30 },
+    ]) {
+      const result = validate(withThrottle(bad))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
+describe('custody guard (code_execution vs gateway-held creds, ADR 0044 D8 / #1841)', () => {
+  function withCodeExecution(extra?: (f: Record<string, unknown>) => void) {
+    const f = validFixture()
+    const personas = f['personas'] as Record<string, unknown>[]
+    const entitlements = personas[0]['entitlements'] as Record<string, unknown>
+    entitlements['exposure'] = {
+      ...(entitlements['exposure'] as Record<string, unknown>),
+      code_execution: 'autonomous',
+    }
+    extra?.(f)
+    return f
+  }
+
+  it('rejects non-refused code_execution alongside enabled gateway connectors', () => {
+    const result = validate(withCodeExecution())
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      const hit = result.errors.find((e) => e.code === 'CustodyGuardViolation')
+      expect(hit).toBeDefined()
+      expect(hit?.message).toContain('filevine')
+    }
+  })
+
+  it('counts the telegram channel and agentmail send identity as surfaces', () => {
+    const tg = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        f['telegram'] = { enabled: true, allow_from: ['7367659986'] }
+      })
+    )
+    expect(tg.ok).toBe(false)
+    if (!tg.ok) expect(tg.errors.some((e) => e.message.includes('telegram'))).toBe(true)
+
+    const am = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        const personas = f['personas'] as Record<string, unknown>[]
+        personas[0]['send_as'] = { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' }
+      })
+    )
+    expect(am.ok).toBe(false)
+    if (!am.ok) expect(am.errors.some((e) => e.message.includes('agentmail'))).toBe(true)
+  })
+
+  it('an authored identity-channel exception accepts (the smd shape)', () => {
+    const result = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        const personas = f['personas'] as Record<string, unknown>[]
+        delete personas[0]['send_as'] // fixture persona carries an agentmail identity
+        f['telegram'] = { enabled: true, allow_from: ['7367659986'] }
+        f['custody_exceptions'] = ['telegram']
+      })
+    )
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(true)
+    if (result.ok) expect(result.value.custody_exceptions).toEqual(['telegram'])
+  })
+
+  it('client-data adapters can never be excepted', () => {
+    const result = validate(withCodeExecution((f) => (f['custody_exceptions'] = ['filevine'])))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.code === 'IneligibleCustodyException')).toBe(true)
+    }
+  })
+
+  it('code_execution refused or unauthored passes with connectors present', () => {
+    const refused = withCodeExecution()
+    const personas = refused['personas'] as Record<string, unknown>[]
+    const entitlements = personas[0]['entitlements'] as Record<string, unknown>
+    ;(entitlements['exposure'] as Record<string, unknown>)['code_execution'] = 'refused'
+    expect(validate(refused).ok).toBe(true)
+    expect(validate(validFixture()).ok).toBe(true)
+  })
+
+  it('rejects malformed and duplicate exception lists', () => {
+    for (const bad of ['telegram', ['telegram', 'telegram'], [42]]) {
+      const result = validate(withCodeExecution((f) => (f['custody_exceptions'] = bad)))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
 describe('digest (authored digest home, #1742)', () => {
   it('accepts a valid home_matter_id GUID and carries it through', () => {
     const f = validFixture()
@@ -635,7 +765,7 @@ describe('validate — connectors', () => {
   })
 
   it('accepts all documented backend prefixes', () => {
-    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
+    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture', 'native:brave-free']
     for (const backend of prefixes) {
       const f = validFixture()
       ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'] = {
@@ -670,6 +800,37 @@ describe('validate — connectors', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidTokenRef')
+  })
+
+  // ADR 0070 (native cut): WebSearch is a first-class connector capability bound
+  // to Hermes' native web provider (native:brave-free), not an MCP server.
+  it('accepts a WebSearch connector on the native:brave-free backend', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
+      adapter: 'brave',
+      backend: 'native:brave-free',
+      enabled: true,
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.connectors.WebSearch?.backend).toBe('native:brave-free')
+    expect(r.value.connectors.WebSearch?.enabled).toBe(true)
+  })
+
+  it('rejects a WebSearch connector on an unknown backend (fail-closed)', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
+      adapter: 'brave',
+      backend: 'http:brave.com',
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const has = r.errors.some(
+      (e) => e.code === 'InvalidBackend' && e.path === 'connectors.WebSearch.backend'
+    )
+    expect(has).toBe(true)
   })
 })
 
@@ -2796,5 +2957,119 @@ describe('validate — relationship block (ADR 0048)', () => {
         (e) => e.path === 'relationship.people[0].prefers[1]' && e.code === 'TypeMismatch'
       )
     ).toBe(true)
+  })
+})
+
+describe('validate — scope.outbound_roster (ADR 0075)', () => {
+  function withOutbound(roster: unknown, inbound?: unknown): Record<string, unknown> {
+    const f = validFixture()
+    const scope = f['scope'] as Record<string, unknown>
+    scope['outbound_roster'] = roster
+    if (inbound !== undefined) scope['inbound_allow_from'] = inbound
+    return f
+  }
+
+  it('accepts a valid client + records_vendor roster and carries it through', () => {
+    const r = validate(
+      withOutbound([
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client on gmail' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+      ])
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.outbound_roster).toEqual([
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client on gmail' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+      ])
+    }
+  })
+
+  it('accepts an EXACT address at a public-mail provider (PI client on gmail)', () => {
+    const r = validate(withOutbound([{ address: 'jane@gmail.com', class: 'client' }]))
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects a whole-@domain grant at a public-mail provider', () => {
+    const r = validate(withOutbound([{ address: '@gmail.com', class: 'client' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('accepts an @domain grant at a firm/vendor domain', () => {
+    const r = validate(withOutbound([{ address: '@records-vendor.com', class: 'records_vendor' }]))
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects a class outside the closed vocabulary', () => {
+    const r = validate(withOutbound([{ address: 'a@b.com', class: 'opposing_counsel' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects a malformed address', () => {
+    const r = validate(withOutbound([{ address: 'not-an-email', class: 'client' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects one address typed as more than one class', () => {
+    const r = validate(
+      withOutbound([
+        { address: 'x@firm-vendor.com', class: 'client' },
+        { address: 'x@firm-vendor.com', class: 'records_vendor' },
+      ])
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects an address also present in inbound_allow_from', () => {
+    const r = validate(
+      withOutbound([{ address: 'scott@smd.services', class: 'client' }], ['scott@smd.services'])
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects a non-list outbound_roster', () => {
+    const r = validate(withOutbound('nope'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('defaults to [] when unauthored', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.outbound_roster).toEqual([])
+  })
+})
+
+describe('validate — send exposure classes (ADR 0075)', () => {
+  function withExposure(exposure: Record<string, unknown>): Record<string, unknown> {
+    const f = validFixture()
+    const persona = (f['personas'] as Record<string, unknown>[])[0]
+    persona['entitlements'] = { exposure }
+    return f
+  }
+
+  it('accepts external_send_client / external_send_vendor, and confirm on them', () => {
+    const r = validate(
+      withExposure({
+        external_send_client: 'autonomous',
+        external_send_vendor: 'confirm',
+      })
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.personas[0].entitlements.exposure.external_send_client).toBe('autonomous')
+      expect(r.value.personas[0].entitlements.exposure.external_send_vendor).toBe('confirm')
+    }
+  })
+
+  it('rejects confirm on a non-send class', () => {
+    const r = validate(withExposure({ internal_write: 'confirm' }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
   })
 })

@@ -35,7 +35,8 @@ import {
   type RuntimeReadEnv,
 } from '../../operator/runtime-read-transport'
 import { parseAuditEntries } from './activity-read'
-import { formatAuditAction, type AuditEntry } from './audit'
+import type { AuditEntry } from './audit'
+import { toClientActivity } from './activity-language'
 
 export interface HomeActivityItem {
   id: string
@@ -67,9 +68,12 @@ export interface HomeFeedsDeps {
   actorUserId: string
 }
 
-/** How many audit rows one dashboard read requests. Enough to fill the
- * recent-activity list and catch recent escalations without paginating. */
-const HOME_READ_LIMIT = 20
+/** How many audit rows one dashboard read requests. The frozen ADR 0043
+ * seam has no action filter, so curated-language filtering happens
+ * console-side (activity-language allowlist); the window is wide enough
+ * that a chatty agent's suppressed telemetry cannot starve the six-line
+ * client feed. The Machine clamps oversized limits. */
+const HOME_READ_LIMIT = 200
 /** How many recent-activity lines the dashboard shows. */
 const RECENT_ACTIVITY_MAX = 6
 /** How many escalation lines the dashboard shows. */
@@ -103,7 +107,11 @@ export async function loadHomeFeeds(
 
   return {
     runtimeConfigured: true,
-    recentActivity: entries.slice(0, RECENT_ACTIVITY_MAX).map(toActivityItem),
+    // Curated client language only (Captain decision 7): filter through the
+    // allowlist FIRST, then take the six most recent mapped lines.
+    recentActivity: toClientActivity(entries)
+      .slice(0, RECENT_ACTIVITY_MAX)
+      .map((line) => ({ id: line.id, summary: line.summary, at: line.at })),
     needsAttentionCount,
     escalations: entries
       .filter((e) => e.action === 'ESCALATION_FIRED')
@@ -141,7 +149,7 @@ async function readRecentAuditEntries(
  * read (that is the admin view's job; ADR 0052 keeps this surface scoped to
  * the client's own operator). Missing row / NULL depth / read failure → 0.
  */
-async function readDraftQueueDepth(db: D1Database, customerSlug: string): Promise<number> {
+export async function readDraftQueueDepth(db: D1Database, customerSlug: string): Promise<number> {
   try {
     const row = await db
       .prepare('SELECT draft_queue_depth FROM operator_runtime_summary WHERE customer_slug = ?')
@@ -155,21 +163,12 @@ async function readDraftQueueDepth(db: D1Database, customerSlug: string): Promis
   }
 }
 
-function toActivityItem(entry: AuditEntry): HomeActivityItem {
-  const label = formatAuditAction(entry.action)
-  return {
-    id: entry.id,
-    summary: entry.skill !== null ? `${label} (${entry.skill})` : label,
-    at: entry.ts,
-  }
-}
-
 function toEscalationItem(entry: AuditEntry): HomeEscalationItem {
   // Prefer the writer's recorded reason (what was escalated and why); fall
   // back to the action label — never fabricate a friendlier story.
   return {
     id: entry.id,
-    summary: entry.reason ?? formatAuditAction(entry.action),
+    summary: entry.reason ?? 'Flagged something for your attention',
     at: entry.ts,
   }
 }

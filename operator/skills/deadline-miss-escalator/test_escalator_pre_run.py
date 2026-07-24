@@ -268,6 +268,27 @@ def test_parse_pull_clean_tasks_and_events() -> None:
     }
 
 
+def test_parse_pull_reads_nested_matter_link_object() -> None:
+    # The live Smokeball /tasks payload nests the matter as a link object —
+    # the flat-key miss put "unknown-matter" (or worse, the task's own id via
+    # the bare-"id" fallback) into item identity (WP-D probe find, ss #1915).
+    raw = {
+        "tasks": {
+            "items": [
+                {
+                    "id": "t-1",
+                    "matter": {"id": "m-real", "href": "https://api/matters/m-real"},
+                    "dueDate": "2026-07-20T00:00:00Z",
+                }
+            ]
+        },
+        "events": [],
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert deadlines[0].matter_id == "m-real"
+
+
 def test_parse_pull_bare_list_envelope() -> None:
     raw = {"tasks": [{"matterId": "m-1", "dueDate": "2026-07-20"}], "events": []}
     deadlines, problem = parse_pull(raw)
@@ -315,3 +336,189 @@ def test_parse_pull_dateless_items_skipped_when_others_parse() -> None:
 def test_parse_pull_empty_pull_is_a_clean_empty_book() -> None:
     deadlines, problem = parse_pull({"tasks": {"items": []}, "events": {"items": []}})
     assert deadlines == [] and problem is None
+
+
+def test_parse_pull_carries_stable_task_id() -> None:
+    raw = {
+        "tasks": {"items": [{"matterId": "m-1", "id": "task-77", "dueDate": "2026-07-20"}]},
+        "events": {"items": []},
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert deadlines[0].task_id == "task-77"
+
+
+def test_parse_pull_idless_item_has_no_task_id() -> None:
+    # An event with a date but no id key: still a deadline, but blanket-ack only.
+    raw = {
+        "tasks": {"items": []},
+        "events": {"items": [{"matterId": "m-2", "startTime": "2026-07-09T09:00:00"}]},
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert deadlines[0].task_id is None
+
+
+# ---------------------------------------------------------------------------
+# Ledger-aware re-fire policy (the daily-re-fire fix) — run_once + enrich
+# ---------------------------------------------------------------------------
+
+FirePolicy = _pre_run.FirePolicy
+enrich_with_ledger = _pre_run.enrich_with_ledger
+load_escalation_config = _pre_run.load_escalation_config
+
+# The vendored ledger module the skill loads at runtime — used here to mint
+# real events so the tests exercise the true item_key/state join.
+import importlib.util as _il  # noqa: E402
+
+_LEDGER_PATH = _HERE.parent / "escalation_ledger.py"
+_lspec = _il.spec_from_file_location("escalation_ledger_test", _LEDGER_PATH)
+_ledger = _il.module_from_spec(_lspec)
+sys.modules["escalation_ledger_test"] = _ledger
+_lspec.loader.exec_module(_ledger)
+
+
+def _fired_event(dl, *, ts, attempt=1):
+    key = _ledger.item_key(dl.matter_id, dl.task_id, dl.label, dl.authored_date)
+    return _ledger.make_event(
+        skill="deadline-miss-escalator",
+        matter_id=dl.matter_id,
+        item_key=key,
+        event="fired",
+        attempt=attempt,
+        token=_ledger.token_for(key),
+        ts=ts,
+    )
+
+
+def _acked_event(dl, *, ts):
+    key = _ledger.item_key(dl.matter_id, dl.task_id, dl.label, dl.authored_date)
+    return _ledger.make_event(
+        skill="deadline-miss-escalator",
+        matter_id=dl.matter_id,
+        item_key=key,
+        event="acked",
+        attempt=1,
+        token=_ledger.token_for(key),
+        ts=ts,
+    )
+
+
+_POLICY = FirePolicy(refire_days=3, ack_snooze_days=7)
+
+
+def test_enrich_suppresses_item_fired_within_refire_window() -> None:
+    dl = _dl(days_out=2, matter_id="m-1")  # overdue-ish, in range
+    fired = _fired_event(dl, ts="2026-06-07T07:00:00.000Z")  # yesterday
+    enriched = enrich_with_ledger([dl], today=TODAY, policy=_POLICY, ledger_events=[fired])
+    assert enriched[0].acknowledged is True  # inside the 3-day window → suppressed
+
+
+def test_enrich_refires_after_window() -> None:
+    dl = _dl(days_out=2, matter_id="m-1")
+    fired = _fired_event(dl, ts="2026-06-04T07:00:00.000Z")  # 4 days ago
+    enriched = enrich_with_ledger([dl], today=TODAY, policy=_POLICY, ledger_events=[fired])
+    assert enriched[0].acknowledged is False  # window elapsed → fires again
+
+
+def test_enrich_acked_is_snoozed_then_resurfaces() -> None:
+    dl = _dl(days_out=2, matter_id="m-1")
+    events = [
+        _fired_event(dl, ts="2026-06-05T07:00:00.000Z"),
+        _acked_event(dl, ts="2026-06-05T09:00:00.000Z"),  # acked 3 days ago
+    ]
+    snoozed = enrich_with_ledger([dl], today=TODAY, policy=_POLICY, ledger_events=events)
+    assert snoozed[0].acknowledged is True  # within 7-day snooze
+    later = date(2026, 6, 13)  # 8 days after the ack
+    resurfaced = enrich_with_ledger([dl], today=later, policy=_POLICY, ledger_events=events)
+    assert resurfaced[0].acknowledged is False  # ack is a snooze, not a tombstone
+
+
+def test_enrich_new_item_fires() -> None:
+    dl = _dl(days_out=2, matter_id="m-1")
+    enriched = enrich_with_ledger([dl], today=TODAY, policy=_POLICY, ledger_events=[])
+    assert enriched[0].acknowledged is False
+
+
+def test_run_once_suppresses_recently_fired_in_range_item() -> None:
+    """End-to-end: an in-range item that fired yesterday does NOT re-wake."""
+    dl = _dl(days_out=2, matter_id="m-1")
+    fired = _fired_event(dl, ts="2026-06-07T07:00:00.000Z")
+    executor = FakeExecutor()
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([dl])],
+            EscalationWindows(),
+            factory,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[fired],
+        )
+    )
+    assert code == 0
+    assert json.loads(out) == {"wakeAgent": False}  # suppressed via ledger
+    assert len(executor.calls) == 1  # heartbeat row written
+
+
+def test_run_once_still_wakes_when_refire_window_elapsed() -> None:
+    dl = _dl(days_out=2, matter_id="m-1")
+    fired = _fired_event(dl, ts="2026-06-01T07:00:00.000Z")  # a week ago
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([dl])],
+            EscalationWindows(),
+            lambda: None,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[fired],
+        )
+    )
+    assert json.loads(out) == {"wakeAgent": True}
+
+
+def test_no_stable_id_item_always_fires_until_blanket_acked() -> None:
+    """An idless item can be acked only en bloc; with no ack event it keeps
+    firing (its item_key state is absent so should_fire stays True)."""
+    idless = _dl(days_out=2, matter_id="m-2")  # _dl leaves task_id=None
+    assert idless.task_id is None
+    enriched = enrich_with_ledger([idless], today=TODAY, policy=_POLICY, ledger_events=[])
+    assert enriched[0].acknowledged is False
+
+
+def test_load_escalation_config_reads_overrides(tmp_path, monkeypatch) -> None:
+    cfg = tmp_path / "customer.yaml"
+    cfg.write_text(
+        "escalation:\n"
+        "  red_flag_recipients: [scott@smd.services]\n"
+        "  refire_days: 5\n"
+        "  ack_snooze_days: 10\n"
+        "  near_days: 9\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SMD_CUSTOMER_YAML_PATH", str(cfg))
+    windows, policy = load_escalation_config()
+    assert policy.refire_days == 5
+    assert policy.ack_snooze_days == 10
+    assert windows.near_days == 9
+    assert windows.escalation_window_days == 14  # unset → pack default
+
+
+def test_load_escalation_config_defaults_when_missing(monkeypatch) -> None:
+    monkeypatch.delenv("SMD_CUSTOMER_YAML_PATH", raising=False)
+    windows, policy = load_escalation_config()
+    assert policy == FirePolicy()  # pack defaults
+    assert windows == EscalationWindows()
+
+
+def test_load_escalation_config_defaults_on_unparseable(tmp_path, monkeypatch) -> None:
+    bad = tmp_path / "customer.yaml"
+    bad.write_text("escalation: [this is: not valid: yaml", encoding="utf-8")
+    monkeypatch.setenv("SMD_CUSTOMER_YAML_PATH", str(bad))
+    _windows, policy = load_escalation_config()
+    assert policy == FirePolicy()  # never crash, never silent-suppress

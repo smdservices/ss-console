@@ -102,7 +102,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_a',
         email: 'a@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 30,
       },
       issueCtx
@@ -114,7 +114,7 @@ describe('grant-store write side (ADR 0057)', () => {
       localUserId: 'user_a',
       clerkUserId: 'user_a',
       email: 'a@firm.com',
-      profile: 'quinn',
+      profile: 'operator',
     })
 
     const audit = await auditRows(db)
@@ -123,7 +123,7 @@ describe('grant-store write side (ADR 0057)', () => {
       action: 'issue',
       clerk_user_id: 'user_a',
       email: 'a@firm.com',
-      profile: 'quinn',
+      profile: 'operator',
       ttl_days: 30,
       actor: ACTOR,
     })
@@ -137,7 +137,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_b',
         email: 'b@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 999,
       },
       issueCtx
@@ -153,7 +153,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_a',
         email: 'a@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 30,
       },
       issueCtx
@@ -178,7 +178,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_a',
         email: 'a@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 30,
       },
       issueCtx
@@ -198,7 +198,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_a',
         email: 'a@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 30,
       },
       issueCtx
@@ -210,7 +210,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_a',
         email: 'a@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 30,
       },
       issueCtx
@@ -231,7 +231,7 @@ describe('grant-store write side (ADR 0057)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_a',
         email: 'a@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 30,
       },
       issueCtx
@@ -258,7 +258,7 @@ describe('jitIssueGrant — open-by-domain (slice 2e)', () => {
         customerSlug: SLUG,
         clerkUserId,
         email: `${clerkUserId}@firm.com`,
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays,
       },
       jitCtx
@@ -281,7 +281,7 @@ describe('jitIssueGrant — open-by-domain (slice 2e)', () => {
         customerSlug: SLUG,
         clerkUserId: 'user_x',
         email: 'user_x@firm.com',
-        profile: 'quinn',
+        profile: 'operator',
         ttlDays: 7,
       },
       issueCtx
@@ -299,7 +299,7 @@ describe('jitIssueGrant — open-by-domain (slice 2e)', () => {
         'INSERT INTO mcp_issued_grants (customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?)'
       )
-      .bind(SLUG, 'user_exp', 'user_exp@firm.com', 'quinn', '2000-01-01T00:00:00.000Z', null)
+      .bind(SLUG, 'user_exp', 'user_exp@firm.com', 'operator', '2000-01-01T00:00:00.000Z', null)
       .run()
     const res = await jit('user_exp')
     expect(res).toMatchObject({ issued: true })
@@ -315,7 +315,7 @@ describe('jitIssueGrant — open-by-domain (slice 2e)', () => {
           'INSERT INTO mcp_issued_grants (customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
             'VALUES (?, ?, ?, ?, ?, ?)'
         )
-        .bind(SLUG, `cap_${i}`, `cap_${i}@firm.com`, 'quinn', far, null)
+        .bind(SLUG, `cap_${i}`, `cap_${i}@firm.com`, 'operator', far, null)
     )
     await db.batch(stmts)
     expect(await countActiveGrants(db, SLUG)).toBe(MCP_OPEN_GRANT_CAP)

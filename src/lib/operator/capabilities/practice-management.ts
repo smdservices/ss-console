@@ -154,11 +154,7 @@ export interface DocumentUpload {
  * outside this set carry a `vendor_event_type` field in metadata.
  */
 export type MatterEvent =
-  | 'matter.created'
-  | 'matter.updated'
-  | 'matter.closed'
-  | 'document.added'
-  | 'note.added'
+  'matter.created' | 'matter.updated' | 'matter.closed' | 'document.added' | 'note.added'
 
 /**
  * Returned by `subscribe()` — the per-customer record of a webhook

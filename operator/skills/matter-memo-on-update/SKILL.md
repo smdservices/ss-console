@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: change-detection + internal logging
-    trust_ceiling: autonomous_internal_write
     action_class: read + internal_write
     connectors:
       - smokeball # PracticeManagement - read existing memos + actor (read), create_memo (internal write)
@@ -63,7 +62,9 @@ This skill uses only three connector calls and your own reasoning. In order:
 1. Read the matter's existing memos **once** with `get_memos_on_matter(matterId)`.
 2. Compute a stable change key: `op-mmou:<matterId>:<timestamp>` (the raw `.NET ticks` value, verbatim).
 3. If any existing memo body already contains that exact `op-mmou:<matterId>:<timestamp>` tag, this change has already been logged → **STOP. Write nothing.** (A redundant webhook delivery is not a new change.)
-4. If `get_memos_on_matter` returns an error, do **not** retry it. Proceed to Phase 2 - a missing dedupe read at worst produces one extra memo on a redelivery (bounded, and this skill can never loop: it is subscribed to `matter.updated` only, and its own write emits a `memo.*` event, never `matter.updated`).
+4. If `get_memos_on_matter` returns an error, do **not** retry it. Proceed to Phase 2 - a missing dedupe read at worst produces one extra memo on a redelivery (bounded).
+
+> **Loop safety lives at the gate, not in this skill.** This skill's own `create_memo` write DOES echo back as a `matter.updated` delivery (~12 min vendor latency - proven live on pilot-smokeball 2026-07-06→07, ss-console #1781; the earlier assumption that a memo write emits only `memo.*` is false). Two gate-enforced controls break the loop before any agent wake: the per-(trigger, matter) cooldown (`webhook_triggers[].throttle`, platform default 30 min) parks the echo, and the firm's authored `exclude.actors` (the seat's own vendor userId, authored at connect) drops the seat's own writes precisely. The idempotency check above remains the third layer: an echo of a change you already logged carries the same `timestamp`, so even if a delivery reaches you it writes nothing new.
 
 ### Phase 2 - Resolve the actor (degrade honestly, never fabricate)
 

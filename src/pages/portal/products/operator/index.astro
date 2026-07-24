@@ -1,58 +1,22 @@
 ---
-import { GOOGLE_FONTS_URL } from '../../../../lib/fonts'
-import '../../../../styles/global.css'
-import { BRAND_NAME } from '../../../../lib/config/brand'
+import PortalShell from '../../../../layouts/PortalShell.astro'
 import { getPortalClient } from '../../../../lib/portal/session'
-import {
-  getProductSubscription,
-  listProductRoles,
-  type ProductAccess,
-} from '../../../../lib/portal/product-access'
-import PortalHeader from '../../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../../components/portal/PortalTabs.astro'
-import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
-import PromotionCardList from '../../../../components/portal/operator/PromotionCardList.astro'
-import AlivenessHeader from '../../../../components/portal/operator/AlivenessHeader.astro'
-import SkipToMain from '../../../../components/SkipToMain.astro'
-import {
-  listPromotionReadySkills,
-  type PromotionCandidate,
-} from '../../../../lib/portal/operator/promotion-cards'
-import {
-  resolveAlivenessSignal,
-  type AlivenessSignal,
-} from '../../../../lib/portal/operator/aliveness'
-import { getCustomerConfig } from '../../../../lib/portal/customer-config'
-import { loadHomeFeeds, type HomeFeeds } from '../../../../lib/portal/operator/home'
-import { formatAuditTimestamp } from '../../../../lib/portal/operator/audit'
+import { resolvePortalOfferings } from '../../../../lib/portal/offerings'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator dashboard — landing page.
+ * Operator product root — the instance chooser (multi-operator model, ADR 0069 +
+ * the 2026-07-08 model correction: one client, many operators).
  *
- * URL: portal.smd.services/portal/products/operator
+ * This bare path absorbs every legacy inbound link to
+ * `/portal/products/operator`. It never renders an operator itself; it routes:
+ *   0 operators → honest empty state
+ *   1 operator  → redirect straight to that instance's landing
+ *   many        → a chooser list, one row per operator the client owns
  *
- * Access model (per PR #904 substrate, PR #906 Clerk rewire):
- *   1. Clerk session required (gated by middleware)
- *   2. Local users row linked to a Clerk org with a matching local
- *      entity (resolved by getPortalClient)
- *   3. Active subscription on (entity, 'operator') in the
- *      subscriptions table
- *   4. At least one role granted on (user, entity, 'operator') in
- *      product_roles — vocabulary: principal | staff | compliance
- *
- * Anything less degrades to the appropriate empty state per
- * docs/style/empty-state-pattern.md. No fabrication.
- *
- * This page is the routing entry point. Internal product surfaces
- * (Activity, Calendar, Connections, Configure, Team, Account) live under
- * /portal/products/operator/* and are reached via the section card
- * grid rendered in the active-state branch below. Each child surface
- * uses the shared resolveOperatorAccess helper to enforce its own
- * role gate; the landing only orchestrates which cards to render.
+ * Each operator's real surface lives under `[instance]/`. Instances come from the
+ * offerings resolver (subscriptions × configs the client owns); no fabrication.
  */
-
-const PRODUCT_SLUG = 'operator'
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
@@ -61,442 +25,70 @@ if (!portalData) {
 if (!portalData.client) {
   return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
+const { client } = portalData
 
-const { user, client } = portalData
+const offerings = await resolvePortalOfferings(env.DB, client.org_id, client.id)
+const operators = offerings.operators
 
-// Surface state derived in priority order. We render exactly one state.
-//   no_subscription   — customer has no Operator subscription on file
-//   provisioning      — subscription exists but the per-customer Hermes
-//                       Machine + D1 are still being set up
-//   paused            — subscription is paused (audit-only access)
-//   no_role           — subscription is active but the user has no role
-//                       granted; principal needs to grant access
-//   active            — subscription active + at least one role; render
-//                       the dashboard
-type SurfaceState = 'no_subscription' | 'provisioning' | 'paused' | 'no_role' | 'active'
-
-let surfaceState: SurfaceState
-let access: ProductAccess | null = null
-
-const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
-if (!subscription) {
-  surfaceState = 'no_subscription'
-} else if (subscription.status === 'provisioning') {
-  surfaceState = 'provisioning'
-} else if (subscription.status === 'paused') {
-  surfaceState = 'paused'
-} else {
-  const roles = await listProductRoles(env.DB, user.id, client.id, PRODUCT_SLUG)
-  if (roles.length === 0) {
-    surfaceState = 'no_role'
-  } else {
-    surfaceState = 'active'
-    access = { subscription, roles }
-  }
+// One operator → go straight in; no reason to make the client pick from a list of one.
+if (operators.length === 1) {
+  return Astro.redirect(`/portal/products/operator/${operators[0].slug}`)
 }
 
-// Section cards in the active-state main column. Filtered by the
-// caller's roles so staff / principals see the act-on-the-product
-// surfaces (Calendar) and every role sees Activity.
-// Each destination uses resolveOperatorAccess to enforce the gate
-// server-side; this list is the visual filter only.
-//
-// Compliance card surfacing (per #895): when the firm has opted in to
-// the dedicated Compliance view (customer.yaml.compliance_enabled =
-// true), surface the card to compliance and principal roles. Staff
-// never see it — their surfaces are Activity and Calendar.
-// When the firm has NOT opted in, surface only to compliance-role
-// users so they have a path to confirm the firm's posture; the
-// destination renders an explicit "not enabled for this firm" empty
-// state per docs/style/empty-state-pattern.md.
-interface SectionCard {
-  href: string
-  label: string
-  description: string
-}
-const sectionCards: SectionCard[] = []
-const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : null
-const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
-if (access) {
-  const userRoles = access.roles
-  sectionCards.push({
-    href: '/portal/products/operator/onboarding',
-    label: 'Get started',
-    description:
-      'The three steps to a working operator: invite your team, connect systems, calibrate.',
-  })
-  const ACTIVE_DOER_ROLES = ['staff', 'principal']
-  const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
-  if (canAct) {
-    sectionCards.push({
-      href: '/portal/products/operator/calendar',
-      label: 'Calendar',
-      description: 'Appointments and deadlines your Operator has scheduled or proposed.',
-    })
-  }
-  sectionCards.push({
-    href: '/portal/products/operator/activity',
-    label: 'Activity',
-    description:
-      'A full record of every action your Operator takes: drafts created, sends approved, identity changes.',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/connections',
-    label: 'Connections',
-    description: 'The systems your Operator connects to, and how their credentials are held.',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/configure',
-    label: 'Configure',
-    description: "Your Operator's skills, governance, voice, scope, and hours.",
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/team',
-    label: 'Team',
-    description: 'The people on your account, their roles, and who is covering for whom.',
-  })
-  sectionCards.push({
-    href: '/portal/products/operator/account',
-    label: 'Account',
-    description: 'Your subscription, escalation contacts, and notification preferences.',
-  })
-  const isCompliance = userRoles.includes('compliance')
-  const isPrincipal = userRoles.includes('principal')
-  const showComplianceCard =
-    (complianceViewEnabled && (isCompliance || isPrincipal)) || isCompliance
-  if (showComplianceCard) {
-    sectionCards.push({
-      href: '/portal/products/operator/compliance',
-      label: 'Compliance',
-      description:
-        'Separation-of-duties view: audit history, retention posture, and evidence packet entry.',
-    })
-  }
-}
-
-// Aliveness signal (per #875, wired in #1678). Per-customer "where is the
-// agent right now" header: idle / running / sticky_stop / offline +
-// last-action timestamp, derived from this customer's fleet_status
-// heartbeat row (ADR 0023 Wave 1). A customer with no row yet resolves to
-// null and the AlivenessHeader renders nothing (empty-state pattern).
-// Surfaced for any role so operators and compliance see the same posture
-// the principal sees; access to the surface is already role-gated upstream.
-let alivenessSignal: AlivenessSignal | null = null
-if (access) {
-  alivenessSignal = await resolveAlivenessSignal(env.DB, access.subscription)
-}
-
-// Promotion recommendation cards (per #811). Principal-only because the
-// trust-ceiling promotion is the firm's decision per §11.3 — operator
-// and compliance roles do not see the prompt. The resolver returns an
-// empty list today (Hermes stats bridge not wired); when it does the
-// PromotionCardList wrapper renders nothing, so no fabricated copy
-// reaches the page. The dismissals table is wired so the empty case is
-// honest: even when bridge data lands later, a dismissed card stays
-// suppressed for the cooldown.
-let promotionCandidates: PromotionCandidate[] = []
-if (access?.roles.includes('principal')) {
-  promotionCandidates = await listPromotionReadySkills(env.DB, client.id)
-}
-
-// Home/Today runtime feeds (client-portal §5.1, wired in #1678): recent
-// activity + escalations from ONE live runtime read (ADR 0043, kind
-// audit_log — the same frozen seam the Activity page uses), and
-// needsAttentionCount from the Machine-pushed draft_queue_depth in this
-// customer's summary-mirror row. Every source fails closed to an honest
-// empty; Home never fabricates a review queue the Machine did not report
-// (ADR 0035).
-const customerSlug = customerConfig?.customer_slug ?? client.id
-const homeActorRole = access?.roles.includes('principal')
-  ? 'principal'
-  : access?.roles.includes('compliance')
-    ? 'compliance'
-    : 'staff'
-const homeFeeds: HomeFeeds | null = access
-  ? await loadHomeFeeds({ db: env.DB, env, actorUserId: user.id }, customerSlug, {
-      actor: user.email,
-      actorRole: homeActorRole,
-    })
-  : null
-
-// Change-request filing outcome (client-portal §3). The dual-mode "Request a
-// change" form 303s back with ?cr=filed|invalid|error so the surface it returned
-// to can show a banner.
-const crStatus = Astro.url.searchParams.get('cr')
-const crMessage =
-  crStatus === 'filed'
-    ? 'Your request was sent.'
-    : crStatus === 'invalid'
-      ? "That request couldn't be filed. Please add a short description and try again."
-      : crStatus === 'error'
-        ? 'Something went wrong filing your request. Please try again.'
-        : null
-const crTone = crStatus === 'filed' ? 'complete' : 'error'
+const seclabelClass =
+  'font-mono text-label font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]'
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Operator | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Operator"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  {
+    /* No "← Home" here: this is the top of the Operator section and Home is
+      already the adjacent nav tab — a back-to-Home breadcrumb would be redundant. */
+  }
+  <p class={`mt-8 ${seclabelClass}`}>Operators</p>
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={subscription !== null} />
-
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal"
-        crumbLabel="Home"
-        tag="Product"
-        h1="Operator"
-        meta={null}
-      />
-
-      {
-        crMessage && (
-          <div
-            role="status"
-            class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
-              crTone === 'complete'
-                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
-                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+  {
+    operators.length === 0 ? (
+      <div class="mt-3 border-[3px] border-[color:var(--color-text-primary)] p-8 text-center md:p-12">
+        <p class="font-body text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)] md:text-3xl">
+          No operators yet
+        </p>
+        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+          Your account doesn't include an Operator yet. Contact us if you'd like to talk about
+          adding one.
+        </p>
+      </div>
+    ) : (
+      <div class="mt-3 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+        {operators.map((op, i) => (
+          <a
+            href={`/portal/products/operator/${op.slug}`}
+            class={`group flex items-center justify-between gap-6 px-5 py-5 transition-colors hover:bg-[color:var(--color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset md:px-7 ${
+              i > 0 ? 'border-t-[2px] border-[color:var(--color-border)]' : ''
             }`}
           >
-            {crMessage}
-          </div>
-        )
-      }
-
-      {
-        surfaceState === 'no_subscription' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Not subscribed
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              Your account doesn't include the Operator product. Contact us if you'd like to talk
-              about adding it.
-            </p>
-          </div>
-        )
-      }
-
-      {
-        surfaceState === 'provisioning' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Setup in progress
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              Your Operator is being configured.
-            </p>
-          </div>
-        )
-      }
-
-      {
-        surfaceState === 'paused' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Paused
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              Your Operator subscription is paused. Audit history remains accessible; new drafts are
-              suspended until the subscription resumes.
-            </p>
-          </div>
-        )
-      }
-
-      {
-        surfaceState === 'no_role' && (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              Access pending
-            </p>
-            <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              The Operator is set up for your firm, but you haven't been granted a role yet. Contact
-              your firm's principal to be added.
-            </p>
-          </div>
-        )
-      }
-
-      {
-        surfaceState === 'active' && (
-          <>
-            <div class="mt-8">
-              <AlivenessHeader signal={alivenessSignal} />
+            <div class="min-w-0">
+              <p class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--color-text-primary)]">
+                {op.displayName}
+              </p>
+              <p class="mt-0.5 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+                {op.status}
+              </p>
             </div>
-
-            {/* Home / Today (client-portal §5.1): what needs you, what it did,
-                escalations. Runtime-fed (#1678); fails closed to honest empty
-                on any transport failure. "What needs you" appears ONLY when
-                the Machine reported work genuinely routed to a human for this
-                client — never a fabricated queue (ADR 0035). */}
-            {homeFeeds && (
-              <section class="mt-8 flex flex-col gap-8" aria-label="What's happening">
-                {homeFeeds.needsAttentionCount > 0 && (
-                  <section class="border-[3px] border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-background)]">
-                    <div class="bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                      What needs you
-                    </div>
-                    <a
-                      href="/portal/products/operator/activity"
-                      class="block px-5 md:px-7 py-5 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                    >
-                      <p class="font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                        {homeFeeds.needsAttentionCount}{' '}
-                        {homeFeeds.needsAttentionCount === 1 ? 'item needs' : 'items need'} your
-                        review
-                      </p>
-                    </a>
-                  </section>
-                )}
-
-                <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                  <div class="flex items-center justify-between gap-4 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5">
-                    <span class="font-mono text-label uppercase tracking-[0.18em] font-bold">
-                      Recent activity
-                    </span>
-                    <a
-                      href="/portal/products/operator/activity"
-                      class="font-mono text-label uppercase tracking-[0.14em] font-bold underline underline-offset-2 hover:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-background)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-text-primary)]"
-                    >
-                      Full record
-                    </a>
-                  </div>
-                  {homeFeeds.recentActivity.length === 0 ? (
-                    <p class="px-5 md:px-7 py-8 text-sm text-[color:var(--ss-color-text-secondary)]">
-                      No activity to show yet.
-                    </p>
-                  ) : (
-                    <ul role="list" class="divide-y-[2px] divide-[color:var(--ss-color-border)]">
-                      {homeFeeds.recentActivity.map((item) => (
-                        <li class="px-5 md:px-7 py-4">
-                          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
-                            {item.summary}
-                          </p>
-                          <p class="mt-1 font-mono text-xs text-[color:var(--ss-color-text-secondary)]">
-                            {formatAuditTimestamp(item.at)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-
-                {homeFeeds.escalations.length > 0 && (
-                  <section class="border-[3px] border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)]">
-                    <div class="bg-[color:var(--ss-color-error)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                      Escalations
-                    </div>
-                    <ul role="list" class="divide-y-[2px] divide-[color:var(--ss-color-border)]">
-                      {homeFeeds.escalations.map((item) => (
-                        <li class="px-5 md:px-7 py-4">
-                          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
-                            {item.summary}
-                          </p>
-                          <p class="mt-1 font-mono text-xs text-[color:var(--ss-color-text-secondary)]">
-                            {formatAuditTimestamp(item.at)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
-              </section>
-            )}
-
-            <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
-              <div class="flex flex-col gap-8 min-w-0">
-                <PromotionCardList candidates={promotionCandidates} />
-                <section>
-                  <p class="mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                    Sections
-                  </p>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-[color:var(--ss-color-text-primary)] border-[3px] border-[color:var(--ss-color-text-primary)]">
-                    {sectionCards.map((s, i) => {
-                      const anchor = String(i + 1).padStart(2, '0')
-                      return (
-                        <a
-                          href={s.href}
-                          class="block bg-[color:var(--ss-color-background)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                        >
-                          <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
-                            § {anchor}
-                          </p>
-                          <h2 class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                            {s.label}
-                          </h2>
-                          <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
-                            {s.description}
-                          </p>
-                        </a>
-                      )
-                    })}
-                  </div>
-                </section>
-              </div>
-
-              <aside class="flex flex-col gap-8 min-w-0">
-                <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                  <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                    Your roles
-                  </div>
-                  <div class="px-5 md:px-7 py-6">
-                    <ul
-                      class="space-y-1 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
-                      role="list"
-                    >
-                      {access?.roles.map((role) => (
-                        <li>· {role}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </section>
-
-                {access?.roles.includes('principal') && (
-                  <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                    <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
-                      Manage
-                    </div>
-                    <ul
-                      class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]"
-                      role="list"
-                    >
-                      <li>
-                        <a
-                          href="/portal/products/operator/settings/users"
-                          class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                        >
-                          <p class="font-body font-bold text-[color:var(--ss-color-text-primary)]">
-                            Users
-                          </p>
-                          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                            Invite team members and manage roles.
-                          </p>
-                        </a>
-                      </li>
-                    </ul>
-                  </section>
-                )}
-              </aside>
-            </div>
-          </>
-        )
-      }
-    </main>
-  </body>
-</html>
+            <span
+              aria-hidden="true"
+              class="font-body font-black text-[color:var(--color-primary)] transition-transform group-hover:translate-x-1"
+            >
+              →
+            </span>
+          </a>
+        ))}
+      </div>
+    )
+  }
+</PortalShell>

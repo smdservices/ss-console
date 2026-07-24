@@ -1,7 +1,7 @@
 ---
 name: deadline-miss-escalator
 description: Escalates an approaching or missed firm-authored deadline up a ladder — re-surface, re-route, then notify a named human — so a critical date never slips silently. Internal-only; tracks authored dates, never computes one.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: scheduled escalation (internal surfacing + named-human notify)
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     cron: true
     connectors:
@@ -37,9 +36,25 @@ Three rungs, chosen by proximity (arithmetic on authored dates only). All rungs 
 
 1. **Re-surface** (outer window) — refresh the date on the firm-internal surface with an elevated flag, so it stands out from the standing tracker view.
 2. **Re-route** (near window) — flag the matter to the responsible humans on the internal surface. Smokeball returns the responsible attorney directly (`personResponsibleStaffId`, resolved via `get_staff`), so re-route can target the matter's responsible attorney; it falls back to the firm's authored `escalation.red_flag_recipients` when no responsible attorney is set.
-3. **Notify** (within the notify window, or overdue) — deliver an alert to the named human via the firm's existing `escalation.red_flag_recipients` channel, emitting an `ESCALATION_FIRED` audit row. The human acknowledges with `ESCALATION_ACKNOWLEDGED`, which closes the ladder for that deadline (it stops re-firing). This is an **internal alert to a person inside the firm**, not a client message — there is no external send.
+3. **Notify** (within the notify window, or overdue) — deliver a triaged alert to the named human via the firm's existing `escalation.red_flag_recipients` channel. Each item carries a per-item `ACK-XXXXXX` code. This is an **internal alert to a person inside the firm**, not a client message — there is no external send.
 
 **Held matters** route to **clearance**, not the ladder: a matter on CONFLICT-HOLD with an approaching date is surfaced for human clearance and never gets a client-facing step.
+
+## Fire once, acknowledge per item (the escalation ledger)
+
+An alert fires **once**, then re-fires only after the firm's authored
+`escalation.refire_days` window (pack default 3), never daily. State lives in the
+escalation ledger (`references/algorithm.md`): a broker-owned append-only JSONL
+the agent reads but never writes directly.
+
+Acknowledgement is **per item**. Each notify line carries its own `ACK-XXXXXX`
+code, keyed on the Smokeball task id, so acking one item suppresses only that
+item. The blanket `ESCALATION_ACKNOWLEDGED` is redefined: it acks exactly the
+items **quoted** in the message being replied to; items not quoted stay open (the
+footer says so). An ack is a **snooze, not a tombstone**: the item goes quiet for
+`escalation.ack_snooze_days` (pack default 7), then re-surfaces if it is still
+open in Smokeball. Only resolution in Smokeball closes an item. Items with no
+stable task id carry no code and can be cleared only by a blanket ack.
 
 ## Prerequisites
 
@@ -47,18 +62,19 @@ Reads Smokeball (`list_tasks` `due_date`) for authored task deadlines and the ma
 
 ## Procedure
 
-1. **Pre-run (cron, no agent):** `pre_run.py` compares each authored date to today. Wakes the agent iff some open, unacknowledged matter has a date in the escalation window or overdue; otherwise writes `SUPPRESSED_WAKE` and prints `{"wakeAgent": false}`. Audit-write failure falls back to wake (the date must not go dark).
-2. **On wake — assign rungs:** for each in-range deadline, pick the rung by proximity (re-surface / re-route / notify), or **clearance** for a held matter.
-3. **Execute rungs:** re-surface and re-route write the firm-internal surface; notify emits `ESCALATION_FIRED` to `red_flag_recipients`.
-4. **Never compute, never send to a client.** No date is produced; no client/tribunal-bound message is drafted or sent.
+1. **Pre-run (cron, no agent):** `pre_run.py` compares each authored date to today and joins the escalation ledger. Wakes the agent iff some open, in-range item **should fire now** (never fired, or its re-fire window elapsed, or an ack has snoozed out); otherwise writes `SUPPRESSED_WAKE` and prints `{"wakeAgent": false}`. Audit-write failure falls back to wake (the date must not go dark).
+2. **On wake — triage the firing items** by authored signal (task-label markers, consequential category, overdue age): a top "Needs you today" block of three to five, routine confirmations collapsed to per-matter counts, dedup pointers for items another skill is already escalating. See `references/output-format.md`.
+3. **Derive the codes, send ONE alert, then record the fire.** For each firing item, first call `escalation_append` with `derive_only: true` — it returns the item's real broker-derived `ACK-XXXXXX` code without writing anything. Compose and deliver ONE internal alert to `red_flag_recipients` quoting exactly those returned codes — **never print a code that did not come back from a tool call this run** (no invented codes, no `ACK-PENDING` placeholders, no codes remembered from a prior alert: a stale code acks the WRONG item — ss #1935), and never send a follow-up "codes confirmed" email. After the send succeeds, emit one `fired` event per item with `escalation_append` (same components, no `derive_only`; `references/algorithm.md`). A failed send still records nothing — the item re-fires next run. Never report an item as raised unless both the send and the ledger write succeeded.
+4. **On a rostered internal reply (routed here by the inbox skill):** run the per-item ack procedure — extract the `ACK` codes (resolve them against `escalation_state` output), emit an `acked` event per code with `escalation_append`, and reply enumerating what was acked and counting what remains.
+5. **Never compute, never send to a client.** No date is produced; no client/tribunal-bound message is drafted or sent.
 
 ## Trust Ceiling
 
 **Read + internal surface + internal named-human notify; zero date computation; zero external send.**
 
-The agent MAY: read authored dates; compare them to today; write the internal escalation surface; emit `ESCALATION_FIRED` to the firm's authored red-flag channel.
+The agent MAY: read authored dates; compare them to today; read the escalation ledger (`escalation_state`); emit the triaged alert to the firm's authored red-flag channel; append `fired`/`acked` escalation events **with the `escalation_append` tool through the broker's validated `escalation_event_append` verb** (the broker rejects an `acked` with no prior `fired`).
 
-The agent MUST NOT: compute or infer a deadline; send anything to a client or tribunal; move or author a date; escalate a held matter into a client-facing step. **Fail-closed (ADR 0035):** if the firm has authored no `red_flag_recipients`, the notify rung has nowhere to fire — the escalator re-surfaces and re-routes internally but raises no named-human alert. It never invents a recipient.
+The agent MUST NOT: compute or infer a deadline; send anything to a client or tribunal; move or author a date; escalate a held matter into a client-facing step; write the escalation ledger file directly (every event goes through the broker seam, so an injected reply cannot silence an alarm that never rang). **Fail-closed (ADR 0035):** if the firm has authored no `red_flag_recipients`, the notify rung has nowhere to fire — the escalator raises no named-human alert and never invents a recipient.
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
@@ -67,6 +83,8 @@ The agent MUST NOT: compute or infer a deadline; send anything to a client or tr
 3. **Fail-closed notify.** With no authored red-flag recipient, no named-human alert fires (re-surface/re-route still run).
 4. **Held matters route to clearance,** never a client-facing escalation.
 5. **Heartbeat integrity.** Every quiet tick writes a `SUPPRESSED_WAKE` row; an audit-write failure forces wake. A scheduled tick with no audit row is the dead-man's-switch signal — the watch is advisory, never the firm's system of record (`compliance-floor.md`).
+6. **Ledger writes are validated, never direct.** Every `fired`/`acked` event goes through the `escalation_append` tool to the broker's `escalation_event_append` verb; the agent never writes the ledger file and never reaches the broker socket via `execute_code` (that class is unauthored on customer seats and refused — ss #1915). An `acked` with no prior `fired` is rejected. An ack is a snooze, not a tombstone — only resolution in Smokeball is terminal.
+7. **No invented urgency.** The triage orders by signals the record carries (task-label markers, consequential category, overdue age) and never manufactures an urgency the data does not state.
 
 ## Pitfalls
 
@@ -82,10 +100,11 @@ Computing "X from the incident" to decide what is overdue (the cardinal sin — 
 
 ## References
 
-- `references/algorithm.md` — the in-range test, the rung-by-proximity mapping, and the never-computes line in code
-- `references/output-format.md` — the internal escalation surface + the notify alert shape
+- `references/algorithm.md` — the in-range test, the ledger join + fire policy, the item identity + ack token, the broker append seam, and the never-computes line in code
+- `references/output-format.md` — the triaged alert (Needs you today / Admin confirms / dedup pointers) and the confirmation reply
+- `escalation_ledger.py` — the shared ledger module (byte-identical to `operator/workspace_broker/escalation_ledger.py`; item_key, token, state, fire policy). Do not edit the copy; edit the canonical and restamp.
 - `tests/selector_test.md` — selector targets this skill for "a deadline is slipping / escalate," not the standing tracker view
-- `pre_run.py` + `test_escalator_pre_run.py` — the no-agent cron decision (arithmetic-only) + the `SUPPRESSED_WAKE` heartbeat and its fallback-to-wake
+- `pre_run.py` + `test_escalator_pre_run.py` — the no-agent cron decision (arithmetic + ledger join) + the `SUPPRESSED_WAKE` heartbeat and its fallback-to-wake
 
 ## Delivery channels + refusal fallback (law seat rule)
 

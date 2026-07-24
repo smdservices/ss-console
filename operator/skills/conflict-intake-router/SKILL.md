@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: decision/surfacing (compliance routing)
-    trust_ceiling: draft_for_review
     action_class: read + route
     connectors:
       - smokeball # PracticeManagement — get_contacts / list_matters / get_matter (read) for the cross-check

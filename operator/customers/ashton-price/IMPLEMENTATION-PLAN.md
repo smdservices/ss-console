@@ -78,7 +78,7 @@ client's Machine.
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 19 PI-litigation skills authored + adversarially gated + revised; every safety bright line held                                                                                                                                            | PR #1637; `law-firm/pi` addon.yaml v0.2.0; 64 fixtures (43 adversarial)                                                                                                       |
 | Catalog selector: 19/19 blind pass over the 33-skill catalog                                                                                                                                                                               | `../../verticals/law-firm/addons/pi/tests/catalog-selector-test.md`                                                                                                           |
-| Skills staged on `quinn` in both `pilot-smokeball` and `ashton-price` customer.yaml                                                                                                                                                        | 2026-07-02 staging pass                                                                                                                                                       |
+| Skills staged on `operator` in both `pilot-smokeball` and `ashton-price` customer.yaml                                                                                                                                                     | 2026-07-02 staging pass                                                                                                                                                       |
 | Live execution proven on `pilot-smokeball`; hardening fixes landed from that pass                                                                                                                                                          | #1639 (catalog frontmatter), #1641/#1644 (citation-safe email, neutral persona), #1650 (Smokeball /contacts 400s), #1651 (delivery discipline v2), #1665 (seat-local cron TZ) |
 | Smokeball app **approved** for production                                                                                                                                                                                                  | Captain, 2026-07-03                                                                                                                                                           |
 | `ashton-price` seat **unprovisioned**; Anthropic workspace pre-created, config row to author at provision                                                                                                                                  | `docs/runbooks/operator/cost-telemetry-enable.md`; #1667/#1668                                                                                                                |
@@ -185,8 +185,14 @@ principal) to correct the model and lock what only the firm can give:
    this unilaterally; it sets the deadline-lane shape).
 5. **CoCounsel / drafting division** — outcome of her Thomson Reuters
    meeting; sets motion/response orchestration.
-6. **Voice samples** — firm letters/templates into the voice library
-   (path is set, library is empty).
+6. **Voice samples** — ~30 firm-authored letters/templates (the ADR 0028
+   anchor-pack size) into the voice library, so Layer 2 has a real corpus to
+   transform toward instead of the general fallback. Christa provides the
+   samples; we ingest them through the leak-guarded differ
+   (`operator/bin/voice-ingest-corpus.py`) to content-free structural-diff
+   cohort JSONs in the seat vault — raw letter text never lands in the vault
+   or logs. The portal self-serve upload path (#1851) is a later
+   convenience; at onboarding we ingest the pack directly.
 7. **Monitored-inbox decision** — owned address vs forwarding vs Graph watch
    (feeds M6).
 8. **Starting matter set** — which live matters observation watches first.
@@ -205,6 +211,24 @@ session; the firm authorizes at the session (M2 item 9) via the portal OAuth
 connect flow (settings hub); refresh token vaulted; smoke read
 (`auth_status` → `list_matters`) against A&P's **real** matters through the
 seat's MCP, verified in the room or immediately after.
+
+**Loop-guard authoring at connect (#1781).** Once the firm's OAuth completes,
+the seat's own Smokeball `userId` is known — author it into the
+`matter.updated` trigger's `exclude.actors` in `customer.yaml` so the
+Operator's own writes never wake the supervision-memo skill (the precise
+self-actor break). The per-(trigger, matter) `throttle` cooldown is already
+authored and holds regardless (it covers absent-`userId` deliveries), but the
+actor exclusion is the exact fix and must not be skipped at connect.
+
+**Custody constraint before any `code_execution` (#1841 / ADR 0045).** The A&P
+seat binds Smokeball, a client-data connector whose refresh token sits in the
+gateway env. The custody guard (ADR 0044 D8) refuses to author non-refused
+`code_execution` on this seat while that is true — Smokeball is NOT
+exception-eligible (a paying client's system of record). Today the seat leaves
+`code_execution` unauthored (fail-closed), so this is not a blocker for M3. If
+a lane ever needs `code_execution` on this seat, the prerequisite is
+broker-mediating the Smokeball credential first
+(`operator/contracts/connector-custody-dispositions.md`), not an exception.
 
 - **Blocked by:** M0 (seat) + M2 (the authorization happens at the session).
 - **Exit:** verify record of a real-matter list read through the live seat,

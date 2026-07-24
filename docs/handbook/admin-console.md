@@ -32,7 +32,6 @@ The information architecture is flow-ordered (acquire, serve, deliver, get paid,
 | **Services** | `/admin/services` | The global, cross-client delivery list - every in-flight service, risk-sorted. |
 | **Billing** | `/admin/billing` | The bi-modal money surface (ADR 0046): one-time invoices and the recurring Operator line. |
 | **Operator** | `/admin/operator` | The Operator fleet cockpit - roster and per-customer drill-ins. |
-| **Analytics** | `/admin/analytics` | Business-intelligence views, rendered server-side. |
 | **Playbook** | `/admin/playbook` | This handbook. |
 | **Settings** | `/admin/settings` | The configuration hub: follow-ups and Google connect. |
 
@@ -109,10 +108,6 @@ These three surfaces watch the post-acceptance business.
 - **Clients** (`/admin/clients`) is the account directory: entities past the acceptance line (engaged, delivered, ongoing), with a billing rollup and an Operator badge when one is provisioned. The client hub (`clients/[id]`) is the per-account view - identity, billing at a glance, the services on the account (consulting engagements and, if present, the Operator with its posture and monthly price), recent activity, open invoices, and contacts. The Operator monthly price is set here via a form that accepts a value or clears it to unpriced (`/api/admin/clients/[id]/operator-price`).
 - **Services** (`/admin/services`) is the global delivery list - every in-flight service across all clients, risk-sorted, with a contextual risk column (at risk if overdue, next handoff, not yet priced). It runs a spine-drift check and surfaces any drift loudly (orphan engagements, childless services, unpriced operators, configs without a service) so the operator reconciles it manually rather than letting the money model and the delivery model silently diverge (ADR 0046).
 - **Billing** (`/admin/billing`) is the bi-modal money surface. A two-revenue band shows one-time (invoiced / paid / outstanding, with overdue called out) beside recurring (active operators and MRR, with unpriced called out), and three tabs break out Quotes, Invoices, and Recurring. MRR is computed from the service spine, not from a subscriptions table.
-
-## Analytics
-
-`/admin/analytics` renders business intelligence server-side: the pipeline funnel by stage, engagement health (average days to completion, on-time percentage, average parking-lot size), a revenue summary (invoiced, paid, outstanding, with monthly and by-vertical breakdowns), follow-up compliance (on-time / late / missed), quote accuracy (estimated vs actual hours per client, with a variance and accuracy readout), and site traffic (top paths, CTAs, funnel, daily uniques). Operational state uses the attention and error tones rather than the "complete" green, keeping the completion colour meaningful.
 
 ## The Operator fleet cockpit
 

@@ -1,0 +1,448 @@
+# routine-grid.yaml — the compiled traceability artifact for the Ashton & Price
+# routine-settings grid (ADR 0075).
+#
+# SOURCE OF TRUTH: operator/customers/ashton-price/correspondence/
+#   07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md
+# Every `start_tier`, `ceiling_tier`, and `*_verbatim` value below traces verbatim
+# to the grid at the bottom of that letter (the client commitment). This file does
+# NOT author new client-facing content; it maps the letter's 19 rows onto the seat's
+# skills and records how each tier is actually made real in config + enforcement.
+#
+# WHY THIS EXISTS: the letter makes a three-tier promise per routine (auto-handle /
+# prepare-and-route / flag-only) with named permanent caps (deadline, money, opposing
+# counsel, court). A tier is only as real as the composition that enforces it. Each
+# row's `enforcement:` block states that composition honestly, including the caveats
+# that NARROW the letter — those caveats are the point of the artifact.
+#
+# TIER VOCABULARY (normalized, closed set): flag-only | prepare-and-route | auto-handle.
+#   The letter's "Runs on its own" normalizes to auto-handle (medical chronology);
+#   its "Internal record only" cap keeps that auto-handle scoped to internal_write.
+#   The letter's "Flag-only / prepare-and-route" dual start (lien ledger) normalizes
+#   to its lower bound, flag-only (a judgment call, noted on that row).
+#
+# EXPOSURE-KEY TRACEABILITY: each row's `enforcement.exposure_keys` names the
+# persona-`operator` exposure action class(es) that gate the routine's OUTPUT, pinned to
+# their LIVE customer.yaml values. tests/customer-commitments.test.ts asserts every
+# value here equals the live seat value (grid <-> config drift gate).
+#
+# CEILING vs LIVE: where a row's ceiling_tier is auto-handle but the live exposure is
+# draft_for_review (client verification, records chase, new matter setup, response
+# inputs staged), the live value is the DAY-ONE start; the letter authorizes the firm
+# to graduate that one class to autonomous. The graduation is a one-line exposure (or
+# initiation) change, noted per row. It is never automatic.
+
+adr: '0075'
+seat: pilot-smokeball
+persona: operator
+source_letter: operator/customers/ashton-price/correspondence/07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md
+
+rows:
+  # ---------------------------------------------------------------- DISCOVERY
+  - routine: 'Served discovery caught'
+    letter_section: DISCOVERY
+    skills: [discovery-served-watch]
+    start_tier: flag-only
+    ceiling_tier: flag-only
+    start_verbatim: 'Flag-only'
+    ceiling_verbatim: 'Flag-only (only surfaces)'
+    enforcement:
+      initiation: 'manual + webhook (served-discovery notices routed in by the matter-inbox-router spine)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        Flag-only is held by the skill contract: it reads the served-discovery notice
+        the spine routes in and writes only an internal surfacing note (internal_write).
+        The skill carries no draft or send tool, so there is no path above flag-only.
+        This is authored skill discipline within the persona, verified by audit-journal
+        observation, not a per-routine gate.
+
+  - routine: 'Response deadlines'
+    letter_section: DISCOVERY
+    skills: [discovery-response-tracker]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: deadline)'
+    enforcement:
+      initiation: 'manual + scheduled (weekday deadline sweep)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: true
+      banned_tools: []
+      notes: >-
+        Capped at prepare-and-route by the content-sensitivity floor (ADR 0031) plus
+        the skill's read-not-compute contract: it reads Smokeball's computed
+        court-rules dates and routes them for the attorney to confirm, it does not
+        compute or commit a date. Every date is confirmed by the attorney with name +
+        timestamp logged on the matter. Where a discovery type or service method is not
+        covered cleanly it proposes the date instead. No graduation path above
+        prepare-and-route for this row.
+
+  - routine: 'Client verification'
+    letter_section: DISCOVERY
+    skills: [client-verification-tracker]
+    start_tier: prepare-and-route
+    ceiling_tier: auto-handle
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Auto-handle (once you are comfortable)'
+    enforcement:
+      initiation: 'manual + scheduled (chase cadence)'
+      exposure_keys:
+        external_send_client: draft_for_review
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        CAVEAT (narrows the letter): the Smokeball e-sign leg is HUMAN-SENT today;
+        graduation covers the CHASE EMAILS to the client only (external_send_client).
+        Signature detection is via get_files_on_matter matter-metadata reads
+        (taint-safe), never by reading document contents. Allowed state reads are
+        matter-metadata only (non-fenced); the chase itself is a proactive send_message.
+        Day-one ceiling is draft_for_review (the prepare-and-route start); the letter
+        authorizes the firm to graduate external_send_client to autonomous
+        (auto-handle) at its discretion, a one-line exposure change. This send routes to
+        the client class because the client address is authored in scope.outbound_roster.
+
+  - routine: 'Separate statement'
+    letter_section: DISCOVERY
+    skills: [separate-statement-assembler]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: before a judge)'
+    enforcement:
+      initiation: 'manual (person-invoked)'
+      exposure_keys:
+        external_send: draft_for_review
+      content_floor: true
+      banned_tools: []
+      notes: >-
+        Capped "before a judge" by STRUCTURE, not by a raisable dial: there is no
+        roster class for the court, so anything bound for the court is an un-rostered
+        outside recipient governed by external_send at draft_for_review. Never a
+        graduation path. The CRC 3.1345 reasons-to-compel cells stay EMPTY for the
+        attorney; there is no mode that fills in an argument. It assembles into the
+        matter; an attorney finalizes and files. The Operator does not e-file (no
+        e-file tool is granted).
+
+  - routine: 'Opposing responses reviewed'
+    letter_section: DISCOVERY
+    skills: [opposing-response-deficiency-review]
+    start_tier: flag-only
+    ceiling_tier: flag-only
+    start_verbatim: 'Flag-only'
+    ceiling_verbatim: 'Flag-only (an assist, not an authority)'
+    enforcement:
+      initiation: 'manual + webhook (served responses routed in by the matter-inbox-router spine)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        Flag-only is held by the skill contract: it reviews served responses the spine
+        routes in and writes only an internal deficiency-surfacing note (internal_write),
+        flagging a thin or late response and the window to compel. No draft or send
+        tool. An assist, not an authority. Authored skill discipline, audit-observed.
+
+  - routine: 'Meet-and-confer letter'
+    letter_section: DISCOVERY
+    skills: [meet-and-confer-drafter]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: opposing counsel)'
+    enforcement:
+      initiation: 'manual (person-invoked)'
+      exposure_keys:
+        external_send: draft_for_review
+      content_floor: true
+      banned_tools: []
+      notes: >-
+        Capped "opposing counsel" by STRUCTURE: there is no roster class for opposing
+        counsel, so a meet-and-confer letter to them is an un-rostered outside recipient
+        governed by external_send at draft_for_review. The decision to send anything to
+        opposing counsel always takes an explicit human send (the letter's permanent
+        rule). The skill drafts the letter only; an attorney decides and sends. Never a
+        graduation path.
+
+  - routine: 'Response inputs staged'
+    letter_section: DISCOVERY
+    skills: [discovery-response-staging]
+    start_tier: prepare-and-route
+    ceiling_tier: auto-handle
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Auto-handle (once you are comfortable)'
+    enforcement:
+      initiation: 'manual (person-invoked staging)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        A routine internal-staging row: it stages discovery response inputs into the
+        Smokeball matter folder (internal_write), no outside send. internal_write is
+        already autonomous on this staging seat, so graduating this row to auto-handle
+        is an INITIATION change (person-invoked -> scheduled/automatic), not an exposure
+        change. The letter's cap language does not apply because nothing here reaches
+        outside the firm.
+
+  # ----------------------------------------------------------- CASE INITIATION
+  - routine: 'New matter setup'
+    letter_section: CASE INITIATION
+    skills: [matter-initiation-setup]
+    start_tier: prepare-and-route
+    ceiling_tier: auto-handle
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Auto-handle (once you are comfortable)'
+    enforcement:
+      initiation: 'manual (person-invoked at matter open)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: [mcp_smokeball_create_matter]
+      notes: >-
+        CAVEAT (narrows the letter): mcp_smokeball_create_matter is COMMITMENT-class and
+        is ALWAYS approval-gated. "Auto-handle" graduation covers the folder and
+        task-template setup for a matter (internal_write), NEVER matter creation itself.
+        Case initiation keys off the Smokeball matter type; the folder + task template
+        are set up with the firm per matter type (no imposed template). Adding a new
+        matter type later is a config change.
+
+  - routine: 'Service confirmation'
+    letter_section: CASE INITIATION
+    skills: [service-confirmation-watcher]
+    start_tier: flag-only
+    ceiling_tier: flag-only
+    start_verbatim: 'Flag-only'
+    ceiling_verbatim: 'Flag-only (capped: deadline)'
+    enforcement:
+      initiation: 'manual + scheduled (weekday sweep)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: true
+      banned_tools: []
+      notes: >-
+        Flag-only capped at the deadline: it watches InfoTrack service confirmations
+        posting to the matter and ties them to the responsive-pleading deadline,
+        surfacing only (internal_write). The deadline cap is held by the
+        content-sensitivity floor (ADR 0031) plus read-not-compute: it reads the
+        confirmation and surfaces, it does not compute or commit the deadline. No draft
+        or send tool.
+
+  # ---------------------------------------- MEDICAL RECORDS AND CHRONOLOGY
+  - routine: 'Records chase'
+    letter_section: MEDICAL RECORDS AND CHRONOLOGY
+    skills: [medical-records-chaser]
+    start_tier: prepare-and-route
+    ceiling_tier: auto-handle
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Auto-handle (once you are comfortable)'
+    enforcement:
+      initiation: 'manual + scheduled (weekly provider chase)'
+      exposure_keys:
+        external_send_vendor: draft_for_review
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        The medical-records chase goes to the firm's records VENDOR
+        (external_send_vendor), which the "a person sends it" rule does not cover.
+        Allowed state reads are matter-metadata only (non-fenced, get_files_on_matter);
+        the chase itself is a proactive send_message. Day-one ceiling is draft_for_review
+        (the prepare-and-route start); the letter authorizes the firm to graduate
+        external_send_vendor to autonomous (auto-handle). The vendor roster entry
+        (records_vendor class in scope.outbound_roster) is what routes this to
+        external_send_vendor rather than the outside external_send ceiling.
+
+  - routine: 'Medical chronology'
+    letter_section: MEDICAL RECORDS AND CHRONOLOGY
+    skills: [medical-chronology-maintainer]
+    start_tier: auto-handle
+    ceiling_tier: auto-handle
+    start_verbatim: 'Runs on its own'
+    ceiling_verbatim: 'Internal record only (never characterizes)'
+    enforcement:
+      initiation: 'manual + scheduled (after records imports land)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        "Runs on its own" normalizes to auto-handle, but scoped to INTERNAL RECORD ONLY:
+        it keeps the running chronology current as records land (internal_write) and
+        flags treatment gaps beyond the authored treatment_gap_flag_days setting. It
+        never characterizes: it records what is in the file, it does not compute or
+        opine. The "internal record only" cap means no draft, no send, no
+        characterization; internal_write is the only governing exposure.
+
+  # ------------------------------------------------------------------- MOTIONS
+  - routine: 'Motion calendar'
+    letter_section: MOTIONS
+    skills: [motion-calendar-tracker]
+    start_tier: flag-only
+    ceiling_tier: flag-only
+    start_verbatim: 'Flag-only'
+    ceiling_verbatim: 'Flag-only (only surfaces)'
+    enforcement:
+      initiation: 'manual + scheduled (weekday sweep)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        Flag-only is held by the skill contract: it keeps motion deadlines and hearings
+        current and surfaces them (internal_write). No draft or send tool, so no path
+        above flag-only. Authored skill discipline, audit-observed.
+
+  - routine: 'Motion package'
+    letter_section: MOTIONS
+    skills: [motion-package-assembler]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: before a judge)'
+    enforcement:
+      initiation: 'manual (person-invoked assembly/staging)'
+      exposure_keys:
+        external_send: draft_for_review
+      content_floor: true
+      banned_tools: []
+      notes: >-
+        Capped "before a judge" by STRUCTURE: court work product stays prepare-and-route.
+        The Operator assembles the motion package and stages BriefPoint inputs into the
+        matter folder BriefPoint draws from; an attorney finalizes and files. The
+        Operator does not e-file (no e-file tool is granted). No court roster class
+        exists, so any court-bound send is external_send at draft_for_review. Never a
+        graduation path.
+
+  # --------------------------------------------------------- MINOR'S COMPROMISE
+  - routine: "Minor's compromise packet"
+    letter_section: "MINOR'S COMPROMISE"
+    skills: [minors-compromise-packet]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: money and court forms)'
+    enforcement:
+      initiation: 'manual + scheduled (packet manual; GAL/hearing/lien-figure tracking scheduled)'
+      exposure_keys:
+        external_send: draft_for_review
+      content_floor: true
+      banned_tools: ['payments_*', trust_ledger_write]
+      notes: >-
+        Capped "money and court forms" by a COMPOSITION: the content-sensitivity floor
+        (ADR 0031), banned fund-movement / trust-ledger tools (it never moves money or
+        posts to ledgers), and the structural court cap (court forms are
+        prepare-and-route; no court roster class, so court-bound sends are external_send
+        at draft_for_review). It names what is missing (a guardian ad litem, a blocked
+        account) and does NOT infer it, the read-not-compute posture kept from the
+        rehearsal. Never a graduation path.
+
+  # -------------------------------------------------------------- TRIAL PREP
+  - routine: 'Trial binder'
+    letter_section: TRIAL PREP
+    skills: [trial-binder-assembler]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: deadlines and court)'
+    enforcement:
+      initiation: 'manual + scheduled (binder manual; weekly trial-prep deadline sweep)'
+      exposure_keys:
+        external_send: draft_for_review
+      content_floor: true
+      banned_tools: []
+      notes: >-
+        Capped "deadlines and court" by a COMPOSITION: the content-sensitivity floor
+        (ADR 0031) plus read-not-compute on the deadline side (reads computed dates,
+        routes for attorney confirmation, does not compute its own), and the structural
+        court cap (no court roster class; court-bound send is external_send at
+        draft_for_review). Never a graduation path.
+
+  # ----------------------------------------- MEDIATION, SETTLEMENT, AND LIENS
+  - routine: 'Mediation and settlement'
+    letter_section: MEDIATION, SETTLEMENT, AND LIENS
+    skills: [mediation-settlement-tracker]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: deadline and settlement)'
+    enforcement:
+      initiation: 'manual + scheduled (weekly conference/998 deadline sweep)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: true
+      banned_tools: ['payments_*', trust_ledger_write]
+      notes: >-
+        Capped "deadline and settlement" by a COMPOSITION: the content-sensitivity floor
+        (ADR 0031), banned fund-movement / trust-ledger tools, and read-not-compute. It
+        lays out the figures as recorded and does NOT compute a net-to-client or any fee
+        reduction; Smokeball runs the trust accounting and the math. It prepares those
+        input rows into the matter (internal_write) for the attorney. On this staging
+        seat internal_write is autonomous (full doc-write for the test seat); the money
+        cap that the letter commits to is held by the banned tools + content floor +
+        read-not-compute, NOT by the internal_write value, so it holds regardless.
+
+  - routine: 'Lien ledger'
+    letter_section: MEDIATION, SETTLEMENT, AND LIENS
+    skills: [lien-ledger-tracker]
+    start_tier: flag-only
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Flag-only / prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: money)'
+    enforcement:
+      initiation: 'manual + scheduled (weekly open-payoff chase)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: true
+      banned_tools: ['payments_*', trust_ledger_write]
+      notes: >-
+        JUDGMENT CALL: the letter's dual start "Flag-only / prepare-and-route"
+        normalizes to its lower bound, flag-only, in the closed tier vocabulary; the
+        ceiling is prepare-and-route. Capped "money" by the content-sensitivity floor
+        (ADR 0031) + banned fund-movement / trust-ledger tools: it tracks open lien
+        payoffs and surfaces / prepares them into the matter (internal_write), it never
+        moves money or posts to ledgers. The money cap is held by the banned tools +
+        content floor, not by the internal_write value.
+
+  - routine: 'Settlement statement'
+    letter_section: MEDIATION, SETTLEMENT, AND LIENS
+    skills: [settlement-statement-feeder]
+    start_tier: prepare-and-route
+    ceiling_tier: prepare-and-route
+    start_verbatim: 'Prepare-and-route'
+    ceiling_verbatim: 'Prepare-and-route (capped: money)'
+    enforcement:
+      initiation: 'manual (person-invoked; figures from authored data only)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: true
+      banned_tools: ['payments_*', trust_ledger_write]
+      notes: >-
+        Capped "money" by the content-sensitivity floor (ADR 0031) + banned
+        fund-movement / trust-ledger tools + read-not-compute: it feeds the settlement
+        statement's input rows from authored data only, as recorded, and does NOT
+        compute a net-to-client or fee reduction; Smokeball runs the trust accounting
+        and the math. It prepares those rows into the matter (internal_write) for the
+        attorney. The money cap is held by the banned tools + content floor +
+        read-not-compute, not by the internal_write value.
+
+  # ----------------------------------------------------------------- FIRM-WIDE
+  - routine: 'Daily "what needs you"'
+    letter_section: FIRM-WIDE
+    skills: [daily-needs-you-digest]
+    start_tier: flag-only
+    ceiling_tier: flag-only
+    start_verbatim: 'Flag-only'
+    ceiling_verbatim: 'Flag-only (only surfaces)'
+    enforcement:
+      initiation: 'manual + scheduled (one weekday-morning batched digest)'
+      exposure_keys:
+        internal_write: autonomous
+      content_floor: false
+      banned_tools: []
+      notes: >-
+        Flag-only is held by the skill contract: it batches the day's needs-you items
+        into one internal digest written to the authored digest-home matter
+        (internal_write). No draft or send tool, so no path above flag-only. Authored
+        skill discipline, audit-observed.

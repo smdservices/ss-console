@@ -13,7 +13,6 @@ metadata:
     tags: [Marketing, Agency, RetainerOps, Slack]
   smd:
     vertical: marketing-agency
-    trust_ceiling: autonomous
     action_class: read + internal_write
     connectors:
       - harvest

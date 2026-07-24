@@ -1,0 +1,10 @@
+---
+/**
+ * Retired chapter route (console blueprint §5, amended 2026-07-15): the people
+ * roster renders inline on the operator one-pager. 301 keeps old bookmarks
+ * working (redirect doctrine).
+ */
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+return Astro.redirect(`/portal/products/operator/${instance}#people`, 301)
+---

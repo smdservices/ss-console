@@ -70,7 +70,7 @@ live, 33 tests green) plus synthetic fixtures. That is the whole opportunity.
 
 Every capability the proposal names, what the Operator must do, whether it exists
 today, and whether we can build it now. "Exists" = a skill body in
-`operator/skills/` and/or wired on the `quinn` persona in `customer.yaml`.
+`operator/skills/` and/or wired on the `operator` persona in `customer.yaml`.
 
 | Proposal commitment                                   | Operator must                                                                                        | State today                                                                 | Verdict / lane                                                                   |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -103,7 +103,7 @@ to fail it on domain/compliance error), Captain reviews at the gate. **Never a
 build-them-all-at-once run.**
 
 **A — Lock the target (`customer.yaml` delta).** Translate §4 into the definitive
-skill catalog on the `quinn` persona, each with the right initiation (manual /
+skill catalog on the `operator` persona, each with the right initiation (manual /
 scheduled / webhook), keeping `draft_for_review`. This is the open next-action in
 `SCOPING.md`. Changes nothing live. Captain-approved before commit. _Fast; do
 first — it defines everything downstream._
@@ -164,7 +164,7 @@ None of these block workstreams A–G.
 
 1. **Addon shape.** Expand `law-firm/pi` into the real PI-**litigation** addon
    (reusable for the next PI firm; flip A&P to `addons: [pi]`) — or inline the
-   skills on `quinn` for now and defer the addon abstraction. _Lean: inline now,
+   skills on `operator` for now and defer the addon abstraction. _Lean: inline now,
    addon once the shape is proven._
 2. **Skill home.** New skill bodies in `operator/skills/` (where the base law
    skills live) vs. `hermes-smd-overlay` (where the `pi` addon skills are said to

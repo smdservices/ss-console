@@ -1,0 +1,87 @@
+---
+/**
+ * Portal navigation (portal IA rebuild, 2026-07-07). Renders the
+ * destination list produced by buildPortalNav — this component makes no
+ * decisions about WHICH destinations exist; that is the offerings
+ * resolver's job, done once in PortalShell. Markup carried over from
+ * PortalTabs.astro (desktop sticky tabs + mobile fixed bottom bar per
+ * .design/NAVIGATION.md §4.4), with two changes: Home has a real active
+ * state (exact match), and mobile labels tighten at 5+ destinations.
+ */
+import { isNavDestinationActive, type PortalNavDestination } from '../../lib/portal/nav'
+
+interface Props {
+  destinations: PortalNavDestination[]
+  pathname: string
+}
+
+const { destinations, pathname } = Astro.props
+
+// At five destinations a 375px viewport gives ~75px per mobile cell;
+// tighten the label type so "Engagement" fits without renaming it.
+const dense = destinations.length >= 5
+---
+
+<!-- Desktop: horizontal burnt-orange-active tabs below the header. -->
+<nav
+  aria-label="Portal sections"
+  class="hidden md:block sticky top-16 z-40 bg-[color:var(--ss-color-background)] border-b-[3px] border-[color:var(--ss-color-text-primary)]"
+>
+  <div class="max-w-5xl mx-auto">
+    <ul class="flex items-stretch" role="list">
+      {
+        destinations.map((dest, i) => {
+          const active = isNavDestinationActive(dest, pathname)
+          const base =
+            'inline-flex items-center px-5 py-3 min-h-[44px] font-mono text-sm font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
+          const state = active
+            ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
+            : 'bg-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)]'
+          const isLast = i === destinations.length - 1
+          const divider = isLast ? '' : 'border-r-[2px] border-[color:var(--ss-color-text-primary)]'
+          return (
+            <li class={divider}>
+              <a
+                href={dest.href}
+                aria-current={active ? 'page' : undefined}
+                class={`${base} ${state}`}
+              >
+                <span>{dest.label}</span>
+              </a>
+            </li>
+          )
+        })
+      }
+    </ul>
+  </div>
+</nav>
+
+<!-- Mobile: fixed bottom bar, 3px ink top border, burnt-orange active tile. -->
+<nav
+  aria-label="Portal sections"
+  class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--ss-color-background)] border-t-[3px] border-[color:var(--ss-color-text-primary)] pb-[env(safe-area-inset-bottom)]"
+>
+  <ul class="flex divide-x-[2px] divide-[color:var(--ss-color-text-primary)]" role="list">
+    {
+      destinations.map((dest) => {
+        const active = isNavDestinationActive(dest, pathname)
+        const labelSize = dense ? 'text-[10px] tracking-[0.08em]' : 'text-xs tracking-[0.14em]'
+        const base = `flex flex-col items-center justify-center gap-0.5 py-2 min-h-[64px] font-mono ${labelSize} font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset`
+        const state = active
+          ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
+          : 'bg-transparent text-[color:var(--ss-color-text-primary)] active:bg-[color:var(--ss-color-border-subtle)]'
+        return (
+          <li class="flex-1">
+            <a
+              href={dest.href}
+              aria-current={active ? 'page' : undefined}
+              class={`${base} w-full ${state}`}
+            >
+              <span class="leading-none">{dest.mobileLabel ?? dest.label}</span>
+            </a>
+          </li>
+        )
+      })
+    }
+  </ul>
+</nav>

@@ -25,7 +25,7 @@ describe('sitemap filter (astro.config.mjs)', () => {
   it('excludes back-office, auth, dev, and flag-gated routes', () => {
     const privateRoutes = [
       '/admin/',
-      '/admin/analytics/',
+      '/admin/clients/',
       '/admin/operator/provision/',
       '/portal/',
       '/portal/products/operator/settings/users/',

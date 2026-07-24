@@ -14,21 +14,60 @@
  * caching it. The custody note states honestly whether SMD can rotate it.
  */
 
-import { formatConnectorHealth } from '../../../lib/portal/operator/settings'
 import {
   formatCustody,
-  describeCustody,
+  connectionCareNote,
+  adapterDisplayName,
+  capabilityDisplayName,
+  connectionDefaultNote,
   type ConnectionRow,
+  type EmailAccessView,
 } from '../../../lib/portal/operator/connections'
+import type { ConnectorHealth } from '../../../lib/portal/operator/settings'
 
 interface Props {
   row: ConnectionRow
   operable: boolean
   returnTo: string
+  /** The addressed operator instance's slug — threaded to the endpoints so a
+   *  POST from this row is attributed to the right operator. */
+  instance: string
+  /** Mailbox visibility, rendered inside the email connection's own row (it
+   *  describes THIS mailbox, not a separate "Email" concept). Pass only on
+   *  the email-capability row. */
+  emailAccess?: EmailAccessView | null
 }
 
-const { row, operable, returnTo } = Astro.props
+const { row, operable, returnTo, instance, emailAccess = null } = Astro.props
 const connectorId = row.adapter || row.capabilityName
+
+// Headline is the real product name (AgentMail, Smokeball); the capability
+// renders as the subtitle in client language ("Practice management"). The raw
+// adapter slug never reaches the page — an unmapped adapter falls back to the
+// capability label (Captain finding, 2026-07-15).
+const capabilityLabel = capabilityDisplayName(row.capabilityName)
+const displayName = adapterDisplayName(row.adapter) ?? capabilityLabel
+const subtitleLabel = displayName === capabilityLabel ? null : capabilityLabel
+const defaultNote = connectionDefaultNote(row)
+
+// Client-facing connection status. `unconfigured` here means "no live health
+// probe has run yet" (the probe is not wired) — NOT "not set up". An authored
+// connector IS configured, and SMD monitors its live health (the custody note
+// says so). So we never show the client a scary "Unconfigured" for something
+// they've set up; we say "Configured".
+function clientStatusLabel(health: ConnectorHealth): string {
+  switch (health) {
+    case 'ok':
+      return 'Connected'
+    case 'warn':
+      return 'Needs attention'
+    case 'fail':
+      return 'Needs reconnecting'
+    case 'unconfigured':
+      return 'Configured'
+  }
+}
+const statusLabel = clientStatusLabel(row.health)
 const secretAction = `/api/portal/products/operator/connectors/${encodeURIComponent(connectorId)}/secret`
 const fieldId = `secret-${connectorId}`
 
@@ -42,7 +81,7 @@ const btn =
       <p
         class="font-body text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
       >
-        {row.capabilityName}
+        {displayName}
       </p>
       <span
         class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
@@ -51,11 +90,49 @@ const btn =
       </span>
     </div>
     <p class="text-caption text-[color:var(--ss-color-text-secondary)] m-0">
-      {row.adapter ? `${row.adapter} · ` : ''}{formatConnectorHealth(row.health)}
+      {subtitleLabel ? `${subtitleLabel} · ` : ''}{statusLabel}
     </p>
     <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">
-      {describeCustody(row.custody)}
+      {connectionCareNote(row)}
     </p>
+    {
+      defaultNote && (
+        <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">{defaultNote}</p>
+      )
+    }
+
+    {
+      emailAccess && (
+        <div class="mt-2 flex flex-col gap-3">
+          {emailAccess.sendAs && (
+            <div>
+              <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0">
+                Address
+              </p>
+              <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)] m-0">
+                {emailAccess.sendAs}
+              </p>
+            </div>
+          )}
+          <div>
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0">
+              Reads
+            </p>
+            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)] m-0">
+              {emailAccess.sees.length > 0 ? emailAccess.sees.join(', ') : 'None set'}
+            </p>
+          </div>
+          <div>
+            <p class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0">
+              Never sees
+            </p>
+            <p class="mt-1 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)] m-0">
+              {emailAccess.neverSees.length > 0 ? emailAccess.neverSees.join(', ') : 'None set'}
+            </p>
+          </div>
+        </div>
+      )
+    }
 
     {
       operable && (
@@ -65,6 +142,7 @@ const btn =
             action="/api/portal/operator/settings/connector-reconsent"
             class="m-0"
           >
+            <input type="hidden" name="instance" value={instance} />
             <input type="hidden" name="capabilityName" value={row.capabilityName} />
             <button
               type="submit"
@@ -79,12 +157,13 @@ const btn =
               Enter or update an API key
             </summary>
             <form method="POST" action={secretAction} class="flex flex-col gap-3 pt-2">
+              <input type="hidden" name="instance" value={instance} />
               <input type="hidden" name="return_to" value={returnTo} />
               <label
                 for={fieldId}
                 class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
               >
-                API key for {row.capabilityName}
+                API key for {displayName}
               </label>
               <input
                 id={fieldId}

@@ -183,6 +183,8 @@ export function ceilingLabel(ceiling: Ceiling): string {
   switch (ceiling) {
     case 'autonomous':
       return 'Autonomous'
+    case 'confirm':
+      return 'Confirm to send'
     case 'draft_for_review':
       return 'Draft for review'
     case 'refused':
@@ -198,7 +200,13 @@ export function actionClassLabel(actionClass: ActionClass): string {
     case 'internal_write':
       return 'Internal write'
     case 'external_send':
-      return 'External send'
+      return 'External send (outside)'
+    case 'external_send_internal':
+      return 'Internal send (staff)'
+    case 'external_send_client':
+      return 'Client send'
+    case 'external_send_vendor':
+      return 'Records-vendor send'
     case 'commitment':
       return 'Commitment'
     case 'destructive':

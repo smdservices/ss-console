@@ -9,6 +9,7 @@ import {
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
   ACCEPTED_EXPOSURE_CEILINGS,
+  SEND_ACTION_CLASSES,
   SLUG_PATTERN,
   type AuthoredExposureActionClass,
   type CostEstimate,
@@ -342,14 +343,18 @@ function checkExposureMap(
       })
       continue
     }
-    if (
-      typeof value !== 'string' ||
-      !(ACCEPTED_EXPOSURE_CEILINGS as readonly string[]).includes(value)
-    ) {
+    // `confirm` (send after an explicit in-turn approval, ADR 0071) is only valid
+    // for the send classes (external_send / external_send_internal / external_send_client
+    // / external_send_vendor); enforce()'s confirm branch lives in the send branch, so
+    // on any other class the accepted set excludes it.
+    const allowedCeilings = (SEND_ACTION_CLASSES as readonly string[]).includes(key)
+      ? ACCEPTED_EXPOSURE_CEILINGS
+      : ACCEPTED_EXPOSURE_CEILINGS.filter((c) => c !== 'confirm')
+    if (typeof value !== 'string' || !(allowedCeilings as readonly string[]).includes(value)) {
       errors.push({
         code: 'InvalidActionCeiling',
         path: `${path}.${key}`,
-        message: `exposure.${key} must be one of: ${ACCEPTED_EXPOSURE_CEILINGS.join(', ')}`,
+        message: `exposure.${key} must be one of: ${allowedCeilings.join(', ')}`,
       })
       continue
     }

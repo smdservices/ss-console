@@ -60,14 +60,18 @@ function primeAccess(clerkUserId: string | null): void {
     client: { id: 'ent-1' } as never,
     subscription: {} as never,
     roles: ['principal'],
+    customerSlug: 'smd',
+    config: { customer_slug: 'smd', entity_id: 'ent-1' } as never,
   })
   vi.mocked(getCustomerConfig).mockResolvedValue({ customer_slug: 'smd' } as never)
 }
 
 async function invoke(): Promise<Response> {
+  // The instance rides in as a query param (OAuth stays on the stable path).
   return await initiate({
     locals: {} as App.Locals,
     params: { connector: 'google-workspace' },
+    url: new URL(`${PORTAL_BASE}/portal/products/operator/oauth/google-workspace?instance=smd`),
     redirect,
   } as unknown as Parameters<typeof initiate>[0])
 }
@@ -115,7 +119,7 @@ describe('portal oauth initiation — reviewer_id id-space', () => {
     primeAccess(null)
     const response = await invoke()
     const location = parseLocation(response)
-    expect(location.pathname).toBe('/portal/products/operator/settings')
+    expect(location.pathname).toBe('/portal/products/operator/smd/settings')
     expect(location.searchParams.get('status')).toBe('failed')
     expect(location.searchParams.get('reason')).toBe('no_clerk_identity')
   })

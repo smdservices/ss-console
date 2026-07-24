@@ -48,10 +48,17 @@ import { errorResponse } from '../../../../../lib/api/helpers'
  */
 
 const PRODUCT_SLUG = 'operator'
-const USERS_PAGE_URL = '/portal/products/operator/settings/users'
+const OPERATOR_LANDING = '/portal/products/operator'
 
-function redirectWithStatus(status: string): Response {
-  const target = `${USERS_PAGE_URL}?status=${encodeURIComponent(status)}`
+// The users page is now instance-addressed. Redirect back to the addressed
+// instance's users page; fall back to the bare chooser when the instance
+// can't be determined from the form.
+function usersUrl(instance: string | null): string {
+  return instance ? `${OPERATOR_LANDING}/${instance}/settings/users` : OPERATOR_LANDING
+}
+
+function redirectWithStatus(instance: string | null, status: string): Response {
+  const target = `${usersUrl(instance)}?status=${encodeURIComponent(status)}`
   return new Response(null, {
     status: 303,
     headers: { Location: target },
@@ -66,6 +73,7 @@ interface AuthorizedContext {
   user: PortalUserRow
   client: Entity
   orgId: string
+  instance: string | null
 }
 
 /**
@@ -73,7 +81,10 @@ interface AuthorizedContext {
  * authorization. Returns a Response on failure (for the caller to
  * return directly) or the authorized context on success.
  */
-async function authorize(locals: App.Locals): Promise<Response | AuthorizedContext> {
+async function authorize(
+  locals: App.Locals,
+  instance: string | null
+): Promise<Response | AuthorizedContext> {
   const portalData = await getPortalClient(env.DB, locals)
   if (!portalData) return jsonError(401, 'Unauthorized')
   if (!portalData.client) return jsonError(403, 'Forbidden')
@@ -90,10 +101,10 @@ async function authorize(locals: App.Locals): Promise<Response | AuthorizedConte
   // — SMD does. Refuse the mutation server-side rather than trust the portal's
   // read-only render. Mirrors the connectors-secret precedent.
   if (!(await isPeopleAccessOperable(env.DB, client.id))) {
-    return redirectWithStatus('not_permitted')
+    return redirectWithStatus(instance, 'not_permitted')
   }
 
-  return { user, client, orgId: user.org_id }
+  return { user, client, orgId: user.org_id, instance }
 }
 
 interface ParsedAction {
@@ -172,7 +183,7 @@ async function handleRevoke(
   target: TargetUserRow
 ): Promise<Response> {
   if (!(await isSafeSelfPrincipalRevoke(ctx, parsed))) {
-    return redirectWithStatus('cannot_revoke_last_principal')
+    return redirectWithStatus(ctx.instance, 'cannot_revoke_last_principal')
   }
   const changed = await revokeProductRole(env.DB, {
     userId: parsed.targetUserId,
@@ -181,7 +192,7 @@ async function handleRevoke(
     role: parsed.role,
   })
   if (changed) await emitRoleAudit(ctx, parsed, target, 'role_revoked')
-  return redirectWithStatus(changed ? 'revoked' : 'no_change')
+  return redirectWithStatus(ctx.instance, changed ? 'revoked' : 'no_change')
 }
 
 async function handleGrant(
@@ -198,21 +209,24 @@ async function handleGrant(
     grantedBy: ctx.user.id,
   })
   if (changed) await emitRoleAudit(ctx, parsed, target, 'role_granted')
-  return redirectWithStatus(changed ? 'granted' : 'no_change')
+  return redirectWithStatus(ctx.instance, changed ? 'granted' : 'no_change')
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  const ctxOrResponse = await authorize(locals)
+  const formData = await request.formData()
+  const instanceRaw = formData.get('instance')
+  const instance = typeof instanceRaw === 'string' && instanceRaw !== '' ? instanceRaw : null
+
+  const ctxOrResponse = await authorize(locals, instance)
   if (ctxOrResponse instanceof Response) return ctxOrResponse
   const ctx = ctxOrResponse
 
-  const formData = await request.formData()
   const parsed = parseForm(formData)
-  if (typeof parsed === 'string') return redirectWithStatus(parsed)
+  if (typeof parsed === 'string') return redirectWithStatus(instance, parsed)
 
   const target = await loadTargetUser(parsed.targetUserId, ctx.orgId)
   if (target === null) {
-    return redirectWithStatus('user_not_found')
+    return redirectWithStatus(instance, 'user_not_found')
   }
 
   return parsed.kind === 'revoke'

@@ -22,10 +22,12 @@
  */
 
 import type { CustomerYaml, Persona } from '../operator/customer-yaml/types'
+import type { RoutineGrid } from '../operator/routine-grid'
 import type { CustomerConfigDbRow, PersonaConfig } from './customer-config'
 
 export interface ProjectionContext {
-  /** The local entities.id this customer maps to (customer_configs PK). */
+  /** The owning entities.id (customer_configs.entity_id — an FK since migration
+   *  0090, no longer the PK; the PK is customer_slug). */
   entityId: string
   /** Owning organizations.id. */
   orgId: string
@@ -38,8 +40,12 @@ export interface ProjectionContext {
 /**
  * Narrow a full schema `Persona` to the read-side `PersonaConfig`. Drops the
  * fields the portal projection does not surface (version, enabled,
- * cost_estimate, scope, bundles, cron, avatar, pronouns, overrides). Nullable
+ * cost_estimate, scope, bundles, avatar, pronouns, overrides). Nullable
  * scalars are coerced to `null` so the serialized JSON always carries the key.
+ *
+ * `cron` projects skill + schedule only (console blueprint §4 — the schedule
+ * coverage gap): the portal renders WHEN things run; pre_run / wake_policy are
+ * runtime mechanics and stay unprojected.
  */
 function toPersonaConfig(p: Persona): PersonaConfig {
   return {
@@ -52,6 +58,7 @@ function toPersonaConfig(p: Persona): PersonaConfig {
     send_as: p.send_as ?? null,
     entitlements: p.entitlements,
     skills: (p.skills ?? []).map((s) => ({ name: s.name, initiation: s.initiation })),
+    cron: (p.cron ?? []).map((c) => ({ skill: c.skill, schedule: c.schedule })),
     channel_bindings: (p.channel_bindings ?? []).map((c) => ({
       integration: c.integration,
       channels: c.channels ?? [],
@@ -66,10 +73,17 @@ function toPersonaConfig(p: Persona): PersonaConfig {
  *
  * The output is exactly what `projectRow` consumes on read, so a round-trip
  * `projectRow(projectCustomerYamlToConfigRow(yaml, ctx))` must never throw.
+ *
+ * `routineGrid` (ADR 0075) is projected from the seat's routine-grid.yaml when
+ * one exists next to customer.yaml. It is validated BY THE CALLER (the script
+ * hard-fails on an invalid grid) and passed through here already typed — this
+ * mapper only serializes it. Absent → `routine_grid_json: null`, which the read
+ * side resolves to the gridless console fallback.
  */
 export function projectCustomerYamlToConfigRow(
   yaml: CustomerYaml,
-  ctx: ProjectionContext
+  ctx: ProjectionContext,
+  routineGrid?: RoutineGrid | null
 ): CustomerConfigDbRow {
   const personas: PersonaConfig[] = yaml.personas.map(toPersonaConfig)
 
@@ -96,6 +110,8 @@ export function projectCustomerYamlToConfigRow(
     // defaults it to disabled); guard for null anyway, which the read side
     // resolves to the same fail-closed default via parseMcpConnector.
     mcp_connector_json: yaml.mcp_connector ? JSON.stringify(yaml.mcp_connector) : null,
+    // Nullable: no routine-grid.yaml on the seat → null → gridless console.
+    routine_grid_json: routineGrid ? JSON.stringify(routineGrid) : null,
     git_sha: ctx.gitSha,
     synced_at: ctx.syncedAt,
   }
@@ -130,6 +146,7 @@ const CONFIG_COLUMNS = [
   'authority_json',
   'credential_custody_default',
   'mcp_connector_json',
+  'routine_grid_json',
   'git_sha',
   'synced_at',
 ] as const
@@ -139,10 +156,16 @@ const CONFIG_COLUMNS = [
  * `customer_configs` (re-projection overwrites every column but the PK) plus a
  * `customer_config_history` event that mirrors `recordCustomerConfigSync` —
  * `prev_git_sha` = the slug's latest recorded sha, and the insert is skipped
- * when this exact sha is already recorded (the no-op guard). `synced_by` is
- * `'manual'` because a human runs this under Captain approval.
+ * when this exact sha is already recorded (the no-op guard). `syncedBy` is
+ * `'manual'` when a human runs this under Captain approval, `'ci'` when the
+ * merge-triggered sync job (#1308, deploy.yml sync-customer-configs) runs it —
+ * both values are in the migration-0045 CHECK constraint.
  */
-export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): string {
+export function buildProjectionSql(
+  row: CustomerConfigDbRow,
+  actor: string,
+  syncedBy: 'manual' | 'ci' = 'manual'
+): string {
   const e = escapeSqlLiteral
   const values: string[] = [
     e(row.entity_id),
@@ -160,9 +183,16 @@ export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): str
     e(row.authority_json),
     e(row.credential_custody_default),
     e(row.mcp_connector_json),
+    e(row.routine_grid_json),
     e(row.git_sha),
     e(row.synced_at),
   ]
+  // entity_id is deliberately excluded from the update set: since migration 0090
+  // the PK is customer_slug, and a routine re-projection must NEVER silently move
+  // a config to a different entity (that would repoint a live operator under the
+  // wrong client's login — a cross-tenant exposure). Repointing an instance to a
+  // new owning entity is an explicit, reviewed one-time operation, never a
+  // fall-through of this upsert.
   const updates = CONFIG_COLUMNS.filter((c) => c !== 'entity_id')
     .map((c) => `  ${c} = excluded.${c}`)
     .join(',\n')
@@ -174,12 +204,12 @@ export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): str
 
 INSERT INTO customer_configs (${CONFIG_COLUMNS.join(', ')})
 VALUES (${values.join(', ')})
-ON CONFLICT(entity_id) DO UPDATE SET
+ON CONFLICT(customer_slug) DO UPDATE SET
 ${updates};
 
 INSERT INTO customer_config_history
   (customer_slug, git_sha, synced_at, synced_by, actor, prev_git_sha, r2_shadow_key)
-SELECT ${slug}, ${sha}, ${e(row.synced_at)}, 'manual', ${e(actor)},
+SELECT ${slug}, ${sha}, ${e(row.synced_at)}, ${e(syncedBy)}, ${e(actor)},
   (SELECT git_sha FROM customer_config_history WHERE customer_slug = ${slug} ORDER BY id DESC LIMIT 1),
   NULL
 WHERE NOT EXISTS (

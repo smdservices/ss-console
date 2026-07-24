@@ -29,7 +29,6 @@ metadata:
     vertical: law-firm
     addon: pi
     weight: light # high-frequency track/present/flag; the reasoning is small, the discipline is the value
-    trust_ceiling: draft_for_review # the deadline is presented for attorney confirm, never final autonomously; the compel decision is brought to the attorney, never acted on
     action_class: read + internal_write # reads the served-doc capture / the engine's date; on confirm writes a calendar event + task + memo. No external_send: it presents, flags, and hands off; it never messages another party.
     content_ceiling: connective # surfaces a deadline and flags a decision point; never legal argument, never the deadline as an authoritative final computation, never a meet-and-confer letter
     connectors:
@@ -143,8 +142,12 @@ grounded windows and present it flagged "proposed, confirm":
 **Either branch, the invariants hold:** the date is presented for the responsible
 attorney to confirm; it is **never final without that confirm**; it is **never written to
 the calendar silently**. On confirm, the skill writes the calendar event and matter task
-(`create_event`, `create_task`) and logs it (`create_memo`). Nothing is written before
-the confirm.
+(`create_event`, `create_task`) and logs a confirmation memo (`create_memo`). That memo
+records four fields, exactly: the **confirming attorney's full name** (resolved from
+`personResponsibleStaffId` via `get_staff`, never a bare id), an **ISO-8601 timestamp**,
+the **confirmed date**, and the **source branch** it came from (`Smokeball court-rules
+engine` for Branch 1, `proposed by Operator` for Branch 2) - the shape is pinned in
+`references/output-format.md`. Nothing is written before the confirm.
 
 ## OUTBOUND - track propounded discovery, surface the compel track for a decision
 
@@ -274,7 +277,9 @@ Inbound:
 3. **Present for confirm** to the responsible attorney (`personResponsibleStaffId` from
    `get_matter`). No write yet.
 4. **On confirm**, `create_event` + `create_task` (keyed to the matter and set), and
-   `create_memo` for the log and the training note.
+   the `create_memo` confirmation bookkeeping (confirming attorney's full name via
+   `get_staff`, ISO-8601 timestamp, confirmed date, source branch) plus the training
+   note. See `references/output-format.md`.
 
 Outbound:
 

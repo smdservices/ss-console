@@ -38,6 +38,6 @@ No balance guessed, no funds moved, nothing drafted financially.
 ## Rules
 
 1. **No tool that moves money appears anywhere** — not in the draft, not in the tool calls.
-2. **Only Shape A has a client-facing draft** (blockquote, drafted, never sent).
+2. **Only Shape A has a client-facing draft** (blockquote, drafted for review).
 3. **Consequence language only if authored.**
 4. **An unavailable balance is Shape C, never a guessed number.**

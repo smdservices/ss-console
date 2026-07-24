@@ -94,8 +94,7 @@ no figure computed to fill a gap.
    fair, standard, or within a percentage (CRC 7.955 / §3601 is the court's call).
 3. **Every filled field is traceable** to a matter read; an unsourced field is a gap
    (Shape C), never a fill-in.
-4. **Only Shape B contains an outbound draft** (the lien chase), drafted and surfaced,
-   never sent autonomously.
+4. **Only Shape B contains an outbound draft** (the lien chase), drafted and surfaced for review; sending follows the firm's authored ceiling.
 5. **A form number or code section not on the verified list in SKILL.md is flagged**
    ("confirm the form/section"), never asserted.
 6. The packet is always **staged for attorney finalization**, never filed or served.

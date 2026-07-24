@@ -311,7 +311,119 @@ describe('Operator customer Machine Dockerfile', () => {
     // assumed flat. Regression test pins the verbatim envelope. Range
     // 95fc269f..6e685b03 touches shared/gate_trigger_exclusions.py + tests;
     // no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6e685b0347fbd9e759a569c5fd79219d6d35b321"')
+    // af895354 (#146, ss #1791): the webhook gate records WEBHOOK_SUPPRESSED via
+    // a new uid-gated broker verb (webhook_suppressed_append) instead of the
+    // gateway-PID-gated audit_append that was silently refusing the write —
+    // proven live on pilot-smokeball (suppression stood, audit row never
+    // persisted). Range 6e685b03..af895354 touches webhook_gate.py +
+    // shared/audit_client.py + tests; no tracked twin moved.
+    // 138c10a (#147, ss #1796): wire mcp:brave — shared web-search connector
+    // (ADR 0070). Range af895354..138c10a touches bootstrap/mcp_registry.py +
+    // shared/action_classes.py + tests; no tracked twin moved (every
+    // overlaySha256 unchanged, only overlayRef).
+    // b9391d8 (#148, ss #1796): fix the Brave runtime tool name to
+    // mcp_brave_brave_web_search — live pilot-smokeball verification of #147
+    // caught the single-brave name was unmapped -> REFUSED. Range
+    // 138c10a..b9391d8 touches shared/action_classes.py + test; no tracked twin.
+    // 9189224 (#149, ss #1822, ADR 0072): recipient-aware proactive send —
+    // external_send_internal class + recipient_classifier (NEW byte-identical
+    // pair) + outbound_recipient registry + evaluate_tool_call reclassification.
+    // Range b9391d8..9189224 adds shared/recipient_classifier.py (tracked as a
+    // new pair) and touches action_classes.py/enforce.py/__init__.py/validate.py/
+    // translate.py (not tracked twins).
+    // 539f42c7 (#150, ss #1796, ADR 0070 native cut): retire the mcp:brave
+    // connector for Hermes' NATIVE web_search provider. translate._materialize_web_search
+    // (native:<provider> -> web.search_backend), mcp_registry brave spec removed,
+    // action_classes web_search READ, validate accepts native:. Range
+    // 9189224..539f42c7 touches bootstrap/{translate,mcp_registry,validate}.py +
+    // shared/action_classes.py + tests; no tracked twin moved (overlaySha256 unchanged).
+    // 0c9d165 (#151, ss #1804, ADR 0071): add `confirm` ceiling value +
+    // external_send enforcement to plugins/hermes-smd-trust/enforce.py (mirrors
+    // the in-tree operator/adapter/trust_ceiling.py). Range 539f42c7..0c9d165
+    // touches enforce.py + test; no tracked twin moved (overlaySha256 unchanged).
+    // d5187194 (#152, ss ADR 0073): remove the law-firm external_send entry from
+    // VERTICAL_FLOORS — outside-send is the firm's authored dial; the floor
+    // machinery stays (empty) for future regulation-compelled floors. Range
+    // 0c9d165..d5187194 touches shared/action_classes.py + enforce.py +
+    // config_applier/safety.py + tests — NOT tracked twins, so every
+    // overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
+    // 8806099 (#153, ADR 0028 §2 / #855 voice live-gate): fail-closed voice
+    // gate on allowed autonomous OUTSIDE external_send for voice_library-authored
+    // seats — samples + per-turn transform-applied marker (shared/voice_status.py)
+    // required, else draft + VOICE_GATE_TRIGGERED. Range d5187194..8806099
+    // touches plugins/hermes-smd-trust/{enforce.py,voice_gate.py} +
+    // plugins/hermes-smd-voice/__init__.py + shared/voice_status.py + tests —
+    // NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+    // 78064d3 (#154, ss #1805, ADR 0071): bootstrap/validate.py accepts the
+    // `confirm` exposure ceiling for external_send (rejects it off the send
+    // classes) — keeps the on-box config_applier validator in lockstep with the
+    // console. Range 8806099..78064d3 touches bootstrap/validate.py + contract
+    // tests — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+    // 17d33d7 (#156, ADR 0075): recipient-class enrichment — RecipientClass gains
+    // CLIENT/VENDOR, typed outbound roster, external_send_client/_vendor action
+    // classes wired through enforce/validate/translate. Range 3724e78..17d33d7
+    // moves ONE tracked twin (shared/recipient_classifier.py), so that pair's
+    // overlaySha256 is re-recorded in overlay-pairs.json alongside this bump.
+    // 5b7318cb (#158, ss ADR 0073): authored-exposure SOUL section — the agent
+    // acts AT its authored ceiling instead of defaulting below it. translate.py
+    // + tests only; no tracked twin moved. Superset of 17d33d7.
+    // f3e48d6b (#157, ss #1806, ADR 0071): confirm-over-channel approval stamp —
+    // shared/pending_send.py + plugins/hermes-smd-trust/{approval,enforce,__init__}.py
+    // + tests. None are tracked twins, so every overlaySha256 is unchanged; only
+    // overlayRef. Superset of 5b7318cb.
+    // ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks — #158 committed
+    // live worktree checkouts with no .gitmodules, breaking `uv pip install git+@sha`
+    // (git submodule update failed) on EVERY seat rebuild. Untracks + gitignores them.
+    // 63a3bca (#162, ADR 0075): proactive outbound relay to rostered client/vendor.
+    // fdf8870a (#163, ss #1806, ADR 0071 harden): out-of-band send of the approved
+    // confirm payload — the overlay dispatches the send itself (the LLM does not
+    // reliably re-invoke on "yes"), re-authorized through the same evaluate_tool_call
+    // gate + CONFIRM_SEND_DISPATCHED/FAILED audit rows. Child of #162; carries it.
+    // No tracked twin moved; overlayRef-only. Superset of 63a3bca (#162).
+    // 36fa158d (#165 + #167, ss #1915/#1916): hermes-smd-escalation mediated
+    // ledger tools (escalation_append via the broker verb + escalation_state
+    // over the ledger twin — replaces the refused execute_code append snippet
+    // found dead by the WP-D live proof) + durable-job tool mappings (the same
+    // unmapped ⇒ REFUSED class). NEW tracked twin pair
+    // shared/escalation_ledger.py <-> operator/workspace_broker/
+    // escalation_ledger.py (sha c4882668). Superset of d6739132 (#164).
+    // a16f9580 (#169, ss #1935/#1932/#1931): escalation_append derive_only
+    // (real ACK codes before the alert sends) + recipient-aware reply floor
+    // (INTERNAL recipients not content-floored, mirrors ADR 0072 send path) +
+    // per-skill settings live-writable in the config applier. No tracked twin
+    // moved; overlayRef-only. Superset of 4d0be7ec (#168).
+    // 3ffc2d1f (#170, ss #1941): peer-memory capture nudge — the ADR 0048
+    // learned lane's write side. pre_llm_call injects the
+    // record_peer_preference capture instruction on every sender-attributed
+    // turn (fleet-wide zero rows: the tool existed, nothing prompted its use).
+    // No tracked twin moved; overlayRef-only. Superset of a16f9580 (#169).
+    // aa7d78f2 (#171, ss #1941 probe find): peer-memory keys the peer on the
+    // Svix-verified sender via a claim-once unbound-origin handoff (dispatch
+    // session_id is empty on the live email path; Hermes threads the ROUTE as
+    // sender_id — the first live capture keyed webhook:agentmail, a channel
+    // not a person). overlayRef-only. Superset of 3ffc2d1f (#170).
+    // eb17f3cb (#172, ss #1943): inbound taint/fence rendezvous — the
+    // chokepoint claims the fresh dispatch-unkeyed PENDING bucket and fences +
+    // taints under the turn's own session id; rostered senders classify
+    // internal (no fence/taint), strangers now actually hit the wall.
+    // overlayRef-only. Superset of aa7d78f2 (#171).
+    // f8808c6c (#173, ss #1946): per-turn tool-surface trim — translate emits
+    // agent.disabled_toolsets on every profile config (browser/computer_use/
+    // media/social/session_search, + workspace when no google_auth) and
+    // agentmail blocked_tools excludes 8 inbox-admin/destructive tools via
+    // native mcp_servers.tools.exclude. No send/draft/read tool leaves the
+    // menu (ADR 0025 unchanged). Measured -7,272 tokens/turn of prompt-cache
+    // write on the live payload (vfy_01KXKJEEV1R4EPYFKA6J7YDH16).
+    // overlayRef-only. Superset of eb17f3cb (#172).
+    // 73a2df84 (#174, ss #1961): report emails render an html half at send
+    // time — shared/report_render.py transforms the markdown the report skills
+    // already author (## headings, numbered items) into an inline-styled html
+    // body, and hermes-smd-trust attaches it in pre_tool_call AFTER every gate
+    // allows (purity invariant: the html adds no content the fabrication/floor/
+    // taint scans did not already see). Block structure gates the render, so
+    // prose replies stay byte-identical. overlayRef-only (neither touched file
+    // is a tracked twin). Superset of f8808c6c (#173).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="73a2df84c32e0a9fc38fa1f1abb8a943a854506b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

@@ -9,16 +9,29 @@ Plain-language, respectful, brief. Client-facing (drafted; the firm sends after
 approval).
 
 The request MAY: say the verification for their discovery responses is ready and
-needs their signature; point to where/how to sign; note the responses are attached
-for them to review before signing; offer to answer questions **with the attorney /
-the team**; note there is a deadline and that signing promptly keeps the case on
-track.
+needs their name and the date; point to where/how to complete it; note the
+responses are attached for them to review before completing it; offer to answer
+questions **with the team**; note there is a due date and that completing it
+promptly keeps the case on track.
 
 The request MAY NOT: explain what the responses say or mean; characterize whether an
 answer is accurate, complete, or favorable; define "under oath," "penalty of
 perjury," or any legal term; advise the signer on whether or how to answer;
-pressure or guilt. The signer swears to the responses; the skill does not tell them
-what they are swearing to.
+pressure or guilt. The signer attests to the responses; the skill does not tell them
+what they are attesting to.
+
+**Floor-clean wording (client-facing drafts only — #1878).** A graduated
+client chase is re-scanned by the content-sensitivity floor (ADR 0031) before it
+delivers, and the words `sign` / `signature` / `signing`, `deadline`, and
+`attorney` each trip a category and HOLD the send. The client-facing request and
+reminder are authored around them without weakening the ask (the signer still
+attests under penalty of perjury on the verification form itself): write
+"complete and return" / "add your name and the date" (not "sign"), "due date" /
+"time-sensitive" (not "deadline"), and "the team" (not "attorney"). Full
+substitution table and the two canonical drafts live in
+`references/verification-request.md`. The **internal** approve-and-send to the
+attorney is not content-floored (it goes to a rostered internal recipient) and
+keeps its precise language.
 
 ## The approve-and-send (to the responsible attorney — internal)
 
@@ -42,13 +55,14 @@ deadline).
 
 ## Examples
 
-**Good — request to the signer:**
+**Good — request to the signer (floor-clean per #1878):**
 
-> Hi <name>, the verification for your discovery responses is ready for your
-> signature. Your responses are attached for you to look over first; when you're
-> ready you can sign here: <link>. There's a deadline on this one, so signing when
-> you have a few minutes keeps things on track. If any of it raises a question,
-> we're happy to set up a few minutes with <attorney>. Thank you.
+> Hi <name>, the verification for your discovery responses is ready for you to
+> complete and return. Your responses are attached for you to look over first;
+> when you're ready, add your name and the date where the form shows, and send it
+> back here: <link>. There's a due date on this one, so finishing it when you have
+> a few minutes keeps your case on track. If any of it raises a question, we're
+> happy to set up a few minutes with the team. Thank you.
 
 **Good — approve-and-send to the attorney:**
 

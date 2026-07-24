@@ -121,6 +121,17 @@ connectors:
     adapter: '[ms-365 / google-drive / synthetic]'
     backend: '[mcp:softeria/ms-365-mcp-server / mcp:google-drive / synthetic:fixture]'
     enabled: true
+  # WebSearch (ADR 0070) is UNAUTHORED by default for the Operator: the web is
+  # incidental to the engagement and lower-trust/injectable in regulated
+  # verticals, so it is authored per engagement, not imposed (ADR 0035). Wired to
+  # Hermes' native web provider (no MCP wrapper). To enable, uncomment and also
+  # author safety.sticky_stop.web_search_daily_cap. For a SENSITIVE/legal seat
+  # prefer a paid or customer-owned Brave key (one party in the query path) and
+  # confirm Brave's data-processing/retention terms first. Search only.
+  # WebSearch:
+  #   adapter: brave
+  #   backend: 'native:brave-free'   # or a paid/customer-owned Brave tier
+  #   enabled: true
 
 # ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
 # Map inbound vendor webhook payloads to skill invocations on a persona.
@@ -134,6 +145,19 @@ connectors:
 #     event_type: document.added
 #     skill: discovery-response
 #     persona: '[PERSONA SLUG]'
+#     # OPTIONAL trigger exceptions (gate-enforced: excluded deliveries get a 202 +
+#     # WEBHOOK_SUPPRESSED audit row, no agent wake). Author these when a skill must
+#     # NOT fire for specific matters or specific actors — e.g. an internal
+#     # ops/notepad matter the Operator should not supervise, or a principal whose
+#     # own edits should not trigger a supervision memo. Values are vendor GUIDs;
+#     # the validator rejects unknown keys and non-GUID entries because the runtime
+#     # gate FAILS OPEN — a typo must fail authoring loudly, not silently forward.
+#     # Unauthored = no exceptions (ADR 0035, no imposed defaults).
+#     exclude:
+#       matters:
+#         - '[MATTER GUID]'   # e.g. an internal ops/digest-home matter
+#       actors:
+#         - '[VENDOR USER GUID]'   # e.g. the supervising principal's own edits
 
 # ---- SCOPE ----
 scope:

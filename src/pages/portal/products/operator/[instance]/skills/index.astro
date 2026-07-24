@@ -1,0 +1,107 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { resolveOperatorSkills } from '../../../../../../lib/portal/operator/facets/skills/skills'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import OperatorSkills from '../../../../../../components/portal/operator/facets/OperatorSkills.astro'
+import { env } from 'cloudflare:workers'
+import { readChangeRequestFlash } from '../../../../../../lib/portal/operator/change-request-flash'
+
+/**
+ * Operator — Skills (ADR 0069 Slice 3; signed-off brief
+ * docs/design/operator/surface-briefs/operator-skills.md). The concrete answer
+ * to the console's central "what can it do?" question: a real, honest inventory
+ * of the skills configured on the active persona and HOW each gets set in
+ * motion. Replaces the landing's Skills → Configure deep-link.
+ *
+ * URL: portal.smd.services/portal/products/operator/<instance>/skills
+ *
+ * Read for all account roles (principal / staff / compliance), matching
+ * Configure's read posture. The one forward action is "Request a change" via the
+ * same <DomainSurface> (configuration domain) mechanism Configure uses — never
+ * the legacy enable/disable toggle, whose state the projection can't back.
+ *
+ * The view model is the one shared resolver; the list renders through the one
+ * shared <OperatorSkills> viewer both portals mount (Lock 4). Reads the
+ * customer_configs projection (real authored data); nothing fabricated.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { client, roles } = access
+
+const model = resolveOperatorSkills(access.config)
+
+const RETURN_TO = `${operatorBase}/skills`
+
+const cr = readChangeRequestFlash(Astro.cookies)
+const crMessage =
+  cr === 'filed'
+    ? 'Your request was sent.'
+    : cr === 'invalid'
+      ? "That request couldn't be filed. Please add a short description and try again."
+      : cr === 'error'
+        ? 'Something went wrong filing your request. Please try again.'
+        : null
+---
+
+<PortalShell
+  title="Operator · Skills"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref={operatorBase}
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Skills"
+    meta={null}
+  />
+
+  {
+    crMessage && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          cr === 'filed'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {crMessage}
+      </div>
+    )
+  }
+
+  <p
+    class="mt-8 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]"
+  >
+    Everything your operator can do, and how each one gets set in motion.
+  </p>
+
+  <div class="mt-4">
+    <DomainSurface
+      authority={access.config?.authority ?? null}
+      domain="configuration"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="skills"
+    >
+      <div slot="read">
+        <OperatorSkills model={model} />
+      </div>
+    </DomainSurface>
+  </div>
+</PortalShell>

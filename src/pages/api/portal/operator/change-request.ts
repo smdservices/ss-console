@@ -1,9 +1,14 @@
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { resolveOperatorAccess } from '../../../../lib/portal/operator-access'
-import { getCustomerConfig } from '../../../../lib/portal/customer-config'
 import { createChangeRequest } from '../../../../lib/portal/operator/change-request'
-import { safeReturnTo } from '../../../../lib/portal/operator/return-to'
+import { safeReturnTo, instanceFromOperatorPath } from '../../../../lib/portal/operator/return-to'
+import { changeRequestDomainLabel } from '../../../../lib/admin/change-request-inbox'
+import { isSwitchableDomain } from '../../../../lib/operator/authority'
+import { getAdminBaseUrl } from '../../../../lib/config/app-url'
+import { sendEmail } from '../../../../lib/email/resend'
+import { operatorChangeRequestNotificationEmailHtml } from '../../../../lib/email/operator-templates'
+import { changeRequestFlashCookie } from '../../../../lib/portal/operator/change-request-flash'
 
 /**
  * POST /api/portal/operator/change-request
@@ -32,32 +37,44 @@ import { safeReturnTo } from '../../../../lib/portal/operator/return-to'
 const ALL_CLIENT_ROLES = ['principal', 'staff', 'compliance'] as const
 
 function redirect(returnTo: string, status: 'filed' | 'invalid' | 'error'): Response {
-  const sep = returnTo.includes('?') ? '&' : '?'
+  // Show-once flash cookie, not a query param: a `?cr=` banner survives
+  // reloads and bookmarks; the flash renders exactly once (Captain,
+  // 2026-07-15). Surfaces read it via readChangeRequestFlash.
   return new Response(null, {
     status: 303,
-    headers: { Location: `${returnTo}${sep}cr=${status}` },
+    headers: { Location: returnTo, 'Set-Cookie': changeRequestFlashCookie(status) },
   })
 }
 
 export const POST: APIRoute = async ({ locals, request }) => {
-  const access = await resolveOperatorAccess(env.DB, locals, { allowedRoles: ALL_CLIENT_ROLES })
-  if (access.kind === 'redirect') {
-    return new Response(null, { status: 303, headers: { Location: access.to } })
-  }
-
   const form = await request.formData()
   const domain = form.get('domain')
   const summary = form.get('summary')
   const returnTo = safeReturnTo(form.get('return_to'))
 
+  // The operator instance is carried by the (already instance-scoped) return_to
+  // path — no separate field to thread through the form components. Ownership is
+  // enforced centrally by resolveOperatorAccess({ customerSlug }).
+  const instance = instanceFromOperatorPath(returnTo)
+  if (!instance) {
+    return new Response(null, { status: 303, headers: { Location: '/portal/products/operator' } })
+  }
+
+  const access = await resolveOperatorAccess(env.DB, locals, {
+    allowedRoles: ALL_CLIENT_ROLES,
+    customerSlug: instance,
+  })
+  if (access.kind === 'redirect') {
+    return new Response(null, { status: 303, headers: { Location: access.to } })
+  }
+
   if (typeof domain !== 'string' || typeof summary !== 'string') {
     return redirect(returnTo, 'invalid')
   }
 
-  const config = await getCustomerConfig(env.DB, access.client.id)
   const result = await createChangeRequest(env.DB, {
     entity_id: access.client.id,
-    customer_slug: config?.customer_slug ?? access.client.id,
+    customer_slug: access.customerSlug,
     domain,
     requested_by_user_id: access.user.id,
     requested_by_email: access.user.email,
@@ -66,6 +83,27 @@ export const POST: APIRoute = async ({ locals, request }) => {
 
   if (!result.ok) {
     return redirect(returnTo, 'invalid')
+  }
+
+  // Operational baton to team@ — without it the request sits silently in the
+  // admin inbox until someone happens to look (a request filed 2026-06-23 went
+  // unnoticed for three weeks). Best-effort: never blocks or fails the filing.
+  try {
+    const adminBase = getAdminBaseUrl(env) ?? 'https://admin.smd.services'
+    await sendEmail(env.RESEND_API_KEY, {
+      to: 'team@smd.services',
+      subject: `Operator change request: ${access.client.name} (${access.customerSlug})`,
+      html: operatorChangeRequestNotificationEmailHtml({
+        entityName: access.client.name,
+        customerSlug: access.customerSlug,
+        domainLabel: isSwitchableDomain(domain) ? changeRequestDomainLabel(domain) : domain,
+        requestedByEmail: access.user.email,
+        summary: summary.trim(),
+        adminInboxUrl: `${adminBase}/admin/operator/requests`,
+      }),
+    })
+  } catch (err) {
+    console.error('[operator/change-request] team notification failed:', err)
   }
   return redirect(returnTo, 'filed')
 }

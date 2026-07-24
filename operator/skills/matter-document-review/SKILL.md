@@ -15,7 +15,6 @@ metadata:
     vertical: law-firm
     weight: heavy # ADR 0049 — heavy reasoning over large material; escalate to the seat's escalation model (before reading) when one is authored
     skill_type: document retrieval + surfacing
-    trust_ceiling: autonomous_internal_surface
     action_class: read + internal_write
     content_ceiling: surface_only # MAY summarize/extract/highlight; MUST NOT produce legal work product
     connectors:

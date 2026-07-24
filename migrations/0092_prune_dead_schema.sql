@@ -1,0 +1,21 @@
+-- Migration 0092: prune dead schema (schema evaluation 2026-07-15).
+--
+-- intake_conversation_meta was created by migration 0037 for an intake
+-- conversation feature that was never wired. Zero rows, and a whole-repo grep
+-- finds it nowhere outside its own creating migration -- no DAL, no page, no
+-- worker, no CLI. Safe to drop pre-production, and backward-compatible with the
+-- currently deployed app (nothing references it), which matters because
+-- deploy.yml applies migrations before publishing code.
+--
+-- Scoped deliberately narrow. Two adjacent items from the same evaluation are
+-- handled elsewhere on purpose:
+--   * entities.next_action / next_action_at / summary are vestigial, but still
+--     read by the Leads-list theater (EntityListRow / entity-row-view /
+--     list-sort). They drop together with that teardown (admin Part 2), not
+--     here, so the build never breaks mid-flight.
+--   * captain_time_events backs the `crane operator log-time` CLI (ADR 0062);
+--     its disposition is a separate decision.
+--
+-- Manual rollback: migrations/rollbacks/0092_prune_dead_schema_down.sql.
+
+DROP TABLE IF EXISTS intake_conversation_meta;

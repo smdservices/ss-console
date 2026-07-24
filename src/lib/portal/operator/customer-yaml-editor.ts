@@ -395,7 +395,9 @@ export function applyEditableChanges(
     ...lockedFromCurrent(current),
     personas: mergedPersonas,
     connectors: mergeConnectors(current.connectors, changes.connectors),
-    scope: { ...changes.scope },
+    // outbound_roster (ADR 0075) is governance-sensitive and NOT portal-editable;
+    // preserve the current value verbatim (same posture as voice_cohorts below).
+    scope: { ...changes.scope, outbound_roster: current.scope.outbound_roster },
     escalation: { ...changes.escalation },
     voice_library:
       changes.voiceLibrary.samples_path === null
@@ -433,9 +435,7 @@ export function applyEditableChanges(
   }
 }
 
-function lockedFromCurrent(
-  current: CustomerYaml
-): Pick<
+function lockedFromCurrent(current: CustomerYaml): Pick<
   CustomerYaml,
   | 'schema_version'
   | 'customer_id'
@@ -458,9 +458,12 @@ function lockedFromCurrent(
   | 'mcp_connector'
   | 'relationship'
   | 'digest'
+  // governance-sensitive custody acceptance (ADR 0044 D8 / #1841) — never portal-editable
+  | 'custody_exceptions'
 > {
   return {
     schema_version: current.schema_version,
+    custody_exceptions: current.custody_exceptions,
     customer_id: current.customer_id,
     customer_name: current.customer_name,
     vertical: current.vertical,
@@ -530,6 +533,9 @@ function mergeConnectors(
       // in the connectors authority domain, set via the dedicated custody flow,
       // never through the general config editor.
       credential_custody: existing.credential_custody,
+      // auth_mode locked — set at provisioning with the OAuth flow itself;
+      // the portal only READS it (connection care note).
+      auth_mode: existing.auth_mode,
     }
   }
   return merged

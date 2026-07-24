@@ -22,6 +22,7 @@ export const ACCEPTED_CAPABILITY_NAMES: ReadonlySet<CapabilityName> = new Set<Ca
   'IntakeCRM',
   'CallTracking',
   'InternalComms',
+  'WebSearch',
 ])
 
 export const ACCEPTED_VERTICALS = [
@@ -143,7 +144,12 @@ export const VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: Readonly<Record<Vertical, number>
  */
 export const AUDIT_LOG_DAYS_MAX = 36500
 
-export const ACCEPTED_EXPOSURE_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
+export const ACCEPTED_EXPOSURE_CEILINGS = [
+  'autonomous',
+  'confirm',
+  'draft_for_review',
+  'refused',
+] as const
 export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
 
 /**
@@ -153,6 +159,16 @@ export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
  * than one scalar applied to the whole skill — splitting the exposure axis
  * (external_send) from the initiation and internal axes.
  *
+ * `external_send` is a send to a NON-roster (outside) recipient;
+ * `external_send_internal` is a send to a human-rostered internal recipient
+ * (the firm's own staff); `external_send_client` / `external_send_vendor` are
+ * sends to the firm's own rostered client / records vendor (ADR 0075), each with
+ * its own authored ceiling, graduatable to autonomous independently of the
+ * outside class. The recipient axis is resolved upstream by
+ * `recipient_classifier`, so an internal/client/vendor notification never
+ * collapses onto the outside ceiling. All are fail-closed when unauthored (ADR
+ * 0035).
+ *
  * The values must stay byte-identical to the Python enum's `.value` strings;
  * the overlay materializer (`hermes-smd bootstrap`) carries this map across
  * the seam to the runtime `enforce()` call.
@@ -161,12 +177,52 @@ export const ACCEPTED_ACTION_CLASSES = [
   'read',
   'internal_write',
   'external_send',
+  'external_send_internal',
+  'external_send_client',
+  'external_send_vendor',
   'commitment',
   'destructive',
   'code_execution',
 ] as const
 export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
 export type AuthoredExposureActionClass = Exclude<ActionClass, 'read'>
+
+/**
+ * The send action classes — the only classes for which the `confirm` ceiling
+ * (ADR 0071) has defined enforcement behavior, and the classes the recipient
+ * classifier resolves a send to. Mirrors `SEND_ACTION_CLASSES` in the overlay
+ * validator and the Python adapter enum's send members.
+ */
+export const SEND_ACTION_CLASSES = [
+  'external_send',
+  'external_send_internal',
+  'external_send_client',
+  'external_send_vendor',
+] as const
+export type SendActionClass = (typeof SEND_ACTION_CLASSES)[number]
+
+/**
+ * Closed vocabulary for a `scope.outbound_roster` entry's `class` (ADR 0075).
+ * A typed outbound-roster address is either the firm's own `client` or a
+ * `records_vendor`; these map to the `external_send_client` / `external_send_vendor`
+ * action classes. There is deliberately NO opposing-counsel / court class — an
+ * un-rostered outside recipient stays governed by `external_send`.
+ */
+export const OUTBOUND_ROSTER_CLASSES = ['client', 'records_vendor'] as const
+export type OutboundRosterClass = (typeof OUTBOUND_ROSTER_CLASSES)[number]
+
+/**
+ * One entry in `scope.outbound_roster` (ADR 0075). Human-authored OUTBOUND
+ * authorization — never grown from inbound. `address` is an exact `local@domain`
+ * or an `@domain` grant (a whole-@domain grant at a public-mail provider is
+ * rejected; an EXACT address at such a domain is valid — PI clients are consumers
+ * on gmail). `class` is the closed vocabulary; `note` is optional free text.
+ */
+export interface OutboundRosterEntry {
+  address: string
+  class: OutboundRosterClass
+  note?: string
+}
 
 export interface PersonaEntitlements {
   /**
@@ -233,7 +289,11 @@ export type LogLevel = (typeof ACCEPTED_LOG_LEVELS)[number]
 export const ACCEPTED_LOG_SHIPS = ['cloudflare-d1', 'fly-logs'] as const
 export type LogShip = (typeof ACCEPTED_LOG_SHIPS)[number]
 
-export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as const
+// native: — a bundled Hermes provider selected by config (not an external server
+// we wire). Web search rides this: `native:brave-free` -> web.search_backend,
+// materialized by the overlay's translate._materialize_web_search. Added with the
+// ADR 0070 native cut (2026-07-08), superseding the mcp:brave connector.
+export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:', 'native:'] as const
 
 /**
  * Google credential mode for the optional top-level `google_auth.mode`
@@ -467,6 +527,14 @@ export interface Connector {
    * src/lib/operator/credential-custody.ts.
    */
   credential_custody: CredentialCustody | null
+  /**
+   * Authored OAuth flow for the connector (e.g. 'authorization_code' — the
+   * firm authorizes via login + Allow; SMD can only send a fresh
+   * authorization link, never re-establish alone). Free-form string, absent
+   * ⇒ null. The portal's connection care note keys on it (Captain,
+   * 2026-07-15: reconnect claims must match who can actually reconnect).
+   */
+  auth_mode: string | null
 }
 
 /**
@@ -551,6 +619,16 @@ export interface WebhookTrigger {
    * added as new keys here. Unauthored = no exceptions (ADR 0035).
    */
   exclude: WebhookTriggerExclude | null
+  /**
+   * Per-(trigger, matter) cooldown (#1781, overlay gate enforcement): after a
+   * delivery for a matter forwards, further deliveries for the same (source,
+   * event_type, matter) inside the window are acknowledged 202, audited
+   * (WEBHOOK_SUPPRESSED), and never forwarded — the deterministic break for
+   * write-then-echo loops (the seat's own create_memo echoing back as
+   * matter.updated). Unauthored = the gate's platform default (30 min, an
+   * integrity control); `cooldown_minutes: 0` disables for this trigger.
+   */
+  throttle: WebhookTriggerThrottle | null
 }
 
 export interface WebhookTriggerExclude {
@@ -558,6 +636,11 @@ export interface WebhookTriggerExclude {
   matters: string[]
   /** Vendor user GUIDs whose own changes are exempt (e.g. the supervising principal). */
   actors: string[]
+}
+
+export interface WebhookTriggerThrottle {
+  /** Non-negative integer minutes; 0 disables; null = block authored empty (gate default). */
+  cooldown_minutes: number | null
 }
 
 export interface Scope {
@@ -568,6 +651,13 @@ export interface Scope {
   matter_blocks: string[]
   /** Senders allowed to trigger autonomous reply from crane's own inbox. */
   inbound_allow_from: string[]
+  /**
+   * Typed outbound roster (ADR 0075) — the firm's own clients / records vendors,
+   * each resolving to the `external_send_client` / `external_send_vendor` action
+   * class. Empty array when unauthored (fail-closed: every outside send stays on
+   * the `external_send` ceiling). See {@link OutboundRosterEntry}.
+   */
+  outbound_roster: OutboundRosterEntry[]
 }
 
 export interface Escalation {
@@ -870,6 +960,12 @@ export interface CustomerYaml {
    */
   webhook_triggers: WebhookTrigger[]
   /**
+   * Authored identity-channel custody exceptions (ADR 0044 D8 / #1841):
+   * gateway-held surfaces a non-refused code_execution seat explicitly
+   * accepts. Empty when unauthored (the guard then rejects any surface).
+   */
+  custody_exceptions: string[]
+  /**
    * Whether the Compliance dashboard view is enabled for this firm.
    *
    * Defaults to `false` when the field is omitted. Sub-50-attorney PI
@@ -960,9 +1056,12 @@ export type ValidationErrorCode =
   | 'UnknownAddon'
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
+  | 'InvalidOutboundRoster'
   | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'
+  | 'CustodyGuardViolation'
+  | 'IneligibleCustodyException'
 
 export interface ValidationError {
   code: ValidationErrorCode
@@ -971,5 +1070,4 @@ export interface ValidationError {
 }
 
 export type ValidationResult =
-  | { ok: true; value: CustomerYaml }
-  | { ok: false; errors: ValidationError[] }
+  { ok: true; value: CustomerYaml } | { ok: false; errors: ValidationError[] }

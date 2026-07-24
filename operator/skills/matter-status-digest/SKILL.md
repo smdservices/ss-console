@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: read + assembly (internal digest)
-    trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
       - smokeball # PracticeManagement — matters, tasks, stages, billing/AR, native trust balance (read)

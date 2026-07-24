@@ -48,12 +48,7 @@ export interface Engagement {
 }
 
 export type EngagementStatus =
-  | 'scheduled'
-  | 'active'
-  | 'handoff'
-  | 'safety_net'
-  | 'completed'
-  | 'cancelled'
+  'scheduled' | 'active' | 'handoff' | 'safety_net' | 'completed' | 'cancelled'
 
 export const ENGAGEMENT_STATUSES: { value: EngagementStatus; label: string }[] = [
   { value: 'scheduled', label: 'Scheduled' },

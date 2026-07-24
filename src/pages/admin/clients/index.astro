@@ -1,43 +1,47 @@
 ---
 /**
- * Clients list — the post-acceptance account directory (ADR 0046).
+ * Clients — the venture's book of business, cradle to grave (ADR 0077).
  *
- * Entities past the acceptance line (engaged / delivered / ongoing).
- * Pre-acceptance records live in Leads. Same `entities` table, split by
- * stage — the surface follows the record's current job.
+ * One flat list of every business we are working with, newest first, each row
+ * badged with its lifecycle stage. Not a post-acceptance directory and not a
+ * funnel: a prospect is an early client, shown as a plain record. `signal` (the
+ * dead cold-origin stage) is never shown; `lost` sits behind an opt-in filter.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
-import { listEntities, ENTITY_VERTICALS, ENTITY_STAGES } from '../../../lib/db/entities'
-import type { EntityStage } from '../../../lib/db/entities'
+import { listEntities } from '../../../lib/db/entities'
 import { getInvoiceRollupForEntities } from '../../../lib/db/invoices'
 import { listFleetRoster } from '../../../lib/admin/fleet-roster'
-import { formatMoney } from '../../../lib/admin/client-hub'
+import { formatMoney, clientStageBadge } from '../../../lib/admin/client-hub'
 import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
 
-const CLIENT_STAGES: EntityStage[] = ['engaged', 'delivered', 'ongoing']
+const showLost = Astro.url.searchParams.get('show') === 'lost'
 
-const [clients, roster] = await Promise.all([
-  listEntities(env.DB, session.orgId, { stages: CLIENT_STAGES }),
+const [all, roster] = await Promise.all([
+  listEntities(env.DB, session.orgId),
   listFleetRoster(env.DB),
 ])
+
+// `signal` is the retired cold-origin stage — never a record we are working.
+// `lost` is reachable (it can re-engage to prospect) but hidden by default.
+const records = all.filter((e) => {
+  if (e.stage === 'signal') return false
+  if (e.stage === 'lost') return showLost
+  return true
+})
 
 const rollups = await getInvoiceRollupForEntities(
   env.DB,
   session.orgId,
-  clients.map((c) => c.id)
+  records.map((r) => r.id)
 )
 const operatorEntityIds = new Set(roster.map((r) => r.entity_id))
+const lostCount = all.filter((e) => e.stage === 'lost').length
 
-function verticalLabel(v: string | null): string {
-  return ENTITY_VERTICALS.find((x) => x.value === v)?.label ?? v ?? '—'
-}
-function stageLabel(s: string): string {
-  return ENTITY_STAGES.find((x) => x.value === s)?.label ?? s
-}
-
-const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
+const COL = 'grid grid-cols-[1.8fr_0.9fr_0.9fr_1fr] gap-4 items-center'
+const ADD_BTN =
+  'inline-flex items-center gap-1.5 border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)]'
 ---
 
 <AdminLayout
@@ -45,45 +49,63 @@ const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
   breadcrumbs={[{ label: 'Clients' }]}
   maxWidth="max-w-6xl"
 >
-  <div class="mb-5 flex items-end justify-between">
-    <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Clients</h1>
-    <span class="font-mono text-[13px] text-[color:var(--ss-color-text-muted)]">
-      {clients.length}
-      {clients.length === 1 ? 'client' : 'clients'}
-    </span>
+  <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div class="flex items-baseline gap-3">
+      <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Clients</h1>
+      <span class="font-mono text-[13px] text-[color:var(--ss-color-text-muted)]">
+        {records.length}
+        {records.length === 1 ? 'record' : 'records'}
+      </span>
+    </div>
+    <a href="/admin/clients/new" class={ADD_BTN}>+ Add a client</a>
   </div>
 
   {
-    clients.length === 0 ? (
-      <p class="border border-[color:var(--ss-color-border)] px-5 py-8 text-center text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
-        No clients yet. A lead becomes a client when its first service is accepted.
-      </p>
+    records.length === 0 ? (
+      <div class="border border-[color:var(--ss-color-border)] px-5 py-10 text-center">
+        <p class="text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
+          {showLost
+            ? 'No records to show.'
+            : 'No records yet. Add a business you are working with to start tracking it.'}
+        </p>
+        {!showLost && (
+          <a href="/admin/clients/new" class={`${ADD_BTN} mt-4`}>
+            + Add a client
+          </a>
+        )}
+      </div>
     ) : (
       <div>
         <div
           class={`${COL} border-b border-[color:var(--ss-color-text-primary)] px-3.5 pb-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]`}
         >
-          <span>Client</span>
-          <span>Vertical</span>
+          <span>Business</span>
           <span>Stage</span>
           <span>Services</span>
           <span class="text-right">Outstanding</span>
         </div>
-        {clients.map((c) => {
+        {records.map((c) => {
           const rollup = rollups.get(c.id)
           const outstanding = rollup?.outstanding_amount ?? 0
           const hasOperator = operatorEntityIds.has(c.id)
+          const badge = clientStageBadge(c.stage)
           return (
             <a
               href={`/admin/clients/${c.id}`}
               class={`${COL} border-b border-[color:var(--ss-color-border-subtle)] px-3.5 py-3.5 transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
             >
               <span class="font-semibold text-[color:var(--ss-color-text-primary)]">{c.name}</span>
-              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                {verticalLabel(c.vertical)}
-              </span>
-              <span class="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
-                {stageLabel(c.stage)}
+              <span
+                class:list={[
+                  'font-mono text-[11px] font-bold uppercase tracking-[0.08em]',
+                  c.stage === 'lost'
+                    ? 'text-[color:var(--ss-color-text-muted)]'
+                    : badge.signed
+                      ? 'text-[color:var(--ss-color-primary)]'
+                      : 'text-[color:var(--ss-color-text-secondary)]',
+                ]}
+              >
+                {badge.label}
               </span>
               <span>
                 {hasOperator && (
@@ -107,6 +129,19 @@ const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
             </a>
           )
         })}
+      </div>
+    )
+  }
+
+  {
+    lostCount > 0 && (
+      <div class="mt-5 text-right">
+        <a
+          href={showLost ? '/admin/clients' : '/admin/clients?show=lost'}
+          class="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+        >
+          {showLost ? 'Hide lost' : `Show lost (${lostCount})`}
+        </a>
       </div>
     )
   }
