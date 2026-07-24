@@ -46,17 +46,21 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci
 
-      - name: Audit (fail on high or critical)
-        run: npm audit --audit-level=high
-
-      - name: Audit Workers (fail on high or critical)
+      # Fail on any high/critical advisory that is NOT in the time-boxed
+      # allowlist at .github/audit-allowlist.json. The allowlist exists so an
+      # advisory whose only fix is blocked by the .npmrc supply-chain cooldown
+      # (min-release-age) does not freeze all merges to main via the required
+      # Security Summary gate. Each entry is triaged non-reachable and expires
+      # on a date; past that date the gate re-fails, forcing the tracked fix.
+      # Covers the root project plus every workers/* package.
+      - name: Audit (fail on non-allowlisted high or critical)
         run: |
           set -euo pipefail
+          dirs=(.)
           for dir in workers/*/; do
-            [ -f "${dir}package.json" ] || continue
-            echo "Auditing ${dir}"
-            npm audit --audit-level=high --prefix "$dir"
+            [ -f "${dir}package.json" ] && dirs+=("${dir%/}")
           done
+          node scripts/audit-allowlist.mjs "${dirs[@]}"
 
   gitleaks:
     name: Secret Detection
