@@ -241,6 +241,37 @@ describe('rosterHealth', () => {
     // Breaker note wins over the summary note when both fire.
     expect(rosterHealth('green', '5s ago', 'yellow', 'HARD_STOP').note).toMatch(/hard stop/)
   })
+
+  it('the scheduler self-check escalates: ok=0 → red, overdue past threshold → yellow (WP-2)', () => {
+    // scheduler_ok === 0 is a broken cron store: red, on an otherwise-live seat.
+    const broken = rosterHealth('green', '5s ago', null, null, { ok: 0, maxOverdueSeconds: null })
+    expect(broken.color).toBe('red')
+    expect(broken.note).toMatch(/scheduler broken/)
+    // Overdue past 900s → yellow.
+    const overdue = rosterHealth('green', '5s ago', null, null, { ok: 1, maxOverdueSeconds: 901 })
+    expect(overdue.color).toBe('yellow')
+    expect(overdue.note).toMatch(/work overdue/)
+    // Just under threshold stays calm.
+    expect(
+      rosterHealth('green', '5s ago', null, null, { ok: 1, maxOverdueSeconds: 899 }).color
+    ).toBe('green')
+  })
+
+  it('scheduler NULLs participate in nothing and never calm a worse color', () => {
+    // NULL scheduler_ok + NULL overdue leave the heartbeat verdict standing.
+    expect(
+      rosterHealth('yellow', '3m ago', null, null, { ok: null, maxOverdueSeconds: null }).color
+    ).toBe('yellow')
+    expect(rosterHealth('green', '5s ago', null, null, null).note).toBeNull()
+    // A healthy scheduler (ok=1, no overdue) never downgrades a red heartbeat.
+    expect(rosterHealth('red', 'stale 9m', null, null, { ok: 1, maxOverdueSeconds: 0 }).color).toBe(
+      'red'
+    )
+    // A broken scheduler can only escalate, never calm — red stays red.
+    expect(
+      rosterHealth('red', 'stale 9m', null, null, { ok: 0, maxOverdueSeconds: null }).color
+    ).toBe('red')
+  })
 })
 
 describe('rosterHealthDotClass', () => {

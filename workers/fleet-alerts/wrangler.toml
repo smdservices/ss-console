@@ -12,6 +12,11 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Enable the workers.dev route so GET /health and the bearer-gated POST /run are
+# reachable for live verification (WP-0 found the route disabled — error 1042).
+# /run stays bearer-gated (FLEET_ALERTS_BEARER); /health returns {ok:true} only.
+workers_dev = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ss-console-db"
@@ -26,4 +31,14 @@ ALERT_TO_EMAIL = "team@smd.services"
 # A seat is red when its last heartbeat is older than this. Matches the
 # customer.yaml observability defaults (period 60s + grace 5m).
 HEARTBEAT_RED_SECONDS = "300"
+# A job overdue past its next_run_at by more than this fires work_overdue.
+# MUST match src/lib/admin/fleet-status.ts WORK_OVERDUE_RED_SECONDS (the admin
+# roster and this worker are separate packages; the shared 900 default is a
+# documented contract, not a cross-package import).
+WORK_OVERDUE_RED_SECONDS = "900"
 ADMIN_BASE_URL = "https://admin.smd.services"
+
+# Secret (optional), staged via `wrangler secret put ALERTER_HEALTHCHECKS_PING_URL`:
+# the alerter's own healthchecks.io check, pinged at the end of every successful
+# run so this Worker's own death pages independently. Unset = self-ping skipped.
+
