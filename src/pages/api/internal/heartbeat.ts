@@ -18,7 +18,10 @@
  *     "last_skill_ts":           <ISO 8601 UTC>,   // optional
  *     "process_uptime_seconds":  <integer>,        // optional
  *     "version":                 <string>,         // optional
- *     "sticky_stop_level":       <string>          // optional (ADR 0062)
+ *     "sticky_stop_level":       <string>,         // optional (ADR 0062)
+ *     "scheduler_ok":            <boolean | 0/1>,  // optional (WP-2 work-liveness)
+ *     "scheduler_job_count":     <integer>,        // optional
+ *     "scheduler_max_overdue_seconds": <integer>   // optional
  *   }
  *
  * The handler doesn't trust the Machine's `heartbeat_status` — it derives
@@ -48,11 +51,30 @@ interface HeartbeatBody {
   process_uptime_seconds?: number
   version?: string
   sticky_stop_level?: string
+  scheduler_ok?: unknown
+  scheduler_job_count?: unknown
+  scheduler_max_overdue_seconds?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
 // Anything else is stored as NULL — never guess a level from junk input.
 const STICKY_STOP_LEVELS = new Set(['OK', 'WARN', 'SOFT_STOP', 'HARD_STOP', 'unknown'])
+
+// Coerce the overlay's scheduler_ok signal to 1/0/NULL. Accepts a boolean or a
+// literal 0/1 (JSON booleans and small-int flags are both idiomatic in the
+// emitter). Anything else — including a truthy non-1 number — is junk and
+// stored NULL: never manufacture a health verdict from an unrecognized value.
+function parseSchedulerOk(value: unknown): 0 | 1 | null {
+  if (value === true || value === 1) return 1
+  if (value === false || value === 0) return 0
+  return null
+}
+
+// Non-negative integer counters (job count, max-overdue seconds). Junk — a
+// float, a negative, a string, a missing field — is stored NULL.
+function parseNonNegInt(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
 
 export const POST: APIRoute = async ({ request }) => {
   const auth = await verifyMachineRequest(request, env.MACHINE_HEARTBEAT_KEY, env.DB)
@@ -85,12 +107,26 @@ export const POST: APIRoute = async ({ request }) => {
       ? body.sticky_stop_level
       : null
 
+  // Scheduler-liveness signals (WP-2). Like sticky_stop_level, these overwrite
+  // every beat INCLUDING back to NULL when the emitter stops reporting them — a
+  // stale pinned scheduler_ok=0 must not outlive the signal (e.g. after an
+  // overlay rollback that drops the field). COALESCE here would pin a broken
+  // verdict forever, so these deliberately do NOT use it.
+  const schedulerOk = parseSchedulerOk(body.scheduler_ok)
+  const schedulerJobCount = parseNonNegInt(body.scheduler_job_count)
+  const schedulerMaxOverdueSeconds = parseNonNegInt(body.scheduler_max_overdue_seconds)
+
+  // Re-keyed on customer_slug (migration 0093): several seats share one entity,
+  // so ON CONFLICT(entity_id) would collide them into one row. entity_id is now
+  // a plain column and is refreshed from the request on every upsert.
   await env.DB.prepare(
     `INSERT INTO fleet_status (
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
-       process_uptime_seconds, version, heartbeat_status, sticky_stop_level, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-     ON CONFLICT(entity_id) DO UPDATE SET
+       process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
+       scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(customer_slug) DO UPDATE SET
+       entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
        last_audit_ts           = COALESCE(excluded.last_audit_ts, fleet_status.last_audit_ts),
        last_skill_ts           = COALESCE(excluded.last_skill_ts, fleet_status.last_skill_ts),
@@ -98,6 +134,9 @@ export const POST: APIRoute = async ({ request }) => {
        version                 = COALESCE(excluded.version, fleet_status.version),
        heartbeat_status        = excluded.heartbeat_status,
        sticky_stop_level       = excluded.sticky_stop_level,
+       scheduler_ok                  = excluded.scheduler_ok,
+       scheduler_job_count           = excluded.scheduler_job_count,
+       scheduler_max_overdue_seconds = excluded.scheduler_max_overdue_seconds,
        updated_at              = datetime('now')`
   )
     .bind(
@@ -109,7 +148,10 @@ export const POST: APIRoute = async ({ request }) => {
       typeof body.process_uptime_seconds === 'number' ? body.process_uptime_seconds : null,
       typeof body.version === 'string' ? body.version : null,
       heartbeatStatus,
-      stickyStopLevel
+      stickyStopLevel,
+      schedulerOk,
+      schedulerJobCount,
+      schedulerMaxOverdueSeconds
     )
     .run()
 

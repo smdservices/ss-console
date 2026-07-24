@@ -99,10 +99,12 @@ const cards: CustomerCard[] = await Promise.all(
 )
 
 function fleetForCard(card: CustomerCard): FleetStatusRow | undefined {
-  if (card.entity_id && fleetByEntityId.has(card.entity_id)) {
-    return fleetByEntityId.get(card.entity_id)
-  }
-  return fleetBySlug.get(card.customer_slug)
+  // Slug-first since migration 0093 re-keyed fleet_status on customer_slug: the
+  // entity map fans out when several seats share one entity, so it is only a
+  // legacy fallback for rows that predate the re-key.
+  const bySlug = fleetBySlug.get(card.customer_slug)
+  if (bySlug) return bySlug
+  return card.entity_id ? fleetByEntityId.get(card.entity_id) : undefined
 }
 
 function formatCurrency(cents: number): string {

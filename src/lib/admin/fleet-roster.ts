@@ -30,6 +30,7 @@ import {
   type AuthorityPosture,
 } from '../operator/authority'
 import type { SummaryStatus } from './runtime-summary'
+import { WORK_OVERDUE_RED_SECONDS } from './fleet-status'
 
 export interface RosterPersona {
   slug: string
@@ -219,35 +220,77 @@ const HEALTH_RANK: Record<RosterHealthColor, number> = { green: 0, gray: 1, yell
  * than reality, the one thing a fleet dot must never do. `summaryStatus` is null
  * when no Machine has pushed a summary yet.
  */
+/**
+ * Scheduler self-check signal (WP-2), bundled so rosterHealth stays within the
+ * parameter ceiling. `ok`: 1 healthy / 0 broken / NULL unreported;
+ * `maxOverdueSeconds`: seconds the most-overdue job is past its next_run_at.
+ */
+export interface SchedulerSignal {
+  ok: number | null
+  maxOverdueSeconds: number | null
+}
+
+// Note precedence, most-actionable first: a hard breaker stop and a broken
+// scheduler are both red and both need immediate hands; the breaker note wins
+// when both fire (recovery is a Captain clear, not investigation).
+function rosterHealthNote(
+  stickyStopLevel: string | null,
+  schedulerOk: number | null,
+  overdue: boolean,
+  summaryStatus: SummaryStatus | null
+): string | null {
+  if (stickyStopLevel === 'HARD_STOP') return 'cost breaker hard stop'
+  if (schedulerOk === 0) return 'cron scheduler broken'
+  if (stickyStopLevel === 'SOFT_STOP') return 'cost breaker soft stop'
+  if (overdue) return 'scheduled work overdue'
+  if (summaryStatus === 'red') return 'operator reports a problem'
+  if (summaryStatus === 'yellow') return 'operator reports a warning'
+  return null
+}
+
+// Escalate-only combine: return the most alarming of the base color and any
+// escalations. NULL escalations are ignored; nothing here can CALM the base.
+function escalatedColor(
+  base: RosterHealthColor,
+  escalations: (RosterHealthColor | null)[]
+): RosterHealthColor {
+  let color = base
+  for (const e of escalations) {
+    if (e && HEALTH_RANK[e] > HEALTH_RANK[color]) color = e
+  }
+  return color
+}
+
+// Map a two-level threshold string (breaker) to its escalation color.
+function breakerColor(stickyStopLevel: string | null): RosterHealthColor | null {
+  if (stickyStopLevel === 'HARD_STOP') return 'red'
+  if (stickyStopLevel === 'SOFT_STOP') return 'yellow'
+  return null
+}
+
 export function rosterHealth(
   heartbeatColor: RosterHealthColor,
   heartbeatLabel: string,
   summaryStatus: SummaryStatus | null,
-  stickyStopLevel: string | null = null
+  stickyStopLevel: string | null = null,
+  scheduler: SchedulerSignal | null = null
 ): RosterHealth {
-  // The cost breaker (ADR 0062, fleet_status.sticky_stop_level) escalates
-  // like the summary: SOFT_STOP -> yellow, HARD_STOP -> red. It can never
-  // calm a dot; a tripped breaker on a live-green Machine must show.
-  const breakerEscalation: RosterHealthColor | null =
-    stickyStopLevel === 'HARD_STOP' ? 'red' : stickyStopLevel === 'SOFT_STOP' ? 'yellow' : null
+  const schedulerOk = scheduler?.ok ?? null
+  const maxOverdue = scheduler?.maxOverdueSeconds ?? null
+  // Every input below is escalate-only: the cost breaker (ADR 0062), the
+  // runtime summary rollup, and the scheduler self-check (WP-2) can each raise
+  // the dot but never calm it. NULL participates in nothing — an unreported
+  // signal never paints a dot and never overrides an existing worse color.
   const summaryEscalation: RosterHealthColor | null =
     summaryStatus === 'red' ? 'red' : summaryStatus === 'yellow' ? 'yellow' : null
-  let color = heartbeatColor
-  for (const escalation of [summaryEscalation, breakerEscalation]) {
-    if (escalation && HEALTH_RANK[escalation] > HEALTH_RANK[color]) color = escalation
-  }
-  // The breaker note wins when both fire: a hard-stopped operator is the
-  // more actionable fact (recovery is a Captain clear, not investigation).
-  const note =
-    stickyStopLevel === 'HARD_STOP'
-      ? 'cost breaker hard stop'
-      : stickyStopLevel === 'SOFT_STOP'
-        ? 'cost breaker soft stop'
-        : summaryStatus === 'red'
-          ? 'operator reports a problem'
-          : summaryStatus === 'yellow'
-            ? 'operator reports a warning'
-            : null
+  const overdueActive = maxOverdue !== null && maxOverdue > WORK_OVERDUE_RED_SECONDS
+  const color = escalatedColor(heartbeatColor, [
+    summaryEscalation,
+    breakerColor(stickyStopLevel),
+    schedulerOk === 0 ? 'red' : null,
+    overdueActive ? 'yellow' : null,
+  ])
+  const note = rosterHealthNote(stickyStopLevel, schedulerOk, overdueActive, summaryStatus)
   return { color, label: heartbeatLabel, note }
 }
 
