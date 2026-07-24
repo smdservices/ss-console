@@ -1,0 +1,23 @@
+[project]
+name = "msgraph-mail-connector"
+version = "0.1.0"
+description = "Author-built MCP connector for Microsoft Graph mail (provider-neutral operator email adapter #1). ADR 0078 / email-channel-seam."
+requires-python = ">=3.11"
+dependencies = [
+    "operator-connector-sdk",
+    "httpx>=0.27",
+    # HTML body -> text stripping uses the stdlib (html.parser + html.unescape);
+    # no document-extraction deps (contrast the Smokeball connector's pypdf/docx).
+]
+
+# The console-script the overlay registry launches as `command` (absolute path to
+# this connector's venv: /opt/connectors/msgraph-mail/.venv/bin/msgraph-mail-mcp).
+[project.scripts]
+msgraph-mail-mcp = "msgraph_mail_connector.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["msgraph_mail_connector"]
