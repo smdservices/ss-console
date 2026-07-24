@@ -63,8 +63,10 @@ if (notFound) {
 
 const summary = config ? await getRuntimeSummary(env.DB, slug) : null
 const fleetRows = config ? await listFleetStatus(env.DB) : []
+// Slug-first since migration 0093 re-keyed fleet_status on customer_slug (many
+// seats per entity fan out the entity match); entity is the legacy fallback.
 const fleet =
-  fleetRows.find((r) => r.entity_id === entityId) ?? fleetRows.find((r) => r.customer_slug === slug)
+  fleetRows.find((r) => r.customer_slug === slug) ?? fleetRows.find((r) => r.entity_id === entityId)
 const subscription =
   config && entityId ? await getProductSubscription(env.DB, entityId, 'operator') : null
 
@@ -74,7 +76,11 @@ const health = rosterHealth(
   hb.color,
   hb.label,
   summary?.summary_status ?? null,
-  fleet?.sticky_stop_level ?? null
+  fleet?.sticky_stop_level ?? null,
+  {
+    ok: fleet?.scheduler_ok ?? null,
+    maxOverdueSeconds: fleet?.scheduler_max_overdue_seconds ?? null,
+  }
 )
 const posture = config ? posturePill(config.authority) : null
 const domainRows = config ? domainAuthoritySummary(config.authority) : []
