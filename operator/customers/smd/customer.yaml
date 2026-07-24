@@ -131,15 +131,6 @@ personas:
           scheduled: false
           webhook: false
         enabled: true
-      # Polls /api/admin/fleet/health every 30 min; records alert lines on red status.
-      # Requires OPERATOR_HEALTH_READ_KEY Fly secret + code_execution: autonomous.
-      - name: health-monitor
-        version: pending
-        initiation:
-          manual: true
-          scheduled: false
-          webhook: false
-        enabled: true
     # Native Google/Himalaya skills remain disabled because this customer uses
     # broker-mediated first-class tools and the customer-owned DWD credential.
     skills_disabled:
@@ -148,13 +139,10 @@ personas:
     # inbox-triage cron disabled — wrong mailbox, dead-drop output, token burn.
     # Run on-demand only until args + delivery path are verified.
     # ALL CRON DISABLED 2026-06-18 (Captain directive): not in a position to have
-    # any scheduled firing yet. health-monitor stays defined and runs on-demand;
-    # re-enable by uncommenting this block and restarting the Machine.
-    # cron:
-    #   # Fleet health check every 30 minutes. Emails Captain on red/open-alerts.
-    #   - skill: health-monitor
-    #     schedule: '*/30 * * * *'
-    #     wake_policy: always
+    # any scheduled firing yet.
+    # (health-monitor was RIPPED 2026-07-24: deterministic work-liveness alerting
+    # in ss-fleet-alerts replaced the agentic poller, whose cron was never
+    # materialized and whose ALERT_REQUIRED output had no delivery path.)
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
 # Lets authored users reach this Operator from inside their own Claude

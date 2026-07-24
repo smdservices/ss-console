@@ -4,11 +4,12 @@
  * matter of reviewer vigilance (code review 2026-07-02 §2.6, building on the
  * §1.6 positive finding that the convention is currently applied uniformly).
  *
- * Documented exception: `fleet/health.ts` is a machine-callable surface guarded
- * by a dedicated bearer secret (`OPERATOR_HEALTH_READ_KEY`, constant-time
- * compared via `verifyHealthReadKey`), not a browser session. Any new admin
- * route must either import `requireAdminSession` or be added to EXEMPT with a
- * comment justifying its alternative auth.
+ * The invariant now holds UNCONDITIONALLY: the one historical exception
+ * (`fleet/health.ts`, the health-monitor skill's bearer-keyed read surface) was
+ * ripped 2026-07-24 with the agentic monitor it served — deterministic
+ * work-liveness alerting lives in ss-fleet-alerts. Any new admin route must
+ * import `requireAdminSession` or be added to EXEMPT with a comment justifying
+ * its alternative auth.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -18,7 +19,7 @@ import { resolve } from 'path'
 const ADMIN_API_ROOT = resolve('src/pages/api/admin')
 
 /** Routes that legitimately do not use requireAdminSession (see file header). */
-const EXEMPT = new Set<string>([resolve('src/pages/api/admin/fleet/health.ts')])
+const EXEMPT = new Set<string>([])
 
 const HTTP_HANDLER = /export\s+const\s+(GET|POST|PUT|PATCH|DELETE|ALL)\b/
 
