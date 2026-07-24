@@ -345,3 +345,42 @@ def test_run_ingest_requires_executor():
                 day=date(2026, 5, 22),
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# Pricing coverage: every fleet-declared model must be priced
+# ---------------------------------------------------------------------------
+
+
+def test_every_declared_model_has_a_pricing_entry():
+    """Every `model` / `escalation_model` declared in any customer.yaml must
+    have an entry in anthropic_pricing.json.
+
+    Regression: the fleet's two-tier seats declared `escalation_model:
+    claude-opus-4-8` while the pricing table only knew opus-4-7, so
+    `_compute_anthropic_cents` costed all escalation-tier (Opus) spend at
+    0 cents with only a log warning. The pricing JSON's _meta note claimed
+    this test existed; now it does.
+    """
+    import yaml
+
+    pricing = load_anthropic_pricing()
+    priced = set(pricing["models"].keys())
+
+    customers_dir = _HERE.parents[2] / "customers"
+    declared: dict[str, str] = {}
+    for cfg in sorted(customers_dir.glob("*/customer.yaml")):
+        doc = yaml.safe_load(cfg.read_text())
+        if not isinstance(doc, dict):
+            continue
+        for key in ("model", "escalation_model"):
+            value = doc.get(key)
+            if isinstance(value, str) and value:
+                declared[value] = f"{cfg.parent.name}:{key}"
+
+    assert declared, "no models declared in any customer.yaml — glob broken?"
+    missing = {m: where for m, where in declared.items() if m not in priced}
+    assert not missing, (
+        f"models declared in customer.yaml but absent from "
+        f"anthropic_pricing.json (their spend would be costed at 0): {missing}"
+    )

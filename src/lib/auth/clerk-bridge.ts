@@ -75,10 +75,20 @@ export async function ensureLocalUser(
   // this Clerk identity instead. Only links when clerk_user_id IS NULL
   // so we never overwrite an existing binding. Email comes from Clerk's
   // verified primary email, which is the trust anchor.
+  //
+  // Matched case-INSENSITIVELY. The `users.email` column carries no
+  // COLLATE NOCASE, so a seeded row's casing had to match Clerk's byte for
+  // byte or the link silently missed — the JIT INSERT below would then
+  // succeed (UNIQUE(org_id,email) is case-sensitive too), stranding the
+  // person on a second, entity-less row: signed in, "not connected to a
+  // customer", locked out of a seat that was waiting for them. Nobody
+  // controls which casing an IdP returns (Microsoft/Google OAuth echo the
+  // directory's own), and email addresses are treated case-insensitively in
+  // practice, so the lookup must be too.
   const emailMatch = await db
     .prepare(
       `SELECT * FROM users
-       WHERE org_id = ? AND email = ? AND clerk_user_id IS NULL
+       WHERE org_id = ? AND lower(email) = lower(?) AND clerk_user_id IS NULL
        LIMIT 1`
     )
     .bind(ORG_ID, profile.email)

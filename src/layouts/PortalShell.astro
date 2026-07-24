@@ -1,0 +1,66 @@
+---
+/**
+ * PortalShell — the single chrome owner for every client-portal page
+ * (portal IA rebuild, 2026-07-07).
+ *
+ * Owns the html/head scaffold, header, and navigation. Nav destinations
+ * are resolved HERE, once, from the offerings resolver — pages carry no
+ * nav-shaping props, so a page physically cannot render a different tab
+ * set (the per-page boolean-prop drift this replaces).
+ *
+ * Auth stays in pages (Astro layouts cannot return redirects): a page
+ * runs its gate (getPortalClient / resolveOperatorAccess /
+ * resolveHostedAgentAccess), then hands the bound identity here. Pages
+ * that already resolved offerings for their own content (Home) pass it
+ * via the optional prop to avoid a second resolution.
+ */
+import { GOOGLE_FONTS_URL } from '../lib/fonts'
+import '../styles/global.css'
+import { BRAND_NAME } from '../lib/config/brand'
+import SkipToMain from '../components/SkipToMain.astro'
+import PortalHeader from '../components/portal/PortalHeader.astro'
+import PortalNav from '../components/portal/PortalNav.astro'
+import { resolvePortalOfferings, type PortalOfferings } from '../lib/portal/offerings'
+import { buildPortalNav } from '../lib/portal/nav'
+import { env } from 'cloudflare:workers'
+
+interface Props {
+  title: string
+  clientName: string
+  orgId: string
+  entityId: string
+  pathname: string
+  /** Pass when the page already resolved offerings (e.g. Home). */
+  offerings?: PortalOfferings
+}
+
+const { title, clientName, orgId, entityId, pathname } = Astro.props
+
+const offerings = Astro.props.offerings ?? (await resolvePortalOfferings(env.DB, orgId, entityId))
+const destinations = buildPortalNav(offerings)
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title} | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={clientName} />
+    <PortalNav destinations={destinations} pathname={pathname} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <slot />
+    </main>
+  </body>
+</html>

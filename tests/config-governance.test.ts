@@ -22,13 +22,16 @@ import {
   changeDirection,
   checkFloor,
   getVerticalFloor,
+  VERTICAL_FLOORS,
   verticalFloorActionClasses,
-  applyCeilingChange,
+  applyExposureChange,
   applySkillToggle,
   listConfigChangeAudit,
   isCeiling,
 } from '../src/lib/portal/operator/config-governance'
 import { ACCEPTED_ACTION_CLASSES } from '../src/lib/operator/customer-yaml/types'
+import type { ActionClass } from '../src/lib/operator/customer-yaml/types'
+import type { Ceiling } from '../src/lib/portal/operator/config-governance'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')
 
@@ -112,8 +115,20 @@ describe('checkFloor', () => {
 })
 
 describe('vertical floors', () => {
-  it('pins law-firm external_send at draft_for_review', () => {
-    expect(getVerticalFloor('law-firm', 'external_send')).toBe('draft_for_review')
+  it('law-firm has NO external_send floor (removed 2026-07, ADR 0073) — regression guard', () => {
+    // Outside-send is the firm's authored dial (ADR 0035). Re-adding a floor
+    // entry requires a Captain decision reversing ADR 0073, made in the
+    // overlay runtime map in the same breath — not a drive-by edit here.
+    expect(getVerticalFloor('law-firm', 'external_send')).toBeNull()
+  })
+  it('a declared floor is returned (machinery coverage, synthetic vertical)', () => {
+    const floors = VERTICAL_FLOORS as Record<string, Partial<Record<ActionClass, Ceiling>>>
+    floors['floored-test-vertical'] = { external_send: 'draft_for_review' }
+    try {
+      expect(getVerticalFloor('floored-test-vertical', 'external_send')).toBe('draft_for_review')
+    } finally {
+      delete floors['floored-test-vertical']
+    }
   })
   it('has no floor for an unknown vertical', () => {
     expect(getVerticalFloor('marketing-agency', 'external_send')).toBeNull()
@@ -126,14 +141,16 @@ describe('vertical floors', () => {
   })
 })
 
-describe('applyCeilingChange (D1)', () => {
+describe('applyExposureChange (D1)', () => {
   let db: D1Database
   beforeEach(async () => {
     db = await freshDb()
   })
 
-  it('rejects and audits a law-firm external_send raise to autonomous', async () => {
-    const result = await applyCeilingChange(db, {
+  it('accepts and audits a law-firm external_send raise to autonomous (floor removed, ADR 0073)', async () => {
+    // THE 2026-07 behavior change: with the law floor removed, a law customer's
+    // portal raise to autonomous is a normal audited raise, not rejected_floor.
+    const result = await applyExposureChange(db, {
       customer_slug: 'smith-pi-firm',
       entity_id: 'entity-1',
       actor: ACTOR,
@@ -144,25 +161,55 @@ describe('applyCeilingChange (D1)', () => {
       old_value: 'draft_for_review',
       new_value: 'autonomous',
     })
-    expect(result.outcome).toBe('rejected_floor')
+    expect(result.outcome).toBe('accepted')
 
     const rows = await listConfigChangeAudit(db, 'entity-1')
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
-      source: 'portal_intent',
-      change_type: 'action_ceiling',
       action_class: 'external_send',
-      old_value: 'draft_for_review',
       new_value: 'autonomous',
-      outcome: 'rejected_floor',
+      outcome: 'accepted',
       direction: 'raise',
-      actor_email: 'owner@firm.test',
     })
-    expect(rows[0].outcome_reason).toContain('draft_for_review')
+  })
+
+  it('rejects and audits a raise above a declared floor (machinery coverage, synthetic vertical)', async () => {
+    const floors = VERTICAL_FLOORS as Record<string, Partial<Record<ActionClass, Ceiling>>>
+    floors['floored-test-vertical'] = { external_send: 'draft_for_review' }
+    try {
+      const result = await applyExposureChange(db, {
+        customer_slug: 'smith-pi-firm',
+        entity_id: 'entity-1',
+        actor: ACTOR,
+        persona_slug: 'marcus',
+        skill_name: 'ar-chaser',
+        action_class: 'external_send',
+        vertical: 'floored-test-vertical',
+        old_value: 'draft_for_review',
+        new_value: 'autonomous',
+      })
+      expect(result.outcome).toBe('rejected_floor')
+
+      const rows = await listConfigChangeAudit(db, 'entity-1')
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({
+        source: 'portal_intent',
+        change_type: 'entitlement_exposure',
+        action_class: 'external_send',
+        old_value: 'draft_for_review',
+        new_value: 'autonomous',
+        outcome: 'rejected_floor',
+        direction: 'raise',
+        actor_email: 'owner@firm.test',
+      })
+      expect(rows[0].outcome_reason).toContain('draft_for_review')
+    } finally {
+      delete floors['floored-test-vertical']
+    }
   })
 
   it('accepts and audits a lower (autonomous -> draft) with no floor', async () => {
-    const result = await applyCeilingChange(db, {
+    const result = await applyExposureChange(db, {
       customer_slug: 'shop',
       entity_id: 'entity-2',
       actor: ACTOR,
@@ -179,21 +226,24 @@ describe('applyCeilingChange (D1)', () => {
     expect(rows[0]).toMatchObject({ outcome: 'accepted', direction: 'lower' })
   })
 
-  it('accepts a non-action-class (skill scalar) change with no floor', async () => {
-    const result = await applyCeilingChange(db, {
+  it('accepts an internal_write exposure change with no floor', async () => {
+    const result = await applyExposureChange(db, {
       customer_slug: 'smith-pi-firm',
       entity_id: 'entity-3',
       actor: ACTOR,
       persona_slug: 'marcus',
       skill_name: 'inbox-triage',
-      action_class: null,
+      action_class: 'internal_write',
       vertical: 'law-firm',
       old_value: 'draft_for_review',
       new_value: 'autonomous',
     })
     expect(result.outcome).toBe('accepted')
     const rows = await listConfigChangeAudit(db, 'entity-3')
-    expect(rows[0]).toMatchObject({ change_type: 'trust_ceiling', action_class: null })
+    expect(rows[0]).toMatchObject({
+      change_type: 'entitlement_exposure',
+      action_class: 'internal_write',
+    })
   })
 })
 
@@ -203,7 +253,7 @@ describe('applySkillToggle (D1)', () => {
     db = await freshDb()
   })
 
-  it('records disable as refused (a lower) and enable as draft_for_review', async () => {
+  it('records skill enablement changes', async () => {
     await applySkillToggle(db, {
       customer_slug: 'smith-pi-firm',
       entity_id: 'entity-4',
@@ -211,13 +261,13 @@ describe('applySkillToggle (D1)', () => {
       persona_slug: 'marcus',
       skill_name: 'ar-chaser',
       next_enabled: false,
-      old_value: 'draft_for_review',
     })
     const rows = await listConfigChangeAudit(db, 'entity-4')
     expect(rows[0]).toMatchObject({
-      change_type: 'skill_toggle',
-      new_value: 'refused',
-      direction: 'lower',
+      change_type: 'skill_enabled',
+      old_value: 'true',
+      new_value: 'false',
+      direction: 'lateral',
       outcome: 'accepted',
     })
   })

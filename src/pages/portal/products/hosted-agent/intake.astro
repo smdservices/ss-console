@@ -1,0 +1,195 @@
+---
+import PortalShell from '../../../../layouts/PortalShell.astro'
+import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
+import { getIntakeByEntity } from '../../../../lib/db/hosted-agent-intake'
+import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Hosted Agent — setup questionnaire (ADR 0067).
+ *
+ * The self-serve replacement for the Operator's authored interview: five
+ * structured answers that give the Captain everything needed to author
+ * customer.yaml from the _hosted-template in minutes. Plain 0-JS form,
+ * POST → 303 back to the landing with a status banner.
+ *
+ * The Anthropic API key is NOT collected here — it has its own write-only
+ * surface (api-key.astro) with a different custody path.
+ */
+
+export const prerender = false
+
+const access = await resolveHostedAgentAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal'],
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+
+const intake = await getIntakeByEntity(env.DB, access.client.id)
+if (!intake) {
+  return Astro.redirect('/portal/products/hosted-agent')
+}
+
+const stStatus = Astro.url.searchParams.get('st')
+const errorMessage =
+  stStatus === 'invalid'
+    ? 'Some answers were missing or invalid. Every field except Telegram is required, and sender addresses must be valid emails.'
+    : stStatus === 'error'
+      ? 'Something went wrong saving your answers. Please try again.'
+      : null
+
+const senders: string[] = (() => {
+  if (!intake.allowed_senders_json) return []
+  try {
+    const parsed: unknown = JSON.parse(intake.allowed_senders_json)
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : []
+  } catch {
+    return []
+  }
+})()
+
+const labelClass =
+  'block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]'
+const inputBase =
+  'mt-2 w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]'
+/* Data-like fields (handle, timezone, sender emails) render mono; natural-language fields render body. */
+const inputClass = `${inputBase} font-mono`
+const proseInputClass = `${inputBase} font-body`
+const hintClass = 'mt-1 font-body text-sm text-[color:var(--ss-color-text-secondary)]'
+---
+
+<PortalShell
+  title="Agent Setup"
+  clientName={access.client.name}
+  orgId={access.client.org_id}
+  entityId={access.client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/hosted-agent"
+    crumbLabel="Hosted Agent"
+    tag="Setup"
+    h1="Agent Setup"
+    meta={null}
+  />
+
+  {
+    errorMessage && (
+      <div
+        role="alert"
+        class="mt-6 border-[3px] border-[color:var(--ss-color-error)] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-error)]"
+      >
+        {errorMessage}
+      </div>
+    )
+  }
+
+  <form
+    method="POST"
+    action="/api/portal/products/hosted-agent/intake"
+    class="mt-8 flex flex-col gap-6"
+  >
+    <div>
+      <label for="agent_name" class={labelClass}>What should your agent be called?</label>
+      <input
+        id="agent_name"
+        name="agent_name"
+        type="text"
+        required
+        maxlength="64"
+        value={intake.agent_name ?? ''}
+        class={proseInputClass}
+      />
+      <p class={hintClass}>A first name works best. It signs its messages with this.</p>
+    </div>
+
+    <div>
+      <label for="use_cases" class={labelClass}>What do you want it working on?</label>
+      <textarea
+        id="use_cases"
+        name="use_cases"
+        required
+        rows="6"
+        maxlength="4000"
+        class={proseInputClass}>{intake.use_cases ?? ''}</textarea
+      >
+      <p class={hintClass}>
+        Plain language is perfect. Examples: a morning digest of what landed overnight, research
+        briefs on topics you name, watching a feed and reporting changes.
+      </p>
+    </div>
+
+    <div>
+      <label for="telegram_handle" class={labelClass}>Your Telegram username (optional)</label>
+      <input
+        id="telegram_handle"
+        name="telegram_handle"
+        type="text"
+        maxlength="64"
+        value={intake.telegram_handle ?? ''}
+        class={inputClass}
+      />
+      <p class={hintClass}>Telegram is the fastest way to talk to your agent.</p>
+    </div>
+
+    <div>
+      <label for="timezone" class={labelClass}>Your timezone</label>
+      <input
+        id="timezone"
+        name="timezone"
+        type="text"
+        required
+        maxlength="64"
+        placeholder="America/Phoenix"
+        value={intake.timezone ?? ''}
+        class={inputClass}
+      />
+      <p class={hintClass}>Scheduled work (digests, briefs) runs on your clock.</p>
+    </div>
+
+    <div>
+      <label for="allowed_senders" class={labelClass}>
+        Email addresses your agent should accept mail from
+      </label>
+      <textarea
+        id="allowed_senders"
+        name="allowed_senders"
+        required
+        rows="4"
+        maxlength="2000"
+        placeholder="you@example.com"
+        class={inputClass}>{senders.join('\n')}</textarea
+      >
+      <p class={hintClass}>
+        One address per line. Your agent has its own inbox and only accepts mail from this list.
+        That is a safety feature: no stranger can reach it.
+      </p>
+    </div>
+
+    <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-5">
+      <label class="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name="spend_limit_confirmed"
+          value="1"
+          required
+          checked={intake.spend_limit_confirmed === 1}
+          class="mt-1 h-5 w-5"
+        />
+        <span class="font-body text-base text-[color:var(--ss-color-text-primary)]">
+          I created a dedicated Anthropic API key for this agent and set a spend limit on it in my
+          Anthropic console. I understand my agent's model usage bills to my own Anthropic account
+          and that SMD cannot see or cap that spend.
+        </span>
+      </label>
+    </div>
+
+    <button
+      type="submit"
+      class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+    >
+      Save Setup Answers
+    </button>
+  </form>
+</PortalShell>

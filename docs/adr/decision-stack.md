@@ -23,7 +23,7 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 | **Payment terms**       | 50% deposit at signing, 50% at completion                                                                                                                                            |
 | **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                                                                                                        |
 | **Voice standard**      | We / our team throughout. Never I / the consultant.                                                                                                                                  |
-| **Decisions locked**    | 36 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)                                                                                       |
+| **Decisions locked**    | 34 active decisions across 6 layers (including venture-wide #20 positioning standard), numbered through #51; 3 superseded (#2, #12, #43)                                             |
 | **Deliverables queued** | 11 artifacts ready to build                                                                                                                                                          |
 
 ---
@@ -809,6 +809,34 @@ Cross-customer learning is not available as a feature. Platform improvements are
 
 ---
 
+## Decision #50 - Operator Launch Pricing
+
+**ADR:** [docs/adr/0063-operator-launch-pricing.md](./0063-operator-launch-pricing.md)
+
+**Decision: The Operator launch price is $5,000/month flat-rate retainer plus a one-time $4,000 stand-up fee. Internal, never published; the client sees the price in their proposal.**
+
+Prices at the salary anchor (ADR 0037: compete with a hire — the displaced coordinator seat runs ~$60k/yr ≈ $5,000/mo loaded), above the Review 5 cost floor ($3,500/mo was ~90% labor and would have been break-even as a price). At $5,000 MRR the COGS>40% kill criterion trips at $2,000/mo seat cost — a genuine anomaly signal rather than ordinary-month noise. Pilot/dogfood seats carry list price for gate purposes while invoiced at $0.
+
+**Cross-layer impact (Layer 3 - Pricing).** Supersedes ADR 0004's deferred-pricing clause; the retainer _shape_ (flat, not metered) is unchanged. Arms the cost-plane kill gate (ADR 0062).
+
+**Captain authorized:** 2026-07-04 per ADR record.
+
+---
+
+## Decision #51 - Hosted Agent Self-Serve SKU
+
+**ADR:** [docs/adr/0067-hosted-agent-self-serve-sku.md](./0067-hosted-agent-self-serve-sku.md)
+
+**Decision: Launch a second recurring SKU, Hosted Agent — a self-serve $79/month subscription (first 25 founding seats $49/month via a Stripe forever-coupon) for an always-on personal Hermes agent, BYO Anthropic key, concierge-provisioned on the Operator substrate, with published pricing on its own product page.**
+
+Competes with DIY and the commodity hosting floor by design (a deliberate, scoped carve-out from ADR 0037 Tenet 1 — the Operator itself still competes with a hire and its pricing stays internal per Decision #50). Launch channels are constrained to Telegram plus allowlisted-sender email with draft-for-review external sends, mapping onto ADR 0032's deferred public-exposure checklist. Checkout is self-serve; provisioning stays Captain-run behind named automation seams.
+
+**Cross-layer impact (Layer 3 - Pricing, Layer 5 - Distribution).** First published price on any SMD surface (page-scoped exemption recorded in the positioning spine and guard tests); creates the entry rung of the hosted-to-Operator ladder.
+
+**Captain authorized:** 2026-07-06 per session directive (skunkworks operation).
+
+---
+
 ## Decision #30 - Case Study Creation
 
 **Issue:** smdservices/ss-console #30
@@ -917,6 +945,8 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007)           |
 | #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)                        |
 | #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                                 |
+| #50   | Operator launch pricing - $5,000/mo flat + $4,000 stand-up, internal, never published (see ADR 0063)                                 |
+| #51   | Hosted Agent self-serve SKU - $79/mo BYO-key personal Hermes agent, 25 founding seats at $49/mo (see ADR 0067)                       |
 
 ---
 

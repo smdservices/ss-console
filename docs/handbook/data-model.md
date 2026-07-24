@@ -40,7 +40,7 @@ The original portal schema (migration `0001_create_tables.sql`) modeled a busine
 | Table | Purpose |
 |---|---|
 | `organizations` | Top-level tenant. Every row in almost every table carries `org_id`. Holds branding and the `settings` JSON (default rate, deposit pct, payment terms, milestone threshold). |
-| `entities` | One row per business, with a lifecycle `stage` state machine (`signal` -> `prospect` -> `meetings` -> `proposing` -> `engaged` -> `delivered` -> `ongoing` / `lost`, per `EntityStage` in `src/lib/db/entities.ts`) and cached attributes (pain score, vertical, tier). The CRM spine. |
+| `entities` | One row per business, with a lifecycle `stage` state machine (`signal` -> `prospect` -> `meetings` -> `proposing` -> `engaged` -> `delivered` -> `ongoing` / `lost`, per `EntityStage` in `src/lib/db/entities.ts`) and classification columns (`vertical`, `area`, `source_pipeline`). The machine-scoring columns (pain score, tier, employee count, revenue range) were dropped by migration 0081 with the lead-gen retirement (ADR 0060). The CRM spine. |
 | `context` | Append-only log of everything learned about an entity (migration 0008). Feeds the cached attributes on `entities`. |
 | `clients` | Legacy business record from the original schema. Superseded by `entities` for new work; see the rename above. |
 | `contacts` | People at a business (name, email, phone, role). |
@@ -77,6 +77,8 @@ The `operator_*` tables (and the projection/audit tables around them) are the co
 | `operator_credential_custody` / `connector_secret_audit` | Credential-custody and connector-secret bookkeeping (migrations 0050, 0051). |
 | `operator_runtime_summary` / `operator_runtime_read_audit` | The runtime-read seam projection and its access audit (migrations 0052, 0053). |
 | `operator_mcp_clerk_bindings` / `operator_mcp_auth_contract` | Clerk-identity bindings and auth contract for the Operator's MCP channel (migrations 0071-0073). |
+| `cost_telemetry` / `captain_time_events` | Operator cost rows, keyed by `customer_slug` (migration 0083, ADR 0062). Written nightly by the `ss-cost-telemetry` worker from the Anthropic usage report; per-seat attribution maps `customer_configs.anthropic_workspace_id` to a seat, with reserved slugs `_org` (reconciliation) and `_unmapped` (unclaimed workspace usage). ADR 0062 superseded the per-customer-D1 placement, which was never provisioned. |
+| `cost_anomaly_alerts` | Nightly spike detections over `cost_telemetry` plus Captain snooze/ack state (migration 0041), written by the `ss-cost-anomaly` worker. |
 
 Secrets never enter any of these tables; non-secret references (token pointers) are denormalized where the portal needs them, and live values stay in Infisical (see `/admin/playbook/secrets-access`).
 

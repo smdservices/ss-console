@@ -1,15 +1,25 @@
 ---
 title: Admin IA & the Service Spine — Client Hub, Polymorphic Service, Universal Commercial Layer
 date: 2026-06-10
-status: accepted
+status: superseded
+superseded-by: docs/adr/0077-admin-portal-mirrors-client-portal.md
 captain: Scott Durgan
 related-adr: docs/adr/0004-productized-operator-offering.md, docs/adr/0034-operator-product-naming.md, docs/adr/0030-control-plane-human-principal-surface.md, docs/adr/0001-taxonomy-two-layer-model.md
 ---
 
 # ADR 0046 — Admin IA & the Service Spine
 
-**Status:** Accepted (Captain decision, 2026-06-10). The model and information architecture for the SMD admin console
-now that the venture sells two kinds of service. Supersedes how Entities/pipeline are framed in the current admin nav.
+> **Superseded by [ADR 0077](0077-admin-portal-mirrors-client-portal.md) (2026-07-14).** The **navigation and IA**
+> decided here (the flow-ordered `Home · Leads · Clients · Services · Billing · Operator` nav, the standalone `Services`
+> tab) are replaced by the five-destination spine that mirrors the client portal. The **data model** below — the
+> polymorphic `service` spine and the client-as-hub principle — survives as the backing for per-client delivery records.
+> Read the nav/IA sections as historical; read the data-model sections as current.
+
+**Status:** Superseded (was Accepted, Captain decision 2026-06-10). The model and information architecture for the SMD
+admin console now that the venture sells two kinds of service. Supersedes how Entities/pipeline are framed in the current
+admin nav.
+
+> **Implemented-note (2026-07-13).** The "IA/data-model direction only — no schema is created here" framing is now historical. The polymorphic `service` spine **shipped** as DDL in `migrations/0068_service_spine_ddl.sql` (with `src/lib/db/services.ts`), and the flow-ordered nav (`Home · Leads · Clients · Services · Billing · Operator`) shipped in `src/layouts/AdminLayout.astro`. Read the "does not exist yet" language below as the originating direction, since built.
 
 ## Context
 

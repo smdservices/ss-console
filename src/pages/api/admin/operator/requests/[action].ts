@@ -17,19 +17,14 @@
  * by middleware on /api/admin/* and re-checked here.
  */
 
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { updateChangeRequestStatus } from '../../../../../lib/portal/operator/change-request'
 import { actionToStatus } from '../../../../../lib/admin/change-request-inbox'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 const MAX_NOTE_LENGTH = 4000
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 interface ParsedBody {
   id: number
@@ -52,25 +47,24 @@ function parseBody(body: unknown): ParsedBody | { error: string } {
 }
 
 async function handlePost(ctx: APIContext): Promise<Response> {
-  const session = ctx.locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
-  }
+  const auth = requireAdminSession(ctx.locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const status = actionToStatus(ctx.params.action ?? '')
   if (status === null) {
-    return jsonResponse({ error: `unknown action: ${ctx.params.action}` }, 404)
+    return jsonResponse(404, { error: `unknown action: ${ctx.params.action}` })
   }
 
   let body: unknown
   try {
     body = await ctx.request.json()
   } catch {
-    return jsonResponse({ error: 'invalid JSON body' }, 400)
+    return jsonResponse(400, { error: 'invalid JSON body' })
   }
 
   const parsed = parseBody(body)
-  if ('error' in parsed) return jsonResponse({ error: parsed.error }, 400)
+  if ('error' in parsed) return jsonResponse(400, { error: parsed.error })
 
   const updated = await updateChangeRequestStatus(env.DB, {
     id: parsed.id,
@@ -78,8 +72,8 @@ async function handlePost(ctx: APIContext): Promise<Response> {
     resolved_by_email: session.email,
     resolution_note: parsed.resolution_note,
   })
-  if (!updated) return jsonResponse({ error: 'change request not found' }, 404)
-  return jsonResponse({ ok: true, id: parsed.id, status }, 200)
+  if (!updated) return jsonResponse(404, { error: 'change request not found' })
+  return jsonResponse(200, { ok: true, id: parsed.id, status })
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)

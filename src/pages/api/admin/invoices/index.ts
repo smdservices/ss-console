@@ -2,6 +2,7 @@ import type { APIContext, APIRoute } from 'astro'
 import { createInvoice } from '../../../../lib/db/invoices'
 import type { InvoiceType } from '../../../../lib/db/invoices'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
 
 const VALID_TYPES: InvoiceType[] = ['deposit', 'completion', 'milestone', 'assessment', 'retainer']
 
@@ -39,13 +40,9 @@ function parseInvoiceForm(
 }
 
 async function handlePost({ request, locals, redirect }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const formData = await request.formData()

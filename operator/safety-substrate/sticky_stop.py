@@ -8,8 +8,9 @@ is misbehaving (looping on a failing tool, refusing on every call, burning
 budget, exceeding wall-clock time) and pinning a stop on its behalf before
 a runaway loop can land work nobody asked for.
 
-The two paths share a sticky-stop persistence layer (this module's D1
-table). An operator pause and a system-pinned stop produce the same effect
+The two paths share a sticky-stop persistence layer (this module's
+`sticky_stop_state` table, Machine-local SQLite per ADR 0062). An operator
+pause and a system-pinned stop produce the same effect
 on the dispatch path; the difference is the action_type tag recorded in
 the audit log and the recovery surface (operator pauses clear by the same
 human; system stops clear via Captain investigation).
@@ -41,14 +42,17 @@ Design rules:
   is upstream (control-plane RBAC); this module trusts the caller to have
   established identity before invoking.
 
-* Persistence: D1 table `sticky_stop_state`, one row per (customer,
-  persona) tuple. The customer dimension is the D1 binding per ADR 0008;
-  the row's persona slug matches `customer.yaml.personas[].slug`.
+* Persistence: table `sticky_stop_state`, one row per (customer, persona)
+  tuple, in Machine-local SQLite on the Fly volume (ADR 0062 — the
+  per-customer-D1 placement this module originally assumed was never built
+  and is retracted doctrine). The row's persona slug matches
+  `customer.yaml.personas[].slug`.
 
-* Audit emission: every state transition writes one audit_log row via the
-  AuditLogWriter (issue #891). Action type re-uses the existing closed-set
-  vocabulary because the writer enforces ACCEPTED_ACTION_TYPES at the
-  application layer and this module is in a strict file scope:
+* Audit emission: every state transition writes one StickyStopAuditRecord
+  to the injected StickyStopAuditSink; each runtime adapts the record onto
+  its native audit writer (ss-console: adapter.audit_log.AuditLogWriter;
+  overlay: the broker-owned ledger emit path). Action type re-uses the
+  existing closed-set vocabulary (ACCEPTED_ACTION_TYPES):
 
     - HARD_STOP entry          -> action_type=AGENT_STOPPED
     - WARN / SOFT_STOP entries -> action_type=INVARIANT_VIOLATION
@@ -59,11 +63,12 @@ Design rules:
   audit-log schema closed-set per d1-schema.md §1 while still carrying
   the structural information the compliance-evidence packet needs.
 
-* Thread safety: the module exposes a SqliteStickyStopStore (tests + local
-  dev) and an HttpD1StickyStopStore (production). The Sqlite path uses a
-  single-writer connection; the HTTP path issues serial requests. Neither
-  attempts cross-row locks because state is partitioned per (customer,
-  persona) and within one Hermes Machine the runtime is single-tenant.
+* Thread safety: SqliteStickyStopStore is the production store (Machine-
+  local SQLite, ADR 0062) and the test store. It uses a single-writer
+  connection and attempts no cross-row locks because state is partitioned
+  per (customer, persona) and within one Hermes Machine the runtime is
+  single-tenant. (The HttpD1StickyStopStore this docstring once promised
+  is retired unbuilt with the per-customer-D1 premise.)
 
 Module shape:
 
@@ -101,22 +106,44 @@ import enum
 import json
 import logging
 import sqlite3
-import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Optional, Protocol
 
-_HERE = Path(__file__).resolve()
-sys.path.insert(0, str(_HERE.parents[1]))  # operator/ on sys.path
-
-from adapter.audit_log import (  # noqa: E402
-    ActorRole,
-    AuditEvent,
-    AuditLogWriter,
-)
-
 log = logging.getLogger("aie.sticky_stop")
+
+
+# ---------------------------------------------------------------------------
+# Audit sink seam (self-contained — no adapter import)
+# ---------------------------------------------------------------------------
+#
+# This module is consumed in two runtimes: ss-console's safety substrate
+# (where audit rows flow through adapter.audit_log.AuditLogWriter) and the
+# hermes-smd-overlay (where they flow through the overlay's emit path to the
+# broker-owned ledger). To vendor cleanly as a twin, the module defines its
+# own plain-data record and a one-method sink Protocol; each runtime supplies
+# an adapter that maps the record onto its native audit writer. action_type
+# stays inside the audit log's closed-set vocabulary (AGENT_STOPPED /
+# INVARIANT_VIOLATION / AGENT_RESUMED).
+
+
+@dataclass(frozen=True)
+class StickyStopAuditRecord:
+    """One audit emission from the state machine, as plain data."""
+
+    action_type: str
+    actor: str
+    actor_role: str  # "agent" | "captain"
+    metadata: dict = field(default_factory=dict)
+    skill_name: Optional[str] = None
+
+
+class StickyStopAuditSink(Protocol):
+    """Where transition audit records go. Implementations MUST NOT swallow
+    write failures silently — a transition the substrate cannot record is a
+    transition that did not safely happen (same invariant as issue #891)."""
+
+    async def write(self, record: StickyStopAuditRecord) -> None: ...
 
 
 # ---------------------------------------------------------------------------
@@ -379,7 +406,7 @@ class _Decision:
 class StickyStopMachine:
     """The sticky-stop state machine.
 
-    Construction takes a store and an AuditLogWriter. The thresholds default
+    Construction takes a store and a StickyStopAuditSink. The thresholds default
     to DEFAULT_THRESHOLDS; callers wire customer.yaml-derived thresholds in
     explicitly via the `thresholds` keyword.
 
@@ -401,7 +428,7 @@ class StickyStopMachine:
         self,
         *,
         store: StickyStopStore,
-        audit_writer: AuditLogWriter,
+        audit_writer: StickyStopAuditSink,
         thresholds: StickyStopThresholds = DEFAULT_THRESHOLDS,
         clock: Optional[callable] = None,
     ) -> None:
@@ -719,10 +746,10 @@ class StickyStopMachine:
         )
         await self._store.put(cleared)
         await self._audit.write(
-            AuditEvent(
+            StickyStopAuditRecord(
                 action_type="AGENT_RESUMED",
                 actor=captain_id,
-                actor_role=ActorRole.CAPTAIN,
+                actor_role="captain",
                 metadata={
                     "sticky_stop_cleared": True,
                     "customer": customer,
@@ -837,10 +864,10 @@ class StickyStopMachine:
         metadata.update(extra_metadata)
 
         await self._audit.write(
-            AuditEvent(
+            StickyStopAuditRecord(
                 action_type=action_type,
                 actor="agent",
-                actor_role=ActorRole.AGENT,
+                actor_role="agent",
                 skill_name=skill_name,
                 metadata=metadata,
             )
@@ -851,6 +878,8 @@ class StickyStopMachine:
 __all__ = [
     "DEFAULT_THRESHOLDS",
     "SqliteStickyStopStore",
+    "StickyStopAuditRecord",
+    "StickyStopAuditSink",
     "StickyStopCondition",
     "StickyStopError",
     "StickyStopLevel",

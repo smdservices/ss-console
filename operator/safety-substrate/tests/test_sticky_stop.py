@@ -43,6 +43,7 @@ sys.path.insert(0, str(_HERE.parents[2]))  # operator/
 sys.path.insert(0, str(_HERE.parents[1]))  # operator/safety-substrate/
 
 from adapter.audit_log import (  # noqa: E402
+    AuditEvent,
     AuditLogWriter,
     SqliteExecutor,
 )
@@ -53,9 +54,30 @@ from sticky_stop import (  # noqa: E402
     StickyStopError,
     StickyStopLevel,
     StickyStopMachine,
+    StickyStopAuditRecord,
     StickyStopState,
     StickyStopThresholds,
 )
+
+
+class _RecordSink:
+    """Adapts StickyStopAuditRecord onto the real AuditLogWriter — proving
+    the plain-data record maps cleanly onto the closed-set audit vocabulary
+    (the same adapter shape each runtime supplies in production)."""
+
+    def __init__(self, writer: AuditLogWriter) -> None:
+        self._writer = writer
+
+    async def write(self, record: StickyStopAuditRecord) -> None:
+        await self._writer.write(
+            AuditEvent(
+                action_type=record.action_type,
+                actor=record.actor,
+                actor_role=record.actor_role,
+                skill_name=record.skill_name,
+                metadata=record.metadata,
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +135,7 @@ def _machine(
 ) -> tuple[StickyStopMachine, sqlite3.Connection]:
     conn = _make_conn()
     store = SqliteStickyStopStore(conn)
-    writer = AuditLogWriter(SqliteExecutor(conn))
+    writer = _RecordSink(AuditLogWriter(SqliteExecutor(conn)))
     machine = StickyStopMachine(
         store=store,
         audit_writer=writer,
@@ -566,7 +588,7 @@ def test_integration_each_condition_triggers_a_transition_with_audit():
 
 def test_state_survives_store_round_trip():
     conn = _make_conn()
-    writer = AuditLogWriter(SqliteExecutor(conn))
+    writer = _RecordSink(AuditLogWriter(SqliteExecutor(conn)))
     store_a = SqliteStickyStopStore(conn)
     machine_a = StickyStopMachine(store=store_a, audit_writer=writer)
     for _ in range(5):

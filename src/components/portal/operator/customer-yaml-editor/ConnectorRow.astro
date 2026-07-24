@@ -25,7 +25,7 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
 <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-4">
   <div class="flex items-baseline justify-between gap-4 mb-4">
     <h3
-      class="font-['Archivo'] font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]"
+      class="font-body font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]"
     >
       {capability}
     </h3>
@@ -44,7 +44,7 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <label class="block">
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Adapter
       </span>
@@ -59,7 +59,7 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
 
     <label class="block">
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Backend
       </span>
@@ -76,7 +76,7 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
 
   <label class="block mt-4">
     <span
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
     >
       Scopes
     </span>
@@ -91,18 +91,18 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
 
   <div class="mt-4 border-t-[2px] border-[color:var(--ss-color-text-primary)] pt-3">
     <span
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
     >
       OAuth token reference
     </span>
     <div class="mt-2 flex items-center gap-3">
       <code
-        class="flex-1 px-3 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)] text-sm font-['JetBrains_Mono'] break-all"
+        class="flex-1 px-3 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)] text-sm font-mono break-all"
       >
         {tokenRef ?? '(none)'}
       </code>
       <span
-        class="shrink-0 px-2 py-1 border-[2px] border-[color:var(--ss-color-text-primary)] text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-[color:var(--ss-color-text-primary)]"
+        class="shrink-0 px-2 py-1 border-[2px] border-[color:var(--ss-color-text-primary)] text-xs font-mono uppercase tracking-[0.12em] font-bold text-[color:var(--ss-color-text-primary)]"
       >
         Captain-managed
       </span>
@@ -112,7 +112,7 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
   {
     rowErrors.map((err) => (
       <p class="mt-3 text-sm text-[color:var(--ss-color-error)]">
-        <span class="font-['JetBrains_Mono']">{err.path}</span>: {err.message}
+        <span class="font-mono">{err.path}</span>: {err.message}
       </p>
     ))
   }

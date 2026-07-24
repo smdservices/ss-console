@@ -1,0 +1,29 @@
+# ss-fleet-alerts — heartbeat-red / HARD_STOP alerter (#1709).
+#
+# Closes ADR 0064's honesty-banner gap: a down Machine was dashboard-visible
+# but paged no one. Every 2 minutes this Worker evaluates fleet_status and
+# emails team@smd.services on condition TRANSITIONS (edge-triggered via
+# fleet_alert_state, migration 0085): one alert when a seat goes red, one
+# recovery notice when it comes back. Deployed by deploy.yml alongside the
+# cost workers; RESEND_API_KEY + FLEET_ALERTS_BEARER staged via
+# `wrangler secret put` (secrets persist across deploys on Workers).
+name = "ss-fleet-alerts"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ss-console-db"
+database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
+
+[triggers]
+crons = ["*/2 * * * *"]
+
+[vars]
+ALERT_FROM_EMAIL = "SMD Services Ops <team@smd.services>"
+ALERT_TO_EMAIL = "team@smd.services"
+# A seat is red when its last heartbeat is older than this. Matches the
+# customer.yaml observability defaults (period 60s + grace 5m).
+HEARTBEAT_RED_SECONDS = "300"
+ADMIN_BASE_URL = "https://admin.smd.services"

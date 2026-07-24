@@ -17,7 +17,11 @@ import { BOOKING_CONFIG } from './config.js'
 // Types
 // ---------------------------------------------------------------------------
 
-export type BookingAlertKind = 'google_sync_error' | 'integration_invalid_grant' | 'freebusy_error'
+export type BookingAlertKind =
+  | 'google_sync_error'
+  | 'integration_invalid_grant'
+  | 'freebusy_error'
+  | 'guest_email_delivery_failed'
 
 export interface BookingAlertDetails {
   assessmentId?: string
@@ -74,6 +78,18 @@ const ALERT_DESCRIPTIONS: Record<
     action:
       'Check the Google Calendar integration status. If the error is transient (5xx), it may ' +
       'resolve on its own. If persistent, re-authorize the OAuth connection.',
+  },
+  guest_email_delivery_failed: {
+    title: 'Guest booking email could not be sent',
+    meaning:
+      'A booking action (confirmation, reschedule, or cancellation) succeeded, but the email to ' +
+      'the guest was rejected by the email provider at send time. The guest may not have received ' +
+      'the time, the video link, or the calendar invite. The booking itself is valid in the ' +
+      'calendar and the CRM.',
+    action:
+      'Contact the guest directly with the call time and the video link. Their email and booking ' +
+      'details are on the entity in admin. If this repeats, check the RESEND_API_KEY and the ' +
+      'Resend account status (sending limits, domain verification, suppression list).',
   },
 }
 

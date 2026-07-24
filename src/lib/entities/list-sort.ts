@@ -1,6 +1,6 @@
 /**
  * Per-stage in-memory re-sort for the entity list. The DAL returns rows
- * ordered by `tier → pain_score → updated_at` — fine for stages without
+ * ordered by `updated_at DESC` — fine for stages without
  * an explicit operator workflow, but several stages have a sharper
  * sort signal hidden in hydrated row data:
  *

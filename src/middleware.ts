@@ -1,9 +1,22 @@
+import { jsonResponse } from './lib/api/helpers'
 import { defineMiddleware, sequence } from 'astro:middleware'
 import type { APIContext, MiddlewareNext } from 'astro'
 import { clerkMiddleware } from '@clerk/astro/server'
 import { resolveAdminSessionFromClerk } from './lib/auth/admin-session-shim'
 import { parseSessionToken, validateSession, renewSession } from './lib/auth/session'
 import { withSentryRequestHandler } from './lib/observability/sentry'
+import {
+  PRE_REWRITE_REDIRECTS,
+  POST_REWRITE_REDIRECTS,
+  firstRedirect,
+} from './lib/routing/legacy-redirects'
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_COOKIE_MAX_AGE_S,
+  encodeAttributionCookie,
+  parseAttributionFromUrl,
+  urlHasAttributionParams,
+} from './lib/marketing/attribution'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -112,115 +125,17 @@ function handleSubdomainRewrite(
   return null
 }
 
-function redirectToAdminHost(
-  context: APIContext,
-  hostname: string,
-  pathname: string
-): Response | null {
-  if (hostname !== 'smd.services') return null
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    const newUrl = new URL(context.url)
-    newUrl.hostname = 'admin.smd.services'
-    return context.redirect(newUrl.toString(), 301)
-  }
-  return null
-}
-
-/**
- * Legacy auth-path 301 redirects. Old URLs from the dual-auth era keep
- * working so external links (Clerk invitation emails, bookmarks, prior
- * code review docs) don't break.
- */
-function redirectLegacyAuthPaths(context: APIContext, pathname: string): Response | null {
-  const target = legacyAuthRedirectTarget(pathname)
-  if (!target) return null
-  const newUrl = new URL(context.url)
-  newUrl.pathname = target
-  // Preserve query string (status=signed_out, etc.)
-  return context.redirect(newUrl.toString(), 301)
-}
-
-function legacyAuthRedirectTarget(pathname: string): string | null {
-  if (pathname === '/auth/login') return '/auth/sign-in'
-  if (pathname === '/auth/portal-sign-in') return '/auth/sign-in'
-  if (pathname === '/auth/portal-sign-up') return '/auth/sign-up'
-  if (pathname === '/auth/portal-login') return '/auth/sign-in'
-  return null
-}
-
-/**
- * Product renamed "AI Employee" → "Operator" (ADR 0034). Permanent (301)
- * redirects from the pre-rename `/ai-employee` URLs to `/operator` so old
- * bookmarks and indexed links keep working. Runs before the subdomain rewrite,
- * so it must handle both the canonical paths and the subdomain-relative forms
- * the rewrite would prepend. The SOURCES are the legacy `/ai-employee` paths —
- * do not rename them to `/operator` (that would self-redirect into a loop).
- */
-function redirectLegacyOperatorPaths(
-  context: APIContext,
-  hostname: string,
-  pathname: string
-): Response | null {
-  // Marketing product page: smd.services/ai-employee → /operator.
-  // Also covers admin.smd.services/ai-employee (rewrites to /admin/operator
-  // after the redirect lands on the operator path).
-  if (pathname === '/ai-employee' || pathname.startsWith('/ai-employee/'))
-    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
-
-  // Portal product surface: canonical (/portal/products/ai-employee) and the
-  // portal-subdomain-relative form (/products/ai-employee).
-  for (const oldPath of ['/portal/products/ai-employee', '/products/ai-employee']) {
-    if (pathname === oldPath || pathname.startsWith(`${oldPath}/`))
-      return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
-  }
-
-  // Admin surface: canonical /admin/ai-employee (the admin-subdomain-relative
-  // /ai-employee form is already handled by the marketing rule above).
-  if (pathname === '/admin/ai-employee' || pathname.startsWith('/admin/ai-employee/'))
-    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
-
-  return null
-}
-
-function handleLegacyRedirects(
-  context: APIContext,
-  hostname: string,
-  pathname: string
-): Response | null {
-  const adminRedirect = redirectToAdminHost(context, hostname, pathname)
-  if (adminRedirect) return adminRedirect
-  const authRedirect = redirectLegacyAuthPaths(context, pathname)
-  if (authRedirect) return authRedirect
-  if (pathname === '/book/thanks' || pathname.startsWith('/book/thanks/'))
-    return context.redirect('/get-started?booked=1', 301)
-  if (pathname === '/scan') return context.redirect('/', 301)
-  if (pathname === '/scorecard' || pathname.startsWith('/scorecard/'))
-    return context.redirect('/', 301)
-  if (pathname === '/get-started' && !context.url.searchParams.has('booked'))
-    return context.redirect('/', 301)
-  if (pathname === '/outside-view' || pathname.startsWith('/outside-view/'))
-    return context.redirect('/', 301)
-  return null
-}
-
-function jsonResponse(body: object, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
 function enforceAdminAuth(context: APIContext, isAdminApiRoute: boolean): Response | null {
   const auth = context.locals.auth()
   if (!auth.userId) {
     return isAdminApiRoute
-      ? jsonResponse({ error: 'Unauthorized' }, 401)
+      ? jsonResponse(401, { error: 'Unauthorized' })
       : context.redirect('/auth/sign-in')
   }
   // Clerk user signed in but no admin row in D1 (or role != 'admin').
   // Treat as forbidden — they're authenticated but lack admin clearance.
   if (!context.locals.session || context.locals.session.role !== 'admin') {
-    return isAdminApiRoute ? jsonResponse({ error: 'Forbidden' }, 403) : context.redirect('/portal')
+    return isAdminApiRoute ? jsonResponse(403, { error: 'Forbidden' }) : context.redirect('/portal')
   }
   return null
 }
@@ -241,11 +156,19 @@ function enforcePortalAuth(context: APIContext, isPortalApiRoute: boolean): Resp
   if (context.locals.session?.role === 'client') return null
 
   return isPortalApiRoute
-    ? jsonResponse({ error: 'Unauthorized' }, 401)
+    ? jsonResponse(401, { error: 'Unauthorized' })
     : context.redirect('/auth/sign-in')
 }
 
 function enforceAuth(context: APIContext, pathname: string): Response | null {
+  // Machine-bearer carve-out: /api/admin/fleet/health authenticates with a
+  // dedicated health-read key (verifyHealthReadKey, fail-closed), not a Clerk
+  // admin session. It lives under /api/admin for URL grouping, but the blanket
+  // admin gate below would 401 the (cookie-less) Machine caller before the
+  // handler's own key check runs. Exempt the EXACT path only — the GET handler
+  // is read-only and self-gates. See src/pages/api/admin/fleet/health.ts.
+  if (pathname === '/api/admin/fleet/health') return null
+
   const isAdminRoute = pathname.startsWith('/admin')
   const isAdminApiRoute = pathname.startsWith('/api/admin')
   const isPortalRoute = pathname.startsWith('/portal')
@@ -260,20 +183,50 @@ function enforceAuth(context: APIContext, pathname: string): Response | null {
   return null
 }
 
+/**
+ * First-touch ad-attribution capture (ADR 0066 launch gate 1, #1722).
+ *
+ * On marketing hosts only: when a request lands carrying any enumerated ad
+ * param (utm_*, gclid, fbclid) and no attribution cookie exists yet, persist
+ * the params in a first-party httpOnly cookie. First-touch semantics: an
+ * existing cookie is never overwritten. The intake/booking APIs read the
+ * cookie server-side and store it on the lead's D1 context row.
+ */
+function captureAdAttribution(context: APIContext, hostname: string): void {
+  if (hostname.startsWith('admin.') || hostname.startsWith('portal.')) return
+  if (!urlHasAttributionParams(context.url)) return
+  if (context.cookies.has(ATTRIBUTION_COOKIE)) return
+  const attribution = parseAttributionFromUrl(context.url)
+  if (!attribution) return
+  context.cookies.set(ATTRIBUTION_COOKIE, encodeAttributionCookie(attribution), {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: ATTRIBUTION_COOKIE_MAX_AGE_S,
+  })
+}
+
 async function handleRequest(context: APIContext, next: NextFn): Promise<Response> {
   const { pathname } = context.url
   const hostname = context.url.hostname
+  const redirectCtx = { hostname, pathname, url: context.url }
 
-  // Product renamed "Operator" → "Operator" (ADR 0034). 301 old paths
-  // before the subdomain rewrite, since the rewrite terminates the chain.
-  const operatorRename = redirectLegacyOperatorPaths(context, hostname, pathname)
-  if (operatorRename) return operatorRename
+  // Legacy redirects that must run BEFORE the subdomain rewrite terminates the
+  // chain (the /ai-employee → /operator product rename, ADR 0034). Rule table
+  // lives in src/lib/routing/legacy-redirects.ts.
+  const preRewrite = firstRedirect(PRE_REWRITE_REDIRECTS, redirectCtx)
+  if (preRewrite) return context.redirect(preRewrite.location, preRewrite.status)
 
   const subdomainRewrite = handleSubdomainRewrite(context, hostname, pathname)
   if (subdomainRewrite) return subdomainRewrite
 
-  const legacyRedirect = handleLegacyRedirects(context, hostname, pathname)
-  if (legacyRedirect) return legacyRedirect
+  // Legacy redirects that run after the rewrite (admin-host canonicalization,
+  // legacy auth paths, retired marketing surfaces).
+  const postRewrite = firstRedirect(POST_REWRITE_REDIRECTS, redirectCtx)
+  if (postRewrite) return context.redirect(postRewrite.location, postRewrite.status)
+
+  captureAdAttribution(context, hostname)
 
   context.locals.session = null
   await resolveAdminSession(context, pathname)

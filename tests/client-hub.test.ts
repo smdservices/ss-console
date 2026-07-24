@@ -3,7 +3,9 @@ import {
   computeBillingRollup,
   engagementToServiceRow,
   formatMoney,
+  clientStageBadge,
 } from '../src/lib/admin/client-hub'
+import type { EntityStage } from '../src/lib/db/entities'
 import type { Invoice } from '../src/lib/db/invoices'
 import type { Engagement } from '../src/lib/db/engagements'
 import type { Quote } from '../src/lib/db/quotes'
@@ -90,5 +92,33 @@ describe('formatMoney', () => {
     expect(formatMoney(10500)).toBe('$10,500')
     expect(formatMoney(0)).toBe('$0')
     expect(formatMoney(1234.6)).toBe('$1,235')
+  })
+})
+
+describe('clientStageBadge (Clients surface, ADR 0077)', () => {
+  it('maps meetings to Assessment and engaged to Client', () => {
+    expect(clientStageBadge('meetings').label).toBe('Assessment')
+    expect(clientStageBadge('engaged').label).toBe('Client')
+  })
+
+  it('marks engaged/delivered/ongoing as signed and everything else as not', () => {
+    const signed: EntityStage[] = ['engaged', 'delivered', 'ongoing']
+    const unsigned: EntityStage[] = ['signal', 'prospect', 'meetings', 'proposing', 'lost']
+    for (const s of signed) expect(clientStageBadge(s).signed, s).toBe(true)
+    for (const s of unsigned) expect(clientStageBadge(s).signed, s).toBe(false)
+  })
+
+  it('gives every stage a non-empty label (total over the enum)', () => {
+    const all: EntityStage[] = [
+      'signal',
+      'prospect',
+      'meetings',
+      'proposing',
+      'engaged',
+      'delivered',
+      'ongoing',
+      'lost',
+    ]
+    for (const s of all) expect(clientStageBadge(s).label.length, s).toBeGreaterThan(0)
   })
 })

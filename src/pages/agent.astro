@@ -1,0 +1,407 @@
+---
+export const prerender = false
+
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import { serializeJsonLd } from '../lib/seo/json-ld'
+
+/**
+ * Hosted Agent — the self-serve product storefront (ADR 0067).
+ *
+ * PRICING EXEMPTION: this page publishes the subscription price. That is a
+ * recorded Captain decision (positioning-spine decision log, 2026-07-06)
+ * and a deliberate exemption from the no-published-dollar-amounts lock,
+ * mirrored by a citation comment in tests/landing-page.test.ts. It applies
+ * to THIS page only; the consulting funnel and the Operator never publish
+ * prices.
+ *
+ * The page sells named day-one jobs and the safety posture, states the
+ * launch constraints plainly (no public inbound address, drafts for
+ * anything outbound to third parties, customer-owned Anthropic key), and
+ * routes the buy CTA to /api/checkout/hosted-agent (Stripe-hosted
+ * payment; card entry never happens on our surface).
+ */
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Hosted Agent',
+  description:
+    'An always-on personal agent running the open-source Hermes Agent runtime, hosted on isolated infrastructure and run as a managed subscription by SMD Services.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    price: '79.00',
+    priceCurrency: 'USD',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const faqs = [
+  {
+    q: 'What exactly am I subscribing to?',
+    a: 'Your own instance of the open-source Hermes Agent runtime from Nous Research, running around the clock on its own isolated machine, wrapped in the safety controls we built for our managed Operator clients. We keep it updated, monitored, and alive. You talk to it over Telegram and email.',
+  },
+  {
+    q: 'Why not just run it myself?',
+    a: 'Plenty of people do, and if you enjoy operating servers you may be one of them. The honest difference is that an agent on your laptop stops working when the lid closes, and an agent on a bare rented server is yours to patch, monitor, back up, and secure. This subscription is for people who want the agent without the second job.',
+  },
+  {
+    q: 'Why do I bring my own Anthropic API key?',
+    a: 'Your agent thinks on your key, so your usage bills to your own Anthropic account at cost, under a spend limit you set in your Anthropic console. We ask you to create a dedicated key with a limit before your agent goes live. Plain statement of the tradeoff: because the key is yours, we cannot see or cap that spend for you.',
+  },
+  {
+    q: 'Can strangers email my agent?',
+    a: 'No. Your agent has its own email address and accepts mail only from senders you list. Anything it wants to send to anyone other than you starts as a draft for your approval. Those two fences are deliberate: an always-on agent with an open inbox is how other setups end up in security headlines.',
+  },
+  {
+    q: 'What happens to my data?',
+    a: 'Your agent runs on its own machine with its own storage. No other customer shares it, and no data path exists between customers. Actions your agent takes are recorded in an append-only audit log you can review.',
+  },
+  {
+    q: 'How do I cancel?',
+    a: 'From your portal, any time. Billing stops at the end of the cycle and we decommission your machine.',
+  },
+]
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
+
+const checkoutStatus = Astro.url.searchParams.get('checkout')
+---
+
+<Base
+  title="Hosted Agent | SMD Services"
+  description="Your own always-on agent, hosted, safety-gated, and kept alive by SMD Services. The open-source Hermes Agent runtime as a managed subscription."
+>
+  <script is:inline type="application/ld+json" set:html={serializeJsonLd(productSchema)} />
+  <script is:inline type="application/ld+json" set:html={serializeJsonLd(faqSchema)} />
+
+  <Nav />
+
+  <main id="main">
+    {
+      checkoutStatus === 'cancelled' && (
+        <div class="max-w-3xl mx-auto px-6 pt-6">
+          <p
+            role="status"
+            class="border-[3px] border-[color:var(--ss-color-text-primary)] px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.14em]"
+          >
+            Checkout closed. Nothing was charged.
+          </p>
+        </div>
+      )
+    }
+
+    <!-- Hero -->
+    <section class="max-w-5xl mx-auto px-6 pt-16 pb-12 md:pt-24 md:pb-16">
+      <p
+        class="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-primary)]"
+      >
+        Hosted Agent
+      </p>
+      <h1
+        class="mt-4 font-body font-black uppercase tracking-[-0.02em] text-4xl md:text-6xl text-[color:var(--ss-color-text-primary)]"
+      >
+        Your own always-on agent. Without the second job of running it.
+      </h1>
+      <p class="mt-6 max-w-3xl text-lg md:text-xl text-[color:var(--ss-color-text-secondary)]">
+        The open-source Hermes Agent, hosted on its own isolated machine, set up from a short
+        questionnaire, and fenced by the same safety controls we build for our managed Operator
+        clients. It works while your laptop sleeps. We keep it alive, updated, and watched.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-4">
+        <a
+          href="/api/checkout/hosted-agent"
+          data-ev="agent-hero-cta"
+          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+        >
+          Get Your Agent
+        </a>
+        <a
+          href="#pricing"
+          class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+        >
+          See Pricing
+        </a>
+      </div>
+    </section>
+
+    <!-- Day-one jobs -->
+    <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+        >
+          What it does on day one
+        </h2>
+        <p class="mt-4 max-w-3xl text-lg text-[color:var(--ss-color-text-secondary)]">
+          Not a chat window. Standing work it does on its own, delivered to you:
+        </p>
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <h3 class="font-body font-black uppercase text-xl">The morning digest</h3>
+            <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
+              Forward it what matters. Every morning, on your clock, it sends you what landed, what
+              it did with it, and what needs you.
+            </p>
+          </div>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <h3 class="font-body font-black uppercase text-xl">Research briefs</h3>
+            <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
+              Name a topic once. It digs, keeps digging on a schedule, and reports back in a brief
+              you can actually read.
+            </p>
+          </div>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <h3 class="font-body font-black uppercase text-xl">Watch and report</h3>
+            <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
+              Point it at something that changes: a feed, a market, a competitor. It watches while
+              you do anything else, and tells you when something moved.
+            </p>
+          </div>
+        </div>
+        <p class="mt-8 max-w-3xl text-base text-[color:var(--ss-color-text-secondary)]">
+          And when you hand it anything else over Telegram or email, it carries the work to done.
+          Anything it wants to send to a third party comes to you first as a draft.
+        </p>
+      </div>
+    </section>
+
+    <!-- Permission bands: what it does on its own, what waits for you, what it never does.
+         Grounded in the trust-ceiling enforcement (operator/adapter/trust_ceiling.py) and the
+         authored Hosted Agent entitlements (external_send: draft_for_review). This copy is
+         deliberately NOT framed as staging/prod/go-live or a "tap to approve spend" flow: the
+         Hosted Agent has no deployment surface and no purchasing tool, so those bands would be
+         fabrication for this SKU. Every claim below maps to an enforced, boot-probed control. -->
+    <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+        >
+          What it does on its own. And where it stops.
+        </h2>
+        <p class="mt-4 max-w-3xl text-lg text-[color:var(--ss-color-text-secondary)]">
+          Every agent runs inside three lines. The boundary is enforced in code and re-checked every
+          time the agent starts, so it holds while you are not watching.
+        </p>
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p
+              class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+            >
+              On its own
+            </p>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">The work, done for you</h3>
+            <ul
+              class="mt-4 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-secondary)]"
+            >
+              <li>Reads and triages your email and its attachments</li>
+              <li>Researches, and keeps digging on a schedule</li>
+              <li>Writes drafts, notes, and working documents</li>
+              <li>Sends your digests, briefs, and reports to you</li>
+            </ul>
+          </div>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p
+              class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+            >
+              Waits for you
+            </p>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Comes to you first</h3>
+            <ul
+              class="mt-4 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-secondary)]"
+            >
+              <li>Anything bound for someone other than you arrives as a draft</li>
+              <li>You read it, edit it, and send it from your own inbox</li>
+              <li>Nothing is sent, posted, or shared with a third party on its own</li>
+            </ul>
+          </div>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <p
+              class="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+            >
+              Never on its own
+            </p>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">The hard floor</h3>
+            <ul
+              class="mt-4 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-secondary)]"
+            >
+              <li>It will not agree to or sign anything for you</li>
+              <li>It will not delete anything it cannot take back</li>
+              <li>It will not run unauthorized code or commands</li>
+              <li>It will not move money</li>
+            </ul>
+          </div>
+        </div>
+        <p class="mt-8 max-w-3xl text-base text-[color:var(--ss-color-text-secondary)]">
+          The middle line is the one that keeps an always-on agent safe: it can do the reading and
+          the drafting all day, but the decision to send stays yours.
+        </p>
+      </div>
+    </section>
+
+    <!-- Safety -->
+    <section
+      class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)]"
+    >
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-white"
+        >
+          Built careful on purpose
+        </h2>
+        <p class="mt-4 max-w-3xl text-lg text-white/80">
+          This spring, thousands of self-hosted agents were found exposed on the open internet, and
+          a fifth of one community skill registry turned out to be malicious. The fix is not hoping.
+          It is fences, checked by code, every time the agent boots:
+        </p>
+        <ul class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-base text-white">
+          <li class="border-[3px] border-white/40 p-5">
+            <strong class="uppercase">Its own machine.</strong> Every agent runs isolated. No shared runtime,
+            no data path between customers.
+          </li>
+          <li class="border-[3px] border-white/40 p-5">
+            <strong class="uppercase">Fail-closed permissions.</strong> Anything not explicitly allowed
+            is refused. The agent can never widen its own authority.
+          </li>
+          <li class="border-[3px] border-white/40 p-5">
+            <strong class="uppercase">Boot-checked safety invariants.</strong> The permission bands above
+            are enforced in code and re-verified every start. No fabricated citations. Stop means stop.
+          </li>
+          <li class="border-[3px] border-white/40 p-5">
+            <strong class="uppercase">Reviewed skills only.</strong> Your agent's capabilities come from
+            our reviewed skill library, not an open registry.
+          </li>
+          <li class="border-[3px] border-white/40 p-5">
+            <strong class="uppercase">A closed front door.</strong> Inbound email is signature-verified
+            and limited to senders you allowlist. No public address, no strangers.
+          </li>
+          <li class="border-[3px] border-white/40 p-5">
+            <strong class="uppercase">An audit log it cannot edit.</strong> Every action recorded, append-only,
+            reviewable by you.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+        >
+          How it works
+        </h2>
+        <ol class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-base">
+          <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <span class="font-mono text-[color:var(--ss-color-primary)]">01</span>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Subscribe</h3>
+            <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
+              Checkout runs on Stripe. You get a portal account that tracks setup at every step.
+            </p>
+          </li>
+          <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <span class="font-mono text-[color:var(--ss-color-primary)]">02</span>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Tell us about it</h3>
+            <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
+              A short questionnaire: what to call it, what it works on, who it accepts email from.
+              Plus a dedicated Anthropic API key you create with a spend limit you control.
+            </p>
+          </li>
+          <li class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <span class="font-mono text-[color:var(--ss-color-primary)]">03</span>
+            <h3 class="mt-2 font-body font-black uppercase text-xl">Meet your agent</h3>
+            <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
+              We stand it up by hand, test it, and hand you its Telegram line and email address.
+              Your portal shows the moment it goes live.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing" class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+        >
+          Pricing
+        </h2>
+        <div class="mt-8 max-w-xl border-[3px] border-[color:var(--ss-color-text-primary)] p-8">
+          <p class="font-body font-black text-5xl text-[color:var(--ss-color-text-primary)]">
+            $79<span class="text-2xl font-bold">/month</span>
+          </p>
+          <p class="mt-4 text-base text-[color:var(--ss-color-text-secondary)]">
+            Founding seats: the first 25 subscriptions pay $49/month, and that price never increases
+            for as long as the subscription stays active.
+          </p>
+          <ul class="mt-6 flex flex-col gap-2 text-base text-[color:var(--ss-color-text-primary)]">
+            <li>Your own isolated, always-on agent</li>
+            <li>Set up for you, updated for you, watched for you</li>
+            <li>Telegram plus its own allowlisted email inbox</li>
+            <li>You bring an Anthropic API key; model usage bills to you at cost</li>
+            <li>Manage or cancel from your portal</li>
+          </ul>
+          <a
+            href="/api/checkout/hosted-agent"
+            data-ev="agent-pricing-cta"
+            class="mt-8 inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+          >
+            Get Your Agent
+          </a>
+        </div>
+        <p class="mt-6 max-w-xl text-sm text-[color:var(--ss-color-text-secondary)]">
+          Plain terms: your agent's model usage runs on your own Anthropic key under a spend limit
+          you set, so we cannot see or cap that spend. Setup is done by hand, carefully, and your
+          portal shows the status the whole way. Prices exclude applicable sales tax, calculated at
+          checkout. Subscriptions are governed by the <a
+            href="/agent/terms"
+            class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-text-primary)]"
+            >Hosted Agent terms</a
+          >.
+        </p>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <div class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+        <h2
+          class="font-body font-black uppercase tracking-[-0.02em] text-3xl md:text-4xl text-[color:var(--ss-color-text-primary)]"
+        >
+          Questions, answered straight
+        </h2>
+        <div class="mt-8 flex flex-col gap-6">
+          {
+            faqs.map((f) => (
+              <details class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+                <summary class="cursor-pointer font-body font-black uppercase text-lg text-[color:var(--ss-color-text-primary)]">
+                  {f.q}
+                </summary>
+                <p class="mt-4 text-base text-[color:var(--ss-color-text-secondary)]">{f.a}</p>
+              </details>
+            ))
+          }
+        </div>
+        <p class="mt-10 text-base text-[color:var(--ss-color-text-secondary)]">
+          Running a business and sizing up something bigger? The
+          <a href="/operator" class="underline text-[color:var(--ss-color-primary)]">Operator</a>
+          is the managed worker we build for a specific role in a specific business.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</Base>

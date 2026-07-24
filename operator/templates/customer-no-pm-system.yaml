@@ -62,10 +62,17 @@ personas:
       - plainspoken
       - warm-but-professional
       - concise
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: draft_for_review
     skills:
       - name: '[LEAD SKILL NAME]'
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
 
 # ---- CONNECTORS ----

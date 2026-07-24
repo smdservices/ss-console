@@ -6,25 +6,26 @@ import {
   type GovernanceSkill,
   type GovernanceCell,
 } from '../../lib/admin/governance'
+import type { AuthoredExposureActionClass } from '../../lib/operator/customer-yaml/types'
+import type { Ceiling } from '../../lib/portal/operator/config-governance'
 
 /**
  * One skill's action-class governance card for the admin governance surface
- * (§5.3). Extracted from the page so the page's persona/skill maps stay under
- * the function-length ceiling. Renders the floor / effective / set-ceiling row
- * per action class; an unauthored class shows "unconfigured · fail-closed"
- * (ADR 0035 — never a default value).
+ * (§5.3). Renders persona exposure and skill initiation together; an unauthored
+ * exposure class shows "unconfigured · fail-closed".
  */
 
 interface Props {
   skill: GovernanceSkill
   vertical: string | null
+  exposure: Partial<Record<AuthoredExposureActionClass, Ceiling>>
   /** persona slug, posted with the ceiling change */
   personaSlug: string
   /** the governance POST endpoint for this customer */
   formAction: string
 }
 
-const { skill, vertical, personaSlug, formAction } = Astro.props
+const { skill, vertical, exposure, personaSlug, formAction } = Astro.props
 const CEILING_OPTIONS = ['autonomous', 'draft_for_review', 'refused'] as const
 
 function effectiveText(cell: GovernanceCell): string {
@@ -52,6 +53,26 @@ function effectiveClass(cell: GovernanceCell): string {
       {skill.enabled ? 'enabled' : 'disabled'}
     </span>
   </div>
+  <dl class="mb-3 grid grid-cols-3 gap-2 text-xs">
+    <div>
+      <dt class="text-[color:var(--ss-color-text-muted)]">Manual</dt>
+      <dd class="text-[color:var(--ss-color-text-primary)]">
+        {skill.initiation.manual ? 'Allowed' : 'Refused'}
+      </dd>
+    </div>
+    <div>
+      <dt class="text-[color:var(--ss-color-text-muted)]">Scheduled</dt>
+      <dd class="text-[color:var(--ss-color-text-primary)]">
+        {skill.initiation.scheduled ? 'Allowed' : 'Refused'}
+      </dd>
+    </div>
+    <div>
+      <dt class="text-[color:var(--ss-color-text-muted)]">Webhook</dt>
+      <dd class="text-[color:var(--ss-color-text-primary)]">
+        {skill.initiation.webhook ? 'Allowed' : 'Refused'}
+      </dd>
+    </div>
+  </dl>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
@@ -61,12 +82,12 @@ function effectiveClass(cell: GovernanceCell): string {
           <th class="pb-2 font-medium">Action class</th>
           <th class="pb-2 font-medium">Floor</th>
           <th class="pb-2 font-medium">Effective</th>
-          <th class="pb-2 font-medium">Set ceiling</th>
+          <th class="pb-2 font-medium">Set exposure</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
         {
-          resolveSkillCells(skill, vertical).map((cell) => (
+          resolveSkillCells(exposure, vertical).map((cell) => (
             <tr>
               <td class="py-2 pr-4 text-[color:var(--ss-color-text-primary)]">
                 {actionClassLabel(cell.actionClass)}
@@ -79,11 +100,10 @@ function effectiveClass(cell: GovernanceCell): string {
                 <form method="post" action={formAction} class="flex items-center gap-2">
                   <input type="hidden" name="persona_slug" value={personaSlug} />
                   <input type="hidden" name="skill_name" value={skill.name} />
-                  {cell.actionClass !== 'internal_write' && (
-                    <input type="hidden" name="action_class" value={cell.actionClass} />
-                  )}
+                  <input type="hidden" name="action_class" value={cell.actionClass} />
                   <select
                     name="level"
+                    disabled={cell.actionClass === 'read'}
                     class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-2 py-1 text-xs"
                   >
                     {CEILING_OPTIONS.map((opt) => (
@@ -94,6 +114,7 @@ function effectiveClass(cell: GovernanceCell): string {
                   </select>
                   <button
                     type="submit"
+                    disabled={cell.actionClass === 'read'}
                     class="text-xs text-[color:var(--ss-color-action)] hover:underline"
                   >
                     Set

@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { getEntity, transitionStage } from '../../../../../lib/db/entities'
 import { createMeetingWithLegacyAssessment } from '../../../../../lib/db/meetings'
@@ -12,6 +13,7 @@ import { requireAppBaseUrl } from '../../../../../lib/config/app-url'
 import { sendOutreachEmail } from '../../../../../lib/email/resend'
 import { bookingLinkInviteEmailHtml } from '../../../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/entities/[id]/send-booking-link
@@ -118,13 +120,6 @@ function buildMailtoUrl(params: { to: string | null; subject: string; body: stri
     body: params.body,
   })
   return `mailto:${encodeURIComponent(address)}?${query.toString()}`
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
 
 async function parseRequestBody(request: Request): Promise<Record<string, unknown> | Response> {
@@ -360,8 +355,9 @@ function parseMeetingType(raw: unknown): string | null {
 }
 
 async function handlePost({ params, request, locals }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') return jsonResponse(401, { error: 'Unauthorized' })
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const entityId = params.id
   if (!entityId) return jsonResponse(400, { error: 'missing_entity_id' })
 

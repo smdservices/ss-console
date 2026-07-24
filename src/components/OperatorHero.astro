@@ -1,64 +1,50 @@
 ---
-// Operator-forward home hero (§01). Leads value-forward and honest: the role's
-// work, without the cost of hiring, training, and keeping a person in the seat.
-// Does not presume to know the reader's business. One primary CTA + a low-weight
-// in-page scroll cue to the argument.
-//
-// DRAFT COPY — headline and side note are directional for the Captain's voice
-// pass. The structure and CTA wiring are final.
+// Home hero. Beat 1 of the firm-wraps-flagship spine: orient a stranger from any
+// channel in the first screen (firm descriptor + the promise + the flagship named +
+// the one door), then route to the assessment. Firm in the headline; the Operator is
+// named and linked, not yet explained (that is beat 4 and /operator). Type-led, no
+// graphics. Locked structure: docs/marketing/positioning-spine.md.
 import CtaButton from './CtaButton.astro'
 ---
 
-<section class="bg-[color:var(--ss-color-background)] px-6">
-  <div class="mx-auto max-w-5xl">
-    <span
-      class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mt-16 md:mt-20"
-      >§ 01</span
+<section class="ss-hero relative bg-[color:var(--ss-color-background)] px-6">
+  <div class="mx-auto max-w-5xl py-24 md:py-32">
+    <p
+      class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
     >
-    <div class="grid grid-cols-1 md:grid-cols-12">
-      <div
-        class="md:col-span-8 pt-8 pb-16 md:pt-10 md:pb-24 md:pr-10 border-b-[3px] md:border-b-0 border-[color:var(--ss-color-text-primary)]"
+      Software &amp; AI Solutions For Small Business
+    </p>
+    <h1
+      class="ss-hero-h font-body font-black uppercase leading-[0.95] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+    >
+      <span class="block">Figure out what's</span>
+      <span class="block">slowing you down.</span>
+      <span class="block text-[color:var(--ss-color-primary)]">Build the right solution.</span>
+    </h1>
+    <p
+      class="mt-8 max-w-2xl font-body text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+    >
+      We are a software and AI solutions firm for small businesses. When the work itself keeps
+      falling through the cracks between your people and your software, our flagship does it: the
+      Operator, a managed worker on your own systems that handles the recurring work and does not
+      walk out the door. It starts with an assessment.
+    </p>
+    <div class="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-7">
+      <CtaButton data-ev="home-hero-cta"> Start with an assessment </CtaButton>
+      <a
+        href="/operator"
+        data-ev="home-hero-operator"
+        class="inline-flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline-offset-4 hover:text-[color:var(--ss-color-text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
       >
-        <h1
-          class="font-['Archivo'] font-black uppercase text-[clamp(2.5rem,8vw,6rem)] leading-[0.9] tracking-[-0.04em] text-[color:var(--ss-color-text-primary)]"
-        >
-          <span class="block">The Role.</span>
-          <span class="block">Without The</span>
-          <span class="block text-[color:var(--ss-color-primary)]">Overhead.</span>
-        </h1>
-        <div class="mt-10 md:mt-12 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-          <CtaButton
-            href="/book?interest=operator"
-            data-ev="home-operator-hero-cta"
-            class="w-full sm:w-auto"
-          >
-            Get in touch
-          </CtaButton>
-          <a
-            href="#how"
-            data-ev="home-hero-scroll"
-            class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-          >
-            <span>See how it works</span>
-            <span aria-hidden="true">↓</span>
-          </a>
-        </div>
-      </div>
-      <div
-        class="md:col-span-4 flex flex-col items-start py-10 md:pt-10 md:pb-14 md:pl-10 md:border-l-[3px] md:border-[color:var(--ss-color-text-primary)]"
-      >
-        <p
-          class="font-['Archivo'] text-sm md:text-base leading-relaxed text-balance text-[color:var(--ss-color-text-secondary)]"
-        >
-          The follow-ups, the handoffs, the intake, the chase. The work a coordinator does, without
-          the cost of hiring, training, and keeping one.
-        </p>
-        <div
-          class="hidden md:block mt-8 w-12 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-          aria-hidden="true"
-        >
-        </div>
-      </div>
+        <span>See the Operator</span>
+        <span aria-hidden="true">→</span>
+      </a>
     </div>
   </div>
 </section>
+
+<style>
+  .ss-hero-h {
+    font-size: clamp(2rem, 6vw, 4rem);
+  }
+</style>

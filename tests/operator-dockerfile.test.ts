@@ -157,7 +157,273 @@ describe('Operator customer Machine Dockerfile', () => {
     // autonomous reply to a production capability (plugin hermes-smd-reply) gated on
     // the organization roster (scope.inbound_allow_from), not a fenced switch. Security
     // logic byte-for-byte unchanged. Superset of 96835fe.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="33b58ad92befd400d7aab36925544cc77e286caa"')
+    // 33b58ad (#112, ADR 0055): inbound prompt drives create_draft (reply channel)
+    // instead of the trust-refused reply_to_message. Superset of 1d6d5b2.
+    // 97c59f3 (#114, ADR 0056): the entitlement hard-rebuild — persona exposure +
+    // skill initiation replace the scalar trust_ceiling / scope+skill+mailbox
+    // action_ceilings; enforce.py reads per-persona exposure from the trusted
+    // customer.yaml (never tool args), fail-closed unauthored. Range 33b58ad..97c59f3
+    // also includes #113 (smokeball calendar/task/folder classification); all four
+    // tracked twins verified unchanged. Lockstep with ss-console #1523 (shared parity
+    // hash). Superset of 33b58ad.
+    // 22498d6 (#115): the Smokeball webhook gate verifier — webhook_gate.py gains
+    // verify_smokeball_signature (raw-key hex HMAC over {Timestamp}|{RequestId}|
+    // {ClientId}, body unsigned) + a fail-closed per-vendor dispatch registry +
+    // an authoritative source stamp (fixes the Smokeball source="API" routing
+    // collision) + a RequestId replay cache + a boot self-check; tests +
+    // consumes.yaml. Range 97c59f3..22498d6 is exactly this one commit; all four
+    // tracked twins verified unchanged. Pairs with ss-console #1529 (provisioning).
+    // Superset of 97c59f3.
+    // e1044f19 (#116): the Smokeball connect-triggered webhook reconcile —
+    // shared/oauth_callback.py fires the egress reconciler (/app/webhook_reconcile.py
+    // --trigger connect) after the OAuth token lands, so a newly-connected firm's
+    // webhook subscriptions are ensured without a reboot. Range 22498d6..e1044f19 is
+    // exactly this one commit; all four tracked twins verified unchanged. Pairs with
+    // the ss-console egress reconciler (engine + orchestrator + boot backstop).
+    // Superset of 22498d6.
+    // 2b694947 (#117): the gate stamps the verified per-delivery id (RequestId) as
+    // top-level event_id so the header-less webhook router has a replay key — fixes
+    // the first real Smokeball matter.updated verifying (202) but the router
+    // refusing "missing event id". Range e1044f19..2b694947 is exactly this one
+    // commit; all four tracked twins verified unchanged. Superset of e1044f19.
+    // 9b20a1ac (#118): translate gives non-email skill-routed webhook channels a
+    // skill-driving prompt instead of the shared _INBOUND_EMAIL_PROMPT — a verified
+    // Smokeball matter.updated reached the agent as an email-draft instruction (it
+    // tried agentmail create_draft instead of running matter-memo-on-update). The
+    // AgentMail email-reply channel keeps the email prompt; MCP route untouched.
+    // 8db15f0 (#119): console-sole Claude door — the Machine retires the direct
+    // public /mcp door (POST /mcp → 410; stub-bearer + Clerk-direct auth removed)
+    // and adds the authenticated /mcp/turn console-proxy endpoint; the console is
+    // now the sole public Claude door and enforces the ADR 0057 grant kill-switch
+    // per request. Range 9b20a1ac..8db15f0 touched only webhook_gate.py +
+    // test_mcp_channel.py + consumes.yaml; all four tracked twins verified unchanged.
+    // d7ce7cc7 (#121): fabrication-gate + self-approval hardening (EFF-01/03,
+    // SEC-36/16) — autonomous EXTERNAL_SEND routed through the fabrication/citation
+    // gate, Unicode-normalized citation scan, forgeable _current_turn_approval
+    // stripped. Changed outbound.py/__init__.py/relay.py/citation_filter.py/tests;
+    // all four tracked twins verified unchanged.
+    // 22eecbea (#122): Machine-side heartbeat emitter (ADR 0023 Wave 1) — new
+    // shared/heartbeat.py runs a fail-soft ticker in the webhook-gate that POSTs
+    // to the apex console /api/internal/heartbeat and pings healthchecks.io,
+    // closing the gap where the console receiver + fleet_status + admin columns
+    // were built but nothing phoned home. Range d7ce7cc7..22eecbea changed
+    // heartbeat.py [new] + webhook_gate.py + consumes.yaml + tests; all four
+    // tracked twins verified unchanged.
+    // d97eb27f (#123): memory-mirror lane silence (ss-console#1643) — the
+    // unconfigured Honcho lane (ADR 0016 Phase 2 deferred) no longer logs a
+    // per-session 'degraded' WARNING; register() classifies the env contract
+    // once at boot and a PARTIAL contract is a loud ERROR naming the missing
+    // vars. Range 22eecbea..d97eb27f changed only the mirror plugin + its
+    // tests; all four tracked twins verified unchanged.
+    // a6c8e3fb (#124): cost circuit breaker + inbound wake guard (ADR 0062,
+    // ss-console #1661) — vendored sticky_stop twin, cost_breaker glue
+    // (Machine-local sqlite + broker-ledger audit sink), job-path exact-cents
+    // cap (HARD_STOP dead-letters needs_review), webhook-gate InboundWakeGuard
+    // (parks at HARD_STOP / authored inbound_daily_cap), heartbeat gains
+    // sticky_stop_level. Range d97eb27f..a6c8e3fb changed shared/{sticky_stop,
+    // cost_breaker,gate_inbound_cap}[new] + job_* + webhook_gate + heartbeat +
+    // customer_config + consumes.yaml + tests; all four tracked twins verified
+    // unchanged.
+    // 5b4c99e1 (#125): Captain clear surface (ADR 0062 §6) — gate POST
+    // /sticky-stop/clear (console-proxy bearer) clears non-OK sticky_stop rows
+    // via the state machine's clear() with audited AGENT_RESUMED; the un-trip
+    // path the live trip-fire probe requires. Range a6c8e3fb..5b4c99e1 changed
+    // cost_breaker.py + webhook_gate.py + tests; all four tracked twins
+    // verified unchanged.
+    // 378fd82d (#126): seam exposes persisted cron next_run_at/last_run_at
+    // (ss-console#1691) — makes wrong-timezone first fires observable from
+    // /runtime/config right after reprovision instead of as a surprise fire.
+    // Range 5b4c99e1..378fd82d changed shared/config_snapshot.py + tests;
+    // all four tracked twins verified unchanged.
+    // 8df1992a (#128): interactive-turn cost metering (option C, ADR 0062 §4
+    // amendment, #1701) — shared/interactive_cost_meter.py estimates each
+    // interactive turn's cents at the post_llm_call hook and feeds the same
+    // sticky_stop ladder, closing the gap the trip probe found. Range
+    // 378fd82d..8df1992a changed interactive_cost_meter.py[new] + the audit
+    // plugin + tests + vendored pricing; all four tracked twins verified
+    // unchanged.
+    // 3b2481b8 (#129): ship anthropic_pricing.json in the wheel — the
+    // interactive cost meter was dark in prod (pricing excluded from the
+    // wheel; alarmed model_unpriced every turn). Range 8df1992a..3b2481b8
+    // changed pyproject.toml + a guard test; all four tracked twins unchanged.
+    // 122ee0a2 (#130): gate clear succeeds without a Machine audit row —
+    // the broker PID-gates appends to the gateway process (OP-P1-4), so
+    // the gate can't write the ledger; the resume is audited console-side.
+    // 7e70b376 (#131+#132, ss#1686): audit hash chain — CREATE/ensure gain
+    // prev_hash/row_hash, audit_export serves them, shared/audit_chain.py
+    // lands as the new tracked twin of workspace_broker/chain.py. emit.py
+    // twin changed (ensure applies CHAIN_COLUMN_ALTERS) and is re-pinned in
+    // overlay-pairs; the broker stamps the chain, writers untouched.
+    // c85b0ddb (#133, ss#1701): cost-breaker boot self-probe — the
+    // gateway:startup activation handler drives run_boot_probe (throwaway db,
+    // ladder trips HARD_STOP + assert_allowed refuses, os._exit(1) if inert),
+    // the recurring negative-fire check that earns sticky_stop_cost_cap its
+    // `enforced` status. Range 7e70b376..c85b0ddb is a fast-forward touching
+    // only handler.py + shared/cost_breaker.py + tests; no tracked twin moved.
+    // 50a6545e (#136, L2 DISC-1): mcp_smokeball_read_document mapped READ and
+    // FENCED as a tainting content-read — the connector's new server-side
+    // document fetch+extraction returns externally-authored text (served
+    // discovery, opposing responses), so reading a matter document taints the
+    // session like an inbound email. Range c85b0ddb..50a6545e touches only
+    // shared/action_classes.py + the inbound fence + tests; no tracked twin moved.
+    // (That range ALSO carried #134/#135, the Sentry init + PII scrub — see the
+    // Sentry-on-Machines memory; likewise no tracked twin.)
+    // 3e5b8a9b (#137, ss#0023): Sentry boot marker — init_sentry now sends one
+    // info capture_message("boot: monitoring active") per process, the direct
+    // in-Sentry confirmation the gateway init fired (its INFO log is filtered by
+    // Hermes' root=WARNING) + a per-boot restart signal. Range 50a6545e..3e5b8a9b
+    // touches only shared/sentry_init.py + tests; no tracked twin moved.
+    // c081223b (#138, ss#1742/#1744): digest.home_matter_id materializes as a
+    // '## Digest home' SOUL section (unauthored = fail-closed, byte-identical);
+    // mcp_smokeball_file_attachment_to_matter mapped INTERNAL_WRITE (the
+    // credential-free cross-connector attachment transfer). Range
+    // 3e5b8a9b..c081223b touches only translate.py + action_classes + tests;
+    // no tracked twin moved.
+    // 7c10fd61 (#140, ss#1758): caption provenance allowlist for the tier-2
+    // citation gate — captions harvested from READ results into the session
+    // register; only provenance-verified bare case-name hits are exempt
+    // (reporter cites/statutes/rules/tier-1 never relax; empty register =
+    // fail-closed). Vendored citation_filter synced from ss#1764 (allowlist +
+    // Cal ordinal reporter false-negative fix) and now drift-tracked as a
+    // SEC-32 pair in overlay-pairs.json.
+    // 07c7a516 (#142 + #138): authored webhook-trigger exceptions — the gate
+    // suppresses excluded (matter/actor) deliveries per customer.yaml
+    // webhook_triggers[].exclude with a WEBHOOK_SUPPRESSED audit row, fail-open
+    // to forward; plus the #1742 digest-home SOUL materializer +
+    // mcp_smokeball_file_attachment_to_matter INTERNAL_WRITE mapping (#1744).
+    // Range 7c10fd61..07c7a516 touches webhook_gate.py + shared/
+    // gate_trigger_exclusions.py + translate.py + action_classes + tests; no
+    // tracked twin moved.
+    // 3294e909 (#143, ss#1758/#141): the provenance SESSION RESOLVER — core's
+    // pre_tool_call fire sites drop session_id, so the register was never
+    // consulted under its real key (111/111 tier3 rows empty-register); the
+    // trust plugin now notes the real id (new pre_llm_call hook +
+    // post_tool_call) and resolves at a single pre-hook choke point. Unblocks
+    // the #140 caption exemption + A1 identifier gate. No tracked twin moved.
+    // 95fc269f (#144): exclusion matching checks ANY candidate key — the live
+    // Smokeball envelope carries a foreign top-level id that defeated first-
+    // present-wins precedence (proven by signed probes against the running
+    // gate); fail-open config reads now log. Range 3294e909..95fc269f touches
+    // shared/gate_trigger_exclusions.py + tests; no tracked twin moved.
+    // 6e685b03 (#145): exclusion matching searches the NESTED payload level —
+    // the verbatim live envelope (session transcript, 2026-07-07) puts the
+    // matter at payload.id with only userId top-level; both prior attempts
+    // assumed flat. Regression test pins the verbatim envelope. Range
+    // 95fc269f..6e685b03 touches shared/gate_trigger_exclusions.py + tests;
+    // no tracked twin moved.
+    // af895354 (#146, ss #1791): the webhook gate records WEBHOOK_SUPPRESSED via
+    // a new uid-gated broker verb (webhook_suppressed_append) instead of the
+    // gateway-PID-gated audit_append that was silently refusing the write —
+    // proven live on pilot-smokeball (suppression stood, audit row never
+    // persisted). Range 6e685b03..af895354 touches webhook_gate.py +
+    // shared/audit_client.py + tests; no tracked twin moved.
+    // 138c10a (#147, ss #1796): wire mcp:brave — shared web-search connector
+    // (ADR 0070). Range af895354..138c10a touches bootstrap/mcp_registry.py +
+    // shared/action_classes.py + tests; no tracked twin moved (every
+    // overlaySha256 unchanged, only overlayRef).
+    // b9391d8 (#148, ss #1796): fix the Brave runtime tool name to
+    // mcp_brave_brave_web_search — live pilot-smokeball verification of #147
+    // caught the single-brave name was unmapped -> REFUSED. Range
+    // 138c10a..b9391d8 touches shared/action_classes.py + test; no tracked twin.
+    // 9189224 (#149, ss #1822, ADR 0072): recipient-aware proactive send —
+    // external_send_internal class + recipient_classifier (NEW byte-identical
+    // pair) + outbound_recipient registry + evaluate_tool_call reclassification.
+    // Range b9391d8..9189224 adds shared/recipient_classifier.py (tracked as a
+    // new pair) and touches action_classes.py/enforce.py/__init__.py/validate.py/
+    // translate.py (not tracked twins).
+    // 539f42c7 (#150, ss #1796, ADR 0070 native cut): retire the mcp:brave
+    // connector for Hermes' NATIVE web_search provider. translate._materialize_web_search
+    // (native:<provider> -> web.search_backend), mcp_registry brave spec removed,
+    // action_classes web_search READ, validate accepts native:. Range
+    // 9189224..539f42c7 touches bootstrap/{translate,mcp_registry,validate}.py +
+    // shared/action_classes.py + tests; no tracked twin moved (overlaySha256 unchanged).
+    // 0c9d165 (#151, ss #1804, ADR 0071): add `confirm` ceiling value +
+    // external_send enforcement to plugins/hermes-smd-trust/enforce.py (mirrors
+    // the in-tree operator/adapter/trust_ceiling.py). Range 539f42c7..0c9d165
+    // touches enforce.py + test; no tracked twin moved (overlaySha256 unchanged).
+    // d5187194 (#152, ss ADR 0073): remove the law-firm external_send entry from
+    // VERTICAL_FLOORS — outside-send is the firm's authored dial; the floor
+    // machinery stays (empty) for future regulation-compelled floors. Range
+    // 0c9d165..d5187194 touches shared/action_classes.py + enforce.py +
+    // config_applier/safety.py + tests — NOT tracked twins, so every
+    // overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
+    // 8806099 (#153, ADR 0028 §2 / #855 voice live-gate): fail-closed voice
+    // gate on allowed autonomous OUTSIDE external_send for voice_library-authored
+    // seats — samples + per-turn transform-applied marker (shared/voice_status.py)
+    // required, else draft + VOICE_GATE_TRIGGERED. Range d5187194..8806099
+    // touches plugins/hermes-smd-trust/{enforce.py,voice_gate.py} +
+    // plugins/hermes-smd-voice/__init__.py + shared/voice_status.py + tests —
+    // NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+    // 78064d3 (#154, ss #1805, ADR 0071): bootstrap/validate.py accepts the
+    // `confirm` exposure ceiling for external_send (rejects it off the send
+    // classes) — keeps the on-box config_applier validator in lockstep with the
+    // console. Range 8806099..78064d3 touches bootstrap/validate.py + contract
+    // tests — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+    // 17d33d7 (#156, ADR 0075): recipient-class enrichment — RecipientClass gains
+    // CLIENT/VENDOR, typed outbound roster, external_send_client/_vendor action
+    // classes wired through enforce/validate/translate. Range 3724e78..17d33d7
+    // moves ONE tracked twin (shared/recipient_classifier.py), so that pair's
+    // overlaySha256 is re-recorded in overlay-pairs.json alongside this bump.
+    // 5b7318cb (#158, ss ADR 0073): authored-exposure SOUL section — the agent
+    // acts AT its authored ceiling instead of defaulting below it. translate.py
+    // + tests only; no tracked twin moved. Superset of 17d33d7.
+    // f3e48d6b (#157, ss #1806, ADR 0071): confirm-over-channel approval stamp —
+    // shared/pending_send.py + plugins/hermes-smd-trust/{approval,enforce,__init__}.py
+    // + tests. None are tracked twins, so every overlaySha256 is unchanged; only
+    // overlayRef. Superset of 5b7318cb.
+    // ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks — #158 committed
+    // live worktree checkouts with no .gitmodules, breaking `uv pip install git+@sha`
+    // (git submodule update failed) on EVERY seat rebuild. Untracks + gitignores them.
+    // 63a3bca (#162, ADR 0075): proactive outbound relay to rostered client/vendor.
+    // fdf8870a (#163, ss #1806, ADR 0071 harden): out-of-band send of the approved
+    // confirm payload — the overlay dispatches the send itself (the LLM does not
+    // reliably re-invoke on "yes"), re-authorized through the same evaluate_tool_call
+    // gate + CONFIRM_SEND_DISPATCHED/FAILED audit rows. Child of #162; carries it.
+    // No tracked twin moved; overlayRef-only. Superset of 63a3bca (#162).
+    // 36fa158d (#165 + #167, ss #1915/#1916): hermes-smd-escalation mediated
+    // ledger tools (escalation_append via the broker verb + escalation_state
+    // over the ledger twin — replaces the refused execute_code append snippet
+    // found dead by the WP-D live proof) + durable-job tool mappings (the same
+    // unmapped ⇒ REFUSED class). NEW tracked twin pair
+    // shared/escalation_ledger.py <-> operator/workspace_broker/
+    // escalation_ledger.py (sha c4882668). Superset of d6739132 (#164).
+    // a16f9580 (#169, ss #1935/#1932/#1931): escalation_append derive_only
+    // (real ACK codes before the alert sends) + recipient-aware reply floor
+    // (INTERNAL recipients not content-floored, mirrors ADR 0072 send path) +
+    // per-skill settings live-writable in the config applier. No tracked twin
+    // moved; overlayRef-only. Superset of 4d0be7ec (#168).
+    // 3ffc2d1f (#170, ss #1941): peer-memory capture nudge — the ADR 0048
+    // learned lane's write side. pre_llm_call injects the
+    // record_peer_preference capture instruction on every sender-attributed
+    // turn (fleet-wide zero rows: the tool existed, nothing prompted its use).
+    // No tracked twin moved; overlayRef-only. Superset of a16f9580 (#169).
+    // aa7d78f2 (#171, ss #1941 probe find): peer-memory keys the peer on the
+    // Svix-verified sender via a claim-once unbound-origin handoff (dispatch
+    // session_id is empty on the live email path; Hermes threads the ROUTE as
+    // sender_id — the first live capture keyed webhook:agentmail, a channel
+    // not a person). overlayRef-only. Superset of 3ffc2d1f (#170).
+    // eb17f3cb (#172, ss #1943): inbound taint/fence rendezvous — the
+    // chokepoint claims the fresh dispatch-unkeyed PENDING bucket and fences +
+    // taints under the turn's own session id; rostered senders classify
+    // internal (no fence/taint), strangers now actually hit the wall.
+    // overlayRef-only. Superset of aa7d78f2 (#171).
+    // f8808c6c (#173, ss #1946): per-turn tool-surface trim — translate emits
+    // agent.disabled_toolsets on every profile config (browser/computer_use/
+    // media/social/session_search, + workspace when no google_auth) and
+    // agentmail blocked_tools excludes 8 inbox-admin/destructive tools via
+    // native mcp_servers.tools.exclude. No send/draft/read tool leaves the
+    // menu (ADR 0025 unchanged). Measured -7,272 tokens/turn of prompt-cache
+    // write on the live payload (vfy_01KXKJEEV1R4EPYFKA6J7YDH16).
+    // overlayRef-only. Superset of eb17f3cb (#172).
+    // 73a2df84 (#174, ss #1961): report emails render an html half at send
+    // time — shared/report_render.py transforms the markdown the report skills
+    // already author (## headings, numbered items) into an inline-styled html
+    // body, and hermes-smd-trust attaches it in pre_tool_call AFTER every gate
+    // allows (purity invariant: the html adds no content the fabrication/floor/
+    // taint scans did not already see). Block structure gates the render, so
+    // prose replies stay byte-identical. overlayRef-only (neither touched file
+    // is a tracked twin). Superset of f8808c6c (#173).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="73a2df84c32e0a9fc38fa1f1abb8a943a854506b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

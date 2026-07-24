@@ -1,57 +1,39 @@
-# Matter Memo on Update — Output Format
+# Matter Memo on Update - Output Format (v0.2.0)
 
-One output: a single `create_memo` body, or nothing. There is no client-facing text — the memo is an internal Smokeball record a supervising attorney reads. Most events produce **no** output (first-touch baseline, empty diff, duplicate); that silence is correct.
+One output: a single `create_memo` body, or nothing. There is no client-facing text - the memo is an internal Smokeball record a supervising attorney reads. A duplicate delivery produces **no** output; that silence is correct.
 
 ## The memo body
 
-A two-part body: a one-line header (who / when / how) and the changed-field list. Plain text, terse, no prose, no interpretation.
+Two lines. A factual one-line record (who / when / how), then the hidden change-key tag on its own final line. Plain ASCII, terse, no prose, no interpretation.
 
 ```
-Matter updated by <actor> on <YYYY-MM-DD> at <h:MM AM/PM> (<source>).
-<Field>: <old> → <new>
-<Field>: <old> → <new>
+Matter updated by <actor> on <YYYY-MM-DD> (<source>).
+op-mmou:<matterId>:<timestamp>
 ```
 
-- **`<actor>`** = the resolved staff name, or **"an unidentified user"** when `userId` is absent. Never a guessed name.
+- **`<actor>`** = the resolved staff name, or **"an unidentified user"** when `userId` is absent or unresolvable. Never a guessed name.
 - **`<source>`** = `in-app` (`source: Smokeball`) or `via an integration` (`source: API`).
-- **timestamp** = the event `timestamp` (.NET ticks) converted to the firm's local time.
-- One line per changed field, in the table order below. A field absent from the diff does not appear.
+- **`<YYYY-MM-DD>`** = the event `timestamp` (.NET ticks) converted to a calendar date. Date only - do not invent a precise clock time you are unsure of.
+- **`op-mmou:<matterId>:<timestamp>`** = the idempotency tag. `<timestamp>` is the raw `.NET ticks` value, verbatim. It lets the next delivery detect that this exact change is already logged. Keep it on its own final line.
 
 Worked example:
 
 ```
-Matter updated by Jane Smith on 2026-06-14 at 2:32 PM (in-app).
-Status: Open → Pending
-Responsible attorney: (none) → Chris Price
+Matter updated by Jane Smith on 2026-06-14 (in-app).
+op-mmou:6f6a1c2d-...:638609288928990639
 ```
 
-`userId`-absent example:
+`userId`-absent / unresolvable example:
 
 ```
-Matter updated by an unidentified user on 2026-06-14 at 9:05 AM (via an integration).
-Description: "Auto accident — intake" → "Auto accident — in treatment"
+Matter updated by an unidentified user on 2026-06-14 (via an integration).
+op-mmou:6f6a1c2d-...:638609300000000000
 ```
-
-## Tracked fields (the diff set)
-
-These are the matter fields the skill diffs and reports. A change outside this set produces an empty diff and **no memo** (which is also the loop-break — see `algorithm.md`). Resolve ids to human-readable names before rendering; never print a raw UUID in a supervision memo.
-
-| Field (memo label)   | Source field (`smokeball-surface.md`) | Render rule                                                          |
-| -------------------- | ------------------------------------- | -------------------------------------------------------------------- |
-| Status               | `status`                              | Enum verbatim (`Open`/`Pending`/`Closed`/…)                          |
-| Responsible attorney | `personResponsibleStaffId`            | Resolve via `get_staff` → name; empty → `(none)`                     |
-| Assisting staff      | `personAssistingStaffId`              | Resolve via `get_staff` → name; empty → `(none)`                     |
-| Description          | `description`                         | Quoted string; truncate > 120 chars with `…`                         |
-| Title                | `title`                               | Quoted string                                                        |
-| Matter number        | `number`                              | Verbatim; blank → `(unassigned)`                                     |
-| Matter type          | `matterType` / `matterTypeId`         | Resolve to the matter-type name                                      |
-| Clients              | `clients[]`                           | By count + names if resolvable (`1 → 2 clients`; name the added one) |
-| Lead / matter        | `isLead`                              | `Lead → Matter` on conversion                                        |
 
 ## Rules
 
-1. **Facts only.** No "why," no judgment, no legal characterization, no next-step suggestion. The memo states what changed; the attorney interprets.
-2. **Changed fields only.** Never dump the full snapshot — that leaks unchanged state into every memo and buries the signal. Only fields whose value differs appear.
-3. **No fabrication.** Every old/new value comes from the diff. An absent `userId` is "an unidentified user," never a name. An unresolvable id renders as its reference, never an invented label.
-4. **Resolve ids to names.** A supervision memo a human reads must say "Chris Price," not `526670af-…`. If resolution fails, say so plainly (`staff 526670af… (name unavailable)`), never guess.
-5. **Silence is an output.** First-touch, empty-diff, and duplicate events produce no memo. Do not emit a "no change" memo.
+1. **No em-dashes.** The character `—` (U+2014) is a banned marker on authored content; a memo body containing it is refused before it is written. Write plainly - a period, or "by / on / via" phrasing. Hyphens (`-`) and right-arrows are fine; the em-dash is not.
+2. **Facts only.** No "why," no judgment, no legal characterization, no next-step suggestion. The memo states who touched the matter, when, and how; the attorney interprets.
+3. **No fabrication.** The actor is the resolved name or "an unidentified user." The date comes from the event timestamp. Do not invent a field-level diff, a reason, or a clock time. This version does **not** report which fields changed - see `algorithm.md`, "Deferred: field-level diff."
+4. **Resolve the actor to a name when you can.** A supervision memo a human reads should say "Chris Price," not a raw UUID. If `get_staff` fails or `userId` is absent, write "an unidentified user" - never the raw id, never a guess, and never a retry.
+5. **The tag is mandatory and last.** Without the `op-mmou:<matterId>:<timestamp>` line, the next delivery cannot dedupe and may double-log.

@@ -1,6 +1,8 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { getAssessment, updateAssessment } from '../../../../../lib/db/assessments'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * PUT /api/admin/assessments/:id/live-notes
@@ -11,10 +13,9 @@ import { env } from 'cloudflare:workers'
  * Protected by auth middleware (requires admin role).
  */
 export const PUT: APIRoute = async ({ request, locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const assessmentId = params.id
   if (!assessmentId) {
@@ -43,11 +44,4 @@ export const PUT: APIRoute = async ({ request, locals, params }) => {
     console.error('[api/admin/assessments/[id]/live-notes] Error:', err)
     return jsonResponse(500, { error: 'Internal server error' })
   }
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }

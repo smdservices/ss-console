@@ -33,14 +33,14 @@ const grouped = SECTIONS.map((s) => ({
 })).filter((g) => g.items.length > 0)
 
 const SEC =
-  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
+  'font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]'
 ---
 
 <nav aria-label="Handbook contents" class="text-sm">
   <a
     href="/admin/playbook"
     class:list={[
-      "mb-4 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] hover:text-[color:var(--ss-color-primary)]",
+      'mb-4 block font-mono text-[12px] font-bold uppercase tracking-[0.14em] hover:text-[color:var(--ss-color-primary)]',
       !currentSlug
         ? 'text-[color:var(--ss-color-primary)]'
         : 'text-[color:var(--ss-color-text-primary)]',

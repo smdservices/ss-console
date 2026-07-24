@@ -56,10 +56,17 @@ personas:
       - plainspoken
       - warm-but-professional
       - concise
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: draft_for_review
     skills:
       - name: '[LEAD PI SKILL, e.g., demand-letter-draft]'
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
     # ---- OPTIONAL: skill bundles (ADR 0021 Stream D) ----
     # bundles:
@@ -114,6 +121,17 @@ connectors:
     adapter: '[ms-365 / google-drive / synthetic]'
     backend: '[mcp:softeria/ms-365-mcp-server / mcp:google-drive / synthetic:fixture]'
     enabled: true
+  # WebSearch (ADR 0070) is UNAUTHORED by default for the Operator: the web is
+  # incidental to the engagement and lower-trust/injectable in regulated
+  # verticals, so it is authored per engagement, not imposed (ADR 0035). Wired to
+  # Hermes' native web provider (no MCP wrapper). To enable, uncomment and also
+  # author safety.sticky_stop.web_search_daily_cap. For a SENSITIVE/legal seat
+  # prefer a paid or customer-owned Brave key (one party in the query path) and
+  # confirm Brave's data-processing/retention terms first. Search only.
+  # WebSearch:
+  #   adapter: brave
+  #   backend: 'native:brave-free'   # or a paid/customer-owned Brave tier
+  #   enabled: true
 
 # ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
 # Map inbound vendor webhook payloads to skill invocations on a persona.
@@ -127,6 +145,19 @@ connectors:
 #     event_type: document.added
 #     skill: discovery-response
 #     persona: '[PERSONA SLUG]'
+#     # OPTIONAL trigger exceptions (gate-enforced: excluded deliveries get a 202 +
+#     # WEBHOOK_SUPPRESSED audit row, no agent wake). Author these when a skill must
+#     # NOT fire for specific matters or specific actors — e.g. an internal
+#     # ops/notepad matter the Operator should not supervise, or a principal whose
+#     # own edits should not trigger a supervision memo. Values are vendor GUIDs;
+#     # the validator rejects unknown keys and non-GUID entries because the runtime
+#     # gate FAILS OPEN — a typo must fail authoring loudly, not silently forward.
+#     # Unauthored = no exceptions (ADR 0035, no imposed defaults).
+#     exclude:
+#       matters:
+#         - '[MATTER GUID]'   # e.g. an internal ops/digest-home matter
+#       actors:
+#         - '[VENDOR USER GUID]'   # e.g. the supervising principal's own edits
 
 # ---- SCOPE ----
 scope:
@@ -151,6 +182,16 @@ escalation:
     - '[PRINCIPAL EMAIL]'
   failure_recipients:
     - '[PRINCIPAL EMAIL]'
+
+# ---- SAFETY (ADR 0062 cost breaker; optional — platform defaults apply) ----
+# Integrity controls protecting SMD's own spend (ADR 0035: unauthored means
+# the platform default, never fail-open). Live-read from the volume per use.
+# safety:
+#   sticky_stop:
+#     cost_cap_daily_cents: 5000   # job-path daily ladder base ($50/day):
+#                                  # warn 80% / soft-stop 100% / hard-stop 200%
+#     inbound_daily_cap: 200       # verified webhook wakes routed per UTC day;
+#                                  # overflow is parked (202 + audit, no wake)
 
 # ---- VOICE LIBRARY ----
 voice_library:

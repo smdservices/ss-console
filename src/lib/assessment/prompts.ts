@@ -3,22 +3,26 @@
  *
  * The operator skill BODIES are the single source of truth. They live in
  * `operator/` and are tested by the eval harness; here they are loaded verbatim
- * via Vite `?raw` and wrapped with a thin web-runtime directive. The same skill
- * text that earns its caliber on the harness drives the live conversation — no
- * second copy to drift.
+ * and wrapped with a thin web-runtime directive. The same skill text that earns
+ * its caliber on the harness drives the live conversation — no second copy to
+ * drift. The `?raw` imports and their operator/ paths are centralized in
+ * `./operator-skill-sources` (code review 2026-07-02 §1.8) so this file no
+ * longer reaches into the operator/ directory layout directly.
  *
  * These are pure derived constants (static string concatenation of static
  * imports), not request-scoped state — safe at module scope in a Worker.
  */
 
-// Node [1] — the interview skill + its references (assembled like the harness does).
-import interviewerSkill from '../../../operator/assessment-eval/fixtures/interviewer-skill/SKILL.md?raw'
-import coverageModel from '../../../operator/assessment-eval/fixtures/interviewer-skill/references/coverage-model.md?raw'
-import probeRepertoire from '../../../operator/assessment-eval/fixtures/interviewer-skill/references/probe-repertoire.md?raw'
-// Node [2] — the findings-draft skill + its references.
-import findingsSkill from '../../../operator/skills/assessment-findings-draft/SKILL.md?raw'
-import findingsOutputFormat from '../../../operator/skills/assessment-findings-draft/references/output-format.md?raw'
-import findingsDiscipline from '../../../operator/skills/assessment-findings-draft/references/discipline.md?raw'
+import { operatorSkillSources } from './operator-skill-sources'
+
+const {
+  interviewerSkill,
+  coverageModel,
+  probeRepertoire,
+  findingsSkill,
+  findingsOutputFormat,
+  findingsDiscipline,
+} = operatorSkillSources
 
 /** The interviewer emits this on its own line when the assessment is genuinely complete. */
 export const ASSESSMENT_COMPLETE_SENTINEL = '===ASSESSMENT-COMPLETE==='

@@ -130,3 +130,24 @@ def test_injected_send_refused_even_with_autonomous_skill_scalar():
         current_turn_approval=False,
     )
     assert not decision.allowed
+
+
+def test_confirm_send_refused_on_tainted_turn_even_with_approval():
+    # ADR 0071: the `confirm` ceiling is the one exposure value that consults
+    # current_turn_approval — but the taint-gate DOMINATES and sits before the
+    # send branch. A turn that ingested untrusted inbound content cannot reach the
+    # confirm allow-path, even with the approval flag set: an inbound/injected
+    # "reply yes" must never turn into a send. This is the load-bearing invariant
+    # for confirm-over-channel (the approval must come from a trusted path, not the
+    # tainted inbound turn).
+    decision = enforce(
+        ceiling=Ceiling.DRAFT_FOR_REVIEW,
+        action=ActionClass.EXTERNAL_SEND,
+        skill_name="inbox-triage",
+        tool_name="gmail.send",
+        current_turn_approval=True,
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.CONFIRM},
+        inbound_trust_class="external_untrusted",
+    )
+    assert not decision.allowed
+    assert decision.audit_action == "refuse"

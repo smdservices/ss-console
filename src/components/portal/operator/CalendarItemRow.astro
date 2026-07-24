@@ -12,7 +12,7 @@
  * reschedule machinery; this PR provides the working link target.
  *
  * Plainspoken aesthetic (mirrors DraftRow): 2px ink divider between
- * rows, file-style mono numerics for the time range, Archivo Narrow
+ * rows, file-style mono numerics for the time range, JetBrains Mono
  * uppercase labels for column captions, type chip on the right. The
  * outer 3px ink frame is provided by CalendarAgenda — this component
  * is borderless at the row level so consecutive rows stitch cleanly.
@@ -51,9 +51,11 @@ interface Props {
    * for stable visual rhythm even when ids change underneath.
    */
   serial?: string
+  /** Instance-scoped operator base path (`/portal/products/operator/<slug>`). */
+  operatorBase: string
 }
 
-const { item, conflictCount, serial } = Astro.props
+const { item, conflictCount, serial, operatorBase } = Astro.props
 const resolvedSerial = serial ?? item.id.slice(0, 2).toUpperCase()
 
 // `ai_scheduled` is the higher-trust state — already on the customer's
@@ -69,7 +71,7 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
 ---
 
 <a
-  href={`/portal/products/operator/calendar/${item.id}`}
+  href={`${operatorBase}/calendar/${item.id}`}
   aria-describedby={conflictId}
   class="group block bg-[color:var(--ss-color-surface)] border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 transition-colors hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
 >
@@ -78,7 +80,7 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
   >
     {/* № cell */}
     <div
-      class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell"
+      class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-body font-black text-num-cell"
       aria-hidden="true"
     >
       № {resolvedSerial}
@@ -89,11 +91,11 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
     >
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
       >
         When
       </span>
-      <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+      <span class="font-body font-bold text-[color:var(--ss-color-text-primary)] truncate">
         {time.datePart}
       </span>
       <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)] truncate">
@@ -107,16 +109,16 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
     >
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
       >
         Title
       </span>
-      <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+      <span class="font-body font-bold text-[color:var(--ss-color-text-primary)] truncate">
         {item.title}
       </span>
       {
         item.location && (
-          <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+          <span class="font-body text-sm text-[color:var(--ss-color-text-secondary)] truncate">
             {item.location}
           </span>
         )
@@ -128,7 +130,7 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
     >
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
       >
         Source
       </span>
@@ -142,17 +144,17 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
     >
       <span
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
       >
         Related
       </span>
       {
         item.relatedMatterTitle ? (
-          <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+          <span class="font-body text-sm text-[color:var(--ss-color-text-primary)] truncate">
             {item.relatedMatterTitle}
           </span>
         ) : (
-          <span class="font-mono text-sm text-[color:var(--ss-color-text-muted)]">None</span>
+          <span class="font-body text-sm text-[color:var(--ss-color-text-muted)]">None</span>
         )
       }
     </div>
@@ -168,7 +170,7 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
     {/* Arrow */}
     <div
       aria-hidden="true"
-      class="hidden md:flex items-center justify-center font-['Archivo'] font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
+      class="hidden md:flex items-center justify-center font-body font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
     >
       →
     </div>

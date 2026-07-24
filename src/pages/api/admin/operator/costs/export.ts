@@ -16,6 +16,7 @@
  * 400 rather than silently widening the query.
  */
 
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import {
@@ -24,51 +25,40 @@ import {
   listCostCustomers,
   rowsToCsv,
 } from '../../../../../lib/admin/cost-query'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 async function handleGet({ request, locals }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
 
   const url = new URL(request.url)
   const customerSlug = url.searchParams.get('customer_slug')
   if (!customerSlug) {
-    return jsonResponse({ error: 'customer_slug query param is required' }, 400)
+    return jsonResponse(400, { error: 'customer_slug query param is required' })
   }
 
   const defaults = defaultWindow()
   const start = url.searchParams.get('start') ?? defaults.start
   const end = url.searchParams.get('end') ?? defaults.end
   if (!DATE_RE.test(start) || !DATE_RE.test(end)) {
-    return jsonResponse({ error: 'start and end must be YYYY-MM-DD' }, 400)
+    return jsonResponse(400, { error: 'start and end must be YYYY-MM-DD' })
   }
   if (start >= end) {
-    return jsonResponse({ error: 'start must be before end' }, 400)
+    return jsonResponse(400, { error: 'start must be before end' })
   }
 
   const customers = await listCostCustomers(env.DB)
   const customer = customers.find((c) => c.customer_slug === customerSlug)
   if (!customer) {
-    return jsonResponse({ error: 'customer not found' }, 404)
-  }
-  if (!customer.per_customer_d1_database_id) {
-    return jsonResponse({ error: 'customer has no per-customer D1 database configured' }, 409)
-  }
-  if (!env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN) {
-    return jsonResponse({ error: 'CF_ACCOUNT_ID / CF_D1_API_TOKEN not configured' }, 503)
+    return jsonResponse(404, { error: 'customer not found' })
   }
 
-  const result = await fetchCustomerCostRows(
-    { CF_ACCOUNT_ID: env.CF_ACCOUNT_ID, CF_D1_API_TOKEN: env.CF_D1_API_TOKEN },
-    customer.per_customer_d1_database_id,
-    start,
-    end
-  )
+  // Central cost_telemetry read via the D1 binding (ADR 0062).
+  const result = await fetchCustomerCostRows(env.DB, customerSlug, start, end)
   if (result.error) {
-    return jsonResponse({ error: result.error }, 502)
+    return jsonResponse(502, { error: result.error })
   }
 
   const csv = rowsToCsv(customerSlug, result.rows)
@@ -80,13 +70,6 @@ async function handleGet({ request, locals }: APIContext): Promise<Response> {
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Cache-Control': 'no-store',
     },
-  })
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
   })
 }
 

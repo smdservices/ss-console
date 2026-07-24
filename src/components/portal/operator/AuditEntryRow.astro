@@ -14,7 +14,7 @@
  *
  * Plainspoken aesthetic matching DraftRow.astro (#869): 2px ink
  * divider between rows, file-style mono numerics for timestamp /
- * actor / target / action cells, Archivo Narrow uppercase labels for
+ * actor / target / action cells, JetBrains Mono uppercase labels for
  * column captions. The outer 3px ink frame is provided by
  * AuditLogTable — this component is borderless at the row level so
  * consecutive rows stitch cleanly.
@@ -29,11 +29,11 @@
 import StatusPill from '../StatusPill.astro'
 import {
   decisionTone,
-  formatAuditAction,
   formatAuditDecision,
   formatAuditTimestamp,
   type AuditEntry,
 } from '../../../lib/portal/operator/audit'
+import { clientSummaryFor } from '../../../lib/portal/operator/activity-language'
 
 interface Props {
   entry: AuditEntry
@@ -50,7 +50,10 @@ const resolvedSerial = serial ?? entry.id.slice(0, 2).toUpperCase()
 const decisionLabel = formatAuditDecision(entry.decision)
 const decisionToneValue = decisionTone(entry.decision)
 
-const actionLabel = formatAuditAction(entry.action)
+// Curated client language only; upstream filtering guarantees a mapped
+// entry, and an unmapped straggler renders an empty cell, never raw
+// vocabulary.
+const actionLabel = clientSummaryFor(entry) ?? ''
 const tsLabel = formatAuditTimestamp(entry.ts)
 
 // Truncate the reason in the row caption; the full text is in the
@@ -75,7 +78,7 @@ const hasExpandableContent = Boolean(entry.reason)
     >
       {/* № cell */}
       <div
-        class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell"
+        class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-body font-black text-num-cell"
         aria-hidden="true"
       >
         № {resolvedSerial}
@@ -86,7 +89,7 @@ const hasExpandableContent = Boolean(entry.reason)
         class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
       >
         <span
-          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+          class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
         >
           When
         </span>
@@ -100,7 +103,7 @@ const hasExpandableContent = Boolean(entry.reason)
         class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
       >
         <span
-          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+          class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
         >
           Actor
         </span>
@@ -109,7 +112,7 @@ const hasExpandableContent = Boolean(entry.reason)
         </span>
         {
           entry.actorRole && (
-            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+            <span class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
               {entry.actorRole}
             </span>
           )
@@ -121,11 +124,11 @@ const hasExpandableContent = Boolean(entry.reason)
         class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
       >
         <span
-          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+          class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
         >
           Action
         </span>
-        <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+        <span class="font-body font-bold text-[color:var(--ss-color-text-primary)] truncate">
           {actionLabel}
         </span>
         {
@@ -142,7 +145,7 @@ const hasExpandableContent = Boolean(entry.reason)
         class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
       >
         <span
-          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+          class="font-mono text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
         >
           Target
         </span>
@@ -152,7 +155,7 @@ const hasExpandableContent = Boolean(entry.reason)
               {entry.target}
             </span>
           ) : (
-            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+            <span class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
               None
             </span>
           )
@@ -167,7 +170,7 @@ const hasExpandableContent = Boolean(entry.reason)
           decisionLabel.length > 0 ? (
             <StatusPill tone={decisionToneValue} label={decisionLabel.toUpperCase()} />
           ) : (
-            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+            <span class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
               No decision
             </span>
           )
@@ -177,7 +180,7 @@ const hasExpandableContent = Boolean(entry.reason)
       {/* Expand indicator */}
       <div
         aria-hidden="true"
-        class="hidden md:flex items-center justify-center font-['Archivo'] font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-open:rotate-180"
+        class="hidden md:flex items-center justify-center font-body font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-open:rotate-180"
       >
         {hasExpandableContent ? '▾' : ''}
       </div>
@@ -190,7 +193,7 @@ const hasExpandableContent = Boolean(entry.reason)
     {
       entry.reason && (
         <div class="px-5 pb-3 md:pl-[calc(56px+1.25rem)] md:pr-5 -mt-1 md:-mt-3">
-          <p class="font-mono text-sm text-[color:var(--ss-color-text-secondary)]">
+          <p class="font-body text-sm text-[color:var(--ss-color-text-secondary)]">
             {reasonTruncated}
           </p>
         </div>
@@ -203,17 +206,17 @@ const hasExpandableContent = Boolean(entry.reason)
       <div class="px-5 pb-5 md:pl-[calc(56px+1.25rem)] md:pr-5 flex flex-col gap-3 border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-4 mt-2">
         {entry.reason && entry.reason.length > 120 && (
           <div>
-            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+            <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
               Full reason
             </p>
-            <p class="mt-1 font-mono text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap break-words">
+            <p class="mt-1 font-body text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap break-words">
               {entry.reason}
             </p>
           </div>
         )}
 
         <div>
-          <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+          <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
             Event id
           </p>
           <p class="mt-1 font-mono text-xs text-[color:var(--ss-color-text-muted)] break-all">

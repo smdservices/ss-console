@@ -180,6 +180,7 @@ launch_broker() {
     SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
     SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
     SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
+    SMD_AGENT_UID="$(id -u hermes)" \
     SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
     /opt/workspace-broker/.venv/bin/python \
     -m workspace_broker.server
@@ -283,6 +284,42 @@ MCP_STORE_DIR="/run/smd-mcp"
 mkdir -p "${MCP_STORE_DIR}"
 chown hermes:hermes "${MCP_STORE_DIR}"
 chmod 0700 "${MCP_STORE_DIR}"
+
+# ============================================================================
+# ADR 0009 / SEC-22 — cross-machine isolation boot check (fail-closed)
+# ============================================================================
+# The last root gate before the privilege-drop to the hermes gateway. Verify
+# that every Phase-1 storage binding — the per-customer R2 skill-bodies bucket,
+# the shared config bucket, and the on-volume SQLite paths (SMD_D1_AUDIT_BINDING
+# / SMD_D1_AGENT_STATE_BINDING) — resolves to THIS Machine's own customer
+# namespace, derived from CUSTOMER_SLUG. A binding that names another customer's
+# slug, escapes the volume root (ADR 0007), or is unbound is the cross-Machine
+# isolation failure mode ADR 0009 exists to catch: refuse to serve.
+#
+# verify_at_boot() (the invariant_7 __main__ shim) reads the real env; on a
+# violation it prints the offending binding to stderr AND emits an
+# INVARIANT_BOOT_CHECK_FAILED row through the broker's append-only audit_append
+# (SMD_AUDIT_BROKER_SOCKET is live at this point — the broker started above, and
+# this root process is still the admitted SMD_GATEWAY_PID peer). The exit code
+# is the load-bearing refusal; audit-emit is best-effort and never weakens it.
+# On a clean boot verify_at_boot returns 0 without touching the broker socket.
+#
+# Runs BEFORE any skill loads, connector authenticates, or memory read — all of
+# that is post-exec, in bootstrap/gateway. FAIL-CLOSED on a degraded substrate:
+# a missing OR unimportable invariant module is itself a refusal (exit 3), never
+# a silent skip — no stub/NoOp path reports a false pass (the standing
+# fail-closed posture, e.g. bootstrap.sh's harness-less-gateway gates).
+INVARIANT7_BOOT_CHECK="/app/safety-substrate/invariants/invariant_7.py"
+if [ ! -f "${INVARIANT7_BOOT_CHECK}" ]; then
+  log "FATAL: cross-machine isolation boot check module missing (${INVARIANT7_BOOT_CHECK}); refusing to boot (ADR 0009 / SEC-22)"
+  exit 3
+fi
+if /opt/hermes/.venv/bin/python3 "${INVARIANT7_BOOT_CHECK}"; then
+  log "Cross-machine isolation boot check PASSED (ADR 0009 / SEC-22)"
+else
+  log "FATAL: INVARIANT_BOOT_CHECK_FAILED — cross-machine isolation boot check refused boot (ADR 0009 / SEC-22); see stderr for the offending binding or a module import error (both fail closed)"
+  exit 3
+fi
 
 exec setpriv \
   --reuid=hermes \

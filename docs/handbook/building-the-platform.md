@@ -61,7 +61,7 @@ sub-worker. Two steps in that file carry scars worth knowing: the workflow runs
 on every pull request with no `branches` filter, because a `branches: [main]`
 filter (removed 2026-06-08) matched the PR's base, so a stacked PR based on a
 feature branch silently skipped the whole suite; and the `Test Workers` step was
-added 2026-06-12 after seven worker suites ran locally under `npm run verify` but
+added 2026-06-12 after worker suites ran locally under `npm run verify` but
 never in CI.
 
 There is a separate workflow, `operator-substrate.yml`, that runs the Operator's
@@ -75,16 +75,21 @@ the pytest suite run locally before merge (`cd operator && python3 -m pytest ...
 
 Parallel sessions do not share a working tree. Each runs in its own git worktree -
 an isolated checkout on its own branch - so independent work does not collide.
-The cost to watch: Bash runs in the worktree, but `Write` and `Edit` follow the
-absolute path given. A parent-repo absolute path lands the file in the parent
-while tests run against the untouched worktree, producing a false green. Inside a
-worktree session, write to worktree-prefixed paths.
+Since 2026-07-06 this is enforced, not conventional: the primary checkout is
+read-only for agent sessions. A `PreToolUse` hook (`.claude/hooks/worktree-guard.mjs`,
+wired in the checked-in `.claude/settings.json`) rejects `Edit`/`Write`/`NotebookEdit`
+calls targeting the primary tree; paths under `.claude/` are exempt because the
+worktrees themselves live there. A `SessionStart` hook (`.claude/hooks/sync-primary.sh`)
+fast-forwards a clean primary checkout to `origin/main` at session start, so the
+primary tree can no longer drift stale the way it did before the guard (87 commits
+behind, 46 dirty paths of already-merged residue).
 
-> TODO(why): The worktree isolation convention is operational practice (it is how
-> this handbook was authored and is recorded in session memory) rather than a
-> documented file in this repo. I verified the mechanism and the false-green
-> failure mode from the worktree this session runs in, but did not find a
-> canonical runbook page to cite for the convention itself.
+The guard also closes an older failure mode: Bash runs in the worktree, but
+`Write` and `Edit` follow the absolute path given, so a parent-repo absolute path
+used to land the file in the parent while tests ran green against the untouched
+worktree. Those writes are now rejected instead of silently landing.
+`tests/worktree-guard.test.ts` pins the blocked and exempt paths; the Captain-only
+escape hatch is `SS_ALLOW_PRIMARY_WRITES=1`.
 
 ## The portable coding standards
 

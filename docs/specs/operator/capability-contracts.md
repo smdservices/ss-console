@@ -46,11 +46,7 @@ type DraftRef = { id: string; storage_uri: string; created_at: string }
 
 // ---------- 1. PracticeManagement ----------
 type MatterEvent =
-  | 'matter.created'
-  | 'matter.updated'
-  | 'matter.closed'
-  | 'document.added'
-  | 'note.added'
+  'matter.created' | 'matter.updated' | 'matter.closed' | 'document.added' | 'note.added'
 
 interface SubscriptionRef {
   id: string // adapter-prefixed: `<adapter-slug>:<vendor_id>`

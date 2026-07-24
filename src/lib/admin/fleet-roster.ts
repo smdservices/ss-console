@@ -200,44 +200,55 @@ export interface RosterHealth {
   note: string | null
 }
 
-const HEALTH_RANK: Record<RosterHealthColor, number> = { gray: 0, green: 1, yellow: 2, red: 3 }
+// gray ("no signal") ranks ABOVE green: an unknown-liveness Machine must never
+// read calmer than a live one. Ordering: green < gray < yellow < red.
+const HEALTH_RANK: Record<RosterHealthColor, number> = { green: 0, gray: 1, yellow: 2, red: 3 }
 
 /**
  * Combine the heartbeat liveness ("is the process alive", fleet_status) with
  * the runtime-summary rollup ("is the operator OK" — folds in sticky-stop,
  * escalation pressure, connector health per migration 0052) into one fleet
- * dot. Takes the more alarming of the two so the column never reads calmer
- * than reality. `heartbeatColor` is the color from `heartbeatDisplay`;
- * `summaryStatus` is null when no Machine has pushed a summary yet.
+ * dot. The heartbeat is the source of truth for LIVENESS; the summary may only
+ * ESCALATE it (operator reports a warning/problem), never paint a Machine green
+ * or downgrade a live-green Machine to "unknown". So only a yellow/red summary
+ * participates — a green or absent summary leaves the heartbeat verdict standing.
+ *
+ * Previously the summary's own gray/green could override the heartbeat because
+ * gray was ranked below green: a Machine that had never sent a heartbeat (gray)
+ * but carried a stale "green" summary painted GREEN — the column reading calmer
+ * than reality, the one thing a fleet dot must never do. `summaryStatus` is null
+ * when no Machine has pushed a summary yet.
  */
 export function rosterHealth(
   heartbeatColor: RosterHealthColor,
   heartbeatLabel: string,
-  summaryStatus: SummaryStatus | null
+  summaryStatus: SummaryStatus | null,
+  stickyStopLevel: string | null = null
 ): RosterHealth {
-  const summaryColor = summaryStatusToColor(summaryStatus)
-  const color =
-    HEALTH_RANK[summaryColor] > HEALTH_RANK[heartbeatColor] ? summaryColor : heartbeatColor
-  const note =
-    summaryStatus === 'red'
-      ? 'operator reports a problem'
-      : summaryStatus === 'yellow'
-        ? 'operator reports a warning'
-        : null
-  return { color, label: heartbeatLabel, note }
-}
-
-function summaryStatusToColor(status: SummaryStatus | null): RosterHealthColor {
-  switch (status) {
-    case 'green':
-      return 'green'
-    case 'yellow':
-      return 'yellow'
-    case 'red':
-      return 'red'
-    default:
-      return 'gray'
+  // The cost breaker (ADR 0062, fleet_status.sticky_stop_level) escalates
+  // like the summary: SOFT_STOP -> yellow, HARD_STOP -> red. It can never
+  // calm a dot; a tripped breaker on a live-green Machine must show.
+  const breakerEscalation: RosterHealthColor | null =
+    stickyStopLevel === 'HARD_STOP' ? 'red' : stickyStopLevel === 'SOFT_STOP' ? 'yellow' : null
+  const summaryEscalation: RosterHealthColor | null =
+    summaryStatus === 'red' ? 'red' : summaryStatus === 'yellow' ? 'yellow' : null
+  let color = heartbeatColor
+  for (const escalation of [summaryEscalation, breakerEscalation]) {
+    if (escalation && HEALTH_RANK[escalation] > HEALTH_RANK[color]) color = escalation
   }
+  // The breaker note wins when both fire: a hard-stopped operator is the
+  // more actionable fact (recovery is a Captain clear, not investigation).
+  const note =
+    stickyStopLevel === 'HARD_STOP'
+      ? 'cost breaker hard stop'
+      : stickyStopLevel === 'SOFT_STOP'
+        ? 'cost breaker soft stop'
+        : summaryStatus === 'red'
+          ? 'operator reports a problem'
+          : summaryStatus === 'yellow'
+            ? 'operator reports a warning'
+            : null
+  return { color, label: heartbeatLabel, note }
 }
 
 export function rosterHealthDotClass(color: RosterHealthColor): string {

@@ -48,9 +48,11 @@ import {
 } from './sections-identity'
 import { checkPersonas } from './sections-personas'
 import { checkConnectors } from './sections-connectors'
+import { checkCustodyExceptions, checkCustodyGuard } from './sections-custody-guard'
 import { checkScope } from './sections-scope'
 import {
   checkBusinessHours,
+  checkDigest,
   checkComplianceEnabled,
   checkEscalation,
   checkLogging,
@@ -107,11 +109,15 @@ export type {
   Observability,
   McpConnector,
   McpConnectorAccess,
+  McpIssuancePolicy,
   Relationship,
   RelationshipPerson,
   DataPosture,
   Vertical,
-  TrustCeiling,
+  ExposureCeiling,
+  SkillInitiation,
+  PersonaEntitlements,
+  AuthoredExposureActionClass,
   Pronouns,
   LogLevel,
   LogShip,
@@ -120,7 +126,7 @@ export type {
 export {
   ACCEPTED_VERTICALS,
   ACCEPTED_ADDONS,
-  ACCEPTED_TRUST_CEILINGS,
+  ACCEPTED_EXPOSURE_CEILINGS,
   ACCEPTED_USER_ROLES,
   ACCEPTED_DATA_POSTURES,
   ACCEPTED_PERSONA_STATUSES,
@@ -234,10 +240,12 @@ interface ParsedSections {
   voiceLibrary: ReturnType<typeof checkVoiceLibrary>
   voiceCohorts: ReturnType<typeof checkVoiceCohorts>
   businessHours: ReturnType<typeof checkBusinessHours>
+  digest: ReturnType<typeof checkDigest>
   logging: ReturnType<typeof checkLogging>
   pause: ReturnType<typeof checkPause>
   observability: Observability
   webhookTriggers: ReturnType<typeof checkWebhookTriggers>
+  custodyExceptions: ReturnType<typeof checkCustodyExceptions>
   complianceEnabled: boolean
   authority: AuthorityPosture
   credentialCustodyDefault: CredentialCustody
@@ -272,6 +280,10 @@ function validateSections(
   const escalation = checkEscalation(root, errors)
   const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
+  const mcpConnector = checkMcpConnector(root, users, personas, errors)
+  // ADR 0044 Decision 8 / ADR 0045 §7 (#1841): code_execution vs gateway-held creds
+  const custodyExceptions = checkCustodyExceptions(root, errors)
+  checkCustodyGuard(root, personas, connectors, custodyExceptions, errors)
   return {
     schemaVersion,
     customerId,
@@ -290,14 +302,16 @@ function validateSections(
     voiceLibrary: checkVoiceLibrary(root, errors),
     voiceCohorts: checkVoiceCohorts(root, errors),
     businessHours: checkBusinessHours(root, errors),
+    digest: checkDigest(root, errors),
     logging: checkLogging(root, errors),
     pause: checkPause(root, errors),
     observability: checkObservability(root, errors),
     webhookTriggers,
+    custodyExceptions,
     complianceEnabled: checkComplianceEnabled(root, errors),
     authority: checkAuthority(root, errors),
     credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
-    mcpConnector: checkMcpConnector(root, users, personas, errors),
+    mcpConnector,
     relationship: checkRelationship(root, errors),
   }
 }
@@ -327,11 +341,13 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     voice_library: p.voiceLibrary,
     voice_cohorts: p.voiceCohorts,
     business_hours: p.businessHours,
+    digest: p.digest,
     memory: p.memory as Memory,
     logging: p.logging,
     pause: p.pause,
     observability: p.observability,
     webhook_triggers: p.webhookTriggers,
+    custody_exceptions: p.custodyExceptions ?? [],
     compliance_enabled: p.complianceEnabled,
     authority: p.authority,
     credential_custody_default: p.credentialCustodyDefault,

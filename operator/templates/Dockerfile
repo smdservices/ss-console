@@ -37,16 +37,16 @@
 # directly; the venturecrane/hermes-agent fork was retired by ADR 0024.
 #
 # HERMES_REF is the full pin string, retained for provenance and logging.
-ARG HERMES_REF=v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+ARG HERMES_REF=v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
 
 # Upstream date-tag to clone (the part before '@').
-ARG HERMES_UPSTREAM_TAG=v2026.5.16
+ARG HERMES_UPSTREAM_TAG=v2026.7.1
 
 # Upstream commit SHA (the part after '@'). The post-clone assertion verifies
 # the cloned HEAD matches this exactly; any divergence (upstream re-tag, stale
 # pin) fails the build. This is the integrity check proving we ship unmodified
 # upstream Hermes.
-ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+ARG HERMES_UPSTREAM_SHA=7c1a029553d87c43ecff8a3821336bc95872213b
 
 # hermes-smd overlay (venturecrane/hermes-smd-overlay): plugin pack + CLI
 # (`hermes-smd bootstrap`, `hermes-smd customer-sync`) + the importable
@@ -245,7 +245,114 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # addressed to the sender (the tool the reply channel acts on), not the trust-
 # refused reply_to_message. Makes reply delivery deterministic + model-independent.
 # Superset of 1d6d5b2.
-ARG OVERLAY_REF="33b58ad92befd400d7aab36925544cc77e286caa"
+# 9b20a1a — skill-driving prompt for vendor webhook routes (overlay#118): every
+# materialized webhook route shared one prompt (_INBOUND_EMAIL_PROMPT), so a
+# verified Smokeball matter.updated reached the agent as an email-draft instruction
+# (it tried agentmail create_draft instead of running matter-memo-on-update).
+# translate now gives non-email skill-routed channels a skill-driving prompt
+# (names the routed skill + skill_view fallback + payload as untrusted DATA); the
+# AgentMail email-reply channel keeps the email prompt; MCP route untouched. Not a
+# tracked pair (bootstrap/translate.py); all 4 tracked twins unchanged across
+# 2b694947→9b20a1ac, overlaySha256 stable. Superset of 33b58ad.
+# 0c9d165 (#151, ss #1804, ADR 0071): add `confirm` ceiling value + external_send
+# enforcement to plugins/hermes-smd-trust/enforce.py (mirrors the in-tree
+# operator/adapter/trust_ceiling.py). Range 539f42c7..0c9d165 touches enforce.py +
+# test only — NOT tracked twins, so every overlaySha256 is unchanged; only overlayRef.
+# d5187194 (#152, ss ADR 0073): remove the law-firm external_send entry from
+# VERTICAL_FLOORS (shared/action_classes.py) — outside-send is the firm's authored
+# dial per ADR 0035; the floor machinery stays (empty) for future regulation-
+# compelled floors. Range 0c9d165..d5187194 touches shared/action_classes.py +
+# enforce.py + config_applier/safety.py + tests — NOT tracked twins, so every
+# overlaySha256 is unchanged; only overlayRef. Superset of 0c9d165.
+# 78064d3 (#154, ss #1805, ADR 0071): bootstrap/validate.py accepts the `confirm`
+# exposure ceiling for external_send (rejects it off the send classes) — keeps the
+# on-box config_applier validator in lockstep with the console. Range 8806099..78064d3
+# touches bootstrap/validate.py + contract tests — NOT tracked twins, so every
+# overlaySha256 is unchanged; only overlayRef. Range 78064d3..3724e78 (overlay#155,
+# ss #1781 trigger cooldown) touches shared/gate_trigger_throttle.py (new) +
+# webhook_gate.py + bootstrap/validate.py + contract tests — NOT tracked twins,
+# so every overlaySha256 is unchanged; only overlayRef. Range 3724e78..17d33d7
+# (overlay#156, ADR 0075 recipient-class enrichment) moves ONE tracked twin —
+# shared/recipient_classifier.py (CLIENT/VENDOR classes + typed classifier) —
+# so that pair's overlaySha256 is re-recorded alongside this bump; the other
+# changed files (enforce.py, action_classes.py, customer_config.py,
+# bootstrap/validate.py, bootstrap/translate.py) are not tracked twins.
+# 5b7318cb (#158, ss ADR 0073): renders the persona's AUTHORED exposure into
+# SOUL.md ("Authored autonomy") so the agent acts AT its authored ceiling
+# instead of defaulting below it (the ADR 0073 live proof drafted a chase its
+# autonomous ceiling allowed it to send). translate.py + tests only — no
+# tracked twin moved. Superset of 17d33d7.
+# f3e48d6b (#157, ss #1806, ADR 0071): the confirm-over-channel approval stamp —
+# a send withheld at the confirm ceiling is captured, an allowlisted-Telegram
+# bare-affirmative marks it approved, and the STORED payload is replayed verbatim
+# on the re-invoke (shared/pending_send.py + plugins/hermes-smd-trust/{approval,
+# enforce,__init__}.py + tests). None are tracked twins, so every overlaySha256 is
+# unchanged; only overlayRef. Superset of 5b7318cb.
+# ba5b8179 (#159): stop tracking the repo's .worktrees/ gitlinks. #158 accidentally
+# committed two live git-worktree checkouts as gitlinks with no .gitmodules, so
+# `uv pip install "git+<repo>@<sha>"` here died on `git submodule update --init`
+# — it broke EVERY seat image build from #158 (f3e48d6/5b7318cb) onward. Untracked +
+# gitignored. Twin recipient_classifier.py unchanged, so its overlaySha256 is unchanged.
+# 63a3bca (#162, ADR 0075): proactive outbound relay — deliver graduated chases to
+# rostered client/vendor. (Comment carried through the #163 rebase; #163 is its child.)
+# fdf8870a (#163, ss #1806, ADR 0071 harden): out-of-band send of the approved
+# confirm payload — the overlay dispatches the approved send itself (the LLM does
+# not reliably re-invoke on "yes"), re-authorized through the SAME evaluate_tool_call
+# gate + emitting CONFIRM_SEND_DISPATCHED/FAILED audit rows. Carries #162
+# (proactive outbound relay, ADR 0075) which merged just ahead of it. Range
+# 0f3e929..fdf8870 touches plugins/hermes-smd-trust/{outbound_send.py(new),__init__.py}
+# + plugins/hermes-smd-reply + tests — NOT tracked twins, so every overlaySha256 is
+# unchanged; only overlayRef. Superset of 63a3bca (#162) / 0f3e9291 (#161).
+#
+# 36fa158d (overlay #165 + #167, ss #1915/#1916): the escalation-ledger mediated
+# tools (hermes-smd-escalation plugin: escalation_append via the broker verb +
+# escalation_state over the ledger twin) that replace the refused execute_code
+# append snippet, plus the durable-job tool mappings (unmapped ⇒ REFUSED had
+# left both tool sets inert at runtime — found by the WP-D live proof). NEW
+# tracked twin pair: shared/escalation_ledger.py <-> operator/workspace_broker/
+# escalation_ledger.py (byte-identical, sha c4882668). Superset of d6739132.
+# 3ffc2d1f (overlay #170, ss #1941): peer-memory capture nudge — the ADR 0048
+# learned lane's WRITE side. pre_llm_call now injects the record_peer_preference
+# capture instruction on every sender-attributed turn (zero rows on every seat
+# because nothing ever told the agent to record). Touches only
+# plugins/hermes-smd-peer-memory + its tests — no tracked twins, overlaySha256
+# values unchanged; only overlayRef. Superset of a16f9580.
+# aa7d78f2 (overlay #171, ss #1941 probe find): peer-memory keys the peer on
+# the Svix-verified sender via a claim-once unbound-origin handoff on
+# SessionInboundOrigin (the dispatch session_id is empty on the live email
+# path, and Hermes threads the ROUTE as sender_id — the first captured
+# preference keyed webhook:agentmail, a channel not a person). Touches
+# shared/inbound.py (contract-tested vendored copy, not a sha-tracked twin) +
+# plugins/hermes-smd-peer-memory + tests — every overlaySha256 unchanged,
+# only overlayRef. Superset of 3ffc2d1f.
+# eb17f3cb (overlay #172, ss #1943): inbound taint/fence rendezvous — the
+# chokepoint claims the fresh dispatch-unkeyed PENDING bucket and fences +
+# taints under the turn's own session id (the live email path enqueues under
+# session=''; the wall never fired). Rostered senders (scope.inbound_allow_from
+# — the list that already authorizes autonomous replies) classify internal: no
+# fence/taint, keeping the ADR 0048 capture lane alive; strangers stay
+# unknown_external and now actually hit the wall. shared/inbound.py +
+# webhook-router + hermes-smd-inbound + tests — no sha-tracked twins,
+# overlayRef-only. Superset of aa7d78f2.
+# f8808c6c (overlay #173, ss #1946): per-turn tool-surface trim — translate
+# emits agent.disabled_toolsets on every profile config (browser/computer_use/
+# media/social/session_search; + workspace when the seat authors no
+# google_auth), and agentmail blocked_tools excludes 8 inbox-admin/destructive
+# tools via native mcp_servers.tools.exclude. No send/draft/read tool leaves
+# the menu (ADR 0025 unchanged). Measured on the live payload
+# (vfy_01KXKJEEV1R4EPYFKA6J7YDH16): first call 40,457 tokens, 70% tool
+# schemas; trim = -7,272 tokens/turn of 5m prompt-cache write.
+# bootstrap/translate.py + bootstrap/mcp_registry.py + tests — config
+# emission only, overlayRef-only. Superset of eb17f3cb.
+# 73a2df8 — #174 report emails render an html half at send time. The report
+# skills author markdown (## headings, numbered items) that was only ever sent
+# as plaintext, so a reader saw literal hash marks. shared/report_render.py
+# renders that markdown to an inline-styled html body; hermes-smd-trust attaches
+# it in pre_tool_call AFTER every gate allows (purity invariant: the html adds
+# no content the fabrication/floor/taint scans did not already see). Block
+# structure gates the render, so prose replies stay byte-identical. Superset of
+# f8808c6.
+ARG OVERLAY_REF="73a2df84c32e0a9fc38fa1f1abb8a943a854506b"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -275,6 +382,10 @@ ARG OVERLAY_REPO
 ARG OVERLAY_REF
 
 ENV CUSTOMER_SLUG=${CUSTOMER_SLUG}
+# ADR 0023 Wave 1: expose the baked overlay ref at runtime so the gate's
+# heartbeat emitter reports it as the fleet-view `version` — the boot-time
+# overlay refresh pins /opt/data to this exact ref, so it is the running code.
+ENV SMD_OVERLAY_REF=${OVERLAY_REF}
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data
@@ -371,6 +482,13 @@ RUN uv venv /opt/workspace-broker/.venv \
 # reality-check and live loop test ran against. It reads its OAuth token from
 # ~/.clio-mcp/tokens.enc (seeded by bootstrap.sh) under ENCRYPTION_KEY.
 RUN npm install -g @oktopeak/clio-mcp@2.0.0
+
+# NOTE: web search needs NO installed binary. It is Hermes' NATIVE brave-free
+# provider (plugins/web/brave_free, bundled in the pinned Hermes), selected by
+# customer.yaml `backend: native:brave-free` -> config web.search_backend and
+# keyed on BRAVE_SEARCH_API_KEY. The former @brave/brave-search-mcp-server install
+# was removed with the ADR 0070 native cut (2026-07-08) — MCP-wrapping a native
+# feature was the redundant layer.
 
 # Register the plugin pack with Hermes' loader. `hermes plugins install` clones
 # the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
@@ -481,6 +599,9 @@ COPY operator/templates/ensure-curator-disabled.py /app/ensure-curator-disabled.
 COPY operator/templates/ensure-disabled-skills.py /app/ensure-disabled-skills.py
 COPY operator/templates/ensure-operator-identity.py /app/ensure-operator-identity.py
 COPY operator/templates/ensure-telegram-allowlist.py /app/ensure-telegram-allowlist.py
+# Egress webhook-subscription reconciler orchestrator (hermes venv; dispatches to
+# each connector's own venv). Invoked non-fatally by bootstrap.sh after the R2 strip.
+COPY operator/bin/webhook_reconcile.py /app/webhook_reconcile.py
 # OP-P1-4 affirmative proof: boot-smoke runs this as the agent uid to confirm
 # the ledger is not agent-writable.
 COPY operator/templates/audit-write-fail-probe.py /app/audit-write-fail-probe.py

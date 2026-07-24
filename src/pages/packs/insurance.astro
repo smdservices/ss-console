@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Insurance Agencies',
   description:
-    'The Operator is a worker you hire, not software you buy. The insurance pack is its head start: a starting point shaped around new-business intake, the renewal cadence, and the service desk, which we configure with you and you customize to your agency. The licensed acts stay with your licensed people; you set the line.',
+    'The Operator is a worker you hire, not software you buy. It works inside your agency management system and alongside the way your team already services the book, carrying the connective work that never stops: new-business intake, certificates, endorsements, billing questions, claim notices, the renewal cadence, and the cancellation notice chased before a policy lapses. Every client-facing message goes to a person to review; the Operator never advises on coverage, never binds, and never issues a certificate that overstates the policy on record.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,191 +26,247 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/insurance/vertical.yaml (the intake, renewal, service-desk,
-// and retention skill families). These are templates we configure, not a finished,
-// running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. The life of one policy, from the first inquiry through the
+// service it needs in force and the renewal that keeps it alive, each step in the standard's
+// three-line shape (Operator does / your part / if it stalls). Built from the research-grade
+// internal spec brief (docs/specs/verticals/insurance.md) and corrected by the adversarial
+// gate (a veteran P&C agency principal): certificate reviewer is knowledgeable, not "licensed"
+// (issuing a COI is clerical); a neglected renewal renews anyway at a bad rate, it does not
+// "lapse on its own" (only non-pay lapses); the Operator never binds and reflects the effective
+// date the team confirms (binding-authority agencies effect changes immediately, so claiming
+// "not in force until the carrier confirms" is itself an E&O misstatement); the cadence carries
+// no presumptuous personal-lines numbers. Generic system categories, no brand names. The section
+// framing (illustrative + the fail-closed honesty in section 07) carries the truthfulness, per
+// the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'New-business intake',
-    body: 'A quote request captured wherever it lands, the exposure facts gathered, the acknowledgment drafted in your voice, the whole package routed to a producer.',
+    title: 'A new inquiry comes in',
+    operator:
+      'Captures the inquiry into the agency management system, checks it against your existing contacts, drafts an acknowledgment, and routes it to a producer. It never quotes a premium and never represents coverage or carrier appetite; that goes to the licensed producer.',
+    your: 'The producer picks it up.',
+    stalls: 'Re-flags if the inquiry sits unworked.',
   },
   {
-    title: 'The renewal desk',
-    body: 'The renewal cadence surfaced so nothing lapses, the outreach drafted to confirm changes, the carrier chased for the remarket answer.',
+    title: 'Gathering what a quote needs',
+    operator:
+      'Works the exposure checklist for the line of business, the drivers, vehicles, property, prior policy, requests what is missing, and assembles a structured worksheet for the producer.',
+    your: 'Nothing, unless it asks you to confirm something.',
+    stalls:
+      'Chases the client for the missing items. It collects facts only; no rating, no eligibility judgment, no coverage recommendation.',
   },
   {
-    title: 'The service desk',
-    body: 'The certificate built from what is on the policy, the endorsement relayed to the carrier, the policy-document question answered, the billing status reply, the first notice of loss captured and routed.',
+    title: 'A certificate request',
+    operator:
+      "Checks the holder's requirements against the coverage on record, flags any gap to your team, and assembles the certificate from the policy on record, routing it for review before it goes out.",
+    your: 'A knowledgeable reviewer confirms the certificate matches the policy before it goes out.',
+    stalls:
+      'Chases the holder for missing requirements. It reflects only the coverage already on the policy; it never adds a limit, an endorsement, or additional-insured status that is not on record, since being listed on a certificate does not by itself confer it. A misstated certificate is a classic source of errors-and-omissions exposure, so this one always goes to a person.',
   },
   {
-    title: 'Retention and proactive',
-    body: 'The cancellation notice chased toward the cure, the account-rounding gap surfaced for the producer, inbound routed to the right desk, the internal digest assembled.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is insurance-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a service and renewal desk and ready to configure. You are not building from a blank page.',
+    title: 'A policy change',
+    operator:
+      'Intakes the change request, a new vehicle, a change of address, an additional insured, routes it to the carrier or your licensed staff, acknowledges receipt to the client, and logs it to the file.',
+    your: "A licensed person binds the change, under your agency's authority or by routing it to the carrier.",
+    stalls:
+      'Chases for confirmation. It relays the request and never binds the change itself; it reflects the effective date your team confirms, never one it assumes.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your agency management system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'A billing question',
+    operator:
+      'Reads the billing status, direct-bill as it downloads from the carrier into the management system, or agency-bill from your records, and drafts a status reply.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Re-checks the status. It reports status only; it never advises on payment, reinstatement, or the coverage consequences of non-payment, which route to a producer.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your carriers and appetite, the way you run a renewal, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your agency; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'New-business intake',
-    body: 'A quote request lands, by web form, phone, or referral. The Operator captures the exposure that matters, drafts the acknowledgment in your voice, and routes it to a producer. The quote and the bind stay with the licensed producer; everything up to them moves without waiting on anyone.',
+    title: 'A first notice of loss',
+    operator:
+      "Captures the loss details and the policy's carrier claims contact, files a structured first notice of loss, hands it to the carrier's claims intake, and acknowledges to the client with the claim path.",
+    your: 'Review the handoff.',
+    stalls:
+      'Confirms the carrier received the notice. It records and routes; it never opines on whether the loss is covered or tells the client what to do.',
   },
   {
-    title: 'The renewal desk',
-    body: 'The cadence that has to run so nothing lapses. The Operator surfaces what is coming, reaches the client to confirm changes, and chases the carrier for the answer, all of it logged in your management system. Remarketing and the coverage call stay with the producer.',
+    title: 'The renewal cadence',
+    operator:
+      'Surfaces every renewal on your cadence, assembles the worklist, and reaches the client ahead of renewal to confirm changes, a new vehicle, an address, a change in the business.',
+    your: 'The producer makes the remarket and coverage decisions.',
+    stalls:
+      "Keeps the worklist current and flags a rate change or a carrier non-renewal as it lands. It surfaces what is approaching and gathers the facts; the renewal and remarket decisions are the producer's.",
   },
   {
-    title: 'The service desk',
-    body: 'The certificate a client needs today, the endorsement, the ID card, the billing question, the first notice of loss. The Operator builds each from what is on the policy and routes it for review until you widen what it sends on its own. A certificate always clears a person first.',
+    title: 'A cancellation or non-pay notice',
+    operator:
+      'Catches the cancellation or non-pay notice as it downloads into the management system, reaches the client with the exact cure amount and date before the policy lapses, and flags the team.',
+    your: 'React to the ones that need you.',
+    stalls:
+      "Re-sends, more urgently as the date nears. It relays the carrier's cure terms exactly; it never states the policy is or is not reinstated.",
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, renewals approaching, certificates waiting on a reviewer, endorsements pending the carrier, cure notices outstanding.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Insurance Agencies | SMD Services"
-  description="The insurance pack is the Operator's head start: a starting point shaped around new-business intake, the renewal cadence, and the service desk, which we configure with you and you customize to your agency. The licensed acts stay with your licensed people. You set the line."
+  description="A worker you hire, not software you buy. The Operator works inside your agency management system and alongside your team, carrying the connective service-and-renewal desk so nothing slips. It never advises on coverage and never binds. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="insurance">
-    <Fragment slot="heading">The Service Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Book, Serviced And Renewed On Time.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its insurance head start: a
-      starting point already shaped around new-business intake, the renewal cadence, and the service
-      desk, so you are not building from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your agency
+      management system and alongside the way your team already services the book, carrying the
+      connective work that never stops: the new inquiry, the certificate, the endorsement, the
+      billing question, the claim notice, the renewal cadence, the cancellation notice chased before
+      a policy lapses, so your CSRs do not have to hold every account in their heads. Every
+      client-facing message goes to a person to review. It never advises on coverage, and it never
+      binds.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
-    <PackEyebrow>§ 02</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackEyebrow>The Problem</PackEyebrow>
+    <PackHeading variant="prose">The Book Is Never Done.</PackHeading>
     <PackProse>
       <p>
-        The hard market made the service desk heavier, and the hiring market made it harder to
-        staff. Insurance runs near full employment in its own ranks, a wave of retirements is
-        underway, and a good CSR gets poached about the time you finish training them. The work does
-        not slow down to wait for the hire.
+        The hard part of an agency is not writing the policy. It is servicing the whole book at
+        once, after it is written: every policy a standing obligation, every renewal a clock, and a
+        steady stream of certificates, endorsements, billing questions, and claim notices coming in
+        against all of them at the same time.
       </p>
       <p>
-        An Operator fills that seat now. It services the book at full speed, all the time, and what
-        it learns about how your agency runs, your carriers, your appetite, your voice, stays with
-        the agency instead of walking out the door with the person who had it.
+        A new file closes when the deal closes. A book of business never closes. The servicing lives
+        in your CSRs' heads, where things slip, and the failures here are quiet. A renewal that no
+        one works renews anyway, at the wrong rate, with coverage that has drifted, or straight to a
+        competitor who did make the call. A non-pay notice that no one chases ends the policy. A
+        certificate that overstates the coverage is a classic source of errors-and-omissions
+        exposure. A missed step here is not an inconvenience. It is a policy gone, or a liability
+        kept.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>§ 03</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The insurance pack comes shaped around the work a service
-      and renewal desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your agency management system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 04</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the service desk, and we shape
-        the templates around how your agency actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your agency management system and
+        alongside the way your team already services the book. Its job is to carry the connective
+        work so your people do not have to hold it in their heads: it watches every policy, knows
+        every renewal date, fields the routine service requests, and chases the notices that end
+        policies if no one acts.
       </p>
       <p>
-        From there the work moves the way it always did. A quote request comes in and gets its
-        exposure captured, an acknowledgment in your voice, and a clean hand-off to a producer. The
-        renewal cadence runs so nothing lapses. The certificate gets built from what is on the
-        policy, the endorsement gets relayed to the carrier and confirmed back, the routine billing
-        question gets answered, the cancellation notice gets chased to the cure. It is all logged in
-        your management system as it happens, and it keeps getting sharper from your team's
-        corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. If a step does not get done,
+        it follows up rather than letting it slip. Every client-facing message goes to a person on
+        your team to review and send.
+      </p>
+      <p>
+        It does not replace your agency management system; that stays the system of record, and the
+        carrier data downloads into it as it always has. Your producers advise on coverage, quote,
+        and bind, and your licensed staff make the changes that need a license. The Operator does
+        the connective work between and around them, and keeps the book current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 05</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Policy, Written Through Renewal.</PackHeading>
     <PackIntro>
-      We are not the experts in how your agency runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the life of one policy, from the first inquiry through the service it needs in force
+      and the renewal that keeps it alive. This is the shape of the work, not a fixed script;
+      personal and commercial lines run differently, and we build the checklist and the cadence
+      around how your agency actually runs its book.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 06</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator does the coordination. The acts that carry a license, binding coverage, quoting
-        a premium, making the coverage call, stay with your licensed people. Not because the
-        software could not fill in a form, but because the license is the point: your state DOI and
-        your E&amp;O carrier want a person's name on those acts, and a trained but unlicensed
-        assistant could not make them either.
+        The Operator works inside the agency management system your agency already runs, and reads
+        the carrier data, renewal downloads, billing status, cancellation and non-renewal notices,
+        as it lands there the way it always has. It reads the book, updates the records, files what
+        arrives, and routes what needs a person, so the book stays current without anyone keying it
+        in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. The Operator gives connective service only; it
-        never offers coverage advice or substance. It never binds, changes, cancels, or reinstates
-        coverage. A certificate reflects only the coverage on record, and a certificate always
-        clears a person before it goes out. Quotes, binding, and any coverage or claims-coverage
-        question route to a licensed producer. Non-public information stays inside your agency
-        surfaces. Every action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your client files stay private, including from us. The Operator
-        works in your agency's own walled-off environment, on your own accounts. We can see that it
-        is running and the record of what it did, but the contents of your accounts and messages
-        stay yours, and so do the configuration, the logs, and the off switch.
+        It works on your own accounts, inside the systems you already pay for. It is the connective
+        tissue between them, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="insurance" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 07</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your agency runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your CSRs feel work coming off
+        their plate, not one more thing pinging them.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start the conversation -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Services The Book. It Never Advises On Coverage, And It Never Binds.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people licensed to hold
+        it. Your producers advise on coverage, quote, and bind; your licensed staff make the changes
+        that need a license; the carrier decides the claim. Those never move to the Operator. It
+        runs the service desk, not the licensed acts.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. A certificate reflects only the coverage
+        already on the policy, never a limit or an additional insured that is not on record, because
+        a misstated certificate is a classic source of errors-and-omissions exposure. The Operator
+        never binds, changes, cancels, or reinstates a policy, and it never tells a client a loss is
+        covered or a policy reinstated. Those are the carrier's and the producer's words, not the
+        Operator's. Every action it takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading documents and matching your agency's rules, like a certificate built off the policy
+        on record or a renewal flagged off a carrier download, we validate on your real book first.
+        Where accuracy is not yet proven, the Operator surfaces what it found and asks, rather than
+        acting on its own. Your clients' nonpublic personal information stays inside your agency's
+        own walled-off environment, and the configuration, the logs, and the off switch stay with
+        you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="insurance">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your agency runs, find the service and renewal
-      work that is eating your team's time, and start from the pack, customizing it to your agency.
-      If it is not a fit, we will tell you.
+      We learn how your agency actually services the book, find where the time goes and where things
+      slip, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>

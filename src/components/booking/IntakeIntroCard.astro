@@ -15,6 +15,8 @@
  * zero radius.
  */
 
+import { interestLabel } from '../../lib/booking/config'
+
 interface Props {
   values?: {
     name?: string
@@ -23,11 +25,12 @@ interface Props {
     /**
      * Productized SKU the prospect is inquiring about. Set when /book
      * is reached via a marketing CTA with `?interest=<sku>`. When set,
-     * the card surfaces an acknowledgment chip in place of the generic
-     * "Intake" eyebrow and the submission carries the value through to
-     * the context metadata + admin notification.
+     * the card surfaces an acknowledgment chip and the submission carries
+     * the value through to the context metadata + admin notification.
      *
-     * Allowed values: 'operator' (others are filtered upstream).
+     * The valid slugs and their labels live in lib/booking/config
+     * (INTEREST_LABELS); the value is validated against that allow-list
+     * upstream in book.astro before it reaches this component.
      */
     interest?: string
   }
@@ -35,10 +38,7 @@ interface Props {
 
 const { values = {} } = Astro.props
 
-const INTEREST_LABELS: Record<string, string> = {
-  operator: 'Operator',
-}
-const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
+const intentLabel = interestLabel(values.interest)
 
 // `businessName` from prefill is rendered as the initial value of the
 // visible Business field so an admin-issued prefill link doesn't ask
@@ -48,15 +48,17 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
 <section id="intake-intro" class="ss-intro">
   <header class="mb-stack">
     {
-      interestLabel && (
+      intentLabel && (
         <p class="ss-intent-chip">
           <span class="ss-intent-chip-label">Inquiring about</span>
-          <span class="ss-intent-chip-value">{interestLabel}</span>
+          <span class="ss-intent-chip-value">{intentLabel}</span>
         </p>
       )
     }
     <h1 class="ss-headline">Tell us about the business.</h1>
-    <p class="ss-lede">A few details, then pick a time that works.</p>
+    <p class="ss-lede">
+      A few details, then pick a time. We will find the right solution for your business.
+    </p>
   </header>
 
   <form id="intro-form" class="ss-form" novalidate>

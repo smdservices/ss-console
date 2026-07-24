@@ -3,6 +3,8 @@ import type { RuntimeReadResult, RuntimeReadQuery } from '../runtime-read'
 import { buildMcpMetadataPath, type ResolvedMcpCustomer } from './customer-resolution'
 import { dispatchMcpRequest, getMcpToolName, parseMcpBody } from './mcp-handler'
 import { recordMcpAudit } from './mcp-audit'
+import { jitIssueGrant, MCP_OPEN_GRANT_TTL_DAYS } from './grant-store'
+import { domainAllowed } from './jit-grant'
 import { buildWwwAuthenticate } from './oauth-metadata'
 import {
   extractBearerToken,
@@ -31,6 +33,10 @@ export interface McpRouteDependencies {
     auth: Extract<McpAuthResult, { ok: true }>,
     params: { handoff_id: string; task: string; context?: string }
   ) => Promise<void>
+  driveTurn?: (
+    auth: Extract<McpAuthResult, { ok: true }>,
+    params: { message: string; thread_id?: string }
+  ) => Promise<{ reply: string; thread_id?: string }>
 }
 
 function jsonWithCors(body: unknown, status: number, extra?: Record<string, string>): Response {
@@ -78,13 +84,82 @@ function unauthorized(
   })
 }
 
+/**
+ * Open-by-domain JIT decision (slice 2e). Given the `identity_not_authored`
+ * failure, returns: an `ok` auth when a grant was minted, a `jit_*` failure when
+ * minting was refused (sticky-revoke or cap — audited as a deny by the caller), or
+ * `null` when JIT does not apply (so the original `identity_not_authored` stands).
+ * All hardening lives here: open policy only, verified PRIMARY email, exact
+ * firm-domain match, sticky revoke + cap (in jitIssueGrant), shorter open TTL.
+ */
+async function attemptOpenPolicyJit(
+  deps: McpRouteDependencies,
+  failure: Extract<McpAuthResult, { ok: false }>
+): Promise<McpAuthResult | null> {
+  const c = deps.customer.connector
+  const { email, subject } = failure
+  if (
+    c.policy !== 'open' ||
+    c.default_profile === null ||
+    !subject ||
+    !email ||
+    failure.emailVerified !== true ||
+    !domainAllowed(email, c.allowed_domains)
+  ) {
+    return null
+  }
+  const result = await jitIssueGrant(
+    deps.db,
+    {
+      customerSlug: deps.customer.customerId,
+      clerkUserId: subject,
+      email,
+      profile: c.default_profile,
+      ttlDays: Math.min(c.ttl_days, MCP_OPEN_GRANT_TTL_DAYS),
+    },
+    {
+      entityId: deps.customer.entityId,
+      actor: 'system:jit',
+      reason: 'open-policy firm-domain match',
+    }
+  )
+  if (!result.issued) {
+    return {
+      ok: false,
+      reason: result.reason === 'revoked' ? 'jit_revoked' : 'jit_cap_exceeded',
+      detail:
+        result.reason === 'revoked'
+          ? 'a revoked grant exists for this subject; admin re-issue required'
+          : 'open-policy grant cap reached for this customer',
+      subject,
+      tokenAudience: failure.tokenAudience,
+    }
+  }
+  return {
+    ok: true,
+    customer: deps.customer,
+    subject,
+    tokenAudience: failure.tokenAudience ?? [],
+    localUserId: subject,
+    email,
+    profile: c.default_profile,
+  }
+}
+
 export async function handleMcpPost(
   request: Request,
   url: URL,
   deps: McpRouteDependencies
 ): Promise<Response> {
   const token = extractBearerToken(request.headers.get('authorization'))
-  const auth = await validateMcpToken(token, deps.customer, deps.verifier)
+  let auth = await validateMcpToken(token, deps.customer, deps.verifier)
+  // Open-by-domain JIT (slice 2e): a genuine, verified firm-domain user who is not
+  // yet granted is auto-granted on first connect under `policy: open`. Only this
+  // exact failure is eligible; everything else stays denied.
+  if (!auth.ok && auth.reason === 'identity_not_authored') {
+    const jitted = await attemptOpenPolicyJit(deps, auth)
+    if (jitted) auth = jitted
+  }
   await recordAuth(deps, auth, auth.ok ? 'allow' : 'deny')
   if (!auth.ok) {
     return unauthorized(
@@ -122,6 +197,7 @@ export async function handleMcpPost(
     profile: auth.profile,
     readRuntime: (query) => deps.readRuntime(auth, query),
     sendHandoff: deps.sendHandoff ? (params) => deps.sendHandoff!(auth, params) : undefined,
+    driveTurn: deps.driveTurn ? (params) => deps.driveTurn!(auth, params) : undefined,
   })
   return withCorsHeaders(response)
 }

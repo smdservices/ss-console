@@ -1,0 +1,69 @@
+---
+export const prerender = false
+
+// /about — the founder is the proof. With no client roster yet, Scott's two
+// decades of enterprise work is the credibility anchor. The About component holds
+// the one sanctioned first-person voice (practitioner-firm exception, CLAUDE.md).
+// Every surface still routes to the one door: the assessment.
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import About from '../components/About.astro'
+import Footer from '../components/Footer.astro'
+import CtaButton from '../components/CtaButton.astro'
+---
+
+<Base
+  title="About | SMD Services"
+  description="SMD Services is led by Scott Durgan, who spent two decades building enterprise software for Fortune 500 and Fortune 100 companies. The same operational discipline, now for small businesses."
+>
+  <Nav />
+  <main id="main" role="main">
+    <!-- Hero: frames the page as the firm's credibility -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 pt-24 pb-12">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Who Runs It
+        </p>
+        <h1
+          class="mb-8 font-body text-5xl md:text-7xl font-black uppercase leading-[0.95] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Enterprise Discipline, For Small Business.
+        </h1>
+        <p
+          class="max-w-2xl font-body text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          We are a software and AI solutions firm for small businesses. We do not sell you something
+          and leave; we build the right solution and stay with you as the ground keeps shifting.
+        </p>
+      </div>
+    </section>
+
+    <About />
+
+    <!-- The one door -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <p
+          class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-muted)]"
+        >
+          Start Here
+        </p>
+        <h2
+          class="mb-6 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          It Starts With An Assessment.
+        </h2>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          We learn how your business runs, find what is costing you the most time, and recommend the
+          right solution. If an Operator is not the fit, we say so.
+        </p>
+        <CtaButton variant="outline-white" data-ev="about-final-cta"
+          >Start with an assessment</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

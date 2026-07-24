@@ -20,7 +20,14 @@
  */
 
 import type { CapabilityName } from '../capabilities/types'
-import type { Connector, Persona, ValidationError, WebhookTrigger } from './types'
+import type {
+  Connector,
+  Persona,
+  ValidationError,
+  WebhookTrigger,
+  WebhookTriggerExclude,
+  WebhookTriggerThrottle,
+} from './types'
 import { isPlainObject } from './helpers'
 
 export function checkWebhookTriggers(
@@ -65,12 +72,12 @@ function collectAdapterSlugs(connectors: Partial<Record<CapabilityName, Connecto
   return out
 }
 
-function indexPersonas(personas: Persona[]): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>()
+function indexPersonas(personas: Persona[]): Map<string, Map<string, boolean>> {
+  const out = new Map<string, Map<string, boolean>>()
   for (const p of personas) {
-    const skillNames = new Set<string>()
+    const skillNames = new Map<string, boolean>()
     for (const s of p.skills) {
-      if (s.enabled) skillNames.add(s.name)
+      if (s.enabled) skillNames.set(s.name, s.initiation.webhook)
     }
     out.set(p.slug, skillNames)
   }
@@ -81,7 +88,7 @@ function checkOneTrigger(
   raw: unknown,
   path: string,
   adapterSlugs: Set<string>,
-  personaIndex: Map<string, Set<string>>,
+  personaIndex: Map<string, Map<string, boolean>>,
   errors: ValidationError[]
 ): WebhookTrigger | null {
   if (!isPlainObject(raw)) {
@@ -113,7 +120,8 @@ function checkOneTrigger(
     })
     return null
   }
-  if (!skillSet.has(skill)) {
+  const webhookAllowed = skillSet.get(skill)
+  if (webhookAllowed === undefined) {
     errors.push({
       code: 'UnknownWebhookSkill',
       path: `${path}.skill`,
@@ -121,7 +129,118 @@ function checkOneTrigger(
     })
     return null
   }
-  return { source, event_type: eventType, skill, persona }
+  if (!webhookAllowed) {
+    errors.push({
+      code: 'UnknownWebhookSkill',
+      path: `${path}.skill`,
+      message:
+        `webhook_triggers.skill "${skill}" is enabled on persona "${persona}" ` +
+        'but does not grant initiation.webhook',
+    })
+    return null
+  }
+  const exclude = checkTriggerExclude(raw['exclude'], `${path}.exclude`, errors)
+  if (exclude === undefined) return null
+  const throttle = checkTriggerThrottle(raw['throttle'], `${path}.throttle`, errors)
+  if (throttle === undefined) return null
+  return { source, event_type: eventType, skill, persona, exclude, throttle }
+}
+
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Parse the optional authored exception block. Returns null when absent
+ * (no exceptions), the parsed block when valid, or `undefined` on a
+ * validation error (the caller drops the trigger — a typo here must fail
+ * authoring loudly, because the runtime gate deliberately fails OPEN).
+ */
+function checkTriggerExclude(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): WebhookTriggerExclude | null | undefined {
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: 'exclude must be an object when present' })
+    return undefined
+  }
+  const known = ['matters', 'actors']
+  for (const key of Object.keys(raw)) {
+    if (!known.includes(key)) {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `unknown exclude key "${key}" (known: ${known.join(', ')})`,
+      })
+      return undefined
+    }
+  }
+  const lists: Record<'matters' | 'actors', string[]> = { matters: [], actors: [] }
+  for (const key of ['matters', 'actors'] as const) {
+    const val = raw[key]
+    if (val === undefined || val === null) continue
+    if (!Array.isArray(val) || !val.every((v) => typeof v === 'string' && GUID_RE.test(v))) {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `${key} must be a list of vendor GUIDs`,
+      })
+      return undefined
+    }
+    lists[key] = val
+  }
+  if (lists.matters.length === 0 && lists.actors.length === 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: 'exclude must name at least one matter or actor when present',
+    })
+    return undefined
+  }
+  return { matters: lists.matters, actors: lists.actors }
+}
+
+/**
+ * Parse the optional per-trigger cooldown block (#1781). Returns null when
+ * absent (the overlay gate applies its platform default), the parsed block
+ * when valid, or `undefined` on a validation error (the caller drops the
+ * trigger). A typo here must fail authoring loudly: the runtime resolver
+ * deliberately falls back to the platform default on a malformed block, so a
+ * silently-accepted typo would silently replace the authored intent.
+ * Mirrors the overlay validator (`bootstrap/validate.py`
+ * `_validate_trigger_throttle`) — parity pinned by the fixtures contract.
+ */
+function checkTriggerThrottle(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): WebhookTriggerThrottle | null | undefined {
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: 'throttle must be an object when present' })
+    return undefined
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== 'cooldown_minutes') {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `unknown throttle key "${key}" (known: cooldown_minutes)`,
+      })
+      return undefined
+    }
+  }
+  const minutes = raw['cooldown_minutes']
+  if (minutes === undefined || minutes === null) return { cooldown_minutes: null }
+  if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `${path}.cooldown_minutes`,
+      message: 'cooldown_minutes must be a non-negative integer (0 disables the throttle)',
+    })
+    return undefined
+  }
+  return { cooldown_minutes: minutes }
 }
 
 function checkTriggerString(raw: unknown, path: string, errors: ValidationError[]): string | null {

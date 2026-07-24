@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { getEntity } from '../../../../../lib/db/entities'
 import { createContact } from '../../../../../lib/db/contacts'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/entities/:id/contacts
@@ -19,20 +21,13 @@ import { env } from 'cloudflare:workers'
  *     distinct from per-engagement role assignment)
  */
 export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) {
-    return new Response(JSON.stringify({ error: 'Entity ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Entity ID required')
   }
 
   try {

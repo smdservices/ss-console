@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Operator for Advisory Firms',
+  name: 'Operator for RIAs and Wealth Management Firms',
   description:
-    'The Operator is a worker you hire, not software you buy. The advisory pack is its head start: a starting point shaped around client service and operations, which we configure with you and you customize to your firm. The advice and the money stay with you; you set the line.',
+    "The Operator is a worker you hire, not software you buy. It works inside your advisor CRM and alongside the way your firm already runs client service, carrying the client-service-associate work: onboarding, account paperwork and not-in-good-order chasing, money-movement requests it coordinates but never executes, reviews, and required-action reminders. It has no transactional authority anywhere: it never gives investment advice and never moves money. Every client-facing message is sent only after your firm's supervisory review.",
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,190 +26,261 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/ria/vertical.yaml (the onboarding, money-line, review, and
-// status skill families). These are templates we configure, not a finished, running
-// product.
-const packTemplates = [
+// Section 04: the lifecycle walk. One client relationship, onboarding through ongoing service,
+// each step in the standard's three-line shape (Operator does / your part / if it stalls). Built
+// from the research-grade internal spec brief (docs/specs/verticals/ria.md, the heaviest
+// compliance floor in the dozen) and corrected by the adversarial gate (a veteran RIA Chief
+// Compliance Officer): the money line is transactional-authority-based, not "not connected at all"
+// (CSAs need inquiry read access; that is not the ability to move money), and a distribution
+// request is treated as the same fraud vector as a banking change (no capture/origination of payee
+// or banking details); onboarding routes Form CRS / ADV Part 2 delivery before the custodial
+// packet; the RMD line surfaces the firm-tracked figure but leaves source/withholding/strategy to
+// the advisor (the amount is ministerial, not advice); fee billing never instructs a debit;
+// "operations team" is de-titled for solo RIAs; Reg S-P service-provider status is named, not
+// glossed. Generic system categories, no brand names. The section framing carries the truthfulness,
+// per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Onboarding and accounts',
-    body: 'The new-client paperwork relayed, the not-in-good-order item chased, the account-maintenance paperwork routed for the change a household requests.',
+    title: 'A new client comes aboard',
+    operator:
+      "Captures the client into the advisor CRM, then routes and tracks delivery of the advisory agreement, your Form CRS, and your Form ADV Part 2, recording when each goes out, before drafting the account-opening packet from the firm's authored templates and sending it for signature.",
+    your: 'The advisor owns the relationship and the plan; your authored agreement and disclosures are what go out.',
+    stalls:
+      "Keeps nudging the unsigned paperwork. It relays the firm's authored documents and records the delivery; it never advises on accounts, products, or investments.",
   },
   {
-    title: 'The money line',
-    body: 'A money-movement request gathered and routed to a verified person, and any banking or transfer instruction caught and held for that person to act on.',
+    title: 'Getting the account in good order',
+    operator:
+      'Chases the not-in-good-order items the firm or custodian flags, files what clears, and updates the list as items resolve.',
+    your: 'Your team and the custodian work the account.',
+    stalls:
+      'Keeps chasing each open item and flags the ones holding up the account. It chases the items that were flagged; it never decides whether paperwork is in good order.',
   },
   {
-    title: 'Reviews and reminders',
-    body: 'The annual review scheduled, the meeting prep assembled from your materials, the firm-tracked action surfaced, the documents a household owes chased.',
+    title: 'A money-movement request',
+    operator:
+      "Records that a client has asked to move money and hands the request to your team's verified process. It does not capture, originate, or alter payee or banking details, and it draws no line a client could exploit between a transfer and a distribution.",
+    your: 'Your team verifies identity, authority, and any third-party or standing instruction, and executes the movement at the custodian.',
+    stalls:
+      'Confirms your team received the request. It never moves, transfers, or distributes a dollar; any instruction to move money is routed to your verified process and never acted on.',
   },
   {
-    title: 'Status and proactive',
-    body: 'The routine client status question answered, the billing-fee follow-up drafted, inbound routed to the right desk, the internal digest assembled.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is RIA-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a client-service and operations desk and ready to configure. You are not building from a blank page.',
+    title: 'Account maintenance',
+    operator:
+      'Routes a maintenance request, a beneficiary or a title change, to the right paperwork and acknowledges it to the client. A change to contact information or banking runs through your verified process, the same as a money request.',
+    your: 'Your team verifies and makes the change.',
+    stalls:
+      'Chases for confirmation. It relays the paperwork; it never makes the change itself or advises on it. A changed address or email is a known step in account takeover, so it is never treated as routine.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your CRM, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'The review',
+    operator:
+      "Offers times against the advisor's availability, books the review, and assembles the prep packet from the firm's authored agenda and reports.",
+    your: 'The advisor runs the meeting and owns everything said in it.',
+    stalls:
+      'Reminds. It assembles your authored materials only; it adds no analysis, no recommendation, and no commentary of its own.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your households and cadence, the way you run a review, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your firm; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Reviews and meetings',
-    body: 'The annual review that has to be scheduled, the meeting that has to be prepped. The Operator books the review, assembles the prep from the CRM, and confirms with the household. The advice in the meeting is yours.',
+    title: 'Required actions',
+    operator:
+      'Surfaces the required actions the firm tracks, such as a required minimum distribution, reminds the client that one is due, and surfaces the firm-tracked figure.',
+    your: 'The advisor decides the source account, the withholding, and the timing.',
+    stalls:
+      "Re-surfaces as the deadline nears. It surfaces the action and the figure the firm tracks; it never decides the source account, the withholding, or the strategy, which are the advisor's.",
   },
   {
-    title: 'Paperwork and the CRM',
-    body: 'The forms a household owes, the notes that end up on sticky notes and spreadsheets. The Operator chases the paperwork and keeps the CRM current, so the record is one place and not three. It never moves money.',
+    title: 'Documents and status',
+    operator:
+      'Chases the documents the firm is waiting on, and drafts the reply to the routine where-is-my-transfer question from the data of record.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Re-checks the status. It reports what your systems already reflect; no investment or account opinion.',
   },
   {
-    title: 'The cadence',
-    body: 'RMDs, annual reviews, the touches a household is due. The Operator runs the cadence and surfaces what is coming, so the service that keeps clients does not depend on someone remembering.',
+    title: 'Advisory-fee billing',
+    operator:
+      "Handles advisory-fee billing logistics on the firm's cadence and relays your authored invoices.",
+    your: 'Nothing, unless it routes a billing question to you.',
+    stalls:
+      "Sends the next reminder on schedule. It never instructs a fee debit and never alters the math; the fee calculation is your firm's.",
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, accounts not yet in good order, requests routed to your team, reviews to schedule, required actions approaching.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
-  title="Operator for Advisory Firms | SMD Services"
-  description="The advisory pack is the Operator's head start: a starting point shaped around client service and operations, which we configure with you and you customize to your firm. The advice and the money stay with you. You set the line."
+  title="Operator for RIAs and Wealth Management Firms | SMD Services"
+  description="A worker you hire, not software you buy. The Operator works inside your advisor CRM and alongside your firm, carrying the client-service-associate work so accounts stay in order. It has no transactional authority: it never gives investment advice and never moves money. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="ria">
-    <Fragment slot="heading">The Back Office, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Accounts, Kept In Order.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its advisory head start: a
-      starting point already shaped around client service and operations, so you are not building
-      from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your advisor CRM and
+      alongside the way your firm already runs client service, carrying the connective work that
+      keeps clients and accounts in order: onboarding the new client, getting the account paperwork
+      in good order, chasing the items that are not, coordinating a money-movement request without
+      ever executing it, scheduling the reviews, so your advisors stay on the client instead of the
+      paperwork. Every client-facing message goes to a person to review. It never gives investment
+      advice, and it never moves money.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
-    <PackEyebrow>§ 02</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackEyebrow>The Problem</PackEyebrow>
+    <PackHeading variant="prose">The Accounts Run On Paperwork.</PackHeading>
     <PackProse>
       <p>
-        The advisor you would hire is not on the market. The profession is short of next-generation
-        talent and headed shorter, the competition for it reaches all the way down to paraplanners,
-        and the fight squeezes the margins of smaller firms hardest. The service work does not wait:
-        the reviews still have to be scheduled, the paperwork still has to be chased, the CRM still
-        has to be current.
+        The hard part of running an RIA is not the advice. It is everything the advice rides on: the
+        account-opening packet that has to be in good order, the not-in-good-order item the
+        custodian kicks back, the beneficiary change, the money-movement request, the required
+        action with a deadline, the same intake data keyed into the CRM, the planning tool, and the
+        portfolio system one more time.
       </p>
       <p>
-        An Operator fills that seat now. It runs client service at full speed, all the time, and
-        what it learns about how your firm runs, your households, your cadence, your voice, stays
-        with the firm instead of leaving with the person who had it.
+        That work is relentless, and it is exact. A signature that never comes back stalls the
+        account. A not-in-good-order item that sits delays the transfer. And when the service seat
+        goes unstaffed, the chasing lands on the advisor, who is the one person in the building who
+        should be on the client. The work is also regulated to the letter: the communications have
+        to be retained, the privacy of client information is the law, and money and advice are
+        bright lines that cannot blur. A missed step here is not just a delay. It is a client kept
+        waiting, or a line crossed.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>§ 03</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The advisory pack comes shaped around the work a
-      client-service associate runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your CRM and your email and calendar. The templates are the head start. How
-      they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 04</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run client service, and we shape
-        the templates around how your firm actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your advisor CRM and alongside
+        the way your firm already runs client service. Its job is to carry the connective work so
+        your people do not have to hold it in their heads: it watches every account, chases the
+        paperwork and the not-in-good-order items, coordinates the requests, and keeps every client
+        moving.
       </p>
       <p>
-        From there the work moves the way it always did. It schedules the client review and preps
-        the meeting, chases the paperwork a household owes, runs the RMD and annual-review cadence
-        so nothing is late, and keeps the CRM current instead of living on sticky notes. The routine
-        client back-and-forth it handles in your voice. It is all logged in your CRM as it happens,
-        and it keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. If a step does not get done,
+        it follows up rather than letting it slip. Every client-facing message goes to a person on
+        your team to review and send.
+      </p>
+      <p>
+        It does not replace your advisor CRM; that stays the data of record. The advisor owns the
+        advice and the fiduciary relationship, and whoever executes at the custodian, your
+        operations function or, at many firms, the advisor, does the executing. The Operator does
+        the connective work between and around them, and keeps the record current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 05</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Client, Onboarded And Kept In Order.</PackHeading>
     <PackIntro>
-      We are not the experts in how your firm runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work of one client relationship, from onboarding through the service it
+      needs year after year. This is the shape of the work, not a fixed script; we build it around
+      how your firm actually runs client service.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 06</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs client service. The advice, the planning, the fiduciary call, those stay
-        with you. Not because the software could not do the math, but because the advice carries
-        your license and your duty to the client, and an unlicensed associate could not give it
-        either.
+        The Operator works inside the advisor CRM that is your data of record, your email and
+        calendar, your document storage, and your e-sign. It reads the account, updates the records,
+        files what arrives, and routes what needs a person, so the record stays current without
+        anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. The Operator does connective work only; it
-        never makes a recommendation or gives an opinion on a holding, an allocation, or a product.
-        It never moves money: it gathers a money-movement request and routes it to a verified
-        person, and any banking or transfer instruction is caught and held for that person to act
-        on. Client non-public information stays inside your firm surfaces, every communication is
-        retained where it can be archived, and review and testimonial asks follow the marketing
-        rule. Every action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your client files stay private, including from us. The Operator
-        works in your firm's own walled-off environment, on your own accounts. We can see that it is
-        running and the record of what it did, but the contents of your households and messages stay
-        yours, and so do the configuration, the logs, and the off switch.
+        It has no transactional authority anywhere, no permission to disburse, to trade, or to
+        change banking, at any custodian or bank. It coordinates paperwork and requests; your team
+        executes. Where it reports a transfer or a not-in-good-order item, it reports what your
+        systems already reflect. It is the connective tissue between the systems you already run,
+        not another system to learn, and never a hand on the money.
       </p>
     </PackProse>
     <PackSectionCta slug="ria" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 07</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your firm runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your associates and your advisors
+        feel work coming off their plate, not one more thing pinging them.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start the conversation -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Advises, And It Never Moves Money.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it. The
+        advisor owns the advice and the fiduciary relationship; whoever executes at the custodian,
+        your operations function or the advisor, owns the execution. Those never move to the
+        Operator. It runs the service seat, not the advice and not the money.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator never makes a recommendation,
+        never offers an opinion on a holding, an allocation, a product, or the market, because
+        advice is the advisor's fiduciary act. And it has no transactional authority anywhere: it
+        never moves, transfers, distributes, or trades a dollar, it holds no disbursement, trading,
+        or banking permission at any custodian or bank, and it neither captures nor alters payee or
+        banking details. Any instruction to move money, or to change banking or contact information,
+        is routed to your verified process and never acted on, because that is the path account
+        takeover travels.
+      </p>
+      <p>
+        Client communications are written back into your system of record, so your books-and-records
+        retention and your ability to produce records to examiners stay inside your firm. The
+        Operator processes your client information as your service provider: each firm's data sits
+        in an isolated environment dedicated to that firm, never pooled with another's and never
+        used to train a model, and we work through your privacy and service-provider obligations
+        with you at setup. Every client-facing message is sent only after your firm's own
+        supervisory review, and every action it takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading documents and matching your firm's rules, like a not-in-good-order item chased off
+        your records or a required action surfaced from the CRM, we validate on your real accounts
+        first, under the same service-provider safeguards. Where accuracy is not yet proven, the
+        Operator surfaces what it found and asks, rather than acting on its own. The configuration,
+        the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="ria">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your firm runs, find the client-service and
-      operations work that is eating your team's time, and start from the pack, customizing it to
-      your firm. If it is not a fit, we will tell you.
+      We learn how your firm actually runs client service, find where the time goes and where things
+      stall, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>

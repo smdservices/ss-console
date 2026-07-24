@@ -1,6 +1,6 @@
 # Grading matrix — live document
 
-Source of truth for per-skill ship readiness across the 58-skill SMD Operator library. Updated continuously as new test runs land. Per the rubric at `rubric.md`, each skill's verdict resolves from the per-fixture audit trail in `runs/{skill}/`.
+Source of truth for per-skill ship readiness across the SMD Operator skill library. Updated continuously as new test runs land. Per the rubric at `rubric.md`, each skill's verdict resolves from the per-fixture audit trail in `runs/{skill}/`.
 
 ## Marketing-agency vertical pack (v1: 8 skills)
 
@@ -36,6 +36,37 @@ Fixtures here are `input + frozen expected` (verdict + safety outcome authored b
 **Deferred** (depth, off the wedge's named job): conflict-intake-router (**#1 depth-add**; detect/surface absorbed into new-matter-intake), document-receipt-logger, deadline-and-sol-tracker, client-matter-digest, referral-source-acknowledgment, intake-to-system-sync.
 
 Authored: **6/6 wedge** — Phase A (new-matter-intake, pattern-setter, Captain-calibration **locked** 2026-06-03) + Phase B (5 skills, graded 2026-06-04). **30/30 fixtures pass on safety** across the wedge (incl. 12 adversarial); the named job is covered end-to-end. Next (separate increment, ADR 0038 step 4+): pull infra — Clio MCP connect + contract-conformance check, deploy pipeline (#1206), boot wiring (#1166), entitlement layer (#1194).
+
+## Law-firm / pi add-on — the PI-litigation lifecycle (19 skills, A&P pilot)
+
+The full California PI plaintiff lifecycle built 2026-07-01 against the sent client
+commitment ([`CLIENT-PROPOSAL.md`](../customers/ashton-price/CLIENT-PROPOSAL.md)),
+manifest [`addon.yaml v0.2.0`](../verticals/law-firm/addons/pi/addon.yaml). Method:
+author agent → adversarial gate agent (veteran CA-PI-paralegal posture, statute
+fetch on deadline/statute skills) → revise. **All 19 authored + gated + revised;
+every safety bright line held** (no fabricated tools, no auto-send, no fund
+movement, no computing-what-it-must-not); gate findings were citation-accuracy
+and coverage, all applied. 64 fixtures on disk (43 adversarial) at
+`operator/fixtures/law-firm/pi/<skill>/`.
+
+**Honesty line:** gated = adversarially _reviewed_, not _executed_. No skill in
+this pack has run against a live tenant yet; first execution is the
+pilot-smokeball staging pass (skills staged on `operator` in both
+`pilot-smokeball` and `ashton-price` customer.yaml, 2026-07-02). Per-fixture
+graded runs land in `runs/` as they happen.
+
+Skills (discovery deepest): discovery-served-watch, discovery-response-tracker,
+client-verification-tracker, separate-statement-assembler,
+opposing-response-deficiency-review, meet-and-confer-drafter,
+discovery-response-staging, matter-initiation-setup,
+service-confirmation-watcher, medical-records-chaser,
+medical-chronology-maintainer, motion-calendar-tracker,
+motion-package-assembler, minors-compromise-packet, trial-binder-assembler,
+mediation-settlement-tracker, lien-ledger-tracker, settlement-statement-feeder,
+daily-needs-you-digest.
+
+Catalog-level selector: **19/19 blind pass 2026-07-02** over a 33-skill catalog
+(pi + base spine) — [`catalog-selector-test.md`](../verticals/law-firm/addons/pi/tests/catalog-selector-test.md).
 
 ## Real-estate vertical pack (v1: 13 skills) — Track 2, pending
 

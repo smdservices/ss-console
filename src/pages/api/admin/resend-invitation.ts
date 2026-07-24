@@ -4,6 +4,8 @@ import { requirePortalBaseUrl } from '../../../lib/config/app-url'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildMagicLinkUrl, portalInvitationEmailHtml } from '../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../lib/auth/admin-session'
+import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 
 interface UserRow {
   id: string
@@ -30,10 +32,7 @@ interface UserRow {
  * This supports the OQ-010 flow where admin corrects a bounced email.
  */
 function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 async function maybeUpdateEmail(
@@ -67,10 +66,9 @@ async function maybeUpdateEmail(
 async function handlePost({ request, locals }: APIContext): Promise<Response> {
   // Verify admin session (middleware already checks /admin/* routes,
   // but this is under /api/admin/* so we verify explicitly)
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonError(401, 'Unauthorized')
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const body: { userId?: unknown; email?: unknown } = await request.json()
@@ -126,17 +124,11 @@ async function handlePost({ request, locals }: APIContext): Promise<Response> {
       return jsonError(502, 'Failed to send email')
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        emailId: result.id,
-        sentTo: targetEmail,
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    )
+    return jsonResponse(200, {
+      success: true,
+      emailId: result.id,
+      sentTo: targetEmail,
+    })
   } catch (err) {
     console.error('[resend-invitation] Error:', err)
     return jsonError(500, 'Internal server error')

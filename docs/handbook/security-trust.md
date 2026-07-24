@@ -53,18 +53,21 @@ The policy is not enforced by vigilance alone; it is wired into CI and into test
 | Mechanism | What it does |
 |---|---|
 | `tests/forbidden-strings.test.ts` | Regression guard: the historical Pattern A/B phrases, the user-facing style-marker checks (em dash, "coming soon"), and portal registry guardrails must not appear in shipped source. |
-| `tests/enrichment-prompt-contracts.test.ts` | Source-level checks that the dossier, review-analysis, and deep-website enrichment prompts stay extractive. |
 | `tests/intake-questionnaire.test.ts` | Shared-surface regression coverage for the canonical intake questionnaire. |
 | `.github/workflows/scope-deferred-todo.yml` | Merge gate: blocks a PR that defers an acceptance criterion via a TODO without the `scope-deferred` label. |
 | `.github/workflows/unmet-ac-on-close.yml` | Issue-close gate: reopens an issue closed with unchecked acceptance criteria. |
 
 The content-integrity controls also feed the external story: the same fail-closed posture and no-storage architecture are what `docs/security/smd-services-security-overview.md` presents to a partner's security review.
 
+## The buyer-facing trust surface
+
+A prospect's compliance reviewer gets the same story in three client-visible artifacts (added 2026-07-04, #1680): the public security page (`src/pages/security.astro`, at smd.services/security - architecture-derived claims, the sub-processor list, and a plain statement of what we do not claim, including no SOC 2 of our own), the AI-disclosure page (`src/pages/ai-disclosure.astro` - what the Operator is, that review posture is an authored choice with no imposed default, and what it never does), and the data processing addendum template (`docs/legal/operator-dpa-template.md` - the contractual half, carrying the notification and return/destruction windows the public pages deliberately leave to paper; counsel review precedes first execution). All three derive from the security overview and the ADR spine; if a control changes, they change in the same wave.
+
 ## Operator runtime security
 
 The Operator is an autonomous agent acting on a client's live business data, so its security model is about constraining action, not just constraining output. The full analysis is `docs/security/operator-threat-model.md` - a maintained, adversarially-tested register, not a one-time design doc. Its shape:
 
 - **A strong perimeter, a softer core.** The front door (the capability broker plus authored entitlement ceilings on registered tools) is verified-strong. The historically harder problems were ungoverned code execution defaulting to read, an account-wide secret in the agent's environment, a broker that validated identity but not intent, and an inbound fence that covered the webhook channel but not the managed mailbox. These are tracked as P0/P1 findings with live-exploit verification and a remediation program (see the threat model's "Closed" section for what has been shut, including the broker-owned audit ledger).
-- **The verified strengths to protect from regression.** Per-customer Machine isolation, the fail-closed authority model (unconfigured can read but not act), the hard ban on principal-identity send, and the tamper-resistant audit log the agent cannot rewrite. The threat model names these explicitly so a future change does not quietly undo them.
+- **The verified strengths to protect from regression.** Per-customer Machine isolation, the fail-closed authority model (unconfigured can read but not act), the hard ban on principal-identity send, and the tamper-resistant audit log the agent cannot rewrite (hash-chained since 2026-07-04, #1686: every row commits to its predecessor, so deletion and reordering are detectable, not just mutation; the verifier is `operator/bin/verify-audit-chain.py`). The threat model names these explicitly so a future change does not quietly undo them.
 
 The controls themselves - the action-class ceilings, the capability broker, the inbound-content taint gate, and the fail-closed default - are owned and explained in `/admin/playbook/autonomy-governance`. The secrets and credential-custody side (Infisical, per-customer OAuth tokens, the broker-only secret materialization) is owned by `/admin/playbook/secrets-access`. This page does not duplicate them; it points to them so the two halves of trust read as one map.

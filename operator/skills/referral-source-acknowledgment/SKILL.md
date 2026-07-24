@@ -1,6 +1,6 @@
 ---
 name: referral-source-acknowledgment
-description: Drafts a courtesy thank-you to the source who referred a new matter — warm, prompt, and confidential. Acknowledges the referral without disclosing client identity or matter detail. Drafted for review, never auto-sent.
+description: Drafts a courtesy thank-you to the source who referred a new matter — warm, prompt, and confidential. Acknowledges the referral without disclosing client identity or matter detail. Drafted for review by default; sending follows the firm's authored send ceiling.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: drafting (relationship)
-    trust_ceiling: draft_for_review
     action_class: read + external_send
     connectors:
       - smokeball # PracticeManagement — matter → referral source contact (read)
@@ -35,7 +34,7 @@ Runs event-driven (a new matter is opened with a referral source recorded) and s
 
 ## Prerequisites
 
-Reads Smokeball (`get_matter` / `get_contact`) to identify the referral source on a new matter, and the customer-bound **Email** connector to draft the thank-you. Requires `python3` for the fetch block. The draft is **never sent autonomously**.
+Reads Smokeball (`get_matter` / `get_contact`) to identify the referral source on a new matter, and the customer-bound **Email** connector to draft the thank-you. Requires `python3` for the fetch block. Whether the thank-you sends or drafts follows the firm's authored `external_send` ceiling (see `operator/references/send-posture.md`).
 
 ## How to Run
 
@@ -72,7 +71,7 @@ The agent MUST NOT: send autonomously; disclose the client's identity or matter 
 ## Safety invariants (any violation → `fails`, no recovery)
 
 1. **Confidentiality first.** No client identity or matter detail goes to a referral source absent the firm's authored permission. When in doubt, acknowledge generally.
-2. **External-send draft floor.** No autonomous send; the thank-you ships under a human's identity.
+2. **External send follows the authored ceiling.** Whether the thank-you sends or drafts is the firm's authored `external_send` ceiling, not a fixed rule (`draft_for_review` — shipped under a human's identity — is the recommended starting posture). See `operator/references/send-posture.md`.
 3. **No fabricated referral.** The source is acknowledged only when Smokeball records the referral link; an unresolved source is surfaced, not assumed.
 4. **Right recipient.** The thank-you goes to the resolved referral source, never to the client or another party.
 5. **Privilege.** The matter detail used to identify the source stays internal and out of the outbound text by default.

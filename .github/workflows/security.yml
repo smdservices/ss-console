@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -46,15 +46,28 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci
 
-      - name: Audit (fail on high or critical)
-        run: npm audit --audit-level=high
+      # Fail on any high/critical advisory that is NOT in the time-boxed
+      # allowlist at .github/audit-allowlist.json. The allowlist exists so an
+      # advisory whose only fix is blocked by the .npmrc supply-chain cooldown
+      # (min-release-age) does not freeze all merges to main via the required
+      # Security Summary gate. Each entry is triaged non-reachable and expires
+      # on a date; past that date the gate re-fails, forcing the tracked fix.
+      # Covers the root project plus every workers/* package.
+      - name: Audit (fail on non-allowlisted high or critical)
+        run: |
+          set -euo pipefail
+          dirs=(.)
+          for dir in workers/*/; do
+            [ -f "${dir}package.json" ] && dirs+=("${dir%/}")
+          done
+          node scripts/audit-allowlist.mjs "${dirs[@]}"
 
   gitleaks:
     name: Secret Detection
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -77,20 +90,52 @@ jobs:
           GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          GITLEAKS_VERSION=$(curl -fsSL \
+
+          # Both the API query and the tarball download go to GitHub
+          # infrastructure that occasionally returns a transient 5xx. Without
+          # a retry, a single blip fails the entire Secret Detection gate:
+          # on 2026-07-22/23 a 500 on the tarball download reddened the
+          # nightly across the fleet even though the release asset was intact.
+          # retry() gives up to 4 attempts with exponential backoff (2/4/8s)
+          # so the gate is resilient to transient infrastructure errors while
+          # still failing fast on a genuinely persistent problem.
+          retry() {
+            local attempt=1 max=4 delay=2
+            until "$@"; do
+              if [ "$attempt" -ge "$max" ]; then
+                echo "::error::Command failed after ${max} attempts: $*"
+                return 1
+              fi
+              echo "Attempt ${attempt}/${max} failed; retrying in ${delay}s..."
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
+          # Fetch the release metadata to a file (not through a pipe) so a
+          # failed attempt leaves no partial output for the parser to read.
+          retry curl -fsSL \
             -H "Authorization: Bearer $GH_API_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
-            | grep '"tag_name"' | head -1 | sed -E 's/.*"v?([^"]+)".*/\1/')
+            -o gitleaks-release.json \
+            https://api.github.com/repos/gitleaks/gitleaks/releases/latest
+          GITLEAKS_VERSION=$(grep '"tag_name"' gitleaks-release.json | head -1 | sed -E 's/.*"v?([^"]+)".*/\1/')
+          rm -f gitleaks-release.json
           echo "Installing gitleaks v${GITLEAKS_VERSION}"
+
           # The release tarball download does NOT need authentication (it's
           # a public release asset served by github.com, not api.github.com)
           # but we pass the header anyway for symmetry in case GitHub
           # applies stricter rate limits to release downloads in the future.
-          curl -fsSL \
+          # Download to a file first so a mid-stream transient failure can be
+          # retried cleanly instead of corrupting the tar extraction.
+          retry curl -fsSL \
             -H "Authorization: Bearer $GH_API_TOKEN" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
+            -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          rm -f gitleaks.tar.gz
           chmod +x gitleaks
 
       - name: Run Gitleaks
@@ -111,10 +156,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -138,28 +183,77 @@ jobs:
       # .github/workflows/dependabot-auto-merge.yml when safe).
       image: returntocorp/semgrep:1.157.0
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Diff-aware scanning (--baseline-commit) resolves a merge-base, so
+          # it needs full history. The default shallow clone can't reach it.
+          fetch-depth: 0
+      - name: Determine baseline commit
+        id: baseline
+        # Diff-aware gating: only findings NEW since the baseline block a
+        # merge. On PRs the baseline is the merge-base with the target
+        # branch; on pushes it is the commit the branch pointed at before the
+        # push. Scheduled and manual runs get NO baseline and remain a full
+        # audit (unchanged) — the daily cron still surfaces pre-existing debt.
+        # Motivation: the p/* rule packs are fetched live from the registry,
+        # so a pack update can reclassify long-standing code as blocking and
+        # freeze all merges on unrelated PRs. Baselining scopes the merge gate
+        # to what each change actually introduces.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          # The container runs git as root over a workspace owned by the
+          # runner UID; without this, git refuses with "dubious ownership".
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          baseline=""
+          case "$EVENT_NAME" in
+            pull_request)
+              baseline=$(git merge-base HEAD "$PR_BASE_SHA" 2>/dev/null || true)
+              ;;
+            push)
+              case "$PUSH_BEFORE" in
+                '' | 0000000000000000000000000000000000000000) ;;
+                *) baseline=$(git merge-base HEAD "$PUSH_BEFORE" 2>/dev/null || true) ;;
+              esac
+              ;;
+          esac
+          echo "commit=$baseline" >> "$GITHUB_OUTPUT"
+          if [ -n "$baseline" ]; then
+            echo "Diff-aware baseline: $baseline (only findings new since this commit block)."
+          else
+            echo "No baseline — full audit (schedule/dispatch or first push)."
+          fi
       - name: Run Semgrep
         # POSIX-compatible shell script — the returntocorp/semgrep container
         # uses Alpine ash, not bash, so ${PIPESTATUS[n]} is unavailable.
         # We redirect to a file, capture $? directly, then cat for both the
         # CI log and (on failure) $GITHUB_STEP_SUMMARY.
+        env:
+          BASELINE_COMMIT: ${{ steps.baseline.outputs.commit }}
         run: |
           echo "## Static Analysis (Semgrep)" >> "$GITHUB_STEP_SUMMARY"
           # `--error` fails on findings. `--strict` was tried but exits 3 on
           # the ~0.4% of files in this repo that Semgrep can't fully parse
           # (yaml/ts variants) — unrelated to security findings. Pack-load
           # failures still surface loudly in the log without --strict.
+          run_semgrep() {
+            semgrep scan "$@" \
+              --metrics=off \
+              --config=p/typescript \
+              --config=p/javascript \
+              --config=p/security-audit \
+              --config=p/owasp-top-ten \
+              --exclude=node_modules --exclude=dist --exclude='**/*.test.ts' \
+              > semgrep-output.txt 2>&1
+          }
           set +e
-          semgrep scan \
-            --error \
-            --metrics=off \
-            --config=p/typescript \
-            --config=p/javascript \
-            --config=p/security-audit \
-            --config=p/owasp-top-ten \
-            --exclude=node_modules --exclude=dist --exclude='**/*.test.ts' \
-            > semgrep-output.txt 2>&1
+          if [ -n "$BASELINE_COMMIT" ]; then
+            run_semgrep --error --baseline-commit "$BASELINE_COMMIT"
+          else
+            run_semgrep --error
+          fi
           rc=$?
           set -e
           cat semgrep-output.txt
@@ -177,7 +271,7 @@ jobs:
     name: nosemgrep Justification Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Require substantive justification on every nosemgrep
         # Every `// nosemgrep` annotation must be followed by ` — ` or `: ` and
         # at least 20 characters of justification prose. Without this audit,

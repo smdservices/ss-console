@@ -11,6 +11,8 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 **Status:** Accepted (Captain decision, 2026-05-29). Establishes a harness function the 2026-05-29 audit found **ABSENT**.
 
+> **Realized-note (2026-07-13).** The harness function this ADR opened as ABSENT is now **fully built and live** in the overlay `hermes-smd-inbound` plugin: every untrusted item is wrapped in a nonce-fenced quarantine block at the boundary (provenance + structural separation), and a session taint gate refuses privileged actions (external send, destructive, commitment, code execution) on any turn that ingested untrusted content. Read the "ABSENT" framing below as the originating problem statement, not the current state.
+
 **Source:** The harness model has two membrane edges. The outbound edge (what the agent sends) is governed by ADRs 0025/0028. The **inbound** edge — content arriving _from_ the outside world (an email body, a webhook payload, a document, a scraped page, a tool result from an external system) — has no governing decision and no code. The 2026-05-29 build audit (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) graded it ABSENT: "no sanitization/attribution of inbound email/webhook content before it reaches the engine." This is the most dangerous gap in a system that can act autonomously, because untrusted inbound text is the canonical prompt-injection vector.
 
 ---

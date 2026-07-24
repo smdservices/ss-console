@@ -42,7 +42,7 @@ function levelOptions(): TrustCeilingLevel[] {
 <section aria-labelledby="settings-trust-ceiling-heading" class="mt-section">
   <h2
     id="settings-trust-ceiling-heading"
-    class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+    class="font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
   >
     Trust ceiling
   </h2>
@@ -69,7 +69,7 @@ function levelOptions(): TrustCeilingLevel[] {
                   <input type="hidden" name="personaSlug" value={personaSlug} />
                 ) : null}
                 <div class="min-w-0 flex-1">
-                  <p class="font-['Archivo'] text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                  <p class="font-body text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
                     {row.skillName}
                   </p>
                   {row.currentLevel === null && row.rawLevel ? (
@@ -82,7 +82,7 @@ function levelOptions(): TrustCeilingLevel[] {
                   <span class="sr-only">Trust ceiling for {row.skillName}</span>
                   <select
                     name="level"
-                    class="min-h-11 px-3 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                    class="min-h-11 px-3 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
                   >
                     {levelOptions().map((level) => (
                       <option value={level} selected={row.currentLevel === level}>
@@ -93,7 +93,7 @@ function levelOptions(): TrustCeilingLevel[] {
                 </label>
                 <button
                   type="submit"
-                  class="inline-flex items-center min-h-11 px-4 py-2 font-['Archivo_Narrow'] text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  class="inline-flex items-center min-h-11 px-4 py-2 font-mono text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
                 >
                   Save
                 </button>

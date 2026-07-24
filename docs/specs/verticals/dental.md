@@ -28,7 +28,7 @@ That coordination is two real seats, the front-desk coordinator who runs schedul
 
 ## Skill catalog
 
-Twelve dental-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve dental-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### New patient and scheduling
 
@@ -87,7 +87,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **Benefits relay, never a coverage guarantee** — `insurance-verification-relay` relays what the payer returns; it never guarantees coverage or states a patient's out-of-pocket as a promise.
 - **Emergency escalation (fail-open to a human)** — a possible dental emergency goes to a person immediately, never handled async and never answered with clinical content.
 - **HIPAA / PHI** — protected health information stays inside the practice's surfaces; the Operator does not exfiltrate it.
-- **External-send draft floor** — external mail ships under a human reviewer's identity, one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md), ADR 0035); `draft_for_review` is the recommended starting posture.
 
 ## Labor-market context (the demand, without presumption)
 

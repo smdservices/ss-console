@@ -1,0 +1,145 @@
+schema_version: 1
+
+# HOSTED AGENT seat: Scott Durgan (founding seat #1, the live dry-run of
+# ADR 0067). Authored from the intake row in the admin queue on
+# 2026-07-06 per docs/runbooks/hosted-agent/concierge.md; template
+# operator/customers/_hosted-template/.
+#
+# Intake: agent name "Agent Crane"; use cases "chief of staff — email,
+# calendar, daily routine"; timezone MST; allowed sender
+# smdurgan@icloud.com; spend limit confirmed. Anthropic key staged at
+# Infisical /ss/hosted/scott (the CUSTOMER'S key, never an SMD org key).
+#
+# ADR 0067 hard rules honored: inbound allowlist non-empty and exact
+# addresses only; external_send stays draft_for_review.
+
+# ---- IDENTITY ----
+customer_id: 'scott'
+customer_name: 'Scott Durgan'
+vertical: mixed
+addons: []
+practice_areas:
+  - general
+fly_region: lax # Phoenix-adjacent; Fly retired phx (fleet standard, same as customer-zero)
+
+# ---- RUNTIME ----
+# Cheap main model on the customer's own key; no escalation tier at this
+# price point (their key, their spend limit — keep the burn predictable).
+model: claude-sonnet-4-6
+# Hermes v0.14.0 → v0.18.0 (canary #3, SMD-own, draft-governed external send).
+# Rollback pin: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0.
+hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+
+# ---- HUMANS WITH PORTAL ACCESS ----
+users:
+  - email: scott@smd.services
+    role: principal
+    full_name: Scott Durgan
+
+# ---- PERSONA ----
+personas:
+  - slug: agent-crane
+    status: active
+    name: Agent Crane
+    title: Assistant
+    tone:
+      - plainspoken
+      - warm-but-professional
+      - concise
+    entitlements:
+      exposure:
+        internal_write: autonomous
+        external_send: confirm
+    skills:
+      - name: inbox-triage
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: true
+        enabled: true
+      - name: workspace
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: status-report-assembler
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
+    cron:
+      # Named day-one job: the morning digest at 7:00 MST (Phoenix has no
+      # DST, so 7am is 14:00 UTC year-round).
+      - skill: status-report-assembler
+        schedule: '0 14 * * *'
+        wake_policy: always
+
+# ---- CONNECTORS ----
+connectors:
+  Email:
+    adapter: agentmail
+    backend: 'mcp:agentmail'
+    enabled: true
+    webhook_url: 'https://hermes-scott.fly.dev/webhooks/agentmail'
+
+webhook_triggers:
+  - source: agentmail
+    event_type: message.received
+    skill: inbox-triage
+    persona: agent-crane
+
+# ---- SCOPE ----
+scope:
+  email_folders_visible:
+    - Inbox
+    - Sent
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+  # ADR 0067 channel constraint: the allowlist IS the inbound surface.
+  # Exact addresses from the intake row; no domain wildcards at this tier.
+  inbound_allow_from:
+    - smdurgan@icloud.com
+
+# ---- ESCALATION ----
+escalation:
+  red_flag_recipients:
+    - scott@smd.services
+  failure_recipients:
+    - team@smd.services
+
+# ---- SAFETY ----
+# The cost breaker guards the CUSTOMER'S key here (their spend limit is
+# the real cap; this is the on-Machine backstop). Tighter than the
+# platform default on purpose.
+safety:
+  sticky_stop:
+    cost_cap_daily_cents: 1000
+    inbound_daily_cap: 100
+
+# ---- TELEGRAM ----
+# Per-customer bot (BotFather; see docs/runbooks/hosted-agent/). Token is
+# staged as a Fly secret, never here. Allowlist is MANDATORY (fails open
+# when empty).
+telegram:
+  allowed_users:
+    - '7367659986'
+
+# ---- VOICE LIBRARY ----
+voice_library:
+  samples_path: 'r2://vaults/scott/voice/samples/'
+
+# ---- MEMORY (isolation invariants; must match customer_id) ----
+memory:
+  d1_namespace: scott
+  r2_vault_path: 'vaults/scott/'
+  vectorize_index: 'hermes-scott-vault'

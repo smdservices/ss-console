@@ -1,20 +1,35 @@
 ---
+import { bookHref } from '../lib/booking/config'
+
 interface Props {
   variant?: 'primary' | 'secondary' | 'outline-white'
+  /** Explicit destination. Wins over `interest`. */
   href?: string
+  /**
+   * Assessment intent slug. When `href` is omitted and `interest` is set,
+   * the button links to /book?interest=<interest> and the prospect sees an
+   * "Inquiring about …" chip. Pass it only from a solution-specific surface
+   * (the /operator page, a vertical pack). With neither `href` nor `interest`
+   * the button links to a neutral /book — the objectives-first front door.
+   */
+  interest?: string
   class?: string
   'data-ev'?: string
 }
 
 const {
   variant = 'primary',
-  href = '/book',
+  href,
+  interest,
   class: className = '',
   'data-ev': dataEv,
 } = Astro.props
 
+// Precedence: explicit href > interest-built /book href > neutral /book.
+const resolvedHref = href ?? bookHref(interest)
+
 const base =
-  "inline-flex items-center justify-center font-bold uppercase tracking-[0.08em] font-['Archivo'] transition-colors"
+  'inline-flex items-center justify-center font-bold uppercase tracking-[0.08em] font-body transition-colors'
 const variants = {
   primary:
     'px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white hover:bg-[color:var(--ss-color-primary-hover)]',
@@ -25,6 +40,6 @@ const variants = {
 }
 ---
 
-<a href={href} class:list={[base, variants[variant], className]} data-ev={dataEv}>
+<a href={resolvedHref} class:list={[base, variants[variant], className]} data-ev={dataEv}>
   <slot />
 </a>

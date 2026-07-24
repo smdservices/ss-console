@@ -17,9 +17,13 @@
 import { isPlainObject } from './helpers'
 import {
   ACCEPTED_DATA_POSTURES,
+  ACCEPTED_MCP_POLICIES,
+  MCP_GRANT_TTL_DEFAULT_DAYS,
+  MCP_GRANT_TTL_MAX_DAYS,
   type DataPosture,
   type McpConnector,
   type McpConnectorAccess,
+  type McpIssuancePolicy,
   type Persona,
   type User,
   type ValidationError,
@@ -28,8 +32,14 @@ import {
 const MCP_CONNECTOR_DEFAULT: McpConnector = {
   enabled: false,
   data_posture: 'open',
+  policy: 'allowlist',
+  allowed_domains: [],
+  default_profile: null,
+  ttl_days: MCP_GRANT_TTL_DEFAULT_DAYS,
   access: [],
 }
+
+const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/
 
 function parseEnabled(raw: unknown, errors: ValidationError[]): boolean {
   if (raw === undefined || raw === null) return false
@@ -53,6 +63,88 @@ function parseDataPosture(raw: unknown, errors: ValidationError[]): DataPosture 
     return 'open'
   }
   return raw as DataPosture
+}
+
+function parsePolicy(raw: unknown, errors: ValidationError[]): McpIssuancePolicy {
+  if (raw === undefined || raw === null) return 'allowlist'
+  if (typeof raw !== 'string' || !ACCEPTED_MCP_POLICIES.includes(raw as McpIssuancePolicy)) {
+    errors.push({
+      code: 'EnumViolation',
+      path: 'mcp_connector.policy',
+      message: `mcp_connector.policy must be one of: ${ACCEPTED_MCP_POLICIES.join(', ')}`,
+    })
+    return 'allowlist'
+  }
+  return raw as McpIssuancePolicy
+}
+
+function parseAllowedDomains(raw: unknown, errors: ValidationError[]): string[] {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'mcp_connector.allowed_domains',
+      message: 'mcp_connector.allowed_domains must be a list when present',
+    })
+    return []
+  }
+  const out: string[] = []
+  raw.forEach((entry, i) => {
+    const value = typeof entry === 'string' ? entry.trim().toLowerCase() : ''
+    if (!value || !DOMAIN_RE.test(value)) {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `mcp_connector.allowed_domains[${i}]`,
+        message: `mcp_connector.allowed_domains[${i}] must be a bare email domain (e.g. firm.com)`,
+      })
+      return
+    }
+    out.push(value)
+  })
+  return out
+}
+
+function parseDefaultProfile(
+  raw: unknown,
+  activeProfiles: Set<string>,
+  errors: ValidationError[]
+): string | null {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'mcp_connector.default_profile',
+      message: 'mcp_connector.default_profile must be a non-empty string when present',
+    })
+    return null
+  }
+  if (!activeProfiles.has(raw)) {
+    errors.push({
+      code: 'EnumViolation',
+      path: 'mcp_connector.default_profile',
+      message: `mcp_connector.default_profile "${raw}" does not match any active persona slug`,
+    })
+    return null
+  }
+  return raw
+}
+
+function parseTtlDays(raw: unknown, errors: ValidationError[]): number {
+  if (raw === undefined || raw === null) return MCP_GRANT_TTL_DEFAULT_DAYS
+  if (
+    typeof raw !== 'number' ||
+    !Number.isInteger(raw) ||
+    raw < 1 ||
+    raw > MCP_GRANT_TTL_MAX_DAYS
+  ) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'mcp_connector.ttl_days',
+      message: `mcp_connector.ttl_days must be an integer in [1, ${MCP_GRANT_TTL_MAX_DAYS}] (never infinite, ADR 0057)`,
+    })
+    return MCP_GRANT_TTL_DEFAULT_DAYS
+  }
+  return raw
 }
 
 interface AccessValidationContext {
@@ -220,9 +312,36 @@ export function checkMcpConnector(
   const authoredEmails = new Set(users.map((u) => u.email))
   const activeProfiles = new Set(personas.filter((p) => p.status === 'active').map((p) => p.slug))
 
+  const policy = parsePolicy(raw['policy'], errors)
+  const allowedDomains = parseAllowedDomains(raw['allowed_domains'], errors)
+  const defaultProfile = parseDefaultProfile(raw['default_profile'], activeProfiles, errors)
+
+  // Open-policy preconditions (ADR 0057 §3): a verified firm-domain identity is
+  // JIT-granted, so an open connector with no domain to match or no profile to
+  // mint into would either grant nothing or fail at runtime. Require both up front.
+  if (policy === 'open' && allowedDomains.length === 0) {
+    errors.push({
+      code: 'MissingField',
+      path: 'mcp_connector.allowed_domains',
+      message: "mcp_connector.allowed_domains must be non-empty when policy is 'open'",
+    })
+  }
+  if (policy === 'open' && defaultProfile === null) {
+    errors.push({
+      code: 'MissingField',
+      path: 'mcp_connector.default_profile',
+      message:
+        "mcp_connector.default_profile is required (and must be an active persona) when policy is 'open'",
+    })
+  }
+
   return {
     enabled: parseEnabled(raw['enabled'], errors),
     data_posture: parseDataPosture(raw['data_posture'], errors),
+    policy,
+    allowed_domains: allowedDomains,
+    default_profile: defaultProfile,
+    ttl_days: parseTtlDays(raw['ttl_days'], errors),
     access: parseAccess(raw['access'], authoredEmails, activeProfiles, errors),
   }
 }

@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { hashManageToken } from '../../../../lib/booking/tokens'
 import { getScheduleByManageToken, isManageTokenExpired } from '../../../../lib/booking/schedule'
@@ -66,11 +67,4 @@ export const GET: APIRoute = async ({ params }) => {
     console.error('[api/booking/manage] Error:', err)
     return jsonResponse(500, { error: 'Internal server error' })
   }
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }

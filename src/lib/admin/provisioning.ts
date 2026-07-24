@@ -39,7 +39,7 @@ import {
   validate,
   ACCEPTED_VERTICALS,
   ACCEPTED_ADDONS,
-  ACCEPTED_TRUST_CEILINGS,
+  ACCEPTED_EXPOSURE_CEILINGS,
   ACCEPTED_USER_ROLES,
   type ValidationResult,
 } from '../operator/customer-yaml'
@@ -76,7 +76,7 @@ export interface ProvisioningInput {
   persona_title: string
   persona_tone: string[]
   skill_name: string
-  skill_trust_ceiling: string
+  exposure_level: string
   connectors: ConnectorInput[]
 }
 
@@ -121,7 +121,7 @@ export function parseProvisioningForm(form: FormData): ProvisioningInput {
     persona_title: str(form, 'persona_title'),
     persona_tone: splitList(str(form, 'persona_tone')),
     skill_name: str(form, 'skill_name'),
-    skill_trust_ceiling: str(form, 'skill_trust_ceiling'),
+    exposure_level: str(form, 'exposure_level'),
     connectors: parseConnectorRows(form),
   }
 }
@@ -160,7 +160,19 @@ export function buildCandidateDoc(input: ProvisioningInput): Record<string, unkn
     status: 'active',
     name: input.persona_name,
     tone: input.persona_tone,
-    skills: [{ name: input.skill_name, trust_ceiling: input.skill_trust_ceiling, enabled: true }],
+    entitlements: {
+      exposure: {
+        internal_write: input.exposure_level,
+        external_send: input.exposure_level,
+      },
+    },
+    skills: [
+      {
+        name: input.skill_name,
+        initiation: { manual: true, scheduled: false, webhook: false },
+        enabled: true,
+      },
+    ],
   }
   if (input.persona_title) persona['title'] = input.persona_title
 
@@ -305,7 +317,7 @@ export function addonOptionsFor(vertical: string): readonly string[] {
 }
 
 export function trustCeilingOptions(): readonly string[] {
-  return ACCEPTED_TRUST_CEILINGS
+  return ACCEPTED_EXPOSURE_CEILINGS
 }
 
 export function userRoleOptions(): readonly string[] {

@@ -11,7 +11,7 @@
  *
  * Plainspoken Sign Shop chrome:
  * - Desktop active tab is a solid burnt-orange tile with cream text, other
- *   tabs transparent with Archivo Narrow uppercase labels. 2px ink dividers
+ *   tabs transparent with JetBrains Mono uppercase labels. 2px ink dividers
  *   between tabs. 3px ink bottom rule under the row. No Material Symbols —
  *   tab labels carry the meaning.
  * - Mobile bottom bar: 3px ink top border; active destination is a solid
@@ -35,9 +35,15 @@ interface Props {
    * that don't yet pass the prop keep their current 4-tab layout.
    */
   operatorActive?: boolean
+  /**
+   * When true, render an "Agent" tab pointing at the Hosted Agent surface
+   * at /portal/products/hosted-agent. Same contract as operatorActive:
+   * set by pages that detected a hosted-agent subscription.
+   */
+  hostedAgentActive?: boolean
 }
 
-const { pathname, operatorActive = false } = Astro.props
+const { pathname, operatorActive = false, hostedAgentActive = false } = Astro.props
 
 interface TabDef {
   href: string
@@ -73,17 +79,30 @@ const baseTabs: TabDef[] = [
   },
 ]
 
-const tabs: TabDef[] = operatorActive
-  ? [
-      ...baseTabs,
-      {
-        href: '/portal/products/operator',
-        label: 'Operator',
-        anchor: '05',
-        matchPrefix: '/portal/products/operator',
-      },
-    ]
-  : baseTabs
+const productTabs: TabDef[] = [
+  ...(operatorActive
+    ? [
+        {
+          href: '/portal/products/operator',
+          label: 'Operator',
+          anchor: '05',
+          matchPrefix: '/portal/products/operator',
+        },
+      ]
+    : []),
+  ...(hostedAgentActive
+    ? [
+        {
+          href: '/portal/products/hosted-agent',
+          label: 'Agent',
+          anchor: operatorActive ? '06' : '05',
+          matchPrefix: '/portal/products/hosted-agent',
+        },
+      ]
+    : []),
+]
+
+const tabs: TabDef[] = [...baseTabs, ...productTabs]
 
 function isActive(tab: TabDef, path: string): boolean {
   if (path === '/portal' || path === '/portal/') return false
@@ -105,7 +124,7 @@ function isActive(tab: TabDef, path: string): boolean {
         tabs.map((tab, i) => {
           const active = isActive(tab, pathname)
           const base =
-            "inline-flex items-baseline gap-2 px-5 py-3 min-h-[44px] font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+            'inline-flex items-baseline gap-2 px-5 py-3 min-h-[44px] font-mono text-sm font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
           const state = active
             ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
             : 'bg-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)]'
@@ -144,7 +163,7 @@ function isActive(tab: TabDef, path: string): boolean {
       tabs.map((tab) => {
         const active = isActive(tab, pathname)
         const base =
-          "flex flex-col items-center justify-center gap-0.5 py-2 min-h-[64px] font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+          'flex flex-col items-center justify-center gap-0.5 py-2 min-h-[64px] font-mono text-xs font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset'
         const state = active
           ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
           : 'bg-transparent text-[color:var(--ss-color-text-primary)] active:bg-[color:var(--ss-color-border-subtle)]'

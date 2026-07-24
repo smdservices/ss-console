@@ -23,7 +23,12 @@
 import type { Entity } from '../db/entities'
 import type { PortalUserRow } from '../auth/clerk-bridge'
 import { getPortalClient } from './session'
-import { getProductSubscription, listProductRoles, type SubscriptionRow } from './product-access'
+import {
+  getOperatorSubscriptionByInstance,
+  listProductRoles,
+  type SubscriptionRow,
+} from './product-access'
+import { getCustomerConfigBySlug, type CustomerConfigRow } from './customer-config'
 
 export const OPERATOR_PRODUCT_SLUG = 'operator'
 
@@ -39,6 +44,10 @@ export type OperatorAccess =
       client: Entity
       subscription: SubscriptionRow
       roles: string[]
+      /** The addressed instance's slug (= config.customer_slug). */
+      customerSlug: string
+      /** The addressed instance's config — callers use this instead of re-reading. */
+      config: CustomerConfigRow
     }
 
 export interface ResolveOperatorAccessOptions {
@@ -48,6 +57,14 @@ export interface ResolveOperatorAccessOptions {
    * `compliance`) — typos will silently 401 every visitor.
    */
   allowedRoles: readonly string[]
+  /**
+   * Which operator INSTANCE is being addressed (its customer_slug, from the
+   * `[instance]` route segment). Multi-operator: an entity may own several, so
+   * the slug — not the entity alone — identifies the operator. Access is granted
+   * only when this slug's config belongs to the signed-in client's entity (the
+   * cross-entity guard) and a live subscription exists for it.
+   */
+  customerSlug: string
 }
 
 /**
@@ -74,7 +91,16 @@ export async function resolveOperatorAccess(
 
   const { user, client } = portalData
 
-  const subscription = await getProductSubscription(db, client.id, OPERATOR_PRODUCT_SLUG)
+  // Resolve the addressed instance by slug and enforce ownership: the config must
+  // belong to THIS client's entity. Without this guard a user could open another
+  // client's operator by guessing its slug. A missing/foreign config redirects to
+  // the client's own operator list (never leaks that the slug exists elsewhere).
+  const config = await getCustomerConfigBySlug(db, options.customerSlug)
+  if (!config || config.entity_id !== client.id) {
+    return { kind: 'redirect', to: OPERATOR_LANDING_PATH }
+  }
+
+  const subscription = await getOperatorSubscriptionByInstance(db, client.id, options.customerSlug)
   if (!subscription) {
     return { kind: 'redirect', to: OPERATOR_LANDING_PATH }
   }
@@ -85,5 +111,13 @@ export async function resolveOperatorAccess(
     return { kind: 'redirect', to: OPERATOR_LANDING_PATH }
   }
 
-  return { kind: 'allowed', user, client, subscription, roles }
+  return {
+    kind: 'allowed',
+    user,
+    client,
+    subscription,
+    roles,
+    customerSlug: options.customerSlug,
+    config,
+  }
 }

@@ -5,9 +5,9 @@
  * repeated at the top of each page.
  *
  * Plainspoken Sign Shop chrome:
- *   - Crumb link renders as Archivo Narrow uppercase with a burnt-orange
+ *   - Crumb link renders as JetBrains Mono uppercase with a burnt-orange
  *     arrow. Tap target min-h-11 for WCAG 2.2.
- *   - Optional `tag` is a flat stamp (ink bg, cream text) in Archivo Narrow
+ *   - Optional `tag` is a flat stamp (ink bg, cream text) in JetBrains Mono
  *     uppercase — the small "Ledger" / "Engagement №03" eyebrow from the
  *     mocks.
  *   - H1 uses the Plainspoken display scale: `text-hero-mobile` at <md,
@@ -33,29 +33,22 @@ interface Props {
   class?: string
 }
 
-const {
-  crumbHref = null,
-  crumbLabel = null,
-  tag = null,
-  h1,
-  meta = null,
-  class: klass = '',
-} = Astro.props
+// `tag` is intentionally no longer destructured/rendered: the "SECTION" /
+// "PRODUCT" stamp was marketing-register noise on a console. Kept in Props for
+// caller compatibility (ADR 0069 register pass).
+const { crumbHref = null, crumbLabel = null, h1, meta = null, class: klass = '' } = Astro.props
 
 const showCrumb = !!(crumbHref && crumbLabel)
 ---
 
-<header class={`border-b-[3px] border-[color:var(--ss-color-text-primary)] py-6 md:py-10 ${klass}`}>
+<header class={`border-b-[3px] border-[color:var(--ss-color-text-primary)] py-5 md:py-7 ${klass}`}>
   {
     showCrumb && (
       <a
         href={crumbHref}
-        class="inline-flex items-center gap-2 min-h-11 -mx-1 px-1 font-['Archivo_Narrow'] text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        class="inline-flex items-center gap-2 min-h-11 -mx-1 px-1 font-mono text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
       >
-        <span
-          aria-hidden="true"
-          class="font-['Archivo'] font-black text-[color:var(--ss-color-primary)]"
-        >
+        <span aria-hidden="true" class="font-body font-black text-[color:var(--ss-color-primary)]">
           ←
         </span>
         {crumbLabel}
@@ -70,15 +63,8 @@ const showCrumb = !!(crumbHref && crumbLabel)
     ]}
   >
     <div class="min-w-0 flex-1">
-      {
-        tag && (
-          <span class="inline-block mb-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-3 py-1 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold whitespace-nowrap">
-            {tag}
-          </span>
-        )
-      }
       <h1
-        class="font-['Archivo'] text-hero-mobile md:text-hero uppercase text-[color:var(--ss-color-text-primary)] m-0"
+        class="m-0 font-body text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)] md:text-3xl"
       >
         {h1}
       </h1>

@@ -245,7 +245,7 @@ describe('middleware runtime: behavior', () => {
     it('does NOT rewrite a path already under /portal on the portal subdomain', async () => {
       // Already-prefixed paths fall through to auth enforcement, not rewrite.
       // With no auth, the portal page path redirects to sign-in (not a rewrite).
-      const { res } = await invoke({ url: 'https://portal.smd.services/portal/quotes' })
+      const { res } = await invoke({ url: 'https://portal.smd.services/portal/engagement' })
       expect(res.headers.get(REWRITE_MARKER)).toBeNull()
       expect(res.status).toBe(302)
       expect(res.headers.get('Location')).toBe('/auth/sign-in')
@@ -279,6 +279,53 @@ describe('middleware runtime: behavior', () => {
     })
   })
 
+  // ---- Extracted legacy-redirect table (src/lib/routing/legacy-redirects) --
+  // Behavioral coverage of the redirect rules moved out of middleware.ts (code
+  // review 2026-07-02 §1.3). Drives the real onRequest so the extraction is
+  // proven behavior-preserving, not just structurally present.
+  describe('legacy redirects (rule table)', () => {
+    it('301s the /ai-employee product rename to /operator (before subdomain rewrite)', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/ai-employee/pricing' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/operator/pricing')
+    })
+
+    it('301s a portal-relative /products/ai-employee path to /products/operator', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/products/ai-employee' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/products/operator')
+    })
+
+    it('301s a legacy auth path to the unified sign-in, preserving the query', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/auth/login?status=signed_out' })
+      expect(res.status).toBe(301)
+      const loc = new URL(res.headers.get('Location')!)
+      expect(loc.pathname).toBe('/auth/sign-in')
+      expect(loc.searchParams.get('status')).toBe('signed_out')
+    })
+
+    it('301s a retired marketing route (/scan) to home', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/scan' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/')
+    })
+
+    it('301s /why to /operator#compare', async () => {
+      const { res } = await invoke({ url: 'https://smd.services/why' })
+      expect(res.status).toBe(301)
+      expect(res.headers.get('Location')).toBe('/operator#compare')
+    })
+
+    it('301s bare /get-started to home but leaves /get-started?booked=1 alone', async () => {
+      const retired = await invoke({ url: 'https://smd.services/get-started' })
+      expect(retired.res.status).toBe(301)
+      expect(retired.res.headers.get('Location')).toBe('/')
+
+      const booked = await invoke({ url: 'https://smd.services/get-started?booked=1' })
+      expect(booked.res.status).not.toBe(301)
+    })
+  })
+
   // ---- Admin auth enforcement -------------------------------------------
   describe('admin auth enforcement', () => {
     it('redirects an unauthenticated admin PAGE request to /auth/sign-in', async () => {
@@ -291,6 +338,23 @@ describe('middleware runtime: behavior', () => {
       const { res } = await invoke({ url: 'https://admin.smd.services/api/admin/entities' })
       expect(res.status).toBe(401)
       expect(await res.json()).toEqual({ error: 'Unauthorized' })
+    })
+
+    it('exempts /api/admin/fleet/health from the Clerk gate (machine-bearer route)', async () => {
+      // The route self-gates on a health-read key, so the middleware must let a
+      // cookie-less (no Clerk userId) request through to the handler rather than
+      // 401 it. Contrast with /api/admin/entities above which 401s.
+      const { res, next } = await invoke({
+        url: 'https://admin.smd.services/api/admin/fleet/health',
+      })
+      expect(res.status).not.toBe(401)
+      expect(next).toHaveBeenCalledOnce()
+      expect(res.headers.get(NEXT_MARKER)).toBe('1')
+    })
+
+    it('does NOT exempt a sibling /api/admin/fleet/* path (exact match only)', async () => {
+      const { res } = await invoke({ url: 'https://admin.smd.services/api/admin/fleet/other' })
+      expect(res.status).toBe(401)
     })
 
     it('redirects a Clerk-authenticated NON-admin to /portal on an admin page', async () => {
@@ -327,7 +391,7 @@ describe('middleware runtime: behavior', () => {
   // ---- Portal auth enforcement ------------------------------------------
   describe('portal auth enforcement', () => {
     it('redirects an unauthenticated portal PAGE request to /auth/sign-in', async () => {
-      const { res } = await invoke({ url: 'https://portal.smd.services/portal/quotes' })
+      const { res } = await invoke({ url: 'https://portal.smd.services/portal/engagement' })
       expect(res.status).toBe(302)
       expect(res.headers.get('Location')).toBe('/auth/sign-in')
     })
@@ -340,7 +404,7 @@ describe('middleware runtime: behavior', () => {
 
     it('allows a Clerk-authenticated user through (primary portal path)', async () => {
       const { res, next } = await invoke({
-        url: 'https://portal.smd.services/portal/quotes',
+        url: 'https://portal.smd.services/portal/engagement',
         auth: { userId: 'user_any_clerk' },
       })
       expect(next).toHaveBeenCalledOnce()
@@ -350,7 +414,7 @@ describe('middleware runtime: behavior', () => {
     it('allows a legacy magic-link client session (cookie) as a Clerk fallback', async () => {
       await seedClientSession(db)
       const { res, next } = await invoke({
-        url: 'https://portal.smd.services/portal/quotes',
+        url: 'https://portal.smd.services/portal/engagement',
         cookie: `${SESSION_COOKIE_NAME}=${CLIENT_TOKEN}`,
       })
       expect(next).toHaveBeenCalledOnce()
@@ -359,7 +423,7 @@ describe('middleware runtime: behavior', () => {
 
     it('rejects an unknown/invalid session_token cookie with no Clerk session', async () => {
       const { res } = await invoke({
-        url: 'https://portal.smd.services/portal/quotes',
+        url: 'https://portal.smd.services/portal/engagement',
         cookie: `${SESSION_COOKIE_NAME}=not-a-real-token`,
       })
       expect(res.status).toBe(302)

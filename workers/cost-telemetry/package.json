@@ -11,9 +11,9 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250327.0",
-    "typescript": "^5.3.0",
-    "vitest": "^3.2.4",
-    "wrangler": "^4.78.0"
+    "@cloudflare/workers-types": "^4.20260701.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.107.0"
   }
 }

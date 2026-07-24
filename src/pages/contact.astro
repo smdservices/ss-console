@@ -1,16 +1,42 @@
 ---
+export const prerender = false
+
+// /contact — the quiet general-inquiry channel.
+//
+// Restored 2026-06-30 (Captain decision, recorded in
+// docs/marketing/positioning-spine.md change-control log). The assessment at
+// /book is and remains the single primary front door; this page is NOT a peer
+// door to it. It exists so partners, vendors, press, and anyone who wants to
+// work together in some other way has a way to reach the firm WITHOUT us
+// publishing an email address on the site. Linked from the footer only, never
+// the nav or a hero CTA, so it stays a lower-weight channel by construction.
+//
+// The backend (src/pages/api/contact.ts: Resend notification to
+// team@smd.services, honeypot, rate-limit, XSS hardening) never left when the
+// page was deleted in #1548; this page wires the form back to it. Guarded by
+// tests/landing-page.test.ts so a future rebuild cannot silently reap it again.
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
+import { bookHref } from '../lib/booking/config'
 ---
 
-<Base title="Contact | SMD Services" description="Get in touch with SMD Services.">
+<Base
+  title="Contact | SMD Services"
+  description="Reach SMD Services about a partnership, a question, or another way to work together. To start an engagement, begin with an assessment."
+>
   <Nav />
-  <main id="main" role="main">
-    <section class="ss-contact-section">
+  <main id="main" role="main" class="ss-book-main">
+    <section class="ss-book-section">
       <div class="ss-book-frame">
         <header class="mb-stack">
-          <h1 class="ss-headline">Contact Us</h1>
+          <h1 class="ss-headline">Contact</h1>
+          <p class="ss-subhead">
+            Looking to start an engagement? <a href={bookHref()} class="ss-quiet-link"
+              >Start with an assessment</a
+            >, our front door. For anything else, a partnership, a question, press, or another way
+            to work together, send a note below.
+          </p>
         </header>
 
         <div id="form-status" class="ss-form-status" aria-live="polite"></div>
@@ -55,7 +81,7 @@ import Footer from '../components/Footer.astro'
             </div>
           </div>
 
-          <!-- Honeypot — hidden from real users -->
+          <!-- Honeypot. Hidden from real users; bots fill it and are silently rejected. -->
           <div class="ss-honeypot" aria-hidden="true">
             <label for="website">Website</label>
             <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
@@ -94,20 +120,14 @@ import Footer from '../components/Footer.astro'
           website: form.elements.namedItem('website').value,
         }
 
-        // Build the banner with safe DOM construction. `content` is either a
-        // plain string (set via textContent — never parsed as HTML) or a Node
-        // assembled by the caller for the one case that needs a link. Response
-        // field values (validation messages, body.error) are server-controlled
-        // but flow into this sink as untrusted text, so they go through
-        // textContent, not innerHTML.
+        // Build the banner with safe DOM construction. `content` is a plain
+        // string set via textContent, never parsed as HTML. Response field
+        // values (validation messages, body.error) are server-controlled but
+        // flow into this sink as untrusted text, so they go through textContent.
         function setBanner(variant, content) {
           const banner = document.createElement('div')
           banner.className = 'ss-banner ss-banner-' + variant
-          if (typeof content === 'string') {
-            banner.textContent = content
-          } else {
-            banner.appendChild(content)
-          }
+          banner.textContent = content
           status.replaceChildren(banner)
         }
 
@@ -128,21 +148,16 @@ import Footer from '../components/Footer.astro'
           if (res.status === 400 && body.fields) {
             const msgs = Object.values(body.fields).join('. ')
             setBanner('error', msgs)
+          } else if (res.status === 429) {
+            setBanner('error', 'Too many messages from this network. Please try again later.')
           } else {
             throw new Error(body.error || 'Request failed')
           }
         } catch {
-          // The mailto link is authored markup, not dynamic data — build it as
-          // a real element so the surrounding copy stays plain text.
-          const frag = document.createDocumentFragment()
-          frag.appendChild(document.createTextNode('Something went wrong. Please email '))
-          const link = document.createElement('a')
-          link.href = 'mailto:team@smd.services'
-          link.className = 'ss-quiet-link'
-          link.textContent = 'team@smd.services'
-          frag.appendChild(link)
-          frag.appendChild(document.createTextNode(' directly.'))
-          setBanner('error', frag)
+          // Intentionally no published email in the failure path. The whole
+          // point of this channel is to not publish an address; the recourse
+          // is to retry. Resend + the rate limiter make hard failures rare.
+          setBanner('error', 'Something went wrong. Please try again in a moment.')
         } finally {
           button.disabled = false
           button.textContent = 'Send message'
@@ -152,14 +167,17 @@ import Footer from '../components/Footer.astro'
   </script>
 
   <style>
-    .ss-contact-section {
-      padding: 4rem 1.5rem 6rem;
-    }
     .ss-form-status:empty {
       display: none;
     }
     .ss-form-status {
       margin-bottom: 1.5rem;
+    }
+    .ss-subhead {
+      margin-top: 0.75rem;
+      max-width: 42ch;
+      color: var(--ss-color-text-secondary);
+      line-height: 1.6;
     }
     .ss-honeypot {
       position: absolute;

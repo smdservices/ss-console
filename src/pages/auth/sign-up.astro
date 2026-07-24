@@ -15,7 +15,19 @@ import { clerkAppearance } from '../../lib/auth/clerk-appearance'
  * Most portal users arrive here from an Organization-invitation email
  * (Clerk's invite flow pre-populates the email field). Direct discovery
  * of this URL is rare but supported.
+ *
+ * `?redirect_url=` (ADR 0067): the Hosted Agent checkout entry sends
+ * unauthenticated buyers here and needs the checkout intent to survive
+ * account creation. Only same-origin absolute paths are honored (must
+ * start with a single '/'); anything else falls back to the standard
+ * after-sign-in route.
  */
+
+const requestedRedirect = Astro.url.searchParams.get('redirect_url')
+const redirectUrl =
+  requestedRedirect && requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : '/auth/after-sign-in'
 ---
 
 <Base title="Create Account | SMD Services" disableAnalytics={true}>
@@ -29,15 +41,15 @@ import { clerkAppearance } from '../../lib/auth/clerk-appearance'
     >
       <div class="w-full max-w-sm">
         <p
-          class="mb-6 text-center font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+          class="mb-6 text-center font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
         >
           Create your account
         </p>
 
         <SignUp
           signInUrl="/auth/sign-in"
-          fallbackRedirectUrl="/auth/after-sign-in"
-          forceRedirectUrl="/auth/after-sign-in"
+          fallbackRedirectUrl={redirectUrl}
+          forceRedirectUrl={redirectUrl}
           appearance={clerkAppearance}
         />
       </div>

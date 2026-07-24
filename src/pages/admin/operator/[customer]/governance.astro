@@ -6,18 +6,16 @@ import { readGovernanceConfig } from '../../../../lib/admin/governance'
 import { env } from 'cloudflare:workers'
 
 /**
- * Operator admin console — trust & governance (§5.3, ADR 0025 / ADR 0035).
+ * Operator admin console — entitlements & governance.
  *
- * The entitlement surface on the action-class model: per persona × skill ×
- * action class, the SMD-set floor (non-raisable), the authored ceiling, and the
- * effective ceiling. SMD adjusts a ceiling within the floor; the change is
- * floor-checked and recorded to config_change_audit (deferred git write-back,
- * ADR 0012 — the live replica is not mutated).
+ * Persona-level exposure plus skill-level initiation. SMD adjusts exposure
+ * within the floor; the change is floor-checked and recorded to
+ * config_change_audit (deferred git write-back, ADR 0012 — the live replica is
+ * not mutated).
  *
  * The rule that does not bend (ADR 0035 / foundations §8): an action class with
- * no authored ceiling renders **unconfigured → fail-closed**, never a presumed
- * "draft for review." Draft-for-review is a value authored in action_ceilings,
- * not a fallback. resolveCell encodes that; this page renders it literally.
+ * no authored exposure renders **unconfigured → fail-closed**, never a presumed
+ * "draft for review." resolveCell encodes that; this page renders it literally.
  *
  * Floors are set by the vertical pack (config-governance VERTICAL_FLOORS), not
  * edited per-customer here — shown read-only with that provenance stated.
@@ -34,18 +32,18 @@ const config = entityId ? await readGovernanceConfig(env.DB, slug) : null
 
 const status = Astro.url.searchParams.get('status')
 const STATUS_MESSAGES: Record<string, { text: string; ok: boolean }> = {
-  saved: { text: 'Ceiling change recorded. It applies on the next config sync.', ok: true },
+  saved: { text: 'Exposure change recorded. It applies on the next config sync.', ok: true },
   floor_blocked: {
     text: 'Rejected: that value would raise the ceiling above the vertical floor.',
     ok: false,
   },
-  invalid_level: { text: 'Invalid ceiling value.', ok: false },
+  invalid_level: { text: 'Invalid exposure value.', ok: false },
   invalid_action_class: { text: 'Invalid action class.', ok: false },
   not_found: { text: 'Operator or skill not found.', ok: false },
   malformed: { text: 'Config projection is malformed.', ok: false },
 }
 const banner = status ? STATUS_MESSAGES[status] : null
-const formAction = `/admin/operator/${encodeURIComponent(slug)}/governance`
+const formAction = `/api/admin/operator/${encodeURIComponent(slug)}/governance`
 ---
 
 <AdminLayout
@@ -91,9 +89,10 @@ const formAction = `/admin/operator/${encodeURIComponent(slug)}/governance`
               Trust &amp; governance — {slug}
             </h2>
             <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
-              Per skill, per action class: the floor SMD pins (non-raisable), the authored ceiling,
-              and the effective ceiling. An action class with no authored ceiling is unconfigured
-              and fail-closed — never a default. Floors come from the vertical pack.
+              Per persona exposure and skill initiation: the floor SMD pins (non-raisable), the
+              authored exposure, and the effective exposure. An action class with no authored
+              exposure is unconfigured and fail-closed — never a default. Floors come from the
+              vertical pack.
             </p>
           </header>
 
@@ -128,6 +127,7 @@ const formAction = `/admin/operator/${encodeURIComponent(slug)}/governance`
                   <GovernanceSkillCard
                     skill={skill}
                     vertical={config.vertical}
+                    exposure={persona.exposure}
                     personaSlug={persona.slug}
                     formAction={formAction}
                   />
@@ -137,7 +137,7 @@ const formAction = `/admin/operator/${encodeURIComponent(slug)}/governance`
           ))}
 
           <p class="text-xs text-[color:var(--ss-color-text-muted)]">
-            Floors are pinned by the vertical pack and are not editable here. A ceiling change is
+            Floors are pinned by the vertical pack and are not editable here. An exposure change is
             floor-checked and recorded to the config-change ledger; it applies on the next config
             sync (the live config is not edited directly).
           </p>

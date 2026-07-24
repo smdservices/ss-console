@@ -1,0 +1,36 @@
+{
+  "adr": "0075",
+  "seat": "pilot-smokeball",
+  "persona": "operator",
+  "source_letter": "operator/customers/ashton-price/correspondence/07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md",
+  "description": "Machine-readable commitments contract for the Ashton & Price 2026-07-09 routine-settings grid. tests/customer-commitments.test.ts parses the LIVE customer.yaml + routine-grid.yaml and asserts these commitments still hold. Any change to the live outbound_roster forces a same-PR bump to the outbound_roster list below, so a roster change is always a reviewed diff.",
+  "invariants": {
+    "external_send_never_autonomous": {
+      "value": true,
+      "why": "The letter's permanent cap: opposing counsel and the court always take a person's send. No persona on this seat may author external_send: autonomous."
+    },
+    "outbound_roster_classes_allowed": ["client", "records_vendor"],
+    "tier_vocabulary": ["flag-only", "prepare-and-route", "auto-handle"]
+  },
+  "outbound_roster": [
+    {
+      "address": "ap-client-standin@agentmail.to",
+      "class": "client"
+    },
+    {
+      "address": "ap-records-standin@agentmail.to",
+      "class": "records_vendor"
+    }
+  ],
+  "settings_placeholders": {
+    "note": "PLACEHOLDER(christa) values on pilot-smokeball await the firm's real answers (letter section 'What we need back from you'). They are permitted on this staging seat but MUST NEVER appear under operator/customers/ashton-price/ (the client go-live gate, enforced by test (d)).",
+    "skills": {
+      "client-verification-tracker": ["chase_cadence_days", "escalate_after_attempts"],
+      "medical-chronology-maintainer": ["treatment_gap_flag_days"]
+    }
+  },
+  "enforcement_floor": {
+    "commitment_never_autonomous_source": "operator/adapter/trust_ceiling.py",
+    "note": "The tool-to-action-class map that pins payments_* / trust-ledger / create_matter as COMMITMENT-class lives overlay-side (shared/action_classes.py), outside this repo, so there is no ss-side BANNED_TOOLS list to assert against. The ss-reachable floor is trust_ceiling.enforce(): a COMMITMENT action is never allowed without explicit current-turn approval, even at ceiling=autonomous. Test (e) source-guards that invariant against silent removal and asserts no persona authors commitment: autonomous."
+  }
+}

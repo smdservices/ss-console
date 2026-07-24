@@ -32,7 +32,10 @@ fly_region: lax
 
 # ---- RUNTIME ----
 model: claude-opus-4-8
-hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+# Hermes v0.14.0 → v0.18.0 upgrade (staging leads the fleet). Rollback pin:
+# v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0 (uv.lock + uv sync --frozen
+# make the Python rebuild reproducible). See docs/runbooks/operator/hermes-v0.18-upgrade-plan.md.
+hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
 
 machine:
   size: shared-cpu-1x
@@ -72,14 +75,24 @@ personas:
       - direct
       - executive-summary
       - concise
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: draft_for_review
     skills:
       - name: inbox-triage
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: workspace
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
     skills_disabled:
       - google-workspace
@@ -102,10 +115,6 @@ scope:
   trusted_sender_domains:
     - smd-staging.invalid
   # Inert: drafts only, and there is no inbound to act on anyway.
-  action_ceilings:
-    external_send: draft_for_review
-
-# ---- ESCALATION ----
 escalation:
   red_flag_recipients:
     - staging@smd-staging.invalid

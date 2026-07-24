@@ -9,6 +9,7 @@
  * The `service` spine is deferred — this renders the unified view today.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
 import { loadEntityDetailPage, formatDate } from '../../../lib/admin/entity-detail-page'
 import { listFleetRoster, personaSummary, posturePill } from '../../../lib/admin/fleet-roster'
@@ -17,9 +18,11 @@ import {
   engagementToServiceRow,
   formatMoney,
   serviceToneDotClass,
+  clientStageBadge,
 } from '../../../lib/admin/client-hub'
-import { ENTITY_VERTICALS, ENTITY_STAGES } from '../../../lib/db/entities'
+import { ENTITY_VERTICALS } from '../../../lib/db/entities'
 import { getOperatorServiceForEntity } from '../../../lib/db/services'
+import { getSubscriptionForBilling } from '../../../lib/db/subscriptions'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import { env } from 'cloudflare:workers'
 
@@ -43,13 +46,25 @@ const operatorService = operator
   ? await getOperatorServiceForEntity(env.DB, session.orgId, entityId)
   : null
 const operatorPrice = operatorService?.recurring_price ?? null
+// Retainer billing state (#1679): the (entity,'operator') subscriptions row +
+// its Stripe attachment. Billing controls render only when the row exists —
+// provisioning owns access grants; billing never creates one.
+const operatorSubscription = operator
+  ? await getSubscriptionForBilling(env.DB, entityId, 'operator')
+  : null
 
 const rollup = computeBillingRollup(invoices)
 const serviceRows = engagements.map((eng) => engagementToServiceRow(eng, quotes))
 
-const verticalLabel =
-  ENTITY_VERTICALS.find((v) => v.value === entity.vertical)?.label ?? entity.vertical ?? '—'
-const stageLabel = ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage
+// Vertical is no longer captured on new records (it is not a meaningful
+// categorization today), so show it only when a record actually has one.
+// area alone, or nothing, renders cleanly instead of a bare placeholder.
+const verticalLabel = entity.vertical
+  ? (ENTITY_VERTICALS.find((v) => v.value === entity.vertical)?.label ?? entity.vertical)
+  : null
+const subtitleParts = [verticalLabel, entity.area].filter(Boolean)
+const badge = clientStageBadge(entity.stage)
+const created = Astro.url.searchParams.get('created')
 const primaryContact = contacts[0] ?? null
 
 const earliestStart = engagements
@@ -62,9 +77,9 @@ const overdueInvoices = invoices.filter((i) => i.status === 'overdue')
 const sentInvoices = invoices.filter((i) => i.status === 'sent')
 
 const SECTION_LABEL =
-  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+  'font-mono text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]'
 const LINK_ACT =
-  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+  'font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] underline underline-offset-4'
 ---
 
 <AdminLayout
@@ -72,6 +87,8 @@ const LINK_ACT =
   breadcrumbs={[{ label: 'Clients', href: '/admin/clients' }, { label: entity.name }]}
   maxWidth="max-w-6xl"
 >
+  {created && <AdminFlashNotice message={`${entity.name} added.`} />}
+
   <a
     href="/admin/clients"
     class="mb-5 inline-flex items-center gap-1 text-sm text-[color:var(--ss-color-text-secondary)] transition-colors hover:text-[color:var(--ss-color-primary)]"
@@ -83,19 +100,33 @@ const LINK_ACT =
   <div class="flex items-start justify-between gap-6 pb-5">
     <div>
       <h1 class="text-3xl font-bold text-[color:var(--ss-color-text-primary)]">{entity.name}</h1>
-      <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-        {verticalLabel}{entity.area ? ` · ${entity.area}` : ''}
-      </p>
+      {
+        subtitleParts.length > 0 && (
+          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
+            {subtitleParts.join(' · ')}
+          </p>
+        )
+      }
     </div>
     <div class="shrink-0 text-right text-sm leading-7 text-[color:var(--ss-color-text-secondary)]">
       <span
-        class="inline-flex items-center gap-2 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em]"
+        class="inline-flex items-center gap-2 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em]"
       >
-        <span class="h-[7px] w-[7px] rounded-full bg-[color:var(--ss-color-complete)]"></span>
-        Client · {stageLabel}
+        <span
+          class:list={[
+            'h-[7px] w-[7px] rounded-full',
+            entity.stage === 'lost'
+              ? 'bg-[color:var(--ss-color-text-muted)]'
+              : badge.signed
+                ? 'bg-[color:var(--ss-color-complete)]'
+                : 'bg-[color:var(--ss-color-primary)]',
+          ]}></span>
+        {badge.label}
       </span>
       {primaryContact && <div class="mt-2">Primary: {primaryContact.name}</div>}
-      <div>Client since {clientSince}</div>
+      <div>
+        {badge.signed ? `Client since ${clientSince}` : `Added ${formatDate(entity.created_at)}`}
+      </div>
     </div>
   </div>
 
@@ -103,26 +134,26 @@ const LINK_ACT =
   <div class="mb-7 flex border border-[color:var(--ss-color-text-primary)]">
     <div class="flex-1 border-r border-[color:var(--ss-color-border)] px-[18px] py-[14px]">
       <span
-        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        class="mb-[5px] block font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
         >Lifetime billed</span
       >
-      <span class="font-['JetBrains_Mono'] text-lg font-bold">{formatMoney(rollup.invoiced)}</span>
+      <span class="font-mono text-lg font-bold">{formatMoney(rollup.invoiced)}</span>
     </div>
     <div class="flex-1 border-r border-[color:var(--ss-color-border)] px-[18px] py-[14px]">
       <span
-        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        class="mb-[5px] block font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
         >Paid</span
       >
-      <span class="font-['JetBrains_Mono'] text-lg font-bold">{formatMoney(rollup.paid)}</span>
+      <span class="font-mono text-lg font-bold">{formatMoney(rollup.paid)}</span>
     </div>
     <div class="flex-1 px-[18px] py-[14px]">
       <span
-        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        class="mb-[5px] block font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
         >Outstanding</span
       >
       <span
         class:list={[
-          "font-['JetBrains_Mono'] text-lg font-bold",
+          'font-mono text-lg font-bold',
           rollup.outstanding > 0
             ? 'text-[color:var(--ss-color-primary)]'
             : 'text-[color:var(--ss-color-text-muted)]',
@@ -142,10 +173,10 @@ const LINK_ACT =
           operator && (
             <div class="mb-3.5 border border-[color:var(--ss-color-border)] border-l-[3px] border-l-[color:var(--ss-color-primary)] px-[18px] py-4">
               <div class="mb-3 flex items-center justify-between">
-                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]">
+                <span class="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]">
                   Operator
                 </span>
-                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                   {posturePill(operator.authority).label}
                 </span>
               </div>
@@ -157,12 +188,12 @@ const LINK_ACT =
                 {operator.config_error && ' · config needs attention'}
               </div>
               <div class="mt-3 flex items-baseline justify-between border-t border-[color:var(--ss-color-border-subtle)] pt-3">
-                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                   Monthly price
                 </span>
                 <span
                   class:list={[
-                    "font-['JetBrains_Mono'] text-base font-bold",
+                    'font-mono text-base font-bold',
                     operatorPrice == null && 'text-[color:var(--ss-color-text-muted)]',
                   ]}
                 >
@@ -174,9 +205,7 @@ const LINK_ACT =
                 action={`/api/admin/clients/${entityId}/operator-price`}
                 class="mt-2.5 flex items-center gap-2"
               >
-                <span class="font-['JetBrains_Mono'] text-sm text-[color:var(--ss-color-text-secondary)]">
-                  $
-                </span>
+                <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)]">$</span>
                 <input
                   type="number"
                   name="monthly_price"
@@ -184,18 +213,98 @@ const LINK_ACT =
                   step="1"
                   value={operatorPrice ?? ''}
                   placeholder="0"
-                  class="w-28 border border-[color:var(--ss-color-border)] px-2 py-1 font-['JetBrains_Mono'] text-sm"
+                  class="w-28 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-sm"
                 />
-                <span class="font-['Archivo_Narrow'] text-[11px] text-[color:var(--ss-color-text-muted)]">
+                <span class="font-mono text-[11px] text-[color:var(--ss-color-text-muted)]">
                   / mo
                 </span>
                 <button
                   type="submit"
-                  class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                  class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
                 >
                   Save
                 </button>
               </form>
+              {operatorSubscription && (
+                <div class="mt-3 border-t border-[color:var(--ss-color-border-subtle)] pt-3">
+                  <div class="flex items-baseline justify-between">
+                    <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                      Retainer billing
+                    </span>
+                    <span class="font-mono text-sm">
+                      {operatorSubscription.stripe_subscription_id
+                        ? `Stripe · ${operatorSubscription.status}`
+                        : 'Not attached'}
+                    </span>
+                  </div>
+                  {!operatorSubscription.stripe_subscription_id && operatorPrice != null && (
+                    <form
+                      method="POST"
+                      action={`/api/admin/clients/${entityId}/subscription-billing`}
+                      class="mt-2.5"
+                    >
+                      <input type="hidden" name="action" value="start" />
+                      <button
+                        type="submit"
+                        class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                      >
+                        Start monthly billing ({formatMoney(operatorPrice)}/mo)
+                      </button>
+                    </form>
+                  )}
+                  {!operatorSubscription.stripe_subscription_id && operatorPrice == null && (
+                    <p class="mt-2 text-sm text-[color:var(--ss-color-text-muted)]">
+                      Author the monthly price above to start billing.
+                    </p>
+                  )}
+                  {operatorSubscription.stripe_subscription_id && (
+                    <div class="mt-2.5 flex items-center gap-2">
+                      {operatorSubscription.status === 'active' && (
+                        <form
+                          method="POST"
+                          action={`/api/admin/clients/${entityId}/subscription-billing`}
+                        >
+                          <input type="hidden" name="action" value="pause" />
+                          <button
+                            type="submit"
+                            class="border border-[color:var(--ss-color-border)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+                          >
+                            Pause billing
+                          </button>
+                        </form>
+                      )}
+                      {operatorSubscription.status === 'paused' && (
+                        <form
+                          method="POST"
+                          action={`/api/admin/clients/${entityId}/subscription-billing`}
+                        >
+                          <input type="hidden" name="action" value="resume" />
+                          <button
+                            type="submit"
+                            class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                          >
+                            Resume billing
+                          </button>
+                        </form>
+                      )}
+                      {operatorSubscription.status !== 'cancelled' && (
+                        <form
+                          method="POST"
+                          action={`/api/admin/clients/${entityId}/subscription-billing`}
+                        >
+                          <input type="hidden" name="action" value="cancel" />
+                          <button
+                            type="submit"
+                            class="border border-[color:var(--ss-color-error)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-error)]"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               <div class="mt-3 flex items-center justify-end border-t border-[color:var(--ss-color-border-subtle)] pt-3">
                 <a href="/admin/operator" class={LINK_ACT}>
                   Open cockpit →
@@ -209,10 +318,10 @@ const LINK_ACT =
           serviceRows.map((svc) => (
             <div class="mb-3.5 border border-[color:var(--ss-color-border)] border-l-[3px] border-l-[color:var(--ss-color-text-primary)] px-[18px] py-4">
               <div class="mb-3 flex items-center justify-between">
-                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
+                <span class="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
                   Consulting
                 </span>
-                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                   <span
                     class:list={['h-[7px] w-[7px] rounded-full', serviceToneDotClass(svc.tone)]}
                   />
@@ -224,9 +333,7 @@ const LINK_ACT =
                   {svc.title}
                 </span>
                 {svc.value && (
-                  <span class="font-['JetBrains_Mono'] text-base font-bold whitespace-nowrap">
-                    {svc.value}
-                  </span>
+                  <span class="font-mono text-base font-bold whitespace-nowrap">{svc.value}</span>
                 )}
               </div>
               {svc.keyDateIso && (
@@ -246,11 +353,13 @@ const LINK_ACT =
           )
         }
 
-        <a
-          href={`/admin/quotes/new?entity=${entity.id}`}
-          class="mt-3.5 block w-full border border-dashed border-[color:var(--ss-color-border)] px-3.5 py-2.5 text-center font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]"
-          >+ New quote</a
-        >
+        <form method="POST" action={`/api/admin/entities/${entity.id}/quotes`}>
+          <button
+            type="submit"
+            class="mt-3.5 block w-full border border-dashed border-[color:var(--ss-color-border)] px-3.5 py-2.5 text-center font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]"
+            >+ New quote</button
+          >
+        </form>
       </section>
 
       <!-- billing -->
@@ -268,7 +377,7 @@ const LINK_ACT =
             <div class="space-y-2.5 text-sm">
               {quotes.length > 0 && (
                 <div class="flex gap-3">
-                  <span class="w-20 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                  <span class="w-20 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                     Quotes
                   </span>
                   <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -283,7 +392,7 @@ const LINK_ACT =
               )}
               {invoices.length > 0 && (
                 <div class="flex gap-3">
-                  <span class="w-20 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                  <span class="w-20 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
                     Invoices
                   </span>
                   <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -305,7 +414,7 @@ const LINK_ACT =
       <section class="border-t border-[color:var(--ss-color-text-primary)] pt-4 pb-6">
         <div class="mb-4 flex items-baseline justify-between">
           <h2 class={SECTION_LABEL}>Activity</h2>
-          <span class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]">
+          <span class="font-mono text-[12px] text-[color:var(--ss-color-text-muted)]">
             {deduplicatedTimeline.length}
             {deduplicatedTimeline.length === 1 ? 'event' : 'events'}
           </span>
@@ -368,7 +477,7 @@ const LINK_ACT =
                     <span class="text-[color:var(--ss-color-text-secondary)]"> · {c.title}</span>
                   )}
                   {c.email && (
-                    <div class="font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+                    <div class="font-mono text-xs text-[color:var(--ss-color-text-muted)]">
                       {c.email}
                     </div>
                   )}
@@ -392,14 +501,14 @@ const LINK_ACT =
     <div class="border-t border-[color:var(--ss-color-border)] px-[18px] py-3.5 text-sm">
       <div class="flex gap-4 py-1.5">
         <span
-          class="w-24 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+          class="w-24 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
           >Origin</span
         >
         <span>{entity.source_pipeline ?? 'unknown source'} · {formatDate(entity.created_at)}</span>
       </div>
       <div class="flex gap-4 py-1.5">
         <span
-          class="w-24 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+          class="w-24 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
           >Full record</span
         >
         <a href={`/admin/entities/${entity.id}`} class={LINK_ACT}>

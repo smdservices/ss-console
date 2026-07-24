@@ -9,6 +9,8 @@ import {
 import { sendEmail } from '../../../../lib/email/resend'
 import { invoiceSentEmailHtml } from '../../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/invoices/:id
@@ -90,7 +92,7 @@ async function handleSend(
   if (clientEmail) {
     try {
       const formattedAmount = `$${existing.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      const portalUrl = buildPortalUrl(env, '/portal/invoices')
+      const portalUrl = buildPortalUrl(env, '/portal/billing')
       await sendEmail(env.RESEND_API_KEY, {
         to: clientEmail,
         subject: 'Your invoice from SMD Services is ready',
@@ -179,20 +181,13 @@ async function handleMarkPaid(
 }
 
 async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const invoiceId = params.id
   if (!invoiceId) {
-    return new Response(JSON.stringify({ error: 'Invoice ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Invoice ID required')
   }
 
   try {

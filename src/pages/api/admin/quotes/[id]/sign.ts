@@ -5,6 +5,8 @@ import { getContact } from '../../../../../lib/db/contacts'
 import { scheduleProposalCadence } from '../../../../../lib/follow-ups/scheduler'
 import { authorizeAndSendSOW } from '../../../../../lib/sow/service'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/quotes/:id/sign
@@ -84,20 +86,13 @@ async function validateSignPreconditions(
 }
 
 async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const quoteId = params.id
   if (!quoteId) {
-    return new Response(JSON.stringify({ error: 'Quote ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Quote ID required')
   }
 
   // Verify SignWell API key is configured

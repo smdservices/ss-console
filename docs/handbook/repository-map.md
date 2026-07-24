@@ -20,9 +20,9 @@ The repo is `venturecrane/ss-console`. From the root:
 |---|---|
 | `src/` | The Astro SSR application - marketing, admin, portal, API, and all the business logic in `src/lib/`. The bulk of the console plane. |
 | `operator/` | The Operator plane's authored content and tooling: vertical skill bodies, the safety substrate, capability adapters, connectors, per-customer `customer.yaml` files, the workspace broker, provisioning scripts. Python and YAML, not the Worker. |
-| `workers/` | Seven sibling Cloudflare Workers run outside the request path: the four lead-gen pipelines (`new-business`, `job-monitor`, `review-mining`, `social-listening`), `enrichment-workflow`, and `cost-telemetry` / `cost-anomaly`. |
+| `workers/` | Two sibling Cloudflare Workers run outside the request path: `cost-telemetry` and `cost-anomaly` (Operator cost ingest + anomaly detection). The lead-gen pipelines that used to live here were retired 2026-07-01 (PRs #1610/#1616). |
 | `migrations/` | D1 schema migrations for the console database `ss-console-db`, numbered `0001_*` upward (68 forward migrations plus a `rollbacks/` directory). Applied with `wrangler d1 migrations apply`. See `/admin/playbook/data-model`. |
-| `tests/` | Vitest suites, including the policy-enforcing tests cited in CLAUDE.md (`forbidden-strings.test.ts`, `enrichment-prompt-contracts.test.ts`, `intake-questionnaire.test.ts`). |
+| `tests/` | Vitest suites, including the policy-enforcing tests cited in CLAUDE.md (`forbidden-strings.test.ts`, `intake-questionnaire.test.ts`). |
 | `docs/` | All venture documentation: `adr/` (decision records), `handbook/` (this manual), plus `design/`, `runbooks/`, `specs/`, `security/`, and more. The full map is at `/admin/playbook/docs-map`. |
 | `.github/` | CI workflows, including the fabrication and scope merge gates (`scope-deferred-todo.yml`, `unmet-ac-on-close.yml`). See `/admin/playbook/deployment-release`. |
 | `scripts/` | One-off and operational TypeScript / shell scripts (data backfills, customer-config projection, migration verification). |
@@ -42,7 +42,6 @@ src/
   styles/           global.css (Tailwind v4)
   pages/            all routes (see below)
   lib/              all business logic (see below)
-  lead-gen/         lead-generation prompts + schemas (used by workers/)
   portal/           assessment logic shared with the public assessment flow
   scripts/          in-app scripts
 ```
@@ -51,8 +50,8 @@ src/
 
 `src/pages/` holds every route. Which host serves which is decided by `src/middleware.ts` (subdomain rewrite), not by directory separation - the admin and portal trees live here and the subdomain prepends their prefix.
 
-- **Marketing** (`smd.services`) - top-level `.astro` files: `index.astro`, `operator.astro`, `consulting.astro`, `why.astro`, `contact.astro`, `book.astro`, `assessment.astro`, `privacy.astro`, `terms.astro`, plus `packs/`. Note the retired lead-magnet routes (`get-started.astro`, `assessment`, the old `/scan` family) - several 301 to home per the Outside View retirement; treat them as legacy, not live surfaces.
-- **Admin** (`admin.smd.services` to `/admin/*`) - `src/pages/admin/`: `entities` (Leads), `clients`, `services`, `billing`, `operator`, `analytics`, `settings`, plus `assessments`, `engagements`, `follow-ups`, `generators`. Full surface map at `/admin/playbook/admin-console`.
+- **Marketing** (`smd.services`) - top-level `.astro` files: `index.astro`, `operator.astro`, `about.astro`, `industries.astro`, `patterns.astro`, `contact.astro`, `book.astro`, `assessment.astro`, `get-started.astro` (live only as the `?booked=1` post-booking questionnaire; otherwise it 301s home), `privacy.astro`, `terms.astro`, and `404.astro`, plus `packs/` (the per-vertical pack pages). The `consulting`, `why`, and `/scan` / `/scorecard` lead-magnet routes were removed and now 301 to home (the marketing consolidation + Outside View retirement); the redirect rules live in `src/lib/routing/legacy-redirects.ts`. Treat those paths as legacy, not live surfaces.
+- **Admin** (`admin.smd.services` to `/admin/*`) - `src/pages/admin/`: `entities` (Leads), `clients`, `services`, `billing`, `operator`, `analytics`, `settings`, plus `assessments`, `engagements`, `follow-ups`. (The `generators` surface was removed with the lead-gen retirement.) Full surface map at `/admin/playbook/admin-console`.
 - **Portal** (`portal.smd.services` to `/portal/*`) - `src/pages/portal/`: `quotes`, `engagement`, `documents`, `invoices`, `products`. See `/admin/playbook/client-portal`.
 - **API** (`src/pages/api/`) - JSON and webhook endpoints: `admin/` (admin mutations and fleet reads), `operator/[customer]/`, `portal/`, `auth/`, `oauth/`, `booking/`, `assessment/`, `intake/`, `webhooks/` (`stripe`, `signwell`, `resend`, `sentry`, `healthchecks`), plus `contact.ts`, `events.ts`, `health.ts`, `mcp.ts`.
 
@@ -68,14 +67,12 @@ src/
 | `auth/` | Identity: Clerk bridge, the admin-session shim, legacy magic-link sessions, machine and API keys, health read key. |
 | `booking/` | The Calendly-replacement booking system: availability, holds, Google Calendar sync, ICS generation, intake questionnaire, encryption, rate limiting. |
 | `category.ts` | The single Operator category constant ("Managed Operator"). |
-| `claude/` | LLM-backed business flows: assessment, assessment-to-quote, extraction, outreach generation. |
+| `claude/` | LLM-backed business flows: assessment, assessment-to-quote, extraction. |
 | `config/` | Canonical app URLs (`app-url.ts`), brand and firm-contact constants. |
-| `db/` | D1 data access, one file per domain (entities, engagements, contacts, assessments, analytics, enrichment-runs, and more). The query layer over `ss-console-db`. |
+| `db/` | D1 data access, one file per domain (entities, engagements, contacts, assessments, analytics, quotes, invoices, milestones, and more). The query layer over `ss-console-db`. |
 | `email/` | Resend transactional email, templates, booking and follow-up emails. |
-| `enrichment/` | Entity enrichment: Google Places, dossier, deep-website, LinkedIn, competitors, dispatch. |
 | `entities/` | Entity domain logic: slug, recompute, meeting substate, list sort. |
 | `follow-ups/` | The follow-up cadence scheduler. |
-| `generators/` | Lead-generator types and validation (the admin Generators surface). |
 | `llm/` | Model id constants (`models.ts`). |
 | `oauth/` | OAuth provider plumbing for the console's own integrations: state, store, audit, providers. |
 | `observability/` | Sentry wiring (`sentry.ts`), no-op when `SENTRY_DSN` is unset. |

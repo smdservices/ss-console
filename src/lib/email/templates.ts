@@ -6,6 +6,104 @@
  */
 import { BRAND_NAME } from '../config/brand'
 
+const PORTAL_CARD_WIDTH = '480px'
+const BOOKING_CARD_WIDTH = '520px'
+
+export function escapeEmailHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function emailDocument(input: {
+  body: string
+  title?: string
+  subtitle?: string
+  width?: string
+  align?: 'center' | 'left'
+  footer?: boolean
+}): string {
+  const width = input.width ?? PORTAL_CARD_WIDTH
+  const align = input.align ?? 'center'
+  const title = input.title
+    ? `<h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${input.title}</h1>`
+    : ''
+  const subtitle = input.subtitle
+    ? `<p style="font-size:14px;color:#64748b;margin:0 0 24px;">${input.subtitle}</p>`
+    : ''
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
+  <div style="max-width:${width};margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
+    <div style="padding:32px 24px;text-align:${align};">
+      ${title}
+      ${subtitle}
+${input.body}
+    </div>
+${input.footer === false ? '' : emailFooter()}
+  </div>
+</body>
+</html>`
+}
+
+function emailFooter(): string {
+  return `    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="font-size:11px;color:#94a3b8;margin:0;">
+        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
+      </p>
+    </div>`
+}
+
+export function portalDocument(body: string): string {
+  return emailDocument({ title: BRAND_NAME, subtitle: 'Client Portal', body })
+}
+
+export function paragraph(html: string, margin = '0 0 24px', size = '15px'): string {
+  return `      <p style="font-size:${size};color:#334155;margin:${margin};">
+        ${html}
+      </p>`
+}
+
+export function mutedParagraph(html: string, margin = '24px 0 0'): string {
+  return `      <p style="font-size:12px;color:#94a3b8;margin:${margin};">
+        ${html}
+      </p>`
+}
+
+export function greeting(clientName: string): string {
+  const name = clientName ? ` ${escapeEmailHtml(clientName)}` : ''
+  return `Hi${name},`
+}
+
+export function actionButton(url: string, label: string, padding = '12px 32px'): string {
+  const href = escapeEmailHtml(url)
+  return `      <a href="${href}"
+         style="display:inline-block;background-color:#1e40af;color:#ffffff;
+                font-size:14px;font-weight:600;text-decoration:none;
+                padding:${padding};border-radius:6px;">
+        ${label}
+      </a>`
+}
+
+export function detailPanel(label: string, value: string, margin = '0 0 24px'): string {
+  return `      <div style="background:#f1f5f9;border-radius:6px;padding:16px;margin:${margin};">
+        <p style="font-size:13px;color:#64748b;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">${label}</p>
+        <p style="font-size:16px;color:#0f172a;font-weight:600;margin:0;">${value}</p>
+      </div>`
+}
+
+function joinCallPanel(meetUrl: string | null): string {
+  if (!meetUrl) return ''
+  const href = escapeEmailHtml(meetUrl)
+  return `      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;margin:0 0 24px;">
+        <p style="font-size:13px;color:#1e40af;margin:0 0 8px;font-weight:600;">Join the call</p>
+        <a href="${href}" style="font-size:14px;color:#1e40af;word-break:break-all;">${href}</a>
+      </div>`
+}
+
 /**
  * Build the magic link URL for token verification.
  */
@@ -19,44 +117,15 @@ export function buildMagicLinkUrl(baseUrl: string, token: string): string {
  * Email sent when a client requests a magic link from the portal login page.
  */
 export function magicLinkEmailHtml(clientName: string, magicLinkUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${clientName ? ` ${clientName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        Click the button below to sign in to your portal.
-      </p>
-
-      <a href="${magicLinkUrl}"
-         style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                font-size:14px;font-weight:600;text-decoration:none;
-                padding:12px 32px;border-radius:6px;">
-        Sign in to Portal
-      </a>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        This link expires in 15 minutes and can only be used once.
-      </p>
-      <p style="font-size:12px;color:#94a3b8;margin:8px 0 0;">
-        If you didn't request this, you can safely ignore this email.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+  return portalDocument(
+    [
+      paragraph(greeting(clientName), '0 0 8px'),
+      paragraph('Click the button below to sign in to your portal.'),
+      actionButton(magicLinkUrl, 'Sign in to Portal'),
+      mutedParagraph('This link expires in 15 minutes and can only be used once.'),
+      mutedParagraph("If you didn't request this, you can safely ignore this email.", '8px 0 0'),
+    ].join('\n')
+  )
 }
 
 /**
@@ -68,172 +137,81 @@ export function invoiceSentEmailHtml(
   amount: string,
   portalUrl: string
 ): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${clientName ? ` ${clientName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        Your invoice from ${BRAND_NAME} for ${amount} is ready. Sign in to your portal to view the details and make a payment.
-      </p>
-
-      <a href="${portalUrl}"
-         style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                font-size:14px;font-weight:600;text-decoration:none;
-                padding:12px 32px;border-radius:6px;">
-        View Invoice
-      </a>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        If you have any questions, reply directly to this email.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+  return portalDocument(
+    [
+      paragraph(greeting(clientName), '0 0 8px'),
+      paragraph(
+        `Your invoice from ${BRAND_NAME} for ${escapeEmailHtml(amount)} is ready. Sign in to your portal to view the details and make a payment.`
+      ),
+      actionButton(portalUrl, 'View Invoice'),
+      mutedParagraph('If you have any questions, reply directly to this email.'),
+    ].join('\n')
+  )
 }
 
 /**
  * Email sent when a payment is received for an invoice.
  */
 export function paymentConfirmationEmailHtml(clientName: string, amount: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${clientName ? ` ${clientName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        We've received your payment of ${amount}. Thank you!
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        If you have any questions about your engagement, our team is here to help.
-      </p>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        If you have any questions, reply directly to this email.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+  return portalDocument(
+    [
+      paragraph(greeting(clientName), '0 0 8px'),
+      paragraph(`We've received your payment of ${escapeEmailHtml(amount)}. Thank you!`),
+      paragraph('If you have any questions about your engagement, our team is here to help.'),
+      mutedParagraph('If you have any questions, reply directly to this email.'),
+    ].join('\n')
+  )
 }
 
 export function portalInvitationEmailHtml(clientName: string, magicLinkUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${clientName ? ` ${clientName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        We've prepared a proposal for you. Your client portal is ready — click below to sign in and review it.
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        Your portal is where you'll find your proposal, project updates, and everything related to our work together.
-      </p>
-
-      <a href="${magicLinkUrl}"
-         style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                font-size:14px;font-weight:600;text-decoration:none;
-                padding:12px 32px;border-radius:6px;">
-        View Your Proposal
-      </a>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        This link expires in 15 minutes. You can request a new link anytime from the portal login page.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+  return portalDocument(
+    [
+      paragraph(greeting(clientName), '0 0 8px'),
+      paragraph(
+        "We've prepared a proposal for you. Your client portal is ready — click below to sign in and review it.",
+        '0 0 8px'
+      ),
+      paragraph(
+        "Your portal is where you'll find your proposal, project updates, and everything related to our work together."
+      ),
+      actionButton(magicLinkUrl, 'View Your Proposal'),
+      mutedParagraph(
+        'This link expires in 15 minutes. You can request a new link anytime from the portal login page.'
+      ),
+    ].join('\n')
+  )
 }
 
-// ===========================================================================
-// Portal welcome email (SOW signed — user provisioned)
-// ===========================================================================
-
 /**
- * Welcome email sent when a client's portal user is provisioned after SOW signing.
- *
- * Unlike portalInvitationEmailHtml (which embeds a 15-minute magic link),
- * this links to the portal login page with the client's email pre-filled.
- * The client clicks "Send sign-in link" to get a fresh token on demand.
- * No expiry concern — the email stays valid indefinitely.
+ * Sent to the client after their SOW is signed (SOW-signed outbox job).
  */
+export function signatureConfirmationEmailHtml(businessName: string): string {
+  return emailDocument({
+    title: BRAND_NAME,
+    subtitle: 'Client Portal',
+    footer: false,
+    body: [
+      paragraph(`Hi ${escapeEmailHtml(businessName)},`, '0 0 8px'),
+      paragraph(
+        "Your Statement of Work has been signed successfully. We're excited to get started working together."
+      ),
+    ].join('\n'),
+  })
+}
+
 export function portalWelcomeEmailHtml(clientName: string, loginUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${clientName ? ` ${clientName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Your client portal is ready. This is where you'll find your project details, milestones, invoices, and everything related to our work together.
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        Click below to sign in. We'll send a secure link to your email.
-      </p>
-
-      <a href="${loginUrl}"
-         style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                font-size:14px;font-weight:600;text-decoration:none;
-                padding:12px 32px;border-radius:6px;">
-        Sign In to Your Portal
-      </a>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        You can access your portal anytime at portal.smd.services
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+  return portalDocument(
+    [
+      paragraph(greeting(clientName), '0 0 8px'),
+      paragraph(
+        "Your client portal is ready. This is where you'll find your project details, milestones, invoices, and everything related to our work together.",
+        '0 0 8px'
+      ),
+      paragraph("Click below to sign in. We'll send a secure link to your email."),
+      actionButton(loginUrl, 'Sign In to Your Portal'),
+      mutedParagraph('You can access your portal anytime at portal.smd.services'),
+    ].join('\n')
+  )
 }
 
 // ===========================================================================
@@ -246,11 +224,7 @@ export function portalWelcomeEmailHtml(clientName: string, loginUrl: string): st
  * the email body.
  */
 function escapeBookingHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  return escapeEmailHtml(str)
 }
 
 export interface BookingConfirmationEmailInput {
@@ -274,54 +248,31 @@ export function bookingConfirmationEmailHtml(input: BookingConfirmationEmailInpu
   const slotLabel = escapeBookingHtml(input.slotLabel)
   const meetingLabel = escapeBookingHtml(input.meetingLabel)
   const manageUrl = escapeBookingHtml(input.manageUrl)
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">You're booked.</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">${BRAND_NAME} &middot; ${meetingLabel}</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">Hi ${guestName},</p>
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">
-        Your assessment call for <strong>${businessName}</strong> is confirmed.
-      </p>
-
-      <div style="background:#f1f5f9;border-radius:6px;padding:16px;margin:0 0 24px;">
-        <p style="font-size:13px;color:#64748b;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.05em;">When</p>
-        <p style="font-size:16px;color:#0f172a;font-weight:600;margin:0;">${slotLabel}</p>
-      </div>
-
-      ${
-        input.meetUrl
-          ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;margin:0 0 24px;">
-              <p style="font-size:13px;color:#1e40af;margin:0 0 8px;font-weight:600;">Join the call</p>
-              <a href="${escapeBookingHtml(input.meetUrl)}" style="font-size:14px;color:#1e40af;word-break:break-all;">${escapeBookingHtml(input.meetUrl)}</a>
-            </div>`
-          : ''
-      }
-
-      <p style="font-size:14px;color:#334155;margin:0 0 8px;">
-        Need to reschedule or cancel?
-      </p>
-      <p style="font-size:14px;color:#334155;margin:0 0 24px;">
-        <a href="${manageUrl}" style="color:#1e40af;">Manage your booking →</a>
-      </p>
-
-      <p style="font-size:13px;color:#64748b;margin:0;">
+  return emailDocument({
+    width: BOOKING_CARD_WIDTH,
+    align: 'left',
+    title: "You're booked.",
+    subtitle: `${BRAND_NAME} &middot; ${meetingLabel}`,
+    body: [
+      paragraph(`Hi ${guestName},`, '0 0 16px'),
+      paragraph(
+        `Your assessment call for <strong>${businessName}</strong> is confirmed.`,
+        '0 0 16px'
+      ),
+      detailPanel('When', slotLabel),
+      joinCallPanel(input.meetUrl),
+      paragraph('Need to reschedule or cancel?', '0 0 8px', '14px'),
+      paragraph(
+        `<a href="${manageUrl}" style="color:#1e40af;">Manage your booking →</a>`,
+        '0 0 24px',
+        '14px'
+      ),
+      `      <p style="font-size:13px;color:#64748b;margin:0;">
         Looking forward to talking,<br>
         ${BRAND_NAME}
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+      </p>`,
+    ].join('\n'),
+  })
 }
 
 export interface BookingAdminNotificationInput {
@@ -374,51 +325,31 @@ export function bookingRescheduledEmailHtml(input: BookingRescheduledEmailInput)
   const newSlot = escapeBookingHtml(input.newSlotLabel)
   const manageUrl = escapeBookingHtml(input.manageUrl)
   const meetingLabel = escapeBookingHtml(input.meetingLabel)
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">Your call has been rescheduled.</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">${BRAND_NAME} &middot; ${meetingLabel}</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">Hi ${guestName},</p>
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">
-        Your assessment call for <strong>${businessName}</strong> has moved.
-      </p>
-
-      <div style="background:#f1f5f9;border-radius:6px;padding:16px;margin:0 0 16px;">
+  const businessClause = businessName ? ` for <strong>${businessName}</strong>` : ''
+  return emailDocument({
+    width: BOOKING_CARD_WIDTH,
+    align: 'left',
+    title: 'Your call has been rescheduled.',
+    subtitle: `${BRAND_NAME} &middot; ${meetingLabel}`,
+    body: [
+      paragraph(`Hi ${guestName},`, '0 0 16px'),
+      paragraph(`Your assessment call${businessClause} has moved.`, '0 0 16px'),
+      `      <div style="background:#f1f5f9;border-radius:6px;padding:16px;margin:0 0 16px;">
         <p style="font-size:12px;color:#94a3b8;margin:0 0 4px;text-decoration:line-through;">${oldSlot}</p>
         <p style="font-size:16px;color:#0f172a;font-weight:600;margin:0;">${newSlot}</p>
-      </div>
-
-      ${
-        input.meetUrl
-          ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;margin:0 0 24px;">
-              <p style="font-size:13px;color:#1e40af;margin:0 0 8px;font-weight:600;">Join the call</p>
-              <a href="${escapeBookingHtml(input.meetUrl)}" style="font-size:14px;color:#1e40af;word-break:break-all;">${escapeBookingHtml(input.meetUrl)}</a>
-            </div>`
-          : ''
-      }
-
-      <p style="font-size:13px;color:#64748b;margin:0 0 16px;">
+      </div>`,
+      joinCallPanel(input.meetUrl),
+      `      <p style="font-size:13px;color:#64748b;margin:0 0 16px;">
         <strong>Heads up:</strong> if you use Outlook or Apple Calendar, you may see
         both the old and new entry side-by-side. You can safely remove the old one.
-      </p>
-
-      <p style="font-size:14px;color:#334155;margin:0;">
-        Need to make another change? <a href="${manageUrl}" style="color:#1e40af;">Manage your booking →</a>
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+      </p>`,
+      paragraph(
+        `Need to make another change? <a href="${manageUrl}" style="color:#1e40af;">Manage your booking →</a>`,
+        '0',
+        '14px'
+      ),
+    ].join('\n'),
+  })
 }
 
 export interface BookingCancelledEmailInput {
@@ -437,37 +368,28 @@ export function bookingCancelledEmailHtml(input: BookingCancelledEmailInput): st
   const businessName = escapeBookingHtml(input.businessName)
   const slotLabel = escapeBookingHtml(input.slotLabel)
   const rebookUrl = escapeBookingHtml(input.rebookUrl)
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">Your call has been cancelled.</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">${BRAND_NAME}</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">Hi ${guestName},</p>
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">
-        Your assessment call for <strong>${businessName}</strong>
-        scheduled for <strong>${slotLabel}</strong> has been cancelled.
-      </p>
-
-      <p style="font-size:14px;color:#334155;margin:0 0 24px;">
-        Whenever you're ready, you can <a href="${rebookUrl}" style="color:#1e40af;">book a new time →</a>
-      </p>
-
-      <p style="font-size:13px;color:#64748b;margin:0;">
+  const businessClause = businessName ? ` for <strong>${businessName}</strong>` : ''
+  return emailDocument({
+    width: BOOKING_CARD_WIDTH,
+    align: 'left',
+    title: 'Your call has been cancelled.',
+    subtitle: BRAND_NAME,
+    body: [
+      paragraph(`Hi ${guestName},`, '0 0 16px'),
+      paragraph(
+        `Your assessment call${businessClause} scheduled for <strong>${slotLabel}</strong> has been cancelled.`,
+        '0 0 16px'
+      ),
+      paragraph(
+        `Whenever you're ready, you can <a href="${rebookUrl}" style="color:#1e40af;">book a new time →</a>`,
+        '0 0 24px',
+        '14px'
+      ),
+      `      <p style="font-size:13px;color:#64748b;margin:0;">
         — ${BRAND_NAME}
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+      </p>`,
+    ].join('\n'),
+  })
 }
 
 // ===========================================================================
@@ -509,43 +431,26 @@ export interface BookingLinkInviteEmailInput {
 export function bookingLinkInviteEmailHtml(input: BookingLinkInviteEmailInput): string {
   const businessName = escapeBookingHtml(input.businessName)
   const bookingUrl = escapeBookingHtml(input.bookingUrl)
-  const greeting = input.contactName ? `Hi ${escapeBookingHtml(input.contactName)},` : 'Hi,'
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;">
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">${greeting}</p>
-      <p style="font-size:15px;color:#334155;margin:0 0 16px;">
-        Following up on <strong>${businessName}</strong>. When it works for you, pick a time
-        for a quick call so we can learn how things run and where you're trying to go.
-      </p>
-
-      <p style="margin:24px 0;">
-        <a href="${bookingUrl}"
-           style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                  font-size:14px;font-weight:600;text-decoration:none;
-                  padding:12px 28px;border-radius:6px;">
-          Pick a time
-        </a>
-      </p>
-
-      <p style="font-size:13px;color:#64748b;margin:0 0 16px;word-break:break-all;">
+  const greetingText = input.contactName ? `Hi ${escapeBookingHtml(input.contactName)},` : 'Hi,'
+  return emailDocument({
+    width: BOOKING_CARD_WIDTH,
+    align: 'left',
+    body: [
+      paragraph(greetingText, '0 0 16px'),
+      paragraph(
+        `Following up on <strong>${businessName}</strong>. When it works for you, pick a time for a quick call so we can learn how things run and where you're trying to go.`,
+        '0 0 16px'
+      ),
+      `      <p style="margin:24px 0;">
+${actionButton(bookingUrl, 'Pick a time', '12px 28px')}
+      </p>`,
+      `      <p style="font-size:13px;color:#64748b;margin:0 0 16px;word-break:break-all;">
         Or paste this link into your browser:<br>
         <a href="${bookingUrl}" style="color:#1e40af;">${bookingUrl}</a>
-      </p>
-
-      <p style="font-size:13px;color:#64748b;margin:24px 0 0;">
+      </p>`,
+      `      <p style="font-size:13px;color:#64748b;margin:24px 0 0;">
         — ${BRAND_NAME}
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
+      </p>`,
+    ].join('\n'),
+  })
 }

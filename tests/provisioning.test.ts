@@ -57,7 +57,7 @@ function validInput(): ProvisioningInput {
     persona_title: 'AI Associate',
     persona_tone: ['warm-but-professional', 'concise'],
     skill_name: 'matter-inbox-router',
-    skill_trust_ceiling: 'draft_for_review',
+    exposure_level: 'draft_for_review',
     connectors: [
       { capability: 'Email', adapter: 'm365-mail', backend: 'mcp:m365-mail', enabled: true },
     ],
@@ -78,7 +78,7 @@ describe('splitList', () => {
 describe('option sources are real schema constants', () => {
   it('exposes verticals, ceilings, roles, capabilities', () => {
     expect(verticalOptions()).toContain('law-firm')
-    expect(trustCeilingOptions()).toEqual(['autonomous', 'draft_for_review', 'refused'])
+    expect(trustCeilingOptions()).toEqual(['autonomous', 'confirm', 'draft_for_review', 'refused'])
     expect(userRoleOptions()).toEqual(['principal', 'staff', 'compliance'])
     expect(capabilityOptions()).toContain('Email')
     expect(addonOptionsFor('law-firm')).toContain('pi')
@@ -106,7 +106,7 @@ describe('parseProvisioningForm', () => {
     form.set('persona_title', 'AI Associate')
     form.set('persona_tone', 'warm, concise')
     form.set('skill_name', 'matter-inbox-router')
-    form.set('skill_trust_ceiling', 'draft_for_review')
+    form.set('exposure_level', 'draft_for_review')
     // Two connector rows + one wholly-blank slot that must be skipped.
     form.append('connector_capability', 'Email')
     form.append('connector_adapter', 'm365-mail')

@@ -2,37 +2,26 @@ import type { APIRoute } from 'astro'
 import { getEngagement } from '../../../../../lib/db/engagements'
 import { listDocuments } from '../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse, jsonResponse } from '../../../../../lib/api/helpers'
 
 export const POST: APIRoute = async ({ request, locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const engagementId = params.id
   if (!engagementId) {
-    return new Response(JSON.stringify({ error: 'Engagement ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Engagement ID required')
   }
   try {
     const engagement = await getEngagement(env.DB, session.orgId, engagementId)
     if (!engagement) {
-      return new Response(JSON.stringify({ error: 'Engagement not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(404, 'Engagement not found')
     }
     const formData = await request.formData()
     const file = formData.get('file')
     if (!file || !(file instanceof File)) {
-      return new Response(JSON.stringify({ error: 'File required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(400, 'File required')
     }
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const key = `${session.orgId}/engagements/${engagementId}/docs/${safeName}`
@@ -41,41 +30,25 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
       httpMetadata: { contentType: file.type || 'application/octet-stream' },
       customMetadata: { originalName: file.name, uploadedAt: new Date().toISOString() },
     })
-    return new Response(JSON.stringify({ key, name: safeName }), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(201, { key, name: safeName })
   } catch (err) {
     console.error('[api/admin/engagements/[id]/deliverables] Upload error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Internal server error')
   }
 }
 
 export const GET: APIRoute = async ({ locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const engagementId = params.id
   if (!engagementId) {
-    return new Response(JSON.stringify({ error: 'Engagement ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Engagement ID required')
   }
   try {
     const engagement = await getEngagement(env.DB, session.orgId, engagementId)
     if (!engagement) {
-      return new Response(JSON.stringify({ error: 'Engagement not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(404, 'Engagement not found')
     }
     const prefix = `${session.orgId}/engagements/${engagementId}/docs/`
     const objects = await listDocuments(env.STORAGE, prefix)
@@ -85,15 +58,9 @@ export const GET: APIRoute = async ({ locals, params }) => {
       size: obj.size,
       uploaded: obj.uploaded.toISOString(),
     }))
-    return new Response(JSON.stringify({ files }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(200, { files })
   } catch (err) {
     console.error('[api/admin/engagements/[id]/deliverables] List error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Internal server error')
   }
 }

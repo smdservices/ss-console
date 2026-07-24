@@ -22,6 +22,7 @@ export const ACCEPTED_CAPABILITY_NAMES: ReadonlySet<CapabilityName> = new Set<Ca
   'IntakeCRM',
   'CallTracking',
   'InternalComms',
+  'WebSearch',
 ])
 
 export const ACCEPTED_VERTICALS = [
@@ -143,8 +144,13 @@ export const VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: Readonly<Record<Vertical, number>
  */
 export const AUDIT_LOG_DAYS_MAX = 36500
 
-export const ACCEPTED_TRUST_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
-export type TrustCeiling = (typeof ACCEPTED_TRUST_CEILINGS)[number]
+export const ACCEPTED_EXPOSURE_CEILINGS = [
+  'autonomous',
+  'confirm',
+  'draft_for_review',
+  'refused',
+] as const
+export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
 
 /**
  * Action classes a tool call is categorized into, mirroring the Python
@@ -152,6 +158,16 @@ export type TrustCeiling = (typeof ACCEPTED_TRUST_CEILINGS)[number]
  * autonomy is enforced as a configurable ceiling **per action class** rather
  * than one scalar applied to the whole skill — splitting the exposure axis
  * (external_send) from the initiation and internal axes.
+ *
+ * `external_send` is a send to a NON-roster (outside) recipient;
+ * `external_send_internal` is a send to a human-rostered internal recipient
+ * (the firm's own staff); `external_send_client` / `external_send_vendor` are
+ * sends to the firm's own rostered client / records vendor (ADR 0075), each with
+ * its own authored ceiling, graduatable to autonomous independently of the
+ * outside class. The recipient axis is resolved upstream by
+ * `recipient_classifier`, so an internal/client/vendor notification never
+ * collapses onto the outside ceiling. All are fail-closed when unauthored (ADR
+ * 0035).
  *
  * The values must stay byte-identical to the Python enum's `.value` strings;
  * the overlay materializer (`hermes-smd bootstrap`) carries this map across
@@ -161,11 +177,67 @@ export const ACCEPTED_ACTION_CLASSES = [
   'read',
   'internal_write',
   'external_send',
+  'external_send_internal',
+  'external_send_client',
+  'external_send_vendor',
   'commitment',
   'destructive',
   'code_execution',
 ] as const
 export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
+export type AuthoredExposureActionClass = Exclude<ActionClass, 'read'>
+
+/**
+ * The send action classes — the only classes for which the `confirm` ceiling
+ * (ADR 0071) has defined enforcement behavior, and the classes the recipient
+ * classifier resolves a send to. Mirrors `SEND_ACTION_CLASSES` in the overlay
+ * validator and the Python adapter enum's send members.
+ */
+export const SEND_ACTION_CLASSES = [
+  'external_send',
+  'external_send_internal',
+  'external_send_client',
+  'external_send_vendor',
+] as const
+export type SendActionClass = (typeof SEND_ACTION_CLASSES)[number]
+
+/**
+ * Closed vocabulary for a `scope.outbound_roster` entry's `class` (ADR 0075).
+ * A typed outbound-roster address is either the firm's own `client` or a
+ * `records_vendor`; these map to the `external_send_client` / `external_send_vendor`
+ * action classes. There is deliberately NO opposing-counsel / court class — an
+ * un-rostered outside recipient stays governed by `external_send`.
+ */
+export const OUTBOUND_ROSTER_CLASSES = ['client', 'records_vendor'] as const
+export type OutboundRosterClass = (typeof OUTBOUND_ROSTER_CLASSES)[number]
+
+/**
+ * One entry in `scope.outbound_roster` (ADR 0075). Human-authored OUTBOUND
+ * authorization — never grown from inbound. `address` is an exact `local@domain`
+ * or an `@domain` grant (a whole-@domain grant at a public-mail provider is
+ * rejected; an EXACT address at such a domain is valid — PI clients are consumers
+ * on gmail). `class` is the closed vocabulary; `note` is optional free text.
+ */
+export interface OutboundRosterEntry {
+  address: string
+  class: OutboundRosterClass
+  note?: string
+}
+
+export interface PersonaEntitlements {
+  /**
+   * Sparse persona-level exposure map. Missing action classes fail closed at
+   * runtime and render as unconfigured in the UI. `read` is deliberately not
+   * customer-authored; the enforcement layer always allows read.
+   */
+  exposure: Partial<Record<AuthoredExposureActionClass, ExposureCeiling>>
+}
+
+export interface SkillInitiation {
+  manual: boolean
+  scheduled: boolean
+  webhook: boolean
+}
 
 export const ACCEPTED_USER_ROLES = ['principal', 'staff', 'compliance'] as const
 export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
@@ -189,6 +261,22 @@ export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
 export const ACCEPTED_DATA_POSTURES = ['open', 'firm_only'] as const
 export type DataPosture = (typeof ACCEPTED_DATA_POSTURES)[number]
 
+/**
+ * Issuance policy for the Operator ⇄ Claude MCP connector (ADR 0057 §3) — who may
+ * connect, distinct from `data_posture` (where entitled data may land).
+ *   - `allowlist` (default, fail-closed): grants exist only for authored/seeded
+ *     principals. The pilot path.
+ *   - `open`: a verified firm-domain identity is JIT-granted on first connect.
+ *     The hardened auto-issue path is slice 2e; this enum + its validation seat
+ *     the axis now.
+ */
+export const ACCEPTED_MCP_POLICIES = ['allowlist', 'open'] as const
+export type McpIssuancePolicy = (typeof ACCEPTED_MCP_POLICIES)[number]
+
+/** Bounded-grant TTL invariant (ADR 0057): never null, never infinite. */
+export const MCP_GRANT_TTL_DEFAULT_DAYS = 30
+export const MCP_GRANT_TTL_MAX_DAYS = 90
+
 export const ACCEPTED_PERSONA_STATUSES = ['active', 'archived'] as const
 export type PersonaStatus = (typeof ACCEPTED_PERSONA_STATUSES)[number]
 
@@ -201,7 +289,11 @@ export type LogLevel = (typeof ACCEPTED_LOG_LEVELS)[number]
 export const ACCEPTED_LOG_SHIPS = ['cloudflare-d1', 'fly-logs'] as const
 export type LogShip = (typeof ACCEPTED_LOG_SHIPS)[number]
 
-export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as const
+// native: — a bundled Hermes provider selected by config (not an external server
+// we wire). Web search rides this: `native:brave-free` -> web.search_backend,
+// materialized by the overlay's translate._materialize_web_search. Added with the
+// ADR 0070 native cut (2026-07-08), superseding the mcp:brave connector.
+export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:', 'native:'] as const
 
 /**
  * Google credential mode for the optional top-level `google_auth.mode`
@@ -298,27 +390,7 @@ export interface CostEstimate {
 export interface PersonaSkill {
   name: string
   version: string
-  /**
-   * Skill-level scalar ceiling. Governs `internal_write` and acts as the
-   * cap the per-action overrides resolve under. Retained from the
-   * pre-ADR-0025 schema for back-compat: a skill with only `trust_ceiling`
-   * set keeps its previous meaning. Note (ADR 0035): the scalar does NOT
-   * grant `external_send` — an `external_send` with no `action_ceilings`
-   * entry is unauthored and fail-closed (refused, no draft). There is no
-   * `draft_for_review` default; it is a value authored in
-   * `action_ceilings`, not a fallback.
-   */
-  trust_ceiling: TrustCeiling
-  /**
-   * Per-action-class ceiling overrides (ADR 0025). Optional and sparse —
-   * only the classes a customer wants to set explicitly appear. The runtime
-   * `enforce()` resolves the effective ceiling for an action as the most
-   * restrictive of {vertical floor, this override if present, the safe
-   * class default}. Setting `external_send: autonomous` here is what grants
-   * autonomous external send; it can never raise above a vertical-pack floor.
-   * `null`/absent means "no overrides — use safe class defaults."
-   */
-  action_ceilings: Partial<Record<ActionClass, TrustCeiling>> | null
+  initiation: SkillInitiation
   enabled: boolean
   cost_estimate: CostEstimate | null
   scope: string[]
@@ -388,6 +460,7 @@ export interface Persona {
   tone: string[]
   pronouns: Pronouns | null
   send_as: PersonaSendAs | null
+  entitlements: PersonaEntitlements
   skills: PersonaSkill[]
   // Free-form per-persona override blobs (object or absent). Typed as an object
   // map rather than `unknown` so the validator can gate them to plain-object /
@@ -454,6 +527,14 @@ export interface Connector {
    * src/lib/operator/credential-custody.ts.
    */
   credential_custody: CredentialCustody | null
+  /**
+   * Authored OAuth flow for the connector (e.g. 'authorization_code' — the
+   * firm authorizes via login + Allow; SMD can only send a fresh
+   * authorization link, never re-establish alone). Free-form string, absent
+   * ⇒ null. The portal's connection care note keys on it (Captain,
+   * 2026-07-15: reconnect claims must match who can actually reconnect).
+   */
+  auth_mode: string | null
 }
 
 /**
@@ -492,8 +573,6 @@ export interface ManagedMailbox {
   address: string
   /** Gmail "Send mail as" identities permitted in the `From` header for this mailbox. */
   send_as: string[]
-  /** Optional per-mailbox action-class ceiling overrides; null when unauthored. */
-  action_ceilings: Partial<Record<ActionClass, TrustCeiling>> | null
 }
 
 export interface GoogleAuth {
@@ -532,6 +611,36 @@ export interface WebhookTrigger {
   event_type: string
   skill: string
   persona: string
+  /**
+   * Authored trigger exceptions (overlay gate enforcement): a verified
+   * delivery whose matter (payload id/matterId) or actor (payload userId)
+   * is listed here is acknowledged 202, audited (WEBHOOK_SUPPRESSED), and
+   * never forwarded — zero agent turns. Extensible: new exception axes are
+   * added as new keys here. Unauthored = no exceptions (ADR 0035).
+   */
+  exclude: WebhookTriggerExclude | null
+  /**
+   * Per-(trigger, matter) cooldown (#1781, overlay gate enforcement): after a
+   * delivery for a matter forwards, further deliveries for the same (source,
+   * event_type, matter) inside the window are acknowledged 202, audited
+   * (WEBHOOK_SUPPRESSED), and never forwarded — the deterministic break for
+   * write-then-echo loops (the seat's own create_memo echoing back as
+   * matter.updated). Unauthored = the gate's platform default (30 min, an
+   * integrity control); `cooldown_minutes: 0` disables for this trigger.
+   */
+  throttle: WebhookTriggerThrottle | null
+}
+
+export interface WebhookTriggerExclude {
+  /** Matter GUIDs this trigger never fires for (e.g. the internal ops/digest-home matter). */
+  matters: string[]
+  /** Vendor user GUIDs whose own changes are exempt (e.g. the supervising principal). */
+  actors: string[]
+}
+
+export interface WebhookTriggerThrottle {
+  /** Non-negative integer minutes; 0 disables; null = block authored empty (gate default). */
+  cooldown_minutes: number | null
 }
 
 export interface Scope {
@@ -542,12 +651,29 @@ export interface Scope {
   matter_blocks: string[]
   /** Senders allowed to trigger autonomous reply from crane's own inbox. */
   inbound_allow_from: string[]
+  /**
+   * Typed outbound roster (ADR 0075) — the firm's own clients / records vendors,
+   * each resolving to the `external_send_client` / `external_send_vendor` action
+   * class. Empty array when unauthored (fail-closed: every outside send stays on
+   * the `external_send` ceiling). See {@link OutboundRosterEntry}.
+   */
+  outbound_roster: OutboundRosterEntry[]
 }
 
 export interface Escalation {
   red_flag_recipients: string[]
   failure_recipients: string[]
   acknowledgement_window_minutes: number | null
+}
+
+/**
+ * Authored digest destination (#1742): the designated internal/operations
+ * matter whose memos carry the full daily needs-you digest, so a cron-fired
+ * digest lands somewhere a person reads. Optional; unauthored seats stay
+ * fail-closed (session output + heartbeat only, per ADR 0035).
+ */
+export interface Digest {
+  home_matter_id: string
 }
 
 export interface BusinessHours {
@@ -741,6 +867,28 @@ export interface McpConnectorAccess {
 export interface McpConnector {
   enabled: boolean
   data_posture: DataPosture
+  /**
+   * Issuance policy (ADR 0057 §3). `allowlist` (default) = only authored/seeded
+   * principals connect. `open` = JIT-grant a verified firm-domain identity on
+   * first connect (the auto-issue mechanism is slice 2e). When `open`,
+   * `allowed_domains` must be non-empty and `default_profile` must name an active
+   * persona.
+   */
+  policy: McpIssuancePolicy
+  /**
+   * Firm email domains eligible for an `open`-policy JIT grant (lowercased host,
+   * e.g. `ashtonprice.com`). Empty under `allowlist`. Per-customer domain rules
+   * live here, not in Clerk's instance-global allowlist.
+   */
+  allowed_domains: string[]
+  /** Persona an `open`-policy JIT grant runs as. Null under `allowlist`. */
+  default_profile: string | null
+  /**
+   * Per-client default grant TTL in days. Bounded `[1, {@link MCP_GRANT_TTL_MAX_DAYS}]`;
+   * defaults to {@link MCP_GRANT_TTL_DEFAULT_DAYS}. Drives `expires_at` (never
+   * null) and should match the Clerk session lifetime.
+   */
+  ttl_days: number
   access: McpConnectorAccess[]
 }
 
@@ -796,6 +944,7 @@ export interface CustomerYaml {
   voice_library: VoiceLibrary | null
   voice_cohorts: VoiceCohorts | null
   business_hours: BusinessHours | null
+  digest: Digest | null
   memory: Memory
   logging: Logging | null
   pause: Pause | null
@@ -810,6 +959,12 @@ export interface CustomerYaml {
    * when no connector exposes a webhook_url.
    */
   webhook_triggers: WebhookTrigger[]
+  /**
+   * Authored identity-channel custody exceptions (ADR 0044 D8 / #1841):
+   * gateway-held surfaces a non-refused code_execution seat explicitly
+   * accepts. Empty when unauthored (the guard then rejects any surface).
+   */
+  custody_exceptions: string[]
   /**
    * Whether the Compliance dashboard view is enabled for this firm.
    *
@@ -901,8 +1056,12 @@ export type ValidationErrorCode =
   | 'UnknownAddon'
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
+  | 'InvalidOutboundRoster'
+  | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'
+  | 'CustodyGuardViolation'
+  | 'IneligibleCustodyException'
 
 export interface ValidationError {
   code: ValidationErrorCode
@@ -911,5 +1070,4 @@ export interface ValidationError {
 }
 
 export type ValidationResult =
-  | { ok: true; value: CustomerYaml }
-  | { ok: false; errors: ValidationError[] }
+  { ok: true; value: CustomerYaml } | { ok: false; errors: ValidationError[] }

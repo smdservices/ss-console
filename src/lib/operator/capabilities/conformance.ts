@@ -144,6 +144,10 @@ export const BANNED_METHOD_NAMES: Record<CapabilityName, string[]> = {
   CallTracking: [],
   InternalComms: [],
   PracticeManagement: [],
+  // Connector-only capability (ADR 0070): no adapter interface, no methods to
+  // ban. WebSearch is Hermes' NATIVE web_search tool (native:brave-free),
+  // read-only search; nothing to conform, nothing irreversible to floor.
+  WebSearch: [],
 }
 
 /**

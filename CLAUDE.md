@@ -47,6 +47,7 @@ SMD contact addresses:
 ## Enterprise Rules
 
 - **All changes through PRs.** Never push directly to main. Branch, PR, CI, QA, merge.
+- **Worktree discipline: the primary checkout is read-only.** All repo mutations happen in an isolated worktree (`EnterWorktree`). A PreToolUse hook (`.claude/hooks/worktree-guard.mjs`) rejects Edit/Write into the primary tree (paths under `.claude/` are exempt — the worktrees themselves live there), and a SessionStart hook (`.claude/hooks/sync-primary.sh`) fast-forwards a clean primary checkout to origin/main so it never drifts stale. Do not work around the guard with Bash writes. Captain-only escape hatch: `SS_ALLOW_PRIMARY_WRITES=1`. Guard tests: `tests/worktree-guard.test.ts`.
 - **Never echo secret values.** Transcripts persist in ~/.claude/ and are sent to API providers.
 - **Verify secret VALUES, not just key existence.**
 - **Never auto-save to VCMS** without explicit Captain approval.
@@ -62,7 +63,7 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 - **Pattern A (committed template sentences that imply uncontracted commitments).** Hardcoded sentences in source, even ones that interpolate authored values, that promise specific business behavior the engagement has not contracted. Real examples from the 2026-04-15 audit:
   - `'We'll reach out to schedule kickoff.'` (`src/lib/portal/states.ts:138`)
   - `'Work begins within two weeks of signing.'` (`src/pages/portal/quotes/[id].astro:72`)
-  - `'Replies within 1 business day.'` (`src/components/portal/ConsultantBlock.astro:136`)
+  - `'Replies within 1 business day.'` (`src/components/portal/ConsultantBlock.astro:136` — file since removed)
   - `'A 2-week stabilization period follows the final handoff.'` (`src/lib/pdf/sow-template.tsx:529`)
 
 - **Pattern B (runtime fabrication from non-authoritative fields).** Values rendered from sources never authored as client-facing content: placeholder defaults, parsed or derived text, brief-borrowed copy. Real examples from the audit:
@@ -72,7 +73,7 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 
 **If authored data is missing:** render nothing or an explicit "TBD in SOW" marker. See `docs/style/empty-state-pattern.md`. Never invent plausible content.
 
-**Visual + component patterns:** see `docs/style/UI-PATTERNS.md`. Six rules covering status display, redundancy, button hierarchy, heading skip, typography scale, and spacing rhythm — authored to raise UI quality to professional level. Same enforcement shape as empty-state-pattern: narrow, cited to NN/g / Material 3 / WCAG 2.2, anti-patterns with file paths, merge gate per shipped rule. Produced by `.agents/skills/ui-drift-audit/` which emits a surfaces × rules matrix at `.stitch/audits/ui-drift-{date}.md`.
+**Visual + component patterns:** see `docs/style/UI-PATTERNS.md`. Six rules covering status display, redundancy, button hierarchy, heading skip, typography scale, and spacing rhythm — authored to raise UI quality to professional level. Same enforcement shape as empty-state-pattern: narrow, cited to NN/g / Material 3 / WCAG 2.2, anti-patterns with file paths, merge gate per shipped rule. Produced by the `ui-drift-audit` skill (run by `.github/workflows/ui-drift-audit.yml`), which emits a surfaces × rules matrix at `.stitch/audits/ui-drift-{date}.md`.
 
 **Enforcement.** Violations are P0. Merge gate is `.github/workflows/scope-deferred-todo.yml` (blocks TODO-deferred ACs without the `scope-deferred` label). Issue-close gate is `.github/workflows/unmet-ac-on-close.yml` (reopens issues closed with unchecked ACs).
 
@@ -85,7 +86,6 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 **Tests linked to this policy**
 
 - `tests/forbidden-strings.test.ts` - historical Pattern A/B phrases, user-facing style-marker checks, and portal registry guardrails
-- `tests/enrichment-prompt-contracts.test.ts` - source-level prompt-contract checks for dossier, review-analysis, and deep-website
 - `tests/intake-questionnaire.test.ts` - shared-surface regression coverage for the canonical intake questionnaire
 
 ## Tone & Positioning Standard
@@ -177,7 +177,7 @@ No dollar ranges are attached to solution categories. Pricing comes from scope e
 - Team training and enablement on AI tools
 - Non-AI workflow automation (scripts, integrations that don't require AI)
 
-**Taxonomy two-layer model.** Resolved in [ADR 0001](docs/adr/0001-taxonomy-two-layer-model.md) (Captain decision 2026-04-27, [#591](https://github.com/venturecrane/ss-console/issues/591)). The six-category list above is the **delivery taxonomy** — what engagements we offer. It is the marketing and doctrinal source of truth. Lead-generation code uses a separate five-category **observation taxonomy** (`process_design`, `tool_systems`, `data_visibility`, `customer_pipeline`, `team_operations` — defined in `src/portal/assessments/extraction-schema.ts`) — what operational pain we detect from public data. The two layers are deliberately distinct: outreach speaks observation, marketing speaks delivery, and the assessment call is where the consultant translates between them. Agents editing either side must not silently change the other. Doctrine changes here do not retroactively rewrite extraction prompts; lead-gen changes there do not dictate the external taxonomy.
+**Taxonomy two-layer model.** Resolved in [ADR 0001](docs/adr/0001-taxonomy-two-layer-model.md) (Captain decision 2026-04-27, [#591](https://github.com/venturecrane/ss-console/issues/591)); the observation half was retired with the automated lead-gen machine by [ADR 0060](docs/adr/0060-retire-automated-lead-gen-machine.md) (2026-07-01). The six-category list above is the **delivery taxonomy** — what engagements we offer. It is the marketing and doctrinal source of truth. The five-category schema (`process_design`, `tool_systems`, `data_visibility`, `customer_pipeline`, `team_operations` — defined in `src/portal/assessments/extraction-schema.ts`) survives repurposed as the **client-assessment extraction taxonomy**: it structures what the assessment call captures, consumed by the assessment extraction and assessment-to-quote flows, not by outreach. The two layers remain deliberately distinct: assessments speak the extraction taxonomy internally, marketing speaks delivery, and the consultant translates between them. Agents editing either side must not silently change the other.
 
 ### Pain Clusters by Vertical
 
@@ -208,7 +208,7 @@ These suggest where to lead the conversation, not which problems to look for. Th
 - **Internal rate:** $175/hr at launch, then $200/hr after first case study, then $250/hr, then $300/hr with volume
 - **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling. Nothing published externally.
 - **Paid Assessment:** $250, applied toward engagement if they proceed. First 3 assessments free.
-- **Recurring revenue product:** Productized Operator offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-operator-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
+- **Recurring revenue product:** Productized Operator offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Launch price locked 2026-07-04: **$5,000/mo + $4,000 stand-up**, internal, never published ([ADR 0063](docs/adr/0063-operator-launch-pricing.md) / Decision #50; supersedes ADR 0004's deferred-pricing clause). See [ADR 0004](docs/adr/0004-productized-operator-offering.md) / Decision #44 for the SKU shape. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
 - **Post-handoff support for scope-based engagements:** Two-week async stabilization included (Decision #27). Beyond that, customers are quoted a follow-on scope or converted to an Operator subscription if the fit is right.
 - **No dollar amounts published externally.** Client sees a project price, not hourly rate.
 
@@ -236,7 +236,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 - [ ] Vertical selection for initial targeting (pick ONE vertical to start)
 - [ ] Outreach strategy (how to find and reach first 5 prospects; includes Vistage, EO Arizona, local networking)
-- [ ] Landing page (smd.services, credibility-focused, guide positioning)
+- [x] Landing page — smd.services live; rebuilt to the firm-with-flagship structure 2026-06 (home, `/operator`, `/about`, `/industries`, `/patterns`, `/contact`)
 - [x] ~~**Outside View**~~ — retired 2026-05-04 in PR #702 (user-visible surface) and #703 (infrastructure). Public-footprint scraping turned out not to surface anything useful. ADR 0002 is superseded. The lead-magnet surfaces (`/scan`, `/scorecard`, `/get-started`, `/outside-view`) middleware-301 to home for permanent-bookmark backwards compat.
 - [ ] Pipeline math (how many conversations to sustain profitability)
 - [ ] Phased geographic approach (Phoenix in-person first, remote-capable after proof of model)
@@ -253,12 +253,12 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 - [x] Payment terms (50% deposit at signing, 50% at completion; 3-milestone for 40+ hr engagements)
 - [ ] Paid assessment entry point ($250 applied toward engagement, first 3 free)
 - [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-operator-offering.md) (productized Operator SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
-- [ ] Client data management system (D1 or similar for assessments, quotes, engagements, invoicing)
+- [x] Client data management system — the D1-backed admin console exists (`src/pages/admin/`: clients, assessments, quotes, engagements, billing)
 
 ## Domain Context
 
 - **Geography:** Phoenix metro (Phase 1, in-person default), remote-capable
-- **Target:** Established, owner-led businesses with real operational load and the ability to pay for a solution. No revenue-band gate — we work with any business that can pay and benefit, and qualification happens in conversation, not by filtering on a guessed revenue figure (the operational layer already dropped this gate — see ADR 0003 and `tests/lead-gen-revenue-gate.test.ts`). The "too big for one person, too small for a COO" framing still captures the shape of the buyer. For the Operator specifically, the target profiles are defined by the vertical packs in `operator/verticals/`.
+- **Target:** Established, owner-led businesses with real operational load and the ability to pay for a solution. No revenue-band gate — we work with any business that can pay and benefit, and qualification happens in conversation, not by filtering on a guessed revenue figure (see ADR 0003; the automated pipeline that once enforced a gate was retired entirely by ADR 0060). The "too big for one person, too small for a COO" framing still captures the shape of the buyer. For the Operator specifically, the target profiles are defined by the vertical packs in `operator/verticals/`.
 - **Buyer:** The owner. Sometimes the office manager, but the owner writes the check.
 - **Competition:** Traditional consultancies ($15-50k+ engagements, slow), fractional CTOs/COOs (ongoing cost, no bounded deliverable), EOS implementers (framework-locked), managed IT providers (technical only). Nobody does assessment + implementation + handoff as bounded, scope-priced engagements.
 - **Referral sources:** Vistage, EO Arizona, fractional CFOs, local networking groups (BNI, chamber of commerce), accountants/bookkeepers, commercial insurance agents, SBA/SCORE
@@ -280,9 +280,11 @@ One Astro app, one Cloudflare Worker, three custom domains. Routing is handled b
 | `admin.smd.services`  | Admin console (rewritten to `/admin/*`)  | `admin`   |
 | `portal.smd.services` | Client portal (rewritten to `/portal/*`) | `client`  |
 
-**How the rewrite works.** The middleware inspects `hostname`. On `admin.smd.services`, paths get `/admin` prepended unless they already start with `/admin`, `/api/admin`, `/auth`, or `/api/auth`. Same pattern for `portal.smd.services`. The admin source files still live under `src/pages/admin/*` — the subdomain is a front door.
+**How the rewrite works.** The middleware inspects `hostname`. On `admin.smd.services`, paths get `/admin` prepended unless they already start with `/admin`, `/api/admin`, `/auth`, `/api/auth`, or `/api/oauth`. Same pattern for `portal.smd.services`. The admin source files still live under `src/pages/admin/*` — the subdomain is a front door.
 
-**Cookie boundaries.** Session cookies are per-host (no `Domain` attribute). Admin cookies only live on `admin.smd.services`. Client cookies only live on `portal.smd.services`. An admin cookie that lands on the apex (from pre-migration logins) is proactively cleared on next visit.
+**Auth model (unified 2026-05-25 — Clerk is primary).** Clerk owns identity for **both** admin and portal. `clerkMiddleware` is composed before the SS middleware (`sequence(clerkMiddleware(), ssMiddleware)`) and populates `locals.auth()` for downstream handlers. On admin paths, `resolveAdminSessionFromClerk` maps the Clerk `user_id` to the local `users` row (gated on `role='admin'`) and synthesizes the legacy `SessionData` shape into `locals.session` so existing call sites keep working. On portal paths, Clerk is the primary path; the bridge from Clerk identity to the local user/entity runs per-route (e.g. `getPortalClient`). See `src/middleware.ts` (header comment) and `src/lib/auth/admin-session-shim.ts`.
+
+**Legacy magic-link fallback.** The per-host session cookie is now a _fallback_, kept only so in-flight client invitation links (set by `/auth/verify` via `createSession`) keep working during the Clerk transition. Cookies are per-host (no `Domain` attribute): admin cookies only live on `admin.smd.services`, client cookies only on `portal.smd.services`. An admin cookie that lands on the apex (from pre-migration logins) is proactively cleared on next visit. New client onboarding will migrate to Clerk invitations; the legacy path stays active until all in-flight invitations expire.
 
 **Backwards compat.** `smd.services/admin/*` and `smd.services/auth/login` 301 to the admin subdomain — old bookmarks still work.
 
@@ -339,7 +341,7 @@ Typed via augmenting `Cloudflare.Env` in `src/env.d.ts`.
 
 ```bash
 infisical export --env=prod --path=/ss --format=dotenv \
-  | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|NEW_BUSINESS_|JOB_MONITOR_|REVIEW_MINING_|PUBLIC_)' \
+  | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|PUBLIC_)' \
   | npx wrangler secret bulk
 ```
 
@@ -384,9 +386,9 @@ The canonical frame for what the Operator _is_. Load this before any Operator st
 
 The Phase 1 Operator SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all Operator work:
 
-1. **Hermes is the substrate. Trust it.** Skills, Honcho memory, the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`).
+1. **Hermes is the substrate. Trust it.** Skills, the flat-file memory core (`MEMORY.md`/`USER.md`), the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`). **Honcho is NOT deployed** — the 2026-05-30 revision of ADR 0016 deferred it to Phase 2 (demand-gated) after the first real boot exposed the in-container integration as fictional; Phase-1 seats run in-session flat-file memory only.
 2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, configurable send-posture routing (draft-for-review among the authored options), curated vertical skill catalogs, and the customer-facing business surface are what we build on top of Hermes — none are on its roadmap. (These are capabilities, not the moat: the moat is the harness + the guide + the memory, per [ADR 0037](docs/adr/0037-operator-thesis.md) Tenet 4. No single feature is the moat.)
-3. **Mirror, don't gate.** Where Hermes' learning loop creates state (Honcho conclusions, agent-authored skills), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. No approval queue stands between the agent and its work; safety is enforced by the authored entitlement ceilings (fail-closed when unauthored), not by an interposed gate.
+3. **Mirror, don't gate.** Where Hermes' learning loop creates state (today: agent-authored skills; Honcho conclusions if/when Phase 2 activates it), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. No approval queue stands between the agent and its work; safety is enforced by the authored entitlement ceilings (fail-closed when unauthored), not by an interposed gate.
 
 Load these ADRs before any Operator architectural work:
 
@@ -398,7 +400,7 @@ Load these ADRs before any Operator architectural work:
 - **ADR 0011** — Multi-persona per customer (persona = Hermes profile)
 - **ADR 0012** — customer.yaml storage (Git source of truth → D1+R2 materialized)
 - **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
-- **ADR 0016** — Honcho disposition (mirror, don't gate; tuned config; TTL archival)
+- **ADR 0016** — Honcho disposition (revised 2026-05-30: **deferred to Phase 2, demand-gated** — Phase 1 = flat-file memory core, no Honcho on any seat; the mirror/dismiss/TTL machinery is the Phase-2 shape)
 - **ADR 0017** — Skill Curator disposition (disable autonomous curator per-customer; keep in-conversation `skill_manage`; mirror to D1 inventory; supervised `--dry-run` consolidation only)
 - **ADR 0019** — customer.yaml → per-profile config translation
 - **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
@@ -406,7 +408,7 @@ Load these ADRs before any Operator architectural work:
 
 Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `synthetic:` (no_pm substrate). Composio is dropped (ADR 0020, 2026-05-30 revision) — we connect to MCPs directly, and long-tail vendors with no first-party MCP get a `build:` adapter.
 
-The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. New BUILD adapters land in `venturecrane/hermes-smd-overlay`, not this tree.
+The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. Author-built connectors we must write ourselves (no vendor/community MCP exists) are MCP servers living in `operator/connectors/` in this tree, per ADR 0053 — Smokeball is the first. The overlay repo (`venturecrane/hermes-smd-overlay`) stays substrate-only.
 
 ## Venture Handbook
 
@@ -418,8 +420,8 @@ The franchise operations manual lives in `docs/handbook/` and renders in the adm
 
 ## Key Reference
 
-- **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
-- **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0035-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
+- **Decision Stack:** `docs/adr/decision-stack.md` (34 active decisions across 6 layers, numbered through #51 (3 superseded: #2, #12, #43) — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
+- **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0061-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
 

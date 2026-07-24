@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from . import escalation_ledger
 from .audit_ledger import LedgerWriter
 from .google_auth import materialize_credential
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
@@ -95,6 +96,10 @@ class Broker:
     # instances built via ``__new__`` (tests) and pre-B1 images have a defined,
     # job-disabled ledger.
     job_ledger: JobLedgerWriter | None = None
+    # ADR 0021 Stream B: agent uid for the suppressed_wake_append heartbeat
+    # verb. None (the ``__new__``/pre-heartbeat default) keeps the verb
+    # fail-closed until __init__ resolves it from the gateway process.
+    agent_uid: int | None = None
 
     def __init__(self) -> None:
         self.socket_path = Path(os.environ["SMD_WORKSPACE_BROKER_SOCKET"])
@@ -112,14 +117,139 @@ class Broker:
         # this broker does not touch it.
         audit_db_path = os.environ.get("SMD_AUDIT_DB_PATH")
         self.ledger = LedgerWriter(audit_db_path) if audit_db_path else None
+        # ADR 0021 Stream B: cron pre_run scripts run as subprocess CHILDREN of
+        # the gateway (hermes cron/scheduler.py `subprocess.run`), so they share
+        # the agent uid but never the gateway PID. The narrow heartbeat verb
+        # below gates on uid instead — resolved lazily via _resolve_agent_uid()
+        # because at BROKER start the gateway PID still belongs to the root
+        # entrypoint (the exec-drop to the agent user happens after the broker
+        # launches; live-caught on pilot-smokeball 2026-07-06).
+        self.agent_uid = None
         # B1: the job ledger folds into the SAME broker-owned DB file (one
         # mount, one uid boundary). Mutable control state, distinct table set;
         # the audit_log append-only guarantee is untouched (no job verb writes
         # audit_log). Disabled when the audit DB is unconfigured (pre-B1 image).
         self.job_ledger = JobLedgerWriter(audit_db_path) if audit_db_path else None
+        # WP-A escalation ledger: append-only JSONL of escalation telemetry
+        # (fired/acked/handed_off/resolved), written ONLY by this broker so the
+        # agent uid cannot forge an ack that silences a deadline alarm. It lives
+        # beside the audit DB (same /run/smd-audit bind the broker already
+        # writes; the agent reads the /opt/data/audit twin via audit-readers).
+        # An explicit SMD_ESCALATION_LEDGER_PATH wins (the test seam).
+        explicit_ledger = os.environ.get("SMD_ESCALATION_LEDGER_PATH")
+        if explicit_ledger:
+            self.escalation_ledger_path: str | None = explicit_ledger
+        elif audit_db_path:
+            self.escalation_ledger_path = str(
+                Path(audit_db_path).parent / "escalation-ledger.jsonl"
+            )
+        else:
+            self.escalation_ledger_path = None
+        self._escalation_lock = threading.Lock()
 
-    def handle(self, request: dict[str, Any], peer_pid: int) -> dict[str, Any]:
+    def _resolve_agent_uid(self) -> int | None:
+        """Resolve (and cache) the agent uid for the heartbeat verb.
+
+        Precedence: explicit SMD_AGENT_UID from the entrypoint (which knows the
+        agent user while still root), then a request-time stat of the gateway
+        PID — by the time any pre_run fires, the entrypoint has exec-dropped
+        into the agent user under the same PID. uid 0 is never accepted: the
+        agent never runs as root, and a pre-exec-drop stat would read the root
+        entrypoint. Unresolvable → None → the verb stays fail-closed.
+        """
+        if self.agent_uid is not None:
+            return self.agent_uid
+        env_uid = os.environ.get("SMD_AGENT_UID", "").strip()
+        if env_uid.isdigit() and int(env_uid) != 0:
+            self.agent_uid = int(env_uid)
+            return self.agent_uid
+        try:
+            uid = os.stat(f"/proc/{self.gateway_pid}").st_uid
+        except OSError:
+            return None
+        if uid == 0:
+            return None
+        self.agent_uid = uid
+        return self.agent_uid
+
+    def handle(
+        self, request: dict[str, Any], peer_pid: int, peer_uid: int | None = None
+    ) -> dict[str, Any]:
         action = request.get("action")
+        # ADR 0021 Stream B heartbeat: the ONE verb reachable by cron pre_run
+        # children (agent uid, non-gateway PID). Deliberately narrow — the row's
+        # action_type is locked to SUPPRESSED_WAKE, so this cannot be used to
+        # forge any other audit row; the generic audit_append verb below keeps
+        # its strict gateway-PID gate. The append still flows through the
+        # hash-chained LedgerWriter (broker stamps id/ts; chain intact).
+        if action == "suppressed_wake_append":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "suppressed_wake_append requires a caller running as the agent uid"
+                )
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("suppressed_wake_append requires a 'row' object")
+            if row.get("action_type") != "SUPPRESSED_WAKE":
+                raise ValueError(
+                    "suppressed_wake_append only accepts action_type=SUPPRESSED_WAKE"
+                )
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id}
+        # WP-A escalation ledger append. Same caller shape as the heartbeat
+        # verbs above: a cron pre_run or the agent's execute_code turn (agent
+        # uid, non-gateway PID). Gated on the agent uid, and the write is
+        # VALIDATED (escalation_ledger.validate_append) so an ``acked`` that has
+        # no prior ``fired``/``chased`` raise is rejected — the LLM turn can
+        # append only through this seam, never the file directly, and it cannot
+        # silence an alarm that never rang. ts/id are stamped server-side, so
+        # the caller cannot backdate. Serialized by an instance lock (the server
+        # is threaded) so the tail-read + append stays consistent.
+        if action == "escalation_event_append":
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "escalation_event_append requires a caller running as the agent uid"
+                )
+            if not self.escalation_ledger_path:
+                raise ValueError("escalation ledger path not configured on this broker")
+            event = request.get("event")
+            if not isinstance(event, dict):
+                raise ValueError("escalation_event_append requires an 'event' object")
+            with self._escalation_lock:
+                existing = escalation_ledger.read_ledger(self.escalation_ledger_path)
+                escalation_ledger.validate_append(existing, event)
+                stamped = escalation_ledger.stamp_event(event)
+                escalation_ledger.append_line(self.escalation_ledger_path, stamped)
+            return {"ok": True, "id": stamped["id"]}
+        # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
+        # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the
+        # agent uid on a NON-gateway PID — the same shape as the cron pre_run
+        # children above — so the generic gateway-PID-gated audit_append refuses
+        # it. This sibling verb gates on the agent uid and locks action_type to
+        # WEBHOOK_SUPPRESSED, so it cannot forge any other row. Deliberately a
+        # separate verb (not a widened suppressed_wake_append) so each verb pins
+        # exactly one action_type and stays auditable in isolation.
+        if action == "webhook_suppressed_append":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "webhook_suppressed_append requires a caller running as the agent uid"
+                )
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("webhook_suppressed_append requires a 'row' object")
+            if row.get("action_type") != "WEBHOOK_SUPPRESSED":
+                raise ValueError(
+                    "webhook_suppressed_append only accepts action_type=WEBHOOK_SUPPRESSED"
+                )
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id}
         if action == "health":
             return {
                 "ok": True,
@@ -261,7 +391,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
     """One newline-delimited JSON request per connection."""
 
     def handle(self) -> None:
-        peer_pid, _, _ = struct.unpack(
+        peer_pid, peer_uid, _ = struct.unpack(
             "3i",
             self.request.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12),
         )
@@ -271,7 +401,7 @@ class RequestHandler(socketserver.StreamRequestHandler):
         else:
             try:
                 request = json.loads(raw)
-                response = self.server.broker.handle(request, peer_pid)  # type: ignore[attr-defined]
+                response = self.server.broker.handle(request, peer_pid, peer_uid)  # type: ignore[attr-defined]
             except Exception as exc:  # noqa: BLE001 - protocol returns bounded errors
                 response = {
                     "ok": False,

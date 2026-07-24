@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { sendEmail } from '../../lib/email/resend'
 import { rateLimitByIp } from '../../lib/booking/rate-limit'
@@ -38,13 +39,6 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
 
 function validateContactBody(body: Record<string, unknown>):

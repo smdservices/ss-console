@@ -287,6 +287,37 @@ The build is a separate approved effort:
 No paying client launches with a raw privileged connector credential reachable
 from the gateway.
 
+## Realized — migration step 7 as an enforced guard (2026-07-13, #1841)
+
+The full broker migration of every connector is a large build; step 7 ("repeat
+the custody audit for every enabled connector") is realized now as a
+**config-time guard** plus a per-connector disposition record, so the bright
+line is enforced instead of trusted:
+
+- **Disposition record.** `operator/contracts/connector-custody-dispositions.md`
+  carries the ADR-required "behind the broker vs accepted-in-gateway with
+  rationale" verdict for every connector/channel. Google is behind the broker;
+  Smokeball and MS Graph are client-data connectors that must move behind the
+  broker before any seat pairs them with `code_execution`; AgentMail, Telegram,
+  and web-search are identity-channel/no-client-data surfaces eligible for an
+  authored exception.
+- **The guard.** A seat may author non-refused `code_execution` only if every
+  gateway-held credential surface is broker-mediated or listed in a top-level
+  `custody_exceptions`. Eligibility is enum-limited to identity-channel adapters
+  (`telegram`, `agentmail`, `brave`); **client-data connectors can never be
+  excepted**. Enforced in both validators (console
+  `sections-custody-guard.ts`, on-box `bootstrap/validate.py`
+  `_validate_custody_guard`), parity-pinned by the fixtures contract. This is
+  the config-time realization of ADR 0044 Decision 8's launch-blocker.
+- **Live state.** Only the `smd` (Crane) seat authors `code_execution` today;
+  its sole gateway surfaces are its own Telegram bot and AgentMail inbox, both
+  authored in `custody_exceptions` — so the guard passes and no client-data
+  credential is in play. The paying law seats leave `code_execution` unauthored
+  (fail-closed), which is why the Smokeball-in-gateway credential is not yet a
+  live exposure; the guard makes it an authoring-time blocker the instant that
+  changes. Verification items 1–3 and 10 (the live negative read / env scan)
+  remain the runtime backstop this guard front-runs.
+
 ## Verification
 
 The broker is complete only when:

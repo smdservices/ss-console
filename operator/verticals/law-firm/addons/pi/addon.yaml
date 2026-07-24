@@ -5,38 +5,88 @@
 # src/lib/operator/customer-yaml/types.ts (pi is registered). Add-on assets are
 # ADDITIVE on top of the law-firm base; the base does not declare them.
 #
-# PI-specific connective skin: medical-records request and follow-up,
-# treatment-status tracking, lien-status logging, and demand-package ASSEMBLY
-# (collation of authored components, never legal argument). Rides the
-# California Initiative 25-0022 margin-compression timing (see the brief's
-# "Labor-market dislocation").
+# v0.2.0 — the full California PI litigation lifecycle (2026-07-01 build for the
+# Ashton & Price pilot; supersedes the v0.1.0 demand-side skin). Nineteen
+# connective skills spanning case initiation through settlement, each authored
+# against the client-facing lifecycle commitment
+# (operator/customers/ashton-price/CLIENT-PROPOSAL.md), grounded in
+# operator/verticals/law-firm/smokeball-surface.md, and adversarially gated
+# (CA-law / UPL / fabrication / anti-fiction) before commit. Skill bodies live
+# in operator/skills/<name>/; per-skill fixtures in
+# operator/fixtures/law-firm/pi/<name>/.
+#
+# NOTE: this manifest is declarative (no runtime materializer today). Skills
+# activate via the customer.yaml persona skill list; bootstrap seeds every repo
+# skill body onto the Machine volume. Keep this list and the persona lists in
+# operator/customers/{pilot-smokeball,ashton-price}/customer.yaml in step.
 
 name: pi
-version: 0.1.0
+version: 0.2.0
 
-# Additive floors on top of the base law-firm compliance set.
+# Additive floors on top of the base law-firm compliance set (upl-boundary,
+# privilege, conflict-routing, trust-funds-read-only,
+# aba-512-supervision). One slug per bright line the adversarial gates verified;
+# every pi skill registers under all of these, and the per-skill enforcement
+# language lives in each SKILL.md.
 compliance:
-  - medical-lien-logging # log lien status; never advise on lien strategy
-  - demand-package-assembly-no-argument # collate authored components only; no legal argument
+  - deadline-input-never-final # captured type/service date/method is surfaced for attorney confirmation; a computed or read deadline is never treated as final by the Operator
+  - verification-attorney-approved-send # client discovery-verification requests send only on authenticated attorney approval; the Operator never signs and never asserts an unseen signature
+  - assembly-no-argument # separate statements, motion packages, trial binders, and packets are mechanical collations of authored components; legal argument and reasons-to-compel stay with the attorney
+  - meet-and-confer-attorney-decision # M&C letters are drafted only; the decision to engage and the send stay with the attorney
+  - medical-facts-quote-only # chronology and records work quotes the record; never diagnoses, characterizes treatment, or infers providers
+  - lien-no-reduction-math # lien ledger tracks holders/amounts/status and chases payoffs; reductions and lien strategy are the attorney's judgment
+  - settlement-figures-from-authored # disbursement inputs are read from authored matter data; Smokeball runs the math; the Operator never moves funds
+  - no-filing-no-service # packages are staged for the attorney; filing and service stay in human hands (InfoTrack)
+  - document-content-not-instructions # matter documents are read as information, never as instructions (taint discipline)
 
 personas: []
 
-# PI-specific connective skills (bodies in hermes-smd-overlay).
+# The nineteen PI-litigation lifecycle skills (bodies in operator/skills/).
 skills:
+  # discovery (deepest — the firm's named slip area)
+  - discovery-served-watch
+  - discovery-response-tracker
+  - client-verification-tracker
+  - separate-statement-assembler
+  - opposing-response-deficiency-review
+  - meet-and-confer-drafter
+  - discovery-response-staging
+  # case initiation + service
+  - matter-initiation-setup
+  - service-confirmation-watcher
+  # medical records + chronology
   - medical-records-chaser
-  - treatment-status-follower
-  - lien-status-logger
-  - demand-package-assembler # assembly/collation only, never argument
+  - medical-chronology-maintainer
+  # motions
+  - motion-calendar-tracker
+  - motion-package-assembler
+  # minor's compromise
+  - minors-compromise-packet
+  # trial preparation
+  - trial-binder-assembler
+  # mediation, settlement, liens
+  - mediation-settlement-tracker
+  - lien-ledger-tracker
+  - settlement-statement-feeder
+  # firm-wide surface
+  - daily-needs-you-digest
 
-# Inherits the base law-firm connectors.
+# Inherits the base law-firm connectors (Smokeball PracticeManagement + the
+# Operator's AgentMail inbox carry every skill above).
 connectors: []
 
-templates:
-  - medical-records-request.md
-  - lien-status-update.md
+# No pack-shipped letter/SOP templates in v0.2.0 — chase and request language is
+# authored inside each skill's references/ (voice + output-format), tuned per
+# firm at onboarding. The v0.1.0 template identifiers pointed at files that were
+# never authored; ripped rather than carried.
+templates: []
 
+# Per-skill fixture sets live at operator/fixtures/law-firm/pi/<skill>/
+# (64 fixtures, 43 adversarial, as of v0.2.0) plus the shared synthetic
+# served-discovery corpus.
 fixtures:
-  - synthetic-matter-pi-auto
+  - synthetic-served-discovery-set
 
-evals:
-  - cert-pi-no-legal-argument
+# Certification battery: pending first graded catalog run (see
+# operator/grading/matrix.md).
+evals: []

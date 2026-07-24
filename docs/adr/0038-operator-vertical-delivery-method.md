@@ -13,6 +13,8 @@ related-issue: '#1206, #1166, #1194'
 
 **Validation status.** The decision to _proceed_ on this method is accepted. The method itself is a **hypothesis** until vertical-1 (law) ships to a real client. It carries an explicit success metric and reversal triggers below, and should be revisited — not assumed settled — until law validates it.
 
+> **Update-note (2026-07-13).** Two facts in the body are dated. (1) The deferred `build:` adapter line ("no `build:` adapters yet") was **fulfilled** by [ADR 0053](./0053-author-built-mcp-connectors-per-customer-installed.md): author-built connectors are per-customer-installed **MCP servers** (`operator/connectors/<name>/`, Smokeball first), not `build:` CLIs. (2) `operator/verticals/` has grown to **13 packs** (plus the template); where the body says "twelve," read it as the founding count, not a cap.
+
 **Purpose.** This ADR is the citable answer to _how we take an Operator vertical from "page exists" to "deliverable to a real client,"_ without repeating the prior failure where a "demo" sprawled into misguided infrastructure that was ultimately ripped out. The pack roadmap, the overlay build (`hermes-smd-overlay`), and per-vertical onboarding all derive from this method and should cite it.
 
 ## Context

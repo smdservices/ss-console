@@ -26,6 +26,12 @@ const userRowSchema = z.object({
   clerk_user_id: z.string().min(1).nullable(),
 })
 
+const grantRowSchema = z.object({
+  clerk_user_id: z.string().min(1),
+  email: z.email(),
+  profile: z.string().min(1),
+})
+
 export interface AuthorizedMcpPrincipal {
   localUserId: string
   clerkUserId: string
@@ -90,6 +96,33 @@ function resolvePrincipals(
   })
 }
 
+/**
+ * Merge live access grants (ADR 0057) into the authored principal set. A grant
+ * is a dynamic authorization — JIT-created on an "open" issuance policy, or
+ * seeded for an "allowlist" policy — that authorizes a Clerk subject until its
+ * bounded `expires_at`. Authored `mcp_connector.access[]` principals take
+ * precedence: a subject already authored is left untouched (its local user id
+ * and profile win). A grant-only subject has no local `users` row (JIT firm
+ * employees are not portal users), so its Clerk subject doubles as the audit
+ * actor id.
+ */
+function mergeGrantPrincipals(
+  authored: readonly AuthorizedMcpPrincipal[],
+  grantRows: readonly z.infer<typeof grantRowSchema>[]
+): AuthorizedMcpPrincipal[] {
+  const bySubject = new Map(authored.map((principal) => [principal.clerkUserId, principal]))
+  for (const grant of grantRows) {
+    if (bySubject.has(grant.clerk_user_id)) continue
+    bySubject.set(grant.clerk_user_id, {
+      localUserId: grant.clerk_user_id,
+      clerkUserId: grant.clerk_user_id,
+      email: grant.email,
+      profile: grant.profile,
+    })
+  }
+  return [...bySubject.values()]
+}
+
 export async function loadMcpCustomer(
   db: D1Database,
   customerSlug: string
@@ -116,6 +149,20 @@ export async function loadMcpCustomer(
   const users = z.array(userRowSchema).parse(rawUsers.results ?? [])
   const connector = parseMcpConnector(binding.mcp_connector_json)
 
+  // Live access grants (ADR 0057): the dynamic authorization + kill-switch layer.
+  // Only un-revoked, un-expired rows authorize. ISO-8601 UTC compares
+  // chronologically, so the expiry filter runs in SQL — a revoked or lapsed
+  // grant is simply absent from the principal set on the very next request.
+  const rawGrants = await db
+    .prepare(
+      'SELECT clerk_user_id, email, profile FROM mcp_issued_grants ' +
+        'WHERE customer_slug = ? AND revoked_at IS NULL ' +
+        "AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+    )
+    .bind(binding.customer_slug)
+    .all<unknown>()
+  const grants = z.array(grantRowSchema).parse(rawGrants.results ?? [])
+
   return {
     entityId: binding.entity_id,
     customerId: binding.customer_slug,
@@ -127,6 +174,6 @@ export async function loadMcpCustomer(
       clientId: binding.client_id,
       clerkAppId: binding.clerk_app_id,
     },
-    principals: resolvePrincipals(connector, users),
+    principals: mergeGrantPrincipals(resolvePrincipals(connector, users), grants),
   }
 }

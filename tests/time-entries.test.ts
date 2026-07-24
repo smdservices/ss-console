@@ -182,7 +182,7 @@ describe('time-entries: API routes', () => {
   it('endpoints verify admin session', () => {
     const createCode = readFileSync(resolve('src/pages/api/admin/time-entries/index.ts'), 'utf-8')
     const updateCode = readFileSync(resolve('src/pages/api/admin/time-entries/[id].ts'), 'utf-8')
-    expect(createCode).toContain("session.role !== 'admin'")
-    expect(updateCode).toContain("session.role !== 'admin'")
+    expect(createCode).toContain('requireAdminSession')
+    expect(updateCode).toContain('requireAdminSession')
   })
 })

@@ -1,6 +1,9 @@
 import type { APIContext, APIRoute } from 'astro'
+import { z } from 'zod'
 import { env } from 'cloudflare:workers'
 import { handleResendEvent, type ResendWebhookPayload } from '../../../lib/webhooks/resend-handler'
+import { handleBookingEmailDeliveryFailure } from '../../../lib/webhooks/booking-email-failure'
+import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 
 /**
  * POST /api/webhooks/resend
@@ -40,11 +43,35 @@ const MAX_WEBHOOK_AGE_SECONDS = 300
 /** Default org id for events that can't be re-attributed via the sent row. */
 const DEFAULT_ORG_ID = '01JQFK0000SMDSERVICES000'
 
-function jsonErr(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
+const ResendWebhookPayloadSchema = z
+  .object({
+    type: z.string().min(1),
+    data: z
+      .object({
+        email_id: z.string().optional(),
+        to: z.array(z.string()).optional(),
+        from: z.string().optional(),
+        subject: z.string().optional(),
+        tags: z.record(z.string(), z.string()).optional(),
+        bounce: z
+          .object({
+            message: z.string().optional(),
+            type: z.string().optional(),
+            subType: z.string().optional(),
+          })
+          .optional(),
+        suppressed: z
+          .object({ message: z.string().optional(), type: z.string().optional() })
+          .optional(),
+        failed: z.object({ reason: z.string().optional() }).optional(),
+      })
+      .catchall(z.unknown())
+      .optional(),
   })
+  .catchall(z.unknown())
+
+function jsonErr(status: number, message: string): Response {
+  return errorResponse(status, message)
 }
 
 async function verifySvixHeaders(
@@ -97,14 +124,16 @@ async function handlePost({ request }: APIContext): Promise<Response> {
   const headerResult = await verifySvixHeaders(request, rawBody, webhookSecret)
   if (headerResult instanceof Response) return headerResult
 
-  let payload: ResendWebhookPayload
+  let rawPayload: unknown
   try {
-    payload = JSON.parse(rawBody) as ResendWebhookPayload
+    rawPayload = JSON.parse(rawBody) as unknown
   } catch {
     return jsonErr(400, 'Invalid JSON')
   }
 
-  if (!payload.type) return jsonErr(400, 'Missing event type')
+  const payloadResult = ResendWebhookPayloadSchema.safeParse(rawPayload)
+  if (!payloadResult.success) return jsonErr(400, 'Malformed event payload')
+  const payload: ResendWebhookPayload = payloadResult.data
 
   try {
     const result = await handleResendEvent(env.DB, {
@@ -112,15 +141,20 @@ async function handlePost({ request }: APIContext): Promise<Response> {
       payload,
       fallbackOrgId: DEFAULT_ORG_ID,
     })
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        recorded: result.recorded,
-        ...(result.reason ? { reason: result.reason } : {}),
-        ...(result.eventType ? { event_type: result.eventType } : {}),
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    // Independently, alert the team if this event is a delivery failure for a
+    // transactional booking email (suppressed/bounced/failed). Best-effort.
+    const bookingFailure = await handleBookingEmailDeliveryFailure(
+      env.DB,
+      env.RESEND_API_KEY,
+      payload
     )
+    return jsonResponse(200, {
+      ok: true,
+      recorded: result.recorded,
+      ...(result.reason ? { reason: result.reason } : {}),
+      ...(result.eventType ? { event_type: result.eventType } : {}),
+      ...(bookingFailure.handled ? { booking_alert: true } : {}),
+    })
   } catch (err) {
     console.error('[webhook/resend] handler failed:', err)
     // 500 → Svix retries with backoff.

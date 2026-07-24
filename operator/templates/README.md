@@ -133,6 +133,12 @@ Captain-initiated re-provision is the only path for structural changes; the OAut
 
 Both pass through the same validator (`src/lib/operator/customer-yaml/validator.ts`); the bracketed-field shape rejects an unedited template at validation time, forcing the operator to substitute real values before provisioning.
 
+## Onboarding artifacts
+
+| File                                                   | When to use                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ENTITLEMENTS.template.md`](ENTITLEMENTS.template.md) | Copy to `operator/customers/<slug>/ENTITLEMENTS.md` at onboarding. The forward, explicit surface where the **customer specifies** each entitlement (per action class × connector) and we only **recommend** defaults. Materializes into `customer.yaml` (`personas[].entitlements.exposure`, `inbound_allow_from`, connector grants). Doctrine: ADR 0035 (no imposed defaults). Worked example: `operator/customers/ashton-price/ENTITLEMENTS.md`. |
+
 ### no-PM-system mode
 
 The most common state at the target-buyer profile is no working PM system at all. The `customer-no-pm-system.yaml` template is the matching capability binding set — see the spec at [`docs/specs/operator/no-pm-system-mode.md`](../../docs/specs/operator/no-pm-system-mode.md) for the scene-by-scene demo flow and the `no_pm` adapter README at [`../connectors/no_pm/README.md`](../connectors/no_pm/README.md) for the synthetic matter store. Issue [#853](https://github.com/venturecrane/ss-console/issues/853).

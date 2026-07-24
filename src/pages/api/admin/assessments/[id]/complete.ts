@@ -9,6 +9,8 @@ import { appendContext } from '../../../../../lib/db/context'
 import { createQuote, type LineItem } from '../../../../../lib/db/quotes'
 import { uploadTranscript } from '../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /** Default hourly rate at launch (per Decision Stack #16, evolved). */
 const DEFAULT_RATE = 175
@@ -121,20 +123,13 @@ async function handleDisqualified(
 }
 
 async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const assessmentId = params.id
   if (!assessmentId) {
-    return new Response(JSON.stringify({ error: 'Assessment ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Assessment ID required')
   }
 
   try {

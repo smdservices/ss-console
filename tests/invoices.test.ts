@@ -71,10 +71,10 @@ describe('invoices: stripe types', () => {
 })
 
 describe('invoices: portal view', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/invoices/index.astro'), 'utf-8')
+  const source = () => readFileSync(resolve('src/pages/portal/billing/index.astro'), 'utf-8')
 
   it('portal invoice page exists', () => {
-    expect(existsSync(resolve('src/pages/portal/invoices/index.astro'))).toBe(true)
+    expect(existsSync(resolve('src/pages/portal/billing/index.astro'))).toBe(true)
   })
 
   it('uses listInvoicesForEntity for entity-scoped access', () => {
@@ -109,7 +109,7 @@ describe('invoices: portal view', () => {
 
   it('links each row to the invoice detail page', () => {
     const code = source()
-    expect(code).toContain('/portal/invoices/${inv.id}')
+    expect(code).toContain('/portal/billing/invoices/${inv.id}')
   })
 
   it('signals unpaid/overdue state via tone, not a separate Pay button', () => {
@@ -134,15 +134,18 @@ describe('invoices: portal view', () => {
   })
 
   it('handles empty state when no invoices exist', () => {
-    expect(source()).toContain('No invoices yet')
+    expect(source()).toContain('Nothing on the ledger yet')
   })
 })
 
 describe('invoices: portal detail view', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/invoices/[id].astro'), 'utf-8')
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/billing/invoices/[id].astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/portal/invoice-detail.ts'), 'utf-8')
 
   it('portal invoice detail page exists', () => {
-    expect(existsSync(resolve('src/pages/portal/invoices/[id].astro'))).toBe(true)
+    expect(existsSync(resolve('src/pages/portal/billing/invoices/[id].astro'))).toBe(true)
   })
 
   it('gates the pay CTA on a real Stripe hosted URL', () => {
@@ -171,6 +174,13 @@ describe('invoices: portal detail view', () => {
     expect(code).not.toContain('displayLineItems')
     expect(code).not.toMatch(/scope_summary\s*\?\?/)
   })
+
+  it('loads invoice detail through the portal reader', () => {
+    const code = source()
+    expect(code).toContain('loadPortalInvoiceDetail')
+    expect(code).toContain('getInvoiceForEntity')
+    expect(code).toContain('listLineItemsForInvoice')
+  })
 })
 
 describe('invoices: admin API routes', () => {
@@ -190,7 +200,7 @@ describe('invoices: admin API routes', () => {
     })
 
     it('verifies admin session', () => {
-      expect(source()).toContain("session.role !== 'admin'")
+      expect(source()).toContain('requireAdminSession')
     })
 
     it('validates invoice type', () => {
@@ -214,7 +224,7 @@ describe('invoices: admin API routes', () => {
     })
 
     it('verifies admin session', () => {
-      expect(source()).toContain("session.role !== 'admin'")
+      expect(source()).toContain('requireAdminSession')
     })
 
     it('handles send action — creates in Stripe and sends', () => {
@@ -306,17 +316,19 @@ describe('invoices: portal dashboard integration', () => {
   const source = () => readFileSync(resolve('src/pages/portal/index.astro'), 'utf-8')
 
   it('surfaces the pending invoice as the dominant action', () => {
-    const code = source()
-    // C-hybrid replaces the Invoices quick link with an ActionCard that deep-links
-    // to the specific invoice. Keep users one tap away from payment.
-    expect(code).toContain('pendingInvoice')
-    expect(code).toContain('/portal/invoices/')
-    expect(code).toContain('Pay invoice')
+    // Portal IA rebuild: the pending-invoice action moved from the home
+    // rail into the Billing offering card (home-cards.ts), which deep-links
+    // the specific invoice. Keep users one tap away from payment.
+    const cards = readFileSync(resolve('src/lib/portal/home-cards.ts'), 'utf-8')
+    expect(cards).toContain("i.status === 'sent' || i.status === 'overdue'")
+    expect(cards).toContain('/portal/billing/invoices/')
+    expect(cards).toContain('Pay invoice')
+    expect(source()).toContain('loadHomeCards')
   })
 
   it('links paid and sent invoices from the activity timeline', () => {
     const code = source()
-    expect(code).toContain('/portal/invoices/')
+    expect(code).toContain('/portal/billing/invoices/')
     expect(code).toMatch(/Invoice #/)
   })
 })

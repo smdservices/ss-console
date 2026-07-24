@@ -8,16 +8,19 @@ import {
   ACCEPTED_ACTION_CLASSES,
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
-  ACCEPTED_TRUST_CEILINGS,
+  ACCEPTED_EXPOSURE_CEILINGS,
+  SEND_ACTION_CLASSES,
   SLUG_PATTERN,
-  type ActionClass,
+  type AuthoredExposureActionClass,
   type CostEstimate,
+  type ExposureCeiling,
   type Persona,
   type PersonaChannelBinding,
+  type PersonaEntitlements,
   type PersonaSendAs,
   type PersonaSkill,
   type PersonaStatus,
-  type TrustCeiling,
+  type SkillInitiation,
   type ValidationError,
 } from './types'
 import { isPlainObject, optionalEnum, optionalString, optionalStringList } from './helpers'
@@ -100,6 +103,11 @@ function checkOnePersona(
   const avatar = optionalString(p, 'avatar_url', `personas[${i}].avatar_url`, errors)
   const pronouns = optionalEnum(p, 'pronouns', ACCEPTED_PRONOUNS, `personas[${i}].pronouns`, errors)
   const sendAs = checkSendAs(p['send_as'], `personas[${i}].send_as`, errors)
+  const entitlements = checkPersonaEntitlements(
+    p['entitlements'],
+    `personas[${i}].entitlements`,
+    errors
+  )
   return {
     slug,
     status,
@@ -110,6 +118,7 @@ function checkOnePersona(
     tone: extractToneList(p['tone']),
     pronouns: pronouns,
     send_as: sendAs,
+    entitlements,
     skills,
     voice_overrides: checkOverrideBlob(
       p['voice_overrides'],
@@ -252,13 +261,14 @@ function checkOneSkill(raw: unknown, path: string, errors: ValidationError[]): P
     return null
   }
   checkSkillName(raw['name'], path, errors)
-  checkSkillCeiling(raw['trust_ceiling'], path, errors)
-  checkSkillActionCeilings(raw['action_ceilings'], path, errors)
+  rejectLegacyField(raw, 'trust_ceiling', path, errors)
+  rejectLegacyField(raw, 'action_ceilings', path, errors)
   checkSkillVersion(raw['version'], path, errors)
   checkSkillEnabled(raw['enabled'], path, errors)
+  const initiation = checkSkillInitiation(raw['initiation'], `${path}.initiation`, errors)
   const cost = checkCostEstimate(raw['cost_estimate'], `${path}.cost_estimate`, errors)
   const scope = optionalStringList(raw, 'scope', `${path}.scope`, errors)
-  return assembleSkill(raw, cost, scope)
+  return assembleSkill(raw, initiation, cost, scope)
 }
 
 function checkSkillName(name: unknown, path: string, errors: ValidationError[]): void {
@@ -271,58 +281,114 @@ function checkSkillName(name: unknown, path: string, errors: ValidationError[]):
   }
 }
 
-function checkSkillCeiling(ceiling: unknown, path: string, errors: ValidationError[]): void {
-  if (
-    typeof ceiling !== 'string' ||
-    !(ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(ceiling)
-  ) {
-    errors.push({
-      code: 'EnumViolation',
-      path: `${path}.trust_ceiling`,
-      message: `trust_ceiling must be one of: ${ACCEPTED_TRUST_CEILINGS.join(', ')}`,
-    })
-  }
+function rejectLegacyField(
+  raw: Record<string, unknown>,
+  field: string,
+  path: string,
+  errors: ValidationError[]
+): void {
+  if (raw[field] === undefined) return
+  errors.push({
+    code: 'LegacyEntitlementField',
+    path: `${path}.${field}`,
+    message: `${field} is retired; use personas[].entitlements.exposure and skills[].initiation`,
+  })
 }
 
-/**
- * Validate the optional per-action-class ceiling override map (ADR 0025).
- * Absent/null is valid (skill uses safe class defaults). When present it must
- * be an object whose keys are known ActionClasses and whose values are
- * accepted TrustCeilings. The floor check (cannot raise above a vertical
- * floor) is a runtime/enforcement concern, not a static-shape concern, so it
- * is not done here.
- */
-function checkSkillActionCeilings(raw: unknown, path: string, errors: ValidationError[]): void {
-  if (raw === undefined || raw === null) return
-  const fieldPath = `${path}.action_ceilings`
+function checkPersonaEntitlements(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): PersonaEntitlements {
+  if (raw === undefined || raw === null) return { exposure: {} }
   if (!isPlainObject(raw)) {
     errors.push({
       code: 'TypeMismatch',
-      path: fieldPath,
-      message: `${fieldPath} must be an object`,
+      path,
+      message: `${path} must be an object when present`,
     })
-    return
+    return { exposure: {} }
   }
+  rejectLegacyField(raw, 'trust_ceiling', path, errors)
+  rejectLegacyField(raw, 'action_ceilings', path, errors)
+  const exposure = checkExposureMap(raw['exposure'], `${path}.exposure`, errors)
+  return { exposure }
+}
+
+function checkExposureMap(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): Partial<Record<AuthoredExposureActionClass, ExposureCeiling>> {
+  if (raw === undefined || raw === null) return {}
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be an object when present` })
+    return {}
+  }
+  const out: Partial<Record<AuthoredExposureActionClass, ExposureCeiling>> = {}
   for (const [key, value] of Object.entries(raw)) {
     if (!(ACCEPTED_ACTION_CLASSES as readonly string[]).includes(key)) {
       errors.push({
         code: 'InvalidActionClass',
-        path: `${fieldPath}.${key}`,
-        message: `action_ceilings key must be one of: ${ACCEPTED_ACTION_CLASSES.join(', ')}`,
+        path: `${path}.${key}`,
+        message: `exposure key must be one of: ${ACCEPTED_ACTION_CLASSES.join(', ')}`,
       })
       continue
     }
-    if (
-      typeof value !== 'string' ||
-      !(ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(value)
-    ) {
+    if (key === 'read') {
+      errors.push({
+        code: 'InvalidActionClass',
+        path: `${path}.read`,
+        message: 'read is always allowed by enforcement and must not be authored as exposure',
+      })
+      continue
+    }
+    // `confirm` (send after an explicit in-turn approval, ADR 0071) is only valid
+    // for the send classes (external_send / external_send_internal / external_send_client
+    // / external_send_vendor); enforce()'s confirm branch lives in the send branch, so
+    // on any other class the accepted set excludes it.
+    const allowedCeilings = (SEND_ACTION_CLASSES as readonly string[]).includes(key)
+      ? ACCEPTED_EXPOSURE_CEILINGS
+      : ACCEPTED_EXPOSURE_CEILINGS.filter((c) => c !== 'confirm')
+    if (typeof value !== 'string' || !(allowedCeilings as readonly string[]).includes(value)) {
       errors.push({
         code: 'InvalidActionCeiling',
-        path: `${fieldPath}.${key}`,
-        message: `action_ceilings.${key} must be one of: ${ACCEPTED_TRUST_CEILINGS.join(', ')}`,
+        path: `${path}.${key}`,
+        message: `exposure.${key} must be one of: ${allowedCeilings.join(', ')}`,
       })
+      continue
     }
+    out[key as AuthoredExposureActionClass] = value as ExposureCeiling
   }
+  return out
+}
+
+function checkSkillInitiation(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): SkillInitiation {
+  if (raw === undefined || raw === null) {
+    errors.push({ code: 'MissingField', path, message: `${path} is required for enabled skills` })
+    return { manual: false, scheduled: false, webhook: false }
+  }
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be an object` })
+    return { manual: false, scheduled: false, webhook: false }
+  }
+  return {
+    manual: checkInitiationFlag(raw['manual'], `${path}.manual`, errors),
+    scheduled: checkInitiationFlag(raw['scheduled'], `${path}.scheduled`, errors),
+    webhook: checkInitiationFlag(raw['webhook'], `${path}.webhook`, errors),
+  }
+}
+
+function checkInitiationFlag(raw: unknown, path: string, errors: ValidationError[]): boolean {
+  if (typeof raw !== 'boolean') {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be a boolean` })
+    return false
+  }
+  return raw
 }
 
 function checkSkillVersion(version: unknown, path: string, errors: ValidationError[]): void {
@@ -347,46 +413,21 @@ function checkSkillEnabled(enabled: unknown, path: string, errors: ValidationErr
 
 function assembleSkill(
   raw: Record<string, unknown>,
+  initiation: SkillInitiation,
   cost: CostEstimate | null,
   scope: string[]
 ): PersonaSkill {
   const name = raw['name']
-  const ceiling = raw['trust_ceiling']
   const version = raw['version']
   const enabled = raw['enabled']
   return {
     name: typeof name === 'string' ? name : '',
     version: typeof version === 'string' ? version : 'pending',
-    trust_ceiling:
-      typeof ceiling === 'string' &&
-      (ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(ceiling)
-        ? (ceiling as TrustCeiling)
-        : 'refused',
-    action_ceilings: extractActionCeilings(raw['action_ceilings']),
+    initiation,
     enabled: typeof enabled === 'boolean' ? enabled : true,
     cost_estimate: cost,
     scope,
   }
-}
-
-/**
- * Build the validated per-action-class ceiling map, keeping only well-formed
- * entries. Returns null when no overrides are authored (the common case),
- * so consumers can treat null as "use safe class defaults."
- */
-function extractActionCeilings(raw: unknown): Partial<Record<ActionClass, TrustCeiling>> | null {
-  if (!isPlainObject(raw)) return null
-  const out: Partial<Record<ActionClass, TrustCeiling>> = {}
-  for (const [key, value] of Object.entries(raw)) {
-    if (
-      (ACCEPTED_ACTION_CLASSES as readonly string[]).includes(key) &&
-      typeof value === 'string' &&
-      (ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(value)
-    ) {
-      out[key as ActionClass] = value as TrustCeiling
-    }
-  }
-  return Object.keys(out).length > 0 ? out : null
 }
 
 function checkCostEstimate(

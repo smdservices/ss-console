@@ -263,7 +263,7 @@ describe('follow-ups: dashboard page', () => {
   it('displays client name for each follow-up', () => {
     const code = source()
     expect(code).toContain('clientMap')
-    expect(code).toContain('row.name')
+    expect(code).toContain('listFollowUpEntityNames')
   })
 
   it('displays follow-up type label', () => {
@@ -340,7 +340,7 @@ describe('follow-ups: API route', () => {
   })
 
   it('verifies admin session', () => {
-    expect(source()).toContain("session.role !== 'admin'")
+    expect(source()).toContain('requireAdminSession')
   })
 
   it('scopes follow-up lookup to org', () => {
@@ -383,9 +383,8 @@ describe('follow-ups: admin dashboard integration', () => {
     expect(settings).toContain('/admin/follow-ups')
   })
 
-  it('admin dashboard shows upcoming and overdue follow-ups', () => {
+  it('admin dashboard shows overdue follow-ups', () => {
     const code = source()
-    expect(code).toContain('upcomingFollowUps')
     expect(code).toContain('overdueFollowUps')
   })
 })

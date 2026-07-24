@@ -53,6 +53,10 @@ function customerFixture(over: Partial<ResolvedMcpCustomer> = {}): ResolvedMcpCu
     connector: {
       enabled: true,
       data_posture: 'open',
+      policy: 'allowlist',
+      allowed_domains: [],
+      default_profile: null,
+      ttl_days: 30,
       access: [{ email: 'pilot@example.com', profile: 'crane' }],
     },
     clerk: {
@@ -290,7 +294,15 @@ describe('validateMcpToken', () => {
       await validateMcpToken(
         'token',
         customerFixture({
-          connector: { enabled: false, data_posture: 'open', access: [] },
+          connector: {
+            enabled: false,
+            data_posture: 'open',
+            policy: 'allowlist',
+            allowed_domains: [],
+            default_profile: null,
+            ttl_days: 30,
+            access: [],
+          },
         }),
         claimsVerifier(claims())
       )
@@ -385,6 +397,89 @@ describe('loadMcpCustomer and migration 0072', () => {
     expect(customer?.principals.every((principal) => principal.localUserId === LOCAL_USER_ID)).toBe(
       true
     )
+  })
+
+  // ADR 0057 — dynamic access grants (mcp_issued_grants) merged into principals.
+  const insertGrant = (
+    db: D1Database,
+    grant: {
+      clerk_user_id: string
+      email: string
+      profile: string
+      expires_at: string
+      revoked_at?: string | null
+    }
+  ) =>
+    db
+      .prepare(
+        'INSERT INTO mcp_issued_grants ' +
+          '(customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        'smd',
+        grant.clerk_user_id,
+        grant.email,
+        grant.profile,
+        grant.expires_at,
+        grant.revoked_at ?? null
+      )
+      .run()
+
+  it('authorizes a live grant for a subject not in the authored access list', async () => {
+    await insertGrant(db, {
+      clerk_user_id: 'user_grantonly',
+      email: 'grantee@example.com',
+      profile: 'operator',
+      expires_at: '2999-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals).toContainEqual({
+      localUserId: 'user_grantonly',
+      clerkUserId: 'user_grantonly',
+      email: 'grantee@example.com',
+      profile: 'operator',
+    })
+  })
+
+  it('does not authorize an expired grant', async () => {
+    await insertGrant(db, {
+      clerk_user_id: 'user_expired',
+      email: 'expired@example.com',
+      profile: 'operator',
+      expires_at: '2000-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals.map((p) => p.clerkUserId)).not.toContain('user_expired')
+  })
+
+  it('does not authorize a revoked grant', async () => {
+    await insertGrant(db, {
+      clerk_user_id: 'user_revoked',
+      email: 'revoked@example.com',
+      profile: 'operator',
+      expires_at: '2999-01-01T00:00:00.000Z',
+      revoked_at: '2026-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals.map((p) => p.clerkUserId)).not.toContain('user_revoked')
+  })
+
+  it('lets an authored principal win over a grant for the same Clerk subject', async () => {
+    await insertGrant(db, {
+      clerk_user_id: CLERK_USER_ID, // already authored as pilot@example.com / crane
+      email: 'someone-else@example.com',
+      profile: 'operator',
+      expires_at: '2999-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    const matches = customer?.principals.filter((p) => p.clerkUserId === CLERK_USER_ID)
+    expect(matches).toHaveLength(1)
+    expect(matches?.[0]).toMatchObject({
+      localUserId: LOCAL_USER_ID,
+      email: 'pilot@example.com',
+      profile: 'crane',
+    })
   })
 
   it('returns null for unknown or malformed customer slugs', async () => {
@@ -530,6 +625,113 @@ describe('MCP route authorization and audit', () => {
         tool: 'operator_status',
       },
     ])
+  })
+
+  // --- Open-by-domain JIT (slice 2e) ---
+  const STATUS_BODY =
+    '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"operator_status"}}'
+  const okRead = (): Promise<RuntimeReadResult> =>
+    Promise.resolve({ ok: true, kind: 'audit_log', data: { entries: [], cursor: null } })
+  const openCustomer = (): ResolvedMcpCustomer => ({
+    ...customer,
+    connector: {
+      ...customer.connector,
+      policy: 'open',
+      allowed_domains: ['firm.com'],
+      default_profile: 'crane',
+      ttl_days: 7,
+    },
+    principals: [], // the caller is a not-yet-authored newcomer
+  })
+  const postAs = (cust: ResolvedMcpCustomer, claimsOver: Record<string, unknown>) =>
+    handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer t' },
+        body: STATUS_BODY,
+      }),
+      new URL(RESOURCE_URI),
+      { db, customer: cust, verifier: claimsVerifier(claims(claimsOver)), readRuntime: okRead }
+    )
+  const grantFor = (clerkUserId: string) =>
+    db
+      .prepare('SELECT clerk_user_id, profile FROM mcp_issued_grants WHERE clerk_user_id = ?')
+      .bind(clerkUserId)
+      .first()
+
+  it('open policy: JIT-grants a verified firm-domain newcomer and serves the call', async () => {
+    const res = await postAs(openCustomer(), {
+      sub: 'user_new',
+      email: 'new@firm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(200)
+    expect(await grantFor('user_new')).toMatchObject({
+      clerk_user_id: 'user_new',
+      profile: 'crane',
+    })
+  })
+
+  it('open policy: denies a non-matching domain and mints nothing', async () => {
+    const res = await postAs(openCustomer(), {
+      sub: 'user_evil',
+      email: 'evil@notfirm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(401)
+    expect(await grantFor('user_evil')).toBeNull()
+  })
+
+  it('open policy: denies an unverified primary email', async () => {
+    const res = await postAs(openCustomer(), {
+      sub: 'user_unv',
+      email: 'unv@firm.com',
+      email_verified: false,
+    })
+    expect(res.status).toBe(401)
+    expect(await grantFor('user_unv')).toBeNull()
+  })
+
+  it('allowlist policy: never JITs, even on a matching domain', async () => {
+    const allowlist: ResolvedMcpCustomer = {
+      ...customer,
+      connector: { ...customer.connector, policy: 'allowlist' },
+      principals: [],
+    }
+    const res = await postAs(allowlist, {
+      sub: 'user_al',
+      email: 'al@firm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(401)
+    expect(await grantFor('user_al')).toBeNull()
+  })
+
+  it('open policy: STICKY REVOKE — a revoked subject is denied, not re-minted', async () => {
+    await db
+      .prepare(
+        'INSERT INTO mcp_issued_grants (customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        'smd',
+        'user_rev',
+        'user_rev@firm.com',
+        'crane',
+        '2999-01-01T00:00:00.000Z',
+        '2026-06-01T00:00:00.000Z'
+      )
+      .run()
+    const res = await postAs(openCustomer(), {
+      sub: 'user_rev',
+      email: 'user_rev@firm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(401)
+    const audit = await db
+      .prepare("SELECT reason FROM operator_mcp_audit WHERE decision = 'deny' ORDER BY id DESC")
+      .first<{ reason: string }>()
+    expect(audit?.reason).toBe('jit_revoked')
   })
 })
 
@@ -716,5 +918,143 @@ describe('operator_handoff_task', () => {
     expect(handoffs).toHaveLength(1)
     expect(handoffs[0].task).toBe('triage inbox')
     expect(typeof handoffs[0].handoff_id).toBe('string')
+  })
+})
+
+describe('ask_operator', () => {
+  it('lists ask_operator in tools/list', async () => {
+    const listed = await dispatchMcpRequest({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, CTX)
+    const body = await listed.json<{ result: { tools: { name: string }[] } }>()
+    expect(body.result.tools.map((t) => t.name)).toContain('ask_operator')
+  })
+
+  it('returns not_configured when driveTurn is absent', async () => {
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'ask_operator', arguments: { message: 'what is my status?' } },
+      },
+      CTX
+    )
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: false,
+      error: 'not_configured',
+    })
+  })
+
+  it('returns message_required when message is missing or empty', async () => {
+    for (const args of [{}, { message: '' }, { message: '   ' }]) {
+      const response = await dispatchMcpRequest(
+        {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: { name: 'ask_operator', arguments: args },
+        },
+        { ...CTX, driveTurn: async () => ({ reply: 'unreached' }) }
+      )
+      const body = await response.json<{ result: { content: { text: string }[] } }>()
+      expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+        ok: false,
+        error: 'message_required',
+      })
+    }
+  })
+
+  it('returns the reply and thread_id on success', async () => {
+    const calls: { message: string; thread_id?: string }[] = []
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'ask_operator',
+          arguments: { message: 'summarize the Ochoa matter', thread_id: 'thr_1' },
+        },
+      },
+      {
+        ...CTX,
+        driveTurn: async (params) => {
+          calls.push(params)
+          return { reply: 'The Ochoa matter is in discovery.', thread_id: 'thr_1' }
+        },
+      }
+    )
+    expect(calls).toHaveLength(1)
+    expect(calls[0].message).toBe('summarize the Ochoa matter')
+    expect(calls[0].thread_id).toBe('thr_1')
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: true,
+      reply: 'The Ochoa matter is in discovery.',
+      thread_id: 'thr_1',
+    })
+  })
+
+  it('returns delivery_failed when driveTurn throws', async () => {
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: { name: 'ask_operator', arguments: { message: 'anything' } },
+      },
+      {
+        ...CTX,
+        driveTurn: async () => {
+          throw new Error('machine unreachable')
+        },
+      }
+    )
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: false,
+      error: 'delivery_failed',
+    })
+  })
+
+  it('routes driveTurn through mcp-route with auth-bound identity', async () => {
+    const db: D1Database = await freshDb()
+    await seedCustomer(db)
+    const loaded = await loadMcpCustomer(db, 'smd')
+    if (!loaded) throw new Error('test customer did not load')
+
+    const turns: { message: string; auth: { subject: string; email: string; profile: string } }[] =
+      []
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'ask_operator', arguments: { message: 'status please' } },
+        }),
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer: loaded,
+        verifier: claimsVerifier(claims()),
+        readRuntime: unreachableRead,
+        driveTurn: async (auth, params) => {
+          turns.push({
+            message: params.message,
+            auth: { subject: auth.subject, email: auth.email, profile: auth.profile },
+          })
+          return { reply: 'all clear' }
+        },
+      }
+    )
+    expect(response.status).toBe(200)
+    expect(turns).toHaveLength(1)
+    expect(turns[0].message).toBe('status please')
+    expect(typeof turns[0].auth.subject).toBe('string')
+    expect(turns[0].auth.subject.length).toBeGreaterThan(0)
   })
 })

@@ -32,9 +32,8 @@ The information architecture is flow-ordered (acquire, serve, deliver, get paid,
 | **Services** | `/admin/services` | The global, cross-client delivery list - every in-flight service, risk-sorted. |
 | **Billing** | `/admin/billing` | The bi-modal money surface (ADR 0046): one-time invoices and the recurring Operator line. |
 | **Operator** | `/admin/operator` | The Operator fleet cockpit - roster and per-customer drill-ins. |
-| **Analytics** | `/admin/analytics` | Business-intelligence views, rendered server-side. |
 | **Playbook** | `/admin/playbook` | This handbook. |
-| **Settings** | `/admin/settings` | The configuration hub: lead generators, follow-ups, pipeline tuning, Google connect. |
+| **Settings** | `/admin/settings` | The configuration hub: follow-ups and Google connect. |
 
 `assessments` and `engagements` also live under `src/pages/admin/` and are reached from within the flow (a lead's meeting, a client's engagement) rather than from a dedicated top-nav tab.
 
@@ -54,7 +53,7 @@ The core working flow is a single path: a business enters as a lead, moves throu
 
 ### Leads list (`/admin/entities`)
 
-The unified lead working view. It tabs by stage with a count badge per tab and a pipeline dropdown filter (Review Mining, Job Monitor, New Business, Social Listening). Each stage hydrates its rows differently, because what you need to see about a raw signal is not what you need to see about a lead in proposing:
+The unified lead working view. It tabs by stage with a count badge per tab and a pipeline dropdown filter (Review Mining, Job Monitor - a legacy-provenance filter over rows the retired pipelines created). Each stage hydrates its rows differently, because what you need to see about a raw signal is not what you need to see about a lead in proposing:
 
 - **signal** - the evidence from the latest pipeline signal plus a last-activity timestamp.
 - **prospect** - whether an outreach draft exists, and the first contact email.
@@ -67,19 +66,18 @@ Bulk select and bulk actions are offered only on the `signal`, `prospect`, and `
 
 ### Lead detail (`/admin/entities/[id]`)
 
-The decision surface for one business. It shows an identity strip (name, stage, tier, pain score out of ten, vertical, area), an enrichment summary (pain observations, address, when it was generated, and which enrichment module produced it), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form. A right-hand decision rail carries the stage-appropriate actions and surfaces missing-data warnings (no pain score, no contacts) and stale-outreach-draft warnings.
+The decision surface for one business. It shows an identity strip (the signal source, the business name, an actor-role chip, the vertical when one is recorded, the stage, and how long the entity has been in it - see `EntityIdentityStrip.astro`), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form, followed by collapsible rollups of the entity's meetings, engagements, quotes, and invoices.
 
-The actions on the rail each hit an endpoint under `src/pages/api/admin/entities/[id]/`:
+The mutations each hit an endpoint under `src/pages/api/admin/entities/[id]/`:
 
-- **Promote** (`promote`) - moves signal to prospect, dispatches enrichment, and schedules the follow-up cadence.
-- **Re-enrich** (`dossier`) - runs the reviews-and-news enrichment mode in the background.
-- **Send booking link** (`send-booking-link`) - creates a meeting, transitions prospect to meetings, and sends the booking email.
-- **Draft quote** (`quotes`) - creates an empty draft quote shell (preconditions: not already engaged, no open quote, a prior meeting exists).
-- **Add note** (`context`) - appends a note to the timeline.
+- **Add note** (`context`) - appends a note to the timeline, from the detail page's inline form.
+- **Log reply** (`reply-log`) - records an inbound reply as a context entry.
+- **Send booking link** (`send-booking-link`) - on a prospect, creates a meeting, transitions prospect to meetings, and sends the booking email.
+- **Promote** (`promote`) and **Dismiss** (`dismiss`) - signal-stage row actions on the leads list; promote moves signal to prospect and schedules the follow-up cadence.
 - **Stage change** (`stage`) - transitions stage against a valid-transition table, optionally recording a lost reason and detail.
 - **Merge** (`merge`) - folds a duplicate entity into this one.
 
-Enrichment itself is a background pipeline; the per-module retry and full-run endpoints live under `entities/[id]/enrichment/`. The enrichment model and what it may infer are bounded by the extractive prompt-contract policy in `/admin/playbook/security-trust`.
+The automated enrichment pipeline and its detail-page surfaces (the enrichment summary, the Re-enrich action, the pain-score and tier readouts, and the missing-data warnings built on them) were retired with the lead-gen machine on 2026-07-01 (PRs #1610/#1616, ADR 0060); migration 0081 dropped the scoring columns, and the detail page no longer renders an enrichment block.
 
 ### Meeting detail (`/admin/entities/[id]/meetings/[meetingId]`)
 
@@ -111,17 +109,13 @@ These three surfaces watch the post-acceptance business.
 - **Services** (`/admin/services`) is the global delivery list - every in-flight service across all clients, risk-sorted, with a contextual risk column (at risk if overdue, next handoff, not yet priced). It runs a spine-drift check and surfaces any drift loudly (orphan engagements, childless services, unpriced operators, configs without a service) so the operator reconciles it manually rather than letting the money model and the delivery model silently diverge (ADR 0046).
 - **Billing** (`/admin/billing`) is the bi-modal money surface. A two-revenue band shows one-time (invoiced / paid / outstanding, with overdue called out) beside recurring (active operators and MRR, with unpriced called out), and three tabs break out Quotes, Invoices, and Recurring. MRR is computed from the service spine, not from a subscriptions table.
 
-## Analytics
-
-`/admin/analytics` renders business intelligence server-side: the pipeline funnel by stage, engagement health (average days to completion, on-time percentage, average parking-lot size), a revenue summary (invoiced, paid, outstanding, with monthly and by-vertical breakdowns), follow-up compliance (on-time / late / missed), quote accuracy (estimated vs actual hours per client, with a variance and accuracy readout), and site traffic (top paths, CTAs, funnel, daily uniques). Operational state uses the attention and error tones rather than the "complete" green, keeping the completion colour meaningful.
-
 ## The Operator fleet cockpit
 
 `/admin/operator` is the SMD-side cockpit for the Operator fleet, distinct from the client-facing console documented at `/admin/playbook/operator-console`. It is designed per `docs/design/operator/01-admin-portal.md` and splits into fleet-wide pages and per-customer drill-ins.
 
 ### Fleet-wide pages
 
-- **Roster** (`operator/index.astro`) - the default landing, one row per operator, built for scanning a growing fleet: is anything on fire across all my operators. It composes three console-side projections only (customer identity and posture, the runtime-summary mirror, and heartbeat) and never reads a Machine's runtime D1 directly or joins two customers (ADR 0009).
+- **Roster** (`operator/index.astro`) - the default landing, one row per operator, built for scanning a growing fleet: is anything on fire across all my operators. It composes three console-side projections only (customer identity and posture, the runtime-summary mirror, and heartbeat) and never reads a Machine's runtime D1 directly or joins two customers (ADR 0009). The heartbeat also carries the Machine's cost-breaker ladder level (ADR 0062): a SOFT_STOP escalates the seat's dot to yellow, a HARD_STOP to red with a "cost breaker hard stop" note; recovery is a Captain clear, never automatic.
 - **Alerts** (`operator/alerts.astro`) - fleet alerts.
 - **Requests** (`operator/requests.astro`) - the change-request inbox: client-originated config-change requests awaiting Captain action. These are the requests raised by the client-facing console's Read-and-Request surfaces.
 - **Provision** (`operator/provision.astro`) - author and validate a `customer.yaml`, then record provisioning intent.
@@ -150,10 +144,10 @@ All per-customer runtime detail comes through the read seam in `src/lib/operator
 
 `/admin/settings` is the configuration hub. It links to:
 
-- **Lead generators** (`/admin/generators`) - the four ingestion pipelines (New Business, Job Monitor, Review Mining, Social Listening), each with a card showing signal volume, fill rates for the key fields, last-run status, and an enabled flag. The detail page (`generators/[type]`) carries the per-pipeline configuration form (target verticals, geos, search or discovery queries, geo center and radius for review mining) and a run-now button that invokes the ingestion worker. The pipelines qualify and score signals with models matched to the source; social listening is context-only and creates no entity.
 - **Follow-ups** (`/admin/follow-ups`) - the cadence working list, tabbed Upcoming / Overdue / Completed with a type filter.
-- **Pipeline settings** (`/admin/settings/pipelines`) - the tunable per-pipeline parameters, each validated against bounds twice (in the form and in the data layer), with an immutable audit trail of every change (old value, new value, actor, time). Changes take effect on the next cron run without a deploy.
 - **Google connect** (`/admin/settings/google-connect`) - the Google Calendar OAuth connection used for booking, showing the connected account or a connect button.
+
+The **Lead generators** surface (`/admin/generators`) and the **Pipeline settings** page (`/admin/settings/pipelines`) were removed with the automated lead-gen retirement on 2026-07-01 (PRs #1610/#1616). Lead generation is now hand-personalized outreach (ADR 0059), not a configurable ingestion pipeline.
 
 ## Patterns that hold across the console
 

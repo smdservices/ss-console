@@ -14,17 +14,6 @@ declare module '*.md?raw' {
 }
 
 /**
- * Service binding shape for the `ss-enrichment-workflow` Worker (#631).
- * ss-web's lead-gen workers and admin endpoints dispatch entity enrichment
- * by POSTing to the internal `/dispatch` endpoint on this binding. The
- * target Worker holds the `[[workflows]]` binding for the
- * `EnrichmentWorkflow` class.
- */
-interface EnrichmentWorkflowServiceBinding {
-  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>
-}
-
-/**
  * Cloudflare Worker bindings and env vars.
  *
  * Accessed via `import { env } from 'cloudflare:workers'` (adapter v13+).
@@ -84,6 +73,15 @@ declare namespace Cloudflare {
     ADMIN_BASE_URL?: string
     RESEND_API_KEY?: string
     /**
+     * Meta Conversions API access token (ADR 0066 gate 2, #1723), generated
+     * under Events Manager > Conversions API settings for the SMD-owned
+     * pixel. Secret (wrangler secret via Infisical /ss). Unset = server
+     * events fail closed with an honest 'unconfigured' result.
+     */
+    META_CAPI_ACCESS_TOKEN?: string
+    /** Optional Events Manager test_event_code for verifying CAPI delivery. */
+    META_CAPI_TEST_EVENT_CODE?: string
+    /**
      * Resend webhook signing secret (`whsec_…` from the Resend dashboard
      * webhook detail page). Used to verify Svix-signed webhook deliveries
      * for the outreach attribution path. See
@@ -101,11 +99,6 @@ declare namespace Cloudflare {
     SIGNWELL_WEBHOOK_SECRET?: string
     STRIPE_API_KEY?: string
     STRIPE_WEBHOOK_SECRET?: string
-    LEAD_INGEST_API_KEY?: string
-    GOOGLE_PLACES_API_KEY?: string
-    OUTSCRAPER_API_KEY?: string
-    SERPAPI_API_KEY?: string
-    PROXYCURL_API_KEY?: string
     // Booking system (Calendly replacement) — added with migration 0011
     /** Google Cloud OAuth 2.0 client ID for Calendar integration. */
     GOOGLE_CLIENT_ID?: string
@@ -130,16 +123,6 @@ declare namespace Cloudflare {
      */
     CONSULTANT_PHOTOS_PUBLIC_BASE?: string
     /**
-     * Lead-gen worker origins. Used by the admin "Run now" button to
-     * invoke each worker's fetch handler on demand (bearer-authed via
-     * LEAD_INGEST_API_KEY). Unset in dev — the admin UI degrades to a
-     * disabled Run-now button when the URL or key is missing.
-     */
-    NEW_BUSINESS_WORKER_URL?: string
-    JOB_MONITOR_WORKER_URL?: string
-    REVIEW_MINING_WORKER_URL?: string
-    SOCIAL_LISTENING_WORKER_URL?: string
-    /**
      * Feature flag for the public /patterns aggregate page. Off by default.
      * Set to "1" or "true" in wrangler.toml once the unlock condition
      * documented in src/pages/patterns.astro is met (>=20 real assessments
@@ -154,16 +137,6 @@ declare namespace Cloudflare {
      * src/lib/observability/sentry.ts.
      */
     SENTRY_DSN?: string
-    /**
-     * Service binding to the `ss-enrichment-workflow` Worker (#631). Hosts
-     * the EnrichmentWorkflow class for entity enrichment. Dispatched from
-     * lead-gen workers and admin endpoints by POSTing to the binding's
-     * internal `/dispatch` endpoint with `{ entityId, orgId, mode, triggered_by }`.
-     * Optional in dev / vitest where the binding doesn't exist; the
-     * dispatcher logs a warning and skips when absent in non-prod, throws
-     * in prod (a missing binding in prod is a deploy ordering bug).
-     */
-    ENRICHMENT_WORKFLOW_SERVICE?: EnrichmentWorkflowServiceBinding
     /**
      * Clerk secret key (sk_test_* for dev, sk_live_* for prod). Used by
      * @clerk/astro middleware to authenticate Clerk sessions on
@@ -211,20 +184,6 @@ declare namespace Cloudflare {
      */
     FLY_API_TOKEN?: string
     /**
-     * Cloudflare account id and D1 HTTP API token, used by the Captain
-     * cost dashboard (issue #885) to read per-customer `cost_telemetry`
-     * rows over HTTP. Per ADR 0009 each customer has their own D1
-     * database; declaring N per-customer bindings at deploy time does
-     * not scale, so the dashboard goes through the same HTTP path the
-     * `ss-cost-telemetry` worker uses to write those tables.
-     *
-     * The token requires D1:Read scope across customer databases. When
-     * unset the dashboard renders an explicit configuration warning
-     * rather than fabricating zero-cost data.
-     */
-    CF_ACCOUNT_ID?: string
-    CF_D1_API_TOKEN?: string
-    /**
      * Shared bearer secret for the per-customer Operator Machine
      * heartbeat path (`POST /api/internal/heartbeat`). Wave 1 uses a
      * single shared key authenticating ANY Machine; the X-Tenant-Slug
@@ -244,6 +203,20 @@ declare namespace Cloudflare {
      * relay — see src/lib/operator/credential-secret-transport.ts.
      */
     OPERATOR_SECRET_RELAY_URL?: string
+    /**
+     * Infisical Universal Auth machine identity for the Hosted Agent BYO-key
+     * write transport (ADR 0067). Scoped write-only to the hosted-customers
+     * path. When any of the three is unset,
+     * `isHostedSecretTransportConfigured` returns false and the portal key
+     * endpoint returns an honest `not_enabled` (the key is then collected at
+     * the Captain-run go-live step). See
+     * src/lib/operator/infisical-secret-transport.ts.
+     */
+    INFISICAL_UA_CLIENT_ID?: string
+    INFISICAL_UA_CLIENT_SECRET?: string
+    INFISICAL_PROJECT_ID?: string
+    /** Infisical environment slug for the hosted-key writes; defaults to 'prod'. */
+    INFISICAL_ENV_SLUG?: string
     /**
      * Host template for the live console→Machine runtime read path (ADR 0043
      * path A). A `{app}` placeholder is substituted with the registry-resolved
@@ -295,6 +268,15 @@ declare namespace Cloudflare {
      * which is a write credential. Generated with `openssl rand -hex 32`.
      */
     OPERATOR_HEALTH_READ_KEY?: string
+
+    /**
+     * Optional bearer secret that unlocks binding-level detail on the public
+     * `GET /api/health` endpoint. When unset (the default), the endpoint returns
+     * only a bare `{ status }` and the detail path is fail-closed. Set it with
+     * `wrangler secret put HEALTH_DETAIL_TOKEN` when an internal monitor needs
+     * the binding breakdown. Not required for the liveness probe itself.
+     */
+    HEALTH_DETAIL_TOKEN?: string
   }
 }
 
@@ -321,6 +303,13 @@ declare namespace App {
 interface ImportMetaEnv {
   readonly PUBLIC_GA4_MEASUREMENT_ID?: string
   readonly PUBLIC_GA4_INTERNAL_HOST_PATTERNS?: string
+  /**
+   * Meta Pixel / dataset id (ADR 0066 gate 2, #1723). Public by nature,
+   * shipped in the browser pixel. Unset = pixel + CAPI fail closed (no
+   * events, honestly reported). Set in .env.production once the SMD-owned
+   * Meta ad account exists.
+   */
+  readonly PUBLIC_META_PIXEL_ID?: string
   /**
    * Clerk publishable key (pk_test_* for dev, pk_live_* for prod). Required
    * at build time — @clerk/astro inlines it into the client bundle. Pulled

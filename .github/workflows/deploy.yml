@@ -18,10 +18,10 @@ jobs:
       packages: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -38,7 +38,7 @@ jobs:
 
       # Dry-run catches wrangler config / binding errors before they hit prod.
       - name: Wrangler deploy (dry-run)
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -47,14 +47,14 @@ jobs:
       # Migrations must be backward-compatible with the currently deployed
       # application. Apply them before publishing code that depends on them.
       - name: Run D1 migrations
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: d1 migrations apply ss-console-db --remote
 
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -74,60 +74,13 @@ jobs:
       - name: Clean root wrangler state
         run: rm -rf .wrangler
 
-      - name: Install Job Monitor Worker deps
-        run: cd workers/job-monitor && npm ci
-
-      - name: Deploy Job Monitor Worker
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/job-monitor
-          command: deploy
-
-      - name: Install New Business Worker deps
-        run: cd workers/new-business && npm ci
-
-      - name: Deploy New Business Worker
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/new-business
-          command: deploy
-
-      - name: Install Review Mining Worker deps
-        run: cd workers/review-mining && npm ci
-
-      - name: Deploy Review Mining Worker
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/review-mining
-          command: deploy
-
-      - name: Install Social Listening Worker deps
-        run: cd workers/social-listening && npm ci
-
-      - name: Deploy Social Listening Worker
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/social-listening
-          command: deploy
-
-      # 2026-06-12 code review: the three workers below were absent from the
-      # deploy pipeline — code changes shipped to neither CI verification nor
-      # production without a manual deploy. enrichment-workflow is service-
-      # bound from the main Worker (live intake path); the cost workers feed
-      # the admin cost views.
+      # The two cost workers feed the admin Operator cost views. They deploy
+      # here so code changes ship to CI verification + production together.
       - name: Install Cost Anomaly Worker deps
         run: cd workers/cost-anomaly && npm ci
 
       - name: Deploy Cost Anomaly Worker
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -138,20 +91,66 @@ jobs:
         run: cd workers/cost-telemetry && npm ci
 
       - name: Deploy Cost Telemetry Worker
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/cost-telemetry
           command: deploy
 
-      - name: Install Enrichment Workflow Worker deps
-        run: cd workers/enrichment-workflow && npm ci
+      # Fleet alerts (#1709): the heartbeat-red / HARD_STOP pager closing
+      # ADR 0064's honesty-banner gap. Secrets (RESEND_API_KEY,
+      # FLEET_ALERTS_BEARER) persist across deploys on Workers.
+      - name: Install Fleet Alerts Worker deps
+        run: cd workers/fleet-alerts && npm ci
 
-      - name: Deploy Enrichment Workflow Worker
-        uses: cloudflare/wrangler-action@v4
+      - name: Deploy Fleet Alerts Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/enrichment-workflow
+          workingDirectory: workers/fleet-alerts
           command: deploy
+
+  # git → D1 projection auto-sync (#1308, ADR 0012 §5). Every merged
+  # customer.yaml change re-projects to the live customer_configs read replica
+  # so the portal can never silently serve a stale config again (the mechanism
+  # behind the recurring "removed in git but still shows live" failure).
+  # First-ever projection of a NEW customer stays Captain-gated (the script
+  # skips unseeded slugs with a warning).
+  sync-customer-configs:
+    name: Sync customer.yaml → D1 projection
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history: the sync job diffs the push range and stamps rows
+          # with per-file commit SHAs (ADR 0012 provenance).
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@venturecrane'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm ci
+
+      - name: Project changed customer configs to D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: bash scripts/ci-sync-customer-configs.sh

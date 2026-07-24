@@ -2,10 +2,12 @@
 title: Autonomy & Governance
 section: product
 order: 2
-summary: How the Operator's autonomy is bounded - two configurable axes, per-class ceilings enforced in code, fail-closed when unauthored, and a taint gate that stops an injected message from driving a privileged action
+summary: How the Operator's autonomy is bounded - persona-level exposure ceilings plus per-skill initiation flags enforced in code, fail-closed when unauthored, and a taint gate that stops an injected message from driving a privileged action
 sources:
   - label: ADR 0025 - Autonomy ceilings are configurable
     href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+  - label: ADR 0056 - Persona exposure + skill initiation entitlements
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0056-persona-exposure-skill-initiation-entitlements.md
   - label: ADR 0037 - The Operator Thesis
     href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0037-operator-thesis.md
   - label: Trust-ceiling decision logging (spec)
@@ -23,13 +25,18 @@ The harness enforces, in code, a ceiling on what the agent may do without a huma
 - **Initiation** - does the agent act unprompted? A cron-triggered or webhook-triggered run is high-initiation; a run that only ever responds to a human turn is low-initiation. This axis governs the "when."
 - **Exposure** - does the agent's action cross the boundary to an external party, and does a human approve before it does? Drafting an internal note is low-exposure; firing an email to opposing counsel is high-exposure. This axis governs the blast radius.
 
-These are orthogonal, and separating them is what lets a customer express the most common wanted posture: "the agent may initiate an accounts-receivable chasing run on a cron (high initiation), but every outbound message drafts for human review (low exposure)." A different trusted customer might author the inverse: "may send routine transactional email autonomously (high exposure), but only ever when a human triggers the run (low initiation)." Before ADR 0025, a single scalar ceiling conflated the two and neither posture was expressible.
+These are orthogonal, and separating them is what lets a customer express the most common wanted posture: "the agent may initiate an accounts-receivable chasing run on a cron (high initiation), but every outbound message drafts for human review (low exposure)." A different trusted customer might author the inverse: "may send routine transactional email autonomously (high exposure), but only ever when a human triggers the run (low initiation)." Before ADR 0025, a single scalar ceiling conflated the two and neither posture was expressible. ADR 0025 named the two axes as a concept; ADR 0056 later made them the literal shape of the authored configuration.
 
-## Action classes and per-class ceilings
+## How the entitlements are authored: exposure per persona, initiation per skill
 
-Every tool call the agent makes is classified by its blast radius into an **action class** (`trust_ceiling.py`): `READ`, `INTERNAL_WRITE`, `EXTERNAL_SEND`, `COMMITMENT`, `DESTRUCTIVE`, and `CODE_EXECUTION`. A persona's trust configuration is a map from action class to a ceiling value, not one value applied to the whole skill. The ceiling values are `autonomous` (executes), `draft_for_review` (writes to the drafts queue and notifies), and `refused` (blocks and logs the attempt) (ADR 0025; `operator/README.md`).
+Every tool call the agent makes is classified by its blast radius into an **action class** (`trust_ceiling.py`): `READ`, `INTERNAL_WRITE`, `EXTERNAL_SEND`, `COMMITMENT`, `DESTRUCTIVE`, and `CODE_EXECUTION`. The Operator previously mixed authorization concepts across scalar per-skill ceilings, per-skill action overrides, scope-level ceilings, and mailbox-level overrides; that made exposure and initiation look like one setting and was not enforceable enough for a flag-day runtime contract. **ADR 0056** (accepted 2026-06-26, deployed fleet-wide) replaced all of it with one entitlement model in `customer.yaml`:
 
-A skill can be `autonomous` for `INTERNAL_WRITE` and `draft_for_review` for `EXTERNAL_SEND` in the same breath. `READ` is always allowed. `COMMITMENT` and `DESTRUCTIVE` carry reversibility floors - they are never autonomous without current-turn approval - and those floors are a different concern from exposure and are not relaxed by the two-axis model (ADR 0025).
+- **Exposure is persona-level.** Each persona carries a sparse `entitlements.exposure` map from action class to a ceiling value: `autonomous` (executes), `draft_for_review` (writes for human review and notifies), or `refused` (blocks and logs the attempt). Missing action classes fail closed at runtime and render as unconfigured in the UI. `read` is deliberately not customer-authored; the enforcement layer always allows reads.
+- **Initiation is skill-level.** Every enabled skill declares `initiation.manual`, `initiation.scheduled`, and `initiation.webhook`. A cron entry requires `scheduled: true`, a webhook trigger requires `webhook: true`, and manual or on-demand surfaces require `manual: true`.
+
+A persona can be `autonomous` for `internal_write` and `draft_for_review` for `external_send` in the same breath. `COMMITMENT` and `DESTRUCTIVE` carry current-turn approval floors that remain hard runtime floors regardless of authored exposure - they are never autonomous without current-turn approval - and those floors are a different concern from exposure (ADR 0025; ADR 0056).
+
+The retired fields are gone with no compatibility shim: the per-skill scalar `trust_ceiling`, per-skill `action_ceilings`, the scope-level `trust_ceiling` and `action_ceilings`, the managed-mailbox `action_ceilings` overrides, and the provisioning `skill_trust_ceiling`. Validators reject them as legacy entitlement fields. The governance audit vocabulary follows the model: `entitlement_exposure`, `entitlement_initiation`, `skill_enabled` (ADR 0056).
 
 ## Fail-closed when unauthored
 
@@ -37,7 +44,7 @@ The most important governance property: **there is no imposed default.** Absent 
 
 This is a safety property of the unconfigured state, not an identity the product has. The Operator does not "assume draft-for-review" any more than it "assumes autonomous send." When reasoning about what an Operator does for a customer, the question is always "what did the engagement author?" - never "what does the system assume?" (ADR 0037, Tenet 3). Unconfigured is a fail-closed safety state, full stop.
 
-This corrects a stale framing worth naming so it does not creep back: draft-for-review external send is **one authored option**, not the default and not the product's identity (ADR 0037, Tenet 3, correcting ADR 0025 §4's "default" language). For a regulated vertical, a vertical pack can pin an action class to a non-raisable floor - the law pack pins `EXTERNAL_SEND = draft_for_review` - so the compliance posture holds exactly where it is load-bearing without being imposed on customers who do not need it (ADR 0025 §4). Customer configuration can never raise a ceiling above the most restrictive of the vertical floor and the authored ceiling.
+This corrects a stale framing worth naming so it does not creep back: draft-for-review external send is **one authored option**, not the default and not the product's identity (ADR 0037, Tenet 3, correcting ADR 0025 §4's "default" language). For a regulated vertical, a vertical pack can pin an action class to a non-raisable floor - the law pack pins `EXTERNAL_SEND = draft_for_review` - so the compliance posture holds exactly where it is load-bearing without being imposed on customers who do not need it (ADR 0025 §4). Vertical floors only ever narrow exposure (ADR 0056), and customer configuration can never raise a ceiling above the most restrictive of the vertical floor and the authored ceiling.
 
 ## The agent can never raise its own ceiling
 

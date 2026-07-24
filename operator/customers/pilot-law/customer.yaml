@@ -33,7 +33,7 @@ fly_region: lax # Phoenix-adjacent, consistent with customer-zero
 # Opus for sensitive drafting (client-bound legal-adjacent mail), matching
 # customer-zero's sensitive-tier default.
 model: claude-opus-4-8
-hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
 
 machine:
   size: shared-cpu-1x
@@ -85,6 +85,10 @@ personas:
     # The wedge (6) + spine (2). Every skill draft_for_review — the wedge is
     # draft-and-surface this phase; no autonomous send/write until connect proves
     # the capability and the engagement authors it on (wedge.md write posture).
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: draft_for_review
     skills:
       # spine — law-context skills (the customer-zero `inbox-triage` and the
       # marketing `status-report-assembler` are other verticals' skills; law's
@@ -92,36 +96,60 @@ personas:
       # skills, matter-status-digest assembles the internal Clio digest).
       - name: matter-inbox-router
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: matter-status-digest
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # wedge — the named job: move a new inquiry to an active, current matter
       - name: new-matter-intake
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: consult-scheduler
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: engagement-letter-chaser
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: matter-status-responder
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: trust-balance-nudge
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: stalled-matter-nudge
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # date-awareness layer (activated 2026-06-08): a scheduled internal
       # surface ALONGSIDE the wedge loop, never inside it. Surfaces firm-authored
@@ -129,7 +157,10 @@ personas:
       # (wedge.md "Date-awareness layer"). Internal-only at draft_for_review.
       - name: deadline-and-sol-tracker
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # escalation ladder for the date-awareness layer (A3): a cron skill that
       # walks an approaching/missed authored date up re-surface -> re-route ->
@@ -137,7 +168,10 @@ personas:
       # a client. Cron + pre_run declared in the persona's cron: block below.
       - name: deadline-miss-escalator
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
     # Native Google/Himalaya skills disabled — this customer uses the audited
     # BUILD connector CLIs and the DWD credential, same as customer-zero.
@@ -194,11 +228,7 @@ scope:
   domain_blocks: []
   # No trusted_sender_domains and no autonomous external_send: the wedge is
   # draft-and-surface. Every client-/tribunal-bound message ships under the
-  # human reviewer's identity (external-send draft floor, non-raisable).
-  action_ceilings:
-    external_send: draft_for_review
-
-# ---- ESCALATION ----
+  # human reviewer's identity (authored posture — the firm's dial, ADR 0035).
 escalation:
   red_flag_recipients:
     - scott@smd.services

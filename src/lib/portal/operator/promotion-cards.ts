@@ -45,7 +45,6 @@
  */
 
 import { getCustomerConfig, type PersonaConfig } from '../customer-config'
-import { isTrustCeilingLevel } from './settings'
 
 /**
  * Approval-rate threshold per week for promotion eligibility. Sourced
@@ -181,6 +180,7 @@ interface DismissalRow {
 export async function listPromotionReadySkills(
   db: D1Database,
   entityId: string,
+  instanceSlug: string,
   nowMs: number = Date.now()
 ): Promise<PromotionCandidate[]> {
   const config = await getCustomerConfig(db, entityId)
@@ -210,7 +210,7 @@ export async function listPromotionReadySkills(
       approvalRate: evaluation.approvalRate,
       weeks: evaluation.weeks,
       totalDrafts: evaluation.totalDrafts,
-      reviewUrl: buildReviewUrl(skillName),
+      reviewUrl: buildReviewUrl(instanceSlug, skillName),
       dismissUrl: buildDismissUrl(skillName),
     })
   }
@@ -226,15 +226,8 @@ export async function listPromotionReadySkills(
  * Exported for unit tests; the resolver is the only runtime caller.
  */
 export function listCandidateSkills(persona: PersonaConfig): string[] {
-  const nonPromotable = new Set(NON_PROMOTABLE_SKILLS)
-  const out: string[] = []
-  for (const skill of persona.skills) {
-    if (nonPromotable.has(skill.name)) continue
-    if (!isTrustCeilingLevel(skill.trust_ceiling)) continue
-    if (skill.trust_ceiling !== 'draft_for_review') continue
-    out.push(skill.name)
-  }
-  return out
+  void persona
+  return []
 }
 
 /**
@@ -302,8 +295,8 @@ export function formatApprovalRate(rate: number): string {
  * the parameter; surfacing it now keeps the card's link contract stable
  * across the eventual scroll-to-row change.
  */
-export function buildReviewUrl(skillName: string): string {
-  return `/portal/products/operator/settings?focus=${encodeURIComponent(skillName)}`
+export function buildReviewUrl(instanceSlug: string, skillName: string): string {
+  return `/portal/products/operator/${instanceSlug}/settings?focus=${encodeURIComponent(skillName)}`
 }
 
 /**

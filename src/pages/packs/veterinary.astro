@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Veterinary Clinics',
   description:
-    'The Operator is a worker you hire, not software you buy. The veterinary pack is its head start: a starting point shaped around front-of-house scheduling, recall, and the service desk, which we configure with you and you customize to your practice. The medicine stays with your doctors; one emergency line never moves.',
+    'The Operator is a worker you hire, not software you buy. It works inside your clinic management system and carries the connective front-desk work in writing: new clients, booking and reminders, wellness recall, refill relay to the doctor, released results, estimates, boarding, and post-visit check-ins. Your team keeps the phones. It never plays doctor, never triages, never authorizes a refill, and routes anything that might be an emergency to a person while redirecting the client to call the clinic or the after-hours emergency number.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,193 +26,268 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/veterinary/vertical.yaml (the scheduling, recall, service-desk,
-// and safety skill families). These are templates we configure, not a finished, running
-// product.
-const packTemplates = [
+// Section 04: the lifecycle walk. The connective work around one client and patient, intake to
+// recall, each step in the standard's three-line shape (Operator does / your part / if it stalls).
+// Built from the research-grade internal spec brief (docs/specs/verticals/veterinary.md) and
+// corrected by the adversarial gate (a veteran veterinary practice manager): the emergency redirect
+// is time-aware (open -> call the front desk; closed -> the after-hours/ER number the clinic
+// designates) and never holds a possible-emergency message; emergencies escalate in real time and
+// the digest only recaps them; a standing channel notice carries the redirect so it does not depend
+// on the Operator detecting the emergency; the urgency line is honest (it never rates acuity, it
+// over-escalates by design); estimate follow-up is guarded against euthanasia / end-of-life /
+// declined care; refills never set quantity/refill count or dispense; results are gated per-result
+// and never auto-sent as "normals"; recall honors per-patient holds and says "due per your records."
+// NOT HIPAA (veterinary records are not HIPAA); state veterinary-record confidentiality framing
+// instead. Generic system categories, no brand names. The section framing carries the truthfulness,
+// per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'New client and scheduling',
-    body: 'A new client and patient captured, the appointment booked, the reminder and confirmation sent, the no-show rebooked.',
+    title: 'A new client reaches out',
+    operator:
+      'Captures the client and patient into the clinic management system, checks them against your existing records, and drafts an acknowledgment with an offer to book.',
+    your: 'Nothing, unless it routes something to you.',
+    stalls:
+      'Follows up on the booking. It handles the logistics and gives no medical advice. Anything that could be an emergency is handed to a person and the client is told to call the clinic, or the after-hours emergency number if you are closed, never assessed or answered by the Operator.',
   },
   {
-    title: 'The recall engine',
-    body: 'The patients your clinic protocol marks due for wellness care or vaccines surfaced, the recall drafted in your voice, the client who has not been seen in a while reconnected.',
+    title: 'Booking and the reminder',
+    operator:
+      'Offers the available times by the appointment type your clinic defines, books, and confirms, then sends the reminder and captures the confirm or the reschedule. A no-show gets a rebooking outreach.',
+    your: 'Nothing.',
+    stalls:
+      'Re-sends the reminder you pre-approved. Scheduling logistics only; it books by your appointment types and never assigns clinical urgency.',
   },
   {
-    title: 'The service desk',
-    body: "The refill request routed to the doctor, the doctor's released result conveyed exactly as written, the estimate followed up, boarding booked against recorded vaccine status, the post-visit follow-up sent.",
+    title: 'The wellness recall',
+    operator:
+      "Surfaces the patients your clinic's protocol marks due for wellness or vaccines in your records, honoring any per-patient hold, exemption, or deferral the doctor recorded, and drafts the reminder to come in.",
+    your: 'Your clinic sets the protocol.',
+    stalls:
+      'Keeps the overdue list current and re-sends on your cadence. Reminders say a patient is due per your records, never that a patient needs anything; it never sets the protocol and never decides what care a patient medically needs.',
   },
   {
-    title: 'The safety gate',
-    body: 'A message that might be an emergency recognized and routed straight to a person at the clinic, never handled later and never answered with medical content.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is veterinary-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a front-of-house coordination desk and ready to configure. You are not building from a blank page.',
+    title: 'A refill request',
+    operator:
+      'Intakes the refill request and routes it to the doctor, whose relationship with the patient and judgment govern it, then acknowledges to the client that it is with the doctor.',
+    your: 'The doctor authorizes the refill.',
+    stalls:
+      'Chases the authorization. It relays the request; it never authorizes a refill, sets a dose, a quantity, or a refill count, never advises on medication, and never fills, dispenses, or sends a prescription to a pharmacy. A controlled substance is flagged for the doctor, who applies the legal limits.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your practice-management system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'A result to share',
+    operator:
+      'Once the doctor clears a specific result for the client and authors the note, coordinates getting it to them, carrying only what the doctor wrote.',
+    your: 'The doctor clears the result and authors the note.',
+    stalls:
+      "Re-sends the cleared result. It never pulls or sends a result on its own, never decides a result is normal enough to send, and never tells normal from abnormal; the doctor's release of that result is the only trigger. It conveys only the doctor's authored words and never interprets, and a medical question back goes to the clinic.",
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your protocols and schedule, your services, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your practice; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Front desk and scheduling',
-    body: 'A new client reaches out and the Operator captures the client and patient, drafts the reply in your voice, and offers a time. It confirms appointments, reminds, and rebooks the no-show. If an inquiry sounds like it could be an emergency, it goes to a person at the clinic right then, never handled later.',
+    title: 'The estimate',
+    operator:
+      'Follows up on an open treatment estimate the clinic sent, on the approval logistics, unless the clinic has flagged it sensitive.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      "Sends the next follow-up on your cadence. It never follows up on an estimate tied to end-of-life, euthanasia, or declined care, stops the moment anything signals the situation changed or the client declined, and routes any emotional or medical reply to a person. Logistics on open estimates only, no pressure, and no medical framing of what declining means, which is the doctor's conversation.",
   },
   {
-    title: 'The recall engine',
-    body: "The patients overdue for wellness care or vaccines, on your clinic's own protocol. The Operator surfaces who is due, drafts the recall in your voice, and reconnects the client who has not been seen in a while. It surfaces what your protocol marks due; it never decides what care a patient needs.",
+    title: 'Boarding and grooming',
+    operator:
+      'Books and confirms a boarding or grooming stay and sends the requirements checklist, reporting the vaccine status exactly as your record shows it.',
+    your: 'Your team makes any clearance call.',
+    stalls:
+      'Chases a missing requirement and flags anything expired to the team. It reports what the record shows, never that a pet is up to date or cleared, and it never makes a medical clearance decision.',
   },
   {
-    title: 'The service desk',
-    body: "Refill requests relayed to the doctor, the doctor's released result delivered exactly as written, estimate follow-ups, boarding booked against recorded vaccine status. The authorization, the dose, and any medical word stay with the doctor. The Operator carries the logistics around them.",
+    title: 'The check-in and the win-back',
+    operator:
+      "The day after a visit, sends a check-in carrying the doctor's authored discharge summary, and separately surfaces the clients not seen in your window to reconnect.",
+    your: 'Nothing, unless it routes something to you.',
+    stalls:
+      "Re-sends. The check-in carries only the doctor's authored discharge content; if the client replies with a medical concern, it hands it to the clinic rather than advising. The reconnect is marketing, so it goes only to clients whose records show the marketing consent the law requires.",
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk that recaps what was already escalated in real time, plus refills waiting on the doctor, results to share, estimates open, recall overdue, and new clients waiting.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Veterinary Clinics | SMD Services"
-  description="The veterinary pack is the Operator's head start: a starting point shaped around front-of-house scheduling, recall, and the service desk, which we configure with you and you customize to your practice. The medicine stays with your doctors. You set the line."
+  description="A worker you hire, not software you buy. The Operator carries the connective front-desk work in writing: booking, wellness recall, refill relay, released results, estimates, and boarding. It never plays doctor, never triages, and routes any possible emergency to a person. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="veterinary">
-    <Fragment slot="heading">The Front Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Front Desk, Always Covered.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its veterinary head start: a
-      starting point already shaped around booking the appointment, working the recall list, and
-      relaying the service desk, so you are not building from a blank page. You make it yours from
-      there.
+      The Operator is a worker you hire, not software you buy. It works inside your clinic
+      management system and carries the connective front-desk work in writing, by text and email:
+      the new client, the booking and the reminder, the wellness recall, the refill request, the
+      released result, the estimate, the boarding, the day-after check-in, so the worst-staffed seat
+      in the building stays covered. Your team keeps the phones and the live conversations. It never
+      plays doctor, and it routes anything that might be an emergency straight to a person.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
-    <PackEyebrow>§ 02</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackEyebrow>The Problem</PackEyebrow>
+    <PackHeading variant="prose">The Hardest Seat In The Building.</PackHeading>
     <PackProse>
       <p>
-        The front desk is the hardest seat in the building to keep filled. Turnover runs high,
-        burnout runs higher, and the role is first and last contact with every anxious client, all
-        day, on the phones. The work does not slow down to wait for the next hire.
+        The hard part of a clinic is not the medicine. It is the front desk, the seat that turns
+        over faster and burns out harder than any other in the building, because it is the first and
+        last contact with worried owners while the phones never stop and the inbox never empties.
+        Booking, reminders, the recall list, the refill requests, the results to share, the
+        estimates to follow, the day-after check-ins, it all lands on one seat, and that seat is the
+        hardest one in veterinary medicine to keep filled.
       </p>
       <p>
-        An Operator fills that seat now. It runs the front of house at full speed, all the time, and
-        what it learns about how your clinic runs, your protocols, your schedule, your voice, stays
-        with the clinic instead of leaving with the person who had it.
+        When it is short-staffed, the connective work is the first thing to slip: a recall that
+        nobody sends, a refill that sits unrouted, an estimate that never gets a follow-up, a client
+        who quietly drifts to another clinic. And some of what lands in that inbox cannot wait at
+        all, a message from an owner whose pet may be in trouble. A missed step here is a patient
+        overdue, a client lost, or worse, an urgent message that sat.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>§ 03</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The veterinary pack comes shaped around the work a
-      front-of-house coordination desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your practice-management system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 04</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the front of house, and we
-        shape the templates around how your practice actually operates, so it begins ready, not
-        green.
+        The Operator is an always-on team member that works inside your clinic management system and
+        carries the connective front-desk work in writing so your people do not have to hold it in
+        their heads: it books and confirms the visits, works the wellness recall, relays the refill
+        requests to the doctor, gets the released results to the client, and follows the estimates
+        and the boarding.
       </p>
       <p>
-        From there the work moves the way it always did. A new client reaches out. It captures the
-        client and patient, drafts the reply in your voice, and offers a time. It confirms and
-        rebooks appointments, works your recall list so wellness care does not slip, relays refill
-        requests to the doctor, gets the doctor's released result to the client exactly as written,
-        follows up on the estimate, and books boarding. Anything that might be an emergency goes to
-        a person immediately. It is all logged in your practice-management system as it happens, and
-        it keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. New client-facing messages
+        are drafted for your team to review and send; templated reminders you have pre-approved can
+        re-send on your cadence; anything that might be an emergency goes to a person right away,
+        and that never changes.
+      </p>
+      <p>
+        It does not replace your clinic management system; that stays the system of record. The
+        doctors and technicians own the medicine, the diagnosis, and the clinical call; your team
+        owns the in-clinic work and keeps the phones. It works the written follow-up by text and
+        email, and does the connective work between and around your people, keeping the record
+        current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 05</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Client, Intake To Recall.</PackHeading>
     <PackIntro>
-      We are not the experts in how your practice runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work around one client and patient, from the first inquiry through the
+      visit, the care that follows, and the recall that brings them back. This is the shape of the
+      work, not a fixed script; we build it around how your clinic actually runs the front desk.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 06</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs the front of house. The medicine stays with your doctors: the diagnosis,
-        the treatment call, whether a case is urgent, authorizing a refill. Not because the software
-        could not write a careful message, but because medicine on a patient takes a licensed
-        veterinarian who has examined it, and a trained but unlicensed assistant could not make
-        those calls either.
+        The Operator works inside the clinic management system that is your system of record, your
+        email, and your calendar. It reads the schedule, the recall list, the prescription on
+        record, and the released result, updates the records, files what arrives, and routes what
+        needs a person, so the record stays current without anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. A message that might be an emergency goes
-        straight to a person at your clinic right then, never handled later and never answered with
-        medical content. It gives no medical advice, no diagnosis, no triage, no interpretation of a
-        result. A refill routes to the doctor; it never authorizes or advises on dosing. Client and
-        patient records stay inside your clinic's own surfaces. Anything that leaves the clinic goes
-        to a reviewer on your team until you decide otherwise. Every action it takes is logged where
-        you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your client and patient files stay private, including from us. The
-        Operator works in your clinic's own walled-off environment, on your own accounts. We can see
-        that it is running and the record of what it did, but the contents of your records and
-        messages stay yours, and so do the configuration, the logs, and the off switch.
+        It works in writing, by text and email. It separates service messages, reminders,
+        confirmations, and released results, from promotional ones like a win-back, and sends
+        promotional messages only to clients whose records show the marketing consent the law
+        requires; it honors a stop or opt-out immediately and respects quiet hours. You own consent.
+        Your clients' and patients' records stay inside your clinic's systems, kept confidential
+        under the law that governs veterinary records, used only for the work you authorize and
+        never sold. It is the connective tissue between the systems you already run, not another
+        system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="veterinary" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 07</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your clinic runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your front desk feels work coming
+        off its plate, not one more thing pinging them. The exception it never batches is a possible
+        emergency: it goes to a person the moment it is spotted, never into that summary, and the
+        client is told to call the clinic, or the after-hours emergency number if you are closed.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start the conversation -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Plays Doctor, And It Never Triages.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it. The
+        doctors and technicians own the medicine, the diagnosis, and the result; your team owns the
+        in-clinic call. Those never move to the Operator. It runs the front desk, not the medicine.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator never gives a diagnosis, never
+        recommends or interprets a treatment or a result, and never touches a prescription beyond
+        relaying the request: it never authorizes a refill, sets a dose, a quantity, or a refill
+        count, never advises on medication, never fills or sends a script to a pharmacy, and flags a
+        controlled substance for the doctor, who applies the legal limits.
+      </p>
+      <p>
+        And the one judgment it most refuses to make is urgency. It never rates how serious a
+        symptom is and never assigns acuity. It does one thing with a message that could be urgent:
+        it errs toward escalating it to a person and redirecting the client, fast. When in doubt, it
+        flags; over-escalating is the design, not a bug. Because detection is never enough, every
+        channel it works carries a standing notice that the inbox is not watched for emergencies and
+        that a pet in distress means calling the clinic, or the after-hours emergency number, now,
+        so the redirect is always in front of the client and never waits on the Operator spotting
+        it. If your clinic is open, the client is told to call the front desk; if it is closed, the
+        client is routed to the emergency number you designate, and the Operator never holds a
+        possible-emergency message waiting for someone to wake up. We do this on purpose, because
+        deciding what is urgent is veterinary medicine, and the safe default is to put a worried
+        owner in front of a person, fast.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading a message and matching your clinic's rules, like routing a possible emergency or
+        relaying a refill, we validate on your real clients first. The emergency redirect and
+        escalation always keep a person in the loop; that never changes. Where accuracy is not yet
+        proven, the Operator surfaces what it found and asks, rather than acting on its own. The
+        configuration, the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="veterinary">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your clinic runs, find the front-desk work that is
-      eating your team's day, and start from the pack, customizing it to your practice. If it is not
-      a fit, we will tell you.
+      We learn how your clinic actually runs the front desk, find where the time goes and where
+      clients fall off, and shape the Operator to fit: what it watches, how much it does on its own,
+      where a person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>

@@ -1,0 +1,54 @@
+---
+/**
+ * Initiation chips + schedule line — the shared "how a duty starts" metadata,
+ * mounted by both the routine-grid rows (OperatorWorkRow) and the gridless
+ * skills list (OperatorWork), per ADR 0069 Lock 4 / Pattern 07 shared
+ * primitives.
+ *
+ * Replaces the former single wide-tracked uppercase run
+ * ("ON REQUEST · ON A SCHEDULE (WEEKDAYS AT 7:17 A.M.)"), which applied eyebrow
+ * styling to a full sentence and wrapped badly mid-parenthetical on a phone
+ * (mobile-legibility fix, 2026-07-16). Each initiation MODE becomes a short
+ * square mono chip; the schedule detail, when present, drops to its own readable
+ * line. Loud register kept — chips stay uppercase mono (JetBrains Mono is the
+ * canonical chip face per the typography ruling), only the long tracked run is
+ * gone. Every string is authored data passed in; this component invents nothing.
+ */
+interface Props {
+  /** Client-legible initiation labels ("On request" / "On a schedule" / …). */
+  labels: string[]
+  /** Plain schedule prose ("Weekdays at 7:17 a.m."), or null when none. */
+  scheduleDetail?: string | null
+}
+const { labels, scheduleDetail = null } = Astro.props
+---
+
+{
+  labels.length > 0 && (
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      {labels.map((label) => (
+        <span class="inline-flex items-center whitespace-nowrap border-[1.5px] border-[color:rgba(26,21,18,0.34)] px-[7px] py-[3px] font-mono text-[11px] font-semibold uppercase leading-none tracking-[0.06em] text-[color:var(--color-text-secondary)]">
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+{
+  scheduleDetail && (
+    <p class="mt-2 flex items-center gap-1.5 font-mono text-caption leading-snug text-[color:var(--color-text-secondary)]">
+      <svg
+        class="h-3.5 w-3.5 shrink-0 opacity-70"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+      {scheduleDetail}
+    </p>
+  )
+}

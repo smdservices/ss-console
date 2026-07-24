@@ -109,6 +109,11 @@ R2_HINT="R2 creds missing. Run via: operator/bin/reprovision.sh ${SLUG}  (= infi
 command -v aws >/dev/null 2>&1 || die "aws CLI not found (required for R2 customer.yaml upload)"
 command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
+# ---------- Step 0.5: R2 config key ----------
+# git is the single source of truth for customer.yaml; provisioning projects
+# it to R2 unconditionally (Step 2), and bootstrap.sh fetches this key at boot.
+R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
+
 # ---------- Step 1: validate customer.yaml ----------
 # The canonical pre-merge gate is the TS validator in
 # src/lib/operator/customer-yaml/ (per ADR 0019). The retired in-tree
@@ -135,7 +140,7 @@ print(c['customer_id'])
 print(c['fly_region'])
 print(m.get('size', 'shared-cpu-2x'))
 print(m.get('memory_mb', 2048))
-print(c.get('hermes_ref', 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'))
+print(c.get('hermes_ref', 'v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b'))
 "
 # Portable line-array read (macOS bash 3.2 doesn't have mapfile)
 FIELDS=()
@@ -174,7 +179,6 @@ log "Hermes upstream pin: ${HERMES_UPSTREAM_TAG} @ ${HERMES_UPSTREAM_SHA}"
 # first Machine boot can succeed (otherwise the boot would race against a
 # missing config). The customer-sync sidecar (from the overlay bootstrap/
 # package) polls this same key for non-structural updates.
-R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
 log "Uploading customer.yaml to R2: s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}"
 AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
 AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
@@ -339,7 +343,19 @@ stage_secret_from_env() {
 # This prompt was dead provisioning ceremony; customers act on real mailboxes
 # via mcp:google-gmail / ms-graph, not an agent mailbox. Re-add when a persona
 # email identity is actually wired.
-prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
+# ANTHROPIC_API_KEY: prefer the per-seat WORKSPACE key from /ss (ADR 0062 §2 —
+# per-customer Anthropic workspaces are the cost-attribution boundary; the
+# usage-report ingest groups by workspace_id). Same per-seat convention as
+# WEBHOOK_SECRET_AGENTMAIL__<CUSTOMER_ID> below. Falls back to the interactive
+# clipboard prompt when no per-seat key is vaulted (pre-workspace seats), which
+# reprovision runs answer 's' to — leaving the Machine's existing key in place.
+_ANTH_SEAT_KEY_NAME="ANTHROPIC_API_KEY__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+_ANTH_SEAT_KEY="${!_ANTH_SEAT_KEY_NAME:-}"
+if [ -n "${_ANTH_SEAT_KEY}" ]; then
+  stage_secret_from_env ANTHROPIC_API_KEY "${_ANTH_SEAT_KEY}" "per-seat Anthropic workspace key (${_ANTH_SEAT_KEY_NAME})"
+else
+  prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
+fi
 
 # R2 access for bootstrap.sh's customer.yaml fetch + customer-sync sidecar's
 # polling for non-structural config changes. R2_BUCKET_CONFIG is in fly.toml
@@ -491,6 +507,16 @@ if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
   unset _AGENTMAIL_WH_KEY _AGENTMAIL_WH_SECRET
 fi
 
+# Brave Search (native:brave-free, ADR 0070). BRAVE_SEARCH_API_KEY is the env var
+# Hermes' native brave-free provider reads. The Hosted-Agent tier uses Brave's
+# FREE tier (one shared, SMD-owned key; $0, no runaway spend; keeps "your only
+# bill is Anthropic" true). Staged ONLY for a customer whose customer.yaml binds a
+# native:brave-* backend. Missing at boot => the provider stays unavailable
+# (Hermes falls back / no web search), fail-closed, no crashloop.
+if grep -qE 'backend:[[:space:]]*.?native:brave' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  stage_secret_from_env BRAVE_SEARCH_API_KEY "${BRAVE_SEARCH_API_KEY:-}" "Brave Search API key (native brave-free provider; web search)"
+fi
+
 # Google service-account key (DWD). REQUIRED for any customer.yaml with
 # google_auth.mode: dwd — bootstrap.sh Step 2b dies without it. Base64-encoded
 # service-account JSON. Shared across the smd.services domain (one SA, domain-wide
@@ -499,10 +525,14 @@ stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON
 
 # ---------- Step 6b-smokeball: Smokeball connector creds (ADR 0053, name remap) --
 # mcp:smokeball reads env-agnostic SMOKEBALL_CLIENT_ID/SECRET/API_KEY. The operator
-# env holds them under environment-specific names — SMOKEBALL_STAGING_* (SMD's own
-# Partner-Program STAGING app) and SMOKEBALL_PROD_* (a real firm's PRODUCTION app,
-# obtained at go-live) — so this is a NAME REMAP the manifest-driven loop below
-# can't do. The seat declares which environment it is via the smokeball connector
+# env holds them under environment-specific names — SMOKEBALL_STAGING_* (the
+# approved app's STAGING credentials; the pilot seat) and SMOKEBALL_PROD_* (its
+# PRODUCTION credentials, staged for go-live) — so this is a NAME REMAP the
+# manifest-driven loop below can't do. A third vault set, SMOKEBALL_SEED_*, is
+# App 1 (the original client_credentials staging app) and is used ONLY by the
+# rehearsal-office seeder (operator/customers/pilot-smokeball/seed/) — never by
+# provisioning, and it must never be written over the STAGING/PROD names
+# (2026-07-04: App 2's rollout once overwrote App 1's values; hence the split). The seat declares which environment it is via the smokeball connector
 # block in customer.yaml:
 #
 #   connectors:
@@ -577,6 +607,28 @@ print(str(sb.get('account_id') or '').strip())
   fi
   if [ -n "${SB_ACCOUNT_ID}" ]; then
     stage_secret_from_env SMOKEBALL_ACCOUNT_ID "${SB_ACCOUNT_ID}" "Smokeball multi-account URL prefix"
+  fi
+  # Smokeball webhook ingress (overlay webhook-gate). Staged only when the seat
+  # declares a smokeball webhook_url — otherwise these are unused. Two secrets:
+  #   WEBHOOK_SECRET_SMOKEBALL — the HMAC key the gate verifies with. It MUST equal
+  #     the `key` set on the Smokeball subscription. Smokeball uses it as RAW UTF-8
+  #     bytes, so it is staged byte-identical (printf '%s', no whsec_/base64/newline
+  #     transform — unlike the Svix secret). Per-customer
+  #     WEBHOOK_SECRET_SMOKEBALL__<CUSTOMER_ID>, else the global.
+  #   WEBHOOK_SMOKEBALL_CLIENT_ID — OUR Smokeball API ClientId, fed into the signed
+  #     string {Timestamp}|{RequestId}|{ClientId} (Smokeball never sends it). It is
+  #     the same client id the connector authenticates with (SMOKEBALL_CLIENT_ID ==
+  #     ${_sb_cid}); a per-customer override exists only for the rare case the signing
+  #     ClientId differs in byte form from the OAuth client id (confirm vs a real
+  #     delivery). Without these the smokeball route fail-closes (gate 401).
+  if grep -qE 'webhook_url:.*/webhooks/smokeball' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+    _SB_WH_KEY="WEBHOOK_SECRET_SMOKEBALL__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+    _SB_WH_SECRET="${!_SB_WH_KEY:-${WEBHOOK_SECRET_SMOKEBALL:-}}"
+    stage_secret_from_env WEBHOOK_SECRET_SMOKEBALL "${_SB_WH_SECRET}" "Smokeball webhook HMAC key == subscription key, raw bytes (per-customer ${_SB_WH_KEY}, else global)"
+    _SB_WH_CID_KEY="WEBHOOK_SMOKEBALL_CLIENT_ID__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+    _SB_WH_CID="${!_SB_WH_CID_KEY:-${_sb_cid}}"
+    stage_secret_from_env WEBHOOK_SMOKEBALL_CLIENT_ID "${_SB_WH_CID}" "Smokeball API ClientId fed into the webhook HMAC (per-customer ${_SB_WH_CID_KEY}, else = SMOKEBALL_CLIENT_ID)"
+    unset _SB_WH_KEY _SB_WH_SECRET _SB_WH_CID_KEY _SB_WH_CID
   fi
   unset SB_PARSE_PY SB_FIELDS SB_ENV SB_AUTH_MODE SB_ACCOUNT_ID _sb_cid _sb_sec _sb_key _sb_src
 fi

@@ -61,7 +61,7 @@ async function bootstrap(): Promise<Setup> {
   // roll-up's GROUP BY behavior simultaneously.
   const a = await createEntity(db, ORG, { name: 'Entity A', source_pipeline: 'review_mining' })
   const b = await createEntity(db, ORG, { name: 'Entity B', source_pipeline: 'job_monitor' })
-  const c = await createEntity(db, ORG, { name: 'Entity C', source_pipeline: 'new_business' })
+  const c = await createEntity(db, ORG, { name: 'Entity C', source_pipeline: 'website_booking' })
 
   return { db, entityA: a.id, entityB: b.id, entityC: c.id }
 }
@@ -334,7 +334,7 @@ describe('signal attribution: getEngagementsBySourcePipeline roll-up (#589)', ()
     expect(byPipeline.review_mining?.total_estimated_hours).toBe(30)
     expect(byPipeline.job_monitor?.engagement_count).toBe(1)
     expect(byPipeline.job_monitor?.total_estimated_hours).toBe(5)
-    expect(byPipeline.new_business).toBeUndefined()
+    expect(byPipeline.website_booking).toBeUndefined()
   })
 
   it('is org-scoped — engagements from a different org never appear', async () => {

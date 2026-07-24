@@ -66,12 +66,7 @@ export interface CreateSOWSendAuthorizationData {
 }
 
 export type SignatureRequestStatus =
-  | 'send_failed'
-  | 'sent'
-  | 'completed_pending_artifact'
-  | 'completed'
-  | 'declined'
-  | 'expired'
+  'send_failed' | 'sent' | 'completed_pending_artifact' | 'completed' | 'declined' | 'expired'
 
 export interface SignatureRequest {
   id: string
@@ -113,9 +108,7 @@ export interface CreateSignatureRequestData {
 }
 
 export type OutboxJobType =
-  | 'send_sow_signed_email'
-  | 'send_deposit_invoice'
-  | 'send_portal_invitation'
+  'send_sow_signed_email' | 'send_deposit_invoice' | 'send_portal_invitation'
 export type OutboxJobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface OutboxJob {
@@ -131,15 +124,6 @@ export interface OutboxJob {
   last_error: string | null
   created_at: string
   updated_at: string
-}
-
-export interface CreateOutboxJobData {
-  org_id: string
-  signature_request_id: string
-  type: OutboxJobType
-  dedupe_key: string
-  payload_json: string
-  available_at: string
 }
 
 export async function getSOWRevision(
@@ -408,44 +392,6 @@ export async function getOpenSignatureRequestForQuote(
       .bind(orgId, quoteId)
       .first<SignatureRequest>()) ?? null
   )
-}
-
-export async function createOutboxJob(
-  db: D1Database,
-  data: CreateOutboxJobData
-): Promise<OutboxJob> {
-  const id = crypto.randomUUID()
-  const now = new Date().toISOString()
-
-  await db
-    .prepare(
-      `INSERT INTO outbox_jobs (
-        id, org_id, signature_request_id, type, status, dedupe_key,
-        payload_json, available_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      id,
-      data.org_id,
-      data.signature_request_id,
-      data.type,
-      data.dedupe_key,
-      data.payload_json,
-      data.available_at,
-      now,
-      now
-    )
-    .run()
-
-  const job = await db
-    .prepare('SELECT * FROM outbox_jobs WHERE id = ? AND org_id = ?')
-    .bind(id, data.org_id)
-    .first<OutboxJob>()
-
-  if (!job) {
-    throw new Error('Failed to retrieve created outbox job')
-  }
-  return job
 }
 
 export async function listOutboxJobsForSignatureRequest(

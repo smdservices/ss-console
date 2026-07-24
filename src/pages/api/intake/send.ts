@@ -3,11 +3,16 @@ import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { processIntakeSubmission } from '../../../lib/booking/intake-core'
-import { ALLOWED_INTERESTS } from '../../../lib/booking/config'
+import { ALLOWED_INTERESTS, interestLabel } from '../../../lib/booking/config'
 import { trimString, isValidEmail, escapeHtml, jsonResponse } from '../../../lib/api/helpers'
-import { dispatchEnrichmentWorkflow } from '../../../lib/enrichment/dispatch'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildAdminUrl } from '../../../lib/config/app-url'
+import {
+  attributionSummary,
+  readAttributionFromCookieHeader,
+  type AdAttribution,
+} from '../../../lib/marketing/attribution'
+import { emitMetaEvent, mintMetaEventId } from '../../../lib/marketing/meta-capi'
 
 const NOTIFY_EMAIL = 'team@smd.services'
 const RATE_LIMIT_PER_HOUR = 10
@@ -17,9 +22,7 @@ const MAX_MESSAGE_CHARS = 5000
  * POST /api/intake/send
  *
  * Creates the entity from a /book intake submission, persists the
- * prospect's message as context, fires the enrichment workflow so the
- * consultant has a brief ready by the time the call lands, and sends
- * the admin notification email.
+ * prospect's message as context, and sends the admin notification email.
  *
  * Response: { ok: true, entity_id }. The chat surface that used to
  * generate an AI follow-up reply and issue a conversation cookie was
@@ -36,23 +39,9 @@ const MAX_MESSAGE_CHARS = 5000
  */
 const MIN_FORM_FILL_MS = 2000
 
-// ALLOWED_INTERESTS (the /book?interest=<sku> allow-list) is shared with
-// the /book page via lib/booking/config — one list, two enforcement points.
-const INTEREST_LABELS: Record<string, string> = {
-  operator: 'Operator',
-  'law-firm': 'Operator for Law Firms',
-  insurance: 'Operator for Insurance Agencies',
-  veterinary: 'Operator for Veterinary Clinics',
-  title: 'Operator for Title & Escrow',
-  accounting: 'Operator for Accounting Firms',
-  ria: 'Operator for Advisory Firms',
-  mortgage: 'Operator for Mortgage Brokers',
-  dental: 'Operator for Dental Practices',
-  'med-spa': 'Operator for Med Spas',
-  'marketing-agency': 'Operator for Marketing Agencies',
-  'property-management': 'Operator for Property Managers',
-  'home-services': 'Operator for Home Services',
-}
+// The interest allow-list and its slug→label map both live in
+// lib/booking/config — one source of truth, enforced at /book (page
+// prefill) and here (API boundary), and rendered via interestLabel().
 
 interface ValidatedSendBody {
   name: string
@@ -133,6 +122,10 @@ async function handlePost({ request, clientAddress, locals }: APIContext): Promi
   const validated = validateSendBody(body)
   if (validated instanceof Response) return validated
 
+  // First-touch ad attribution, set by middleware on the landing request
+  // (ADR 0066 gate 1). Server-side read — the client never sends it.
+  const attribution = readAttributionFromCookieHeader(request.headers.get('cookie'))
+
   let intakeResult: Awaited<ReturnType<typeof processIntakeSubmission>>
   try {
     intakeResult = await processIntakeSubmission(
@@ -146,6 +139,7 @@ async function handlePost({ request, clientAddress, locals }: APIContext): Promi
         website: validated.website,
         userMessage: validated.messageRaw || null,
         interest: validated.interest,
+        attribution,
       },
       { source: 'website_intake_send' }
     )
@@ -154,34 +148,33 @@ async function handlePost({ request, clientAddress, locals }: APIContext): Promi
     return jsonResponse(500, { error: 'Internal server error' })
   }
 
-  // Fire the enrichment workflow backstage. The consultant gets a brief
-  // ready by the time the prospect picks a slot. Fire-and-forget; the
-  // booking flow does not wait. New entities only; existing entities may
-  // already have an enrichment run pending or complete, and
-  // dispatchEnrichmentWorkflow's idempotency pre-check handles that.
-  if (intakeResult.entityCreated) {
-    const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-      entityId: intakeResult.entityId,
-      orgId: ORG_ID,
-      mode: 'full',
-      triggered_by: 'website_intake',
-    }).catch((err: unknown) => {
-      console.error('[api/intake/send] enrichment dispatch failed', { error: err })
-    })
-    if (locals.cfContext?.waitUntil) locals.cfContext.waitUntil(dispatchPromise)
-  }
+  // Meta CAPI Lead event (ADR 0066 gate 2, #1723) — server half of the
+  // dedup pair; the browser fires the same event_name with this eventID.
+  // Fail-closed no-op until the pixel/token are configured.
+  const metaEventId = mintMetaEventId()
+  await emitMetaEvent(
+    env,
+    import.meta.env.PUBLIC_META_PIXEL_ID,
+    { eventName: 'Lead', eventId: metaEventId, request, email: validated.email },
+    locals.cfContext ? (p) => locals.cfContext!.waitUntil(p) : undefined
+  )
 
   try {
     await sendAdminNotification(env, {
       ...validated,
       entityId: intakeResult.entityId,
       message: validated.messageRaw,
+      attribution,
     })
   } catch (emailErr) {
     console.error('[api/intake/send] Admin notification failed:', emailErr)
   }
 
-  return jsonResponse(200, { ok: true, entity_id: intakeResult.entityId })
+  return jsonResponse(200, {
+    ok: true,
+    entity_id: intakeResult.entityId,
+    meta_event_id: metaEventId,
+  })
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)
@@ -195,6 +188,7 @@ interface AdminNotificationParams {
   message: string
   entityId: string
   interest: string | null
+  attribution: AdAttribution | null
 }
 
 async function sendAdminNotification(
@@ -208,12 +202,15 @@ async function sendAdminNotification(
   const escapedPhone = params.phone ? escapeHtml(params.phone) : null
   const escapedWebsite = params.website ? escapeHtml(params.website) : null
   const escapedMessage = params.message ? escapeHtml(params.message) : null
-  const interestLabel = params.interest ? INTEREST_LABELS[params.interest] : null
-  const escapedInterest = interestLabel ? escapeHtml(interestLabel) : null
+  const intentLabel = interestLabel(params.interest)
+  const escapedInterest = intentLabel ? escapeHtml(intentLabel) : null
+  const attrSummary = attributionSummary(params.attribution)
+  const escapedAttribution = attrSummary ? escapeHtml(attrSummary) : null
 
   const html = [
     `<p><strong>${escapedName}</strong> &lt;${escapedEmail}&gt; from <strong>${escapedBusiness}</strong> sent a message via the Send path on /book.</p>`,
     escapedInterest ? `<p><strong>Inquiring about:</strong> ${escapedInterest}</p>` : '',
+    escapedAttribution ? `<p><strong>Ad source:</strong> ${escapedAttribution}</p>` : '',
     escapedPhone ? `<p>Phone: ${escapedPhone}</p>` : '',
     escapedWebsite ? `<p>Website: <a href="${escapedWebsite}">${escapedWebsite}</a></p>` : '',
     '<hr>',
@@ -226,7 +223,10 @@ async function sendAdminNotification(
     .filter(Boolean)
     .join('')
 
-  const subjectPrefix = interestLabel ? `[${interestLabel}] ` : ''
+  // Pre-existing bug fixed alongside #1722: this interpolated the imported
+  // interestLabel FUNCTION (always truthy — every subject got function
+  // source), not the resolved label for this lead.
+  const subjectPrefix = intentLabel ? `[${intentLabel}] ` : ''
   await sendEmail(workerEnv.RESEND_API_KEY, {
     to: NOTIFY_EMAIL,
     reply_to: params.email,

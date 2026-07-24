@@ -1,0 +1,128 @@
+---
+import PortalShell from '../../../../layouts/PortalShell.astro'
+import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
+import { getIntakeByEntity } from '../../../../lib/db/hosted-agent-intake'
+import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Hosted Agent — write-only Anthropic key entry (ADR 0067, custody per
+ * ADR 0042). Password-type input, plain 0-JS form POST; the endpoint 303s
+ * back here with a `?cs=` status. The value never appears in a URL, a
+ * response, or this page's rendered output.
+ */
+
+export const prerender = false
+
+const access = await resolveHostedAgentAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal'],
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+
+const intake = await getIntakeByEntity(env.DB, access.client.id)
+if (!intake) {
+  return Astro.redirect('/portal/products/hosted-agent')
+}
+
+const cs = Astro.url.searchParams.get('cs')
+const banner: { tone: 'complete' | 'error'; text: string } | null =
+  cs === 'saved'
+    ? { tone: 'complete', text: 'Your key was relayed to your agent vault.' }
+    : cs === 'not_enabled'
+      ? {
+          tone: 'error',
+          text: 'Online key entry is not enabled yet. We collect your key during the go-live step instead; nothing else is needed from you right now.',
+        }
+      : cs === 'not_ready'
+        ? {
+            tone: 'error',
+            text: 'Your agent vault is not ready for the key yet. This unlocks during setup; check back from your portal home.',
+          }
+        : cs === 'empty_secret'
+          ? { tone: 'error', text: 'The key field was empty.' }
+          : cs === 'too_long'
+            ? { tone: 'error', text: 'That value is too long to be an API key.' }
+            : cs === 'write_failed' || cs === 'error'
+              ? { tone: 'error', text: 'The relay failed. Nothing was stored; please try again.' }
+              : null
+
+const keyReceived = intake.anthropic_key_status === 'received'
+---
+
+<PortalShell
+  title="API Key"
+  clientName={access.client.name}
+  orgId={access.client.org_id}
+  entityId={access.client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref="/portal/products/hosted-agent"
+    crumbLabel="Hosted Agent"
+    tag="Setup"
+    h1="Anthropic API Key"
+    meta={null}
+  />
+
+  {
+    banner && (
+      <div
+        role="status"
+        class={`mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold ${
+          banner.tone === 'complete'
+            ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+        }`}
+      >
+        {banner.text}
+      </div>
+    )
+  }
+
+  <div class="mt-8 flex flex-col gap-6">
+    <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
+      <p class="font-body text-base text-[color:var(--ss-color-text-primary)]">
+        Your agent runs on your own Anthropic API key. Create a dedicated key in your Anthropic
+        console, set a monthly spend limit on it there, and paste it below. The key relays straight
+        into your agent's isolated vault: it is never stored on this site, never shown back to you,
+        and never visible to anyone here.
+      </p>
+      {
+        keyReceived && (
+          <p class="mt-4 font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-complete)]">
+            A key is on file for your agent
+          </p>
+        )
+      }
+    </div>
+
+    <form
+      method="POST"
+      action="/api/portal/products/hosted-agent/anthropic-key"
+      class="flex flex-col gap-4"
+    >
+      <label
+        for="secret"
+        class="block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
+      >
+        {keyReceived ? 'Replace your key' : 'Paste your key'}
+      </label>
+      <input
+        id="secret"
+        name="secret"
+        type="password"
+        autocomplete="off"
+        required
+        class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
+      />
+      <button
+        type="submit"
+        class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+      >
+        Relay Key to Vault
+      </button>
+    </form>
+  </div>
+</PortalShell>

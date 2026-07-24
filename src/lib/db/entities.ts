@@ -10,16 +10,10 @@
  * Dedup enforced via UNIQUE(org_id, slug).
  */
 
-import { computeSlug, jaroWinklerSimilarity, normalizeBusinessName } from '../entities/slug.js'
+import { computeSlug } from '../entities/slug.js'
 import { recomputeDeterministicCache } from '../entities/recompute.js'
 import { appendContext } from './context.js'
 import { isLostReasonCode, type LostReasonCode } from './lost-reasons.js'
-import { appendCandidateMergeLog } from './candidate-merge-log.js'
-import { getPipelineSettings } from './pipeline-settings.js'
-export {
-  getSignalMetadataForEntities,
-  type EntitySignalMetadata,
-} from './entity-signal-metadata.js'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,11 +28,8 @@ export interface Entity {
   website: string | null
   stage: EntityStage
   stage_changed_at: string
-  pain_score: number | null
   vertical: string | null
   area: string | null
-  employee_count: number | null
-  tier: EntityTier | null
   summary: string | null
   next_action: string | null
   next_action_at: string | null
@@ -58,12 +49,10 @@ export interface Entity {
 
 // prettier-ignore
 export type EntityStage = 'signal' | 'prospect' | 'meetings' | 'proposing' | 'engaged' | 'delivered' | 'ongoing' | 'lost'
-export type EntityTier = 'hot' | 'warm' | 'cool' | 'cold'
 // prettier-ignore
 export type EntityVertical = 'home_services' | 'professional_services' | 'contractor_trades' | 'retail_salon' | 'restaurant_food' | 'other'
 
 type StageLabel = { value: EntityStage; label: string }
-type TierLabel = { value: EntityTier; label: string }
 type VerticalLabel = { value: EntityVertical; label: string }
 // prettier-ignore
 export const ENTITY_STAGES: StageLabel[] = [
@@ -71,11 +60,6 @@ export const ENTITY_STAGES: StageLabel[] = [
   { value: 'meetings', label: 'Meetings' }, { value: 'proposing', label: 'Proposing' },
   { value: 'engaged', label: 'Engaged' }, { value: 'delivered', label: 'Delivered' },
   { value: 'ongoing', label: 'Ongoing' }, { value: 'lost', label: 'Lost' },
-]
-// prettier-ignore
-export const ENTITY_TIERS: TierLabel[] = [
-  { value: 'hot', label: 'Hot' }, { value: 'warm', label: 'Warm' },
-  { value: 'cool', label: 'Cool' }, { value: 'cold', label: 'Cold' },
 ]
 // prettier-ignore
 export const ENTITY_VERTICALS: VerticalLabel[] = [
@@ -109,7 +93,6 @@ export interface EntityFilters {
   stage?: EntityStage
   stages?: EntityStage[]
   vertical?: string
-  tier?: EntityTier
   source_pipeline?: string
 }
 
@@ -118,6 +101,7 @@ export interface CreateEntityData {
   area?: string | null
   phone?: string | null
   website?: string | null
+  vertical?: string | null
   stage?: EntityStage
   source_pipeline?: string | null
 }
@@ -128,13 +112,11 @@ export interface UpdateEntityData {
   website?: string | null
   next_action?: string | null
   next_action_at?: string | null
-  tier?: EntityTier | null
   summary?: string | null
 }
 
 export type FindOrCreateResult =
-  | { status: 'created'; entity: Entity }
-  | { status: 'found'; entity: Entity }
+  { status: 'created'; entity: Entity } | { status: 'found'; entity: Entity }
 
 export interface TransitionStageOptions {
   /** Override reason — bypasses pre-condition checks where documented. */
@@ -189,11 +171,6 @@ export async function listEntities(
     params.push(filters.vertical)
   }
 
-  if (filters?.tier) {
-    conditions.push('tier = ?')
-    params.push(filters.tier)
-  }
-
   if (filters?.source_pipeline) {
     conditions.push('source_pipeline = ?')
     params.push(filters.source_pipeline)
@@ -201,10 +178,7 @@ export async function listEntities(
 
   const where = conditions.join(' AND ')
   const sql = `SELECT * FROM entities WHERE ${where}
-    ORDER BY
-      CASE tier WHEN 'hot' THEN 0 WHEN 'warm' THEN 1 WHEN 'cool' THEN 2 WHEN 'cold' THEN 3 ELSE 4 END,
-      pain_score DESC,
-      updated_at DESC`
+    ORDER BY updated_at DESC`
 
   const result = await db
     .prepare(sql)
@@ -295,66 +269,6 @@ async function reloadEntity(db: D1Database, orgId: string, entityId: string): Pr
   return entity
 }
 
-interface FuzzyMatchCandidate {
-  entity: Entity
-  score: number
-}
-
-/**
- * Find the highest-scoring Jaro-Winkler match for `name` across the org's
- * existing entities. Scope is org-wide as of 2026-05-18 (#751 bug 3) —
- * previously scoped `WHERE area = ?`, which silently disabled fuzzy
- * matching for area-less ingests (the common case post-bug-1, since
- * `entities.area` was being silently dropped at INSERT).
- */
-async function findBestFuzzyMatch(
-  db: D1Database,
-  orgId: string,
-  name: string,
-  threshold: number
-): Promise<FuzzyMatchCandidate | null> {
-  const candidates = await db
-    .prepare(`SELECT * FROM entities WHERE org_id = ?`)
-    .bind(orgId)
-    .all<Entity>()
-
-  const target = normalizeBusinessName(name)
-  let bestMatch: FuzzyMatchCandidate | null = null
-  for (const candidate of candidates.results ?? []) {
-    const score = jaroWinklerSimilarity(target, normalizeBusinessName(candidate.name))
-    if (score >= threshold && (!bestMatch || score > bestMatch.score)) {
-      bestMatch = { entity: candidate, score }
-    }
-  }
-
-  return bestMatch
-}
-
-async function maybeLogFuzzyDuplicate(
-  db: D1Database,
-  orgId: string,
-  data: CreateEntityData,
-  slug: string
-): Promise<void> {
-  const settings = await getPipelineSettings(db, orgId, 'new_business')
-  const threshold = settings.dedup_fuzzy_threshold
-  const bestMatch = await findBestFuzzyMatch(db, orgId, data.name, threshold)
-  if (!bestMatch) return
-
-  await appendCandidateMergeLog(db, orgId, {
-    existingEntityId: bestMatch.entity.id,
-    candidateName: data.name,
-    candidateSlug: slug,
-    candidateArea: data.area ?? null,
-    matchedName: bestMatch.entity.name,
-    matchedArea: bestMatch.entity.area,
-    sourcePipeline: data.source_pipeline ?? null,
-    reason: 'slug_fuzzy_match',
-    score: Number(bestMatch.score.toFixed(4)),
-    metadata: { threshold },
-  })
-}
-
 interface InsertEntityArgs {
   id: string
   slug: string
@@ -410,8 +324,6 @@ export async function findOrCreateEntity(
     return { status: 'found', entity }
   }
 
-  await maybeLogFuzzyDuplicate(db, orgId, data, slug)
-
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
   await insertEntityIfMissing(db, orgId, { id, slug, data, now })
@@ -437,7 +349,7 @@ export async function createEntity(
   const now = new Date().toISOString()
   await db
     .prepare(
-      `INSERT INTO entities (id, org_id, name, slug, phone, website, area, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO entities (id, org_id, name, slug, phone, website, area, vertical, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -447,6 +359,7 @@ export async function createEntity(
       data.phone ?? null,
       data.website ?? null,
       data.area ?? null,
+      data.vertical ?? null,
       data.stage ?? 'signal',
       now,
       data.source_pipeline ?? null,
@@ -485,7 +398,6 @@ export async function updateEntity(
   append('website', data.website)
   append('next_action', data.next_action)
   append('next_action_at', data.next_action_at)
-  append('tier', data.tier)
   append('summary', data.summary)
 
   if (fields.length === 0) return existing

@@ -20,7 +20,7 @@ Forward-only. There is no rollback path because audit-log immutability would be 
 - `0003_memory_ingestion.sql` — per-customer memory pipeline state.
 - `0004_sticky_stop_state.sql` — sticky-stop state machine table (substrate invariant #4).
 - `0005_voice_ingestion.sql` — voice-sample ingestion state.
-- `0006_cost_attribution_rollup.sql` — per-customer cost rollup.
+- `0006_cost_attribution_rollup.sql` — per-customer cost rollup. **Placement superseded by ADR 0062 (2026-07-03):** the cost tables (`cost_telemetry`, `captain_time_events`) now live in the central ss-console D1 (`migrations/0083_central_cost_telemetry.sql`); this file stays as historical record.
 - `0007_persona_observations.sql` — **rewritten 2026-05-25** per ADR 0016 rewrite (2026-05-24): mirror-don't-gate posture. Table holds Honcho conclusions mirrored by `hermes-smd-memory-mirror` plugin with `evidence_status` classification (defends against Honcho bug #626); `persona_observations_archive` for TTL'd rows.
 - `0008_agent_skills_inventory.sql` — **rewritten + renamed from `0008_skill_drafts.sql` 2026-05-25** per ADR 0017 rewrite (2026-05-24): trust-native posture. Table mirrors agent-authored skills the `skill_manage` tool creates; Captain reviews and physically removes in the admin portal.
 

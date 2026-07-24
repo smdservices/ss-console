@@ -36,7 +36,9 @@ fly_region: lax # "We're in Phoenix" → closest Fly region
 # not Opus — the interview's sensitive-tier intent is traded for the cost test.
 model: claude-sonnet-4-6
 escalation_model: claude-opus-4-8
-hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+# Hermes v0.14.0 → v0.18.0 (Crane, SMD-own production seat, promoted LAST after
+# staging/pilot/scott proven). Rollback pin: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0.
+hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
 
 machine:
   size: shared-cpu-1x
@@ -97,29 +99,46 @@ personas:
       - executive-summary
       - concise
     # Inbox triage plus on-demand broker-mediated Workspace reads and writes.
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: autonomous
+        code_execution: autonomous
     skills:
       - name: inbox-triage
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: workspace
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # Handles inbound email to crane@smd.services. Intended trigger is the Gmail
       # push webhook (see gmail_push note below) — currently NOT wired, so this
       # skill does not fire until the watch is rebuilt as a broker operation.
-      # trust_ceiling: autonomous — Crane's own identity, not Scott's. Wave A
+      # initiation/exposure note — Crane's own identity, not Scott's. Wave A
       # writes Gmail drafts only; no Gmail send tool is authored for this skill.
       - name: email-reply
         version: pending
-        trust_ceiling: autonomous
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # Polls /api/admin/fleet/health every 30 min; records alert lines on red status.
       # Requires OPERATOR_HEALTH_READ_KEY Fly secret + code_execution: autonomous.
       - name: health-monitor
         version: pending
-        trust_ceiling: autonomous
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
     # Native Google/Himalaya skills remain disabled because this customer uses
     # broker-mediated first-class tools and the customer-owned DWD credential.
@@ -182,6 +201,19 @@ connectors: {}
 # is empty (telegram.py: `if not allowed_csv: return True`); the materializer raises on
 # an empty allow_from, and the bootstrap guard (ensure-telegram-allowlist.py) refuses to
 # launch if the token is set without a resolvable allowlist. Proven live 2026-06-01.
+# ---- CUSTODY EXCEPTIONS (ADR 0044 Decision 8 / ADR 0045 §7, #1841) ----
+# Crane authors `code_execution: autonomous` (delegate_task escalate-up per ADR
+# 0049; health self-check). The custody guard therefore requires every
+# gateway-held credential surface to be broker-mediated OR explicitly accepted
+# here. Crane's only gateway surfaces are IDENTITY CHANNELS — its own Telegram
+# bot and its own AgentMail inbox (the persona send_as identity). Their blast
+# radius is the seat impersonating ITSELF, never reading a client's system of
+# record, so they are exception-eligible (client-data connectors never are).
+# Rationale + per-connector verdicts: operator/contracts/connector-custody-dispositions.md.
+custody_exceptions:
+  - telegram
+  - agentmail
+
 telegram:
   enabled: true
   # Permitted Telegram numeric user id(s). DM-only. 7367659986 = Scott Durgan.
@@ -226,12 +258,6 @@ scope:
   # is a CODE_EXECUTION action, fail-closed unless authored). Re-opened on the
   # customer-zero dogfood seat for the two-tier cost test; the sticky taint gate
   # still withholds subagent-spawning on any turn that has read untrusted content.
-  action_ceilings:
-    external_send: autonomous
-    code_execution: autonomous
-
-# ---- ESCALATION ----
-# "just flag it to me" → red flags + run failures go to the boss/escalation address.
 escalation:
   red_flag_recipients:
     - team@smd.services

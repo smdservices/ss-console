@@ -1,31 +1,34 @@
 ---
-import '../../../styles/global.css'
-import { BRAND_NAME } from '../../../lib/config/brand'
+import PortalShell from '../../../layouts/PortalShell.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
+import StatusPill from '../../../components/portal/StatusPill.astro'
+import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
 import {
   resolveEngagementLabel,
   resolveMilestoneStampLabel,
+  resolveQuoteTone,
+  resolveQuoteStampLabel,
   type Tone,
 } from '../../../lib/portal/status'
 import { getPortalClient } from '../../../lib/portal/session'
-import { getProductSubscription } from '../../../lib/portal/product-access'
-import { listEngagements } from '../../../lib/db/engagements'
+import { resolvePortalOfferings } from '../../../lib/portal/offerings'
 import { listMilestones } from '../../../lib/db/milestones'
 import type { Milestone } from '../../../lib/db/milestones'
-import PortalHeader from '../../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../../components/portal/PortalTabs.astro'
-import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
-import StatusPill from '../../../components/portal/StatusPill.astro'
-import SkipToMain from '../../../components/SkipToMain.astro'
+import { formatShortDate } from '../../../lib/portal/formatters'
 import { env } from 'cloudflare:workers'
 
 /**
- * Client portal — engagement progress page.
+ * Engagement — the one lifecycle destination (portal IA rebuild, Captain
+ * decisions 5 and 6). A proposal IS the start of an engagement: an open
+ * proposal renders as a spotlight ABOVE the active workspace (both can be
+ * true at once — follow-on proposals to active clients are a real state),
+ * the active engagement renders overview + milestones + a documents door,
+ * and completed engagements live in a past-work list.
  *
- * Shows the client's active engagement with milestone progress, scope
- * summary, and current state. Protected by auth middleware (role=client).
- * No fabricated progress percentages or synthesized outreach copy
- * (CLAUDE.md no-fabricated-content policy).
+ * No fabricated progress percentages or synthesized outreach copy.
  */
+
+export const prerender = false
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
@@ -34,38 +37,16 @@ if (!portalData) {
 if (!portalData.client) {
   return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
+const { user, client } = portalData
 
-const operatorSubscription = await getProductSubscription(env.DB, portalData.client.id, 'operator')
-const operatorActive = operatorSubscription !== null
-
-const entityId = portalData.client.id
-const clientName = portalData.client.name
-const orgId = portalData.user.org_id
+const offerings = await resolvePortalOfferings(env.DB, user.org_id, client.id)
+const { activeEngagement: engagement, openProposal, pastEngagements } = offerings.engagement
 
 let milestones: Milestone[] = []
-
-const engagements = await listEngagements(env.DB, orgId, entityId)
-const engagement =
-  engagements.find((e) => e.status !== 'completed' && e.status !== 'cancelled') ?? null
-
 if (engagement) {
-  milestones = await listMilestones(env.DB, orgId, engagement.id)
+  milestones = await listMilestones(env.DB, user.org_id, engagement.id)
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return 'TBD'
-  return new Date(iso).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-// Explicit state-by-state tone map — every MilestoneStatus value must
-// branch here so the portal-docs regression guard catches a new enum
-// value we forgot to handle. `pending` and `skipped` both render as
-// box-outline stamps; `completed` fills the pill with the olive
-// success tone; `in_progress` uses the warning (burnt) tone.
 function milestoneTone(status: string): Tone {
   if (status === 'completed') return 'success'
   if (status === 'in_progress') return 'warning'
@@ -75,177 +56,272 @@ function milestoneTone(status: string): Tone {
 }
 
 const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.status) : null
+
+const headMeta = engagement
+  ? [
+      engagement.start_date ? `Started ${formatShortDate(engagement.start_date)}` : null,
+      engagement.estimated_end
+        ? `Estimated end ${formatShortDate(engagement.estimated_end)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n') || null
+  : null
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Progress | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={clientName} />
+<PortalShell
+  title="Engagement"
+  clientName={client.name}
+  orgId={user.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+  offerings={offerings}
+>
+  {
+    /* No crumb: this page is the Engagement nav tab's destination — a "← Home"
+      crumb would duplicate the Home tab directly above it. */
+  }
+  <PortalPageHead
+    tag={engagement ? `Engagement № ${engagement.id.slice(0, 2).toUpperCase()}` : 'Engagement'}
+    h1="Engagement"
+    meta={headMeta}
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={operatorActive} />
-
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        crumbHref="/portal"
-        crumbLabel="Home"
-        tag={engagement ? `Engagement № ${engagement.id.slice(0, 2).toUpperCase()}` : 'Progress'}
-        h1="Progress"
-        meta={engagement
-          ? [
-              engagement.start_date ? `Started ${formatDate(engagement.start_date)}` : null,
-              engagement.estimated_end
-                ? `Estimated end ${formatDate(engagement.estimated_end)}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join('\n') || null
-          : null}
-      />
-
-      {
-        !engagement ? (
-          <div class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
-            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              No active engagement
-            </p>
-            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-              Progress appears here once your engagement begins.
-            </p>
+  <div class="mt-10 flex flex-col gap-8 min-w-0">
+    {
+      openProposal && (
+        <section
+          class="border-[3px] border-[color:var(--ss-color-primary)]"
+          aria-label="Proposal awaiting review"
+        >
+          <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-primary)] text-white px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+            <span>Proposal awaiting your review</span>
+            <span>§ 00</span>
           </div>
-        ) : (
-          <div class="mt-10">
-            <div class="flex flex-col gap-8 min-w-0">
-              {/* § 01 Overview */}
-              <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                  <span>Overview</span>
-                  <span class="text-[color:var(--ss-color-primary)]">§ 01</span>
-                </div>
-                <div class="px-5 md:px-7 py-6">
-                  {engagement.scope_summary && (
-                    <p class="text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
-                      {engagement.scope_summary}
-                    </p>
-                  )}
-                  <div
-                    class:list={[
-                      'grid grid-cols-1 md:grid-cols-3',
-                      engagement.scope_summary
-                        ? 'mt-6 pt-6 border-t-[2px] border-[color:var(--ss-color-text-primary)]'
-                        : '',
-                    ]}
-                  >
-                    <div class="py-3 md:py-0 md:pr-6 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)]">
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Started
-                      </p>
-                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                        {formatDate(engagement.start_date)}
-                      </p>
-                    </div>
-                    <div class="py-3 md:py-0 md:px-6 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] border-t-[2px] md:border-t-0 border-[color:var(--ss-color-text-primary)]">
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Estimated completion
-                      </p>
-                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                        {formatDate(engagement.estimated_end)}
-                      </p>
-                    </div>
-                    <div class="py-3 md:py-0 md:pl-6 border-t-[2px] md:border-t-0 border-[color:var(--ss-color-text-primary)]">
-                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                        Current state
-                      </p>
-                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-primary)]">
-                        {currentMilestoneLabel}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* § 02 Milestones */}
-              <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                  <span>Milestones</span>
-                  <span class="text-[color:var(--ss-color-primary)]">§ 02</span>
-                </div>
-
-                {milestones.length === 0 ? (
-                  <div class="px-5 md:px-7 py-6">
-                    <p class="text-[color:var(--ss-color-text-secondary)]">
-                      Milestones appear here as your engagement progresses.
-                    </p>
-                  </div>
-                ) : (
-                  <ol class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]">
-                    {milestones.map((m, idx) => {
-                      const isDone = m.status === 'completed'
-                      const isNow = m.status === 'in_progress'
-                      const markerClass = isDone
-                        ? 'bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)]'
-                        : isNow
-                          ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
-                          : 'bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)]'
-                      return (
-                        <li class="grid grid-cols-[72px_1fr] md:grid-cols-[88px_1fr_auto] items-stretch">
-                          <div
-                            class:list={[
-                              'flex items-center justify-center font-["Archivo"] font-black text-2xl md:text-3xl tracking-[-0.02em] border-r-[2px] border-[color:var(--ss-color-text-primary)]',
-                              markerClass,
-                            ]}
-                            aria-hidden="true"
-                          >
-                            {String(idx + 1).padStart(2, '0')}
-                          </div>
-                          <div class="px-5 py-5 min-w-0">
-                            <h3 class="font-['Archivo'] text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 leading-tight">
-                              {m.name}
-                            </h3>
-                            {m.description && (
-                              <p class="mt-2 text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
-                                {m.description}
-                              </p>
-                            )}
-                            <p class="mt-3 font-mono text-xs uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
-                              {isDone && m.completed_at
-                                ? `Completed ${formatDate(m.completed_at)}`
-                                : m.due_date
-                                  ? `Due ${formatDate(m.due_date)}`
-                                  : 'Scheduled TBD'}
-                            </p>
-                          </div>
-                          <div class="hidden md:flex items-center px-5">
-                            <StatusPill
-                              tone={milestoneTone(m.status)}
-                              label={resolveMilestoneStampLabel(m.status)}
-                            />
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ol>
+          <div class="px-5 md:px-7 py-6 flex flex-wrap items-center justify-between gap-5">
+            <div class="min-w-0">
+              <p class="font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                {`Proposal ${openProposal.id.slice(0, 8)}`}
+              </p>
+              <div class="mt-2 flex items-center gap-3">
+                <StatusPill
+                  tone={resolveQuoteTone(openProposal.status)}
+                  label={resolveQuoteStampLabel(openProposal.status)}
+                />
+                {openProposal.sent_at && (
+                  <span class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                    Sent {formatShortDate(openProposal.sent_at)}
+                  </span>
                 )}
-              </section>
+              </div>
+            </div>
+            <div class="flex items-center gap-5">
+              <MoneyDisplay amountCents={Math.round(openProposal.total_price * 100)} size="kpi" />
+              <a
+                href={`/portal/engagement/proposals/${openProposal.id}`}
+                class="px-6 py-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+              >
+                Review and Sign
+              </a>
             </div>
           </div>
-        )
-      }
-    </main>
-  </body>
-</html>
+        </section>
+      )
+    }
+
+    {
+      engagement && (
+        <>
+          <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
+            <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+              <span>Overview</span>
+              <span class="text-[color:var(--ss-color-primary)]">§ 01</span>
+            </div>
+            <div class="px-5 md:px-7 py-6">
+              {engagement.scope_summary && (
+                <p class="text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
+                  {engagement.scope_summary}
+                </p>
+              )}
+              <div
+                class:list={[
+                  'grid grid-cols-1 md:grid-cols-3',
+                  engagement.scope_summary
+                    ? 'mt-6 pt-6 border-t-[2px] border-[color:var(--ss-color-text-primary)]'
+                    : '',
+                ]}
+              >
+                <div class="py-3 md:py-0 md:pr-6 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)]">
+                  <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Started
+                  </p>
+                  <p class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                    {engagement.start_date ? formatShortDate(engagement.start_date) : 'TBD'}
+                  </p>
+                </div>
+                <div class="py-3 md:py-0 md:px-6 md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] border-t-[2px] md:border-t-0 border-[color:var(--ss-color-text-primary)]">
+                  <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Estimated completion
+                  </p>
+                  <p class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                    {engagement.estimated_end ? formatShortDate(engagement.estimated_end) : 'TBD'}
+                  </p>
+                </div>
+                <div class="py-3 md:py-0 md:pl-6 border-t-[2px] md:border-t-0 border-[color:var(--ss-color-text-primary)]">
+                  <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Current state
+                  </p>
+                  <p class="mt-2 font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-primary)]">
+                    {currentMilestoneLabel}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
+            <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+              <span>Milestones</span>
+              <span class="text-[color:var(--ss-color-primary)]">§ 02</span>
+            </div>
+
+            {milestones.length === 0 ? (
+              <div class="px-5 md:px-7 py-6">
+                <p class="text-[color:var(--ss-color-text-secondary)]">
+                  Milestones appear here as your engagement progresses.
+                </p>
+              </div>
+            ) : (
+              <ol class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]">
+                {milestones.map((m, idx) => {
+                  const isDone = m.status === 'completed'
+                  const isNow = m.status === 'in_progress'
+                  const markerClass = isDone
+                    ? 'bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)]'
+                    : isNow
+                      ? 'bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)]'
+                      : 'bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)]'
+                  return (
+                    <li class="grid grid-cols-[72px_1fr] md:grid-cols-[88px_1fr_auto] items-stretch">
+                      <div
+                        class:list={[
+                          'flex items-center justify-center font-body font-black text-2xl md:text-3xl tracking-[-0.02em] border-r-[2px] border-[color:var(--ss-color-text-primary)]',
+                          markerClass,
+                        ]}
+                        aria-hidden="true"
+                      >
+                        {String(idx + 1).padStart(2, '0')}
+                      </div>
+                      <div class="px-5 py-5 min-w-0">
+                        <h3 class="font-body text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 leading-tight">
+                          {m.name}
+                        </h3>
+                        {m.description && (
+                          <p class="mt-2 text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
+                            {m.description}
+                          </p>
+                        )}
+                        <p class="mt-3 font-mono text-xs uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
+                          {isDone && m.completed_at
+                            ? `Completed ${formatShortDate(m.completed_at)}`
+                            : m.due_date
+                              ? `Due ${formatShortDate(m.due_date)}`
+                              : 'Scheduled TBD'}
+                        </p>
+                      </div>
+                      <div class="hidden md:flex items-center px-5">
+                        <StatusPill
+                          tone={milestoneTone(m.status)}
+                          label={resolveMilestoneStampLabel(m.status)}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
+          </section>
+
+          <a
+            href="/portal/engagement/documents"
+            class="block border-[3px] border-[color:var(--ss-color-text-primary)] p-5 md:p-6 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  Documents
+                </p>
+                <p class="mt-1 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                  Deliverables and your signed agreement
+                </p>
+              </div>
+              <span
+                aria-hidden="true"
+                class="font-body font-black text-2xl text-[color:var(--ss-color-primary)]"
+              >
+                →
+              </span>
+            </div>
+          </a>
+        </>
+      )
+    }
+
+    {
+      !engagement && !openProposal && pastEngagements.length === 0 && (
+        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+          <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            No active engagement
+          </p>
+          <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            Progress appears here once your engagement begins.
+          </p>
+        </div>
+      )
+    }
+
+    {
+      pastEngagements.length > 0 && (
+        <section aria-label="Past work">
+          <p class="mb-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+            Past work
+          </p>
+          <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+            {pastEngagements.map((past, idx) => (
+              <a
+                href={`/portal/engagement/${past.id}`}
+                class="grid grid-cols-[56px_1fr_auto] items-stretch border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+              >
+                <span
+                  aria-hidden="true"
+                  class="flex items-center justify-center bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] font-body font-black border-r-[2px] border-[color:var(--ss-color-text-primary)]"
+                >
+                  {String(pastEngagements.length - idx).padStart(2, '0')}
+                </span>
+                <span class="px-5 py-4 min-w-0">
+                  <span class="block font-body font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] truncate">
+                    {past.scope_summary ?? 'Engagement'}
+                  </span>
+                  <span class="mt-1 block font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                    {[
+                      past.start_date ? `Started ${formatShortDate(past.start_date)}` : null,
+                      past.actual_end ? `Ended ${formatShortDate(past.actual_end)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </span>
+                <span class="hidden md:flex items-center px-5">
+                  <StatusPill
+                    tone={past.status === 'completed' ? 'success' : 'outline'}
+                    label={resolveEngagementLabel(past.status)}
+                  />
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )
+    }
+  </div>
+</PortalShell>

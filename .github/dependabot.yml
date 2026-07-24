@@ -1,0 +1,110 @@
+# Keeps the GitHub Actions pinned to commit SHAs current. Workflows pin every
+# `uses:` to a full-length commit SHA (supply-chain hardening; enforced by the
+# Semgrep github-actions-mutable-action-tag rule in security.yml). Dependabot
+# bumps the SHA and the trailing version comment when a new release ships, so
+# the pins stay both immutable and maintained. Dependabot PRs flow through
+# .github/workflows/dependabot-auto-merge.yml.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: chore(actions)
+
+  # npm dependency currency. Previously there was NO npm ecosystem entry, so
+  # `security.yml`'s `npm audit` caught known CVEs but nothing surfaced routine
+  # version drift (2026-06-30 code review). Grouped + weekly, flowing through
+  # .github/workflows/dependabot-auto-merge.yml. Majors (e.g. astro 7,
+  # typescript 6) are separated so they get manual review given the SSR/Workers
+  # surface; patch/minor group together for low-friction upkeep.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    # Our own packages on the private GitHub Packages registry. We cut and
+    # adopt their versions intentionally as part of coordinated changes —
+    # Dependabot is for external currency/security, not our internal releases,
+    # and it holds no credential for the private scope (the root npm job fails
+    # `private_source_authentication_failure` trying to resolve them). Managed
+    # by us, not Dependabot.
+    ignore:
+      - dependency-name: '@venturecrane/*'
+    commit-message:
+      prefix: chore(deps)
+
+  - package-ecosystem: npm
+    directory: /workers/cost-anomaly
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    # @cloudflare/workers-types majors must move with wrangler's major
+    # (wrangler@4 peer-depends on workers-types@^4), so a standalone
+    # workers-types major PR is unmergeable. Bump the two together when the
+    # wrangler major lands (that PR is not ignored and will surface for review).
+    ignore:
+      - dependency-name: '@cloudflare/workers-types'
+        update-types:
+          - version-update:semver-major
+    commit-message:
+      prefix: chore(deps)
+
+  - package-ecosystem: npm
+    directory: /workers/cost-telemetry
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    # @cloudflare/workers-types majors must move with wrangler's major
+    # (wrangler@4 peer-depends on workers-types@^4), so a standalone
+    # workers-types major PR is unmergeable. Bump the two together when the
+    # wrangler major lands (that PR is not ignored and will surface for review).
+    ignore:
+      - dependency-name: '@cloudflare/workers-types'
+        update-types:
+          - version-update:semver-major
+    commit-message:
+      prefix: chore(deps)
+
+  - package-ecosystem: npm
+    directory: /workers/fleet-alerts
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore(deps)

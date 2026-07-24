@@ -1,0 +1,25 @@
+---
+/**
+ * Meta Pixel loader (ADR 0066 launch gate 2, #1723). Mirrors the
+ * Analytics.astro gating pattern: renders nothing unless
+ * PUBLIC_META_PIXEL_ID is configured, and never on the admin/portal
+ * subdomains. Included from Base.astro (marketing layout only).
+ *
+ * The init script (public/js/meta-pixel-init.js) honors Global Privacy
+ * Control at runtime (navigator.globalPrivacyControl → no pixel init)
+ * and sets Limited Data Use with geo auto-detection BEFORE init — the
+ * CCPA posture, matching the server-side CAPI events (see
+ * src/lib/marketing/meta-capi.ts). Full consent hygiene is #1725.
+ *
+ * Dedup contract: the funnel APIs mint the event_id server-side and
+ * return it as `meta_event_id`; src/scripts/book.ts fires the browser
+ * halves of Lead/Schedule with { eventID } so Meta collapses the pair.
+ * This loader only initializes fbq and tracks PageView.
+ */
+const pixelId = import.meta.env.PUBLIC_META_PIXEL_ID?.trim() ?? ''
+
+const hostname = Astro.url.hostname
+const isAuthSubdomain = hostname.startsWith('admin.') || hostname.startsWith('portal.')
+---
+
+{pixelId && !isAuthSubdomain && <script src="/js/meta-pixel-init.js" data-pixel-id={pixelId} />}

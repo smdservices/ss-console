@@ -21,11 +21,11 @@ Inputs: `sent_date`, `signed` (+ `signed_date`), `status` (pending | declined | 
 
 ## Drafting the nudge
 
-Per `voice.md`: short, warm, low-pressure. State that the engagement letter is waiting for signature, point to where to sign, offer to answer questions **with the team**. Name no term, no obligation, no clause.
+Per `voice.md`: short, warm, low-pressure. State that the letter the firm sent to get started is waiting to be completed, point to where to complete and return it, offer to answer questions **with the team**. Name no term, no obligation, no clause. The body is floor-clean (#1878; substitution table in `voice.md`): no "sign"/"signature", no "engagement letter", no "attorney" in the outbound text.
 
 ## The terms question
 
-If a client reply asks what a clause means, whether a fee term is negotiable, or what an obligation entails: **do not answer.** The nudge/response acknowledges the question and routes it to the responsible attorney ("happy to have <attorney> walk you through that"). Interpreting a term of the letter is legal advice.
+If a client reply asks what a clause means, whether a fee term is negotiable, or what an obligation entails: **do not answer.** The nudge/response acknowledges the question and routes it to the responsible attorney ("happy to set up a few minutes with the team to walk through that" — the routing is to the attorney; the body says "the team", which is floor-clean). Interpreting a term of the letter is legal advice.
 
 ## What this algorithm is NOT
 

@@ -35,7 +35,7 @@ import {
 import type { PersonaConfig } from '../src/lib/portal/customer-config'
 
 function makePersona(
-  skills: Array<{ name: string; trust_ceiling: string }>,
+  skills: Array<{ name: string }>,
   overrides: Partial<PersonaConfig> = {}
 ): PersonaConfig {
   return {
@@ -46,8 +46,12 @@ function makePersona(
     signature_html: null,
     tone: [],
     send_as: null,
+    entitlements: { exposure: {} },
     channel_bindings: [],
-    skills,
+    skills: skills.map((s) => ({
+      name: s.name,
+      initiation: { manual: true, scheduled: false, webhook: false },
+    })),
     ...overrides,
   }
 }
@@ -94,31 +98,28 @@ describe('promotion criteria constants', () => {
 // ---------------------------------------------------------------------------
 
 describe('listCandidateSkills', () => {
-  it('returns draft_for_review skills only', () => {
+  it('returns no candidate skills while scalar promotion cards are retired', () => {
     const persona = makePersona([
-      { name: 'intake-triage', trust_ceiling: 'draft_for_review' },
-      { name: 'conflict-check', trust_ceiling: 'autonomous' },
-      { name: 'refused-skill', trust_ceiling: 'refused' },
+      { name: 'intake-triage' },
+      { name: 'conflict-check' },
+      { name: 'refused-skill' },
     ])
-    expect(listCandidateSkills(persona)).toEqual(['intake-triage'])
+    expect(listCandidateSkills(persona)).toEqual([])
   })
 
-  it('excludes non-promotable skills regardless of trust ceiling', () => {
+  it('excludes non-promotable skills', () => {
     const persona = makePersona([
-      { name: 'trust-accounting', trust_ceiling: 'draft_for_review' },
-      { name: 'court-filing', trust_ceiling: 'draft_for_review' },
-      { name: 'settlement-authority', trust_ceiling: 'draft_for_review' },
-      { name: 'intake-triage', trust_ceiling: 'draft_for_review' },
+      { name: 'trust-accounting' },
+      { name: 'court-filing' },
+      { name: 'settlement-authority' },
+      { name: 'intake-triage' },
     ])
-    expect(listCandidateSkills(persona)).toEqual(['intake-triage'])
+    expect(listCandidateSkills(persona)).toEqual([])
   })
 
-  it('drops skills with unknown trust ceiling values', () => {
-    const persona = makePersona([
-      { name: 'intake-triage', trust_ceiling: 'auto_send' },
-      { name: 'conflict-check', trust_ceiling: 'draft_for_review' },
-    ])
-    expect(listCandidateSkills(persona)).toEqual(['conflict-check'])
+  it('does not infer candidates from initiation grants', () => {
+    const persona = makePersona([{ name: 'intake-triage' }, { name: 'conflict-check' }])
+    expect(listCandidateSkills(persona)).toEqual([])
   })
 
   it('returns an empty array for an empty persona', () => {
@@ -292,15 +293,15 @@ describe('isDismissalExpired', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildReviewUrl', () => {
-  it('points at the Skills settings page with the skill focused', () => {
-    expect(buildReviewUrl('conflict-check')).toBe(
-      '/portal/products/operator/settings?focus=conflict-check'
+  it('points at the instance Skills settings page with the skill focused', () => {
+    expect(buildReviewUrl('test-op', 'conflict-check')).toBe(
+      '/portal/products/operator/test-op/settings?focus=conflict-check'
     )
   })
 
   it('URL-encodes skill names containing special characters', () => {
-    expect(buildReviewUrl('intake triage')).toBe(
-      '/portal/products/operator/settings?focus=intake%20triage'
+    expect(buildReviewUrl('test-op', 'intake triage')).toBe(
+      '/portal/products/operator/test-op/settings?focus=intake%20triage'
     )
   })
 })
@@ -365,7 +366,7 @@ function makeDbStub(options: {
 describe('listPromotionReadySkills', () => {
   it('returns an empty list when the customer has no projected config', async () => {
     const db = makeDbStub({ customerConfigRow: null })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 
@@ -385,7 +386,13 @@ describe('listPromotionReadySkills', () => {
             signature_html: null,
             tone: [],
             send_as: null,
-            skills: [{ name: 'conflict-check', trust_ceiling: 'draft_for_review' }],
+            entitlements: { exposure: { internal_write: 'draft_for_review' } },
+            skills: [
+              {
+                name: 'conflict-check',
+                initiation: { manual: true, scheduled: false, webhook: false },
+              },
+            ],
             channel_bindings: [],
           },
         ]),
@@ -398,7 +405,7 @@ describe('listPromotionReadySkills', () => {
         synced_at: '2026-05-21T00:00:00Z',
       },
     })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 
@@ -418,9 +425,16 @@ describe('listPromotionReadySkills', () => {
             signature_html: null,
             tone: [],
             send_as: null,
+            entitlements: { exposure: { internal_write: 'autonomous' } },
             skills: [
-              { name: 'conflict-check', trust_ceiling: 'autonomous' },
-              { name: 'trust-accounting', trust_ceiling: 'draft_for_review' },
+              {
+                name: 'conflict-check',
+                initiation: { manual: true, scheduled: false, webhook: false },
+              },
+              {
+                name: 'trust-accounting',
+                initiation: { manual: true, scheduled: false, webhook: false },
+              },
             ],
             channel_bindings: [],
           },
@@ -434,7 +448,7 @@ describe('listPromotionReadySkills', () => {
         synced_at: '2026-05-21T00:00:00Z',
       },
     })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 
@@ -459,7 +473,13 @@ describe('listPromotionReadySkills', () => {
             signature_html: null,
             tone: [],
             send_as: null,
-            skills: [{ name: 'intake-triage', trust_ceiling: 'draft_for_review' }],
+            entitlements: { exposure: { internal_write: 'draft_for_review' } },
+            skills: [
+              {
+                name: 'intake-triage',
+                initiation: { manual: true, scheduled: false, webhook: false },
+              },
+            ],
             channel_bindings: [],
           },
         ]),
@@ -472,7 +492,7 @@ describe('listPromotionReadySkills', () => {
         synced_at: '2026-05-21T00:00:00Z',
       },
     })
-    const result = await listPromotionReadySkills(db, 'ent-1')
+    const result = await listPromotionReadySkills(db, 'ent-1', 'test-op')
     expect(result).toEqual([])
   })
 })

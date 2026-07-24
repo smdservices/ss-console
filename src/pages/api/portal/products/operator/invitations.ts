@@ -10,6 +10,7 @@ import {
 } from '../../../../../lib/portal/operator/rbac-audit'
 import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/portal/products/operator/invitations
@@ -45,10 +46,17 @@ import { env } from 'cloudflare:workers'
  */
 
 const PRODUCT_SLUG = 'operator'
-const USERS_PAGE_URL = '/portal/products/operator/settings/users'
+const OPERATOR_LANDING = '/portal/products/operator'
 
-function redirectWithStatus(status: string): Response {
-  const target = `${USERS_PAGE_URL}?status=${encodeURIComponent(status)}`
+// The users page is now instance-addressed. Redirect back to the addressed
+// instance's users page; fall back to the bare chooser when the instance
+// can't be determined from the form.
+function usersUrl(instance: string | null): string {
+  return instance ? `${OPERATOR_LANDING}/${instance}/settings/users` : OPERATOR_LANDING
+}
+
+function redirectWithStatus(instance: string | null, status: string): Response {
+  const target = `${usersUrl(instance)}?status=${encodeURIComponent(status)}`
   return new Response(null, {
     status: 303,
     headers: { Location: target },
@@ -56,18 +64,19 @@ function redirectWithStatus(status: string): Response {
 }
 
 function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 interface AuthorizedContext {
   user: PortalUserRow
   client: Entity
+  instance: string | null
 }
 
-async function authorize(locals: App.Locals): Promise<Response | AuthorizedContext> {
+async function authorize(
+  locals: App.Locals,
+  instance: string | null
+): Promise<Response | AuthorizedContext> {
   const portalData = await getPortalClient(env.DB, locals)
   if (!portalData) return jsonError(401, 'Unauthorized')
   if (!portalData.client) return jsonError(403, 'Forbidden')
@@ -83,10 +92,10 @@ async function authorize(locals: App.Locals): Promise<Response | AuthorizedConte
   // domain. At launch (managed posture) SMD operates the roster; refuse the
   // mutation server-side rather than trust the portal's read-only render.
   if (!(await isPeopleAccessOperable(env.DB, client.id))) {
-    return redirectWithStatus('not_permitted')
+    return redirectWithStatus(instance, 'not_permitted')
   }
 
-  return { user, client }
+  return { user, client, instance }
 }
 
 // RFC 5322-lite email check. Sufficient guard against accidental
@@ -103,16 +112,19 @@ function parseEmail(formData: FormData): string | null {
 }
 
 export const POST: APIRoute = async (context: APIContext) => {
-  const ctxOrResponse = await authorize(context.locals)
+  const formData = await context.request.formData()
+  const instanceRaw = formData.get('instance')
+  const instance = typeof instanceRaw === 'string' && instanceRaw !== '' ? instanceRaw : null
+
+  const ctxOrResponse = await authorize(context.locals, instance)
   if (ctxOrResponse instanceof Response) return ctxOrResponse
   const ctx = ctxOrResponse
 
-  if (!ctx.client.clerk_org_id) return redirectWithStatus('no_clerk_org')
-  if (!ctx.user.clerk_user_id) return redirectWithStatus('no_clerk_user')
+  if (!ctx.client.clerk_org_id) return redirectWithStatus(instance, 'no_clerk_org')
+  if (!ctx.user.clerk_user_id) return redirectWithStatus(instance, 'no_clerk_user')
 
-  const formData = await context.request.formData()
   const email = parseEmail(formData)
-  if (!email) return redirectWithStatus('invalid_email')
+  if (!email) return redirectWithStatus(instance, 'invalid_email')
 
   const redirectUrl = `${new URL(context.request.url).origin}/portal/products/operator`
   let invitationId: string
@@ -131,10 +143,11 @@ export const POST: APIRoute = async (context: APIContext) => {
     // small set to friendly status values and fall back to a generic
     // 'invite_failed' otherwise.
     const message = err instanceof Error ? err.message : String(err)
-    if (/already a member/i.test(message)) return redirectWithStatus('already_member')
-    if (/already invited|duplicate/i.test(message)) return redirectWithStatus('already_invited')
+    if (/already a member/i.test(message)) return redirectWithStatus(instance, 'already_member')
+    if (/already invited|duplicate/i.test(message))
+      return redirectWithStatus(instance, 'already_invited')
     console.error('Clerk invitation failed', { email, message })
-    return redirectWithStatus('invite_failed')
+    return redirectWithStatus(instance, 'invite_failed')
   }
 
   await recordRbacAuditEvent(
@@ -150,5 +163,5 @@ export const POST: APIRoute = async (context: APIContext) => {
     })
   )
 
-  return redirectWithStatus('invited')
+  return redirectWithStatus(instance, 'invited')
 }

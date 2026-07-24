@@ -45,28 +45,16 @@ if (!customer) {
 }
 
 const window = defaultWindow()
-const cfConfigMissing = !env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN
 
+// Central cost_telemetry read via the D1 binding (ADR 0062).
 let fetchError: string | null = null
 let summary: ReturnType<typeof summarizeCostRows> | null = null
-let skippedReason: string | null = null
 
-if (!customer.per_customer_d1_database_id) {
-  skippedReason = 'No per-customer D1 configured yet (connectors_json missing the database id)'
-} else if (cfConfigMissing) {
-  skippedReason = 'CF_ACCOUNT_ID / CF_D1_API_TOKEN not configured on this Worker'
+const result = await fetchCustomerCostRows(env.DB, customer_slug, window.start, window.end)
+if (result.error) {
+  fetchError = result.error
 } else {
-  const result = await fetchCustomerCostRows(
-    { CF_ACCOUNT_ID: env.CF_ACCOUNT_ID!, CF_D1_API_TOKEN: env.CF_D1_API_TOKEN! },
-    customer.per_customer_d1_database_id,
-    window.start,
-    window.end
-  )
-  if (result.error) {
-    fetchError = result.error
-  } else {
-    summary = summarizeCostRows(customer_slug, window.start, window.end, result.rows)
-  }
+  summary = summarizeCostRows(customer_slug, window.start, window.end, result.rows)
 }
 
 function formatCurrency(cents: number): string {
@@ -154,7 +142,7 @@ const exportHref = `/api/admin/operator/costs/export?customer_slug=${encodeURICo
         </p>
       </div>
       {
-        customer.per_customer_d1_database_id && !cfConfigMissing && (
+        !fetchError && (
           <a
             href={exportHref}
             class="inline-flex items-center min-h-11 px-3 text-sm font-medium border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
@@ -166,21 +154,10 @@ const exportHref = `/api/admin/operator/costs/export?customer_slug=${encodeURICo
     </header>
 
     {
-      skippedReason && (
-        <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-attention)] bg-white p-card">
-          <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-2">
-            Cost data unavailable
-          </h3>
-          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">{skippedReason}</p>
-        </div>
-      )
-    }
-
-    {
       fetchError && (
         <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)] bg-white p-card">
           <h3 class="text-base font-semibold text-[color:var(--ss-color-error)] mb-2">
-            D1 query failed
+            Cost query failed
           </h3>
           <p class="text-sm text-[color:var(--ss-color-text-secondary)]">{fetchError}</p>
         </div>

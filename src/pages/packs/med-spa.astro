@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Med Spas',
   description:
-    'The Operator is a worker you hire, not software you buy. The med-spa pack is its head start: a starting point shaped around the front desk and booking cadence, which we configure with you and you customize to your practice. The good-faith exam and the medicine stay with your clinicians; you set the line.',
+    "The Operator is a worker you hire, not software you buy. It works inside your spa-management platform and carries the connective patient-journey work in writing: leads, consults, the good-faith-exam gate, the provider's authored pre- and post-care, memberships, financing, reviews, and reactivation. Your team keeps the phone and the live conversations. It gives no medical advice, never clears anyone for treatment, and is not a clinical or emergency channel.",
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,192 +26,268 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/med-spa/vertical.yaml (the leads-and-scheduling, good-faith-
-// exam, membership-care-money, and proactive-and-safety skill families). These are
-// templates we configure, not a finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. The connective work around one client, lead to loyal, each step
+// in the standard's three-line shape (Operator does / your part / if it stalls). Built from the
+// research-grade internal spec brief (docs/specs/verticals/med-spa.md) and corrected by the
+// adversarial gate (a med-spa ops director working with a medical director): the HIPAA claim is
+// conditioned on HIPAA actually applying (a cash-pay spa is often not a covered entity), with an
+// unconditional data-protection commitment; the adverse-event path makes clear the Operator is not
+// a clinical or emergency channel and pushes to a real-time-monitored channel plus directs the
+// client to an urgent contact / 911; the good-faith-exam gate ENFORCES the medical director's
+// authored rule (with a provider override) rather than judging validity; pre/post-care is keyed to
+// the treatment in the record, never inferred; the review ask is on the same basis for every client
+// (no FTC review-gating); TCPA marketing vs transactional consent is separated; intake never turns a
+// description into a treatment. Generic system categories, no brand names. The section framing
+// carries the truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Leads and scheduling',
-    body: 'A new lead captured and acknowledged, the consult booked, the appointment reminder and confirmation with the deposit and cancellation policy, the no-show rebooked.',
+    title: 'A new lead comes in',
+    operator:
+      'Captures the lead into the spa-management platform, checks it against your existing clients, and drafts an acknowledgment with an offer to book a consult.',
+    your: 'Nothing, unless it routes something to you.',
+    stalls:
+      'Follows up on the consult. It handles the logistics, gives no medical advice, and does not turn what a client describes into a treatment; the client picks a service or it offers a general consult. Anything that could be an adverse reaction is escalated to your provider and the client is pointed to your urgent contact, never handled by the Operator.',
+  },
+  {
+    title: 'The consult and the reminder',
+    operator:
+      'Offers the available consult times by the service type your spa defines, books, and confirms, then sends the reminder carrying your deposit and cancellation policy and captures the confirm or the reschedule. A no-show gets a rebooking outreach.',
+    your: 'Nothing.',
+    stalls:
+      'Re-sends the reminder you pre-approved. Scheduling and policy logistics only; it books by your service types and never recommends a treatment.',
   },
   {
     title: 'The good-faith exam',
-    body: 'The required exam scheduled before treatment, kept as a gate a person clears, never substituted or cleared by the Operator.',
+    operator:
+      "Before a treatment your medical director's rule flags as requiring it, checks your record for the exam and clearance the rule requires, and if it is missing, books the exam or flags that one is needed, whether your flow runs the exam as its own visit or together with the consult.",
+    your: 'Your medical director authors which services require an exam and what makes one current; the provider performs it and clears the client.',
+    stalls:
+      'Holds the treatment booking until the clearance is on record, with a provider override, and re-flags an outstanding exam. It enforces your rule; it never defines or judges it, never substitutes for the exam, and never clears anyone for treatment.',
   },
   {
-    title: 'Memberships, care, and money',
-    body: "The membership balance and renewal logistics, the provider's authored pre-care and post-care instructions, the treatment check-in, the financing-application paperwork.",
+    title: "The provider's pre- and post-care",
+    operator:
+      'Sends the instruction set keyed to the treatment the provider recorded in your system, on the cadence the provider sets, never a set it infers.',
+    your: 'The provider authors the care content.',
+    stalls:
+      "If the record is missing or ambiguous, it asks a person rather than guessing. It conveys only the provider's authored instructions, word for word; it adds no medical content of its own.",
   },
   {
-    title: 'Proactive and safety',
-    body: 'The review and referral request, the reactivation and win-back outreach, and any possible adverse reaction routed straight to a provider.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is med-spa-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a front desk and ready to configure. You are not building from a blank page.',
+    title: 'The post-treatment follow-up',
+    operator: 'Checks in after the treatment on your cadence to see how the client is doing.',
+    your: 'Nothing, unless it routes something to you.',
+    stalls:
+      'Re-sends the check-in. It is a check-in only; if the client reports a reaction, it escalates to your provider and points the client to your urgent contact, rather than advising.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your booking and records system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'Memberships and packages',
+    operator:
+      'Tracks the membership and package balances and surfaces a renewal or a low balance, drafting the reminder.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Sends the next reminder on your cadence. Balance and renewal logistics only; it never pressures a client or upsells a treatment.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your services and your membership, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your practice; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Consults and booking',
-    body: 'The consult that has to be booked, the treatment confirmed, the prospect who called and did not book. The Operator captures the request, books and confirms in your voice, and follows up. The good-faith exam and the treatment call stay with your clinicians.',
+    title: 'Financing',
+    operator:
+      'Coordinates the third-party financing logistics, where to apply, where the application stands, the next step.',
+    your: 'The client and the financing company handle the approval.',
+    stalls:
+      "Follows up on the open step. Application logistics only; it never advises on credit or terms, never collects or transmits the client's financial information, and makes no representation about approval, rates, or terms. The client applies directly with the lender; the financing and any payment run through them or your processor, never the Operator.",
   },
   {
-    title: 'Membership and rebooking',
-    body: 'The membership that runs on rebooking, the client due for the next treatment. The Operator runs the cadence and rebooks, so the recurring revenue does not depend on someone remembering to reach out.',
+    title: 'The review and the win-back',
+    operator:
+      'After a completed visit, drafts the feedback or referral ask on the same basis for every client, and surfaces the clients not seen in your window to reconnect.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      "Re-sends on your cadence. It asks every client alike, not only the happy ones, and never routes an unhappy client to a private channel while pushing a happy one to a public review. It writes no review for a client, offers nothing in exchange for one, respects your medical-board advertising rules as well as the platform's, and asks for a client's experience, not an outcome claim.",
   },
   {
-    title: 'After hours and follow-up',
-    body: 'The call that comes in after you close, the no-show that needs a follow-up within the day. The Operator answers, books, and chases, and routes anything that sounds like a medical concern to a person immediately.',
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, adverse events escalated, exams outstanding, memberships renewing, follow-ups due, new leads waiting.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Med Spas | SMD Services"
-  description="The med-spa pack is the Operator's head start: a starting point shaped around the front desk and booking cadence, which we configure with you and you customize to your practice. The good-faith exam and the medicine stay with your clinicians. You set the line."
+  description="A worker you hire, not software you buy. The Operator carries the connective patient-journey work in writing: leads, consults, the good-faith-exam gate, authored pre- and post-care, memberships, and reactivation. It gives no medical advice and never clears anyone for treatment. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="med-spa">
-    <Fragment slot="heading">The Front Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Patient Journey, Carried End To End.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its med-spa head start: a
-      starting point already shaped around the front desk and booking cadence, so you are not
-      building from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your spa-management
+      platform and carries the connective work of the patient journey in writing, by text and email:
+      the new lead, the consult, the deposit and cancellation policy, the required good-faith exam,
+      the provider's pre- and post-care, the membership, the financing, the review, so your team is
+      freed for the in-room work. Your team keeps the phone and the live conversations. It gives no
+      medical advice, and it never clears anyone for treatment.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
-    <PackEyebrow>§ 02</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackEyebrow>The Problem</PackEyebrow>
+    <PackHeading variant="prose">A Spa Visit Is A Medical Visit.</PackHeading>
     <PackProse>
       <p>
-        Front-desk turnover runs high, and the seat is the first voice every client hears. The
-        person you train is the one you are soon back on Indeed to replace, and while the seat is
-        open the phone still rings, often after close, and a call that goes unanswered is a booking
-        that goes somewhere else. The work does not wait.
+        The hard part of a med spa is that it looks like hospitality and runs like a clinic. The
+        journey is long and where the revenue lives, the lead, the consult, the deposit, the
+        membership, the package, the financing, the review, the client who lapses and comes back,
+        and it all funnels through one seat, the coordinator who runs the front while the providers
+        treat. It is a high-churn seat in a fast-growing category, and when it is short-staffed, the
+        journey is where revenue quietly leaks.
       </p>
       <p>
-        An Operator fills that seat now. It runs the front desk at full speed, all the time, and
-        what it learns about how your practice runs, your services, your membership, your voice,
-        stays with the practice instead of leaving with the person who had it.
+        But the treatments are medical, performed under medical direction, and that puts hard lines
+        under the coordination a salon never has. Before the medical treatments that require it, a
+        medical exam has to happen first. A client reporting a reaction cannot be left in a queue.
+        The instructions a client follows after a treatment are the provider's words, not the front
+        desk's. A missed step here is not just a lost rebooking. It is a line that should never have
+        been crossed.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>§ 03</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The med-spa pack comes shaped around the work a front desk
-      runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your booking and records system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 04</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the front desk, and we shape
-        the templates around how your practice actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your spa-management platform and
+        carries the connective work of the journey in writing so your people do not have to hold it
+        in their heads: it captures the leads and books the consults, confirms with your deposit and
+        cancellation policy, makes sure the exam your medical director's rule requires is scheduled,
+        tracks memberships and packages, sends the provider's authored care, and follows up after a
+        treatment.
       </p>
       <p>
-        From there the work moves the way it always did. A consult gets booked and confirmed, the
-        membership and rebooking cadence runs, every no-show gets chased, and the routine client
-        question gets answered in your voice, including the calls that come in after you close. The
-        required exam stays a gate a person clears, and a message that might be a medical concern
-        goes to a person right away. It is all logged in your booking and records system as it
-        happens, and it keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. New client-facing messages
+        are drafted for your team to review and send; templated reminders you have pre-approved can
+        re-send on your cadence; an adverse-event escalation always goes to a person right away, and
+        that never changes.
+      </p>
+      <p>
+        It does not replace your spa-management platform; that stays the system of record. The
+        provider owns the medical judgment, the exam, and the clearance; your team owns the in-room
+        and the high-touch work, and keeps the phone and the live conversations. It works the
+        written follow-up by text and email, and does the connective work between and around your
+        people, keeping the record current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 05</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Client, Lead To Loyal.</PackHeading>
     <PackIntro>
-      We are not the experts in how your practice runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work around one client, from the first lead through the consult, the
+      treatment, and the visits that follow. This is the shape of the work, not a fixed script; we
+      build it around how your spa actually runs the journey.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 06</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs the front desk. The good-faith exam, what treatment is appropriate, the
-        dose, those stay with your medical director and your injectors. Not because the software
-        could not book an appointment, but because the license is the point: medical aesthetics
-        takes a licensed clinician who has examined the patient, and a trained but unlicensed
-        coordinator could not make those calls either.
+        The Operator works inside the spa-management platform that is your system of record, your
+        email, and your calendar. It reads the client record, the booking, the membership, and the
+        care plan, updates the records, files what arrives, and routes what needs a person, so the
+        record stays current without anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. It does the connective coordination and never
-        offers a recommendation or a clinical opinion. It schedules the required good-faith exam and
-        never substitutes or clears a client for treatment. Pre-care and post-care convey only the
-        provider's authored instructions. A message that might be an adverse reaction goes to a
-        provider immediately, never handled later and never answered with clinical content.
-        Protected health information stays inside your practice's surfaces, and anything that leaves
-        the practice goes to a reviewer on your team until you decide otherwise. Every action it
-        takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your client records stay private, including from us. The Operator
-        works in your practice's own walled-off environment, on your own accounts. We can see that
-        it is running and the record of what it did, but the contents of your records and messages
-        stay yours, and so do the configuration, the logs, and the off switch.
+        It works in writing, by text and email. It sends transactional messages, confirmations,
+        reminders, post-care, where your records show consent, and marketing messages, reactivation,
+        win-backs, promotions, only where your records show the prior express written consent
+        marketing requires; it honors a stop or opt-out immediately and respects quiet hours. You
+        own consent and its proof. It points clients to your own payment and financing process
+        rather than taking money itself. It is the connective tissue between the systems you already
+        run, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="med-spa" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 07</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your practice runs, so these are
-      starting points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your coordinators feel work coming
+        off their plate, not one more thing pinging them. The exception it never batches is a
+        possible adverse reaction: it goes to your provider through a channel you monitor, and the
+        client is pointed to your urgent contact, right away.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start the conversation -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Gives Medical Advice, And It Never Clears Anyone For Treatment.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it. The
+        provider owns the medical judgment, the exam, and the clearance; the medical director owns
+        the direction. Those never move to the Operator. It runs the journey, not the medicine.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator never gives a medical
+        recommendation, never offers a clinical opinion, and never assesses a reaction. It enforces
+        your medical director's rule that the required good-faith exam is on record before a
+        treatment, with a provider override, and never substitutes for the exam or clears a client.
+        Pre- and post-care carry the provider's authored words, keyed to the treatment in your
+        record, and nothing the Operator infers or adds. And the Operator is not a clinical or
+        emergency channel: anything that could be an adverse reaction is pushed to your provider
+        through a channel you monitor in real time, and the client is directed to your urgent
+        contact, and to call 911 or go to the ER for severe symptoms like vision changes, trouble
+        breathing, severe pain, or skin blanching; the Operator never resolves it and never answers
+        with medical content.
+      </p>
+      <p>
+        And patient data carries the law with it. Before we touch a record we sign a written
+        data-protection agreement, and where HIPAA applies to your practice, a business associate
+        agreement. We handle your clients' medical information under the medical-privacy law that
+        applies to you and your own privacy obligations, used only for the work you authorize and
+        never sold. The Operator messages only on the channels your clients consented to, never
+        takes a payment itself, and logs every action where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading a message and matching your spa's rules, like routing a possible reaction or
+        checking whether the required clearance is on record, we validate on your real clients
+        first. The adverse-event escalation and the exam gate always keep a person in the loop; that
+        never changes. Where accuracy is not yet proven, the Operator surfaces what it found and
+        asks, rather than acting on its own. The configuration, the logs, and the off switch stay
+        with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="med-spa">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your practice runs, find the front-desk work that
-      is eating your team's day, and start from the pack, customizing it to your practice. If it is
-      not a fit, we will tell you.
+      We learn how your spa actually runs the journey, find where the time goes and where clients
+      fall off, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>

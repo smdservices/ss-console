@@ -36,6 +36,6 @@ Often the referrer _does_ know who they sent — but the firm confirming it in w
 
 The drafted message is addressed to the resolved referral source's contact channel only. A guard confirms the recipient is the referrer, not the client and not another matter party — a misaddressed thank-you would itself disclose the referral relationship to the wrong person.
 
-## External-send draft floor
+## External send — the firm's authored ceiling
 
-Output is always a draft surfaced for review; a human sends under their identity. No autonomous-send path for outbound mail (ADR 0005 floor).
+Whether the thank-you sends or drafts is the firm's authored `external_send` ceiling (ADR 0035; see `operator/references/send-posture.md`). `draft_for_review` — surfaced for a human to send under their identity — is the recommended starting posture, not a floor: the law-firm `external_send` floor was removed (ADR 0073).

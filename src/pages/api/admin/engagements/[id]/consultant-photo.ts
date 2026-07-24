@@ -1,6 +1,8 @@
 import type { APIContext, APIRoute } from 'astro'
 import { getEngagement, updateEngagement } from '../../../../../lib/db/engagements'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse, jsonResponse } from '../../../../../lib/api/helpers'
 
 /**
  * Consultant photo upload endpoint.
@@ -28,10 +30,7 @@ function extensionFor(mime: string): string {
 }
 
 function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 function validatePhotoFile(file: FormDataEntryValue | null): Response | File {
@@ -51,20 +50,13 @@ function validatePhotoFile(file: FormDataEntryValue | null): Response | File {
 }
 
 async function handlePost({ request, locals, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const engagementId = params.id
   if (!engagementId) {
-    return new Response(JSON.stringify({ error: 'Engagement ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Engagement ID required')
   }
 
   try {
@@ -104,29 +96,19 @@ async function handlePost({ request, locals, params }: APIContext): Promise<Resp
 export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 async function handleDelete({ locals, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const engagementId = params.id
   if (!engagementId) {
-    return new Response(JSON.stringify({ error: 'Engagement ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Engagement ID required')
   }
 
   try {
     const engagement = await getEngagement(env.DB, session.orgId, engagementId)
     if (!engagement) {
-      return new Response(JSON.stringify({ error: 'Engagement not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(404, 'Engagement not found')
     }
 
     const currentUrl = engagement.consultant_photo_url
@@ -152,16 +134,10 @@ async function handleDelete({ locals, params }: APIContext): Promise<Response> {
       consultant_photo_url: null,
     })
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonResponse(200, { ok: true })
   } catch (err) {
     console.error('[api/admin/engagements/[id]/consultant-photo] Delete error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Internal server error')
   }
 }
 

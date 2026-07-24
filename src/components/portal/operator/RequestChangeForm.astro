@@ -34,7 +34,7 @@ const fieldId = `change-request-${domain}`
 
 <details class="border-t-[2px] border-[color:var(--ss-color-border)]">
   <summary
-    class="cursor-pointer list-none px-5 md:px-7 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+    class="cursor-pointer list-none px-5 md:px-7 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
   >
     Request a change
   </summary>
@@ -47,7 +47,7 @@ const fieldId = `change-request-${domain}`
     <input type="hidden" name="return_to" value={returnTo} />
     <label
       for={fieldId}
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
     >
       What would you like changed about {label}?
     </label>
@@ -62,7 +62,7 @@ const fieldId = `change-request-${domain}`
     <div>
       <button
         type="submit"
-        class="inline-flex items-center min-h-11 px-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        class="inline-flex items-center min-h-11 px-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
       >
         Send request
       </button>

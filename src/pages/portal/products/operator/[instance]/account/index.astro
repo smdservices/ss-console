@@ -1,0 +1,12 @@
+---
+/**
+ * Retired route (console blueprint §5, amended 2026-07-15): the commercial
+ * plane (subscription, billing) moved into Settings — billing is not part of
+ * what the operator IS, so it left the read page entirely. Escalation
+ * contacts render in the one-pager's People section (shared people resolver).
+ * 301 keeps old bookmarks working (redirect doctrine).
+ */
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+return Astro.redirect(`/portal/products/operator/${instance}/settings`, 301)
+---

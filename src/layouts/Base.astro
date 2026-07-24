@@ -1,9 +1,11 @@
 ---
+import { GOOGLE_FONTS_URL } from '../lib/fonts'
 import '../styles/global.css'
 import JsonLd from '../components/JsonLd.astro'
 import SkipToMain from '../components/SkipToMain.astro'
 import EventsTracker from '../components/EventsTracker.astro'
 import Analytics from '../components/Analytics.astro'
+import MetaPixel from '../components/MetaPixel.astro'
 
 interface Props {
   title: string
@@ -15,7 +17,7 @@ interface Props {
 
 const {
   title,
-  description = 'Operations consulting for Phoenix-area small businesses. We help growing businesses find the right path forward and get it done.',
+  description = 'SMD Services builds and runs the Operator, a new kind of worker that fills the gap between your people and your software, as a managed service for growing businesses.',
   disableAnalytics = false,
 } = Astro.props
 
@@ -30,10 +32,7 @@ const ogImageUrl = new URL('/og-image.png', 'https://smd.services')
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href={GOOGLE_FONTS_URL} rel="stylesheet" />
     <link
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
       rel="stylesheet"
@@ -56,6 +55,7 @@ const ogImageUrl = new URL('/og-image.png', 'https://smd.services')
     <title>{title}</title>
     <JsonLd />
     {!disableAnalytics && <Analytics />}
+    {!disableAnalytics && <MetaPixel />}
   </head>
   <body>
     <SkipToMain />

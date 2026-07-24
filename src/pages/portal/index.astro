@@ -1,26 +1,29 @@
 ---
-import '../../styles/global.css'
-import { BRAND_NAME } from '../../lib/config/brand'
 import { getPortalClient } from '../../lib/portal/session'
-import { getProductSubscription } from '../../lib/portal/product-access'
-import PortalHeader from '../../components/portal/PortalHeader.astro'
-import PortalTabs from '../../components/portal/PortalTabs.astro'
-import SkipToMain from '../../components/SkipToMain.astro'
-import TimelineEntry from '../../components/portal/TimelineEntry.astro'
+import {
+  loadPortalHomeDashboard,
+  type PortalHomeEngagement,
+  type PortalHomeInvoice,
+  type PortalHomeQuote,
+  type PortalHomeMilestone,
+} from '../../lib/portal/home'
+import { resolvePortalOfferings } from '../../lib/portal/offerings'
+import { loadHomeCards, type OfferingCard } from '../../lib/portal/home-cards'
+import PortalShell from '../../layouts/PortalShell.astro'
 import PortalPageHead from '../../components/portal/PortalPageHead.astro'
-import MoneyDisplay from '../../components/portal/MoneyDisplay.astro'
+import HomeOfferingCard from '../../components/portal/HomeOfferingCard.astro'
+import TimelineEntry from '../../components/portal/TimelineEntry.astro'
 import { env } from 'cloudflare:workers'
 
 /**
- * Client portal home — C-hybrid: action-centric above the fold with an inline
- * timeline below. See .design/portal-ux-brief.md and .design/designs/portal-v1.
- *
- * - Mobile: invoice ActionCard (or next-touchpoint dominant block) pins above
- *   the fold, recent activity timeline after a divider. Contact lives in the
- *   sticky header (three-icon control), not in a per-surface card.
- * - Desktop (>=md): two-column split — main column holds eyebrow + client
- *   context + timeline; sticky right rail holds the ActionCard.
+ * Portal home — the status dashboard (portal IA rebuild, Captain decision
+ * 3): one card per owned offering with its live status and what needs the
+ * client now, then the recent-activity log. An entity that owns nothing
+ * yet gets the warm holding page (decision 11) — who we are, workspace
+ * ready, contact affordances in the header — never a fake dashboard.
  */
+
+export const prerender = false
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
@@ -29,120 +32,54 @@ if (!portalData) {
 if (!portalData.client) {
   return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
+const { user, client } = portalData
 
-const operatorSubscription = await getProductSubscription(env.DB, portalData.client.id, 'operator')
-const operatorActive = operatorSubscription !== null
-
-const { client } = portalData
-
-interface EngagementRow {
-  id: string
-  status: string
-  scope_summary: string | null
-  start_date: string | null
-  estimated_end: string | null
-  consultant_name: string | null
-  consultant_phone: string | null
-  next_touchpoint_at: string | null
-  next_touchpoint_label: string | null
-}
-
-interface InvoiceRow {
-  id: string
-  amount: number
-  status: string
-  due_date: string | null
-  sent_at: string | null
-  paid_at: string | null
-}
-
-interface QuoteRow {
-  id: string
-  status: string
-  sent_at: string | null
-  accepted_at: string | null
-}
-
-interface MilestoneRow {
-  id: string
-  name: string
-  completed_at: string | null
-}
-
-let activeEngagement: EngagementRow | null = null
-let pendingInvoice: InvoiceRow | null = null
-let invoices: InvoiceRow[] = []
-let quotes: QuoteRow[] = []
-let completedMilestones: MilestoneRow[] = []
-// When a DB read fails we render a single error state rather than a partial
-// dashboard. The header's contact icons are the persistent contact affordance.
 let dashboardError = false
+let cards: OfferingCard[] = []
+let activeEngagement: PortalHomeEngagement | null = null
+let invoices: PortalHomeInvoice[] = []
+let quotes: PortalHomeQuote[] = []
+let completedMilestones: PortalHomeMilestone[] = []
 
-try {
-  activeEngagement = await env.DB.prepare(
-    `SELECT id, status, scope_summary, start_date, estimated_end,
-            consultant_name, consultant_phone,
-            next_touchpoint_at, next_touchpoint_label
-       FROM engagements
-      WHERE entity_id = ? AND org_id = ? AND status IN ('scheduled', 'active', 'handoff', 'safety_net')
-      ORDER BY created_at DESC
-      LIMIT 1`
-  )
-    .bind(client.id, portalData.user.org_id)
-    .first<EngagementRow>()
-
-  if (activeEngagement) {
-    const invoiceResult = await env.DB.prepare(
-      `SELECT id, amount, status, due_date, sent_at, paid_at
-         FROM invoices
-        WHERE engagement_id = ? AND org_id = ? AND status != 'void'
-        ORDER BY created_at DESC`
-    )
-      .bind(activeEngagement.id, portalData.user.org_id)
-      .all<InvoiceRow>()
-    invoices = invoiceResult.results ?? []
-
-    // Next pending invoice: earliest-due among sent/overdue (null due_date last).
-    const pending = invoices.filter((i) => i.status === 'sent' || i.status === 'overdue')
-    pending.sort((a, b) => {
-      if (a.due_date && b.due_date) return a.due_date < b.due_date ? -1 : 1
-      if (a.due_date) return -1
-      if (b.due_date) return 1
-      return 0
-    })
-    pendingInvoice = pending[0] ?? null
-
-    const milestoneResult = await env.DB.prepare(
-      `SELECT id, name, completed_at
-         FROM milestones
-        WHERE engagement_id = ? AND org_id = ? AND status = 'completed' AND completed_at IS NOT NULL
-        ORDER BY completed_at DESC
-        LIMIT 5`
-    )
-      .bind(activeEngagement.id, portalData.user.org_id)
-      .all<MilestoneRow>()
-    completedMilestones = milestoneResult.results ?? []
-  }
-
-  const quoteResult = await env.DB.prepare(
-    `SELECT id, status, sent_at, accepted_at
-       FROM quotes
-      WHERE entity_id = ? AND org_id = ?
-      ORDER BY updated_at DESC
-      LIMIT 5`
-  )
-    .bind(client.id, portalData.user.org_id)
-    .all<QuoteRow>()
-  quotes = quoteResult.results ?? []
-} catch (err) {
-  console.error('portal/index: data fetch failure', err)
+const offerings = await resolvePortalOfferings(env.DB, user.org_id, client.id).catch(() => null)
+if (!offerings) {
   dashboardError = true
+} else if (offerings.preGoLiveLanding && Astro.url.searchParams.get('home') !== '1') {
+  // Pre-go-live operator clients land in the operator area, not this hub
+  // (Captain, 2026-07-16): before anything goes live the portal exists to
+  // review and configure the operator, and this Home page is an empty box.
+  // ?home=1 is a QA escape hatch to reach Home directly in this state.
+  return Astro.redirect(offerings.preGoLiveLanding)
+}
+
+if (offerings) {
+  try {
+    const [loadedCards, dashboard] = await Promise.all([
+      loadHomeCards(env.DB, {
+        orgId: user.org_id,
+        entityId: client.id,
+        userId: user.id,
+        offerings,
+      }),
+      loadPortalHomeDashboard(env.DB, user.org_id, client.id),
+    ])
+    cards = loadedCards
+    activeEngagement = dashboard.activeEngagement
+    invoices = dashboard.invoices
+    quotes = dashboard.quotes
+    completedMilestones = dashboard.completedMilestones
+  } catch (err) {
+    console.error('portal/index: data fetch failure', err)
+    dashboardError = true
+  }
 }
 
 // Surface dev-only query override so the error state is reachable in QA.
 if (!dashboardError && Astro.url.searchParams.get('state') === 'error') {
   dashboardError = true
 }
+
+const nothingOwned = !dashboardError && cards.length === 0
 
 // ---------------------------------------------------------------------------
 // Timeline — most recent first, up to 5 entries. Past-tense, concrete events.
@@ -176,9 +113,9 @@ for (const q of quotes) {
     timeline.push({
       ts: q.accepted_at,
       date: shortDate(q.accepted_at),
-      body: 'Proposal signed. Deposit due.',
+      body: 'Proposal signed.',
       artifactLabel: 'Proposal',
-      artifactHref: `/portal/quotes/${q.id}`,
+      artifactHref: `/portal/engagement/proposals/${q.id}`,
       artifactIcon: 'description',
     })
   } else if (q.sent_at && q.status === 'sent') {
@@ -187,7 +124,7 @@ for (const q of quotes) {
       date: shortDate(q.sent_at),
       body: 'Proposal sent for review.',
       artifactLabel: 'Proposal',
-      artifactHref: `/portal/quotes/${q.id}`,
+      artifactHref: `/portal/engagement/proposals/${q.id}`,
       artifactIcon: 'description',
     })
   }
@@ -200,7 +137,7 @@ for (const inv of invoices) {
       date: shortDate(inv.paid_at),
       body: 'Invoice paid.',
       artifactLabel: `Invoice #${inv.id.slice(0, 6)}`,
-      artifactHref: `/portal/invoices/${inv.id}`,
+      artifactHref: `/portal/billing/invoices/${inv.id}`,
       artifactIcon: 'receipt_long',
     })
   } else if (inv.sent_at) {
@@ -209,7 +146,7 @@ for (const inv of invoices) {
       date: shortDate(inv.sent_at),
       body: 'Invoice sent.',
       artifactLabel: `Invoice #${inv.id.slice(0, 6)}`,
-      artifactHref: `/portal/invoices/${inv.id}`,
+      artifactHref: `/portal/billing/invoices/${inv.id}`,
       artifactIcon: 'receipt_long',
     })
   }
@@ -227,39 +164,14 @@ for (const m of completedMilestones) {
 timeline.sort((a, b) => (a.ts < b.ts ? 1 : -1))
 const timelineEntries = timeline.slice(0, 5)
 
-// ---------------------------------------------------------------------------
-// Derived display values
-// ---------------------------------------------------------------------------
-
-const consultant = activeEngagement?.consultant_name
-  ? {
-      name: activeEngagement.consultant_name,
-      phone: activeEngagement.consultant_phone ?? null,
-      nextTouchpointAt: activeEngagement.next_touchpoint_at ?? null,
-      nextTouchpointLabel: activeEngagement.next_touchpoint_label ?? null,
-    }
-  : null
-
-const consultantFirst = consultant
-  ? consultant.name.trim().split(/\s+/)[0] || consultant.name
-  : null
-
-const invoiceAmountCents = pendingInvoice ? Math.round(pendingInvoice.amount * 100) : null
-const invoiceDueText = pendingInvoice?.due_date ? `Due ${shortDate(pendingInvoice.due_date)}` : null
-const invoicePillLabel = pendingInvoice
-  ? pendingInvoice.status === 'overdue'
-    ? 'Invoice overdue'
-    : 'Invoice due'
-  : null
-const invoiceCaption = pendingInvoice
-  ? `Invoice #${pendingInvoice.id.slice(0, 6)}${invoiceDueText ? ` • ${invoiceDueText}` : ''}`
-  : null
-
+// Only render a check-in line when an authored touchpoint exists — never
+// synthesized outreach copy (no-fabricated-content policy).
 const touchpointText: string | null = (() => {
-  if (!consultant) return null
-  if (consultant.nextTouchpointLabel) return consultant.nextTouchpointLabel
-  if (!consultant.nextTouchpointAt) return null
-  const d = new Date(consultant.nextTouchpointAt)
+  if (!activeEngagement?.next_touchpoint_label && !activeEngagement?.next_touchpoint_at) {
+    return null
+  }
+  if (activeEngagement.next_touchpoint_label) return activeEngagement.next_touchpoint_label
+  const d = new Date(activeEngagement.next_touchpoint_at ?? '')
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -269,183 +181,112 @@ const touchpointText: string | null = (() => {
     minute: '2-digit',
   })
 })()
-
-// Only render a check-in sentence when an authored touchpoint exists. We
-// never synthesize consultant outreach copy — that is uncontracted future
-// behavior per CLAUDE.md's no-fabricated-content policy (#398). The tag
-// + meta on PortalPageHead use these values directly.
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <title>Portal | {BRAND_NAME}</title>
-  </head>
-  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
-    <SkipToMain />
-    <PortalHeader clientName={client.name} />
+<PortalShell
+  title="Portal"
+  clientName={client.name}
+  orgId={user.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+  offerings={offerings ?? undefined}
+>
+  <PortalPageHead
+    tag={activeEngagement ? 'Engagement in flight' : 'Welcome'}
+    h1={client.name}
+    meta={touchpointText ? `Next · ${touchpointText}` : null}
+  />
 
-    <PortalTabs pathname={Astro.url.pathname} operatorActive={operatorActive} />
-
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
-      <PortalPageHead
-        tag={activeEngagement ? 'Engagement in flight' : 'Welcome'}
-        h1={client.name}
-        meta={touchpointText ? `Next · ${touchpointText}` : null}
-      />
-
-      {
-        dashboardError ? (
-          <section
-            class="mt-10 border-[3px] border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)] p-6 md:p-8"
-            aria-live="polite"
+  {
+    dashboardError && (
+      <section
+        class="mt-10 border-[3px] border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)] p-6 md:p-8"
+        aria-live="polite"
+      >
+        <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-error)]">
+          Something broke
+        </p>
+        <h2 class="mt-2 font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          We couldn't load your portal.
+        </h2>
+        <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
+          Give it a moment and try again. If it keeps happening, reach the team using the contacts
+          in the header.
+        </p>
+        <div class="mt-5">
+          <a
+            href="/portal"
+            class="inline-flex items-center min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-2.5 font-body text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
           >
-            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-error)]">
-              Something broke
+            Retry
+          </a>
+        </div>
+      </section>
+    )
+  }
+
+  {
+    nothingOwned && (
+      <section
+        class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12"
+        aria-label="Welcome"
+      >
+        <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
+          Your workspace is ready
+        </p>
+        <h2 class="mt-3 font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          Welcome to SMD Services.
+        </h2>
+        <p class="mt-4 max-w-2xl text-lg text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
+          This portal is where your work with us lives: proposals to review, engagement progress,
+          documents, and billing all land here as they happen. Nothing is in flight yet. When
+          something is, this page shows it first.
+        </p>
+        <p class="mt-4 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          Questions any time: the contact controls in the header reach a person.
+        </p>
+      </section>
+    )
+  }
+
+  {
+    !dashboardError && !nothingOwned && (
+      <>
+        <div class="mt-8 md:mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {cards.map((card) => (
+            <HomeOfferingCard card={card} />
+          ))}
+        </div>
+
+        {/* The log records engagement-lifecycle events (proposals sent/signed,
+            invoices sent/paid, milestones completed). When nothing has
+            happened yet — or the client owns only products that don't feed
+            it — the section is absent, not an empty frame (empty-chapter
+            rule; Captain finding 2026-07-15: the empty box read as filler,
+            and its old copy promised a "next touchpoint" nobody authored). */}
+        {timelineEntries.length > 0 && (
+          <section class="mt-12 min-w-0">
+            <p class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              Recent activity
             </p>
-            <h2 class="mt-2 font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-              We couldn't load your portal.
+            <h2 class="mt-2 font-body text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              Log
             </h2>
-            <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
-              Give it a moment and try again. If it keeps happening, reach the team using the
-              contacts in the header.
-            </p>
-            <div class="mt-5">
-              <a
-                href="/portal"
-                class="inline-flex items-center min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-2.5 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-              >
-                Retry
-              </a>
+
+            <div class="mt-6 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-5 md:p-7 space-y-6">
+              {timelineEntries.map((entry) => (
+                <TimelineEntry
+                  date={entry.date}
+                  body={entry.body}
+                  artifactLabel={entry.artifactLabel}
+                  artifactHref={entry.artifactHref}
+                  artifactIcon={entry.artifactIcon}
+                />
+              ))}
             </div>
           </section>
-        ) : null
-      }
-
-      <!--
-        Desktop: two-column split (main timeline + sticky 340px right rail).
-        Mobile: single column, action-first above the fold, timeline after.
-        Contact is the persistent header three-icon control, not a card.
-      -->
-      <div
-        class:list={[
-          'mt-8 md:mt-10 flex flex-col md:flex-row md:items-start md:gap-10',
-          dashboardError ? 'hidden' : '',
-        ]}
-      >
-        <aside class="w-full md:order-2 md:w-[360px] md:shrink-0 space-y-6 md:sticky md:top-40">
-          {
-            pendingInvoice && invoicePillLabel ? (
-              <section
-                class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-                aria-label="Pending invoice"
-              >
-                <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                  <span>{invoicePillLabel}</span>
-                  <span class="text-[color:var(--ss-color-primary)]">
-                    № {pendingInvoice.id.slice(0, 2).toUpperCase()}
-                  </span>
-                </div>
-                <div class="px-5 py-5">
-                  <MoneyDisplay amountCents={invoiceAmountCents ?? 0} size="hero" />
-                  {invoiceCaption && (
-                    <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]">
-                      {invoiceCaption}
-                    </p>
-                  )}
-                </div>
-                <a
-                  href={`/portal/invoices/${pendingInvoice.id}`}
-                  class="flex items-center justify-between border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                >
-                  <span>Pay invoice</span>
-                  <span aria-hidden="true" class="font-black">
-                    →
-                  </span>
-                </a>
-              </section>
-            ) : touchpointText ? (
-              <section
-                class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-5 py-6"
-                aria-label="Next check-in"
-              >
-                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
-                  Next check-in
-                </p>
-                <p class="mt-3 font-['Archivo'] text-3xl md:text-[2.5rem] font-black uppercase tracking-[-0.02em] leading-none text-[color:var(--ss-color-text-primary)]">
-                  {touchpointText}
-                </p>
-                {consultantFirst && (
-                  <p class="mt-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                    with {consultantFirst}
-                  </p>
-                )}
-              </section>
-            ) : (
-              <section
-                class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-5 py-6"
-                aria-label="Engagement status"
-              >
-                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
-                  In flight
-                </p>
-                <p class="mt-3 text-[color:var(--ss-color-text-secondary)]">
-                  Nothing needs your attention right now.
-                </p>
-              </section>
-            )
-          }
-        </aside>
-
-        <section class="flex-1 min-w-0 md:order-1 mt-10 md:mt-0">
-          <p
-            class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
-          >
-            Recent activity
-          </p>
-          <h2
-            class="mt-2 font-['Archivo'] text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-          >
-            Log
-          </h2>
-
-          {
-            timelineEntries.length > 0 ? (
-              <div class="mt-6 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-5 md:p-7 space-y-6">
-                {timelineEntries.map((entry) => (
-                  <TimelineEntry
-                    date={entry.date}
-                    body={entry.body}
-                    artifactLabel={entry.artifactLabel}
-                    artifactHref={entry.artifactHref}
-                    artifactIcon={entry.artifactIcon}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div class="mt-6 border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
-                <p class="text-[color:var(--ss-color-text-secondary)]">
-                  Nothing here yet. First entry lands after your next touchpoint.
-                </p>
-              </div>
-            )
-          }
-        </section>
-      </div>
-    </main>
-  </body>
-</html>
+        )}
+      </>
+    )
+  }
+</PortalShell>

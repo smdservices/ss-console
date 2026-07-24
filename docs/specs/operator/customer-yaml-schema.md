@@ -93,10 +93,11 @@ connectors:
   # Map of capability name → adapter binding. Capability names are the closed
   # union from src/lib/operator/capabilities/types.ts CapabilityName:
   # PracticeManagement | Email | Calendar | DocumentStorage | ESign |
-  # CourtAccess | Payments | Accounting | IntakeCRM | CallTracking | InternalComms
+  # CourtAccess | Payments | Accounting | IntakeCRM | CallTracking | InternalComms |
+  # WebSearch
   <CapabilityName>:
     adapter: <slug> # e.g. filevine, microsoft-graph, docusign
-    backend: <string> # mcp:<url> | build:<wrapper> | synthetic:<fixture>
+    backend: <string> # mcp:<url> | build:<wrapper> | synthetic:<fixture> | native:<provider>
     enabled: <boolean> # OPTIONAL; default true
     scopes: <list<string>> # OPTIONAL; oauth scopes this connector needs
     token_ref: <string> # OPTIONAL; Infisical reference; see Secret Exclusion
@@ -185,12 +186,34 @@ The `connectors:` map keys MUST be drawn from the canonical capability union pub
 
 ```
 PracticeManagement | Email | Calendar | DocumentStorage | ESign |
-CourtAccess | Payments | Accounting | IntakeCRM | CallTracking | InternalComms
+CourtAccess | Payments | Accounting | IntakeCRM | CallTracking | InternalComms |
+WebSearch
 ```
 
 This union is the wire contract from [ADR 0006](../../adr/0006-capability-adapter-pattern.md). Adding a key outside this set is a validation error — new capabilities require an ADR that extends the type union, then a follow-on schema version bump per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §8.
 
 The `adapter:` value is the SMD-internal adapter slug (e.g. `filevine`, `microsoft-graph`, `docusign`). It is treated as opaque by the schema; the per-adapter conformance harness at boot ([ADR 0006](../../adr/0006-capability-adapter-pattern.md), `src/lib/operator/capabilities/conformance.ts`) verifies the adapter actually satisfies the interface's required-method set. The schema does NOT enumerate accepted slugs — that registry lives with the adapter implementations.
+
+### `WebSearch` — the shared web-search connector ([ADR 0070](../../adr/0070-web-search-shared-connector-divergent-defaults.md))
+
+`WebSearch` is a connector-only capability: it has **no** skill-facing adapter interface (no `web-search.ts`, no conformance methods — its `BANNED_METHOD_NAMES` entry is empty). It exists so the `connectors:` map can bind a web-search backend under the same trust-ceiling and secret machinery every other connector uses.
+
+```yaml
+connectors:
+  WebSearch:
+    adapter: brave
+    backend: 'native:brave-free' # Hermes' native web provider (bundled), NOT an MCP server.
+    #                              A sensitive/legal seat uses a paid/customer-owned Brave tier;
+    #                              other native providers (tavily/exa/firecrawl) are drop-in.
+    enabled: true
+```
+
+- **Altitude is search only.** The driven/cloud browser is explicitly out of scope (ADR 0070) — heaviest resource cost and the largest prompt-injection surface; reserved for a future Operator-tier authored capability. (`native:brave-free` is search-only; extract would be a separate native provider.)
+- **The one deliberate default divergence (ADR 0035 — no imposed defaults):**
+  - **Hosted Agent:** `enabled: true` in `_hosted-template` — research is the marketed product.
+  - **Operator:** left **unauthored** in `_template` — the web is incidental and lower-trust in regulated verticals, so it is authored per engagement.
+- **Cost** is SMD-absorbed on Brave's **free** tier for the Hosted Agent ($0, no runaway spend — it rate-limits at quota, never bills) + a per-seat fair-use cap (`safety.sticky_stop.web_search_daily_cap`, below). Not BYO — it must not add a second signup for the unwilling-to-operate buyer. Sensitive Operator tiers use a paid or customer-owned Brave key (one party in the query path).
+- **Runtime.** Web search is **native**: the overlay's `translate.py::_materialize_web_search` resolves `native:<provider>` to config `web.search_backend`, and Hermes' bundled provider registers the native `web_search` tool (classified READ) — no MCP server. The provider reads its key (e.g. `BRAVE_SEARCH_API_KEY`) directly. Confirm Brave's data-processing/retention terms before authoring `WebSearch` for an Operator legal seat. (The first ADR 0070 cut wrapped Brave in `mcp:brave`; that redundant layer was retired 2026-07-08.)
 
 ## Secret-exclusion enforcement
 
@@ -392,6 +415,7 @@ Validation rules:
 - `webhook_triggers` is OPTIONAL; default is `[]`.
 - A trigger whose `source` has no connector with `webhook_url` configured is rejected (`UnknownWebhookSource`) — either add the URL or drop the trigger.
 - `event_type` is opaque to the validator; the source vendor defines the value (e.g. `matter.created`, `document.added`, `payment.received`). Must be a non-empty string.
+- `webhook_triggers[].throttle` is OPTIONAL (#1781): `{ cooldown_minutes: <non-negative integer> }`. The overlay gate parks any delivery for a (source, event_type, matter) already inside an open cooldown window (202 + `WEBHOOK_SUPPRESSED`, reason `trigger-cooldown:<matter>`) — the deterministic break for write-then-echo loops (the seat's own `create_memo` echoing back as `matter.updated`). Unauthored = the gate's platform default (30 min, an integrity control); `cooldown_minutes: 0` disables for that trigger. Malformed blocks are rejected at authoring/provision time in BOTH validators (parity-pinned): the runtime resolver falls back to the platform default on malformed input, so a silently-accepted typo would silently replace the authored intent.
 
 **Selection rule (Layer 2 fallback ladder).** Given a draft, a reviewer, and a recipient cohort, the transform picks profiles in this priority order:
 
@@ -427,6 +451,26 @@ Field rules:
 **Sentry error-spike thresholds are NOT in `customer.yaml`.** They are owned by Sentry's native alert rules, configured per-customer in Sentry UI by SMD ops. Auto-provisioning from `customer.yaml` is a follow-on triggered by customer-count scale (~20+ customers).
 
 **No `alert_webhook` field in Wave 1.** Customer-configurable external destinations are deferred per ADR 0023 §"Cross-cutting calls" #9. The admin dashboard at `/admin/operator/costs/` is the always-on monitoring surface across all customers; Captain ops escalation uses the existing Resend path on `workers/cost-anomaly`. Reintroduction is a follow-on driven by real customer demand with per-destination adapters, not a single shape that doesn't fit any real webhook target.
+
+## Safety — cost breaker (ADR 0062)
+
+**Added by [ADR 0062](../../adr/0062-operator-cost-plane.md) (ss-console #1661).** Optional block; these are integrity controls protecting SMD's own spend (ADR 0035 posture: unauthored means the platform default applies — never fail-open). Live-read from the volume per use (ADR 0044 read-fresh posture), so an authored change applies without a restart.
+
+```yaml
+safety: # OPTIONAL
+  sticky_stop: # OPTIONAL
+    cost_cap_daily_cents: <int> # default 5000 ($50/day)
+    inbound_daily_cap: <int> # default 200
+    web_search_daily_cap: <int> # default 200; per-seat WebSearch fair-use ceiling (ADR 0070)
+```
+
+Field rules:
+
+- `sticky_stop.cost_cap_daily_cents` is the base of the Machine-wide daily spend ladder enforced on the durable-job path (real provider-reported cents): warn at 80%, soft-stop at 100% (exposure pinned to draft-for-review), hard-stop at 200% (segments refuse; jobs dead-letter to `needs_review`; the webhook gate parks inbound). Must be a positive integer; a malformed value falls back to the platform default with a logged warning.
+- `sticky_stop.inbound_daily_cap` is the maximum verified vendor-webhook deliveries routed to the agent per UTC day. Overflow is acknowledged (202), audited (`INVARIANT_VIOLATION` with `gate_inbound_park` metadata), and NOT routed — never a silent drop. Same positive-integer/fallback rule.
+- `sticky_stop.web_search_daily_cap` ([ADR 0070](../../adr/0070-web-search-shared-connector-divergent-defaults.md)) is the per-seat fair-use ceiling on `WebSearch` (`native:brave-free`) calls per UTC day. On the Hosted Agent's free Brave tier this is a courtesy bound (Brave's own free quota is the hard stop — there is no spend to run away, so "your only bill is Anthropic" holds by construction). Same positive-integer/fallback rule (default 200). Authored where `WebSearch` is enabled (`_hosted-template`); irrelevant on a seat with `WebSearch` unauthored. **Enforcement status:** the field is authored and read into config today; a dedicated per-call counter at the native `web_search` call site is a follow-on. The interim backstop is the Machine-wide cost breaker (`cost_cap_daily_cents`) — every search rides an LLM turn, so a runaway search loop trips the cost ladder regardless.
+- The ladder percentages (80/100/200) are platform semantics, not customer-authorable. Recovery from a hard stop is Captain `clear()` (audited `AGENT_RESUMED`), never automatic.
+- Materialization is runtime live-read (`CustomerConfig.sticky_stop` in the overlay), not a `translate.py` step — see `operator/contracts/customer-yaml-blocks.yaml` (`safety`).
 
 ## Failure modes
 

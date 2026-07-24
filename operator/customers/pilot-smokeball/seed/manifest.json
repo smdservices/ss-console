@@ -1,0 +1,60 @@
+{
+  "contacts": {
+    "alvarez-maria": "7b55d9cc-0aa1-4d27-ac0b-6f3cacdad75e",
+    "alvarez-maria-a": "948e9cbc-7917-4d42-83da-0a9e9cee252f",
+    "bell-thomas": "1010fdfd-33a2-417c-b8cc-fbf495fc78e3",
+    "chen-robert": "54570f05-4640-4315-84c1-fec29ad7435b",
+    "draper-kenneth": "ab06f68e-9873-40b4-946e-047faa6b09f0",
+    "draper-logistics": "4b5ee349-3f65-4d42-8c26-36769ae2d760",
+    "grand-valley": "c2b39cc7-b59a-4a6f-9e38-849f62ee7764",
+    "halverson-property": "dad299a7-1882-42ca-89d3-eec6e94b9b67",
+    "okafor-denise": "49fcf789-79ee-4e6f-9760-fc7ba0e02be8",
+    "ortiz-daniel": "d5addc94-c749-4e90-87db-fe5b237e1963",
+    "pacific-freight": "96ec6ac4-3400-477b-975b-39148e1dd9c4",
+    "ramirez-elena": "c32fe4b2-ae45-4695-9dd9-f89dbc0eed10",
+    "ramirez-sofia": "4ac2954b-7ff8-47f5-9cb4-027007fab7b9",
+    "rj-construction": "5530eb8f-32f0-41d4-8a0a-70c7f795bf4a",
+    "sunrise-plaza": "b8dc5751-b132-4c7a-8de9-2ebae6f85693",
+    "vasquez-electrical": "73296b95-430e-424a-9620-20a0d26e8132",
+    "whitfield-james": "74806f27-f5e4-415d-bbfb-f56be69c8bfc"
+  },
+  "created_at": "2026-07-04T23:19:56Z",
+  "documents": {
+    "complaint-chen": "06ce7812-2ae9-4e53-8ae7-4bc2f58ea957",
+    "deficient-responses": "0eabef80-883d-4c94-8377-8616c5c60dd9",
+    "depo-notice": "f64f3eff-097f-4dac-99c4-dfb8c9d250de",
+    "frog-set-one": "4a887615-ab7b-4d6f-9943-29938cc3d76f",
+    "injection-attempt": "058f228f-440f-4d3e-b467-586fb135c9b2",
+    "lien-dhcs": "8193ed51-00f7-488f-8d91-77777fed3b43",
+    "lien-kaiser": "673f17bd-a4e7-4828-bab8-a850745b773f",
+    "lien-medfin": "86aae147-cc69-498b-aa75-f6c8b142b314",
+    "msj-halverson": "f4fcd3f7-e555-4533-8cfd-80ce2c36c40b",
+    "offer-ramirez": "ca1be283-877a-46f2-a0d5-a7a913a253c6",
+    "oversized-srogs": "0964f5f4-455f-4ddb-b0b1-d969838d9433",
+    "records-ramirez": "d5c0b1af-fb48-43af-99a1-5cd7906bab68",
+    "rfa-malformed-pos": "7998e67b-e276-433c-a5fb-ea4259578005",
+    "rfp-halverson": "63019382-af09-47c3-809f-d8a4a702b925",
+    "rfp-lookalike": "151d0f30-e8a8-46ea-baac-e25a8b98bd65",
+    "rfp-set-one": "3808f645-432f-43e2-9f26-1466cb2dd2b0",
+    "rfp-set-one-duplicate": "0cb0697b-20e0-4583-9737-602b5239d24c",
+    "srog-set-two-amended": "627f006b-ba1a-4ecb-aba4-19b9d6591185",
+    "summons-chen": "3cc2d5ff-624f-4f6f-a35f-f77b51e7f0f8",
+    "trial-order": "8239dab8-0666-4f44-9b35-bdba2d65d9eb",
+    "witness-list": "3061ca2e-d97e-4604-a1a5-812afa70c2c4"
+  },
+  "matters": {
+    "liens-whitfield": "cd710b6b-a7ae-44b0-bb8a-be79e8c5d351",
+    "lookalike-alvarez": "b3e467b3-7eec-4172-b232-b52a80597931",
+    "minor-ramirez": "65108bdf-ae94-4f85-990f-152d6c8d6fa2",
+    "multidef-bell": "062d73bd-4d91-41a7-8160-34bea8f7f81b",
+    "mva-alvarez": "f220c8e4-eab5-4fd9-8f1d-0becf715b390",
+    "premises-chen": "404b292e-ec0f-4c12-aa53-3ea27784cd0e",
+    "trial-okafor": "e47bbc5d-623a-47f3-90b4-72c63b980116"
+  },
+  "tasks": {
+    "records-roster-alvarez": "50d318fb-df87-45b7-ac6e-0788e6eee336",
+    "records-whitfield": "843e1ade-2b39-4a11-9ae3-952eb78d856d",
+    "service-chen": "e1f6b2db-fca3-4981-9f7e-4043f2b3916e",
+    "verification-alvarez": "be08487c-1d5c-4c29-a52b-987876336ad9"
+  }
+}

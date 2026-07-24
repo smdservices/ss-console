@@ -252,7 +252,8 @@ describe('signwell: webhook route', () => {
   it('acknowledges non-completed events with 200', () => {
     const code = source()
     expect(code).toContain('payload.event.type')
-    expect(code).toContain('status: 200')
+    // Responses now go through the shared jsonResponse(status, data) helper.
+    expect(code).toContain('jsonResponse(200')
   })
 
   it('uses constant-time comparison for hash check', () => {
@@ -270,7 +271,7 @@ describe('signwell: webhook route', () => {
 
   it('does NOT use auth middleware (webhooks are unauthenticated)', () => {
     const code = source()
-    expect(code).not.toContain("session.role !== 'admin'")
+    expect(code).not.toContain('requireAdminSession')
     expect(code).not.toContain('locals.session')
   })
 
@@ -294,7 +295,7 @@ describe('signwell: send-for-signature route', () => {
 
   it('verifies admin session', () => {
     const code = source()
-    expect(code).toContain("session.role !== 'admin'")
+    expect(code).toContain('requireAdminSession')
   })
 
   it('checks quote status is draft or sent', () => {

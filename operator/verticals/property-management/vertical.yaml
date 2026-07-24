@@ -27,7 +27,6 @@ compliance:
   - no-screening-or-adverse-action-decision # coordinate + route; never make/communicate the screening decision
   - maintenance-emergency-escalation-fail-open # habitability emergencies go to a human immediately
   - no-legal-advice-no-money-movement # follow authored delinquency process; no eviction advice; never process rent/deposits
-  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

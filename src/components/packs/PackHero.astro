@@ -13,28 +13,27 @@ const { slug } = Astro.props
 ---
 
 <section class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32">
-  <div class="mx-auto max-w-5xl text-center">
-    <span
-      class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-      >§ 01</span
+  <div class="mx-auto max-w-5xl">
+    <p
+      class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
     >
+      The Managed Operator
+    </p>
     <h1
-      class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+      class="mb-8 font-body text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
     >
       <slot name="heading" />
     </h1>
-    <p
-      class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-    >
+    <p class="mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]">
       <slot name="lede" />
     </p>
     <CtaButton href={`/book?interest=${slug}`} data-ev={`${slug}-hero-cta`}
-      >Start the conversation</CtaButton
+      >Start with an assessment</CtaButton
     >
     <p class="mt-8">
       <a
         href={coldLanderLink.href}
-        class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+        class="font-mono text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
         >{coldLanderLink.text} &rarr;</a
       >
     </p>

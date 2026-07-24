@@ -23,6 +23,8 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { ORG_ID } from '../src/lib/constants'
 import {
   getCustomerConfig,
+  getCustomerConfigBySlug,
+  listCustomerConfigsForEntity,
   getActivePersona,
   getLatestSyncMeta,
   listCustomerConfigHistory,
@@ -103,7 +105,13 @@ function makePersona(overrides: Partial<PersonaConfig> = {}): PersonaConfig {
     signature_html: '<p>Marcus<br/>AI Associate</p>',
     tone: ['warm-but-professional'],
     send_as: { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' },
-    skills: [{ name: 'inbox-triage-and-draft', trust_ceiling: 'draft_for_review' }],
+    entitlements: { exposure: { external_send: 'draft_for_review' } },
+    skills: [
+      {
+        name: 'inbox-triage-and-draft',
+        initiation: { manual: true, scheduled: false, webhook: false },
+      },
+    ],
     channel_bindings: [{ integration: 'ms-graph', channels: ['primary-inbox'] }],
     ...overrides,
   }
@@ -271,6 +279,57 @@ describe('customer_configs schema integrity', () => {
       seedConfig(db, { entity_id: 'entity-other', customer_slug: 'same-slug' })
     ).rejects.toThrow()
   })
+
+  it('allows MANY configs per entity (multi-operator model, migration 0090)', async () => {
+    // Before 0090 entity_id was the PK; a second config for the same entity was
+    // a PK violation. Now an entity (one client) may own several operators.
+    await seedEntity(db)
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'smd' })
+    await expect(
+      seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'pilot-smokeball' })
+    ).resolves.not.toThrow()
+  })
+})
+
+describe('getCustomerConfigBySlug / listCustomerConfigsForEntity (multi-operator)', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedEntity(db)
+  })
+
+  it('getCustomerConfigBySlug returns the row addressed by customer_slug', async () => {
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'smd' })
+    await seedConfig(db, {
+      entity_id: ENTITY_ID,
+      customer_slug: 'pilot-smokeball',
+      personas: [makePersona({ slug: 'crane-law', name: 'Crane' })],
+    })
+    const smd = await getCustomerConfigBySlug(db, 'smd')
+    const pilot = await getCustomerConfigBySlug(db, 'pilot-smokeball')
+    expect(smd?.customer_slug).toBe('smd')
+    expect(smd?.entity_id).toBe(ENTITY_ID)
+    expect(pilot?.customer_slug).toBe('pilot-smokeball')
+    expect(pilot?.personas[0].name).toBe('Crane')
+  })
+
+  it('getCustomerConfigBySlug returns null for an unknown slug', async () => {
+    expect(await getCustomerConfigBySlug(db, 'no-such-slug')).toBeNull()
+  })
+
+  it('listCustomerConfigsForEntity returns every operator the entity owns', async () => {
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'smd' })
+    await seedConfig(db, { entity_id: ENTITY_ID, customer_slug: 'pilot-smokeball' })
+    const list = await listCustomerConfigsForEntity(db, ENTITY_ID)
+    // Order is created_at ASC; the two seeds can share a second-granularity
+    // timestamp, so assert membership rather than a brittle exact order.
+    expect(list.map((c) => c.customer_slug).sort()).toEqual(['pilot-smokeball', 'smd'])
+  })
+
+  it('listCustomerConfigsForEntity returns [] when the entity owns none', async () => {
+    expect(await listCustomerConfigsForEntity(db, ENTITY_ID)).toEqual([])
+  })
 })
 
 describe('mcp_connector projection column (migration 0071)', () => {
@@ -305,30 +364,28 @@ describe('mcp_connector projection column (migration 0071)', () => {
 })
 
 describe('parseMcpConnector (fail-closed, defensive)', () => {
-  it('null / undefined ⇒ disabled, empty access', () => {
-    expect(parseMcpConnector(null)).toEqual({ enabled: false, data_posture: 'open', access: [] })
-    expect(parseMcpConnector(undefined)).toEqual({
-      enabled: false,
-      data_posture: 'open',
-      access: [],
-    })
+  const FAIL_CLOSED = {
+    enabled: false,
+    data_posture: 'open',
+    policy: 'allowlist',
+    allowed_domains: [],
+    default_profile: null,
+    ttl_days: 30,
+    access: [],
+  }
+
+  it('null / undefined ⇒ disabled, allowlist, empty access', () => {
+    expect(parseMcpConnector(null)).toEqual(FAIL_CLOSED)
+    expect(parseMcpConnector(undefined)).toEqual(FAIL_CLOSED)
   })
 
   it('malformed JSON ⇒ fail-closed (never throws)', () => {
-    expect(parseMcpConnector('{not json')).toEqual({
-      enabled: false,
-      data_posture: 'open',
-      access: [],
-    })
+    expect(parseMcpConnector('{not json')).toEqual(FAIL_CLOSED)
   })
 
   it('a non-object value ⇒ fail-closed', () => {
-    expect(parseMcpConnector('"a string"')).toEqual({
-      enabled: false,
-      data_posture: 'open',
-      access: [],
-    })
-    expect(parseMcpConnector('42')).toEqual({ enabled: false, data_posture: 'open', access: [] })
+    expect(parseMcpConnector('"a string"')).toEqual(FAIL_CLOSED)
+    expect(parseMcpConnector('42')).toEqual(FAIL_CLOSED)
   })
 
   it('an unknown data_posture falls back to open; enabled requires literal true', () => {
@@ -354,6 +411,33 @@ describe('parseMcpConnector (fail-closed, defensive)', () => {
       })
     )
     expect(c.access).toEqual([{ email: 'good@firm.com', profile: 'crane' }])
+  })
+
+  it('surfaces a well-formed open policy (lowercased domains, profile, ttl)', () => {
+    const c = parseMcpConnector(
+      JSON.stringify({
+        enabled: true,
+        policy: 'open',
+        allowed_domains: ['Firm.com', 'bad domain', 'partners.firm.com'],
+        default_profile: 'marcus',
+        ttl_days: 14,
+        access: [],
+      })
+    )
+    expect(c.policy).toBe('open')
+    expect(c.allowed_domains).toEqual(['firm.com', 'partners.firm.com'])
+    expect(c.default_profile).toBe('marcus')
+    expect(c.ttl_days).toBe(14)
+  })
+
+  it('falls back policy/ttl defensively on garbage values', () => {
+    const c = parseMcpConnector(
+      JSON.stringify({ enabled: true, policy: 'everyone', ttl_days: 9999, access: [] })
+    )
+    expect(c.policy).toBe('allowlist')
+    expect(c.ttl_days).toBe(30)
+    expect(c.allowed_domains).toEqual([])
+    expect(c.default_profile).toBeNull()
   })
 })
 

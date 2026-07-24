@@ -1,7 +1,18 @@
 import type { APIRoute } from 'astro'
+import { z } from 'zod'
 import type { StripeWebhookEvent } from '../../../lib/stripe/types'
 import { handleInvoicePaid, handleInvoicePaymentFailed } from '../../../lib/webhooks/stripe-handler'
+import {
+  extractStripeSubscriptionId,
+  handleRetainerInvoiceFinalized,
+  handleRetainerInvoicePaid,
+  handleRetainerInvoicePaymentFailed,
+  handleSubscriptionLifecycle,
+} from '../../../lib/webhooks/stripe-subscription-handler'
+import { handleHostedAgentCheckoutCompleted } from '../../../lib/webhooks/hosted-agent-checkout-handler'
 import { env } from 'cloudflare:workers'
+import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
+import { getAdminBaseUrl, getPortalBaseUrl } from '../../../lib/config/app-url'
 
 /**
  * POST /api/webhooks/stripe
@@ -12,17 +23,203 @@ import { env } from 'cloudflare:workers'
  * session tokens. Security is enforced via Stripe-Signature header
  * verification using the STRIPE_WEBHOOK_SECRET.
  *
- * Only processes `invoice.paid` and `invoice.payment_failed` events.
- * All other events are acknowledged with 200 but not acted upon.
+ * Dispatch (#1679): invoice events carrying a subscription linkage belong to
+ * the Operator retainer flow (stripe-subscription-handler.ts — Stripe
+ * originates those invoices monthly and we mirror them locally); invoice
+ * events without one belong to the legacy console-originated one-time flow
+ * (stripe-handler.ts). `customer.subscription.updated`/`.deleted` mirror
+ * billing state onto the local subscriptions row. All other events are
+ * acknowledged with 200 but not acted upon.
  */
+const StripeWebhookEnvelopeSchema = z.looseObject({
+  type: z.string(),
+})
+
+const StripeInvoiceSchema = z.looseObject({
+  id: z.string().min(1),
+  object: z.literal('invoice'),
+  status: z.enum(['draft', 'open', 'paid', 'uncollectible', 'void']),
+  amount_due: z.number(),
+  amount_paid: z.number(),
+  currency: z.string(),
+  customer: z.string(),
+  customer_email: z.string().nullable(),
+  description: z.string().nullable(),
+  hosted_invoice_url: z.string().nullable(),
+  invoice_pdf: z.string().nullable(),
+  collection_method: z.string(),
+  status_transitions: z.object({
+    paid_at: z.number().nullable(),
+    finalized_at: z.number().nullable(),
+    voided_at: z.number().nullable(),
+  }),
+  metadata: z.record(z.string(), z.string()),
+  created: z.number(),
+  due_date: z.number().nullable(),
+})
+
+const StripeInvoiceWebhookEventSchema = z.looseObject({
+  id: z.string(),
+  object: z.literal('event'),
+  type: z.string(),
+  data: z.object({
+    object: StripeInvoiceSchema,
+  }),
+  created: z.number(),
+})
+
+// customer.subscription.* payload — only the fields the local mirror consumes
+// (#1679). `pause_collection` stays unknown-typed: presence is the signal.
+const StripeSubscriptionSchema = z.looseObject({
+  id: z.string().min(1),
+  object: z.literal('subscription'),
+  status: z.string(),
+  pause_collection: z.unknown().optional(),
+})
+
+const StripeSubscriptionWebhookEventSchema = z.looseObject({
+  id: z.string(),
+  object: z.literal('event'),
+  type: z.string(),
+  data: z.object({
+    object: StripeSubscriptionSchema,
+  }),
+  created: z.number(),
+})
+
+// checkout.session.completed payload — the fields the Hosted Agent concierge
+// pipeline consumes (ADR 0067). looseObject retains everything else.
+const StripeCheckoutSessionSchema = z.looseObject({
+  id: z.string().min(1),
+  object: z.literal('checkout.session'),
+  client_reference_id: z.string().nullable().optional().default(null),
+  customer: z.string().nullable().optional().default(null),
+  subscription: z.string().nullable().optional().default(null),
+  amount_total: z.number().nullable().optional().default(null),
+  customer_details: z
+    .looseObject({
+      email: z.string().nullable().optional().default(null),
+      name: z.string().nullable().optional().default(null),
+    })
+    .nullable()
+    .optional()
+    .default(null),
+  metadata: z.record(z.string(), z.string()).optional().default({}),
+  total_details: z
+    .looseObject({ amount_discount: z.number().optional() })
+    .nullable()
+    .optional()
+    .default(null),
+})
+
+const StripeCheckoutSessionWebhookEventSchema = z.looseObject({
+  id: z.string(),
+  object: z.literal('event'),
+  type: z.string(),
+  data: z.object({
+    object: StripeCheckoutSessionSchema,
+  }),
+  created: z.number(),
+})
+
+/**
+ * Route an invoice event. Subscription-linked payloads (both API shapes:
+ * top-level `subscription` and `parent.subscription_details.subscription` —
+ * looseObject retains them even though the schema does not declare them)
+ * belong to the retainer mirror; unlinked ones to the legacy one-time flow.
+ * Returns null when the event type is not an invoice event this route handles.
+ */
+async function dispatchInvoiceEvent(eventType: string, parsed: unknown): Promise<Response | null> {
+  if (
+    eventType !== 'invoice.paid' &&
+    eventType !== 'invoice.payment_failed' &&
+    eventType !== 'invoice.finalized'
+  ) {
+    return null
+  }
+  const eventResult = StripeInvoiceWebhookEventSchema.safeParse(parsed)
+  if (!eventResult.success) {
+    return errorResponse(400, 'Malformed event payload')
+  }
+  const invoice = eventResult.data.data.object
+  const subId = extractStripeSubscriptionId(invoice)
+
+  if (eventType === 'invoice.paid') {
+    if (subId !== null) return handleRetainerInvoicePaid(env.DB, env.RESEND_API_KEY, subId, invoice)
+    const event: StripeWebhookEvent = eventResult.data
+    return handleInvoicePaid(env.DB, env.RESEND_API_KEY, event)
+  }
+  if (eventType === 'invoice.payment_failed') {
+    if (subId !== null) {
+      return handleRetainerInvoicePaymentFailed(env.DB, env.RESEND_API_KEY, subId, invoice)
+    }
+    const event: StripeWebhookEvent = eventResult.data
+    return handleInvoicePaymentFailed(env.DB, event)
+  }
+  // invoice.finalized: mirror the open cycle invoice so the portal shows what
+  // Stripe emailed. One-time invoices are console-originated; no mirror needed.
+  if (subId !== null) return handleRetainerInvoiceFinalized(env.DB, subId, invoice)
+  return jsonResponse(200, { ok: true, event: eventType })
+}
+
+/** Route checkout.session.completed to the Hosted Agent concierge pipeline
+ * (ADR 0067). The handler acks non-hosted-agent sessions honestly. Returns
+ * null for other event types. */
+async function dispatchCheckoutEvent(eventType: string, parsed: unknown): Promise<Response | null> {
+  if (eventType !== 'checkout.session.completed') return null
+  const eventResult = StripeCheckoutSessionWebhookEventSchema.safeParse(parsed)
+  if (!eventResult.success) {
+    return errorResponse(400, 'Malformed event payload')
+  }
+  // Non-throwing base-URL reads: a missing env var must degrade the email
+  // links, never 500 the webhook (Stripe would retry-loop a config gap).
+  const portalBase = getPortalBaseUrl(env) ?? 'https://portal.smd.services'
+  const adminBase = getAdminBaseUrl(env) ?? 'https://admin.smd.services'
+  return handleHostedAgentCheckoutCompleted(
+    env.DB,
+    env.RESEND_API_KEY,
+    `${portalBase}/portal/products/hosted-agent`,
+    `${adminBase}/admin/hosted-agent`,
+    eventResult.data.data.object
+  )
+}
+
+/** Route customer.subscription.updated/.deleted to the local status mirror.
+ * Returns null for other event types. */
+async function dispatchSubscriptionEvent(
+  eventType: string,
+  parsed: unknown
+): Promise<Response | null> {
+  if (
+    eventType !== 'customer.subscription.updated' &&
+    eventType !== 'customer.subscription.deleted'
+  ) {
+    return null
+  }
+  const eventResult = StripeSubscriptionWebhookEventSchema.safeParse(parsed)
+  if (!eventResult.success) {
+    return errorResponse(400, 'Malformed event payload')
+  }
+  return handleSubscriptionLifecycle(env.DB, eventType, eventResult.data.data.object)
+}
+
+type ParseStripeWebhookEventResult = { parsed: unknown } | { response: Response }
+
+function parseStripeWebhookEvent(rawBody: string): ParseStripeWebhookEventResult {
+  try {
+    return { parsed: JSON.parse(rawBody) as unknown }
+  } catch {
+    return {
+      response: errorResponse(400, 'Invalid JSON'),
+    }
+  }
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error('[webhook/stripe] STRIPE_WEBHOOK_SECRET not configured')
-    return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Server misconfigured')
   }
 
   // --- Signature verification ---
@@ -32,37 +229,32 @@ export const POST: APIRoute = async ({ request }) => {
   const isValid = await verifyStripeSignature(rawBody, signatureHeader, webhookSecret)
   if (!isValid) {
     console.error('[webhook/stripe] Invalid webhook signature')
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(401, 'Invalid signature')
   }
 
   // --- Parse payload ---
-  let event: StripeWebhookEvent
-  try {
-    event = JSON.parse(rawBody) as StripeWebhookEvent
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  const parsedResult = parseStripeWebhookEvent(rawBody)
+  if ('response' in parsedResult) return parsedResult.response
+  const parsed = parsedResult.parsed
+
+  const envelopeResult = StripeWebhookEnvelopeSchema.safeParse(parsed)
+  if (!envelopeResult.success) {
+    return errorResponse(400, 'Invalid JSON')
   }
+  const eventType = envelopeResult.data.type
 
   // --- Dispatch by event type ---
-  if (event.type === 'invoice.paid') {
-    return handleInvoicePaid(env.DB, env.RESEND_API_KEY, event)
-  }
+  const invoiceEventResponse = await dispatchInvoiceEvent(eventType, parsed)
+  if (invoiceEventResponse) return invoiceEventResponse
 
-  if (event.type === 'invoice.payment_failed') {
-    return handleInvoicePaymentFailed(env.DB, event)
-  }
+  const checkoutEventResponse = await dispatchCheckoutEvent(eventType, parsed)
+  if (checkoutEventResponse) return checkoutEventResponse
+
+  const subscriptionEventResponse = await dispatchSubscriptionEvent(eventType, parsed)
+  if (subscriptionEventResponse) return subscriptionEventResponse
 
   // Acknowledge all other events without processing
-  return new Response(JSON.stringify({ ok: true, event: event.type }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(200, { ok: true, event: eventType })
 }
 
 /**

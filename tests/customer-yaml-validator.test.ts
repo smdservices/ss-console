@@ -65,10 +65,16 @@ function validFixture(): Record<string, unknown> {
         signature_html: '<p>Marcus | AI Associate at Smith PI</p>',
         tone: ['warm-but-professional', 'concise'],
         send_as: { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' },
+        entitlements: {
+          exposure: {
+            internal_write: 'autonomous',
+            external_send: 'draft_for_review',
+          },
+        },
         skills: [
           {
             name: 'inbox-triage-and-draft',
-            trust_ceiling: 'draft_for_review',
+            initiation: { manual: true, scheduled: false, webhook: false },
             enabled: true,
             cost_estimate: {
               tokens_in_per_run: 2000,
@@ -77,7 +83,10 @@ function validFixture(): Record<string, unknown> {
               runs_per_day_typical: 30,
             },
           },
-          { name: 'conflict-check', trust_ceiling: 'autonomous' },
+          {
+            name: 'conflict-check',
+            initiation: { manual: true, scheduled: false, webhook: false },
+          },
         ],
         channel_bindings: [{ integration: 'ms-graph', channels: ['primary-inbox'] }],
       },
@@ -126,6 +135,197 @@ function withFullOptionals(): Record<string, unknown> {
   f['pause'] = { active: false }
   return f
 }
+
+describe('webhook_triggers.exclude (authored trigger exceptions)', () => {
+  const OPS = '3c191bed-cdda-48b9-a6ed-a51a349f3f94'
+  const CHRIS = 'aaaa1111-2222-3333-4444-bbbbcccc0001'
+
+  function withExclude(exclude: unknown) {
+    const f = withWebhooks()
+    const triggers = f['webhook_triggers'] as Record<string, unknown>[]
+    triggers[0]['exclude'] = exclude
+    return f
+  }
+
+  it('accepts matter + actor GUID lists and carries them through', () => {
+    const result = validate(withExclude({ matters: [OPS], actors: [CHRIS] }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.webhook_triggers[0].exclude).toEqual({ matters: [OPS], actors: [CHRIS] })
+    }
+  })
+
+  it('is null when unauthored', () => {
+    const result = validate(withWebhooks())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.webhook_triggers[0]?.exclude ?? null).toBeNull()
+  })
+
+  it('rejects non-GUID ids, unknown keys, and an empty block', () => {
+    for (const bad of [{ matters: ['the ops matter'] }, { people: [CHRIS] }, {}]) {
+      const result = validate(withExclude(bad))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
+describe('webhook_triggers.throttle (per-trigger cooldown, #1781)', () => {
+  function withThrottle(throttle: unknown) {
+    const f = withWebhooks()
+    const triggers = f['webhook_triggers'] as Record<string, unknown>[]
+    triggers[0]['throttle'] = throttle
+    return f
+  }
+
+  it('accepts an authored cooldown and carries it through', () => {
+    const result = validate(withThrottle({ cooldown_minutes: 30 }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: 30 })
+    }
+  })
+
+  it('accepts 0 (authored disable) and an empty block (gate default)', () => {
+    const zero = validate(withThrottle({ cooldown_minutes: 0 }))
+    expect(zero.ok).toBe(true)
+    if (zero.ok) expect(zero.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: 0 })
+    const empty = validate(withThrottle({}))
+    expect(empty.ok).toBe(true)
+    if (empty.ok) {
+      expect(empty.value.webhook_triggers[0].throttle).toEqual({ cooldown_minutes: null })
+    }
+  })
+
+  it('is null when unauthored', () => {
+    const result = validate(withWebhooks())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.webhook_triggers[0]?.throttle ?? null).toBeNull()
+  })
+
+  it('rejects negative, non-integer, non-object, and unknown-key blocks', () => {
+    for (const bad of [
+      { cooldown_minutes: -5 },
+      { cooldown_minutes: 2.5 },
+      { cooldown_minutes: '30' },
+      'nope',
+      { cooldown_mins: 30 },
+    ]) {
+      const result = validate(withThrottle(bad))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
+describe('custody guard (code_execution vs gateway-held creds, ADR 0044 D8 / #1841)', () => {
+  function withCodeExecution(extra?: (f: Record<string, unknown>) => void) {
+    const f = validFixture()
+    const personas = f['personas'] as Record<string, unknown>[]
+    const entitlements = personas[0]['entitlements'] as Record<string, unknown>
+    entitlements['exposure'] = {
+      ...(entitlements['exposure'] as Record<string, unknown>),
+      code_execution: 'autonomous',
+    }
+    extra?.(f)
+    return f
+  }
+
+  it('rejects non-refused code_execution alongside enabled gateway connectors', () => {
+    const result = validate(withCodeExecution())
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      const hit = result.errors.find((e) => e.code === 'CustodyGuardViolation')
+      expect(hit).toBeDefined()
+      expect(hit?.message).toContain('filevine')
+    }
+  })
+
+  it('counts the telegram channel and agentmail send identity as surfaces', () => {
+    const tg = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        f['telegram'] = { enabled: true, allow_from: ['7367659986'] }
+      })
+    )
+    expect(tg.ok).toBe(false)
+    if (!tg.ok) expect(tg.errors.some((e) => e.message.includes('telegram'))).toBe(true)
+
+    const am = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        const personas = f['personas'] as Record<string, unknown>[]
+        personas[0]['send_as'] = { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' }
+      })
+    )
+    expect(am.ok).toBe(false)
+    if (!am.ok) expect(am.errors.some((e) => e.message.includes('agentmail'))).toBe(true)
+  })
+
+  it('an authored identity-channel exception accepts (the smd shape)', () => {
+    const result = validate(
+      withCodeExecution((f) => {
+        f['connectors'] = {}
+        const personas = f['personas'] as Record<string, unknown>[]
+        delete personas[0]['send_as'] // fixture persona carries an agentmail identity
+        f['telegram'] = { enabled: true, allow_from: ['7367659986'] }
+        f['custody_exceptions'] = ['telegram']
+      })
+    )
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(true)
+    if (result.ok) expect(result.value.custody_exceptions).toEqual(['telegram'])
+  })
+
+  it('client-data adapters can never be excepted', () => {
+    const result = validate(withCodeExecution((f) => (f['custody_exceptions'] = ['filevine'])))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.code === 'IneligibleCustodyException')).toBe(true)
+    }
+  })
+
+  it('code_execution refused or unauthored passes with connectors present', () => {
+    const refused = withCodeExecution()
+    const personas = refused['personas'] as Record<string, unknown>[]
+    const entitlements = personas[0]['entitlements'] as Record<string, unknown>
+    ;(entitlements['exposure'] as Record<string, unknown>)['code_execution'] = 'refused'
+    expect(validate(refused).ok).toBe(true)
+    expect(validate(validFixture()).ok).toBe(true)
+  })
+
+  it('rejects malformed and duplicate exception lists', () => {
+    for (const bad of ['telegram', ['telegram', 'telegram'], [42]]) {
+      const result = validate(withCodeExecution((f) => (f['custody_exceptions'] = bad)))
+      expect(result.ok).toBe(false)
+    }
+  })
+})
+
+describe('digest (authored digest home, #1742)', () => {
+  it('accepts a valid home_matter_id GUID and carries it through', () => {
+    const f = validFixture()
+    f['digest'] = { home_matter_id: 'f220c8e4-eab5-4fd9-8f1d-0becf715b390' }
+    const result = validate(f)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.digest?.home_matter_id).toBe('f220c8e4-eab5-4fd9-8f1d-0becf715b390')
+    }
+  })
+
+  it('is null when unauthored (fail-closed default)', () => {
+    const result = validate(validFixture())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.digest).toBeNull()
+  })
+
+  it('rejects a non-GUID home_matter_id', () => {
+    const f = validFixture()
+    f['digest'] = { home_matter_id: 'the ops matter' }
+    const result = validate(f)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.path === 'digest.home_matter_id')).toBe(true)
+    }
+  })
+})
 
 function codesOf(errors: ValidationError[]): ValidationErrorCode[] {
   return errors.map((e) => e.code)
@@ -361,16 +561,16 @@ describe('validate — EnumViolation', () => {
     expect(r.errors.some((e) => e.code === 'EnumViolation' && e.path.includes('users'))).toBe(true)
   })
 
-  it('rejects unknown trust_ceiling', () => {
+  it('rejects legacy skill trust_ceiling', () => {
     const f = validFixture()
-    ;(
-      f['personas'] as Array<{ skills: Array<{ trust_ceiling: string }> }>
-    )[0].skills[0].trust_ceiling = 'YOLO'
+    ;(f['personas'] as Array<{ skills: Array<Record<string, unknown>> }>)[0].skills[0][
+      'trust_ceiling'
+    ] = 'YOLO'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(
-      r.errors.some((e) => e.code === 'EnumViolation' && e.path.includes('trust_ceiling'))
+      r.errors.some((e) => e.code === 'LegacyEntitlementField' && e.path.includes('trust_ceiling'))
     ).toBe(true)
   })
 
@@ -490,7 +690,13 @@ describe('validate — personas[]', () => {
       status: 'archived',
       name: 'Casey',
       tone: ['warm'],
-      skills: [{ name: 'inbox-triage-and-draft', trust_ceiling: 'draft_for_review' }],
+      entitlements: { exposure: { external_send: 'draft_for_review' } },
+      skills: [
+        {
+          name: 'inbox-triage-and-draft',
+          initiation: { manual: true, scheduled: false, webhook: false },
+        },
+      ],
     })
     const r = validate(f)
     if (!r.ok) {
@@ -559,7 +765,7 @@ describe('validate — connectors', () => {
   })
 
   it('accepts all documented backend prefixes', () => {
-    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
+    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture', 'native:brave-free']
     for (const backend of prefixes) {
       const f = validFixture()
       ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'] = {
@@ -594,6 +800,37 @@ describe('validate — connectors', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidTokenRef')
+  })
+
+  // ADR 0070 (native cut): WebSearch is a first-class connector capability bound
+  // to Hermes' native web provider (native:brave-free), not an MCP server.
+  it('accepts a WebSearch connector on the native:brave-free backend', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
+      adapter: 'brave',
+      backend: 'native:brave-free',
+      enabled: true,
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.connectors.WebSearch?.backend).toBe('native:brave-free')
+    expect(r.value.connectors.WebSearch?.enabled).toBe(true)
+  })
+
+  it('rejects a WebSearch connector on an unknown backend (fail-closed)', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['WebSearch'] = {
+      adapter: 'brave',
+      backend: 'http:brave.com',
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const has = r.errors.some(
+      (e) => e.code === 'InvalidBackend' && e.path === 'connectors.WebSearch.backend'
+    )
+    expect(has).toBe(true)
   })
 })
 
@@ -1409,10 +1646,132 @@ describe('validate — compliance_enabled (#895)', () => {
 // -----------------------------------------------------------------------------
 
 describe('validate — mcp_connector', () => {
-  it('defaults to disabled/open/empty when the block is omitted', () => {
+  it('defaults to disabled/allowlist/empty when the block is omitted', () => {
     const r = validate(validFixture())
     if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
-    expect(r.value.mcp_connector).toEqual({ enabled: false, data_posture: 'open', access: [] })
+    expect(r.value.mcp_connector).toEqual({
+      enabled: false,
+      data_posture: 'open',
+      policy: 'allowlist',
+      allowed_domains: [],
+      default_profile: null,
+      ttl_days: 30,
+      access: [],
+    })
+  })
+
+  it('defaults policy to allowlist (fail-closed) when enabled without a policy', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [{ email: 'partner@firm.com', profile: 'marcus' }],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.policy).toBe('allowlist')
+  })
+
+  it('accepts an open policy with allowed_domains and an active default_profile', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['Firm.com', 'partners.firm.com'],
+      default_profile: 'marcus',
+      ttl_days: 7,
+      access: [],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.policy).toBe('open')
+    expect(r.value.mcp_connector.allowed_domains).toEqual(['firm.com', 'partners.firm.com'])
+    expect(r.value.mcp_connector.default_profile).toBe('marcus')
+    expect(r.value.mcp_connector.ttl_days).toBe(7)
+  })
+
+  it('rejects an open policy with no allowed_domains', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, policy: 'open', default_profile: 'marcus', access: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.allowed_domains' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects an open policy with no default_profile', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['firm.com'],
+      access: [],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.default_profile' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects a default_profile that is not an active persona', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['firm.com'],
+      default_profile: 'ghost',
+      access: [],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.default_profile' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects an unknown policy value', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, policy: 'everyone', access: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.policy' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects a malformed allowed_domains entry', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['not a domain'],
+      default_profile: 'marcus',
+      access: [],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'mcp_connector.allowed_domains[0]' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects a ttl_days above the 90-day ceiling (never infinite)', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, ttl_days: 365, access: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.ttl_days' && e.code === 'TypeMismatch')
+    ).toBe(true)
   })
 
   it('accepts an enabled connector binding an authored user to an active persona', () => {
@@ -1597,6 +1956,8 @@ describe('validate — mcp_connector', () => {
 function withBundlesAndCron(): Record<string, unknown> {
   const f = validFixture()
   const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+  ;(persona['skills'] as Array<{ initiation: { scheduled: boolean } }>)[0].initiation.scheduled =
+    true
   persona['bundles'] = [
     {
       slug: 'pi-intake',
@@ -1768,6 +2129,8 @@ describe('validate — ADR 0021 cron', () => {
 
 function withWebhooks(): Record<string, unknown> {
   const f = withBundlesAndCron()
+  const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+  ;(persona['skills'] as Array<{ initiation: { webhook: boolean } }>)[0].initiation.webhook = true
   const connectors = f['connectors'] as Record<string, Record<string, unknown>>
   connectors['PracticeManagement']['webhook_url'] =
     'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
@@ -2242,7 +2605,6 @@ describe('validate — google_auth', () => {
         {
           address: 'owner@firm.com',
           send_as: ['owner@firm.com', 'team@firm.com'],
-          action_ceilings: { external_send: 'draft_for_review' },
         },
       ],
     }
@@ -2253,7 +2615,6 @@ describe('validate — google_auth', () => {
       {
         address: 'owner@firm.com',
         send_as: ['owner@firm.com', 'team@firm.com'],
-        action_ceilings: { external_send: 'draft_for_review' },
       },
     ])
   })
@@ -2313,7 +2674,7 @@ describe('validate — google_auth', () => {
     expect(r.errors.some((e) => e.path === 'google_auth.managed_mailboxes[0].send_as')).toBe(true)
   })
 
-  it('fails closed: a managed mailbox with an invalid action_ceilings value', () => {
+  it('fails closed: a managed mailbox with legacy action_ceilings', () => {
     const f = validFixture()
     f['google_auth'] = {
       mode: 'dwd',
@@ -2333,8 +2694,8 @@ describe('validate — google_auth', () => {
     expect(
       r.errors.some(
         (e) =>
-          e.path === 'google_auth.managed_mailboxes[0].action_ceilings.external_send' &&
-          e.code === 'InvalidActionCeiling'
+          e.path === 'google_auth.managed_mailboxes[0].action_ceilings' &&
+          e.code === 'LegacyEntitlementField'
       )
     ).toBe(true)
   })
@@ -2596,5 +2957,119 @@ describe('validate — relationship block (ADR 0048)', () => {
         (e) => e.path === 'relationship.people[0].prefers[1]' && e.code === 'TypeMismatch'
       )
     ).toBe(true)
+  })
+})
+
+describe('validate — scope.outbound_roster (ADR 0075)', () => {
+  function withOutbound(roster: unknown, inbound?: unknown): Record<string, unknown> {
+    const f = validFixture()
+    const scope = f['scope'] as Record<string, unknown>
+    scope['outbound_roster'] = roster
+    if (inbound !== undefined) scope['inbound_allow_from'] = inbound
+    return f
+  }
+
+  it('accepts a valid client + records_vendor roster and carries it through', () => {
+    const r = validate(
+      withOutbound([
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client on gmail' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+      ])
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.outbound_roster).toEqual([
+        { address: 'jane@gmail.com', class: 'client', note: 'PI client on gmail' },
+        { address: 'records@radiology.com', class: 'records_vendor' },
+      ])
+    }
+  })
+
+  it('accepts an EXACT address at a public-mail provider (PI client on gmail)', () => {
+    const r = validate(withOutbound([{ address: 'jane@gmail.com', class: 'client' }]))
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects a whole-@domain grant at a public-mail provider', () => {
+    const r = validate(withOutbound([{ address: '@gmail.com', class: 'client' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('accepts an @domain grant at a firm/vendor domain', () => {
+    const r = validate(withOutbound([{ address: '@records-vendor.com', class: 'records_vendor' }]))
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects a class outside the closed vocabulary', () => {
+    const r = validate(withOutbound([{ address: 'a@b.com', class: 'opposing_counsel' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects a malformed address', () => {
+    const r = validate(withOutbound([{ address: 'not-an-email', class: 'client' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects one address typed as more than one class', () => {
+    const r = validate(
+      withOutbound([
+        { address: 'x@firm-vendor.com', class: 'client' },
+        { address: 'x@firm-vendor.com', class: 'records_vendor' },
+      ])
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects an address also present in inbound_allow_from', () => {
+    const r = validate(
+      withOutbound([{ address: 'scott@smd.services', class: 'client' }], ['scott@smd.services'])
+    )
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
+  })
+
+  it('rejects a non-list outbound_roster', () => {
+    const r = validate(withOutbound('nope'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('defaults to [] when unauthored', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.outbound_roster).toEqual([])
+  })
+})
+
+describe('validate — send exposure classes (ADR 0075)', () => {
+  function withExposure(exposure: Record<string, unknown>): Record<string, unknown> {
+    const f = validFixture()
+    const persona = (f['personas'] as Record<string, unknown>[])[0]
+    persona['entitlements'] = { exposure }
+    return f
+  }
+
+  it('accepts external_send_client / external_send_vendor, and confirm on them', () => {
+    const r = validate(
+      withExposure({
+        external_send_client: 'autonomous',
+        external_send_vendor: 'confirm',
+      })
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.personas[0].entitlements.exposure.external_send_client).toBe('autonomous')
+      expect(r.value.personas[0].entitlements.exposure.external_send_vendor).toBe('confirm')
+    }
+  })
+
+  it('rejects confirm on a non-send class', () => {
+    const r = validate(withExposure({ internal_write: 'confirm' }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
   })
 })

@@ -23,10 +23,20 @@ export interface SubscriptionRow {
   org_id: string
   entity_id: string
   product_slug: string
+  /**
+   * Per-instance discriminator for multi-instance products (migration 0089).
+   * For `operator` it holds the `customer_slug` of the instance; `null` for
+   * single-instance products (hosted-agent, engagement). A new operator
+   * subscription MUST always be written WITH this set — see
+   * {@link getOperatorSubscriptionByInstance}.
+   */
+  instance_slug: string | null
   status: string
   started_at: string
   ended_at: string | null
   settings_json: string | null
+  /** COGS/MRR service linkage (nullable; $0 internal instances leave it null). */
+  service_id: string | null
   created_at: string
   updated_at: string
 }
@@ -67,6 +77,48 @@ export async function getProductSubscription(
     )
     .bind(entityId, productSlug)
     .first<SubscriptionRow>()
+}
+
+/**
+ * Return a specific operator INSTANCE's live subscription for an entity,
+ * addressed by `instance_slug` (= the instance's `customer_slug`). This is the
+ * multi-instance-aware counterpart to `getProductSubscription`: an entity may
+ * hold several `operator` subscriptions since migration 0089, so the product
+ * slug alone no longer identifies one. Returns null when no live row matches.
+ */
+export async function getOperatorSubscriptionByInstance(
+  db: D1Database,
+  entityId: string,
+  instanceSlug: string
+): Promise<SubscriptionRow | null> {
+  return await db
+    .prepare(
+      `SELECT * FROM subscriptions
+        WHERE entity_id = ? AND product_slug = 'operator' AND instance_slug = ?
+          AND status IN ('provisioning', 'active', 'paused')`
+    )
+    .bind(entityId, instanceSlug)
+    .first<SubscriptionRow>()
+}
+
+/**
+ * All live (provisioning/active/paused) subscriptions for an entity in
+ * one query. The offerings resolver and the Billing surface consume this
+ * instead of per-slug getProductSubscription calls.
+ */
+export async function listActiveSubscriptionsForEntity(
+  db: D1Database,
+  entityId: string
+): Promise<SubscriptionRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT * FROM subscriptions
+        WHERE entity_id = ? AND status IN ('provisioning', 'active', 'paused')
+        ORDER BY created_at ASC`
+    )
+    .bind(entityId)
+    .all<SubscriptionRow>()
+  return result.results ?? []
 }
 
 /**

@@ -28,7 +28,7 @@ That coordination is a real seat, the firm administrator or client coordinator w
 
 ## Skill catalog
 
-Twelve accounting-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
+Twelve accounting-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send follows the engagement's authored `external_send` ceiling (fail-closed when unauthored).
 
 ### Onboarding
 
@@ -84,7 +84,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No tax or accounting advice** — connective coordination only. Never a tax position, never a deduction or treatment, never an interpretation of financials, never a due-date computation. The twelve skills are onboarding, document chasing, scheduling, deadline relay, e-sign chasing, status, billing, and renewal. This is the accounting analog of the law pack's UPL boundary.
 - **Taxpayer-information confidentiality (IRC §7216)** — taxpayer information is not disclosed or used beyond preparing the engagement without the consent the law requires. The Operator does not share or repurpose taxpayer data.
 - **Deadline relay, never computation** — `deadline-filing-reminder` tracks the dates the firm authored; it never computes a filing requirement or due date, which is professional judgment.
-- **External-send draft floor** — external mail ships under a human reviewer's identity, one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)).
+- **Authored send posture** — outside sends follow the engagement's authored `external_send` ceiling, fail-closed when unauthored ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md), ADR 0035); `draft_for_review` is the recommended starting posture.
 - **Records stay in firm surfaces** — client financial records stay inside the firm's systems; the Operator does not exfiltrate them.
 
 ## Labor-market context (the demand, without presumption)

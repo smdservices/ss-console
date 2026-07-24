@@ -14,7 +14,7 @@ The `mcp:smokeball` connector was built against the OpenAPI spec and round-tripp
 - **Request contract CONFIRMED.** Every API call needs **two** headers: `x-api-key` (the `SMOKEBALL_STAGING_API_KEY`) + `Authorization: Bearer`. `GET /matters?Limit=1` returned 200.
 - **Pagination envelope CONFIRMED.** List responses are a HATEOAS envelope `{ value: [...], offset, limit, size, first, previous, next, last, href }` — not a bare array. Skills read `value`.
 - **Path corrections (OpenAPI vs the guesses above).** `/mattertypes` (not `/matter-types`); files at `/matters/{matterId}/documents/files` (+ `/{fileId}`, `/{fileId}/download`) — `get_file`/`get_download_url` need **matterId + fileId**, not a flat file id; webhooks at `/webhooks` + event types at `/webhooks/types`; query params are **PascalCase** (`Status`, `IsLead`, `MatterTypeId`, `ContactId`, `UpdatedSince`, `Sort`, `Limit`, `Offset`); tasks filter by `IsCompleted` (bool), `MatterId`.
-- **Still ASSUMED (verify when the wedge wires writes).** `create_memo` request-body field (the server sends `{text}`; the live memo schema is an inline object the OpenAPI did not expand); the `UpdatedSince` .NET-ticks-vs-ISO format; the stage<->matter-type join (`get_stage_to_matter_mappings` hits `/stages`).
+- **Still ASSUMED (verify when the wedge wires writes).** `create_memo` request-body field (the server sends `{text}`; the live memo schema is an inline object the OpenAPI did not expand); the `UpdatedSince` .NET-ticks-vs-ISO format; the stage<->matter-type join (`get_stage_to_matter_mappings` hits `/stages`). **Added 2026-06-25 (write cut — bodies match the OpenAPI DTOs but are UNVERIFIED against a live tenant):** `create_event`/`update_event` (`EventDto`: `subject`, `startTime`, `endTime`, `matterId`, `type=Normal`, ...); `create_event_reminder` (`ReminderDto`: `offset`, `offsetTypeId` — unit encoding unconfirmed); `create_task`/`update_task` (`TaskDto`: required `staffId`, `dueDateOnly`); `create_folder` (`FolderDto`: required `name`, `parentFolderId`). Note the existing `add_file`/`delete_file` write path still 403s on staging (cause unverified) — re-confirm ALL writes at the A&P prod connect.
 
 ## Base URLs and auth (US region — confirm region with the firm)
 
@@ -36,20 +36,21 @@ App registration is **self-service** at `https://console.smokeball.com` (create 
 
 We author these tools. Names are **Smokeball-native** (the Operator is a Smokeball expert, not a Clio facade); the wedge skills are updated to call them in the fluency pass. Read vs. write split mirrors the fail-closed wedge posture.
 
-| Capability            | Read tools → endpoint                                                                                                                                      | Write tools → endpoint                                                                                                           |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Auth                  | `auth_status`                                                                                                                                              | `authenticate`, `logout` (`/logout`)                                                                                             |
-| Matters               | `list_matters(status, isLead, matterTypeId, contactId, updatedSince, sort, limit, offset)` → `GET /matters`; `get_matter(matter_id)` → `GET /matters/{id}` | `create_matter(...)` ⚠️, `patch_matter(...)` — **gated, draft-only this phase**                                                  |
-| Matter types / stages | `list_matter_types()` → `GET /matter-types`; `get_stage_sets()` / `get_stage_to_matter_mappings()` → `/stages/*`                                           | —                                                                                                                                |
-| Contacts              | `get_contacts(query, limit, offset)` → `GET /contacts`; `get_contact(contact_id)`; `get_contact_relations(...)`                                            | `create_contact(...)` ⚠️ — gated, draft-only                                                                                     |
-| Tasks                 | `list_tasks(matter_id, status, due_date_start, due_date_end, limit)` → `GET /tasks`; `get_task(task_id)`; subtasks                                         | `create_task(...)`, `update_task(...)` — gated, draft-only                                                                       |
-| Staff / users         | `search_staff(name, enabled, limit)` → `GET /staff`; `get_staff(staff_id)`                                                                                 | `create_staff` / `create_user` — **out of scope** (not used by the wedge)                                                        |
-| Roles / relationships | `get_roles_on_matter(matter_id)`, `get_relationships_on_matter(matter_id)`                                                                                 | —                                                                                                                                |
-| Files / documents     | `get_files_on_matter(matter_id)` → `GET /matters/{id}/files`; `get_file(file_id)`; `get_download_url(file_id)`                                             | `add_file(...)`, `get_upload_url(...)` — gated                                                                                   |
-| Memos                 | `get_memos_on_matter(matter_id)`                                                                                                                           | `create_memo(matter_id, ...)` — the internal-log write (the Clio `create_note` analogue)                                         |
-| Trust / bank accounts | `get_bank_accounts()`; **`get_matter_balances(bank_account_id, matterId)`** → `GET /bankaccounts/{id}/matter-balances`                                     | `create_transaction`, `protect_funds`, `unprotect_funds` — **hard-banned** (zero fund movement, enforced as a `fails` invariant) |
-| Billing (AR)          | `get_matter_billing_config(matter_id)`; `get_fees(...)`; `get_expenses(...)`                                                                               | —                                                                                                                                |
-| Webhooks              | `get_webhook_subscriptions()`, `get_event_types()`                                                                                                         | `create_webhook_subscription(...)` (provisioning-time, drives event skills)                                                      |
+| Capability            | Read tools → endpoint                                                                                                                                      | Write tools → endpoint                                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth                  | `auth_status`                                                                                                                                              | `authenticate`, `logout` (`/logout`)                                                                                                                                   |
+| Matters               | `list_matters(status, isLead, matterTypeId, contactId, updatedSince, sort, limit, offset)` → `GET /matters`; `get_matter(matter_id)` → `GET /matters/{id}` | `create_matter(...)` ⚠️, `patch_matter(...)` — **gated, draft-only this phase**                                                                                        |
+| Matter types / stages | `list_matter_types()` → `GET /matter-types`; `get_stage_sets()` / `get_stage_to_matter_mappings()` → `/stages/*`                                           | —                                                                                                                                                                      |
+| Contacts              | `get_contacts(query, limit, offset)` → `GET /contacts`; `get_contact(contact_id)`; `get_contact_relations(...)`                                            | `create_contact(...)` ⚠️ — gated, draft-only                                                                                                                           |
+| Tasks                 | `list_tasks(matter_id, is_completed, updated_since, limit, offset)` → `GET /tasks`; `get_task(task_id)`                                                    | **`create_task(staff_id, subject, matter_id, due_date→dueDateOnly, ...)`, `update_task(task_id, ...)`** — IMPLEMENTED 2026-06-25 (internal_write)                      |
+| Calendar / events     | `list_events(matter_id, from_, to, updated_since, ...)` → `GET /events`                                                                                    | **`create_event`, `update_event` (non-recurring only), `create_event_reminder`** — IMPLEMENTED 2026-06-25 (internal_write); no delete-event                            |
+| Staff / users         | `search_staff(name, enabled, limit)` → `GET /staff`; `get_staff(staff_id)`                                                                                 | `create_staff` / `create_user` — **out of scope** (not used by the wedge)                                                                                              |
+| Roles / relationships | `get_roles_on_matter(matter_id)`, `get_relationships_on_matter(matter_id)`                                                                                 | —                                                                                                                                                                      |
+| Files / documents     | `get_files_on_matter(matter_id)` → `GET /matters/{id}/documents/files`; `get_file`; `get_download_url`; **`list_folders(matter_id)`**                      | `add_file(...)` (two-stage upload), `delete_file(...)` (destructive); **`create_folder(matter_id, name, parent_folder_id)`** — IMPLEMENTED 2026-06-25 (internal_write) |
+| Memos                 | `get_memos_on_matter(matter_id)`                                                                                                                           | `create_memo(matter_id, ...)` — the internal-log write (the Clio `create_note` analogue)                                                                               |
+| Trust / bank accounts | `get_bank_accounts()`; **`get_matter_balances(bank_account_id, matterId)`** → `GET /bankaccounts/{id}/matter-balances`                                     | `create_transaction`, `protect_funds`, `unprotect_funds` — **hard-banned** (zero fund movement, enforced as a `fails` invariant)                                       |
+| Billing (AR)          | `get_matter_billing_config(matter_id)`; `get_fees(...)`; `get_expenses(...)`                                                                               | —                                                                                                                                                                      |
+| Webhooks              | `get_webhook_subscriptions()`, `get_event_types()`                                                                                                         | `create_webhook_subscription(...)` (provisioning-time, drives event skills)                                                                                            |
 
 Pagination is `limit` (default **500**, max 500) + `offset`; `updatedSince` is **.NET ticks** format (not ISO) on `list_matters`; `sort` takes `asc(Field)`/`desc(LastUpdated)`.
 
@@ -69,14 +70,30 @@ The Clio connect step (clio-surface.md findings 2–3 + the trust note) carried 
 
 Bonus: **`isLead`** makes `new-matter-intake` map onto Smokeball's _native_ lead→matter conversion — the intake wedge is exactly the shape of Smokeball's own intake model.
 
-## ⚠️ The one gap — Calendar is NOT in the Smokeball API
+## Calendar — Smokeball HAS an Events API (corrected 2026-06-25)
 
-There is no appointments/calendar resource group. Smokeball is **Outlook-native** — calendar lives in M365. So skills that read calendar entries source them from the **mail/calendar binding**, not the PM connector:
+An earlier version of this doc claimed Smokeball had no calendar resource. That
+was wrong. The OpenAPI spec exposes an **Events (calendar) resource group**:
+`GET /events`, `POST /events` (create), `PUT /events/{id}` (update), and
+`POST /events/{id}/reminders` — wired into the connector 2026-06-25 as
+`list_events` / `create_event` / `update_event` / `create_event_reminder`. Two
+limits: **create/update is non-recurring (`type=Normal`) only** (recurring events
+are read-only), and **no delete-event** is documented. E-Sign/signature status is
+still inferred from the signed document landing in the matter (no in-flight status
+API).
 
-- **Sandbox:** the proven `build:google-*` path (as pilot-law uses) supplies calendar.
-- **Production (this firm):** **M365 / Graph** is the right binding (the firm runs Outlook). The M365 adapter is not yet built (the MS Graph DocumentStorage piece is P0 #1055); production-fidelity calendar is a tracked follow-on, not a sandbox blocker.
+**This opens a calendar-source design decision (OPEN, see RESEARCH-SYNTHESIS):**
+the Operator can now consolidate deadlines into the **Smokeball calendar
+directly** (no M365 build) — which matches Christa's "single source of truth in
+Smokeball" ask — rather than routing every calendar write through an M365 binding.
+M365/Graph is still required for the **inbound-email-discovery** watch (the genuine
+Smokeball blind spot) and may still be wanted for two-way Outlook sync. Decide
+Smokeball-events vs M365 calendar before wiring the deadline skills; do not assume
+M365 is the calendar source.
 
-**Task-based deadlines DO come from Smokeball** (`list_tasks` `due_date`). So `deadline-and-sol-tracker` reads authored court/filing dates from Smokeball tasks; _appointment_-style entries come from the calendar binding. The split must be explicit in the skill so it degrades honestly (same discipline as the Clio surface doc).
+**Task-based deadlines also come from Smokeball** (`list_tasks` `due_date`,
+`create_task`/`update_task`). So the deadline engine can write both a tracked
+**task** and a calendar **event** (with a reminder cascade) into Smokeball.
 
 ## Wedge skill → Smokeball dependency map (this phase: reads + conservative writes only)
 
@@ -95,7 +112,7 @@ There is no appointments/calendar resource group. Smokeball is **Outlook-native*
 
 ## Write posture (unchanged from the wedge — fail-closed)
 
-Every client-/tribunal-bound message ships under the human reviewer's identity (external-send draft floor). Every Smokeball _write_ (`create_matter`, `create_task`, `create_contact`, file/document writes) is **gated / draft-and-surface** until the connect step proves the call succeeds against staging AND the engagement authors it on (ADR 0035, no imposed defaults). Trust-account writes (`protect_funds`/`unprotect_funds`/`create_transaction`) are **never** authored on — a `fails` invariant, not a default. `create_memo` (internal log) is the one write the wedge uses this phase, analogous to Clio's `create_note`.
+Every client-/tribunal-bound message follows the firm's authored `external_send` ceiling (ADR 0035; fail-closed when unauthored). Every Smokeball _write_ (`create_matter`, `create_task`, `create_contact`, file/document writes) is **gated / draft-and-surface** until the connect step proves the call succeeds against staging AND the engagement authors it on (ADR 0035, no imposed defaults). Trust-account writes (`protect_funds`/`unprotect_funds`/`create_transaction`) are **never** authored on — a `fails` invariant, not a default. `create_memo` (internal log) is the one write the wedge uses this phase, analogous to Clio's `create_note`.
 
 ## ASSUMED — unverified vs. a live Smokeball tenant (scope the connect-step diff)
 

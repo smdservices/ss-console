@@ -1,0 +1,89 @@
+---
+/**
+ * "What it must leave alone" — the Duties section's boundaries box (console
+ * blueprint §5, restructured 2026-07-15: boundaries on WORK live beside
+ * what-it's-allowed-to-do, not under People). Two layers, both authored data:
+ *
+ *   - standingCaps — the grid's `enforcement.banned_tools` in plain language
+ *     (closed display map in the work resolver): the always-on hard limits,
+ *     like never moving money. These do not change.
+ *   - blocks — the scope block lists (topics / senders / kinds of work),
+ *     addable at any time.
+ */
+
+interface Props {
+  standingCaps: string[]
+  blocks: { topics: string[]; senders: string[]; work: string[] } | null
+}
+
+const { standingCaps, blocks } = Astro.props
+const anyBlocks = Boolean(
+  blocks && (blocks.topics.length > 0 || blocks.senders.length > 0 || blocks.work.length > 0)
+)
+
+const groupLabel =
+  'font-mono text-label uppercase tracking-[0.08em] text-[color:var(--color-text-secondary)] m-0'
+const groupValue = 'mt-1 font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0'
+---
+
+<div
+  class="mt-8 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+>
+  <p
+    class="px-4 pt-5 md:px-7 font-mono text-caption font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] m-0"
+  >
+    What it must leave alone
+  </p>
+  <div class="px-4 py-5 md:px-7">
+    {
+      standingCaps.length > 0 && (
+        <div class="mb-5">
+          <p class="font-body text-sm leading-snug text-[color:var(--color-text-secondary)] m-0">
+            Built into how it operates. These do not change:
+          </p>
+          <ul role="list" class="mt-2 m-0 flex list-none flex-col gap-1 p-0">
+            {standingCaps.map((cap) => (
+              <li class="font-body text-sm font-semibold leading-snug text-[color:var(--color-text-primary)]">
+                {cap}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+    {
+      blocks && anyBlocks ? (
+        <div class="flex flex-col gap-4">
+          {blocks.topics.length > 0 && (
+            <div>
+              <p class={groupLabel}>Topics</p>
+              <p class={groupValue}>{blocks.topics.join(', ')}</p>
+            </div>
+          )}
+          {blocks.senders.length > 0 && (
+            <div>
+              <p class={groupLabel}>Senders and domains</p>
+              <p class={groupValue}>{blocks.senders.join(', ')}</p>
+            </div>
+          )}
+          {blocks.work.length > 0 && (
+            <div>
+              <p class={groupLabel}>Kinds of work</p>
+              <p class={groupValue}>{blocks.work.join(', ')}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <p class="font-body text-sm leading-snug text-[color:var(--color-text-primary)] m-0">
+            No additional blocks are set.
+          </p>
+          <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)] m-0">
+            A block puts something fully off limits: a topic, a sender, or a kind of work the
+            operator must leave alone. Blocks can be added at any time.
+          </p>
+        </>
+      )
+    }
+  </div>
+</div>

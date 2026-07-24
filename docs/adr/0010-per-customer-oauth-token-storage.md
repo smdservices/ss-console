@@ -18,7 +18,9 @@ related-issue: https://github.com/venturecrane/ss-console/issues/878
 
 **Customer-side OAuth tokens (Gmail, MS Graph, QuickBooks, Clio, etc.) are stored on the customer's per-Machine Fly volume at `/opt/data/oauth/<provider>.json`. They are never stored in Infisical, never copied to a shared store, and never readable from outside the customer's Machine.**
 
-Shared SMD-side secrets (Anthropic API key, Composio API key, AgentMail API key, Fly deploy tokens) remain in Infisical and are pushed to each customer's Fly secrets at provision time by `bin/provision-customer.sh`. The distinction is data ownership: SMD owns the Anthropic API key; the customer owns their Gmail OAuth token.
+> **Forward-note (2026-07-13).** [ADR 0045](./0045-mediated-connector-capability-broker.md)'s broker cutover moved the **Google Workspace** read path off this volume file — Workspace credentials are now readable only by the separate `workspace-broker` OS principal, not by the general-purpose connector wrappers. The "all connector wrappers read from `/opt/data/oauth/<provider>.json`" rule below is therefore no longer universal; it holds for the remaining volume-file connectors, with Google Workspace as a broker-mediated exception.
+
+Shared SMD-side secrets (Anthropic API key, AgentMail API key, Fly deploy tokens) remain in Infisical and are pushed to each customer's Fly secrets at provision time by `bin/provision-customer.sh`. The distinction is data ownership: SMD owns the Anthropic API key; the customer owns their Gmail OAuth token. _(Revision note 2026-07-03: the original text also listed a Composio API key here — Composio was dropped entirely by the [ADR 0020](./0020-connector-strategy.md) revision of 2026-05-30, so no Composio secret is provisioned.)_
 
 ## Storage shape
 
@@ -60,7 +62,7 @@ The `survives Machine destroy` row is the only one that favors Infisical. We acc
 Unchanged from current practice:
 
 - `ANTHROPIC_API_KEY` — SMD-owned
-- `COMPOSIO_API_KEY` — SMD-owned (Composio per-connection isolation enforced separately, issue #850)
+- ~~`COMPOSIO_API_KEY`~~ — retired with Composio ([ADR 0020](./0020-connector-strategy.md) revision, 2026-05-30); the per-connection isolation work (issue #850) was retired with it
 - `AGENTMAIL_API_KEY` — SMD-owned
 - `FLY_API_TOKEN` — SMD-owned (used by `bin/provision-customer.sh`)
 - Cloudflare Workers secrets for ss-console portal/admin — SMD-owned

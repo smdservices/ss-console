@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { mergeEntities } from '../../../../../lib/db/entities-extra'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/entities/[id]/merge
@@ -12,13 +13,9 @@ import { env } from 'cloudflare:workers'
  * URL param: [id] — the entity to merge INTO (will be kept).
  */
 export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const targetId = params.id
   if (!targetId) {

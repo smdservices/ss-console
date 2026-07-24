@@ -266,8 +266,8 @@ describe('quotes: API routes', () => {
   it('endpoints verify admin session', () => {
     const createCode = readFileSync(resolve('src/pages/api/admin/quotes/index.ts'), 'utf-8')
     const updateCode = readFileSync(resolve('src/pages/api/admin/quotes/[id].ts'), 'utf-8')
-    expect(createCode).toContain("session.role !== 'admin'")
-    expect(updateCode).toContain("session.role !== 'admin'")
+    expect(createCode).toContain('requireAdminSession')
+    expect(updateCode).toContain('requireAdminSession')
   })
 })
 
@@ -317,7 +317,7 @@ describe('quotes: repeat-quote flow (#472)', () => {
   })
 
   it('new-quote endpoint requires admin session', () => {
-    expect(apiSource()).toContain("session.role !== 'admin'")
+    expect(apiSource()).toContain('requireAdminSession')
   })
 
   it('new-quote endpoint gates on stage (signal through proposing)', () => {

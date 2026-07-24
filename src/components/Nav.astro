@@ -1,13 +1,25 @@
 ---
 import SmdLogo from './SmdLogo.astro'
+import { bookHref } from '../lib/booking/config'
 
 const navLinks = [
   { href: '/operator', label: 'Operator' },
-  { href: '/operator#industries', label: 'Industries' },
-  { href: '/why', label: 'Why' },
-  { href: '/consulting', label: 'Consulting' },
-  { href: '/contact', label: 'Contact' },
+  { href: '/industries', label: 'Industries' },
+  { href: '/about', label: 'About' },
 ]
+
+// The persistent CTA carries an interest only from a surface that is genuinely
+// about that solution, so the assessment chip never presumes one: a pack page
+// keeps its vertical slug, the /operator page keeps `operator`, and every
+// firm-level page starts the assessment neutral. The single front door is the
+// assessment regardless.
+const path = Astro.url.pathname
+const packMatch = path.match(/^\/packs\/([^/]+)\/?$/)
+const bookUrl = packMatch
+  ? bookHref(packMatch[1])
+  : path === '/operator'
+    ? bookHref('operator')
+    : bookHref()
 ---
 
 <header
@@ -23,7 +35,7 @@ const navLinks = [
       {
         navLinks.map((item) => (
           <a
-            class="hidden md:inline-flex items-center min-h-11 px-1 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+            class="hidden md:inline-flex items-center min-h-11 px-1 font-mono text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
             href={item.href}
             data-ev={`nav-${item.label.toLowerCase()}`}
           >
@@ -31,10 +43,13 @@ const navLinks = [
           </a>
         ))
       }
+      <!-- Persistent CTA is desktop-only. On mobile it would crowd the bar and
+           push the Menu button off-screen; the CTA still lives in the mobile
+           menu's bottom bar and in every page hero. -->
       <a
-        class="inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-['Archivo'] font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
-        href="/book"
-        data-ev="nav-book">Get in touch</a
+        class="hidden md:inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-body font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
+        href={bookUrl}
+        data-ev="nav-book">Start with an assessment</a
       >
       <button
         type="button"
@@ -42,7 +57,7 @@ const navLinks = [
         aria-controls="mobile-menu-dialog"
         aria-haspopup="dialog"
         data-nav-open
-        class="md:hidden inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 select-none transition-colors"
+        class="md:hidden inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-mono text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 select-none transition-colors"
       >
         Menu
       </button>
@@ -64,11 +79,16 @@ const navLinks = [
          Brand on the left, Close on the right. -->
     <div class="flex h-14 flex-none items-center justify-between px-4 border-b-[3px] border-white">
       <SmdLogo inverse data-nav-link />
+      <!-- autofocus directs the dialog's initial focus here on open. Without it,
+           showModal() focuses the first focusable descendant (the logo link),
+           leaving a stray focus ring around the brand that reads as a different
+           logo. Close is the correct, conventional initial focus target. -->
       <button
         type="button"
         aria-label="Close menu"
+        autofocus
         data-nav-close
-        class="inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-white bg-transparent font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-surface-inverse)]"
+        class="inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-white bg-transparent font-mono text-xs font-bold uppercase tracking-[0.14em] text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-surface-inverse)]"
       >
         Close
       </button>
@@ -83,10 +103,10 @@ const navLinks = [
               <a
                 href={item.href}
                 data-nav-link
-                class="flex items-baseline gap-4 px-5 py-6 min-h-[64px] font-['Archivo'] text-3xl font-black uppercase tracking-[-0.01em] text-white hover:bg-[color:rgba(245,240,227,0.06)]"
+                class="flex items-baseline gap-4 px-5 py-6 min-h-[64px] font-body text-3xl font-black uppercase tracking-[-0.01em] text-white hover:bg-[color:rgba(245,240,227,0.06)]"
                 data-ev={`nav-mobile-${item.label.toLowerCase()}`}
               >
-                <span class="font-['JetBrains_Mono'] text-sm font-semibold tracking-[0.12em] text-[color:var(--ss-color-primary)] min-w-[2.5rem]">
+                <span class="font-mono text-sm font-semibold tracking-[0.12em] text-[color:var(--ss-color-primary)] min-w-[2.5rem]">
                   § 0{i + 1}
                 </span>
                 <span>{item.label}</span>
@@ -100,11 +120,11 @@ const navLinks = [
     <!-- Bottom CTA -->
     <div class="flex-none border-t-[3px] border-white p-5">
       <a
-        href="/book"
+        href={bookUrl}
         data-nav-link
         data-ev="nav-mobile-book"
-        class="flex w-full items-center justify-center whitespace-nowrap border-[3px] border-white bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-['Archivo'] text-base font-bold uppercase tracking-[0.08em] text-white transition-colors"
-        >Get in touch</a
+        class="flex w-full items-center justify-center whitespace-nowrap border-[3px] border-white bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-body text-base font-bold uppercase tracking-[0.08em] text-white transition-colors"
+        >Start with an assessment</a
       >
     </div>
   </div>

@@ -8,9 +8,16 @@
  * via the signed webhook gate (`/webhooks/mcp`). The Operator works it and
  * reports back via its authored channels.
  *
- * Both capabilities are injected via {@link McpToolContext} so tool handlers
- * stay free of env/db wiring. `sendHandoff` is optional — when unconfigured the
- * tool returns a `not_configured` error rather than throwing.
+ * Phase 3 (ADR 0057 amendment — console-sole door): `ask_operator` — drive a
+ * synchronous agent turn on the Machine and return the reply in this call. The
+ * console is the sole public Claude door; every request first passes the
+ * per-request grant kill-switch in the route layer, then this tool proxies the
+ * turn to the Machine over the authenticated turn channel. The Machine no longer
+ * exposes a direct public MCP door.
+ *
+ * Capabilities are injected via {@link McpToolContext} so tool handlers stay
+ * free of env/db wiring. `sendHandoff` and `driveTurn` are optional — when
+ * unconfigured the tool returns a `not_configured` error rather than throwing.
  *
  * See docs/design/operator/03-mcp-server-exposure.md.
  */
@@ -42,7 +49,18 @@ export interface McpToolDescriptor {
  * request to the Machine and returns once the Machine acknowledges receipt.
  * Absent when `OPERATOR_MCP_WEBHOOK_SECRET` is unset; the handoff tool returns
  * `not_configured` rather than throwing.
+ *
+ * `driveTurn` — optional. When configured (Phase 3), proxies a synchronous agent
+ * turn to the Machine over the authenticated turn channel and returns the reply.
+ * Throws on transport failure so the tool can map it to a fail-closed result.
+ * Absent when the turn transport is unconfigured; `ask_operator` returns
+ * `not_configured` rather than throwing.
  */
+export interface OperatorTurnResult {
+  reply: string
+  thread_id?: string
+}
+
 export interface McpToolContext {
   customerId: string
   subject: string
@@ -50,6 +68,7 @@ export interface McpToolContext {
   profile: string
   readRuntime: (query: RuntimeReadQuery) => Promise<RuntimeReadResult>
   sendHandoff?: (params: { handoff_id: string; task: string; context?: string }) => Promise<void>
+  driveTurn?: (params: { message: string; thread_id?: string }) => Promise<OperatorTurnResult>
 }
 
 /** MCP `tools/call` result content block (text only for the spike). */
@@ -220,9 +239,86 @@ const operatorHandoffTask: McpTool = {
   },
 }
 
+/**
+ * Phase 3 tool: `ask_operator`. Drives a synchronous agent turn on the Machine
+ * and returns the Operator's reply in this call. This is the conversational
+ * door: the console has already enforced the ADR 0057 grant kill-switch for the
+ * caller before this handler runs, and the turn is proxied to the Machine over
+ * the authenticated turn channel (never a direct public Machine door).
+ *
+ * Fail-closed: `message_required` when empty, `not_configured` when the turn
+ * transport is absent, `delivery_failed` when the Machine turn errors. Never
+ * fabricates a reply.
+ */
+const askOperator: McpTool = {
+  descriptor: {
+    name: 'ask_operator',
+    description:
+      'Ask the Operator to do something and get its reply in this turn. Use for ' +
+      'synchronous requests where you want the answer now. Pass thread_id to continue ' +
+      'a prior conversation. For long-running work that does not need an immediate ' +
+      'answer, use operator_handoff_task instead.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          description: 'What you want to ask or tell the Operator.',
+        },
+        thread_id: {
+          type: 'string',
+          description:
+            'Optional. Continue a prior conversation by passing the thread_id returned earlier.',
+        },
+      },
+      required: ['message'],
+    },
+  },
+  handle: async (args, ctx) => {
+    const message = typeof args.message === 'string' ? args.message.trim() : ''
+    if (!message) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'message_required' }) }],
+        isError: true,
+      }
+    }
+    if (!ctx.driveTurn) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'not_configured' }) }],
+        isError: true,
+      }
+    }
+    const thread_id =
+      typeof args.thread_id === 'string' && args.thread_id.trim()
+        ? args.thread_id.trim()
+        : undefined
+    try {
+      const result = await ctx.driveTurn({ message, thread_id })
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: true,
+              reply: result.reply,
+              thread_id: result.thread_id ?? null,
+            }),
+          },
+        ],
+      }
+    } catch {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'delivery_failed' }) }],
+        isError: true,
+      }
+    }
+  },
+}
+
 const REGISTRY: ReadonlyMap<string, McpTool> = new Map([
   [operatorStatus.descriptor.name, operatorStatus],
   [operatorHandoffTask.descriptor.name, operatorHandoffTask],
+  [askOperator.descriptor.name, askOperator],
 ])
 
 /** All tool descriptors for `tools/list`. */

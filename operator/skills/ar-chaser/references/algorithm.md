@@ -1,15 +1,17 @@
 # AR Chaser — Per-Invoice Algorithm
 
 Detailed prose procedure preserved for graders. The SKILL.md's `## Procedure`
-section delegates the per-invoice fetch loop to `execute_code` (ADR 0021
-Stream A) and references this file for the cadence decisions, voice
-matching, payment-promise detection, and relationship-health surfacing
-that constitute the actual judgment work. This file is the source of truth
-for what "good AR chasing" looks like.
+section runs the per-invoice fetch as mediated connector reads (ss #1917 —
+`execute_code` is unauthorable on customer seats holding gateway credentials)
+and references this file for the cadence decisions, voice matching,
+payment-promise detection, and relationship-health surfacing that constitute
+the actual judgment work. This file is the source of truth for what "good AR
+chasing" looks like.
 
-## Inputs the agent receives from Phase 1
+## Inputs the agent assembles in Phase 1
 
-`execute_code` emits one JSON document with shape:
+The mediated fetch yields, per overdue invoice, the equivalent of this shape
+(as tool-call results, not one document):
 
 ```
 {
@@ -198,30 +200,24 @@ _Run finished {ISO timestamp} · skill version {hash}_
 The summary is the owner's morning trigger — they read the escalations
 and disputed-amount flags first, then scan the 7-44 day drafts.
 
-## Why `execute_code` and not the original 6 sequential steps
+## Why mediated reads and not an `execute_code` fetch loop
 
-The original 6-step procedure (preserved in git history before this
-rewrite) executed every per-invoice QBO check and per-client Gmail thread
-read in the parent agent's conversation context. For a 20-client agency
-with ~5-15 overdue invoices the context bloat was ~10-25 separate tool
-result blocks before the agent could write the first draft. Each tool
-result entered the conversation as its own block.
+An earlier revision collapsed the fetch loop into one `execute_code`
+child process to keep per-invoice tool results out of the conversation
+context. That path is dead on customer seats: the `code_execution` action
+class is unauthorable wherever gateway-held credentials exist (the #1841
+custody guard — executed code could read connector credentials from the
+gateway env, bypassing tool classification), so the fetch was REFUSED
+before it ran (ss #1917). The mediated reads cost context proportional to
+the overdue count, and that is the accepted trade: a governed, classified,
+auditable read per fact beats an ungoverned batch that never executes.
 
-`execute_code` collapses the fetch loop into a single child process. The
-parent receives ONE JSON document — typically 30-50K tokens covering
-every overdue invoice with its payment-status cross-check and prior-
-thread context. The agent then iterates the payload in its reasoning
-context, producing one draft per 7-44-day invoice + one summary Slack
-post. Per-tool intermediate results never enter the conversation; only
-the final structured payload does.
-
-A meaningful side benefit: the per-invoice payment-status cross-check
-now runs at zero conversation-context cost. Pre-rewrite the cross-check
-was an N additional tool calls landing in context, which made it
-tempting to skip. Inside `execute_code` the check is just another
-function call in the loop — defending against the #1 AR pitfall
-(drafting a chase on an already-paid invoice) is no longer a cost
-tradeoff.
+The payment-status cross-check is now N explicit tool calls, which makes
+it LOOK expensive and therefore tempting to skip. It is not optional:
+defending against the #1 AR pitfall (drafting a chase on an already-paid
+invoice) is a correctness rule, not a cost tradeoff. If a book's overdue
+count makes per-invoice reads untenable, raise the ss #1917 batch-fetch
+design conversation — never reach for `execute_code`.
 
 ## What this algorithm is NOT
 
@@ -232,8 +228,8 @@ tradeoff.
   good faith. References to legal action, late fees, or "collections"
   are categorically refused. The owner adds those if they decide to —
   it's a relationship call.
-- **Not silently chasing paid invoices.** The payment-status cross-check
-  inside `execute_code` is structural enforcement. An invoice that paid
+- **Not silently chasing paid invoices.** The per-invoice payment-status
+  cross-check is mandatory before any draft. An invoice that paid
   between aging snapshot and run-time is skipped and surfaced in the
   Slack summary so the owner sees the save.
 - **Not invented.** Every dollar amount, every invoice number, every

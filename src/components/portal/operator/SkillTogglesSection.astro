@@ -23,15 +23,18 @@ import { formatTrustCeilingLevel } from '../../../lib/portal/operator/settings'
 interface Props {
   rows: SkillToggleRow[]
   personaSlug: string | null
+  /** Addressed operator instance's slug — posted so the endpoint redirects back
+   *  to the right instance's settings page. */
+  instance: string
 }
 
-const { rows, personaSlug } = Astro.props
+const { rows, personaSlug, instance } = Astro.props
 ---
 
 <section aria-labelledby="settings-skills-heading" class="mt-section">
   <h2
     id="settings-skills-heading"
-    class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+    class="font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
   >
     Skills
   </h2>
@@ -53,13 +56,14 @@ const { rows, personaSlug } = Astro.props
                 action="/api/portal/operator/settings/skill-toggle"
                 class="flex items-baseline justify-between gap-4 flex-wrap p-card"
               >
+                <input type="hidden" name="instance" value={instance} />
                 <input type="hidden" name="skillName" value={row.skillName} />
                 {personaSlug ? (
                   <input type="hidden" name="personaSlug" value={personaSlug} />
                 ) : null}
                 <input type="hidden" name="nextEnabled" value={row.enabled ? 'false' : 'true'} />
                 <div class="min-w-0 flex-1">
-                  <p class="font-['Archivo'] text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                  <p class="font-body text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 truncate">
                     {row.skillName}
                   </p>
                   <p class="mt-1 text-caption text-[color:var(--ss-color-text-secondary)] m-0">
@@ -71,7 +75,7 @@ const { rows, personaSlug } = Astro.props
                 </div>
                 <button
                   type="submit"
-                  class="inline-flex items-center min-h-11 px-4 py-2 font-['Archivo_Narrow'] text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  class="inline-flex items-center min-h-11 px-4 py-2 font-mono text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
                 >
                   {row.enabled ? 'Disable' : 'Enable'}
                 </button>

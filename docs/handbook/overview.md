@@ -19,9 +19,9 @@ consultancy.
 The venture is run by a single Captain directing a fleet of AI agents. The objective is
 to launch and reach profitability.
 
-## Two front doors
+## Three front doors
 
-The venture sells through two connected funnels:
+The venture sells through three connected funnels:
 
 - **Scope-based consulting.** Bounded engagements priced per project. We assess where a
   business is trying to go, find what is in the way, and build the solution: process
@@ -32,6 +32,10 @@ The venture sells through two connected funnels:
 - **The Operator.** A productized monthly retainer. A configurable AI operator that runs
   on a client firm's expertise and handles the coordinator-grade throughput a growing
   business needs but cannot justify hiring for. See [The Operator Thesis](/admin/playbook/operator-thesis).
+- **The Hosted Agent.** A self-serve monthly subscription for an always-on personal
+  Hermes agent, run and safety-gated on the same substrate as the Operator. The only
+  SKU with published pricing and self-serve checkout; provisioning stays concierge
+  behind the storefront (ADR 0067, Decision #51).
 
 ## Who it serves
 

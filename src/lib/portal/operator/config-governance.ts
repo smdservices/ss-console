@@ -2,7 +2,7 @@
  * Config governance — the portal-side security boundary for autonomy config
  * (ADR 0026 / ADR 0030 §4).
  *
- * A change to a trust ceiling or exposure setting is a privileged, principal-
+ * A change to exposure or initiation is a privileged, principal-
  * authenticated, immutably-audited, floor-checked act. This module holds the
  * pure decision logic plus the append-only audit writer. It is imported ONLY
  * by principal-gated portal POST handlers — never by agent/skill/tool code
@@ -21,7 +21,7 @@
 import type { ActionClass } from '../../operator/customer-yaml/types'
 import type { D1Database } from '@cloudflare/workers-types'
 
-export type Ceiling = 'autonomous' | 'draft_for_review' | 'refused'
+export type Ceiling = 'autonomous' | 'confirm' | 'draft_for_review' | 'refused'
 
 /**
  * Restrictiveness ordering — mirrors `operator/adapter/trust_ceiling.py`
@@ -30,12 +30,18 @@ export type Ceiling = 'autonomous' | 'draft_for_review' | 'refused'
  */
 const RESTRICTIVENESS: Record<Ceiling, number> = {
   autonomous: 0,
-  draft_for_review: 1,
-  refused: 2,
+  confirm: 1,
+  draft_for_review: 2,
+  refused: 3,
 }
 
 export function isCeiling(value: unknown): value is Ceiling {
-  return value === 'autonomous' || value === 'draft_for_review' || value === 'refused'
+  return (
+    value === 'autonomous' ||
+    value === 'confirm' ||
+    value === 'draft_for_review' ||
+    value === 'refused'
+  )
 }
 
 export function restrictiveness(c: Ceiling): number {
@@ -62,21 +68,21 @@ export function changeDirection(oldValue: Ceiling, newValue: Ceiling): ChangeDir
 
 /**
  * Non-raisable per-action-class vertical floors (ADR 0025 / ADR 0022
- * compliance constraints). Seeded constant — the source of truth is the
- * vertical pack manifest (`operator/verticals/<v>/vertical.yaml`
- * `trust_floors`); this mirror is kept tiny and the keys are asserted to be
- * real action classes (see config-governance.test.ts) so the portal and the
- * runtime can never drift on the identifier. CI projection of floors from the
- * vertical manifests is a tracked follow-on; until then a Captain-reviewed
- * constant is authored data, not fabrication.
+ * compliance constraints). Seeded constant — mirrors the runtime source of
+ * truth (`hermes-smd-overlay` `shared/action_classes.py` `VERTICAL_FLOORS`);
+ * kept tiny, keys asserted to be real action classes (see
+ * config-governance.test.ts) so the portal and the runtime can never drift on
+ * the identifier.
  *
- * For a law firm, ABA Formal Opinion 512 / state AI-disclosure rules pin every
- * outbound communication to draft-for-review external send, so `external_send` is floored
- * at `draft_for_review` and cannot be promoted to `autonomous`.
+ * Currently EMPTY: the law-firm external-send-draft-floor was removed 2026-07
+ * (Captain decision, ADR 0073). Outside-send is governed by the firm's
+ * authored exposure per ADR 0035 — supervision (ABA 512) is held by the audit
+ * journal + attribution + fail-closed entitlement, not by a non-raisable send
+ * gate. The floor machinery stays for any future regulation-compelled floor;
+ * re-adding an entry requires a Captain decision, and the runtime map must be
+ * updated in the same breath.
  */
-export const VERTICAL_FLOORS: Readonly<Record<string, Partial<Record<ActionClass, Ceiling>>>> = {
-  'law-firm': { external_send: 'draft_for_review' },
-}
+export const VERTICAL_FLOORS: Readonly<Record<string, Partial<Record<ActionClass, Ceiling>>>> = {}
 
 /** Every action-class key used in VERTICAL_FLOORS, for the membership assertion. */
 export function verticalFloorActionClasses(): string[] {
@@ -113,7 +119,7 @@ export function checkFloor(floor: Ceiling | null, requested: Ceiling): FloorChec
   return { allowed: true, reason: null }
 }
 
-export type ConfigChangeType = 'trust_ceiling' | 'action_ceiling' | 'skill_toggle'
+export type ConfigChangeType = 'entitlement_exposure' | 'entitlement_initiation' | 'skill_enabled'
 export type ConfigChangeOutcome = 'accepted' | 'rejected_floor' | 'rejected_invalid'
 
 export interface ConfigChangeAuditEvent {
@@ -175,14 +181,13 @@ export interface Actor {
   role: string
 }
 
-export interface ApplyCeilingChangeInput {
+export interface ApplyExposureChangeInput {
   customer_slug: string
   entity_id: string
   actor: Actor
   persona_slug: string | null
   skill_name: string
-  /** Present for an exposure (action-class) change; null for a skill scalar. */
-  action_class: ActionClass | null
+  action_class: ActionClass
   /** The customer's vertical, for the floor lookup. Null when unknown. */
   vertical: string | null
   old_value: Ceiling
@@ -200,12 +205,12 @@ export interface ApplyResult {
  * rejected) to the ledger. Does not write the live config (deferred git
  * write-back). The caller is responsible for being principal-gated.
  */
-export async function applyCeilingChange(
+export async function applyExposureChange(
   db: D1Database,
-  input: ApplyCeilingChangeInput
+  input: ApplyExposureChangeInput
 ): Promise<ApplyResult> {
   const direction = changeDirection(input.old_value, input.new_value)
-  const floor = input.action_class ? getVerticalFloor(input.vertical, input.action_class) : null
+  const floor = getVerticalFloor(input.vertical, input.action_class)
   const floorCheck = checkFloor(floor, input.new_value)
   const outcome: ConfigChangeOutcome = floorCheck.allowed ? 'accepted' : 'rejected_floor'
 
@@ -215,7 +220,7 @@ export async function applyCeilingChange(
     actor_user_id: input.actor.user_id,
     actor_email: input.actor.email,
     actor_role: input.actor.role,
-    change_type: input.action_class ? 'action_ceiling' : 'trust_ceiling',
+    change_type: 'entitlement_exposure',
     persona_slug: input.persona_slug,
     skill_name: input.skill_name,
     action_class: input.action_class,
@@ -236,38 +241,30 @@ export interface ApplySkillToggleInput {
   persona_slug: string | null
   skill_name: string
   next_enabled: boolean
-  /** Current skill ceiling, for the old_value. */
-  old_value: Ceiling
 }
 
 /**
- * Record a skill enable/disable. Disabling maps to `refused` (a lower — more
- * restrictive, always allowed); enabling maps back to `draft_for_review` (the
- * safe default, never a raise above a floor since draft_for_review is itself
- * the most permissive value any floor allows). Always `accepted`; audited.
+ * Record a skill enable/disable. Always `accepted`; audited.
  */
 export async function applySkillToggle(
   db: D1Database,
   input: ApplySkillToggleInput
 ): Promise<ApplyResult> {
-  const newValue: Ceiling = input.next_enabled ? 'draft_for_review' : 'refused'
-  const direction = changeDirection(input.old_value, newValue)
-
   await recordConfigChangeAudit(db, {
     customer_slug: input.customer_slug,
     entity_id: input.entity_id,
     actor_user_id: input.actor.user_id,
     actor_email: input.actor.email,
     actor_role: input.actor.role,
-    change_type: 'skill_toggle',
+    change_type: 'skill_enabled',
     persona_slug: input.persona_slug,
     skill_name: input.skill_name,
     action_class: null,
-    old_value: input.old_value,
-    new_value: newValue,
+    old_value: input.next_enabled ? 'false' : 'true',
+    new_value: input.next_enabled ? 'true' : 'false',
     outcome: 'accepted',
     outcome_reason: null,
-    direction,
+    direction: 'lateral',
   })
 
   return { outcome: 'accepted', reason: null }

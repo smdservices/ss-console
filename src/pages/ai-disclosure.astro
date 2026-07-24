@@ -1,0 +1,119 @@
+---
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+
+/**
+ * AI disclosure page (#1680). Plain statement of what the Operator is, how
+ * human review works, and what it never does. Aligned with the guardrail
+ * language on the pack pages (e.g. packs/law-firm.astro: everything goes to
+ * a person for review under that firm's authored posture) and the fail-closed
+ * entitlement doctrine (ADR 0035/0056). No fabricated commitments: review
+ * postures are described as authored choices, never promised defaults.
+ */
+
+const H2 =
+  'mb-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]'
+---
+
+<Base
+  title="AI Disclosure | SMD Services"
+  description="The Operator is an AI system, and we say so plainly: what it is, how human review works, where the AI runs, and what it never does."
+>
+  <Nav />
+  <main id="main" role="main" class="bg-[color:var(--ss-color-background)] px-6 py-20 md:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        AI Disclosure
+      </h1>
+
+      <p
+        class="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      >
+        Effective: 2026-07-04
+      </p>
+
+      <div
+        class="mt-10 space-y-10 font-body text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
+      >
+        <p>
+          The Operator is an artificial intelligence system. We never present it as a person, and we
+          built the product so you never have to wonder what it is allowed to do. This page states
+          plainly what it is, how human oversight works, and where the limits sit.
+        </p>
+
+        <section>
+          <h2 class={H2}>What the Operator is</h2>
+          <p>
+            The Operator is an AI agent that runs on infrastructure dedicated to your business,
+            connected to the systems you already use. It reads, drafts, coordinates, tracks, and
+            executes the working procedures we configure with you. Its reasoning is powered by
+            frontier language models; its authority is governed by a permission system we author
+            with you, in writing, before it acts.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Human review is a setting you control</h2>
+          <p>
+            How much of your Operator's work passes through a person before it lands is an authored
+            choice, made per action class during configuration. Many clients start with every
+            outbound piece routed to a reviewer and widen autonomy as trust builds. Others authorize
+            routine internal work to run unattended from day one. The system imposes no default in
+            either direction: an action class you have not configured is refused, not guessed at.
+            Whatever posture you author, every action is recorded in an audit trail you can read in
+            your portal.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>What it never does</h2>
+          <p>
+            Some limits are not settings. The Operator never sends communications impersonating you
+            or your staff; it works under its own identity. It never gives itself more authority;
+            only you and we can change what it is allowed to do, and every change is logged. It
+            never performs licensed professional work: in a law firm it coordinates and drafts for
+            attorney review but never advises or signs; the same boundary applies to every regulated
+            profession we serve. And an integrity gate blocks specific fabrication classes before
+            anything can be sent: citations it cannot verify, identifiers like account or case
+            numbers without a traced source, and known fabrication tells in drafted text.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Where the AI runs, and your data</h2>
+          <p>
+            Language model inference runs through Anthropic's commercial API. Content passes through
+            transiently when your Operator performs a task, and under Anthropic's commercial terms
+            it is not used to train models. Your business data stays in your systems; the Operator's
+            own working memory and audit record live on your dedicated machine. The full
+            data-handling picture, including sub-processors, is on our
+            <a
+              href="/security"
+              class="underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+              >security page</a
+            > and in your data processing addendum.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>When AI is the wrong answer</h2>
+          <p>
+            Part of our job is telling you when it is not the right tool. Some problems are solved
+            with a better process, a clearer role, or a simpler workflow, and we will say so rather
+            than sell you an Operator you do not need. If you have questions about how AI is used in
+            your engagement, write to
+            <a
+              href="mailto:team@smd.services"
+              class="underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+              >team@smd.services</a
+            >.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Base>

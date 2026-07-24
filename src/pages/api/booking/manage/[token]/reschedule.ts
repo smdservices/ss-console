@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { ORG_ID } from '../../../../../lib/constants'
 import { hashManageToken, computeManageTokenExpiry } from '../../../../../lib/booking/tokens'
@@ -21,6 +22,7 @@ import { updateMeeting } from '../../../../../lib/db/meetings'
 import { buildIcs, icsToBase64 } from '../../../../../lib/booking/ics'
 import { sendBookingReschedule } from '../../../../../lib/email/booking-emails'
 import { sendEmail } from '../../../../../lib/email/resend'
+import { recordBookingError } from '../../../../../lib/booking/alerts'
 import { requireAppBaseUrl } from '../../../../../lib/config/app-url'
 import { formatInTimeZone } from 'date-fns-tz'
 import { env } from 'cloudflare:workers'
@@ -47,13 +49,6 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
 
 type Schedule = NonNullable<Awaited<ReturnType<typeof getScheduleByManageToken>>>
@@ -186,8 +181,20 @@ async function sendRescheduleEmails(
 ): Promise<void> {
   const icsAttachment = buildRescheduleIcs(schedule, newSlotStartUtc, manageUrl)
 
+  async function alertGuestEmailFailure(message: string): Promise<void> {
+    try {
+      await recordBookingError(env.DB, env.RESEND_API_KEY, 'guest_email_delivery_failed', {
+        assessmentId: schedule.assessment_id,
+        scheduleId: schedule.id,
+        message,
+      })
+    } catch (alertErr) {
+      console.error('[api/booking/manage/reschedule] Failed to record guest email alert:', alertErr)
+    }
+  }
+
   try {
-    await sendBookingReschedule(env.RESEND_API_KEY, {
+    const guestResult = await sendBookingReschedule(env.RESEND_API_KEY, {
       guestName: schedule.guest_name,
       guestEmail: schedule.guest_email,
       businessName: '',
@@ -197,9 +204,21 @@ async function sendRescheduleEmails(
       manageUrl,
       meetingLabel: BOOKING_CONFIG.meeting_label,
       icsAttachment,
+      meetingId: schedule.assessment_id,
     })
+    if (!guestResult.success) {
+      console.error('[api/booking/manage/reschedule] Reschedule email NOT sent:', guestResult.error)
+      await alertGuestEmailFailure(
+        `Reschedule email to ${schedule.guest_email} was rejected: ${guestResult.error ?? 'unknown error'}`
+      )
+    }
   } catch (emailErr) {
     console.error('[api/booking/manage/reschedule] Reschedule email failed:', emailErr)
+    await alertGuestEmailFailure(
+      `Reschedule email to ${schedule.guest_email} threw: ${
+        emailErr instanceof Error ? emailErr.message : String(emailErr)
+      }`
+    )
   }
 
   try {
@@ -208,12 +227,18 @@ async function sendRescheduleEmails(
       BOOKING_CONFIG.consultant.timezone,
       "EEEE, MMMM d 'at' h:mm a (zzz)"
     )
-    await sendEmail(env.RESEND_API_KEY, {
+    const adminResult = await sendEmail(env.RESEND_API_KEY, {
       to: NOTIFY_EMAIL,
       reply_to: schedule.guest_email,
       subject: `Rescheduled: ${schedule.guest_name} — ${adminNewLabel}`,
       html: `<p><strong>${escapeHtml(schedule.guest_name)}</strong> rescheduled their assessment call.</p><p>Old: ${escapeHtml(oldSlotLabel)}</p><p>New: <strong>${escapeHtml(newSlotLabel)}</strong></p>`,
     })
+    if (!adminResult.success) {
+      console.error(
+        '[api/booking/manage/reschedule] Admin notification NOT sent:',
+        adminResult.error
+      )
+    }
   } catch (emailErr) {
     console.error('[api/booking/manage/reschedule] Admin notification failed:', emailErr)
   }

@@ -61,7 +61,7 @@ CREATE TABLE config_change_audit_new (
   actor_email     TEXT NOT NULL,
   actor_role      TEXT NOT NULL,
   change_type     TEXT NOT NULL
-                    CHECK (change_type IN ('trust_ceiling', 'action_ceiling', 'skill_toggle')),
+                    CHECK (change_type IN ('entitlement_exposure', 'entitlement_initiation', 'skill_enabled')),
   persona_slug    TEXT,
   skill_name      TEXT,
   action_class    TEXT,

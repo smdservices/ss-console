@@ -31,13 +31,20 @@ function readAllSrcFiles(): string[] {
 // to the first conversation, so no dollar amount may appear on that surface
 // either. New marketing sections SHOULD be added here so a future edit cannot
 // accidentally publish a price.
+//
+// DELIBERATE EXEMPTION (do not "fix"): src/pages/agent.astro and
+// src/pages/agent/thanks.astro are OMITTED from this list on purpose. The
+// Hosted Agent SKU sells self-serve with published pricing per ADR 0067
+// (decision-stack #51) and the positioning-spine decision log entry dated
+// 2026-07-06. The exemption is scoped to those two pages only; every other
+// marketing surface stays price-free, and the agent pages remain enrolled
+// in all other content guards (forbidden-strings, voice scan below).
 function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
     resolve('src/pages/operator.astro'),
-    resolve('src/pages/consulting.astro'),
-    resolve('src/pages/why.astro'),
-    resolve('src/pages/ai.astro'),
+    resolve('src/pages/about.astro'),
+    resolve('src/pages/book.astro'),
     resolve('src/pages/packs/law-firm.astro'),
     resolve('src/pages/packs/insurance.astro'),
     resolve('src/pages/packs/veterinary.astro'),
@@ -51,17 +58,7 @@ function readMarketingFiles(): string[] {
     resolve('src/pages/packs/property-management.astro'),
     resolve('src/pages/packs/home-services.astro'),
     join(componentsDir, 'OperatorHero.astro'),
-    join(componentsDir, 'ConsultingPath.astro'),
-    join(componentsDir, 'Hero.astro'),
-    join(componentsDir, 'ProblemCards.astro'),
-    join(componentsDir, 'RoiMath.astro'),
-    join(componentsDir, 'HowWeEngage.astro'),
-    join(componentsDir, 'HowWePrice.astro'),
-    join(componentsDir, 'WhatYouGet.astro'),
-    join(componentsDir, 'OperatorIntro.astro'),
-    join(componentsDir, 'CaseStudies.astro'),
     join(componentsDir, 'About.astro'),
-    join(componentsDir, 'FinalCta.astro'),
     join(componentsDir, 'Footer.astro'),
     join(componentsDir, 'JsonLd.astro'),
   ]
@@ -70,15 +67,9 @@ function readMarketingFiles(): string[] {
 describe('component existence', () => {
   const expectedComponents = [
     'CtaButton.astro',
-    'Hero.astro',
-    'ProblemCards.astro',
-    'RoiMath.astro',
-    'HowWeEngage.astro',
-    'HowWePrice.astro',
-    'WhatYouGet.astro',
-    'CaseStudies.astro',
+    'OperatorHero.astro',
     'About.astro',
-    'FinalCta.astro',
+    'Nav.astro',
     'Footer.astro',
     'JsonLd.astro',
   ]
@@ -102,20 +93,10 @@ describe('content integrity', () => {
 describe('voice standard', () => {
   // About.astro is intentionally excluded: SMD is positioned as a practitioner
   // firm (lawyer / doctor / craftsman model) where the founder *is* the firm.
-  // §07 Who We Are uses Scott's first-person voice; the rest of the page stays
-  // in firm-level "we" voice. See CLAUDE.md "Voice standard" practitioner-firm
+  // The About founder bio uses Scott's first-person voice; the rest of the page
+  // stays in firm-level "we" voice. See CLAUDE.md "Voice standard" practitioner-firm
   // exception.
-  const marketingComponents = [
-    'OperatorHero.astro',
-    'ConsultingPath.astro',
-    'Hero.astro',
-    'ProblemCards.astro',
-    'RoiMath.astro',
-    'HowWeEngage.astro',
-    'HowWePrice.astro',
-    'WhatYouGet.astro',
-    'FinalCta.astro',
-  ]
+  const marketingComponents = ['OperatorHero.astro']
 
   // Operator-forward home and the /why manifesto carry the lead argument as
   // long-form page prose, not components. They must hold the same firm-level
@@ -123,7 +104,13 @@ describe('voice standard', () => {
   // regex and constrain page copy to pass it, rather than loosen the guardrail
   // for pages. First-person "I" stays confined to the test-excluded About.astro
   // component; it is never inlined into these page files.
-  const marketingPages = ['src/pages/index.astro', 'src/pages/why.astro']
+  const marketingPages = [
+    'src/pages/index.astro',
+    'src/pages/operator.astro',
+    // The Hosted Agent storefront is price-exempt (see readMarketingFiles)
+    // but holds firm "we" voice like every other marketing page.
+    'src/pages/agent.astro',
+  ]
 
   // Shared scan: flag standalone first-person "I " in the author's voice, after
   // stripping quoted spans (owner quotes such as "I can't take a day off" are
@@ -148,26 +135,171 @@ describe('voice standard', () => {
   })
 })
 
-describe('operator-forward home integrity', () => {
-  // Encodes the new IA: the apex home leads with the Operator and keeps the
-  // secondary consulting path and the manifesto reachable. Replaces the implicit
-  // "home is consulting" contract that demoting the consulting components removed.
-  const home = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+describe('marketing structure: firm-with-flagship (locked)', () => {
+  // Encodes the structure locked in docs/marketing/positioning-spine.md as STABLE
+  // INVARIANTS, not brittle section order. The site went in circles because an agent
+  // kept choosing the frame and the next pass reversed it. These assert the
+  // Captain-ratified frame: SMD is a software & AI solutions firm (the frame), the
+  // Operator is the flagship (cradled, not the whole site), and the assessment is the
+  // ONE front door. Prettier wraps prose, so phrase checks normalize whitespace.
+  const flat = (s: string) => s.replace(/\s+/g, ' ').toLowerCase()
+  const operatorHero = flat(readComponent('OperatorHero.astro'))
+  const homeRaw = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+  const home = flat(homeRaw)
+  const operator = flat(readFileSync(resolve('src/pages/operator.astro'), 'utf-8'))
+  const nav = readComponent('Nav.astro')
 
-  it('home composes the Operator-forward lead hero', () => {
-    expect(home).toContain('OperatorHero')
+  it('home composes the lead hero', () => {
+    expect(homeRaw).toContain('OperatorHero')
   })
 
-  it('home routes the primary CTA to the Operator intake', () => {
-    expect(home).toContain('/book?interest=operator')
+  it('the hero orients to the firm (software & AI solutions for small business)', () => {
+    // Beat 1: a stranger learns who SMD is, not just the Operator. Fixes the
+    // "land in the middle of what" miss.
+    expect(operatorHero).toContain('software and ai solutions firm for small businesses')
   })
 
-  it('home keeps the secondary consulting path reachable', () => {
-    expect(home).toContain('ConsultingPath')
+  it('the hero names the Operator as the flagship and links to it (above the fold)', () => {
+    // Flagship-forward inside the firm frame: cradled, not buried, not the whole site.
+    expect(operatorHero).toContain('flagship')
+    expect(operatorHero).toContain('operator')
+    expect(operatorHero).toContain('/operator')
   })
 
-  it('home links to the category manifesto', () => {
-    expect(home).toContain('/why')
+  it('the home carries the solution-first stance (not every problem needs an Operator)', () => {
+    // Beat 5: the firm reasserts. The honest differentiator vs. the AI-agency swarm.
+    expect(home).toContain('not every problem needs an operator')
+  })
+
+  it('the homepage assessment entry is the neutral front door (presumes no solution)', () => {
+    // Firm-level surfaces start the assessment with no `interest`, so the chip
+    // never presumes an Operator before the objectives-first conversation. The
+    // CTA's presence + verb are guarded by the single-verb spine test below;
+    // here we lock that the homepage carries no product attribution. The
+    // /operator page and the vertical packs keep their interest on purpose
+    // (route contract asserted centrally in booking-interest-parity).
+    expect(home).toContain('data-ev="home-final-cta"')
+    expect(home, 'home CTA must not presume a solution').not.toContain('interest=')
+    expect(operatorHero, 'home hero CTA must not presume a solution').not.toContain('interest=')
+  })
+
+  it('/operator absorbs the comparison as the answer-engine surface', () => {
+    // The retired /why folded here; the FAQPage schema must survive.
+    expect(operator).toContain('faqpage')
+  })
+
+  it('a single primary verb across the surviving spine', () => {
+    for (const page of [
+      'src/pages/index.astro',
+      'src/pages/operator.astro',
+      'src/pages/about.astro',
+      'src/pages/book.astro',
+    ]) {
+      const c = flat(readFileSync(resolve(page), 'utf-8'))
+      expect(c, `"start with an assessment" missing from ${page}`).toContain(
+        'start with an assessment'
+      )
+      expect(c, `retired verb "start the conversation" present in ${page}`).not.toContain(
+        'start the conversation'
+      )
+    }
+  })
+
+  it('the packs carry the same single verb (CTA in shared components, no retired verb anywhere)', () => {
+    // The pack CTA text lives in the shared pack components, so presence is asserted
+    // there once; the retired verb must appear on neither the components nor any pack page.
+    const packCtaComponents = [
+      'src/components/packs/PackHero.astro',
+      'src/components/packs/PackClosing.astro',
+      'src/components/packs/PackSectionCta.astro',
+    ]
+    for (const comp of packCtaComponents) {
+      const c = flat(readFileSync(resolve(comp), 'utf-8'))
+      expect(c, `"start with an assessment" missing from ${comp}`).toContain(
+        'start with an assessment'
+      )
+      expect(c, `retired verb "start the conversation" present in ${comp}`).not.toContain(
+        'start the conversation'
+      )
+    }
+    const packPages = readdirSync(resolve('src/pages/packs'))
+      .filter((n) => n.endsWith('.astro'))
+      .map((n) => `src/pages/packs/${n}`)
+    for (const page of packPages) {
+      const c = flat(readFileSync(resolve(page), 'utf-8'))
+      expect(c, `retired verb "start the conversation" present in ${page}`).not.toContain(
+        'start the conversation'
+      )
+    }
+  })
+
+  it('the retired marketing pages are gone (not live routes)', () => {
+    for (const p of ['src/pages/why.astro', 'src/pages/consulting.astro', 'src/pages/ai.astro']) {
+      expect(existsSync(resolve(p)), `${p} should be removed (folded + redirected)`).toBe(false)
+    }
+  })
+
+  // /contact is NOT retired. Captain decision 2026-06-30 restored it as the
+  // quiet general-inquiry channel (a real form, not a published email address),
+  // recorded in docs/marketing/positioning-spine.md. The assessment at /book
+  // stays the single primary front door; /contact is a lower-weight channel
+  // (footer-linked, never nav or a hero CTA). This guard inverts the prior
+  // "retired" assertions so a future rebuild that reads the spine cannot
+  // silently reap the form again.
+  it('the contact form is restored and wired to its backend (quiet channel, not a peer door)', () => {
+    const page = resolve('src/pages/contact.astro')
+    expect(existsSync(page), 'src/pages/contact.astro should exist (restored 2026-06-30)').toBe(
+      true
+    )
+    const contact = readFileSync(page, 'utf-8')
+    // Posts to the surviving Resend-backed endpoint.
+    expect(contact, 'contact page must POST to /api/contact').toContain('/api/contact')
+    // The backend endpoint itself must be present.
+    expect(
+      existsSync(resolve('src/pages/api/contact.ts')),
+      'the /api/contact endpoint must exist'
+    ).toBe(true)
+    // Honors the "do not publish the email" intent: no mailto on the page.
+    expect(contact, 'contact page must not publish a mailto address').not.toContain('mailto:')
+    // Routes engagement-seekers to the real front door via the shared helper
+    // (bookHref() builds the neutral /book — asserted centrally in
+    // booking-interest-parity). Guards the actual CTA, not an incidental
+    // "/book" mention in a comment.
+    expect(contact, 'contact page must point to the assessment front door').toContain('bookHref()')
+  })
+
+  it('the footer links to /contact and does not publish a raw email address', () => {
+    const footer = readComponent('Footer.astro')
+    expect(footer, 'footer must link to /contact').toContain('href="/contact"')
+    expect(footer, 'footer must not publish a mailto address').not.toContain('mailto:')
+  })
+
+  it('the contact route is NOT 301-redirected away', () => {
+    // Redirect logic lives in the legacy-redirect table now; assert /contact is
+    // absent from both it and the middleware so the guard is not vacuous.
+    const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+    const redirects = readFileSync(resolve('src/lib/routing/legacy-redirects.ts'), 'utf-8')
+    expect(mw, 'middleware must not redirect /contact').not.toContain("'/contact'")
+    expect(redirects, 'legacy-redirect table must not redirect /contact').not.toContain(
+      "'/contact'"
+    )
+  })
+
+  it('nav does not link the retired pages', () => {
+    expect(nav).not.toContain("href: '/why'")
+    expect(nav).not.toContain("href: '/consulting'")
+  })
+
+  it('the retired routes 301 via the legacy-redirect table (bookmarks keep working)', () => {
+    // The redirect rules were extracted from middleware.ts into a declarative
+    // table (code review 2026-07-02 §1.3). Retired routes now live there.
+    const redirects = readFileSync(resolve('src/lib/routing/legacy-redirects.ts'), 'utf-8')
+    for (const route of ["'/why'", "'/consulting'", "'/ai'"]) {
+      expect(redirects, `legacy-redirect table should reference retired route ${route}`).toContain(
+        route
+      )
+    }
+    expect(redirects).toContain('/operator#compare')
   })
 })
 

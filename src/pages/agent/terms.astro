@@ -1,0 +1,206 @@
+---
+/**
+ * Hosted Agent subscription terms (ADR 0067). The product-specific ToS,
+ * acceptable-use, and refund policy for the self-serve Hosted Agent SKU.
+ * Includes the plan-retirement clause that bounds the founding-price
+ * obligation (ADR 0067 section 1) and the Anthropic flow-down clause
+ * required by the BYO-key compliance check (verify ledger
+ * vfy_01KWWF33RDK1T4XMQ4393J4GXR).
+ *
+ * Site-wide terms stay at /terms; this page governs the subscription
+ * product only. Sections here are contractual mechanics, so specific
+ * notice windows are allowed (CLAUDE.md tone rule 3 applies to marketing
+ * copy, not contractual documents).
+ */
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+
+const sectionHeading =
+  'mb-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]'
+const inlineLink =
+  'underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-primary)]'
+---
+
+<Base
+  title="Hosted Agent Terms | SMD Services"
+  description="Subscription terms, acceptable use, and refund policy for the SMD Services Hosted Agent."
+>
+  <Nav />
+  <main id="main" role="main" class="bg-[color:var(--ss-color-background)] px-6 py-20 md:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        Hosted Agent Terms
+      </h1>
+
+      <p
+        class="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      >
+        Effective: 2026-07-06
+      </p>
+
+      <div
+        class="mt-10 space-y-10 font-body text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
+      >
+        <p>
+          These terms govern the Hosted Agent subscription offered by SMDurgan, LLC. By purchasing a
+          subscription you agree to them. The site-wide <a href="/terms" class={inlineLink}
+            >terms of use</a
+          > also apply; where they conflict, these product terms control for the subscription.
+        </p>
+
+        <section>
+          <h2 class={sectionHeading}>What the service is</h2>
+          <p>
+            We set up, host, operate, and maintain a dedicated agent instance for you. Each
+            subscription gets its own isolated instance. What you buy from us is the hosting,
+            configuration, safety harness, updates, and monitoring. We do not sell access to any AI
+            model: model usage runs on your own Anthropic account, under your own key, billed to you
+            directly by Anthropic.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Your Anthropic account and API key</h2>
+          <p>
+            The service requires an API key you create in the Anthropic Console. Keys from Claude.ai
+            consumer plans (Free, Pro, or Max logins or tokens) cannot be used; Anthropic prohibits
+            them in third-party services, and we enforce that. Your relationship with Anthropic,
+            including its terms, usage policies, and billing, is direct and yours. We operate your
+            key only to run your instance, as your service provider and with your authorization.
+          </p>
+          <p class="mt-4">
+            We store your key in a secrets vault, never display it back, never log it, and never use
+            it for anything other than operating your instance. You should set a monthly spend limit
+            on the key in the Anthropic Console before providing it. Because the key and its billing
+            are yours, we cannot see or cap your Anthropic spend. You may rotate or revoke the key
+            at any time; your instance pauses until a replacement key is provided.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Acceptable use</h2>
+          <p>
+            Your agent must be used lawfully. Without limiting that, you may not use it to send spam
+            or unsolicited bulk messages, to harass or deceive, to violate the terms of any
+            connected service, or to violate Anthropic's usage policies. We may suspend an instance
+            that we reasonably believe is being used in violation of this section, and we will tell
+            you when we do.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>How the agent communicates</h2>
+          <p>
+            Instances launch with a deliberate safety posture: the agent is reachable through the
+            channels configured for your subscription, inbound email is accepted only from senders
+            you allowlist, and messages to third parties are prepared as drafts for your review
+            rather than sent autonomously. These constraints are part of the product. Configuration
+            changes are made by request through our team, not self-service, so that every loosening
+            is a deliberate decision.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Billing and cancellation</h2>
+          <p>
+            The subscription bills monthly in advance through Stripe at the price published at
+            checkout, plus applicable sales tax. You can cancel at any time from your portal;
+            cancellation takes effect at the end of the current billing period, and we do not charge
+            again after that. Paid periods are not refunded in part, except as described in the
+            refunds section below.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Founding pricing and plan retirement</h2>
+          <p>
+            Founding seats carry a discounted monthly rate that does not increase for as long as the
+            subscription remains continuously active and the Hosted Agent plan remains offered. If a
+            founding subscription lapses or is cancelled, the founding rate does not carry back to a
+            later subscription.
+          </p>
+          <p class="mt-4">
+            We may retire or materially change the Hosted Agent plan. If we do, we will give at
+            least sixty days written notice, and you may choose between moving to whatever offering
+            replaces it at its then-current terms or ending the subscription. The founding-rate
+            commitment applies within the life of the plan and ends when the plan is retired.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Refunds</h2>
+          <p>
+            Setup is performed by our team after purchase. If we cannot bring your agent live, we
+            refund every subscription payment you have made, in full. After your agent is live, fees
+            already paid are non-refundable and cancellation stops future charges. If something goes
+            wrong that you believe deserves an exception, write to us; we would rather keep your
+            trust than your fee.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Setup and support</h2>
+          <p>
+            Setup is done by hand for each subscription, and your portal shows the status
+            throughout. Support is provided by email at team@smd.services. We operate the service
+            with reasonable skill and care, but we do not offer an uptime guarantee or a service
+            level agreement at this price point, and we say so plainly rather than imply otherwise.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Your data</h2>
+          <p>
+            Your instance is dedicated to you. The content it processes, its memory, and its
+            configuration are not shared with other customers and are not used to serve anyone else.
+            When your subscription ends, we deactivate the instance and delete its data within
+            thirty days, except records we are required to keep for legal, billing, or audit
+            purposes.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Disclaimers and liability</h2>
+          <p>
+            The agent produces machine-generated output that can be wrong, incomplete, or out of
+            date. Review its work before relying on it or sending it onward; that is what the
+            draft-for-review posture is for. The service is provided as-is. To the maximum extent
+            permitted by law, our total liability arising out of the service is limited to the
+            subscription fees you paid us in the three months before the claim arose.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Governing law</h2>
+          <p>
+            Arizona law governs these terms. Any disputes are resolved in the state and federal
+            courts of Maricopa County, Arizona.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Changes</h2>
+          <p>
+            We may update these terms from time to time. The effective date above reflects the most
+            recent revision, and material changes are announced to active subscribers by email
+            before they take effect.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={sectionHeading}>Contact</h2>
+          <p>
+            Questions about these terms go to team@smd.services or through our <a
+              href="/contact"
+              class={inlineLink}>contact form</a
+            >.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Base>

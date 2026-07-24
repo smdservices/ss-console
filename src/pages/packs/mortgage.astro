@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Mortgage Brokers',
   description:
-    'The Operator is a worker you hire, not software you buy. The mortgage pack is its head start: a starting point shaped around processing and condition coordination, which we configure with you and you customize to your shop. The loan calls and the money stay with your MLO; you set the line.',
+    'The Operator is a worker you hire, not software you buy. It works inside your loan origination system and alongside the tools your team uses to price, disclose, and submit, carrying a loan from application to funding: the documents, the conditions, the dates, and the chase. Every borrower-facing message goes to a person to review; the Operator never makes the loan decision and never touches wire instructions.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,190 +26,229 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/mortgage/vertical.yaml (the application-and-conditions,
-// services-and-verifications, status-and-closing, and wire-safety skill families).
-// These are templates we configure, not a finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. One file from application to funding, each step in
+// the standard's three-line shape (Operator does / your part / if it stalls). Built
+// from research (CFPB TRID timing, mortgage process guides, the internal spec brief)
+// and corrected by the adversarial gate: broker-accurate role lines (the broker
+// requests, the lender orders the appraisal; the lender owns the Closing Disclosure;
+// the submission-to-lender step is present). Generic system categories, no brand names.
+// The section framing (illustrative + the fail-closed honesty in section 07) carries
+// the truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Application and conditions',
-    body: 'A new application routed to a licensed loan officer, the underwriting conditions chased, the borrower documents collected and tracked as they arrive.',
+    title: 'A new application comes in',
+    operator:
+      'Captures the application into the loan origination system, sets up the file, and routes the initial disclosure package to the loan officer. It never advises on a product, a rate, or eligibility; that goes to the licensed loan officer.',
+    your: 'The loan officer reviews.',
+    stalls: 'Re-flags if the file sits.',
   },
   {
-    title: 'Services and verifications',
-    body: 'The appraisal order tracked, the title order coordinated, the verifications of employment and deposit requested and logged.',
+    title: 'Disclosures and intent to proceed',
+    operator:
+      "Surfaces that the Loan Estimate is due within three business days of application, with the file ready, then watches for the borrower's intent to proceed, which has to be in before fees or services move.",
+    your: 'Review and send the Loan Estimate.',
+    stalls: 'Chases the intent to proceed, and reminds before the deadline.',
   },
   {
-    title: 'Status, dates, and closing',
-    body: 'The borrower kept current, the agent and loan officer kept current, the file dates surfaced, the closing logistics coordinated, the post-closing follow-up sent.',
+    title: 'Document collection',
+    operator:
+      'Works the document checklist, income, assets, and employment, requests what is missing, and tracks what arrives into the system.',
+    your: 'Nothing, unless a document needs your eyes.',
+    stalls:
+      'Chases the borrower, and tells you only if it stalls. It collects and tracks; it never interprets a document.',
   },
   {
-    title: 'Wire safety and the pipeline',
-    body: 'Any wire or banking message routed to a verified person, the internal pipeline digest assembled, your loan-origination system kept in sync.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is mortgage-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a processing desk and ready to configure. You are not building from a blank page.',
+    title: 'The rate lock',
+    operator:
+      'Once the loan officer locks, it records the lock and its expiration and watches that date against where the file is.',
+    your: 'The loan officer decides whether to lock, extend, or let it float.',
+    stalls:
+      'Surfaces the expiration before it runs out. It records and watches the date; it never advises whether to lock or extend.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your loan-origination system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'Submission to the lender',
+    operator:
+      "Assembles the submission package, checks it against the lender's checklist, and tracks it into underwriting.",
+    your: 'Confirm the package and the lender.',
+    stalls: 'Flags what is missing before submission.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your investors and your conditions, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your shop; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Clearing conditions',
-    body: 'The conditions list that has to be worked, the borrower document still outstanding. The Operator collects the conditions, chases what is missing, and works the condition chain so the file moves toward clear-to-close. The lock and the loan calls stay with your MLO.',
+    title: 'Appraisal and title',
+    operator:
+      'Requests the appraisal through the lender, who orders it, and tracks it; orders and tracks the title work; and flags a delay against the closing date.',
+    your: 'Nothing, unless it flags something.',
+    stalls:
+      'Reminds as the date nears. Logistics only; it never orders or selects the appraisal, and it never comments on value.',
   },
   {
-    title: 'Keeping every party current',
-    body: 'Borrower, agent, title, underwriting. The Operator keeps each one current at every step and chases the items they owe, so the file does not stall waiting on a status email no one had time to send.',
+    title: 'Underwriting conditions',
+    operator:
+      "As the lender's underwriter returns conditions, it breaks them out, chases each to the borrower or the right party, and updates the condition list as items land.",
+    your: 'Review what comes back.',
+    stalls:
+      'Keeps chasing the open conditions and surfaces the ones aging out. It chases the conditions underwriting set; it never decides whether one is satisfied.',
   },
   {
-    title: 'The pipeline',
-    body: 'Turn times, the files approaching a deadline, the ones that have gone quiet. The Operator runs the cadence and surfaces what needs attention, and keeps the loan-origination system current as it goes.',
+    title: 'Clear to close',
+    operator:
+      "Once the file is clear to close, coordinates the closing with title and the borrower, and tracks the lender's Closing Disclosure timing, since the borrower must receive it at least three business days before closing.",
+    your: 'Confirm the closing details and timing.',
+    stalls:
+      'Reminds before the date. It coordinates logistics; it never produces or alters the figures, and it never communicates wire instructions.',
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the pipeline, conditions aging, documents outstanding, locks expiring, closings near.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Mortgage Brokers | SMD Services"
-  description="The mortgage pack is the Operator's head start: a starting point shaped around processing and condition coordination, which we configure with you and you customize to your shop. The loan calls and the money stay with your MLO. You set the line."
+  description="A worker you hire, not software you buy. The Operator works inside your loan origination system and alongside your team's tools, carrying a loan from application to funding so nothing slips. Every borrower message goes to a person, and it never touches wire instructions. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="mortgage">
-    <Fragment slot="heading">The Processing Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Loan, Carried To Close.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its mortgage head start: a
-      starting point already shaped around processing and condition coordination, so you are not
-      building from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your loan origination
+      system and alongside the tools your team already uses to price, disclose, and submit, carrying
+      a loan from application to funding: the documents, the conditions, the dates, the chase, so
+      your processors do not have to hold every file in their heads. Every borrower-facing message
+      goes to a person to review. It never makes the loan decision, and it never touches wire
+      instructions.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
-    <PackEyebrow>§ 02</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackEyebrow>The Problem</PackEyebrow>
+    <PackHeading variant="prose">Every File Has A Clock.</PackHeading>
     <PackProse>
       <p>
-        Origination staffing runs hot and cold. Shops hire fast in the boom and cut deep in the
-        bust, and the processors and closers they let go move into other fields and do not come
-        back. When the market turns, the talent is gone and everyone is fighting for the same
-        people. The files do not wait: the conditions still have to be cleared, and the parties
-        still have to be kept current.
+        The hard part of a loan is not taking the application. It is carrying a pipeline of files at
+        once, each one racing a clock: the rate lock counting down, the condition that has been open
+        too long, the document that has not come back, the appraisal that is not in, the disclosure
+        that has to be out on time.
       </p>
       <p>
-        An Operator fills that seat now. It runs the pipeline at full speed, all the time, and what
-        it learns about how your shop runs, your investors, your conditions, your voice, stays with
-        the shop instead of leaving in the next downcycle.
+        Each file is small. Together they are a pipeline, and the clocks live in your processors'
+        heads, where things slip. A rate lock that expires can cost the borrower real money or send
+        the file back through underwriting. A disclosure that misses its window moves the closing. A
+        missed clock here is not an inconvenience. It is the deal, at risk.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>§ 03</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The mortgage pack comes shaped around the work a
-      processing desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your loan-origination system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 04</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the files, and we shape the
-        templates around how your shop actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your loan origination system and
+        alongside the tools your team already uses. Its job is to carry the process so your people
+        do not have to hold it in their heads: it watches every file, knows every date, collects the
+        documents, and chases the conditions.
       </p>
       <p>
-        From there the work moves the way it always did. A file comes in and gets routed to a
-        licensed loan officer. The conditions get chased, the borrower documents get collected, the
-        appraisal and title orders get tracked. The borrower, the agent, and title get kept current
-        at every step, the file dates get surfaced, and any message that touches a wire goes to a
-        verified person. It is all logged in your loan-origination system as it happens, and it
-        keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. If a step does not get done,
+        it follows up rather than letting it slip. Every borrower-facing message goes to a person on
+        your team to review and send.
+      </p>
+      <p>
+        It does not replace your loan origination system; that stays the system of record. The loan
+        officer originates and advises, and the underwriter decides. The Operator does the
+        connective work between and around them, and keeps the system current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 05</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Loan, Application To Funding.</PackHeading>
     <PackIntro>
-      We are not the experts in how your shop runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is one file's life, from a new application to a funded loan, carried start to finish.
+      This is the shape of the work, not a fixed script; we build it around how your shop actually
+      runs.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>§ 06</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator works the file. The advice, the rate-lock decision, anything that requires an
-        originator's license, those stay with your MLO. Not because the software could not fill a
-        field, but because the license is the point: giving loan advice requires a license and
-        carries a duty to the borrower, and an unlicensed assistant could not give it either.
+        The Operator works inside the loan origination system and the document portal your shop
+        already runs. It reads the file, updates the records, files what arrives, and routes what
+        needs a person, so the system stays current without anyone keying it in twice. Nothing has
+        to be emailed around or re-uploaded by hand.
       </p>
       <p>
-        Some lines are not settings anyone can move. It never advises on products, rates, lock, or
-        eligibility, and it never approves, denies, or conditions a loan. It never transmits,
-        confirms, or changes wire instructions; any message that touches funds or wire details goes
-        to a verified person through your process. Non-public borrower information stays inside your
-        shop's surfaces. Anything that leaves the shop goes to a reviewer on your team until you
-        decide otherwise. Every action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your borrower files stay private, including from us. The Operator
-        works in your shop's own walled-off environment, on your own accounts. We can see that it is
-        running and the record of what it did, but the contents of your files and messages stay
-        yours, and so do the configuration, the logs, and the off switch.
+        It works on your own accounts, inside the systems you already pay for. It is the connective
+        tissue between them, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="mortgage" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>§ 07</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your shop runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your processors feel work coming
+        off their plate, not one more thing pinging them.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start the conversation -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Decides, And It Never Touches The Money.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the decisions to the people licensed to
+        make them. The loan officer advises on products, rates, and the lock; the underwriter
+        approves, denies, and conditions. Those never move to the Operator.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. Any borrower question about where to wire
+        funds is routed to your verified process and never answered by the Operator. It never
+        transmits, confirms, or changes wire instructions. Wire fraud at closing is real, and the
+        safe default is to never touch it. Every action it takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading documents and matching your shop's rules, like a condition read off an underwriter's
+        list or a date computed against a lock, we validate on your real files first. Where accuracy
+        is not yet proven, the Operator surfaces what it found and asks, rather than acting on its
+        own. Borrower information stays in your shop's own walled-off environment, and the
+        configuration, the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="mortgage">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your shop runs, find the processing and
-      coordination work that is eating your team's time, and start from the pack, customizing it to
-      your shop. If it is not a fit, we will tell you.
+      We learn how your shop actually runs a file, find where the time goes and where the clocks
+      slip, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>

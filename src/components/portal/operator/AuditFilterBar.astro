@@ -9,7 +9,7 @@
  * data resolver re-runs against the new params.
  *
  * Plainspoken aesthetic matching FilterBar.astro (#869). 3px ink
- * border, Archivo Narrow uppercase labels, no shadowy form chrome.
+ * border, JetBrains Mono uppercase labels, no shadowy form chrome.
  *
  * Drift guard: every input `name` here matches a field on
  * `AuditListParams` in src/lib/portal/operator/audit.ts. If you
@@ -17,7 +17,8 @@
  * form and the resolver.
  */
 
-import { AUDIT_ACTION_TYPES, AUDIT_SORTS, type AuditSort } from '../../../lib/portal/operator/audit'
+import { AUDIT_SORTS, type AuditSort } from '../../../lib/portal/operator/audit'
+import { CLIENT_ACTIVITY_CATEGORIES } from '../../../lib/portal/operator/activity-language'
 
 interface Props {
   /**
@@ -25,7 +26,8 @@ interface Props {
    * parsed URLSearchParams so the form re-hydrates after a submit.
    */
   skills: readonly string[]
-  actions: readonly string[]
+  /** Selected client-activity category keys (the `cat` URL param). */
+  categories: readonly string[]
   from: string | null
   to: string | null
   q: string | null
@@ -39,7 +41,7 @@ interface Props {
   availableSkills: readonly string[]
 }
 
-const { skills, actions, from, to, q, sort, availableSkills } = Astro.props
+const { skills, categories, from, to, q, sort, availableSkills } = Astro.props
 
 const SORT_LABELS: Record<AuditSort, string> = {
   ts_desc: 'Newest first',
@@ -47,7 +49,7 @@ const SORT_LABELS: Record<AuditSort, string> = {
 }
 
 const selectedSkills = new Set(skills)
-const selectedActions = new Set(actions)
+const selectedCategories = new Set(categories)
 
 // Strip time component from an ISO datetime for the `<input type="date">`
 // re-hydration. The resolver accepts both ISO date and ISO datetime so
@@ -73,7 +75,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5 min-w-0">
       <label
         for="audit-filter-skill"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Skill
       </label>
@@ -104,7 +106,7 @@ function toDateValue(value: string | null): string {
         availableSkills.length === 0 && (
           <span
             id="audit-filter-skill-empty"
-            class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
+            class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
           >
             Skills appear as your Operator acts
           </span>
@@ -112,25 +114,28 @@ function toDateValue(value: string | null): string {
       }
     </div>
 
-    {/* Action class multi-select */}
+    {
+      /* Activity category multi-select (client language; expands to the
+        mapped raw actions page-side — raw vocabulary never renders) */
+    }
     <div class="flex flex-col gap-1.5 min-w-0">
       <label
-        for="audit-filter-action"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        for="audit-filter-category"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
-        Action class
+        Activity type
       </label>
       <select
-        id="audit-filter-action"
-        name="action"
+        id="audit-filter-category"
+        name="cat"
         multiple
         size="4"
         class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-xs text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
       >
         {
-          AUDIT_ACTION_TYPES.map((action) => (
-            <option value={action} selected={selectedActions.has(action)}>
-              {action}
+          CLIENT_ACTIVITY_CATEGORIES.map((category) => (
+            <option value={category.key} selected={selectedCategories.has(category.key)}>
+              {category.label}
             </option>
           ))
         }
@@ -141,7 +146,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5">
       <label
         for="audit-filter-from"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         From
       </label>
@@ -158,7 +163,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5">
       <label
         for="audit-filter-to"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         To
       </label>
@@ -175,7 +180,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-col gap-1.5">
       <label
         for="audit-filter-sort"
-        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
       >
         Sort
       </label>
@@ -198,7 +203,7 @@ function toDateValue(value: string | null): string {
     <div class="flex flex-row gap-2 md:items-end">
       <button
         type="submit"
-        class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
+        class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-mono text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
       >
         Apply
       </button>
@@ -213,7 +218,7 @@ function toDateValue(value: string | null): string {
   <div class="flex flex-col gap-1.5 min-w-0">
     <label
       for="audit-filter-q"
-      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
     >
       Search
     </label>
@@ -224,7 +229,7 @@ function toDateValue(value: string | null): string {
       value={q ?? ''}
       placeholder="reason, actor, or target"
       autocomplete="off"
-      class="w-full border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      class="w-full border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
     />
   </div>
 </form>

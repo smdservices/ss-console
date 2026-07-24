@@ -14,7 +14,6 @@ metadata:
   smd:
     vertical: law-firm
     skill_type: drafting (client-facing)
-    trust_ceiling: draft_for_review
     action_class: read + external_send
     connectors:
       - smokeball # PracticeManagement — matters, tasks (read) for the status facts
@@ -35,7 +34,7 @@ Runs scheduled (e.g., a fortnightly per-matter cadence the firm sets).
 
 ## Prerequisites
 
-Reads Smokeball (`get_matter`, `list_tasks`) for the status facts, the **mail/calendar binding** (Google/M365) for upcoming appointments, and the customer-bound **Email** connector to draft the client update. Requires `python3` for the fetch block. The draft is **never sent autonomously** — it ships under the reviewer's identity.
+Reads Smokeball (`get_matter`, `list_tasks`) for the status facts, the **mail/calendar binding** (Google/M365) for upcoming appointments, and the customer-bound **Email** connector to draft the client update. Whether the update sends or drafts follows the firm's authored `external_send` ceiling (`draft_for_review` recommended; see `operator/references/send-posture.md`).
 
 ## How to Run
 
@@ -46,11 +45,11 @@ hermes run client-matter-digest --matter <id>      # one matter's client update
 
 ## Procedure
 
-Two phases (ADR 0021 Stream A). The mechanical per-matter Smokeball fetch runs in one `execute_code` block; the client-appropriate framing and drafting stay in the agent's reasoning loop.
+Two phases. The per-matter fetch uses the governed connector tools directly; the client-appropriate framing and drafting stay in the agent's reasoning loop.
 
-### Phase 1 — Fetch (single `execute_code` block)
+### Phase 1 — Fetch (mediated connector reads)
 
-For each matter due for an update, pull `get_matter` (status), `list_tasks` (open items, including anything `waiting on client`), and calendar appointments from the **mail/calendar binding** (upcoming dates the client should know). Accumulate in-process; `print()` one JSON document of (matter → status facts). A matter that can't be read is `parse_failed`; the run continues.
+**Do NOT run the fetch through `execute_code`** — the `code_execution` action class is unauthorable on customer seats holding gateway credentials (the #1841 custody guard; ss #1917) and the call is REFUSED. For each matter due for an update, pull `get_matter` (status), `list_tasks` (open items, including anything `waiting on client`), and calendar appointments from the **mail/calendar binding** (upcoming dates the client should know) as ordinary governed tool calls, keeping each read tight (status facts and in-window dates, never full documents). A matter that can't be read is `parse_failed`; the run continues. If a firm's matter count ever makes per-matter reads untenable, that is the ss #1917 batch-fetch design conversation — never `execute_code`.
 
 ### Phase 2 — Reason (agent, in-context)
 
@@ -71,7 +70,7 @@ The agent MUST NOT: send to a client autonomously; give legal advice or predict 
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
-1. **External-send draft floor.** No autonomous send. Every client-bound digest ships under a human reviewer's identity.
+1. **External send follows the authored ceiling.** Whether the digest sends or drafts is the firm's authored `external_send` ceiling, not a fixed rule (`draft_for_review` — shipped under a human reviewer's identity — is the recommended starting posture). See `operator/references/send-posture.md`.
 2. **Status, not advice.** Reports what happened and what is scheduled; never advises, predicts an outcome, or recommends a legal action.
 3. **No fabrication.** Every fact traces to a Smokeball read (or the calendar binding). A quiet matter is described as quiet, not dressed up.
 4. **No internal leakage.** Billing internals, strategy, and other firm-only detail never enter a client-facing draft.

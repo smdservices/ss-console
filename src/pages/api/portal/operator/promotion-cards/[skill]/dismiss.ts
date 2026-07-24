@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro'
 import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { instanceFromOperatorPath } from '../../../../../../lib/portal/operator/return-to'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../../../lib/api/helpers'
 
 /**
  * POST /api/portal/operator/promotion-cards/[skill]/dismiss
@@ -63,10 +65,7 @@ function resolveReturnTarget(raw: FormDataEntryValue | null): string {
 }
 
 function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
@@ -82,8 +81,20 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     return jsonError(400, 'Skill identifier too long')
   }
 
+  const formData = await request.formData()
+  const returnTarget = resolveReturnTarget(formData.get('returnTo'))
+
+  // Instance derived from the (instance-scoped) return path; ownership enforced
+  // centrally by resolveOperatorAccess. The dismissal itself stays keyed by
+  // (entity_id, skill) — per-entity, not per-instance (documented decision).
+  const instance = instanceFromOperatorPath(returnTarget)
+  if (!instance) {
+    return new Response(null, { status: 303, headers: { Location: '/portal/products/operator' } })
+  }
+
   const access = await resolveOperatorAccess(env.DB, locals, {
     allowedRoles: ['principal'],
+    customerSlug: instance,
   })
   if (access.kind === 'redirect') {
     return new Response(null, {
@@ -91,9 +102,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       headers: { Location: access.to },
     })
   }
-
-  const formData = await request.formData()
-  const returnTarget = resolveReturnTarget(formData.get('returnTo'))
 
   // Upsert by primary key (entity_id, skill). ON CONFLICT refreshes the
   // dismissed_at timestamp and the actor, extending the cooldown and

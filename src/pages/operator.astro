@@ -6,6 +6,7 @@ import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
 import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
+import { serializeJsonLd } from '../lib/seo/json-ld'
 
 const productSchema = {
   '@context': 'https://schema.org',
@@ -19,6 +20,42 @@ const productSchema = {
     availability: 'https://schema.org/InStock',
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
+}
+
+// Comparison Q&A (folded from the retired /why page). Doubles as FAQPage schema
+// for answer engines and the "how does this compare" searcher. Answer-shaped:
+// a direct answer first, then the expansion.
+const faqs = [
+  {
+    q: 'Is the Operator just a chatbot?',
+    a: 'No. A chatbot waits for someone to type a question and answers it. The Operator does not wait. Like any worker, it has standing work it does on its own, on a schedule, whether or not anyone messages it: watching for what is slipping, sending the recurring update, moving the work along. And when you do hand it something, it carries it to done, pulling what matters from your systems, drafting in your voice, booking the next step, and logging it where your team can see. A chatbot is a conversation; the Operator is a worker with a job.',
+  },
+  {
+    q: 'Should we build our own AI agent or have one built and run for us?',
+    a: 'You can build your own, and some teams do. The cost is rarely the build. It is keeping it working: wiring it into your tools, watching it, fixing what drifts, and keeping up as the technology changes every month. The Operator is built for your business and run for you. You give feedback to a worker instead of taking on a second job operating one.',
+  },
+  {
+    q: 'How is an Operator different from hiring someone?',
+    a: 'The honest comparison is against a hire, not against software, because the Operator takes on work you would otherwise hire a person to do. A new hire is capable and still spends months learning your business and your tools while you pay for the ramp. The Operator learns the systems you run quickly, works across them, and what it learns stays with your business instead of leaving when a person does.',
+  },
+  {
+    q: 'Will it replace our people?',
+    a: 'No. It takes the connective busywork off your team, the follow-ups and handoffs that eat the day, so your people spend their time on the work only they can do. The goal is to give them their hours back, not to remove them. You decide what the Operator handles and what stays with a person.',
+  },
+  {
+    q: 'Is it safe to let it work on its own?',
+    a: 'You set what it can do on its own and what waits for a person to approve. That decision is in writing and you can change it anytime, and the Operator never widens its own authority. Every action it takes is recorded where you can see what it did, when, and why. We build it, run it, and stay accountable for how it works.',
+  },
+]
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
 }
 
 const roleLenses = [
@@ -62,92 +99,70 @@ const industries = [
 >
   <Nav />
   <main id="main" role="main">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+    <script is:inline type="application/ld+json" set:html={serializeJsonLd(productSchema)} />
+    <script is:inline type="application/ld+json" set:html={serializeJsonLd(faqSchema)} />
 
     <!-- § 01 Hero -->
     <section
       class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
     >
-      <div class="mx-auto max-w-5xl text-center">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 01</span
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          The Managed Operator
+        </p>
         <h1
-          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-8 font-body text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
           Hire Once.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
           A dedicated worker for your business, in its own office and plugged into your systems. It
           takes on the recurring work, learns how you run, and everything it learns stays yours.
         </p>
-        <CtaButton href="/book?interest=operator" data-ev="operator-hero-cta"
-          >Start the conversation</CtaButton
+        <CtaButton interest="operator" data-ev="operator-hero-cta"
+          >Start with an assessment</CtaButton
         >
         <p class="mt-8">
           <a
-            href="/why"
-            data-ev="operator-hero-why"
-            class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+            href="#compare"
+            data-ev="operator-hero-compare"
+            class="inline-flex items-center gap-2 font-mono text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
           >
-            <span>New here? Read the case for {CATEGORY_ARTICLE} {CATEGORY_NAME}</span>
+            <span>New here? See how {CATEGORY_ARTICLE} {CATEGORY_NAME} compares</span>
             <span aria-hidden="true">→</span>
           </a>
         </p>
       </div>
     </section>
 
-    <!-- § 02 The real comparison (the anchor) -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 02</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Real Comparison.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Work like this usually gets solved by hiring someone to own it. A coordinator, a
-            dispatcher, an intake lead. The role you keep meaning to fill.
-          </p>
-          <p>
-            That hire takes months to get up to speed. They learn your business by living inside it,
-            and the day they leave, everything they learned walks out with them.
-          </p>
-          <p>
-            An Operator fills that same role. It gets up to speed in a fraction of the time, it does
-            not quit, and the understanding it builds of how you run stays with the business, not in
-            any one person's head.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 03 A worker, in another office -->
+    <!-- A worker, in another office. Opens at the concrete picture; the hire comparison lives in #compare below. -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 03</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          What It Is
+        </p>
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-10 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           A Worker, In Another Office.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
+            There is a gap in most businesses, between your people and your software, where the
+            connective work falls through. This is the worker that fills it. Here is how it works.
+          </p>
+          <p>
             Picture a remote worker from the future, sitting at a desk in your business today. A
-            computer, a phone, and access to the systems and processes you already run. You hand it
-            work the way you hand work to anyone on your team. You send the request, it does the
-            job, and it comes back with the result.
+            computer, a phone, and access to the systems and processes you already run. Like anyone
+            you would hire for the role, it comes in knowing the job. It has standing work it
+            carries on its own, on its own schedule, without waiting to be asked, and like anyone on
+            your team, you can hand it something new whenever you need to.
           </p>
           <p>
             It works from its own office, the way much of your team already does. The bookkeeper you
@@ -165,12 +180,13 @@ const industries = [
     <!-- § 04 What you actually get -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 04</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          What You Get
+        </p>
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-10 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           What You Actually Get.
         </h2>
@@ -200,12 +216,13 @@ const industries = [
     <!-- § 05 One Operator, one memory, all yours -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 05</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          Yours To Keep
+        </p>
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-10 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           One Operator, One Memory. All Yours.
         </h2>
@@ -228,11 +245,9 @@ const industries = [
             builds is yours to keep, and it is not locked inside our system.
           </p>
         </div>
-        <div class="text-center">
-          <CtaButton
-            variant="secondary"
-            href="/book?interest=operator"
-            data-ev="operator-section-cta">Talk through the fit</CtaButton
+        <div>
+          <CtaButton variant="secondary" interest="operator" data-ev="operator-section-cta"
+            >Start with an assessment</CtaButton
           >
         </div>
       </div>
@@ -241,12 +256,13 @@ const industries = [
     <!-- § 06 You set the limits, we keep it running -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          Control
+        </p>
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-10 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           You Set The Limits. We Keep It Running.
         </h2>
@@ -281,12 +297,13 @@ const industries = [
     <!-- § 07 A team, not a tool -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 07</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          The Guide
+        </p>
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-10 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           A Team, Not A Tool.
         </h2>
@@ -311,12 +328,13 @@ const industries = [
     <!-- § 08 Where it fits -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          Where It Fits
+        </p>
         <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           Where It Fits.
         </h2>
@@ -338,10 +356,10 @@ const industries = [
                   i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
                 ]}
               >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                <p class="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
                   {lens.title}
                 </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                <p class="font-body text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
                   {lens.body}
                 </p>
               </div>
@@ -354,20 +372,23 @@ const industries = [
     <!-- § 09 Built for your industry -->
     <section id="industries" class="bg-[color:var(--ss-color-background)] px-6 py-24 scroll-mt-20">
       <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 09</span
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
+          Industries
+        </p>
         <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           Built For Your Industry.
         </h2>
         <p
           class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          The role is built around your operation. For these, we have already mapped the seat the
-          Operator fills, the work it takes on, and the line it does not cross. Find yours.
+          The role is built around your operation. For these, we have already mapped where the
+          Operator fits: the seat it fills, the work it takes on, and the line it does not cross.
+          That is a starting point to react to and shape together, not the only way it can run. Find
+          yours.
         </p>
 
         <div
@@ -383,10 +404,10 @@ const industries = [
                   i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
                 ]}
               >
-                <p class="font-['Archivo'] text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] group-hover:text-[color:var(--ss-color-primary)]">
+                <p class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] group-hover:text-[color:var(--ss-color-primary)]">
                   {industry.name}
                 </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                <p class="font-body text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
                   {industry.seat}
                 </p>
               </a>
@@ -396,32 +417,63 @@ const industries = [
       </div>
     </section>
 
-    <!-- § 10 Start the conversation -->
+    <!-- Comparison: how the Operator compares to the alternatives. Folded from the
+         retired /why page; mirrors the FAQPage schema above. The answer-engine surface. -->
+    <section id="compare" class="bg-white px-6 py-24 scroll-mt-20">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Straight Answers
+        </p>
+        <h2
+          class="mb-12 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          How It Compares.
+        </h2>
+        <div
+          class="divide-y-[3px] divide-[color:var(--ss-color-text-primary)] border-y-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            faqs.map((f) => (
+              <div class="py-8">
+                <h3 class="mb-4 max-w-3xl font-body text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  {f.q}
+                </h3>
+                <p class="max-w-3xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {f.a}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 10 Start with an assessment -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
-        <span
-          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 10</span
+        <p
+          class="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-muted)]"
         >
+          Start Here
+        </p>
         <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+          class="mb-6 font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
         >
-          Start The Conversation.
+          It Starts With An Assessment.
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your operation runs, find the work that is
-          eating your team's time, and figure out where a dedicated Operator fits. If the fit is not
-          right, we say so.
+          We learn how your operation runs, find the work that is eating your team's time, and
+          figure out where a dedicated Operator fits. If the fit is not right, we say so.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           Pricing is a flat monthly subscription, scoped to the role we build together, and we walk
           through it before any setup begins. No hourly billing, no usage meter, no surprise line
           items.
         </p>
-        <CtaButton
-          variant="outline-white"
-          href="/book?interest=operator"
-          data-ev="operator-final-cta">Start the conversation</CtaButton
+        <CtaButton variant="outline-white" interest="operator" data-ev="operator-final-cta"
+          >Start with an assessment</CtaButton
         >
       </div>
     </section>

@@ -1,11 +1,15 @@
+---
+import { bookHref } from '../lib/booking/config'
+---
+
 <footer
   class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-surface-inverse)] text-white"
 >
   <div class="mx-auto w-full max-w-5xl px-6">
     <!-- Region 1: Masthead. Filled-monogram wordmark — orange "SMD" block +
-         Archivo Narrow Semibold all-caps "SERVICES" descriptor. Matched
+         Archivo semibold all-caps "SERVICES" descriptor. Matched
          cap-height locks the two halves into a single mark; width-contrast
-         (Archivo Black vs Archivo Narrow) does the visual work that
+         (Archivo Black vs Archivo semibold) does the visual work that
          case-contrast was failing to do. -->
     <div class="py-12 md:py-14">
       <a
@@ -14,11 +18,10 @@
         class="inline-flex items-baseline gap-2 text-xl md:text-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-surface-inverse)]"
       >
         <span
-          class="inline-block bg-[color:var(--ss-color-primary)] px-1.5 py-0.5 font-['Archivo'] font-black uppercase leading-none tracking-tight text-white"
+          class="inline-block bg-[color:var(--ss-color-primary)] px-1.5 py-0.5 font-body font-black uppercase leading-none tracking-tight text-white"
           >SMD</span
         >
-        <span
-          class="font-['Archivo_Narrow'] font-semibold uppercase tracking-[0.08em] leading-none text-white"
+        <span class="font-mono font-semibold uppercase tracking-[0.08em] leading-none text-white"
           >Services</span
         >
       </a>
@@ -26,16 +29,21 @@
 
     <div class="h-px bg-[color:rgba(245,240,227,0.16)]"></div>
 
-    <!-- Region 2: Site map. The marketing surfaces, kept reachable from the
-         footer so no path (consulting especially) is orphaned by the
-         Operator-forward home. -->
+    <!-- Region 2: Site map + reach. The surviving marketing surfaces, and a quiet
+         Contact link. The booking is the front door; /contact is the lower-weight
+         general-inquiry channel (partnerships, press, vendors, other) so we reach
+         a real form instead of publishing an email address on the page. -->
+
     <nav
       aria-label="Site"
-      class="py-6 md:py-7 flex flex-wrap gap-x-6 gap-y-2 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      class="py-6 md:py-7 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
     >
       <a href="/operator" class="hover:text-white" data-ev="footer-operator">Operator</a>
-      <a href="/why" class="hover:text-white" data-ev="footer-why">Why</a>
-      <a href="/consulting" class="hover:text-white" data-ev="footer-consulting">Consulting</a>
+      <a href="/industries" class="hover:text-white" data-ev="footer-industries">Industries</a>
+      <a href="/about" class="hover:text-white" data-ev="footer-about">About</a>
+      <a href={bookHref()} class="hover:text-white" data-ev="footer-assessment"
+        >Start with an assessment</a
+      >
       <a href="/contact" class="hover:text-white" data-ev="footer-contact">Contact</a>
     </nav>
 
@@ -47,7 +55,7 @@
          Right column: legal hygiene (Terms, Privacy). -->
     <nav
       aria-label="Footer"
-      class="py-6 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-0 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      class="py-6 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-0 font-mono text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
     >
       <div class="flex flex-wrap gap-x-6 gap-y-2">
         <a
@@ -60,6 +68,13 @@
       <div class="flex flex-wrap gap-x-6 gap-y-2">
         <a href="/terms" class="hover:text-white" data-ev="footer-terms">Terms</a>
         <a href="/privacy" class="hover:text-white" data-ev="footer-privacy">Privacy</a>
+        <a href="/privacy#privacy-choices" class="hover:text-white" data-ev="footer-privacy-choices"
+          >Your Privacy Choices</a
+        >
+        <a href="/security" class="hover:text-white" data-ev="footer-security">Security</a>
+        <a href="/ai-disclosure" class="hover:text-white" data-ev="footer-ai-disclosure"
+          >AI Disclosure</a
+        >
       </div>
     </nav>
 
@@ -67,7 +82,7 @@
 
     <!-- Region 3: Colophon. Legal entity on the left, location on the right. -->
     <div
-      class="py-6 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+      class="py-6 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 font-mono text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
     >
       <span>&copy; 2026 SMDurgan, LLC</span>
       <span>Phoenix, Arizona</span>

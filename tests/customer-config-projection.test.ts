@@ -50,16 +50,17 @@ describe('customer-config projection: real smd yaml', () => {
     expect(row.compliance_enabled).toBe(0)
   })
 
-  it('narrows personas to the read-side PersonaConfig shape (skills = {name, trust_ceiling})', () => {
+  it('preserves persona exposure and skill initiation in the read-side shape', () => {
     const row = projectCustomerYamlToConfigRow(smdYaml(), CTX)
     const personas = JSON.parse(row.personas_json) as PersonaConfig[]
     const crane = personas.find((p) => p.slug === 'crane')
     expect(crane).toBeDefined()
     expect(crane!.name).toBe('Crane')
+    expect(crane!.entitlements.exposure.external_send).toBe('autonomous')
     expect(crane!.skills.length).toBeGreaterThan(0)
     for (const skill of crane!.skills) {
-      // Exactly the two read-side keys — no version/enabled/action_ceilings leak.
-      expect(Object.keys(skill).sort()).toEqual(['name', 'trust_ceiling'])
+      expect(Object.keys(skill).sort()).toEqual(['initiation', 'name'])
+      expect(skill.initiation.manual).toBe(true)
     }
   })
 
@@ -151,7 +152,10 @@ describe('customer-config projection: SQL document', () => {
       'scott@smd.services'
     )
     expect(sql).toContain('INSERT INTO customer_configs')
-    expect(sql).toContain('ON CONFLICT(entity_id) DO UPDATE SET')
+    expect(sql).toContain('ON CONFLICT(customer_slug) DO UPDATE SET')
+    // entity_id must NOT be in the update set — a re-projection never silently
+    // repoints a config to a different owning entity (cross-tenant guard).
+    expect(sql).not.toContain('entity_id = excluded.entity_id')
     expect(sql).toContain('INSERT INTO customer_config_history')
     expect(sql).toContain("'manual'")
     // No-op guard + prev_git_sha lineage.

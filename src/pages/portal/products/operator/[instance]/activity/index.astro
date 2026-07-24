@@ -1,0 +1,229 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import {
+  defaultAuditDateRange,
+  distinctAuditSkills,
+  parseAuditListParams,
+} from '../../../../../../lib/portal/operator/audit'
+import { loadActivityPage } from '../../../../../../lib/portal/operator/activity-read'
+import {
+  CLIENT_ACTIVITY_CATEGORIES,
+  mappedActionsForCategories,
+} from '../../../../../../lib/portal/operator/activity-language'
+import {
+  resolveComplianceView,
+  formatRetentionWindow,
+} from '../../../../../../lib/portal/operator/compliance'
+import {
+  ACCEPTED_VERTICALS,
+  type Vertical,
+} from '../../../../../../lib/operator/customer-yaml/types'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import AuditFilterBar from '../../../../../../components/portal/operator/AuditFilterBar.astro'
+import AuditLogTable from '../../../../../../components/portal/operator/AuditLogTable.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — Activity & Audit (client-portal §5.5). The new-IA surface that
+ * answers "you can see and prove everything your operator did."
+ *
+ * URL: portal.smd.services/portal/products/operator/activity
+ *
+ * Differences from the legacy /audit viewer (which this supersedes):
+ *   - Read for ALL THREE client roles (principal | staff | compliance). The
+ *     activity record is a trust centerpiece; everyone in the firm may read it
+ *     (§5.5). Compliance is read-only by definition; the evidence-export entry
+ *     is the only operable element, gated to principal/compliance.
+ *   - Fed by the frozen ADR 0043 runtime read path (loadActivityPage →
+ *     readMachineRuntime), not the legacy per-feature stub. Fails closed to an
+ *     honest empty list until OPERATOR_RUNTIME_READ_URL is wired.
+ *   - The compliance evidence-export + retention posture render through the
+ *     dual-mode <DomainSurface> for the `compliance` domain — the first live
+ *     consumer of the PR1 wrapper. At launch (switch off) it is Read + Request:
+ *     the firm reads its retention posture and can request an evidence packet
+ *     from SMD. Self-serve export lands when the compliance switch is flipped
+ *     AND the export trigger backend ships (a follow-on); until then the
+ *     operable build is intentionally absent, so the wrapper falls back to the
+ *     read view.
+ *
+ * Access: Clerk session + bound entity + active subscription + any one role.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { user, client, roles } = access
+
+const isPrincipal = roles.includes('principal')
+const isCompliance = roles.includes('compliance')
+// Most-privileged role label for the runtime read-audit row.
+const actorRole = isPrincipal ? 'principal' : isCompliance ? 'compliance' : 'staff'
+
+const config = access.config
+const customerSlug = access.customerSlug
+
+const params = parseAuditListParams(Astro.url.searchParams)
+// Client-facing category filter (`cat`): expands to the underlying mapped
+// raw actions page-side, so the URL contract for `action=` bookmarks stays
+// intact while the control speaks client language only.
+const selectedCategories = Astro.url.searchParams
+  .getAll('cat')
+  .filter((k) => CLIENT_ACTIVITY_CATEGORIES.some((c) => c.key === k))
+// Default "last 7 days" window when no explicit range was requested, mirroring
+// the legacy viewer — keeps the surface responsive over long histories.
+const resolvedParams = (() => {
+  const withRange =
+    params.from === null && params.to === null
+      ? { ...params, from: defaultAuditDateRange().from, to: defaultAuditDateRange().to }
+      : params
+  if (selectedCategories.length > 0 && withRange.actions.length === 0) {
+    return { ...withRange, actions: mappedActionsForCategories(selectedCategories) }
+  }
+  return withRange
+})()
+
+const activityPage = await loadActivityPage(
+  { db: env.DB, env, actorUserId: user.id },
+  customerSlug,
+  { actor: user.email, actorRole },
+  resolvedParams
+)
+const availableSkills = distinctAuditSkills(activityPage.rows)
+
+const emptyHeading = 'No activity yet'
+const emptyBody =
+  'Every action your Operator takes is recorded here: drafts created, sends approved, identity changes, memory access.'
+
+// Compliance & retention block (principal/compliance only). Resolve the
+// retention posture for display; the override projection is not wired yet, so
+// pass null and fall back to the vertical default (honest, no fabrication).
+const rawVertical = config?.vertical ?? null
+const vertical: Vertical | null =
+  rawVertical !== null && (ACCEPTED_VERTICALS as readonly string[]).includes(rawVertical)
+    ? (rawVertical as Vertical)
+    : null
+const complianceView =
+  isPrincipal || isCompliance
+    ? resolveComplianceView({
+        complianceEnabled: config?.compliance_enabled ?? false,
+        vertical,
+        auditLogDaysOverride: null,
+        callerRoles: roles,
+      })
+    : null
+---
+
+<PortalShell
+  title="Operator · Activity"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref={operatorBase}
+    crumbLabel="Operator"
+    tag="Section"
+    h1="Activity"
+    meta={activityPage.totalCount > 0 ? `${activityPage.totalCount} total` : null}
+  />
+
+  <div class="mt-8 flex flex-col gap-6">
+    <AuditFilterBar
+      skills={resolvedParams.skills}
+      categories={selectedCategories}
+      from={resolvedParams.from}
+      to={resolvedParams.to}
+      q={resolvedParams.q}
+      sort={resolvedParams.sort}
+      availableSkills={availableSkills}
+    />
+
+    {
+      activityPage.totalCount === 0 ? (
+        <section
+          aria-label="No activity"
+          class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+        >
+          <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+            {emptyHeading}
+          </p>
+          <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            {emptyBody}
+          </p>
+        </section>
+      ) : (
+        <AuditLogTable
+          rows={activityPage.rows}
+          totalCount={activityPage.totalCount}
+          page={activityPage.page}
+          pageSize={activityPage.pageSize}
+          pageCount={activityPage.pageCount}
+          searchParams={Astro.url.searchParams}
+        />
+      )
+    }
+
+    {
+      complianceView && (
+        <DomainSurface
+          authority={config?.authority ?? null}
+          domain="compliance"
+          roles={roles}
+          returnTo={`${operatorBase}/activity`}
+          domainLabel="audit retention and evidence"
+        >
+          <div
+            slot="read"
+            class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+          >
+            <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+              Retention & evidence
+            </div>
+            <div class="flex flex-col gap-4 px-5 md:px-7 py-6">
+              {complianceView.retention ? (
+                <div>
+                  <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Audit retention
+                  </p>
+                  <p class="mt-1 text-sm text-[color:var(--ss-color-text-primary)]">
+                    {formatRetentionWindow(complianceView.retention.effectiveDays)}
+                  </p>
+                </div>
+              ) : (
+                <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                  Retention posture appears here once your firm's profile is on file.
+                </p>
+              )}
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                An evidence packet of this record can be produced for verification. Use Request a
+                change to ask your SMD team to prepare one.
+              </p>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                The security controls behind this record, including sub-processors and data-handling
+                posture, are documented at{' '}
+                <a
+                  href="https://smd.services/security"
+                  class="underline underline-offset-2 hover:text-[color:var(--ss-color-primary)]"
+                >
+                  smd.services/security
+                </a>
+                . Your data processing addendum carries the contractual windows.
+              </p>
+            </div>
+          </div>
+        </DomainSurface>
+      )
+    }
+  </div>
+</PortalShell>

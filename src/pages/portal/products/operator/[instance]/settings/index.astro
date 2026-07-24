@@ -1,0 +1,313 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { getStripeCustomerIdForSubscription } from '../../../../../../lib/portal/billing'
+import {
+  loadAccountState,
+  subscriptionStatusLabel,
+  subscriptionStatusProse,
+} from '../../../../../../lib/portal/operator/account-read'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
+import { hasPortalVisibleInvoices } from '../../../../../../lib/portal/offerings'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — Settings, the ACT surface (console blueprint §5, amended
+ * 2026-07-15). One read page, one act page: the one-pager is where a client
+ * learns what the operator is; Settings is where they change something. It
+ * holds Plan & billing (the commercial plane, moved off the read page
+ * entirely) and the entries to the operable sub-surfaces (Connections, Team
+ * access). Future config domains grow sections here as each becomes
+ * self-serve (ADR 0041 authority switches); until then a domain's only
+ * affordance is the read page's request-a-change. (Advanced — the typed
+ * customer.yaml editor — is unlinked pending a resolver fix; see SETTINGS_LINKS.)
+ *
+ * URL: portal.smd.services/portal/products/operator/<instance>/settings
+ *
+ * Also the redirect target for the customer-facing OAuth connect flow
+ * (oauth/[connector]/callback.ts → `?status=connected` on success,
+ * `?status=failed&reason=<short>` on failure) plus the initiate-failure path.
+ *
+ * Read access is all three client roles (matching the retired Account page);
+ * each operable sub-surface enforces its own principal/operable gate.
+ * Subscription is the `provisioning` domain — SMD-only, non-switchable —
+ * rendered read-only with NO request form.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { client, roles } = access
+const config = access.config
+
+const account = await loadAccountState(env.DB, client.id)
+// Manage-Billing door renders only when a Stripe customer exists on the
+// subscription (no fabricated door).
+const stripeCustomerId = await getStripeCustomerIdForSubscription(env.DB, client.id, 'operator')
+
+// Plan & billing renders only once a billing relationship EXISTS: invoice
+// history on the entity, or this subscription past provisioning. Same ONE
+// predicate as the nav tab and home card (empty-section rule applied to the
+// commercial plane — Captain, 2026-07-15): a pre-go-live client easing into
+// the portal reads no billing anywhere; the go-live flip or the first invoice
+// reveals it everywhere at once.
+const subscriptionLive = Boolean(
+  account.subscription && account.subscription.status !== 'provisioning'
+)
+const showPlanBilling = subscriptionLive || (await hasPortalVisibleInvoices(env.DB, client.id))
+
+const RETURN_TO = `${operatorBase}/settings`
+
+// Connect-status banner — set by the OAuth callback / initiate on redirect.
+const status = Astro.url.searchParams.get('status')
+const reason = Astro.url.searchParams.get('reason')
+
+type Banner = { text: string; tone: 'success' | 'error' | 'info' }
+
+// Actionable reason copy for `status=failed`. Unknown reasons collapse to a
+// generic retry message rather than leaking a raw reason code to the client.
+const FAILED_REASONS: Record<string, string> = {
+  missing_refresh_token:
+    'The connection completed but did not return offline access. Remove the connection and reconnect, approving offline access when prompted.',
+  denied: 'The permission request was declined. Reconnect and approve access to finish.',
+  scope_mismatch:
+    'The permissions granted did not match what the connection needs. Reconnect and approve the full set.',
+}
+
+function resolveBanner(status: string | null, reason: string | null): Banner | null {
+  if (!status) return null
+  if (status === 'connected') return { text: 'System connected.', tone: 'success' }
+  if (status === 'failed') {
+    const specific = reason ? FAILED_REASONS[reason] : null
+    return {
+      text:
+        specific ??
+        'We could not complete the connection. Try again, or contact us if the problem persists.',
+      tone: 'error',
+    }
+  }
+  return null
+}
+
+const banner = resolveBanner(status, reason)
+
+const subStatus = account.subscription?.status ?? null
+const statusToneClass =
+  subStatus === 'active'
+    ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+    : subStatus === 'paused'
+      ? 'border-[color:var(--ss-color-warning)] text-[color:var(--ss-color-warning)]'
+      : 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]'
+
+const cardClass = 'border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8'
+const sectionLabelClass =
+  'mb-4 font-body text-section-h uppercase text-[color:var(--ss-color-text-primary)]'
+const emptyNoteClass =
+  'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]'
+
+// The operable sub-surfaces. Each links to an existing page; a client (or an
+// OAuth redirect) always lands somewhere real.
+//
+// "Advanced" (the typed customer.yaml editor) is intentionally NOT listed: its
+// resolver reconstructs a full config from the lossy projection and runs the
+// strict validator, which fails by construction (an injected placeholder
+// hermes_ref, plus projected persona `cron[].wake_policy` / `users` shapes the
+// validator does not accept), so the page renders a raw "CONFIGURATION ERROR /
+// CONTACT CAPTAIN" state — never fit for a client. Restoring it needs the
+// resolver to validate only the editable surface (tolerating reconstructed
+// locked fields); tracked as a follow-up. Until then it stays unlinked.
+const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: string }> = [
+  {
+    href: `${operatorBase}/connections`,
+    label: 'Connections',
+    description:
+      'The systems your Operator works with. Connect a new one or review what is linked.',
+  },
+  {
+    href: `${operatorBase}/settings/users`,
+    label: 'Team access',
+    description: 'Who can see and manage this Operator, and what each person can do.',
+  },
+]
+---
+
+<PortalShell
+  title="Operator · Settings"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead crumbHref={operatorBase} crumbLabel="Operator" h1="Settings" meta={null} />
+
+  {
+    banner && (
+      <div
+        role="status"
+        class:list={[
+          'mt-6 px-4 py-3 border-[3px] text-sm',
+          banner.tone === 'success'
+            ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+            : banner.tone === 'error'
+              ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+              : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+        ]}
+      >
+        {banner.text}
+      </div>
+    )
+  }
+
+  <!-- Plan & billing — provisioning domain: SMD-only, read-only, no request
+       form. Absent entirely pre-go-live (billing-relationship gate above). -->
+  {
+    showPlanBilling && (
+      <section class="mt-8" aria-label="Plan and billing">
+        <p class={sectionLabelClass}>Plan & billing</p>
+        <DomainSurface
+          authority={config?.authority ?? null}
+          domain="provisioning"
+          roles={roles}
+          returnTo={RETURN_TO}
+          domainLabel="your subscription"
+        >
+          <div slot="read" class={cardClass}>
+            {account.subscription ? (
+              <div class="flex flex-col gap-3">
+                <span
+                  class={`inline-flex w-fit items-center px-3 py-1.5 text-caption font-mono uppercase tracking-[0.12em] font-bold border-[2px] ${statusToneClass}`}
+                >
+                  {subscriptionStatusLabel(account.subscription.status)}
+                </span>
+                {/* The chip states the status; the prose only adds value when the
+                  status needs explaining (paused, etc.), so skip it for active. */}
+                {account.subscription.status !== 'active' && (
+                  <p class="m-0 font-body text-[color:var(--ss-color-text-primary)]">
+                    {subscriptionStatusProse(account.subscription.status)}
+                  </p>
+                )}
+                {stripeCustomerId && (
+                  <form method="POST" action="/api/portal/billing/manage" class="mt-2">
+                    <input type="hidden" name="product_slug" value="operator" />
+                    <input type="hidden" name="instance" value={instance} />
+                    <button
+                      type="submit"
+                      class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                    >
+                      Manage Billing
+                    </button>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <div class="flex flex-col gap-2">
+                <p class="m-0 font-body text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  Not provisioned yet
+                </p>
+                <p class={`m-0 ${emptyNoteClass}`}>
+                  Your operator subscription has not been set up yet.
+                </p>
+              </div>
+            )}
+          </div>
+        </DomainSurface>
+      </section>
+    )
+  }
+
+  <!-- Operational alerts — a system setting, not a person the operator works
+       with (Captain, 2026-07-15: escalation read as plumbing on the People
+       section). Authored config under the configuration domain: read + request. -->
+  <section class="mt-10" aria-label="Operational alerts">
+    <p class={sectionLabelClass}>Operational alerts</p>
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="configuration"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="who is alerted about the operator itself"
+    >
+      <div slot="read" class={cardClass}>
+        <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
+          When the operator spots something urgent or hits a problem in its own operation, these
+          people are alerted. While SMD manages your operator they go to SMD; your own people can be
+          added.
+        </p>
+        {
+          account.escalation.redFlagRecipients.length > 0 && (
+            <div class="mt-4">
+              <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Urgent flags
+              </p>
+              <p class="mt-1 m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                {account.escalation.redFlagRecipients.join(', ')}
+              </p>
+            </div>
+          )
+        }
+        {
+          account.escalation.failureRecipients.length > 0 && (
+            <div class="mt-4">
+              <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Failures
+              </p>
+              <p class="mt-1 m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                {account.escalation.failureRecipients.join(', ')}
+              </p>
+            </div>
+          )
+        }
+        {
+          account.escalation.redFlagRecipients.length === 0 &&
+            account.escalation.failureRecipients.length === 0 && (
+              <p class={`mt-4 m-0 ${emptyNoteClass}`}>No alert recipients are configured yet.</p>
+            )
+        }
+      </div>
+    </DomainSurface>
+  </section>
+
+  <section class="mt-10" aria-label="Configuration">
+    <p class={sectionLabelClass}>Configuration</p>
+    <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+      {
+        SETTINGS_LINKS.map((link, idx) => (
+          <a
+            href={link.href}
+            class:list={[
+              'block px-5 py-5 md:px-6 md:py-6 group hover:bg-[color:var(--ss-color-border-subtle)] transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+              idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+            ]}
+          >
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-1 min-w-0">
+                <span class="font-body text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                  {link.label}
+                </span>
+                <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                  {link.description}
+                </span>
+              </div>
+              <span
+                aria-hidden="true"
+                class="font-body text-2xl text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-text-primary)] transition-colors"
+              >
+                →
+              </span>
+            </div>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+</PortalShell>

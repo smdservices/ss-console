@@ -15,6 +15,8 @@ related-issue: '#1219'
 
 **Purpose.** The citable answer to: _what is SMD's front door, how does a prospect travel from an ad click to a closed engagement, and what exactly are we building first._ Supersedes the VCMS draft note "Operator-Led Assessment Funnel — Course Map Draft (for hardening)," which was the scaffold this ADR hardens.
 
+> **Forward-note (2026-07-13).** The **entry mechanism** this ADR leaves deferred (how prospects arrive at the funnel) is now owned by [ADR 0066](./0066-paid-acquisition-round-one.md) (Paid Acquisition Round One): ad → message-matched pack LP → `/book`. This ADR governs the funnel from `/book` inward; 0066 governs how traffic reaches it.
+
 ## Context
 
 We are pre-launch. Nothing has been sold. The immediate need is **volume + proof + case studies**, not margin.

@@ -375,6 +375,44 @@ else
   log "WARNING: /app/skills absent from image; skipping catalog seed (bound skills must already be on the volume)"
 fi
 
+# Publish the seat's timezone on the env channel Hermes' clock resolves first
+# (hermes_time._resolve_timezone_name: HERMES_TIMEZONE env > global config.yaml
+# `timezone` > server local). The container clock is UTC, so without this every
+# authored cron expression silently ran in UTC while the customer.yaml comments
+# claimed local time — caught 2026-07-03 when the pilot's "0623 PT" morning
+# digest turned out to mean 11:23 PM Pacific and the pre-existing escalator's
+# "0700 PT" had been firing at midnight Pacific since it shipped. Source of
+# truth is customer.yaml `business_hours.timezone` (IANA, validated by the
+# console); when the block is unauthored nothing is exported and Hermes keeps
+# server-local (UTC) — the prior behavior, not a new default (ADR 0037 tenet 3).
+# An invalid IANA name is safe: hermes_time logs a warning and falls back.
+#
+# ORDERING (ss-console#1691): this export MUST precede step 7. Cron
+# materialization (hermes-smd bootstrap -> cron_materialize -> Hermes
+# create_job) PERSISTS each job's first next_run_at computed via
+# hermes_time.now() in the step-7 process, and hermes_time caches its timezone
+# per process at first call. When this export sat below step 7 (with the
+# step-11 gateway exports), every boot re-created every managed job with a
+# UTC-computed first fire: the gateway then fired it at the UTC-interpreted
+# time AND at the correct seat-local time after advance_next_run recomputed —
+# the 2026-07-04 escalator double-fire (midnight PT + 7:00 AM PT).
+SEAT_TIMEZONE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+hours = data.get("business_hours") or {}
+tz = hours.get("timezone") if isinstance(hours, dict) else ""
+print(tz.strip() if isinstance(tz, str) else "")
+PY
+)" || SEAT_TIMEZONE=""
+if [ -n "${SEAT_TIMEZONE}" ]; then
+  export HERMES_TIMEZONE="${SEAT_TIMEZONE}"
+  log "Hermes timezone: ${SEAT_TIMEZONE} (cron + clock run in seat-local time)"
+else
+  log "Hermes timezone: unset (business_hours.timezone unauthored) — cron + clock run in UTC"
+fi
+
 # ============================================================================
 # Step 7: hermes-smd bootstrap (customer.yaml -> per-profile config)
 # ============================================================================
@@ -438,6 +476,12 @@ log "Disabled skill guard passed"
 # startup so disabled bundled skills are removed again after that sync without
 # mutating the overlay's profile `skills` list shape.
 (
+  # SEC-23: strip the account-wide R2 key from THIS subshell's environ. The
+  # subshell is forked here, ~300 lines before the parent's `unset` (below), so
+  # without this its /proc/<pid>/environ would expose the account-wide key to a
+  # same-uid code-executing agent for the ~30s it lives. ensure-disabled-skills.py
+  # operates on local HERMES_HOME skill dirs and never needs R2.
+  unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
   for _ in 1 2 3 4 5 6; do
     sleep 5
     /opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py "${CUSTOMER_YAML}" "${HERMES_HOME}" \
@@ -537,6 +581,28 @@ PY
 )" || die "failed to read active persona from customer.yaml"
 [ -n "${ACTIVE_PROFILE}" ] || die "no active persona with a slug in customer.yaml"
 log "Active persona profile: ${ACTIVE_PROFILE}"
+
+# Publish the active persona on the env channel the overlay governance plugins
+# resolve it from. The ADR 0056 trust gate (hermes-smd-trust/enforce.py), the
+# audit emitter, and peer-memory all read the active persona from
+# HERMES_ACTIVE_PROFILE (SMD_ACTIVE_PERSONA is only a fallback) to look up that
+# persona's authored `entitlements.exposure` in customer.yaml. Hermes core's
+# `-p <slug>` flag rewrites HERMES_HOME but NEVER sets HERMES_ACTIVE_PROFILE
+# (hermes_cli/main.py:_apply_profile_override sets HERMES_HOME only), so without
+# this export the plugins resolve the active persona to "" -> exposure {} ->
+# EVERY governed action class (internal_write/external_send/destructive) fail-
+# closes on every channel, leaving the agent unable to perform any authored work
+# (caught on the first real Smokeball matter.updated: the agent's writes were all
+# refused "no authored exposure"). The overlay unit tests pass because they
+# monkeypatch this env; production boot is the only place it must be set, and
+# bootstrap — the boundary that selects the profile — is where it belongs.
+export HERMES_ACTIVE_PROFILE="${ACTIVE_PROFILE}"
+
+# (HERMES_TIMEZONE is exported ABOVE step 7, not here — cron materialization at
+# step 7 persists each job's first next_run_at, so the timezone must already be
+# on the env when that process starts. See the ordering note at the export,
+# ss-console#1691.)
+
 PROFILE_HERMES_HOME="${HERMES_HOME}/profiles/${ACTIVE_PROFILE}"
 
 # `exec` so the gateway inherits the foreground slot under tini cleanly.
@@ -728,6 +794,18 @@ log "Connector classification probe PASSED"
 # leak: no hermes-owned process ever holds the account-wide key.
 unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
 
+# Egress webhook subscriptions (the PUSH half): ensure each push connector's
+# vendor tenant has the subscriptions customer.yaml declares — the mirror of the
+# inbound gate routes. Boot is the change-hash-gated BACKSTOP: a steady intent is
+# a pure local no-op with zero vendor calls; the PRIMARY trigger is the OAuth
+# connect callback (a fresh firm activates without waiting for a reboot). NON-FATAL
+# and bounded (each per-vendor reconcile subprocess has its own timeout), so a
+# reconcile hiccup never blocks the gateway from coming up. Runs after the R2 strip
+# (it needs only customer.yaml + the vendor secrets, never the account-wide key).
+log "Reconciling egress webhook subscriptions (boot backstop)..."
+/opt/hermes/.venv/bin/python3 /app/webhook_reconcile.py "${CUSTOMER_YAML}" --trigger boot \
+  || log "WARN: egress webhook reconcile non-fatal failure (retries at connect / next boot)"
+
 # Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
 # the public port (8643), verifies the vendor signature (AgentMail), and forwards
 # to the gateway's machine-local :8644 with the Generic header. FAIL-CLOSED: only
@@ -759,6 +837,23 @@ fi
 
 # (R2 account-wide key already stripped above, before the webhook-gate launch —
 # OP-P2-1. No same-uid child holds it.)
+
+# SEC-28: strip the runtime-read seam key from the AGENT (hermes gateway) env.
+# The seam is served + validated by the webhook gate (launched above, which keeps
+# its inherited copy); the agent has no reason to hold it, and leaving it in the
+# gateway env lets a code-executing agent mint its own read-seam bearer. Stripped
+# AFTER the webhook-gate fork and BEFORE the gateway exec, so the gate still
+# authenticates the seam while the agent cannot self-issue.
+#
+# Same pattern for the ADR 0023 heartbeat secrets (they too are read only by the
+# gate's emitter, forked above): MACHINE_HEARTBEAT_KEY is the SHARED fleet bearer,
+# so with the attacker-controlled X-Tenant-Slug header a code-executing agent
+# holding it could forge heartbeats for ANOTHER tenant's slug — writing a false
+# "green"/uptime, or masking a dead peer (the Wave-1 shared-key weakness, ADR 0023
+# locked-decision #10). HEALTHCHECKS_PING_URL is the external dead-man ping target;
+# an agent holding it could spoof liveness at healthchecks.io. Neither has any use
+# in the agent; the gate keeps its inherited copies.
+unset OPERATOR_RUNTIME_READ_KEY MACHINE_HEARTBEAT_KEY HEALTHCHECKS_PING_URL
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
 exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run

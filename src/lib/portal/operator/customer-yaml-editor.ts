@@ -108,7 +108,7 @@ function matchesWildcard(pattern: string, candidate: string): boolean {
 
 export interface EditablePersonaSkill {
   name: string
-  trust_ceiling: 'autonomous' | 'draft_for_review' | 'refused'
+  initiation: { manual: boolean; scheduled: boolean; webhook: boolean }
   enabled: boolean
 }
 
@@ -253,7 +253,7 @@ function projectPersona(p: Persona): EditablePersona {
     send_as: p.send_as,
     skills: p.skills.map((s: PersonaSkill) => ({
       name: s.name,
-      trust_ceiling: s.trust_ceiling,
+      initiation: s.initiation,
       enabled: s.enabled,
     })),
     channel_bindings: p.channel_bindings,
@@ -395,7 +395,9 @@ export function applyEditableChanges(
     ...lockedFromCurrent(current),
     personas: mergedPersonas,
     connectors: mergeConnectors(current.connectors, changes.connectors),
-    scope: { ...changes.scope },
+    // outbound_roster (ADR 0075) is governance-sensitive and NOT portal-editable;
+    // preserve the current value verbatim (same posture as voice_cohorts below).
+    scope: { ...changes.scope, outbound_roster: current.scope.outbound_roster },
     escalation: { ...changes.escalation },
     voice_library:
       changes.voiceLibrary.samples_path === null
@@ -433,9 +435,7 @@ export function applyEditableChanges(
   }
 }
 
-function lockedFromCurrent(
-  current: CustomerYaml
-): Pick<
+function lockedFromCurrent(current: CustomerYaml): Pick<
   CustomerYaml,
   | 'schema_version'
   | 'customer_id'
@@ -457,9 +457,13 @@ function lockedFromCurrent(
   | 'credential_custody_default'
   | 'mcp_connector'
   | 'relationship'
+  | 'digest'
+  // governance-sensitive custody acceptance (ADR 0044 D8 / #1841) — never portal-editable
+  | 'custody_exceptions'
 > {
   return {
     schema_version: current.schema_version,
+    custody_exceptions: current.custody_exceptions,
     customer_id: current.customer_id,
     customer_name: current.customer_name,
     vertical: current.vertical,
@@ -493,6 +497,7 @@ function lockedFromCurrent(
     // mcp_connector (Operator <-> Claude) is provisioning/admin-set, not
     // client-editable in this portal flow yet. Preserve verbatim.
     mcp_connector: current.mcp_connector,
+    digest: current.digest,
     // relationship (ADR 0048 authored behavioral lane) is SMD/provisioning-set —
     // per-person working preferences are not a client self-serve config. Preserve
     // verbatim across portal edits.
@@ -528,6 +533,9 @@ function mergeConnectors(
       // in the connectors authority domain, set via the dedicated custody flow,
       // never through the general config editor.
       credential_custody: existing.credential_custody,
+      // auth_mode locked — set at provisioning with the OAuth flow itself;
+      // the portal only READS it (connection care note).
+      auth_mode: existing.auth_mode,
     }
   }
   return merged
@@ -535,12 +543,12 @@ function mergeConnectors(
 
 function mergePersona(current: Persona, update: EditablePersona): Persona {
   // Skill list: keep current entries the input did not touch (preserves
-  // cost_estimate, scope, version); override trust_ceiling + enabled
-  // from input. Editor cannot add or remove skills.
+  // cost_estimate, scope, version); override initiation + enabled from input.
+  // Editor cannot add or remove skills.
   const updateByName = new Map(update.skills.map((s) => [s.name, s]))
   const mergedSkills: PersonaSkill[] = current.skills.map((cur) => {
     const u = updateByName.get(cur.name)
-    return u ? { ...cur, trust_ceiling: u.trust_ceiling, enabled: u.enabled } : cur
+    return u ? { ...cur, initiation: u.initiation, enabled: u.enabled } : cur
   })
   return {
     slug: current.slug,
@@ -550,6 +558,7 @@ function mergePersona(current: Persona, update: EditablePersona): Persona {
     tone: update.tone,
     pronouns: update.pronouns,
     send_as: update.send_as,
+    entitlements: current.entitlements,
     channel_bindings: update.channel_bindings,
     skills: mergedSkills,
     signature_html: current.signature_html,

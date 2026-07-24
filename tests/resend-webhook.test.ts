@@ -23,6 +23,7 @@ import { env as testEnv } from 'cloudflare:workers'
 
 import { POST } from '../src/pages/api/webhooks/resend'
 import { recordEvent } from '../src/lib/db/outreach-events'
+import { ORG_ID as SMD_ORG_ID } from '../src/lib/constants'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')
 
@@ -145,6 +146,15 @@ describe('POST /api/webhooks/resend', () => {
     expect(res.status).toBe(400)
   })
 
+  it('400s on a signed payload with a malformed event type', async () => {
+    const body = JSON.stringify({ type: 123, data: { email_id: 'm1' } })
+    const res = await callRoute(makeRequest({ body }))
+    expect(res.status).toBe(400)
+
+    const json = await res.json<{ error: string }>()
+    expect(json.error).toBe('Malformed event payload')
+  })
+
   it('records an event and re-attributes to the entity via the sent row', async () => {
     // Pre-seed the synthetic 'sent' row that the send wrapper would write.
     await recordEvent(db, {
@@ -252,5 +262,61 @@ describe('POST /api/webhooks/resend', () => {
     })
     const res = await callRoute(req)
     expect(res.status).toBe(200)
+  })
+
+  it('records a booking alert on a suppressed booking email, resolving the entity', async () => {
+    // The booking-failure path uses the real SMD ORG_ID constant (not the
+    // test-local org), so seed the org + entity + meeting under it.
+    // The SMD org may already be seeded by migrations; tolerate either.
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO organizations (id, name, slug, created_at, updated_at)
+         VALUES (?, 'SMD', 'smd-services', datetime('now'), datetime('now'))`
+      )
+      .bind(SMD_ORG_ID)
+      .run()
+    await db
+      .prepare(
+        `INSERT INTO entities (id, org_id, name, slug, stage, stage_changed_at, created_at, updated_at)
+         VALUES ('ent-booking-1', ?, 'Prospect Biz', 'prospect-biz', 'meetings', datetime('now'), datetime('now'), datetime('now'))`
+      )
+      .bind(SMD_ORG_ID)
+      .run()
+    await db
+      .prepare(
+        `INSERT INTO meetings (id, org_id, entity_id, meeting_type, status, created_at)
+         VALUES ('mtg-booking-1', ?, 'ent-booking-1', 'assessment', 'scheduled', datetime('now'))`
+      )
+      .bind(SMD_ORG_ID)
+      .run()
+
+    const body = JSON.stringify({
+      type: 'email.suppressed',
+      data: {
+        email_id: 'm-supp-1',
+        to: ['scott@smd.services'],
+        subject: 'Confirmed: 30-minute intro call with SMD Services',
+        tags: { category: 'booking_confirmation', meeting_id: 'mtg-booking-1' },
+        suppressed: {
+          message: 'Recipient is on the suppression list',
+          type: 'OnAccountSuppressionList',
+        },
+      },
+    })
+
+    const res = await callRoute(makeRequest({ body }))
+    expect(res.status).toBe(200)
+    const json = await res.json<{ booking_alert?: boolean }>()
+    expect(json.booking_alert).toBe(true)
+
+    const row = await db
+      .prepare(
+        `SELECT entity_id, content, json_extract(metadata, '$.kind') AS kind
+         FROM context WHERE entity_id = 'ent-booking-1' AND type = 'alert'`
+      )
+      .first<{ entity_id: string; content: string; kind: string }>()
+    expect(row).toBeTruthy()
+    expect(row?.kind).toBe('guest_email_delivery_failed')
+    expect(row?.content).toContain('scott@smd.services')
   })
 })

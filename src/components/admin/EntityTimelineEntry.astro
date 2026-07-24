@@ -1,6 +1,7 @@
 ---
 import { parseMetadata } from '../../lib/admin/entity-detail-page'
 import { relativeTime } from '../../lib/admin/relative-time'
+import { attributionFromUnknown, attributionSummary } from '../../lib/marketing/attribution'
 import type { ContextEntry } from '../../lib/db/context'
 
 interface Props {
@@ -73,10 +74,23 @@ function replyLogDetail(metadata: Record<string, unknown> | null): string | null
   return parts.length > 0 ? parts.join(' | ') : null
 }
 
+/**
+ * Intake rows append the ad-attribution summary (ADR 0066 gate 1, #1722)
+ * when the lead arrived from a paid click. Content itself may already BE
+ * the summary line (attribution-only booking intakes) — skip the suffix
+ * then to avoid printing it twice.
+ */
+function intakeDetail(current: ContextEntry, metadata: Record<string, unknown> | null): string {
+  const summary = attributionSummary(attributionFromUnknown(metadata?.attribution))
+  if (!summary || current.content.includes(summary)) return current.content
+  return `${current.content} | Ad source: ${summary}`
+}
+
 function entryDetail(current: ContextEntry, metadata: Record<string, unknown> | null): string {
   if (current.type === 'signal') return signalDetail(current, metadata) ?? current.content
   if (current.type === 'enrichment') return enrichmentDetail(current, metadata) ?? current.content
   if (current.type === 'stage_change') return stageChangeDetail(metadata) ?? current.content
+  if (current.type === 'intake') return intakeDetail(current, metadata)
   if (isReplyLog) return replyLogDetail(metadata) ?? current.content
   return current.content
 }
@@ -85,7 +99,7 @@ function entryDetail(current: ContextEntry, metadata: Record<string, unknown> | 
 <li
   class="grid gap-3 border-t border-[color:var(--ss-color-border-subtle)] py-3 text-[15px] leading-6 first:border-t-0 first:pt-0 md:grid-cols-[8rem_1fr]"
 >
-  <span class="font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-text-secondary)]">
+  <span class="font-mono text-[13px] text-[color:var(--ss-color-text-secondary)]">
     {relativeTime(entry.created_at)}
   </span>
   <span class="text-[color:var(--ss-color-text-primary)]">

@@ -50,7 +50,7 @@ const grouped = SECTIONS.map((s) => ({
 const pageCount = entries.length
 
 const SEC =
-  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+  'font-mono text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]'
 const BODY = 'text-sm leading-relaxed text-[color:var(--ss-color-text-secondary)]'
 ---
 
@@ -81,9 +81,7 @@ const BODY = 'text-sm leading-relaxed text-[color:var(--ss-color-text-secondary)
             <section class="border border-[color:var(--ss-color-text-primary)]">
               <div class="flex items-baseline justify-between border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3">
                 <span class={SEC}>{g.label}</span>
-                <span class="font-['JetBrains_Mono'] text-[11px] text-[color:var(--ss-color-text-muted)]">
-                  {g.blurb}
-                </span>
+                <span class="text-[11px] text-[color:var(--ss-color-text-muted)]">{g.blurb}</span>
               </div>
               <ul>
                 {g.items.map((it, i) => (
@@ -111,10 +109,7 @@ const BODY = 'text-sm leading-relaxed text-[color:var(--ss-color-text-secondary)
         pageCount === 0 && (
           <p class={BODY}>
             No handbook pages found. Add markdown under{' '}
-            <code class="font-['JetBrains_Mono'] text-[color:var(--ss-color-text-primary)]">
-              docs/handbook/
-            </code>
-            .
+            <code class="font-mono text-[color:var(--ss-color-text-primary)]">docs/handbook/</code>.
           </p>
         )
       }

@@ -166,6 +166,68 @@ def test_webhook_gate_launched_with_r2_key_scrubbed() -> None:
     )
 
 
+def test_disabled_skills_reconciler_subshell_scrubs_r2() -> None:
+    """SEC-23: the disabled-skills reconciler subshell is forked ~300 lines before
+    the parent's R2 strip, so it must scrub the account-wide R2 key from its OWN
+    environ — else its /proc/<pid>/environ leaks the key to a same-uid code-executing
+    agent for the ~30s it lives. This guard fails if the `unset` inside the subshell
+    is removed."""
+    lines = _code_lines(_BOOTSTRAP)
+    loop_idx = _first_index(lines, r"for _ in 1 2 3 4 5 6")
+    assert loop_idx != -1, "could not find the disabled-skills reconciler loop"
+    window = "\n".join(lines[max(0, loop_idx - 6) : loop_idx])
+    assert re.search(r"\bunset\b.*\bR2_ACCESS_KEY_ID\b", window), (
+        "the disabled-skills reconciler subshell must `unset R2_ACCESS_KEY_ID "
+        "R2_SECRET_ACCESS_KEY` before its loop (SEC-23) so its /proc/environ does "
+        "not leak the account-wide key while it lives."
+    )
+
+
+def test_runtime_read_key_stripped_from_agent_before_gateway_exec() -> None:
+    """SEC-28: OPERATOR_RUNTIME_READ_KEY must be stripped from the agent (hermes
+    gateway) env — AFTER the webhook-gate launch (which serves + validates the seam
+    and keeps its inherited copy) and BEFORE the gateway exec — so a code-executing
+    agent cannot mint its own read-seam bearer."""
+    lines = _code_lines(_BOOTSTRAP)
+    strip_idx = _first_index(lines, r"\bunset\b.*\bOPERATOR_RUNTIME_READ_KEY\b")
+    gate_idx = _first_index(lines, r"hermes-smd-webhook-gate")
+    gateway_idx = _first_index(lines, r"\bexec\b.*\bhermes\b.*\bgateway\s+run\b")
+    assert strip_idx != -1, "OPERATOR_RUNTIME_READ_KEY is never unset in bootstrap.sh (SEC-28)"
+    assert gateway_idx != -1, "could not find the `exec ... hermes ... gateway run` line"
+    assert strip_idx < gateway_idx, (
+        "OPERATOR_RUNTIME_READ_KEY must be unset BEFORE the gateway exec so the agent "
+        "env does not carry the read-seam bearer (SEC-28)."
+    )
+    assert gate_idx == -1 or strip_idx > gate_idx, (
+        "the strip must run AFTER the webhook-gate launch — the gate validates the "
+        "seam and needs the key; only the agent loses it (SEC-28)."
+    )
+
+
+def test_heartbeat_secrets_stripped_from_agent_before_gateway_exec() -> None:
+    """ADR 0023: MACHINE_HEARTBEAT_KEY (shared fleet bearer) and
+    HEALTHCHECKS_PING_URL must be stripped from the agent (hermes gateway) env —
+    AFTER the webhook-gate launch (whose emitter holds the inherited copies) and
+    BEFORE the gateway exec. The shared key + attacker-controlled X-Tenant-Slug
+    would otherwise let a code-executing agent forge cross-tenant heartbeats
+    (ADR 0023 locked-decision #10); the ping URL would let it spoof liveness."""
+    lines = _code_lines(_BOOTSTRAP)
+    gate_idx = _first_index(lines, r"hermes-smd-webhook-gate")
+    gateway_idx = _first_index(lines, r"\bexec\b.*\bhermes\b.*\bgateway\s+run\b")
+    assert gateway_idx != -1, "could not find the `exec ... hermes ... gateway run` line"
+    for var in ("MACHINE_HEARTBEAT_KEY", "HEALTHCHECKS_PING_URL"):
+        strip_idx = _first_index(lines, rf"\bunset\b.*\b{var}\b")
+        assert strip_idx != -1, f"{var} is never unset in bootstrap.sh (ADR 0023 agent strip)"
+        assert strip_idx < gateway_idx, (
+            f"{var} must be unset BEFORE the gateway exec so the agent env does not "
+            "carry the heartbeat secret (ADR 0023)."
+        )
+        assert gate_idx == -1 or strip_idx > gate_idx, (
+            f"{var} strip must run AFTER the webhook-gate launch — the gate's emitter "
+            "needs it; only the agent loses it (ADR 0023)."
+        )
+
+
 # ---------------------------------------------------------------------------
 # entrypoint.sh: root config-applier must launch BEFORE the gateway exec-drop
 # ---------------------------------------------------------------------------

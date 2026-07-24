@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro'
 import { getContact, updateContact, deleteContact } from '../../../../lib/db/contacts'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/contacts/:id
@@ -15,20 +17,13 @@ import { env } from 'cloudflare:workers'
  *   - _method: "DELETE"
  */
 export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const contactId = params.id
   if (!contactId) {
-    return new Response(JSON.stringify({ error: 'Contact ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Contact ID required')
   }
 
   try {

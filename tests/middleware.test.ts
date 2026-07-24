@@ -49,50 +49,47 @@ describe('middleware: admin subdomain rewrite', () => {
   })
 })
 
-describe('middleware: legacy apex redirects', () => {
-  const source = () => readFileSync(resolve('src/middleware.ts'), 'utf-8')
+describe('legacy redirects: apex + auth rules (src/lib/routing/legacy-redirects.ts)', () => {
+  // The redirect rule table was extracted from middleware.ts (code review
+  // 2026-07-02 §1.3). These source guards follow the logic to its new home and
+  // keep asserting the invariants that matter (loop safety, apex admin
+  // canonicalization, legacy auth targets, permanent status).
+  const source = () => readFileSync(resolve('src/lib/routing/legacy-redirects.ts'), 'utf-8')
 
-  it('uses strict hostname inequality guard for the apex admin redirect', () => {
-    // CRITICAL: startsWith/endsWith would also match admin.smd.services and loop.
-    // The guard uses `if (hostname !== 'smd.services') return null` form.
+  it('uses strict hostname equality for the apex admin redirect (no endsWith/startsWith loop)', () => {
+    // CRITICAL: startsWith/endsWith on the host would also match
+    // admin.smd.services and loop. The rule matches on strict equality.
     const code = source()
-    expect(code).toContain("hostname !== 'smd.services'")
+    expect(code).toContain("hostname === 'smd.services'")
+    expect(code).not.toContain("hostname.endsWith('smd.services')")
+    expect(code).not.toContain("hostname.startsWith('smd.services')")
   })
 
   it('redirects apex /admin/* to admin subdomain', () => {
     const code = source()
-    expect(code).toMatch(
-      /hostname\s*!==\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/admin\/'\)/
-    )
-    expect(code).toContain("newUrl.hostname = 'admin.smd.services'")
+    expect(code).toMatch(/pathname\.startsWith\('\/admin\/'\)/)
+    expect(code).toContain("next.hostname = 'admin.smd.services'")
   })
 
-  it('301s legacy auth paths to unified /auth/sign-in', () => {
+  it('301s legacy auth paths to unified /auth/sign-in|sign-up', () => {
     const code = source()
-    // The unified-auth migration replaced the old /auth/login admin host
-    // redirect with same-host 301s that funnel all legacy auth URLs to
-    // the new /auth/sign-in entry point.
-    expect(code).toMatch(/pathname\s*===\s*'\/auth\/login'\s*\)\s*return\s*'\/auth\/sign-in'/)
-    expect(code).toMatch(
-      /pathname\s*===\s*'\/auth\/portal-sign-in'\s*\)\s*return\s*'\/auth\/sign-in'/
-    )
-    expect(code).toMatch(
-      /pathname\s*===\s*'\/auth\/portal-sign-up'\s*\)\s*return\s*'\/auth\/sign-up'/
-    )
-    expect(code).toMatch(
-      /pathname\s*===\s*'\/auth\/portal-login'\s*\)\s*return\s*'\/auth\/sign-in'/
-    )
+    // The unified-auth migration funnels all legacy auth URLs to the new
+    // /auth/sign-in (and /auth/sign-up) entry points.
+    expect(code).toMatch(/'\/auth\/login':\s*'\/auth\/sign-in'/)
+    expect(code).toMatch(/'\/auth\/portal-sign-in':\s*'\/auth\/sign-in'/)
+    expect(code).toMatch(/'\/auth\/portal-sign-up':\s*'\/auth\/sign-up'/)
+    expect(code).toMatch(/'\/auth\/portal-login':\s*'\/auth\/sign-in'/)
   })
 
-  it('uses 301 for backwards-compat redirects', () => {
+  it('every legacy redirect is permanent (301, never 302/307)', () => {
     const code = source()
-    expect(code).toMatch(/context\.redirect\(newUrl\.toString\(\),\s*301\)/)
+    expect(code).toMatch(/status:\s*301/)
+    expect(code).not.toMatch(/status:\s*30[27]/)
   })
 
-  it('does NOT redirect admin.smd.services to itself (no loop)', () => {
-    // The guard hostname !== 'smd.services' is strict inequality, not endsWith.
-    const code = source()
-    expect(code).not.toContain("hostname.endsWith('smd.services')")
+  it('the middleware issues the redirect through context.redirect with the rule status', () => {
+    const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+    expect(mw).toMatch(/context\.redirect\(\s*\w+\.location,\s*\w+\.status\s*\)/)
   })
 })
 
@@ -162,23 +159,23 @@ describe('middleware: 404 route must be SSR (regression lock-in)', () => {
 })
 
 describe('middleware: session resolution gating', () => {
-  const source = () => readFileSync(resolve('src/middleware.ts'), 'utf-8')
+  // The admin-shim / legacy-portal gating invariants used to be asserted here by
+  // matching the middleware SOURCE TEXT. That coupled the test to a specific
+  // literal condition — and a source-regex "guard" like that locks in whatever
+  // condition is written, so it would have blocked (not caught) the fleet-health
+  // carve-out fix. These invariants are now covered BEHAVIORALLY in
+  // tests/middleware-behavior.test.ts, which drives the real `onRequest`:
+  //   - admin shim only populates locals.session on admin paths
+  //   - legacy portal session only resolves on portal paths
+  //   - /api/admin/fleet/health is exempt from the Clerk gate (exact path)
+  // Runtime assertions verify the consequence, not the phrasing of the source.
 
-  it('admin session shim runs only on admin paths', () => {
-    // Marketing pages are prerendered; the admin shim must not fire on
-    // them (no DB hit for non-admin routes; no leakage of admin context).
-    const code = source()
-    expect(code).toMatch(
-      /resolveAdminSession[\s\S]*?startsWith\('\/admin'\)[\s\S]*?startsWith\('\/api\/admin'\)/
-    )
-  })
-
-  it('legacy portal session resolution runs only on portal paths', () => {
-    // The magic-link fallback must not fire on admin or marketing paths.
-    const code = source()
-    expect(code).toMatch(
-      /resolveLegacyPortalSession[\s\S]*?startsWith\('\/portal'\)[\s\S]*?startsWith\('\/api\/portal'\)/
-    )
+  it('still has both session resolvers wired into the pipeline', () => {
+    // A minimal structural smoke check: the resolvers exist and are referenced.
+    // Behavior (which paths they fire on) is asserted at runtime elsewhere.
+    const code = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+    expect(code).toContain('resolveAdminSession')
+    expect(code).toContain('resolveLegacyPortalSession')
   })
 })
 

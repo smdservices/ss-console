@@ -11,6 +11,8 @@ related-issues: 1166
 
 **Status: ACCEPTED. Captain decision, 2026-06-11.**
 
+> **Implemented-note (2026-07-13).** The Context premise below — that authored `persona.cron[]` intent is inert / silently dropped ("grep for cron in translate.py is empty") — is **resolved**. The materialization shipped: overlay `bootstrap/cron_materialize.py` reconciles every persona's `cron[]` into Hermes-native cron jobs (idempotent — converges to exactly the authored set, including the empty set), invoked from `bootstrap/translate.py`. Read the "silently dropped" framing as the originating problem statement, not the current state.
+
 How a per-customer Operator runs work on a schedule (the hourly inbox triage,
 the watcher skills) is currently undecided in code. `customer.yaml` authors a
 `persona.cron[]` block, the validator accepts it, and then it is silently

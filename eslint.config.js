@@ -160,6 +160,50 @@ export default tseslint.config(
     files: DEFAULT_EXPORT_ALLOW_PATTERNS,
     rules: { 'import-x/no-default-export': 'off' },
   },
+  // The API JSON helper must be imported from src/lib/api/helpers, never
+  // re-declared locally. Local copies drifted — several inverted the canonical
+  // (status, data) arg order, a latent copy-paste bug hazard (2026-06-30 code
+  // review). Scoped to src/ so the workers/* subprojects (separate tsconfig,
+  // cannot import the shared helper) are exempt; helpers.ts itself is ignored.
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/lib/api/helpers.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "FunctionDeclaration[id.name='jsonResponse'], VariableDeclarator[id.name='jsonResponse']",
+          message:
+            'Import jsonResponse from src/lib/api/helpers instead of re-declaring it — local copies drift (several inverted the canonical (status, data) arg order).',
+        },
+      ],
+    },
+  },
+  // API routes must build JSON responses through the shared helpers so error
+  // body shape and Content-Type stay uniform (code review 2026-07-02 §1.7).
+  // This block overrides the src/** no-restricted-syntax config for API files,
+  // so it re-declares the jsonResponse-redeclaration guard above.
+  {
+    files: ['src/pages/api/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "FunctionDeclaration[id.name='jsonResponse'], VariableDeclarator[id.name='jsonResponse']",
+          message:
+            'Import jsonResponse from src/lib/api/helpers instead of re-declaring it — local copies drift (several inverted the canonical (status, data) arg order).',
+        },
+        {
+          selector:
+            "NewExpression[callee.name='Response'] CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
+          message:
+            'Use jsonResponse(status, data) or errorResponse(status, message) from src/lib/api/helpers instead of new Response(JSON.stringify(...)) — keeps API error and JSON bodies and their Content-Type uniform (code review 2026-07-02 §1.7). If you genuinely need extra headers, build on the helper and set them, or add a scoped eslint-disable with a reason.',
+        },
+      ],
+    },
+  },
   // astro-eslint-parser does not support projectService; type-aware rules that
   // require a full TS program crash or produce false positives in .astro files.
   // Structural and type-safety rules still apply.
