@@ -86,20 +86,52 @@ jobs:
           GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          GITLEAKS_VERSION=$(curl -fsSL \
+
+          # Both the API query and the tarball download go to GitHub
+          # infrastructure that occasionally returns a transient 5xx. Without
+          # a retry, a single blip fails the entire Secret Detection gate:
+          # on 2026-07-22/23 a 500 on the tarball download reddened the
+          # nightly across the fleet even though the release asset was intact.
+          # retry() gives up to 4 attempts with exponential backoff (2/4/8s)
+          # so the gate is resilient to transient infrastructure errors while
+          # still failing fast on a genuinely persistent problem.
+          retry() {
+            local attempt=1 max=4 delay=2
+            until "$@"; do
+              if [ "$attempt" -ge "$max" ]; then
+                echo "::error::Command failed after ${max} attempts: $*"
+                return 1
+              fi
+              echo "Attempt ${attempt}/${max} failed; retrying in ${delay}s..."
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
+          # Fetch the release metadata to a file (not through a pipe) so a
+          # failed attempt leaves no partial output for the parser to read.
+          retry curl -fsSL \
             -H "Authorization: Bearer $GH_API_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
-            | grep '"tag_name"' | head -1 | sed -E 's/.*"v?([^"]+)".*/\1/')
+            -o gitleaks-release.json \
+            https://api.github.com/repos/gitleaks/gitleaks/releases/latest
+          GITLEAKS_VERSION=$(grep '"tag_name"' gitleaks-release.json | head -1 | sed -E 's/.*"v?([^"]+)".*/\1/')
+          rm -f gitleaks-release.json
           echo "Installing gitleaks v${GITLEAKS_VERSION}"
+
           # The release tarball download does NOT need authentication (it's
           # a public release asset served by github.com, not api.github.com)
           # but we pass the header anyway for symmetry in case GitHub
           # applies stricter rate limits to release downloads in the future.
-          curl -fsSL \
+          # Download to a file first so a mid-stream transient failure can be
+          # retried cleanly instead of corrupting the tar extraction.
+          retry curl -fsSL \
             -H "Authorization: Bearer $GH_API_TOKEN" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
+            -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          rm -f gitleaks.tar.gz
           chmod +x gitleaks
 
       - name: Run Gitleaks
