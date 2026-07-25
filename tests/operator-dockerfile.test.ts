@@ -436,7 +436,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // launched). Range also carries overlay#179 (connector-health, ss#1990).
     // overlayRef-only: git-diff-verified none of the 8 tracked twins changed
     // across 9b3f712..e031c09.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e031c093fcc08e24e81fba9dd16d598b7358810c"')
+    // 6481ac81 — Graph mail-channel chokepoint instrumentation (overlay#181,
+    // ss#1990/ADR 0080): every MsGraphClient.request() outcome lands in the
+    // connector-health ledger under msgraph_mail with conn-class computed from
+    // the real status code — the channel bypasses post_tool_call, so this is
+    // where its outages become visible. overlayRef-only: git-diff-verified no
+    // tracked twin changed across e031c09..6481ac81.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6481ac81ecd950eb1f3bce3b0518a59f5c16fe42"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
