@@ -2145,6 +2145,50 @@ function withWebhooks(): Record<string, unknown> {
   return f
 }
 
+describe('webhook_triggers source — poll-driven adapters (ADR 0078 msgraph)', () => {
+  // A msgraph Email connector is inbound via the delta POLLER, so it carries no
+  // webhook_url yet is a valid trigger source. Regression for the smd-staging
+  // live-fire find (2026-07-25): collectAdapterSlugs required webhook_url and
+  // rejected the poll-driven source.
+  function withMsgraphPoll(): Record<string, unknown> {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['skills'] as Array<{ initiation: { webhook: boolean } }>)[0].initiation.webhook = true
+    const skillName = (persona['skills'] as Array<{ name: string }>)[0].name
+    const personaSlug = persona['slug'] as string
+    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
+    connectors['Email'] = {
+      adapter: 'msgraph',
+      backend: 'mcp:msgraph-mail',
+      enabled: true,
+      msgraph_auth: {
+        tenant_id: 'f11d2887-b7f2-4464-a9c6-d4db2166b43c',
+        client_id: '83a044a4-0b43-4cb4-b989-370aa711af20',
+        mailbox: 'operator@smdopslab.onmicrosoft.com',
+        secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET',
+      },
+    }
+    f['webhook_triggers'] = [
+      { source: 'msgraph', event_type: 'message.received', skill: skillName, persona: personaSlug },
+    ]
+    return f
+  }
+
+  it('accepts a trigger whose source is a poll-driven msgraph connector (no webhook_url)', () => {
+    const r = validate(withMsgraphPoll())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.webhook_triggers[0].source).toBe('msgraph')
+  })
+
+  it('still rejects a trigger source matching no bound connector', () => {
+    const f = withMsgraphPoll()
+    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['source'] = 'nonexistent'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('UnknownWebhookSource')
+  })
+})
+
 describe('validate — ADR 0021 webhook_url', () => {
   it('accepts a valid connector webhook_url', () => {
     const r = validate(withWebhooks())

@@ -62,10 +62,20 @@ export function checkWebhookTriggers(
   return out
 }
 
+// Adapters whose inbound is driven by a POLLER, not a registered webhook_url.
+// They legitimately carry no webhook_url but are still valid webhook_triggers
+// sources: the delta poller injects each new message through the same
+// gate→router loopback that a push webhook uses, so fence/taint/roster apply
+// identically (ADR 0078 / email-channel-seam D1 — msgraph).
+const POLL_DRIVEN_INBOUND_ADAPTERS: ReadonlySet<string> = new Set(['msgraph'])
+
 function collectAdapterSlugs(connectors: Partial<Record<CapabilityName, Connector>>): Set<string> {
   const out = new Set<string>()
   for (const c of Object.values(connectors)) {
-    if (c && c.webhook_url !== null) {
+    if (!c) continue
+    // A connector is a valid inbound source either via a registered webhook_url
+    // (push) or as a poll-driven adapter (the poller is its inbound driver).
+    if (c.webhook_url !== null || POLL_DRIVEN_INBOUND_ADAPTERS.has(c.adapter)) {
       out.add(c.adapter)
     }
   }
