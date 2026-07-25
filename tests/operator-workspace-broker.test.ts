@@ -8,7 +8,6 @@ const bootstrap = readFileSync(resolve('operator/templates/bootstrap.sh'), 'utf8
 const workspaceSkill = readFileSync(resolve('operator/skills/workspace/SKILL.md'), 'utf8')
 const inboxTriageSkill = readFileSync(resolve('operator/skills/inbox-triage/SKILL.md'), 'utf8')
 const emailReplySkill = readFileSync(resolve('operator/skills/email-reply/SKILL.md'), 'utf8')
-const healthMonitorSkill = readFileSync(resolve('operator/skills/health-monitor/SKILL.md'), 'utf8')
 const smdCustomerConfig = readFileSync(resolve('operator/customers/smd/customer.yaml'), 'utf8')
 
 describe('ADR 0045 Workspace capability broker', () => {
@@ -95,10 +94,5 @@ describe('ADR 0045 Workspace capability broker', () => {
     expect(inboxTriageSkill).not.toContain('send_message')
     expect(smdCustomerConfig).not.toContain('workspace_gmail_send')
     expect(smdCustomerConfig).not.toContain('receive an autonomous reply')
-  })
-
-  it('does not present send_message as an email channel', () => {
-    expect(healthMonitorSkill).toContain('not classified and verified')
-    expect(healthMonitorSkill).not.toContain('use `send_message`')
   })
 })

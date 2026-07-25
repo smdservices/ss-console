@@ -54,7 +54,6 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Handles inbound email from allow-listed senders and drafts replies in your voice.',
   'engagement-letter-chaser':
     "Tracks an unsigned engagement letter and drafts nudges until it's signed. Never interprets the terms.",
-  'health-monitor': 'Checks system health and records degraded status.',
   'inbox-triage': 'Triages your inbox daily and drafts categorized replies for your review.',
   'intake-to-system-sync':
     'Syncs a converted lead from your intake CRM into Smokeball, with dedupe and conflict checks.',

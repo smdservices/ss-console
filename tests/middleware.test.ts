@@ -167,7 +167,7 @@ describe('middleware: session resolution gating', () => {
   // tests/middleware-behavior.test.ts, which drives the real `onRequest`:
   //   - admin shim only populates locals.session on admin paths
   //   - legacy portal session only resolves on portal paths
-  //   - /api/admin/fleet/health is exempt from the Clerk gate (exact path)
+  //   - every /api/admin path is Clerk-gated (the fleet/health carve-out was ripped 2026-07-24)
   // Runtime assertions verify the consequence, not the phrasing of the source.
 
   it('still has both session resolvers wired into the pipeline', () => {
