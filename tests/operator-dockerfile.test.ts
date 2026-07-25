@@ -448,7 +448,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // Graph 401 outage read legit-empty green. Pairs with entrypoint.sh's
     // boot-contract mkdir (same trap /run/smd-mcp closed 2026-06-24).
     // overlayRef-only across 6481ac81..167ebc50.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="167ebc509afbce536079c51502fa607e6134725f"')
+    // cd213a54 — scheduler_check reports overdue=0 (not None) in the healthy
+    // steady state (overlay#183): a work_overdue alert could never auto-resolve
+    // because "nothing overdue" was unreported and NULL holds (pilot's 02:29Z
+    // reprovision-window alert sat open forever). None now = unmeasurable only.
+    // overlayRef-only across 167ebc50..cd213a54.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="cd213a54b095799cc566755e853de08bae45fb2b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
