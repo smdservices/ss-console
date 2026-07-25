@@ -2198,6 +2198,62 @@ describe('validate — ADR 0021 webhook_triggers', () => {
     expect(codesOf(r.errors)).toContain('UnknownWebhookSource')
   })
 
+  // ADR 0078 / email-channel-seam D1: the msgraph mail seam has "no public
+  // webhook endpoint for mail at all" — inbound is the overlay delta poller,
+  // which stamps source: msgraph / message.received into the same gate→router
+  // path. So the trigger is the authored wake-path routing declaration and there
+  // is no webhook_url to pair it against. Requiring one would force the config
+  // to fabricate a nonexistent endpoint (this rejection broke the smd-staging
+  // projection on main, 2026-07-24).
+  it('accepts a msgraph trigger source with no webhook_url (poll-driven inbound)', () => {
+    const f = withWebhooks()
+    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
+    connectors['Email'] = {
+      adapter: 'msgraph',
+      backend: 'mcp:msgraph-mail',
+      enabled: true,
+      msgraph_auth: {
+        tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        client_id: '11111111-2222-3333-4444-555555555555',
+        mailbox: 'operator@clientdomain.com',
+        secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET',
+      },
+      poll_seconds: 45,
+    }
+    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['source'] = 'msgraph'
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.webhook_triggers[0].source).toBe('msgraph')
+    expect(r.value.connectors.Email?.webhook_url).toBeNull()
+  })
+
+  // The cadence field is optional under msgraph (unauthored ⇒ the overlay
+  // poller applies its 45s default), so eligibility must key on the adapter,
+  // not on poll_seconds being present.
+  it('accepts a msgraph trigger source when poll_seconds is unauthored', () => {
+    const f = withWebhooks()
+    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
+    connectors['Email'] = {
+      adapter: 'msgraph',
+      backend: 'mcp:msgraph-mail',
+      enabled: true,
+      msgraph_auth: {
+        tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        client_id: '11111111-2222-3333-4444-555555555555',
+        mailbox: 'operator@clientdomain.com',
+        secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET',
+      },
+    }
+    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['source'] = 'msgraph'
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.connectors.Email?.poll_seconds).toBeNull()
+  })
+
   it('rejects trigger whose persona does not exist', () => {
     const f = withWebhooks()
     ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['persona'] = 'ghost-persona'
