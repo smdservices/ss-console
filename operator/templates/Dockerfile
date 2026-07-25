@@ -352,7 +352,21 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # no content the fabrication/floor/taint scans did not already see). Block
 # structure gates the render, so prose replies stay byte-identical. Superset of
 # f8808c6.
-ARG OVERLAY_REF="68ecea36f72792b3dd1b2f810d22cc64bab11373"
+# 9b3f712 — email-channel seam (ss#1978 / ADR 0078), slices 3+4 atop #176's
+# tool-class map. #177: InboundMessage DTO + provider NORMALIZERS ({agentmail,
+# msgraph}); the webhook-router derives origin fields from the DTO (behavior-
+# identical for AgentMail — golden tests unmodified); D3 rejects an inbound-bound
+# Email adapter with no seam normalizer; cross-repo validator parity for
+# send_identity + msgraph_auth. #178: the Graph delta poller (daemon thread in the
+# gate; re-injects each polled message through the SAME signed loopback as webhook
+# mail so fence/taint/roster apply identically; durable cursor + seen-id dedupe;
+# echo-loop guard) + a REAL send-gate bypass fix (body_text was omitted from the
+# fabrication-scan keys; an msgraph send scanned "" and silently allowed — now
+# scanned, and body-required send tools fail closed) + Graph reply/confirm
+# transports (fail closed, never fall back to AgentMail) + the msgraph inbound
+# prompt. Additive + behavior-neutral for every non-msgraph seat; the agentmail
+# prompt is byte-untouched. Superset of 68ecea3.
+ARG OVERLAY_REF="9b3f712a79c38d75030d6d6b988a6761241b9cff"
 
 ARG CUSTOMER_SLUG=customer-zero
 

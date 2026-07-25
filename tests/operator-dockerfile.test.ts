@@ -430,7 +430,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // taint scans did not already see). Block structure gates the render, so
     // prose replies stay byte-identical. overlayRef-only (neither touched file
     // is a tracked twin). Superset of f8808c6c (#173).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="68ecea36f72792b3dd1b2f810d22cc64bab11373"')
+    // 9b3f712 — email-channel seam (ss#1978 / ADR 0078), overlay #177+#178 atop
+    // #176's tool-class map: InboundMessage DTO + normalizers, webhook-router DTO
+    // migration (behavior-identical for AgentMail), D3 inbound-bound Email
+    // validation, send_identity/msgraph_auth parity, the Graph delta poller
+    // (through the same fence as webhook mail), the send-gate body_text bypass fix
+    // (fail-closed), and the Graph reply/confirm transports. overlayRef-only:
+    // git-diff-verified none of the 8 tracked twins changed across 68ecea3..9b3f712.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9b3f712a79c38d75030d6d6b988a6761241b9cff"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
