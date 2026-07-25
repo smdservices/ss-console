@@ -67,6 +67,11 @@ _CUSTOMER_EXACT: frozenset[str] = frozenset(
         # secret + the router forward-verify secret are per-customer.
         "WEBHOOK_SECRET_AGENTMAIL",
         "SMD_WEBHOOK_SIGNING_SECRET",
+        # Microsoft Graph delta-poller loopback signing secret (ADR 0078;
+        # provision-customer.sh msgraph branch). Per-seat, generated when no
+        # override is supplied — the poller signs its loopback with it and the
+        # in-Machine Hermes adapter re-verifies. Customer custody (per-seat).
+        "WEBHOOK_SECRET_MSGRAPH",
         # Smokeball connector (provision-customer.sh:560-575). Both the
         # environment-specific SOURCE names in /ss and the env-agnostic runtime
         # names the connector reads.
@@ -111,6 +116,8 @@ _CUSTOMER_PREFIX: tuple[str, ...] = (
     # Per-seat override form MSGRAPH_CLIENT_SECRET__<CID> (provision-customer.sh
     # msgraph branch) + any future family member.
     "MSGRAPH_",
+    # Per-seat override form WEBHOOK_SECRET_MSGRAPH__<CID>.
+    "WEBHOOK_SECRET_MSGRAPH__",
 )
 
 # Infra-owned staged/derived names NOT in env-consumption. These are SMD-owned

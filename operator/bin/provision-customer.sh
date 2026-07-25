@@ -555,8 +555,24 @@ print(str(auth.get('secret_ref') or '').strip())
   stage_secret_from_env MSGRAPH_CLIENT_ID     "${_MSG_CLIENT}"        "Microsoft Graph app client id (from msgraph_auth.client_id)"
   stage_secret_from_env MSGRAPH_MAILBOX       "${_MSG_MAILBOX}"       "Microsoft Graph pinned operator mailbox (from msgraph_auth.mailbox)"
   stage_secret_from_env MSGRAPH_CLIENT_SECRET "${_MSG_SECRET_VALUE}"  "Microsoft Graph app client secret (per-customer ${_MSG_SECRET_CID_KEY}, else ${_MSG_SECRET_NAME})"
+  # Loopback signing secrets for the delta poller (ADR 0078 / email-channel-seam
+  # D1). Unlike AgentMail's Svix secret these are NOT vendor-issued — the poller
+  # signs its own loopback POST with WEBHOOK_SECRET_MSGRAPH and the Hermes webhook
+  # adapter re-verifies it, all inside this one Machine. SMD_WEBHOOK_SIGNING_SECRET
+  # is what the overlay router verifies the gate's forwarded signature with, and
+  # the gate re-signs its forward hop with the ROUTE secret (same rule the
+  # AgentMail branch above relies on), so on an msgraph seat it MUST equal the
+  # msgraph route secret or polled mail never routes to a skill. Prefer a
+  # per-customer override so a reprovision is reproducible; otherwise generate a
+  # fresh per-seat value (safe — both ends read it from the same freshly-deployed
+  # env, so a rotation is atomic and touches no external party).
+  _MSG_WH_KEY="WEBHOOK_SECRET_MSGRAPH__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+  _MSG_WH_SECRET="${!_MSG_WH_KEY:-${WEBHOOK_SECRET_MSGRAPH:-}}"
+  [ -n "${_MSG_WH_SECRET}" ] || _MSG_WH_SECRET="$(openssl rand -hex 32)"
+  stage_secret_from_env WEBHOOK_SECRET_MSGRAPH "${_MSG_WH_SECRET}" "msgraph delta-poller loopback signing secret (per-customer ${_MSG_WH_KEY}, else generated)"
+  stage_secret_from_env SMD_WEBHOOK_SIGNING_SECRET "${_MSG_WH_SECRET}" "router forward-verify secret (== msgraph route secret on an msgraph seat)"
   unset MSG_PARSE_PY MSG_FIELDS _MSG_TENANT _MSG_CLIENT _MSG_MAILBOX _MSG_SECRET_REF \
-    _MSG_SECRET_NAME _MSG_SECRET_CID_KEY _MSG_SECRET_VALUE
+    _MSG_SECRET_NAME _MSG_SECRET_CID_KEY _MSG_SECRET_VALUE _MSG_WH_KEY _MSG_WH_SECRET
 fi
 
 # Brave Search (native:brave-free, ADR 0070). BRAVE_SEARCH_API_KEY is the env var
