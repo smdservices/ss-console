@@ -285,6 +285,18 @@ mkdir -p "${MCP_STORE_DIR}"
 chown hermes:hermes "${MCP_STORE_DIR}"
 chmod 0700 "${MCP_STORE_DIR}"
 
+# Connector-health ledger dir (ADR 0080, shared/connector_ledger.py): the
+# agent-side plugin and the Graph channel chokepoint write per-server call
+# outcomes here; the gate's heartbeat connector_check reads them. Same trap as
+# smd-mcp above — /run is root-owned, hermes cannot mkdir it (first surfaced
+# live on hermes-smd-staging 2026-07-25: every record silently failed and a
+# real Graph 401 outage read as legit-empty green). This dir is a BOOT
+# CONTRACT: connector_check treats a missing dir as check-broken and PAGES.
+CONNECTOR_HEALTH_DIR="/run/smd-connector-health"
+mkdir -p "${CONNECTOR_HEALTH_DIR}"
+chown hermes:hermes "${CONNECTOR_HEALTH_DIR}"
+chmod 0700 "${CONNECTOR_HEALTH_DIR}"
+
 # ============================================================================
 # ADR 0009 / SEC-22 — cross-machine isolation boot check (fail-closed)
 # ============================================================================
