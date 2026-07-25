@@ -21,7 +21,9 @@
  *     "sticky_stop_level":       <string>,         // optional (ADR 0062)
  *     "scheduler_ok":            <boolean | 0/1>,  // optional (WP-2 work-liveness)
  *     "scheduler_job_count":     <integer>,        // optional
- *     "scheduler_max_overdue_seconds": <integer>   // optional
+ *     "scheduler_max_overdue_seconds": <integer>,  // optional
+ *     "connector_check_ok":      <boolean | 0/1>,  // optional (ADR 0080)
+ *     "connectors":              <map server → entry> // optional (ADR 0080)
  *   }
  *
  * The handler doesn't trust the Machine's `heartbeat_status` — it derives
@@ -54,6 +56,8 @@ interface HeartbeatBody {
   scheduler_ok?: unknown
   scheduler_job_count?: unknown
   scheduler_max_overdue_seconds?: unknown
+  connector_check_ok?: unknown
+  connectors?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
@@ -74,6 +78,61 @@ function parseSchedulerOk(value: unknown): 0 | 1 | null {
 // float, a negative, a string, a missing field — is stored NULL.
 function parseNonNegInt(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+// Per-connector map guardrails (ADR 0080). The overlay writer caps at 32
+// servers and 200-char messages; these ingest-side caps are the backstop
+// against a compromised or drifted emitter, not the primary limit.
+const CONNECTORS_MAX_SERVERS = 64
+const CONNECTORS_MAX_MESSAGE_CHARS = 200
+const CONNECTOR_SERVER_NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/
+
+// One connector entry, parsed-not-cast (ADR 0080 three-tier rule): a valid
+// entry's meaning doesn't depend on its neighbors, so an invalid ENTRY is
+// dropped (absence = the alerter holds for that server) while valid siblings
+// are kept. Fields inside a kept entry are never individually nulled — a
+// half-trusted entry could open or resolve an alert wrongly; entries are
+// atomic. consecutive_failures is the one required field; a failure run
+// (count > 0) additionally requires its writer-side run_age_seconds, because
+// every open condition is age-gated and an ageless run can satisfy none.
+function parseConnectorEntry(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const count = parseNonNegInt(raw.consecutive_failures)
+  if (count === null) return null
+  const entry: Record<string, unknown> = { consecutive_failures: count }
+  if (count > 0) {
+    const runAge = parseNonNegInt(raw.run_age_seconds)
+    if (runAge === null) return null
+    entry.run_age_seconds = runAge
+    entry.conn_evidence = raw.conn_evidence === true
+  }
+  const lastOkAge = parseNonNegInt(raw.last_ok_age_seconds)
+  if (lastOkAge !== null) entry.last_ok_age_seconds = lastOkAge
+  const lastErrorAge = parseNonNegInt(raw.last_error_age_seconds)
+  if (lastErrorAge !== null) entry.last_error_age_seconds = lastErrorAge
+  if (typeof raw.last_error_message === 'string' && raw.last_error_message.length > 0) {
+    entry.last_error_message = raw.last_error_message.slice(0, CONNECTORS_MAX_MESSAGE_CHARS)
+  }
+  return entry
+}
+
+// The whole map: structurally-invalid (not a plain object, or absurdly large)
+// → NULL, meaning "trust nothing this beat"; under NULL-hold semantics every
+// open connector alert simply holds, which makes whole-map NULL cheap and
+// honest. Returns the serialized JSON to store, or null.
+function parseConnectorsJson(value: unknown): string | null {
+  if (value === undefined) return null
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > CONNECTORS_MAX_SERVERS) return null
+  const parsed: Record<string, unknown> = {}
+  for (const [server, raw] of entries) {
+    if (!CONNECTOR_SERVER_NAME_RE.test(server)) continue
+    const entry = parseConnectorEntry(raw)
+    if (entry !== null) parsed[server] = entry
+  }
+  return JSON.stringify(parsed)
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -116,6 +175,14 @@ export const POST: APIRoute = async ({ request }) => {
   const schedulerJobCount = parseNonNegInt(body.scheduler_job_count)
   const schedulerMaxOverdueSeconds = parseNonNegInt(body.scheduler_max_overdue_seconds)
 
+  // Connector-health signals (ADR 0080). Same overwrite-including-NULL
+  // contract as the scheduler fields; connector_check_ok shares
+  // scheduler_ok's 1/0/NULL coercion (0 = the seat's own check is broken —
+  // the alerter pages connector_check_error rather than the class going
+  // silently dark).
+  const connectorCheckOk = parseSchedulerOk(body.connector_check_ok)
+  const connectorsJson = parseConnectorsJson(body.connectors)
+
   // Re-keyed on customer_slug (migration 0093): several seats share one entity,
   // so ON CONFLICT(entity_id) would collide them into one row. entity_id is now
   // a plain column and is refreshed from the request on every upsert.
@@ -123,8 +190,9 @@ export const POST: APIRoute = async ({ request }) => {
     `INSERT INTO fleet_status (
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
-       scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
+       connectors_json, connector_check_ok, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -137,6 +205,8 @@ export const POST: APIRoute = async ({ request }) => {
        scheduler_ok                  = excluded.scheduler_ok,
        scheduler_job_count           = excluded.scheduler_job_count,
        scheduler_max_overdue_seconds = excluded.scheduler_max_overdue_seconds,
+       connectors_json         = excluded.connectors_json,
+       connector_check_ok      = excluded.connector_check_ok,
        updated_at              = datetime('now')`
   )
     .bind(
@@ -151,7 +221,9 @@ export const POST: APIRoute = async ({ request }) => {
       stickyStopLevel,
       schedulerOk,
       schedulerJobCount,
-      schedulerMaxOverdueSeconds
+      schedulerMaxOverdueSeconds,
+      connectorsJson,
+      connectorCheckOk
     )
     .run()
 
