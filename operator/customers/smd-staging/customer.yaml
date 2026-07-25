@@ -15,9 +15,11 @@ schema_version: 1
 #     wired to nothing real). It boots the broker identically to prod; it is
 #     never used for a live Google call by boot-smoke or the voice gate.
 #     Staged at provision time, NEVER committed.
-#   - No managed_mailboxes  -> touches no real inbox.
-#   - No Telegram, no cron  -> no inbound, no autonomous action. The agent
-#     boots and idles, which is exactly what a deploy/boot test target needs.
+#   - No managed_mailboxes  -> touches no real Google inbox.
+#   - No Telegram, no cron. The ONE inbound path is the msgraph Email binding
+#     below (ADR 0078 / ss#1978 sandbox e2e): the client-custody mail loop is
+#     proven here against the smdopslab SANDBOX tenant (a throwaway M365 we
+#     own — operator@smdopslab.onmicrosoft.com), never a real client mailbox.
 #   - Own R2 prefix (vaults/smd-staging/), own D1 namespace, own skill-bodies
 #     bucket. Shares no mutable state with smd.
 #
@@ -85,7 +87,9 @@ personas:
         initiation:
           manual: true
           scheduled: false
-          webhook: false
+          # webhook: the msgraph message.received trigger below wakes this
+          # skill — the ADR 0078 sandbox e2e inbound path.
+          webhook: true
         enabled: true
       - name: workspace
         version: pending
@@ -102,8 +106,36 @@ personas:
 # Google Workspace (Gmail / Calendar / Drive) rides the governed ADR 0045 Workspace
 # broker — NOT the connector mechanism. The broker holds the DWD service-account
 # credential (see google_auth:) and exposes the governed workspace_* tools; no CLI to
-# shell out to. No other external system is connector-wired here, so the map is empty.
-connectors: {}
+# shell out to.
+connectors:
+  # Client-custody email (ADR 0078 / email-channel-seam spec / ss#1978) — the
+  # sandbox END-TO-END proof binding. The mailbox is operator@smdopslab
+  # .onmicrosoft.com on the smdopslab SANDBOX tenant we own (app-only
+  # client-credentials, tenant-side ApplicationAccessPolicy pins the app to
+  # exactly this mailbox — proven 2026-07-24, vfy_01KYAP100X / vfy_01KYAQ7V6Q).
+  # Inbound rides the overlay delta poller (no public webhook); every polled
+  # message enters through the same fence/taint/roster spine as webhook mail.
+  # AgentMail is deliberately NOT bound on this seat — one mail path, one
+  # custody story (ADR 0078 §1).
+  Email:
+    adapter: msgraph
+    backend: mcp:msgraph-mail
+    enabled: true
+    msgraph_auth:
+      tenant_id: 'f11d2887-b7f2-4464-a9c6-d4db2166b43c'
+      client_id: '83a044a4-0b43-4cb4-b989-370aa711af20'
+      mailbox: operator@smdopslab.onmicrosoft.com
+      secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET'
+    poll_seconds: 45
+
+# ---- WEBHOOK TRIGGERS ----
+# The e2e wake path: a new message in the operator's sandbox inbox (delivered
+# by the delta poller through the signed loopback) routes to inbox-triage.
+webhook_triggers:
+  - source: msgraph
+    event_type: message.received
+    skill: inbox-triage
+    persona: crane
 
 # ---- SCOPE ----
 scope:
@@ -114,7 +146,16 @@ scope:
   domain_blocks: []
   trusted_sender_domains:
     - smd-staging.invalid
-  # Inert: drafts only, and there is no inbound to act on anyway.
+  # The organization roster (ADR 0055) for the e2e proof: Captain's real
+  # addresses classify INTERNAL (no fence, recipient-locked real reply via the
+  # relay) — the human-visible acceptance test is Captain emailing the operator
+  # and receiving its reply. Anyone else is quarantined + drafted (fail-closed),
+  # which is the OTHER half of the proof.
+  inbound_allow_from:
+    - scott@smd.services
+    - smdurgan@smdurgan.com
+  # Exposure stays draft_for_review: the model drafts, the relay delivers the
+  # recipient-locked reply to the rostered sender (ADR 0072/0055 posture).
 escalation:
   red_flag_recipients:
     - staging@smd-staging.invalid
