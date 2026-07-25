@@ -366,7 +366,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # transports (fail closed, never fall back to AgentMail) + the msgraph inbound
 # prompt. Additive + behavior-neutral for every non-msgraph seat; the agentmail
 # prompt is byte-untouched. Superset of 68ecea3.
-ARG OVERLAY_REF="9b3f712a79c38d75030d6d6b988a6761241b9cff"
+# e031c09 — mcp:msgraph-mail registry entry (overlay#180, ss#1978): materializes
+# the msgraph-mail connector's OUTBOUND tool surface (send/reply/draft/list/read)
+# so an msgraph seat can act, not just receive — the smd-staging live-fire showed
+# the connector was baked but never launched (no registry entry). Range also
+# carries overlay#179 (connector-health ledger, ss#1990/ADR 0080). NONE of the 8
+# tracked twins changed (git-diff-verified 9b3f712..e031c09). Superset of 9b3f712.
+ARG OVERLAY_REF="e031c093fcc08e24e81fba9dd16d598b7358810c"
 
 ARG CUSTOMER_SLUG=customer-zero
 
