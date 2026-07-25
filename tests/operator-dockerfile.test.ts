@@ -442,7 +442,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // the real status code — the channel bypasses post_tool_call, so this is
     // where its outages become visible. overlayRef-only: git-diff-verified no
     // tracked twin changed across e031c09..6481ac81.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6481ac81ecd950eb1f3bce3b0518a59f5c16fe42"')
+    // 167ebc50 — missing connector-ledger DIR pages instead of holding green
+    // (overlay#182, ss#1990): the smd-staging live finding — /run is root-owned,
+    // the dir was never boot-created, every record silently failed, and a real
+    // Graph 401 outage read legit-empty green. Pairs with entrypoint.sh's
+    // boot-contract mkdir (same trap /run/smd-mcp closed 2026-06-24).
+    // overlayRef-only across 6481ac81..167ebc50.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="167ebc509afbce536079c51502fa607e6134725f"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
