@@ -1166,5 +1166,4 @@ export interface ValidationError {
 }
 
 export type ValidationResult =
-  | { ok: true; value: CustomerYaml }
-  | { ok: false; errors: ValidationError[] }
+  { ok: true; value: CustomerYaml } | { ok: false; errors: ValidationError[] }
