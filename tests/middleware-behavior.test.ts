@@ -340,19 +340,17 @@ describe('middleware runtime: behavior', () => {
       expect(await res.json()).toEqual({ error: 'Unauthorized' })
     })
 
-    it('exempts /api/admin/fleet/health from the Clerk gate (machine-bearer route)', async () => {
-      // The route self-gates on a health-read key, so the middleware must let a
-      // cookie-less (no Clerk userId) request through to the handler rather than
-      // 401 it. Contrast with /api/admin/entities above which 401s.
-      const { res, next } = await invoke({
+    it('gates /api/admin/fleet/health like every other admin route (carve-out ripped 2026-07-24)', async () => {
+      // The machine-bearer carve-out died with the health-monitor rip —
+      // deterministic work-liveness alerting lives in ss-fleet-alerts, and no
+      // admin path bypasses the Clerk gate anymore.
+      const { res } = await invoke({
         url: 'https://admin.smd.services/api/admin/fleet/health',
       })
-      expect(res.status).not.toBe(401)
-      expect(next).toHaveBeenCalledOnce()
-      expect(res.headers.get(NEXT_MARKER)).toBe('1')
+      expect(res.status).toBe(401)
     })
 
-    it('does NOT exempt a sibling /api/admin/fleet/* path (exact match only)', async () => {
+    it('gates sibling /api/admin/fleet/* paths too', async () => {
       const { res } = await invoke({ url: 'https://admin.smd.services/api/admin/fleet/other' })
       expect(res.status).toBe(401)
     })

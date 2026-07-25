@@ -352,7 +352,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # no content the fabrication/floor/taint scans did not already see). Block
 # structure gates the render, so prose replies stay byte-identical. Superset of
 # f8808c6.
-ARG OVERLAY_REF="73a2df84c32e0a9fc38fa1f1abb8a943a854506b"
+ARG OVERLAY_REF="02d90917b2361a52794c930aee9fb478d10c2b97"
 
 ARG CUSTOMER_SLUG=customer-zero
 

@@ -32,9 +32,10 @@ import type { SkillInitiation } from '../src/lib/operator/customer-yaml/types'
  * at runtime, so the resolver (and these fixtures) stay neutral.
  */
 
-// 'health-monitor' is a real, vertical-neutral entry in the reviewed summaries
+// 'inbox-triage' is a real, vertical-neutral entry in the reviewed summaries
 // catalog — used to prove a summary is attached from the catalog, never invented.
-const SUMMARIZED_SLUG = 'health-monitor'
+// (Was 'health-monitor' until that skill was ripped 2026-07-24.)
+const SUMMARIZED_SLUG = 'inbox-triage'
 
 function enforcement(p: Partial<RoutineGridEnforcement> = {}): RoutineGridEnforcement {
   return {
@@ -213,7 +214,7 @@ describe('resolveOperatorWork — grid mode', () => {
     if (model.mode !== 'grid') throw new Error('expected grid mode')
     const skills = model.sections[0].routines[0].skills
     expect(skills[0]).toEqual({
-      name: 'Health monitor',
+      name: 'Inbox triage',
       slug: SUMMARIZED_SLUG,
       summary: SKILL_SUMMARIES[SUMMARIZED_SLUG],
     })

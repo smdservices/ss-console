@@ -415,6 +415,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // menu (ADR 0025 unchanged). Measured -7,272 tokens/turn of prompt-cache
     // write on the live payload (vfy_01KXKJEEV1R4EPYFKA6J7YDH16).
     // overlayRef-only. Superset of eb17f3cb (#172).
+    // 02d90917 (#175, ss work-liveness fix): heartbeat scheduler self-check —
+    // every beat reports scheduler_ok / job_count / max_overdue from a scan of
+    // profiles/*/cron/jobs.json, so a locked-out or wedged scheduler pages in
+    // minutes instead of the 8 silent days of the 2026-07-16→24 incident.
     // 73a2df84 (#174, ss #1961): report emails render an html half at send
     // time — shared/report_render.py transforms the markdown the report skills
     // already author (## headings, numbered items) into an inline-styled html
@@ -423,7 +427,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // taint scans did not already see). Block structure gates the render, so
     // prose replies stay byte-identical. overlayRef-only (neither touched file
     // is a tracked twin). Superset of f8808c6c (#173).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="73a2df84c32e0a9fc38fa1f1abb8a943a854506b"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="02d90917b2361a52794c930aee9fb478d10c2b97"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
