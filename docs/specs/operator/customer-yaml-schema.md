@@ -389,7 +389,7 @@ Validation rules:
 
 1. **`connectors[].webhook_url`** — the URL the vendor pushes events to. Pattern is `https://hermes-{customer_id}.fly.dev/webhooks/{capability_slug}`; the validator enforces that `{customer_id}` matches the document's `customer_id` (cross-customer leakage vector if it ever doesn't, ADR 0009).
 
-2. **`webhook_triggers[]`** — top-level array mapping inbound payloads to (persona, skill). Each entry: `{ source, event_type, skill, persona }`. `source` MUST match an adapter on a connector with `webhook_url` configured; `persona`/`skill` MUST reference real declarations.
+2. **`webhook_triggers[]`** — top-level array mapping inbound payloads to (persona, skill). Each entry: `{ source, event_type, skill, persona }`. `source` MUST match an adapter on a connector that carries inbound — either `webhook_url` configured (vendor push, Stream E) or a poll-driven inbound adapter (`msgraph`, whose delta poller stamps events into the same gate→router path per [ADR 0078](../../adr/0078-client-custody-email-channel.md) / [email-channel-seam](email-channel-seam.md) D1, so there is deliberately no webhook endpoint to pair against). `persona`/`skill` MUST reference real declarations.
 
 ```yaml
 connectors:
@@ -506,7 +506,7 @@ Field rules:
 | `cron[].pre_run` set with `wake_policy: always` (or vice versa)       | Reject with `InvalidCronWakePolicy` error (ADR 0021 Stream B)                                                                                                                                   |
 | `connectors[].webhook_url` not matching customer-bound pattern        | Reject with `InvalidWebhookUrl` error (ADR 0021 Stream E)                                                                                                                                       |
 | `connectors[].webhook_url` embeds slug ≠ `customer_id`                | Reject with `IsolationViolation` error (ADR 0021 Stream E + ADR 0009)                                                                                                                           |
-| `webhook_triggers[].source` has no connector with `webhook_url`       | Reject with `UnknownWebhookSource` error (ADR 0021 Stream E)                                                                                                                                    |
+| `webhook_triggers[].source` names no inbound-carrying connector       | Reject with `UnknownWebhookSource` error (ADR 0021 Stream E). Inbound-carrying = `webhook_url` set, OR a poll-driven adapter (`msgraph`, ADR 0078 D1)                                           |
 | `webhook_triggers[].persona` does not match any declared persona      | Reject with `UnknownWebhookPersona` error (ADR 0021 Stream E)                                                                                                                                   |
 | `webhook_triggers[].skill` not an enabled skill on the target persona | Reject with `UnknownWebhookSkill` error (ADR 0021 Stream E)                                                                                                                                     |
 

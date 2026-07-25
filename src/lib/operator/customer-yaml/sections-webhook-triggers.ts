@@ -12,11 +12,31 @@
  * receives the already-validated personas and connectors so the lookup
  * never opens a hole for inconsistent intermediate states.
  *
- * Source-adapter coupling rationale: a trigger whose source has no
- * webhook_url configured will never fire, so we flag it at authoring time
- * rather than waiting for runtime silence. Stream-E connectors set both
- * webhook_url and trigger entries together; either-without-the-other is
- * almost always a typo.
+ * Source-adapter coupling rationale: a trigger whose source has no inbound
+ * delivery mechanism will never fire, so we flag it at authoring time rather
+ * than waiting for runtime silence. Stream-E connectors set both webhook_url
+ * and trigger entries together; either-without-the-other is almost always a
+ * typo.
+ *
+ * Inbound delivery is NOT synonymous with a push webhook. A connector is an
+ * eligible trigger source when it has EITHER:
+ *   - `webhook_url` configured — the vendor pushes to the seat (Stream E), or
+ *   - a poll-driven inbound adapter ({@link POLL_INBOUND_ADAPTERS}) — the
+ *     overlay's delta poller pulls and stamps the event into the same
+ *     gate→router path.
+ *
+ * The msgraph mail seam (ADR 0078 / email-channel-seam spec D1) is the second
+ * kind by deliberate design: "no public webhook endpoint for mail at all" —
+ * content is pulled over an authenticated channel, and the poller feeds the
+ * gate→router path as a stamped `source: msgraph` / `event_type:
+ * message.received`. So its `webhook_triggers` entry is the authored wake-path
+ * routing declaration, with no webhook_url to pair against. Requiring one here
+ * would force the config to either fabricate a nonexistent endpoint or drop
+ * the only thing that routes polled mail to a skill.
+ *
+ * Note this stays strict for the delegated `microsoft-graph` adapter (read /
+ * draft MCP tooling, not the seam): it has no poller and no webhook, so naming
+ * it as a source is still the typo the rule was written to catch.
  */
 
 import type { CapabilityName } from '../capabilities/types'
@@ -28,7 +48,18 @@ import type {
   WebhookTriggerExclude,
   WebhookTriggerThrottle,
 } from './types'
+import { MSGRAPH_ADAPTER } from './types'
 import { isPlainObject } from './helpers'
+
+/**
+ * Adapters whose inbound arrives by polling rather than a vendor push, so they
+ * are eligible `webhook_triggers[].source` values with no `webhook_url`.
+ *
+ * Membership is keyed on the ADAPTER, not on `poll_seconds`: the cadence field
+ * is optional under msgraph (unauthored ⇒ the overlay poller applies
+ * DEFAULT_MSGRAPH_POLL_SECONDS), so a seat that omits it still polls.
+ */
+const POLL_INBOUND_ADAPTERS: ReadonlySet<string> = new Set([MSGRAPH_ADAPTER])
 
 export function checkWebhookTriggers(
   root: Record<string, unknown>,
@@ -65,7 +96,8 @@ export function checkWebhookTriggers(
 function collectAdapterSlugs(connectors: Partial<Record<CapabilityName, Connector>>): Set<string> {
   const out = new Set<string>()
   for (const c of Object.values(connectors)) {
-    if (c && c.webhook_url !== null) {
+    if (!c) continue
+    if (c.webhook_url !== null || POLL_INBOUND_ADAPTERS.has(c.adapter)) {
       out.add(c.adapter)
     }
   }
@@ -106,8 +138,10 @@ function checkOneTrigger(
       code: 'UnknownWebhookSource',
       path: `${path}.source`,
       message:
-        `webhook_triggers.source "${source}" does not match any connector adapter with ` +
-        'webhook_url configured — either add webhook_url to the connector or drop the trigger',
+        `webhook_triggers.source "${source}" does not match any connector adapter that ` +
+        'carries inbound — the connector needs webhook_url (vendor push), or the trigger ' +
+        `must name a poll-driven adapter (${[...POLL_INBOUND_ADAPTERS].join(', ')}); ` +
+        'otherwise drop the trigger',
     })
     return null
   }
