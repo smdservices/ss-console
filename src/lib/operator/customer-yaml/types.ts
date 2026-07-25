@@ -396,8 +396,46 @@ export interface PersonaSkill {
   scope: string[]
 }
 
+/**
+ * Provider vocabulary for a persona's send-as identity (ADR 0078 §4 / email-
+ * channel-seam spec D5). Closed set, grows by mail adapter. AgentMail is
+ * adapter #1 behind the provider-neutral seam; msgraph is the client-custody
+ * Microsoft 365 adapter.
+ */
+export const ACCEPTED_SEND_PROVIDERS = ['agentmail', 'msgraph'] as const
+export type SendProvider = (typeof ACCEPTED_SEND_PROVIDERS)[number]
+
+/**
+ * Provider-neutral send-as identity. The one shape every downstream reader
+ * consumes — nothing branches on provider except the matching send transport.
+ */
+export interface SendIdentity {
+  provider: SendProvider
+  address: string
+}
+
+/**
+ * Persona send-as identity (ADR 0078 §4). Generalized 2026-07-24 from the
+ * AgentMail-hardcoded `agentmail_identity` string to a provider-neutral
+ * `send_identity`.
+ *
+ * `send_identity` is ALWAYS populated after validation: an authored yaml that
+ * still uses the deprecated `agentmail_identity` field is normalized into
+ * `{ provider: 'agentmail', address: <value> }` at parse time so downstream
+ * readers see exactly one shape. The validated OUTPUT carries only
+ * `send_identity` — the deprecated field is never emitted — so a normalized
+ * value re-validates cleanly (idempotent). Pre-migration projected D1 rows keep
+ * resolving via the read-side `agentmail_identity` fallback in
+ * src/lib/portal/customer-config.ts.
+ */
 export interface PersonaSendAs {
-  agentmail_identity: string
+  send_identity: SendIdentity
+  /**
+   * @deprecated Legacy AgentMail-only field. Accepted as authored INPUT for
+   * back-compat (normalized into `send_identity`), never emitted on output.
+   * Read `send_identity` instead.
+   */
+  agentmail_identity?: string
 }
 
 export interface PersonaChannelBinding {
@@ -498,12 +536,70 @@ export interface User {
   voice_profile_id: string | null
 }
 
+/**
+ * The Email-connector adapter slug that binds Microsoft 365 app-only mail
+ * behind the provider-neutral seam (email-channel-seam spec D5). When
+ * `connectors.Email.adapter === MSGRAPH_ADAPTER`, the `msgraph_auth` block is
+ * required and validated; on any other adapter it must be absent (no dead config).
+ */
+export const MSGRAPH_ADAPTER = 'msgraph'
+
+/**
+ * Microsoft app-registration GUID shape (tenant_id / client_id). Standard
+ * 8-4-4-4-12 hex, case-insensitive.
+ */
+export const MSGRAPH_GUID_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+/**
+ * Custody reference shape for the Graph client secret (ADR 0010). Unlike the
+ * `infisical:` token_ref channel, the msgraph secret lives as a per-seat Fly
+ * secret (client-custodied), referenced as `fly-secret:<ENV_NAME>`. The
+ * provisioning script derives the Fly secret name from the suffix, so the name
+ * must be a valid environment-variable identifier.
+ */
+export const MSGRAPH_SECRET_REF_PATTERN = /^fly-secret:[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * Delta-poll cadence default (seconds) for the msgraph inbound poller
+ * (spec D1/D5). Applied by the overlay poller when `poll_seconds` is unauthored.
+ */
+export const DEFAULT_MSGRAPH_POLL_SECONDS = 45
+
+/**
+ * Microsoft Graph app-only mail auth (email-channel-seam spec D5). Parallel in
+ * structure to {@link GoogleAuth}, but per-connector (the Email connector binds
+ * one mailbox) rather than a top-level identity. Custody of the client secret
+ * is a per-seat Fly secret referenced by `secret_ref` (ADR 0010) — never a
+ * literal, never an `infisical:` token_ref.
+ */
+export interface MsgraphAuth {
+  tenant_id: string
+  mailbox: string
+  client_id: string
+  secret_ref: string
+}
+
 export interface Connector {
   adapter: string
   backend: string
   enabled: boolean
   scopes: string[]
   token_ref: string | null
+  /**
+   * Microsoft Graph app-only mail auth (spec D5). Non-null ONLY on the Email
+   * connector when `adapter === MSGRAPH_ADAPTER`; null on every other connector
+   * (a block present on a non-msgraph adapter is a validation error — no dead
+   * config). See {@link MsgraphAuth}.
+   */
+  msgraph_auth: MsgraphAuth | null
+  /**
+   * Delta-poll cadence in seconds for the msgraph inbound poller (spec D5).
+   * Only valid when `adapter === MSGRAPH_ADAPTER`; null on every other connector.
+   * Null under msgraph too ⇒ the overlay poller applies
+   * {@link DEFAULT_MSGRAPH_POLL_SECONDS}.
+   */
+  poll_seconds: number | null
   /**
    * Outbound webhook URL the connector's vendor pushes events to. ADR 0021
    * Stream E wires Filevine/Clio matter-created and document-added webhooks

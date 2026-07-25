@@ -3073,3 +3073,225 @@ describe('validate — send exposure classes (ADR 0075)', () => {
     if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
   })
 })
+
+// -----------------------------------------------------------------------------
+// Email connector: msgraph_auth + poll_seconds (ADR 0078 / email-channel-seam D5)
+// -----------------------------------------------------------------------------
+
+describe('validate — connectors.Email msgraph_auth (ADR 0078 D5)', () => {
+  const TENANT = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+  const CLIENT = '11111111-2222-3333-4444-555555555555'
+
+  function validMsgraphAuth(): Record<string, unknown> {
+    return {
+      tenant_id: TENANT,
+      client_id: CLIENT,
+      mailbox: 'operator@clientdomain.com',
+      secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET',
+    }
+  }
+
+  /** Replace the fixture Email connector with an msgraph-bound one. */
+  function withMsgraphEmail(
+    mutate?: (auth: Record<string, unknown>, conn: Record<string, unknown>) => void
+  ): Record<string, unknown> {
+    const f = validFixture()
+    const auth = validMsgraphAuth()
+    const conn: Record<string, unknown> = {
+      adapter: 'msgraph',
+      backend: 'mcp:msgraph-mail',
+      enabled: true,
+      msgraph_auth: auth,
+    }
+    mutate?.(auth, conn)
+    ;(f['connectors'] as Record<string, unknown>)['Email'] = conn
+    return f
+  }
+
+  it('accepts a valid msgraph Email connector and carries the block through', () => {
+    const r = validate(withMsgraphEmail())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.connectors.Email?.msgraph_auth).toEqual(validMsgraphAuth())
+    // poll_seconds unauthored ⇒ null (overlay applies the 45s default)
+    expect(r.value.connectors.Email?.poll_seconds).toBeNull()
+  })
+
+  it('accepts an authored poll_seconds and carries it through', () => {
+    const r = validate(withMsgraphEmail((_a, c) => (c['poll_seconds'] = 30)))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.connectors.Email?.poll_seconds).toBe(30)
+  })
+
+  it('requires msgraph_auth when the adapter is msgraph', () => {
+    const r = validate(withMsgraphEmail((_a, c) => delete c['msgraph_auth']))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('MissingField')
+    expect(r.errors.some((e) => e.path === 'connectors.Email.msgraph_auth')).toBe(true)
+  })
+
+  it('rejects an msgraph_auth block on a non-msgraph adapter (no dead config)', () => {
+    const f = validFixture()
+    // fixture Email adapter is "microsoft-graph", not "msgraph"
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']['msgraph_auth'] =
+      validMsgraphAuth()
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+    expect(r.errors.some((e) => e.path === 'connectors.Email.msgraph_auth')).toBe(true)
+  })
+
+  it('rejects poll_seconds on a non-msgraph adapter (no dead config)', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']['poll_seconds'] = 45
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'connectors.Email.poll_seconds')).toBe(true)
+  })
+
+  it('rejects a non-integer / non-positive poll_seconds under msgraph', () => {
+    for (const bad of [0, -1, 2.5, '30']) {
+      const r = validate(withMsgraphEmail((_a, c) => (c['poll_seconds'] = bad)))
+      expect(r.ok).toBe(false)
+    }
+  })
+
+  it('rejects a malformed tenant_id / client_id (must be a GUID)', () => {
+    for (const key of ['tenant_id', 'client_id']) {
+      const r = validate(withMsgraphEmail((a) => (a[key] = 'not-a-guid')))
+      expect(r.ok).toBe(false)
+      if (r.ok) continue
+      expect(codesOf(r.errors)).toContain('InvalidFormat')
+      expect(r.errors.some((e) => e.path === `connectors.Email.msgraph_auth.${key}`)).toBe(true)
+    }
+  })
+
+  it('rejects a mailbox that is not an email address', () => {
+    const r = validate(withMsgraphEmail((a) => (a['mailbox'] = 'operator-no-domain')))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'connectors.Email.msgraph_auth.mailbox')).toBe(true)
+  })
+
+  it('rejects a secret_ref that is not a fly-secret reference', () => {
+    // infisical: is the token_ref channel; msgraph custody is a per-seat Fly secret
+    for (const bad of ['infisical:/operator/x/y', 'MSGRAPH_CLIENT_SECRET', 'fly-secret:']) {
+      const r = validate(withMsgraphEmail((a) => (a['secret_ref'] = bad)))
+      expect(r.ok).toBe(false)
+      if (r.ok) continue
+      expect(r.errors.some((e) => e.path === 'connectors.Email.msgraph_auth.secret_ref')).toBe(true)
+    }
+  })
+
+  it('rejects a partial msgraph_auth block (fail-closed, never a silent default)', () => {
+    const r = validate(withMsgraphEmail((a) => delete a['secret_ref']))
+    expect(r.ok).toBe(false)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Persona send_as: provider-neutral send_identity + agentmail_identity back-compat
+// (ADR 0078 §4 / email-channel-seam D5)
+// -----------------------------------------------------------------------------
+
+describe('validate — persona send_as normalization (ADR 0078 §4)', () => {
+  function withSendAs(sendAs: unknown): Record<string, unknown> {
+    const f = validFixture()
+    ;(f['personas'] as Record<string, unknown>[])[0]['send_as'] = sendAs
+    return f
+  }
+
+  it('accepts a provider-neutral send_identity (msgraph) and carries it verbatim', () => {
+    const r = validate(
+      withSendAs({ send_identity: { provider: 'msgraph', address: 'operator@clientdomain.com' } })
+    )
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.personas[0].send_as?.send_identity).toEqual({
+      provider: 'msgraph',
+      address: 'operator@clientdomain.com',
+    })
+    // no agentmail mirror for a non-agentmail provider
+    expect(r.value.personas[0].send_as?.agentmail_identity).toBeUndefined()
+  })
+
+  it('emits an idempotent send_identity-only shape for an agentmail identity', () => {
+    const r = validate(
+      withSendAs({
+        send_identity: { provider: 'agentmail', address: 'ops@firm.agents.smd.services' },
+      })
+    )
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    // output carries ONLY send_identity — the deprecated field is never emitted
+    // (the toEqual asserts the exact shape), so re-validating never trips the
+    // both-set guard.
+    expect(r.value.personas[0].send_as).toEqual({
+      send_identity: { provider: 'agentmail', address: 'ops@firm.agents.smd.services' },
+    })
+  })
+
+  it('normalizes a legacy agentmail_identity into send_identity (back-compat)', () => {
+    const r = validate(
+      withSendAs({ agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' })
+    )
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.personas[0].send_as).toEqual({
+      send_identity: { provider: 'agentmail', address: 'marcus@smith-pi-firm.agents.smd.services' },
+    })
+  })
+
+  it('re-validating a normalized value is idempotent (no both-set error)', () => {
+    const first = validate(
+      withSendAs({ agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' })
+    )
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+    const roundTrip = withSendAs(first.value.personas[0].send_as)
+    expect(validate(roundTrip).ok).toBe(true)
+  })
+
+  it('rejects authoring both send_identity and the legacy field (ambiguous)', () => {
+    const r = validate(
+      withSendAs({
+        send_identity: { provider: 'agentmail', address: 'a@b.c' },
+        agentmail_identity: 'a@b.c',
+      })
+    )
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+    expect(r.errors.some((e) => e.path === 'personas[0].send_as')).toBe(true)
+  })
+
+  it('rejects an unknown send_identity.provider', () => {
+    const r = validate(withSendAs({ send_identity: { provider: 'gmail', address: 'a@b.c' } }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('EnumViolation')
+    expect(r.errors.some((e) => e.path === 'personas[0].send_as.send_identity.provider')).toBe(true)
+  })
+
+  it('rejects a send_identity missing its address', () => {
+    const r = validate(withSendAs({ send_identity: { provider: 'msgraph' } }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'personas[0].send_as.send_identity.address')).toBe(true)
+  })
+
+  it('rejects a send_as with neither send_identity nor agentmail_identity', () => {
+    const r = validate(withSendAs({}))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('MissingField')
+  })
+
+  it('rejects an empty agentmail_identity string', () => {
+    const r = validate(withSendAs({ agentmail_identity: '' }))
+    expect(r.ok).toBe(false)
+  })
+})

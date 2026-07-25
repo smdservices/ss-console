@@ -18,6 +18,7 @@ import {
 import {
   getCustomerConfigBySlug,
   listCustomerConfigsForEntity,
+  personaSendAsAddress,
 } from '../../../../../lib/portal/customer-config'
 import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
 import OperatorAuthorityRows from '../../../../../components/portal/operator/facets/OperatorAuthorityRows.astro'
@@ -163,8 +164,9 @@ const connectionRows = buildConnectionRows(
   customerConfig?.credential_custody_default ?? 'delegated'
 )
 const scopeView = resolveOperatorScope(customerConfig).scope
-const sendAs =
-  customerConfig?.personas.find((p) => p.status === 'active')?.send_as?.agentmail_identity ?? null
+const sendAs = personaSendAsAddress(
+  customerConfig?.personas.find((p) => p.status === 'active')?.send_as
+)
 const emailAccess =
   scopeView && (scopeView.sees.length > 0 || scopeView.neverSees.length > 0 || sendAs)
     ? { sees: scopeView.sees, neverSees: scopeView.neverSees, sendAs }
