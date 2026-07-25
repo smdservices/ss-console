@@ -1,6 +1,11 @@
 ---
 import AdminLayout from '../../../../layouts/AdminLayout.astro'
-import { posturePill, rosterHealth, rosterHealthDotClass } from '../../../../lib/admin/fleet-roster'
+import {
+  posturePill,
+  rosterHealth,
+  rosterHealthDotClass,
+  seatSignals,
+} from '../../../../lib/admin/fleet-roster'
 import {
   resolveEntityIdBySlug,
   domainAuthoritySummary,
@@ -77,10 +82,7 @@ const health = rosterHealth(
   hb.label,
   summary?.summary_status ?? null,
   fleet?.sticky_stop_level ?? null,
-  {
-    ok: fleet?.scheduler_ok ?? null,
-    maxOverdueSeconds: fleet?.scheduler_max_overdue_seconds ?? null,
-  }
+  seatSignals(fleet ?? null)
 )
 const posture = config ? posturePill(config.authority) : null
 const domainRows = config ? domainAuthoritySummary(config.authority) : []

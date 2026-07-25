@@ -36,6 +36,10 @@ HEARTBEAT_RED_SECONDS = "300"
 # roster and this worker are separate packages; the shared 900 default is a
 # documented contract, not a cross-package import).
 WORK_OVERDUE_RED_SECONDS = "900"
+# Minimum writer-side failure-run age before the conn-class connector_down
+# path fires (ADR 0080). MUST match src/lib/admin/fleet-status.ts
+# CONNECTOR_DOWN_RUN_AGE_SECONDS (same documented-contract shape as above).
+CONNECTOR_DOWN_RUN_AGE_SECONDS = "300"
 ADMIN_BASE_URL = "https://admin.smd.services"
 
 # Secret (optional), staged via `wrangler secret put ALERTER_HEALTHCHECKS_PING_URL`:

@@ -29,6 +29,7 @@ import {
   derivePostureLabel,
   posturePill,
   rosterHealth,
+  failingConnectorNames,
   rosterHealthDotClass,
   personaSummary,
   type RosterPersona,
@@ -291,5 +292,75 @@ describe('personaSummary', () => {
     expect(personaSummary([persona(), persona({ slug: 'a', status: 'archived' })])).toBe(
       '2 personas (1 archived)'
     )
+  })
+})
+
+describe('connector health signals (ADR 0080)', () => {
+  const failing = JSON.stringify({
+    smokeball: { consecutive_failures: 4, run_age_seconds: 400, conn_evidence: true },
+    agentmail: { consecutive_failures: 0 },
+  })
+
+  it('failingConnectorNames applies the same open predicates as the alerter', () => {
+    expect(failingConnectorNames(failing)).toEqual(['smokeball'])
+    // Young run: held, not failing.
+    expect(
+      failingConnectorNames(
+        JSON.stringify({
+          smokeball: { consecutive_failures: 4, run_age_seconds: 60, conn_evidence: true },
+        })
+      )
+    ).toEqual([])
+    // Signature-free backstop.
+    expect(
+      failingConnectorNames(
+        JSON.stringify({ vendor_mcp: { consecutive_failures: 12, run_age_seconds: 1200 } })
+      )
+    ).toEqual(['vendor_mcp'])
+    // Junk participates in nothing.
+    expect(failingConnectorNames('{nope')).toEqual([])
+    expect(failingConnectorNames(null)).toEqual([])
+    expect(failingConnectorNames(undefined)).toEqual([])
+  })
+
+  it('a failing connector escalates the dot to red with a named note', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ok: 1,
+      maxOverdueSeconds: null,
+      connectorsJson: failing,
+    })
+    expect(health.color).toBe('red')
+    expect(health.note).toBe('connector failing: smokeball')
+  })
+
+  it('a broken connector CHECK escalates to red (outages not being counted)', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ok: 1,
+      maxOverdueSeconds: null,
+      connectorCheckOk: 0,
+    })
+    expect(health.color).toBe('red')
+    expect(health.note).toBe('connector health check broken')
+  })
+
+  it('NULL connector signals participate in nothing', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ok: 1,
+      maxOverdueSeconds: null,
+      connectorCheckOk: null,
+      connectorsJson: null,
+    })
+    expect(health.color).toBe('green')
+    expect(health.note).toBeNull()
+  })
+
+  it('note precedence: scheduler broken outranks connector failing', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ok: 0,
+      maxOverdueSeconds: null,
+      connectorsJson: failing,
+    })
+    expect(health.note).toBe('cron scheduler broken')
+    expect(health.color).toBe('red')
   })
 })

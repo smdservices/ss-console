@@ -30,7 +30,13 @@ import {
   type AuthorityPosture,
 } from '../operator/authority'
 import type { SummaryStatus } from './runtime-summary'
-import { WORK_OVERDUE_RED_SECONDS } from './fleet-status'
+import {
+  CONNECTOR_BACKSTOP_MIN_FAILURES,
+  CONNECTOR_BACKSTOP_RUN_AGE_SECONDS,
+  CONNECTOR_DOWN_MIN_FAILURES,
+  CONNECTOR_DOWN_RUN_AGE_SECONDS,
+  WORK_OVERDUE_RED_SECONDS,
+} from './fleet-status'
 
 export interface RosterPersona {
   slug: string
@@ -221,31 +227,117 @@ const HEALTH_RANK: Record<RosterHealthColor, number> = { green: 0, gray: 1, yell
  * when no Machine has pushed a summary yet.
  */
 /**
- * Scheduler self-check signal (WP-2), bundled so rosterHealth stays within the
- * parameter ceiling. `ok`: 1 healthy / 0 broken / NULL unreported;
- * `maxOverdueSeconds`: seconds the most-overdue job is past its next_run_at.
+ * Machine self-check signals (WP-2 scheduler + ADR 0080 connectors), bundled
+ * so rosterHealth stays within the parameter ceiling. `ok`: scheduler verdict
+ * 1 healthy / 0 broken / NULL unreported; `maxOverdueSeconds`: seconds the
+ * most-overdue job is past its next_run_at. The two connector fields are
+ * optional so pre-0080 call sites and tests stay valid.
  */
 export interface SchedulerSignal {
   ok: number | null
   maxOverdueSeconds: number | null
+  /** Connector self-check verdict: 1 healthy / 0 broken / NULL unreported. */
+  connectorCheckOk?: number | null
+  /** fleet_status.connectors_json verbatim; parsed defensively here. */
+  connectorsJson?: string | null
+}
+
+/**
+ * Sanitized server names whose failure run crosses an ADR 0080 open path
+ * (conn-class or backstop — same predicates the fleet-alerts Worker pages
+ * on, via the shared threshold constants). Defensive parse: junk JSON or a
+ * junk entry contributes nothing (NULL participates in nothing).
+ */
+function connectorEntryFailing(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const entry = value as Record<string, unknown>
+  const count = typeof entry.consecutive_failures === 'number' ? entry.consecutive_failures : 0
+  if (count <= 0) return false
+  const runAge = typeof entry.run_age_seconds === 'number' ? entry.run_age_seconds : 0
+  const connPath =
+    count >= CONNECTOR_DOWN_MIN_FAILURES &&
+    entry.conn_evidence === true &&
+    runAge >= CONNECTOR_DOWN_RUN_AGE_SECONDS
+  const backstop =
+    count >= CONNECTOR_BACKSTOP_MIN_FAILURES && runAge >= CONNECTOR_BACKSTOP_RUN_AGE_SECONDS
+  return connPath || backstop
+}
+
+/**
+ * Build the rosterHealth signal bundle from a fleet_status row (or its
+ * absence). Centralized so the .astro call sites stay under the complexity
+ * ceiling and the two pages can never drift on which columns feed the dot.
+ */
+export function seatSignals(
+  fleet: {
+    scheduler_ok: number | null
+    scheduler_max_overdue_seconds: number | null
+    connector_check_ok: number | null
+    connectors_json: string | null
+  } | null
+): SchedulerSignal {
+  return {
+    ok: fleet?.scheduler_ok ?? null,
+    maxOverdueSeconds: fleet?.scheduler_max_overdue_seconds ?? null,
+    connectorCheckOk: fleet?.connector_check_ok ?? null,
+    connectorsJson: fleet?.connectors_json ?? null,
+  }
+}
+
+export function failingConnectorNames(connectorsJson: string | null | undefined): string[] {
+  if (!connectorsJson) return []
+  let raw: unknown
+  try {
+    raw = JSON.parse(connectorsJson)
+  } catch {
+    return []
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return []
+  return Object.entries(raw as Record<string, unknown>)
+    .filter(([, value]) => connectorEntryFailing(value))
+    .map(([server]) => server)
+    .sort()
+}
+
+interface RosterNoteInputs {
+  stickyStopLevel: string | null
+  schedulerOk: number | null
+  overdue: boolean
+  summaryStatus: SummaryStatus | null
+  connectorCheckOk: number | null
+  failingConnectors: string[]
 }
 
 // Note precedence, most-actionable first: a hard breaker stop and a broken
 // scheduler are both red and both need immediate hands; the breaker note wins
-// when both fire (recovery is a Captain clear, not investigation).
-function rosterHealthNote(
-  stickyStopLevel: string | null,
-  schedulerOk: number | null,
-  overdue: boolean,
-  summaryStatus: SummaryStatus | null
-): string | null {
-  if (stickyStopLevel === 'HARD_STOP') return 'cost breaker hard stop'
-  if (schedulerOk === 0) return 'cron scheduler broken'
-  if (stickyStopLevel === 'SOFT_STOP') return 'cost breaker soft stop'
-  if (overdue) return 'scheduled work overdue'
-  if (summaryStatus === 'red') return 'operator reports a problem'
-  if (summaryStatus === 'yellow') return 'operator reports a warning'
+// when both fire (recovery is a Captain clear, not investigation). A failing
+// connector ranks just below the scheduler (client-facing work failing on a
+// live seat); a broken connector CHECK ranks with it (outages not being
+// counted is itself an outage of the monitoring).
+function rosterHealthNote(inputs: RosterNoteInputs): string | null {
+  if (inputs.stickyStopLevel === 'HARD_STOP') return 'cost breaker hard stop'
+  if (inputs.schedulerOk === 0) return 'cron scheduler broken'
+  if (inputs.failingConnectors.length > 0) {
+    return `connector failing: ${inputs.failingConnectors.join(', ')}`
+  }
+  if (inputs.connectorCheckOk === 0) return 'connector health check broken'
+  if (inputs.stickyStopLevel === 'SOFT_STOP') return 'cost breaker soft stop'
+  if (inputs.overdue) return 'scheduled work overdue'
+  if (inputs.summaryStatus === 'red') return 'operator reports a problem'
+  if (inputs.summaryStatus === 'yellow') return 'operator reports a warning'
   return null
+}
+
+// The full escalation set for one seat, from the shared note-input bundle.
+function signalEscalations(inputs: RosterNoteInputs): (RosterHealthColor | null)[] {
+  return [
+    inputs.summaryStatus === 'red' ? 'red' : inputs.summaryStatus === 'yellow' ? 'yellow' : null,
+    breakerColor(inputs.stickyStopLevel),
+    inputs.schedulerOk === 0 ? 'red' : null,
+    inputs.overdue ? 'yellow' : null,
+    inputs.failingConnectors.length > 0 ? 'red' : null,
+    inputs.connectorCheckOk === 0 ? 'red' : null,
+  ]
 }
 
 // Escalate-only combine: return the most alarming of the base color and any
@@ -275,23 +367,23 @@ export function rosterHealth(
   stickyStopLevel: string | null = null,
   scheduler: SchedulerSignal | null = null
 ): RosterHealth {
-  const schedulerOk = scheduler?.ok ?? null
-  const maxOverdue = scheduler?.maxOverdueSeconds ?? null
-  // Every input below is escalate-only: the cost breaker (ADR 0062), the
-  // runtime summary rollup, and the scheduler self-check (WP-2) can each raise
-  // the dot but never calm it. NULL participates in nothing — an unreported
-  // signal never paints a dot and never overrides an existing worse color.
-  const summaryEscalation: RosterHealthColor | null =
-    summaryStatus === 'red' ? 'red' : summaryStatus === 'yellow' ? 'yellow' : null
-  const overdueActive = maxOverdue !== null && maxOverdue > WORK_OVERDUE_RED_SECONDS
-  const color = escalatedColor(heartbeatColor, [
-    summaryEscalation,
-    breakerColor(stickyStopLevel),
-    schedulerOk === 0 ? 'red' : null,
-    overdueActive ? 'yellow' : null,
-  ])
-  const note = rosterHealthNote(stickyStopLevel, schedulerOk, overdueActive, summaryStatus)
-  return { color, label: heartbeatLabel, note }
+  // Every escalation input is escalate-only: the cost breaker (ADR 0062), the
+  // runtime summary rollup, the scheduler self-check (WP-2), and the
+  // connector health signals (ADR 0080) can each raise the dot but never calm
+  // it. NULL participates in nothing — an unreported signal never paints a
+  // dot and never overrides an existing worse color.
+  const inputs: RosterNoteInputs = {
+    stickyStopLevel,
+    schedulerOk: scheduler?.ok ?? null,
+    overdue:
+      scheduler?.maxOverdueSeconds != null &&
+      scheduler.maxOverdueSeconds > WORK_OVERDUE_RED_SECONDS,
+    summaryStatus,
+    connectorCheckOk: scheduler?.connectorCheckOk ?? null,
+    failingConnectors: failingConnectorNames(scheduler?.connectorsJson),
+  }
+  const color = escalatedColor(heartbeatColor, signalEscalations(inputs))
+  return { color, label: heartbeatLabel, note: rosterHealthNote(inputs) }
 }
 
 export function rosterHealthDotClass(color: RosterHealthColor): string {
