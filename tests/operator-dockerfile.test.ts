@@ -415,6 +415,9 @@ describe('Operator customer Machine Dockerfile', () => {
     // menu (ADR 0025 unchanged). Measured -7,272 tokens/turn of prompt-cache
     // write on the live payload (vfy_01KXKJEEV1R4EPYFKA6J7YDH16).
     // overlayRef-only. Superset of eb17f3cb (#172).
+    // 68ecea36 (#176): msgraph-mail tool classes + read fencing — the manifest's
+    // named coordinated change for ss#1986; unblocks seat reprovisions (boot
+    // probe FATALed on the unmapped baked connector).
     // 02d90917 (#175, ss work-liveness fix): heartbeat scheduler self-check —
     // every beat reports scheduler_ok / job_count / max_overdue from a scan of
     // profiles/*/cron/jobs.json, so a locked-out or wedged scheduler pages in
@@ -427,7 +430,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // taint scans did not already see). Block structure gates the render, so
     // prose replies stay byte-identical. overlayRef-only (neither touched file
     // is a tracked twin). Superset of f8808c6c (#173).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="02d90917b2361a52794c930aee9fb478d10c2b97"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="68ecea36f72792b3dd1b2f810d22cc64bab11373"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
