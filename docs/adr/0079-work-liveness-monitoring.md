@@ -98,8 +98,18 @@ named here and gets the same re-key if a pusher is ever built.
   error) is work-liveness-green: the scheduler is doing its job; the job
   itself is broken. That class belongs to runtime summaries/Sentry, not this
   system.
-- Both healthchecks.io layers stay unarmed until `HEALTHCHECKS_API_KEY` is
-  vaulted (Captain action); the in-console layers function without them.
+- ~~Both healthchecks.io layers stay unarmed until `HEALTHCHECKS_API_KEY` is
+  vaulted (Captain action); the in-console layers function without them.~~
+  **Closed 2026-07-25:** key vaulted at Infisical `/ss`; per-seat checks
+  (`hermes-<slug>`, 60s timeout / 300s grace) and the alerter self-ping
+  (`ss-fleet-alerts`, 120s) created and confirmed pinging. Future provisions
+  arm automatically from the vault (provision step 6c). healthchecks.io
+  down-alerts currently deliver to the account email, not `team@smd.services`.
+- Connector failures (Smokeball API outage, broken Graph token) fail every
+  tool call while all liveness signals stay green — a subclass of the
+  failing-job gap above, tracked as
+  [#1990](https://github.com/venturecrane/ss-console/issues/1990) (gates A&P
+  go-live per the Q9 diligence commitment).
 
 ## Prevention
 
