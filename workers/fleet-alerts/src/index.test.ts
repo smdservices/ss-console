@@ -118,12 +118,41 @@ describe('evaluateConditions', () => {
 // runOnce edge-trigger behavior with a fake D1 + stubbed Resend
 // ---------------------------------------------------------------------------
 
+interface FakeSinkRow {
+  rowid: number
+  customer_slug: string
+  source: string
+  summary: string | null
+  alert_date: string
+  driver: string
+  entity_id: string
+  notified_at: string | null
+}
+
 interface FakeState {
   fleet: FleetStatusRow[]
   alertState: Map<string, 'open' | 'resolved'>
   writes: string[]
   /** Slugs for which any DB op should throw, to exercise per-seat isolation. */
   throwForSlug?: Set<string>
+  /** Alert-sink rows (migration 0095). Absent = empty sink. */
+  sink?: FakeSinkRow[]
+  /** Set to make the sink SELECT throw, to prove the pager survives it. */
+  sinkQueryThrows?: boolean
+}
+
+function sinkRow(over: Partial<FakeSinkRow> = {}): FakeSinkRow {
+  return {
+    rowid: 1,
+    customer_slug: 'pilot-smokeball',
+    source: 'sentry',
+    summary: 'Sentry SMD-OPERATOR-15: RuntimeError',
+    alert_date: '2026-07-25',
+    driver: '',
+    entity_id: 'ent_1',
+    notified_at: null,
+    ...over,
+  }
 }
 
 function computeStaleHolds(state: FakeState): StaleHold[] {
@@ -167,9 +196,20 @@ function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}):
             const boom = () => {
               throw new Error(`boom for ${slug}`)
             }
-            return { first: boom, run: boom }
+            return { first: boom, run: boom, all: boom }
           }
           return {
+            all() {
+              if (!sql.includes('FROM cost_anomaly_alerts')) {
+                throw new Error(`unexpected bound all(): ${sql}`)
+              }
+              if (state.sinkQueryThrows) throw new Error('sink query boom')
+              const limit = Number(args[0])
+              const results = (state.sink ?? [])
+                .filter((r) => r.notified_at === null && r.source !== 'cost')
+                .slice(0, limit)
+              return Promise.resolve({ results })
+            },
             first() {
               if (!sql.includes('FROM fleet_alert_state')) {
                 throw new Error(`unexpected first(): ${sql}`)
@@ -184,6 +224,10 @@ function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}):
               } else if (sql.includes("SET status = 'resolved'")) {
                 state.alertState.set(key, 'resolved')
                 state.writes.push(`resolve:${key}`)
+              } else if (sql.includes('UPDATE cost_anomaly_alerts')) {
+                const target = (state.sink ?? []).find((r) => r.rowid === Number(args[0]))
+                if (target) target.notified_at = '2026-07-25T00:00:00Z'
+                state.writes.push(`notify:${args[0]}`)
               } else {
                 throw new Error(`unexpected run(): ${sql}`)
               }
@@ -206,7 +250,12 @@ function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}):
 function stubResend(): ReturnType<typeof vi.fn> {
   const mock = vi
     .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ id: 'resend-alert-1' }), { status: 200 }))
+    // mockImplementation, NOT mockResolvedValue: a Response body can only be
+    // read once, so a single shared instance makes every send after the first
+    // throw on .json() and silently record as failed.
+    .mockImplementation(
+      async () => new Response(JSON.stringify({ id: 'resend-alert-1' }), { status: 200 })
+    )
   vi.stubGlobal('fetch', mock)
   return mock
 }
@@ -595,4 +644,153 @@ describe('connector conditions (ADR 0080)', () => {
     const healthy = evaluateConditions([row({ connector_check_ok: 1 })], NOW, RED, OVERDUE)
     expect(healthy.find((x) => x.condition === 'connector_check_error')?.active).toBe(false)
   })
+})
+
+// ---------------------------------------------------------------------------
+// Alert-sink delivery (migration 0095) — the push path Sentry rows lacked
+// ---------------------------------------------------------------------------
+
+describe('alert-sink notification', () => {
+  const healthy = (): FleetStatusRow[] => [row({ last_heartbeat_ts: new Date(NOW).toISOString() })]
+
+  it('emails an undelivered sentry row and marks it notified', async () => {
+    const fetchMock = stubResend()
+    const state: FakeState = {
+      fleet: healthy(),
+      alertState: new Map(),
+      writes: [],
+      sink: [sinkRow()],
+    }
+
+    const summary = await runOnce(makeEnv(state), NOW)
+
+    expect(summary.sink_notifications).toHaveLength(1)
+    expect(summary.sink_notifications[0]).toMatchObject({
+      customer_slug: 'pilot-smokeball',
+      source: 'sentry',
+      emailed: true,
+    })
+    expect(state.sink![0].notified_at).not.toBeNull()
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    expect(body.to).toBe('team@smd.services')
+    expect(body.subject).toContain('pilot-smokeball')
+    expect(body.subject).toContain('Sentry issue alert')
+  })
+
+  it('delivers each row exactly once across runs', async () => {
+    stubResend()
+    const state: FakeState = {
+      fleet: healthy(),
+      alertState: new Map(),
+      writes: [],
+      sink: [sinkRow()],
+    }
+
+    const first = await runOnce(makeEnv(state), NOW)
+    const second = await runOnce(makeEnv(state), NOW)
+
+    expect(first.sink_notifications).toHaveLength(1)
+    expect(second.sink_notifications).toHaveLength(0)
+  })
+
+  it('does NOT mark notified when the send fails, so the next run retries', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () => new Response('nope', { status: 500 }))
+    )
+    const state: FakeState = {
+      fleet: healthy(),
+      alertState: new Map(),
+      writes: [],
+      sink: [sinkRow()],
+    }
+
+    const summary = await runOnce(makeEnv(state), NOW)
+
+    expect(summary.sink_notifications[0].emailed).toBe(false)
+    expect(state.sink![0].notified_at).toBeNull()
+    expect(state.writes).not.toContain('notify:1')
+  })
+
+  it('ignores cost rows — the cost worker already emails those', async () => {
+    stubResend()
+    const state: FakeState = {
+      fleet: healthy(),
+      alertState: new Map(),
+      writes: [],
+      sink: [sinkRow({ rowid: 7, source: 'cost', summary: null })],
+    }
+
+    const summary = await runOnce(makeEnv(state), NOW)
+    expect(summary.sink_notifications).toHaveLength(0)
+  })
+
+  it('batches: at most SINK_NOTIFY_BATCH per run, remainder deferred not dropped', async () => {
+    stubResend()
+    const sink = Array.from({ length: 14 }, (_, i) => sinkRow({ rowid: i + 1 }))
+    const state: FakeState = { fleet: healthy(), alertState: new Map(), writes: [], sink }
+
+    const first = await runOnce(makeEnv(state), NOW)
+    const second = await runOnce(makeEnv(state), NOW)
+
+    expect(first.sink_notifications).toHaveLength(10)
+    expect(second.sink_notifications).toHaveLength(4)
+    expect(sink.every((r) => r.notified_at !== null)).toBe(true)
+  })
+
+  it('a broken sink query never suppresses the fleet_status pager', async () => {
+    stubResend()
+    const state: FakeState = {
+      fleet: [row({ last_heartbeat_ts: '2026-07-04T11:00:00.000Z' })],
+      alertState: new Map(),
+      writes: [],
+      sinkQueryThrows: true,
+    }
+
+    const summary = await runOnce(makeEnv(state), NOW)
+
+    expect(summary.sink_notifications).toHaveLength(0)
+    expect(summary.transitions.some((t) => t.condition === 'heartbeat_red')).toBe(true)
+  })
+
+  it('escapes HTML in sink summaries (they carry Machine exception text)', async () => {
+    const fetchMock = stubResend()
+    const state: FakeState = {
+      fleet: healthy(),
+      alertState: new Map(),
+      writes: [],
+      sink: [sinkRow({ summary: '<img src=x onerror="alert(1)">' })],
+    }
+
+    await runOnce(makeEnv(state), NOW)
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    expect(body.html).not.toContain('<img')
+    expect(body.html).toContain('&lt;img')
+  })
+})
+
+it('escapes HTML in transition details (connector errors are Machine-controlled)', async () => {
+  const fetchMock = stubResend()
+  const map = JSON.stringify({
+    smokeball: {
+      consecutive_failures: 4,
+      run_age_seconds: 400,
+      conn_evidence: true,
+      last_error_message: '<script>alert(1)</script>',
+    },
+  })
+  const state: FakeState = {
+    fleet: [row({ connectors_json: map })],
+    alertState: new Map(),
+    writes: [],
+  }
+
+  await runOnce(makeEnv(state), NOW)
+
+  const bodies = fetchMock.mock.calls.map((c) => JSON.parse(c[1].body as string).html as string)
+  const connectorEmail = bodies.find((b) => b.includes('smokeball'))
+  expect(connectorEmail).toBeDefined()
+  expect(connectorEmail).not.toContain('<script>')
+  expect(connectorEmail).toContain('&lt;script&gt;')
 })

@@ -44,6 +44,14 @@
  * per (customer, condition) until recovery, one recovery notice on the green
  * transition, silence otherwise. No alert storm by construction.
  *
+ * It ALSO delivers the shared alert sink. `cost_anomaly_alerts` rows written by
+ * the Sentry and healthchecks webhook receivers (source != 'cost') were
+ * dashboard-only — visible to whoever opened the console, and to nobody
+ * otherwise. `notifySinkAlerts` emails each undelivered row once and stamps
+ * `notified_at` (migration 0095) only on a successful send. Those rows are
+ * event-shaped, not condition-shaped: a Sentry issue has no green state to
+ * transition back to, so they never enter `fleet_alert_state`.
+ *
  * This Worker only OBSERVES and EMAILS. It never touches a Machine — the
  * response ladder is human doctrine (ADR 0064/0065).
  *
@@ -51,6 +59,11 @@
  * cost-anomaly Worker) so the evaluation can be driven on demand for live
  * verification, plus GET /health.
  */
+
+import { escapeHtml } from './html'
+import { notifySinkAlerts, type SinkNotification } from './sink-notify'
+
+export type { SinkNotification }
 
 export interface Env {
   DB: D1Database
@@ -146,6 +159,7 @@ export interface RunSummary {
   conditions: ConditionState[]
   transitions: Transition[]
   stale_holds: StaleHold[]
+  sink_notifications: SinkNotification[]
 }
 
 const DEFAULT_RED_SECONDS = 300
@@ -471,9 +485,11 @@ async function sendTransitionEmail(
       ? `[SMD Ops] ALERT ${s.customer_slug}: ${label}`
       : `[SMD Ops] RECOVERED ${s.customer_slug}: ${label}`
   const dashboard = `${env.ADMIN_BASE_URL ?? 'https://admin.smd.services'}/operator`
+  // Escaped: connector_down details embed the seat's `last_error_message`,
+  // which is arbitrary text from a customer Machine.
   const html =
-    `<p><strong>${kind === 'opened' ? 'ALERT' : 'RECOVERED'}</strong>: ${label}</p>` +
-    `<ul><li>Seat: ${s.customer_slug}</li><li>Detail: ${s.detail}</li>` +
+    `<p><strong>${kind === 'opened' ? 'ALERT' : 'RECOVERED'}</strong>: ${escapeHtml(label)}</p>` +
+    `<ul><li>Seat: ${escapeHtml(s.customer_slug)}</li><li>Detail: ${escapeHtml(s.detail)}</li>` +
     `<li>Severity: SEV1 per ADR 0064 - work begins on detection</li></ul>` +
     `<p><a href="${dashboard}">Fleet dashboard</a>. No automatic action was taken (ADR 0064/0065).</p>`
   try {
@@ -591,15 +607,23 @@ export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<Run
 
   const staleHolds = await getStaleHolds(env.DB)
 
+  // Alert-sink delivery. Runs after condition evaluation and is independently
+  // fail-soft, so a sink problem can never suppress the fleet_status pager.
+  const sinkNotifications = await notifySinkAlerts(env)
+
   const summary: RunSummary = {
     at: new Date(nowMs).toISOString(),
     seats: rows.length,
     conditions,
     transitions,
     stale_holds: staleHolds,
+    sink_notifications: sinkNotifications,
   }
   if (transitions.length > 0) {
     console.log(`[fleet-alerts] transitions: ${JSON.stringify(transitions)}`)
+  }
+  if (sinkNotifications.length > 0) {
+    console.log(`[fleet-alerts] sink notifications: ${JSON.stringify(sinkNotifications)}`)
   }
 
   // Watch the watcher: only reached when the run completed without throwing.
