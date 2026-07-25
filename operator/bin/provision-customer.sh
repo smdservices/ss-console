@@ -781,7 +781,11 @@ HC_CHECK_NAME="hermes-${SLUG}"
 HC_PING_URL=""
 if [ -n "${HEALTHCHECKS_API_KEY:-}" ]; then
   log "Creating/finding healthchecks.io check '${HC_CHECK_NAME}'..."
-  HC_PAYLOAD=$(python3 -c "
+  # SLUG is a script-local shell variable — it must be passed into the python
+  # subprocess env explicitly. (Latent since Wave 1: this branch only runs
+  # when HEALTHCHECKS_API_KEY exists, which first happened 2026-07-25; the
+  # unexported read KeyError'd and killed the whole provision.)
+  HC_PAYLOAD=$(SLUG="${SLUG}" python3 -c "
 import json, os
 slug = os.environ['SLUG']
 admin = os.environ.get('ADMIN_BASE_URL', 'https://admin.smd.services')

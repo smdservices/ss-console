@@ -23,6 +23,8 @@ function row(overrides: Partial<FleetStatusRow>): FleetStatusRow {
     sticky_stop_level: 'OK',
     scheduler_ok: null,
     scheduler_max_overdue_seconds: null,
+    connectors_json: null,
+    connector_check_ok: null,
     ...overrides,
   }
 }
@@ -470,5 +472,127 @@ describe('runOnce stale_holds surface', () => {
     }
     const summary = await runOnce(makeEnv(state), NOW)
     expect(summary.stale_holds).toHaveLength(0)
+  })
+})
+
+describe('connector conditions (ADR 0080)', () => {
+  const entry = (over: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      smokeball: {
+        consecutive_failures: 4,
+        run_age_seconds: 400,
+        conn_evidence: true,
+        last_ok_age_seconds: 900,
+        last_error_message: 'Smokeball GET /matters -> HTTP 401: (empty body)',
+        ...over,
+      },
+    })
+
+  it('NULL connectors_json pushes no connector_down state at all (whole-map hold)', () => {
+    const out = evaluateConditions([row({})], NOW, RED, OVERDUE)
+    expect(out.some((c) => c.condition.startsWith('connector_down:'))).toBe(false)
+  })
+
+  it('conn-class path opens: >=3 consecutive with evidence and run age >= threshold', () => {
+    const out = evaluateConditions([row({ connectors_json: entry() })], NOW, RED, OVERDUE, 300)
+    const c = out.find((x) => x.condition === 'connector_down:smokeball')
+    expect(c?.active).toBe(true)
+    expect(c?.detail).toContain('connection-class evidence')
+    expect(c?.detail).toContain('HTTP 401')
+  })
+
+  it('a young run holds even with count + evidence (burst suppression)', () => {
+    const out = evaluateConditions(
+      [row({ connectors_json: entry({ run_age_seconds: 120 }) })],
+      NOW,
+      RED,
+      OVERDUE,
+      300
+    )
+    expect(out.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
+  })
+
+  it('business-only run never opens via the conn path, opens via the backstop at 10/900', () => {
+    const noEvidence = { conn_evidence: false, consecutive_failures: 9, run_age_seconds: 5000 }
+    const held = evaluateConditions(
+      [row({ connectors_json: entry(noEvidence) })],
+      NOW,
+      RED,
+      OVERDUE,
+      300
+    )
+    expect(held.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
+
+    const backstop = { conn_evidence: false, consecutive_failures: 10, run_age_seconds: 900 }
+    const paged = evaluateConditions(
+      [row({ connectors_json: entry(backstop) })],
+      NOW,
+      RED,
+      OVERDUE,
+      300
+    )
+    const c = paged.find((x) => x.condition === 'connector_down:smokeball')
+    expect(c?.active).toBe(true)
+    expect(c?.detail).toContain('signature-free backstop')
+  })
+
+  it('count 0 pushes inactive (resolves); counts 1-2 push nothing (ambiguous hold)', () => {
+    const resolved = evaluateConditions(
+      [row({ connectors_json: JSON.stringify({ smokeball: { consecutive_failures: 0 } }) })],
+      NOW,
+      RED,
+      OVERDUE
+    )
+    expect(resolved.find((x) => x.condition === 'connector_down:smokeball')?.active).toBe(false)
+
+    const ambiguous = evaluateConditions(
+      [
+        row({
+          connectors_json: JSON.stringify({
+            smokeball: { consecutive_failures: 2, run_age_seconds: 4000, conn_evidence: true },
+          }),
+        }),
+      ],
+      NOW,
+      RED,
+      OVERDUE
+    )
+    expect(ambiguous.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
+  })
+
+  it('a failing run missing run_age_seconds is dropped (age-gated conditions need an age)', () => {
+    const out = evaluateConditions(
+      [row({ connectors_json: JSON.stringify({ smokeball: { consecutive_failures: 7 } }) })],
+      NOW,
+      RED,
+      OVERDUE
+    )
+    expect(out.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
+  })
+
+  it('corrupt connectors_json degrades to a hold, never throws', () => {
+    const out = evaluateConditions([row({ connectors_json: '{nope' })], NOW, RED, OVERDUE)
+    expect(out.some((x) => x.condition.startsWith('connector_down:'))).toBe(false)
+  })
+
+  it('servers are independent: one down, one healthy in the same map', () => {
+    const map = JSON.stringify({
+      smokeball: { consecutive_failures: 4, run_age_seconds: 400, conn_evidence: true },
+      agentmail: { consecutive_failures: 0 },
+    })
+    const out = evaluateConditions([row({ connectors_json: map })], NOW, RED, OVERDUE, 300)
+    expect(out.find((x) => x.condition === 'connector_down:smokeball')?.active).toBe(true)
+    expect(out.find((x) => x.condition === 'connector_down:agentmail')?.active).toBe(false)
+  })
+
+  it('connector_check_error follows scheduler_ok semantics with NULL-hold', () => {
+    const held = evaluateConditions([row({})], NOW, RED, OVERDUE)
+    expect(held.some((x) => x.condition === 'connector_check_error')).toBe(false)
+
+    const broken = evaluateConditions([row({ connector_check_ok: 0 })], NOW, RED, OVERDUE)
+    expect(broken.find((x) => x.condition === 'connector_check_error')?.active).toBe(true)
+
+    const healthy = evaluateConditions([row({ connector_check_ok: 1 })], NOW, RED, OVERDUE)
+    expect(healthy.find((x) => x.condition === 'connector_check_error')?.active).toBe(false)
   })
 })

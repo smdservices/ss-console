@@ -21,6 +21,24 @@
  *   work_overdue    — the cron store is readable but a job is past its
  *                     next_run_at by more than WORK_OVERDUE_RED_SECONDS
  *                     (default 900s).
+ *   connector_down:<server> — per-MCP-server outage (ADR 0080 / ss#1990): the
+ *                     seat's connector ledger reports a sustained consecutive-
+ *                     failure run for one server. Two open paths: the fast
+ *                     conn-class path (>=3 consecutive with connection-class
+ *                     evidence, run age >= CONNECTOR_DOWN_RUN_AGE_SECONDS)
+ *                     and the signature-free backstop (>=10 consecutive, run
+ *                     age >= 900s — a connector failing 10 straight with no
+ *                     success is broken regardless of what its errors look
+ *                     like, which keeps paging genuinely connector-generic).
+ *                     Resolves ONLY on a proven success (count back to 0);
+ *                     ambiguous counts (1-2) push no state at all. All ages
+ *                     are stamped WRITER-side on the seat, so this Worker
+ *                     only ever evaluates stored values — a frozen row from
+ *                     a dead seat can never self-activate a connector page.
+ *   connector_check_error — the seat's connector self-check ITSELF is broken
+ *                     (ledger unreadable / tool→server mapping gone):
+ *                     nothing is being counted, which must page rather than
+ *                     silently disabling the whole connector alert class.
  *
  * Edge-triggered via `fleet_alert_state` (migrations 0086/0093): one open alert
  * per (customer, condition) until recovery, one recovery notice on the green
@@ -47,6 +65,14 @@ export interface Env {
    * packages, so the shared literal is a documented contract, not an import.
    */
   WORK_OVERDUE_RED_SECONDS?: string
+  /**
+   * Minimum writer-side run age (seconds) before the conn-class connector_down
+   * path fires. Default 300 — a failure burst that self-heals inside Hermes'
+   * 60s breaker cooldown never reaches an inbox. MUST match the admin roster's
+   * CONNECTOR_DOWN_RUN_AGE_SECONDS (src/lib/admin/fleet-status.ts) — separate
+   * packages, documented contract, not an import.
+   */
+  CONNECTOR_DOWN_RUN_AGE_SECONDS?: string
   FLEET_ALERTS_BEARER?: string
   ADMIN_BASE_URL?: string
   /**
@@ -58,7 +84,13 @@ export interface Env {
   ALERTER_HEALTHCHECKS_PING_URL?: string
 }
 
-export type FleetCondition = 'heartbeat_red' | 'hard_stop' | 'scheduler_error' | 'work_overdue'
+export type FleetCondition =
+  | 'heartbeat_red'
+  | 'hard_stop'
+  | 'scheduler_error'
+  | 'work_overdue'
+  | 'connector_check_error'
+  | `connector_down:${string}`
 
 export interface FleetStatusRow {
   customer_slug: string
@@ -66,6 +98,18 @@ export interface FleetStatusRow {
   sticky_stop_level: string | null
   scheduler_ok: number | null
   scheduler_max_overdue_seconds: number | null
+  connectors_json: string | null
+  connector_check_ok: number | null
+}
+
+/** One per-server entry from the seat's connectors map (writer-side ages). */
+export interface ConnectorEntry {
+  consecutive_failures: number
+  run_age_seconds?: number
+  conn_evidence?: boolean
+  last_ok_age_seconds?: number
+  last_error_age_seconds?: number
+  last_error_message?: string
 }
 
 export interface ConditionState {
@@ -106,6 +150,16 @@ export interface RunSummary {
 
 const DEFAULT_RED_SECONDS = 300
 const DEFAULT_WORK_OVERDUE_SECONDS = 900
+// ADR 0080 connector_down thresholds. The conn-class path aligns with Hermes'
+// own circuit breaker (opens at 3 consecutive) so agent-visible and
+// ops-visible "failing" coincide; the age gate keeps self-healing bursts out
+// of the inbox. The signature-free backstop pages ANY sustained run — a
+// connector failing 10 straight with zero successes for 15 minutes is broken
+// no matter what its error text looks like.
+const DEFAULT_CONNECTOR_RUN_AGE_SECONDS = 300
+const CONNECTOR_DOWN_MIN_FAILURES = 3
+const CONNECTOR_BACKSTOP_MIN_FAILURES = 10
+const CONNECTOR_BACKSTOP_RUN_AGE_SECONDS = 900
 
 function redSeconds(env: Env): number {
   const n = Number(env.HEARTBEAT_RED_SECONDS)
@@ -115,6 +169,61 @@ function redSeconds(env: Env): number {
 function workOverdueSeconds(env: Env): number {
   const n = Number(env.WORK_OVERDUE_RED_SECONDS)
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_WORK_OVERDUE_SECONDS
+}
+
+function connectorRunAgeSeconds(env: Env): number {
+  const n = Number(env.CONNECTOR_DOWN_RUN_AGE_SECONDS)
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_CONNECTOR_RUN_AGE_SECONDS
+}
+
+/**
+ * Parse a row's connectors_json defensively (fleet-view discipline: one
+ * corrupt row degrades to null — a hold — and never aborts the fleet loop).
+ * The ingest already validated entries; this re-validation is the Worker's
+ * own trust boundary, not redundancy theater.
+ */
+function nonNegInt(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+/** One entry, parsed-not-cast; null drops it (absence = hold for that server). */
+function parseConnectorEntry(value: unknown): ConnectorEntry | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const entry = value as Record<string, unknown>
+  const count = nonNegInt(entry.consecutive_failures)
+  if (count === null) return null
+  const parsed: ConnectorEntry = { consecutive_failures: count }
+  if (count > 0) {
+    const runAge = nonNegInt(entry.run_age_seconds)
+    if (runAge === null) return null
+    parsed.run_age_seconds = runAge
+    parsed.conn_evidence = entry.conn_evidence === true
+  }
+  const lastOk = nonNegInt(entry.last_ok_age_seconds)
+  if (lastOk !== null) parsed.last_ok_age_seconds = lastOk
+  const lastError = nonNegInt(entry.last_error_age_seconds)
+  if (lastError !== null) parsed.last_error_age_seconds = lastError
+  if (typeof entry.last_error_message === 'string') {
+    parsed.last_error_message = entry.last_error_message.slice(0, 200)
+  }
+  return parsed
+}
+
+export function parseConnectorsMap(json: string | null): Record<string, ConnectorEntry> | null {
+  if (json === null) return null
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return null
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  const out: Record<string, ConnectorEntry> = {}
+  for (const [server, value] of Object.entries(raw as Record<string, unknown>)) {
+    const parsed = parseConnectorEntry(value)
+    if (parsed !== null) out[server] = parsed
+  }
+  return out
 }
 
 /**
@@ -131,7 +240,8 @@ export function evaluateConditions(
   rows: FleetStatusRow[],
   nowMs: number,
   redThresholdSeconds: number,
-  overdueThresholdSeconds: number = DEFAULT_WORK_OVERDUE_SECONDS
+  overdueThresholdSeconds: number = DEFAULT_WORK_OVERDUE_SECONDS,
+  connectorRunAgeThresholdSeconds: number = DEFAULT_CONNECTOR_RUN_AGE_SECONDS
 ): ConditionState[] {
   const out: ConditionState[] = []
   for (const row of rows) {
@@ -182,6 +292,70 @@ export function evaluateConditions(
         detail: `max overdue ${row.scheduler_max_overdue_seconds}s (threshold ${overdueThresholdSeconds}s)`,
       })
     }
+    out.push(...connectorConditions(row, connectorRunAgeThresholdSeconds))
+  }
+  return out
+}
+
+/**
+ * connector_check_error + connector_down:<server> states for one row.
+ *
+ * connector_down is a per-server tri-state:
+ *   count === 0         → proven success: push inactive (resolves).
+ *   open path satisfied → push active.
+ *   anything else       → push NOTHING (hold): counts 1-2 are "failing again
+ *     but not yet proven down" — pushing inactive would emit a false
+ *     RECOVERED on the way INTO a new outage.
+ * A NULL map pushes nothing for any server (whole-map hold).
+ */
+function connectorConditions(row: FleetStatusRow, runAgeThreshold: number): ConditionState[] {
+  const out: ConditionState[] = []
+  if (row.connector_check_ok !== null) {
+    out.push({
+      customer_slug: row.customer_slug,
+      condition: 'connector_check_error',
+      active: row.connector_check_ok === 0,
+      detail:
+        `connector_check_ok=${row.connector_check_ok} ` +
+        '(seat cannot read its connector ledger or the tool→server mapping is gone — connector outages are NOT being counted)',
+    })
+  }
+  const connectors = parseConnectorsMap(row.connectors_json)
+  if (connectors === null) return out
+  for (const [server, entry] of Object.entries(connectors)) {
+    const condition: FleetCondition = `connector_down:${server}`
+    if (entry.consecutive_failures === 0) {
+      out.push({
+        customer_slug: row.customer_slug,
+        condition,
+        active: false,
+        detail: `last ${server} call succeeded`,
+      })
+      continue
+    }
+    const runAge = entry.run_age_seconds ?? 0
+    const connPath =
+      entry.consecutive_failures >= CONNECTOR_DOWN_MIN_FAILURES &&
+      entry.conn_evidence === true &&
+      runAge >= runAgeThreshold
+    const backstopPath =
+      entry.consecutive_failures >= CONNECTOR_BACKSTOP_MIN_FAILURES &&
+      runAge >= CONNECTOR_BACKSTOP_RUN_AGE_SECONDS
+    if (!connPath && !backstopPath) continue // ambiguous run — hold
+    const lastOk =
+      entry.last_ok_age_seconds !== undefined
+        ? `${entry.last_ok_age_seconds}s ago`
+        : 'never observed'
+    out.push({
+      customer_slug: row.customer_slug,
+      condition,
+      active: true,
+      detail:
+        `${entry.consecutive_failures} consecutive failures over ${runAge}s ` +
+        `(${connPath ? 'connection-class evidence' : 'signature-free backstop'}); ` +
+        `last success ${lastOk}; last error: ${entry.last_error_message ?? '(no message captured)'}. ` +
+        'Auto-resolves on the next successful call to this connector.',
+    })
   }
   return out
 }
@@ -190,7 +364,8 @@ async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
   const result = await db
     .prepare(
       `SELECT customer_slug, last_heartbeat_ts, sticky_stop_level,
-              scheduler_ok, scheduler_max_overdue_seconds
+              scheduler_ok, scheduler_max_overdue_seconds,
+              connectors_json, connector_check_ok
          FROM fleet_status`
     )
     .all<FleetStatusRow>()
@@ -250,6 +425,14 @@ async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
             OR (s.condition = 'work_overdue' AND f.scheduler_max_overdue_seconds IS NULL)
             OR (s.condition = 'heartbeat_red' AND f.last_heartbeat_ts IS NULL)
             OR (s.condition = 'hard_stop' AND f.sticky_stop_level IS NULL)
+            OR (s.condition = 'connector_check_error' AND f.connector_check_ok IS NULL)
+            OR (
+              s.condition LIKE 'connector_down:%'
+              AND (
+                f.connectors_json IS NULL
+                OR json_extract(f.connectors_json, '$."' || substr(s.condition, 16) || '"') IS NULL
+              )
+            )
           )
         ORDER BY s.customer_slug ASC, s.condition ASC`
     )
@@ -257,11 +440,20 @@ async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
   return result.results ?? []
 }
 
-const CONDITION_LABEL: Record<FleetCondition, string> = {
+const CONDITION_LABEL: Record<string, string> = {
   heartbeat_red: 'Machine not heartbeating',
   hard_stop: 'Cost breaker HARD_STOP',
   scheduler_error: 'Cron scheduler broken/unreadable',
   work_overdue: 'Scheduled work not firing',
+  connector_check_error: 'Connector health check broken (outages not counted)',
+}
+
+/** Label lookup with the per-connector prefix form (ADR 0080). */
+export function conditionLabel(condition: FleetCondition): string {
+  if (condition.startsWith('connector_down:')) {
+    return `Connector failing: ${condition.slice('connector_down:'.length)}`
+  }
+  return CONDITION_LABEL[condition] ?? condition
 }
 
 async function sendTransitionEmail(
@@ -273,7 +465,7 @@ async function sendTransitionEmail(
     console.log(`[fleet-alerts] DEV: would email ${kind} ${s.condition} for ${s.customer_slug}`)
     return { ok: false }
   }
-  const label = CONDITION_LABEL[s.condition]
+  const label = conditionLabel(s.condition)
   const subject =
     kind === 'opened'
       ? `[SMD Ops] ALERT ${s.customer_slug}: ${label}`
@@ -367,7 +559,13 @@ async function processTransition(env: Env, s: ConditionState): Promise<Transitio
 /** One evaluation pass: read fleet, compute conditions, fire edge transitions. */
 export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<RunSummary> {
   const rows = await listFleetStatus(env.DB)
-  const conditions = evaluateConditions(rows, nowMs, redSeconds(env), workOverdueSeconds(env))
+  const conditions = evaluateConditions(
+    rows,
+    nowMs,
+    redSeconds(env),
+    workOverdueSeconds(env),
+    connectorRunAgeSeconds(env)
+  )
   const transitions: Transition[] = []
 
   // Group by seat so one bad row (a throwing DB op, a malformed value) can't
