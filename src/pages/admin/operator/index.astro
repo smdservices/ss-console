@@ -6,6 +6,7 @@ import {
   rosterHealth,
   rosterHealthDotClass,
   personaSummary,
+  seatSignals,
 } from '../../../lib/admin/fleet-roster'
 import { listRuntimeSummary, type RuntimeSummaryRow } from '../../../lib/admin/runtime-summary'
 import {
@@ -92,10 +93,7 @@ const views: RosterView[] = roster.map((customer) => {
     hb.label,
     summary?.summary_status ?? null,
     fleet?.sticky_stop_level ?? null,
-    {
-      ok: fleet?.scheduler_ok ?? null,
-      maxOverdueSeconds: fleet?.scheduler_max_overdue_seconds ?? null,
-    }
+    seatSignals(fleet ?? null)
   )
   const names = customer.personas.map((p) => p.name).filter(Boolean)
   return {

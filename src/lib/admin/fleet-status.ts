@@ -26,6 +26,19 @@ import type { D1Database } from '@cloudflare/workers-types'
  */
 export const WORK_OVERDUE_RED_SECONDS = 900
 
+/**
+ * A connector's consecutive-failure run must be at least this old (writer-side
+ * age) before it renders red / pages. Same documented-contract shape as
+ * WORK_OVERDUE_RED_SECONDS: the ss-fleet-alerts Worker's
+ * `CONNECTOR_DOWN_RUN_AGE_SECONDS` env var must match this default.
+ */
+export const CONNECTOR_DOWN_RUN_AGE_SECONDS = 300
+/** Conn-class open path: consecutive failures at/above this (Hermes breaker parity). */
+export const CONNECTOR_DOWN_MIN_FAILURES = 3
+/** Signature-free backstop: any run at/above this count and 900s pages regardless. */
+export const CONNECTOR_BACKSTOP_MIN_FAILURES = 10
+export const CONNECTOR_BACKSTOP_RUN_AGE_SECONDS = 900
+
 export interface FleetStatusRow {
   entity_id: string
   customer_slug: string
@@ -43,6 +56,10 @@ export interface FleetStatusRow {
   scheduler_job_count: number | null
   /** Max seconds any enabled job is past its next_run_at; NULL unreported. */
   scheduler_max_overdue_seconds: number | null
+  /** Per-MCP-server health map JSON (ADR 0080); NULL = not reported this beat. */
+  connectors_json: string | null
+  /** Connector self-check verdict: 1 healthy / 0 broken / NULL unreported. */
+  connector_check_ok: number | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -54,6 +71,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
       `SELECT entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
               process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
               scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
+              connectors_json, connector_check_ok,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`
