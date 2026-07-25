@@ -80,6 +80,12 @@ if [[ ! "${SLUG}" =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]]; then
   exit 2
 fi
 
+# Export SLUG so inline python subprocesses inherit it. The healthchecks.io step
+# (added #1993) reads os.environ['SLUG'] and a shell positional is NOT in a
+# child's env otherwise — KeyError('SLUG') aborted every reprovision fleet-wide.
+# Validated above, so exporting is safe.
+export SLUG
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CUSTOMER_DIR="${REPO_ROOT}/operator/customers/${SLUG}"
 CUSTOMER_YAML="${CUSTOMER_DIR}/customer.yaml"
