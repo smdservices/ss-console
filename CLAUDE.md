@@ -294,6 +294,14 @@ One Astro app, one Cloudflare Worker, three custom domains. Routing is handled b
 
 `.mcp.json` is user-local config (gitignored). Create it in the repo root with at minimum the `crane` MCP entry. It is not checked in.
 
+Also register the Sentry MCP server, so agents can read `smd-operator` issues directly instead of a human forwarding alert emails:
+
+```bash
+claude mcp add --transport http -s project sentry https://mcp.sentry.dev/mcp/smdurgan-llc
+```
+
+Remote server, OAuth 2.1 + PKCE — no token to vault; the first call opens a browser consent. The org slug scopes it to SMDurgan LLC. This is the pull side of alert handling; the push side is the fleet-alerts sink notifier (migration 0095).
+
 Subdomain-based routing keys off `hostname.startsWith('admin.')` / `portal.`. At `localhost:4321` neither fires, which is usually fine — just hit `/admin/*` and `/portal/*` paths directly.
 
 **For full-fidelity subdomain testing**, add to `/etc/hosts`:
