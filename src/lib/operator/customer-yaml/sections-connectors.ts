@@ -13,8 +13,12 @@ import {
 import {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_CAPABILITY_NAMES,
+  MSGRAPH_ADAPTER,
+  MSGRAPH_GUID_PATTERN,
+  MSGRAPH_SECRET_REF_PATTERN,
   WEBHOOK_URL_PATTERN,
   type Connector,
+  type MsgraphAuth,
   type ValidationError,
 } from './types'
 import { isPlainObject, optionalEnum } from './helpers'
@@ -95,6 +99,8 @@ function checkOneConnector(
   if (scopes === null) return null
   const webhookUrl = checkWebhookUrl(key, value['webhook_url'], customerId, errors)
   if (webhookUrl === undefined) return null
+  const msgraph = checkMsgraph(key, adapter, value, errors)
+  if (msgraph === null) return null
   const enabled = typeof value['enabled'] === 'boolean' ? value['enabled'] : true
   const tokenRef = typeof value['token_ref'] === 'string' ? value['token_ref'] : null
   // ADR 0042: optional per-connector custody; null ⇒ inherit the client-level
@@ -116,7 +122,142 @@ function checkOneConnector(
     webhook_url: webhookUrl,
     credential_custody: custody,
     auth_mode: authMode,
+    msgraph_auth: msgraph.msgraph_auth,
+    poll_seconds: msgraph.poll_seconds,
   }
+}
+
+/**
+ * Validate the msgraph-specific knobs on a connector (email-channel-seam spec D5).
+ *
+ * When `adapter === MSGRAPH_ADAPTER`, `msgraph_auth` is REQUIRED and validated,
+ * and `poll_seconds` (optional) must be a positive integer. On any other adapter,
+ * both blocks MUST be absent — a present block is a hard error (no dead config),
+ * consistent with the schema's fail-closed posture.
+ *
+ * Returns the resolved `{ msgraph_auth, poll_seconds }` pair, or null to signal a
+ * hard failure that drops the whole connector.
+ */
+function checkMsgraph(
+  key: string,
+  adapter: string,
+  value: Record<string, unknown>,
+  errors: ValidationError[]
+): { msgraph_auth: MsgraphAuth | null; poll_seconds: number | null } | null {
+  const rawAuth = value['msgraph_auth']
+  const rawPoll = value['poll_seconds']
+  if (adapter !== MSGRAPH_ADAPTER) {
+    let ok = true
+    if (rawAuth !== undefined && rawAuth !== null) {
+      errors.push({
+        code: 'InvalidFormat',
+        path: `connectors.${key}.msgraph_auth`,
+        message: `msgraph_auth is only valid when adapter is "${MSGRAPH_ADAPTER}" (adapter is "${adapter}")`,
+      })
+      ok = false
+    }
+    if (rawPoll !== undefined && rawPoll !== null) {
+      errors.push({
+        code: 'InvalidFormat',
+        path: `connectors.${key}.poll_seconds`,
+        message: `poll_seconds is only valid when adapter is "${MSGRAPH_ADAPTER}" (adapter is "${adapter}")`,
+      })
+      ok = false
+    }
+    return ok ? { msgraph_auth: null, poll_seconds: null } : null
+  }
+  const msgraphAuth = checkMsgraphAuth(key, rawAuth, errors)
+  const pollSeconds = checkPollSeconds(key, rawPoll, errors)
+  if (msgraphAuth === null || pollSeconds === undefined) return null
+  return { msgraph_auth: msgraphAuth, poll_seconds: pollSeconds }
+}
+
+/**
+ * Validate the required `msgraph_auth` block (adapter is msgraph). Fail-closed:
+ * absent or malformed ⇒ null (drops the connector), never a partial block.
+ */
+function checkMsgraphAuth(
+  key: string,
+  raw: unknown,
+  errors: ValidationError[]
+): MsgraphAuth | null {
+  const path = `connectors.${key}.msgraph_auth`
+  if (raw === undefined || raw === null) {
+    errors.push({
+      code: 'MissingField',
+      path,
+      message: `${path} is required when adapter is "${MSGRAPH_ADAPTER}"`,
+    })
+    return null
+  }
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be an object` })
+    return null
+  }
+  let ok = true
+  const tenantId = checkGuid(raw['tenant_id'], `${path}.tenant_id`, errors)
+  if (tenantId === null) ok = false
+  const clientId = checkGuid(raw['client_id'], `${path}.client_id`, errors)
+  if (clientId === null) ok = false
+  const mailbox = raw['mailbox']
+  if (typeof mailbox !== 'string' || !mailbox.includes('@')) {
+    errors.push({
+      code: 'InvalidFormat',
+      path: `${path}.mailbox`,
+      message: `${path}.mailbox must be the operator mailbox email address`,
+    })
+    ok = false
+  }
+  const secretRef = raw['secret_ref']
+  if (typeof secretRef !== 'string' || !MSGRAPH_SECRET_REF_PATTERN.test(secretRef)) {
+    errors.push({
+      code: 'InvalidFormat',
+      path: `${path}.secret_ref`,
+      message: `${path}.secret_ref must reference a per-seat Fly secret as "fly-secret:<ENV_NAME>" (ADR 0010 custody)`,
+    })
+    ok = false
+  }
+  if (!ok) return null
+  return {
+    tenant_id: tenantId as string,
+    mailbox: mailbox as string,
+    client_id: clientId as string,
+    secret_ref: secretRef as string,
+  }
+}
+
+function checkGuid(raw: unknown, path: string, errors: ValidationError[]): string | null {
+  if (typeof raw !== 'string' || !MSGRAPH_GUID_PATTERN.test(raw)) {
+    errors.push({
+      code: 'InvalidFormat',
+      path,
+      message: `${path} must be a GUID (8-4-4-4-12 hex)`,
+    })
+    return null
+  }
+  return raw
+}
+
+/**
+ * Validate the optional `poll_seconds` cadence (adapter is msgraph). Returns the
+ * positive integer, null when absent (overlay applies the default), or undefined
+ * to signal a hard failure that drops the connector.
+ */
+function checkPollSeconds(
+  key: string,
+  raw: unknown,
+  errors: ValidationError[]
+): number | null | undefined {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw <= 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `connectors.${key}.poll_seconds`,
+      message: 'poll_seconds must be a positive integer (seconds)',
+    })
+    return undefined
+  }
+  return raw
 }
 
 /**

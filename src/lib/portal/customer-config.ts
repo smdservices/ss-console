@@ -40,7 +40,25 @@ import {
 export type PersonaStatus = 'active' | 'archived'
 
 export interface PersonaSendAs {
-  agentmail_identity: string
+  /**
+   * Provider-neutral send-as identity (ADR 0078 §4). Populated on every row
+   * projected after 2026-07-24; OPTIONAL here because pre-migration projected
+   * rows carry only `agentmail_identity` (the read side casts JSON without
+   * re-validating the sub-shape). Readers fall back to `agentmail_identity`.
+   */
+  send_identity?: { provider: 'agentmail' | 'msgraph'; address: string }
+  /** @deprecated Legacy AgentMail-only field. Read `send_identity`. */
+  agentmail_identity?: string
+}
+
+/**
+ * Resolve a persona's send-as email address from the provider-neutral
+ * `send_identity` (ADR 0078 §4), falling back to the deprecated
+ * `agentmail_identity` so pre-migration projected rows still resolve. The one
+ * place readers should ask "what does this persona send from?".
+ */
+export function personaSendAsAddress(sendAs: PersonaSendAs | null | undefined): string | null {
+  return sendAs?.send_identity?.address ?? sendAs?.agentmail_identity ?? null
 }
 
 export interface PersonaSkill {

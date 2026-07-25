@@ -3,6 +3,7 @@ import PortalShell from '../../../../../../layouts/PortalShell.astro'
 import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
 import { buildConnectionRows } from '../../../../../../lib/portal/operator/connections'
 import { resolveOperatorScope } from '../../../../../../lib/portal/operator/facets/scope/scope'
+import { personaSendAsAddress } from '../../../../../../lib/portal/customer-config'
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import ConnectionRowCard from '../../../../../../components/portal/operator/ConnectionRowCard.astro'
@@ -62,8 +63,7 @@ const rows = buildConnectionRows(
 // identity it writes from. All authored config; the block renders only when
 // any of it is authored.
 const scopeView = resolveOperatorScope(config).scope
-const sendAs =
-  config?.personas.find((p) => p.status === 'active')?.send_as?.agentmail_identity ?? null
+const sendAs = personaSendAsAddress(config?.personas.find((p) => p.status === 'active')?.send_as)
 const emailAccess =
   scopeView && (scopeView.sees.length > 0 || scopeView.neverSees.length > 0 || sendAs)
     ? { sees: scopeView.sees, neverSees: scopeView.neverSees, sendAs }

@@ -17,13 +17,13 @@ import {
   type Persona,
   type PersonaChannelBinding,
   type PersonaEntitlements,
-  type PersonaSendAs,
   type PersonaSkill,
   type PersonaStatus,
   type SkillInitiation,
   type ValidationError,
 } from './types'
 import { isPlainObject, optionalEnum, optionalString, optionalStringList } from './helpers'
+import { checkSendAs } from './sections-personas-send-as'
 import { checkBundles, checkCron } from './sections-bundles-cron'
 
 export function checkPersonas(root: Record<string, unknown>, errors: ValidationError[]): Persona[] {
@@ -462,24 +462,6 @@ function checkCostEstimate(
     }
   }
   return ok ? (out as CostEstimate) : null
-}
-
-function checkSendAs(raw: unknown, path: string, errors: ValidationError[]): PersonaSendAs | null {
-  if (raw === undefined || raw === null) return null
-  if (!isPlainObject(raw)) {
-    errors.push({ code: 'TypeMismatch', path, message: `${path} must be an object` })
-    return null
-  }
-  const id = raw['agentmail_identity']
-  if (typeof id !== 'string' || id.length === 0) {
-    errors.push({
-      code: 'MissingField',
-      path: `${path}.agentmail_identity`,
-      message: 'send_as.agentmail_identity is required when send_as is set',
-    })
-    return null
-  }
-  return { agentmail_identity: id }
 }
 
 export function checkChannelBindings(

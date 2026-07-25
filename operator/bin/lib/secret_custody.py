@@ -83,6 +83,16 @@ _CUSTOMER_EXACT: frozenset[str] = frozenset(
         # Smokeball webhook ingress (provision-customer.sh:611-616).
         "WEBHOOK_SECRET_SMOKEBALL",
         "WEBHOOK_SMOKEBALL_CLIENT_ID",
+        # Microsoft Graph mail connector, app-only (provision-customer.sh:554-557;
+        # email-channel-seam spec D5, ADR 0078). All four are per-seat values for
+        # the CLIENT's tenant: their tenant id, the app id consented into their
+        # tenant, the client secret to that consent, and the pinned operator
+        # mailbox. Only CLIENT_SECRET is sensitive; the identifiers ride along
+        # so the completeness check classifies every staged name.
+        "MSGRAPH_TENANT_ID",
+        "MSGRAPH_CLIENT_ID",
+        "MSGRAPH_CLIENT_SECRET",
+        "MSGRAPH_MAILBOX",
     }
 )
 
@@ -98,6 +108,9 @@ _CUSTOMER_PREFIX: tuple[str, ...] = (
     "CLIO_",
     "SMOKEBALL_STAGING_",
     "SMOKEBALL_PROD_",
+    # Per-seat override form MSGRAPH_CLIENT_SECRET__<CID> (provision-customer.sh
+    # msgraph branch) + any future family member.
+    "MSGRAPH_",
 )
 
 # Infra-owned staged/derived names NOT in env-consumption. These are SMD-owned
