@@ -507,6 +507,58 @@ if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
   unset _AGENTMAIL_WH_KEY _AGENTMAIL_WH_SECRET
 fi
 
+# Microsoft Graph app-only mail (adapter: msgraph, backend: mcp:msgraph-mail —
+# email-channel-seam ADR 0078 / spec D5). The connector authenticates app-only
+# (tenant + client id + client secret) against a mailbox pinned by config, tenant-
+# scoped by ApplicationAccessPolicy. Staged ONLY for a customer whose customer.yaml
+# binds the msgraph Email adapter. tenant_id / client_id / mailbox are non-secret
+# and read straight from the msgraph_auth block; the client SECRET is client-
+# custodied (ADR 0010) and never in the yaml — msgraph_auth.secret_ref names the
+# Fly secret (fly-secret:<NAME>), whose VALUE is sourced from the operator env,
+# preferring the per-customer <NAME>__<CUSTOMER_ID> so a reprovision of one seat
+# never pulls another tenant's secret. The connector reads all four as env vars
+# (MSGRAPH_TENANT_ID / MSGRAPH_CLIENT_ID / MSGRAPH_CLIENT_SECRET / MSGRAPH_MAILBOX).
+if grep -qE 'adapter:[[:space:]]*msgraph|backend:[[:space:]]*mcp:msgraph-mail' \
+    "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  MSG_PARSE_PY="
+import yaml
+with open('${CUSTOMER_YAML}') as f:
+    c = yaml.safe_load(f) or {}
+auth = {}
+for conn in (c.get('connectors') or {}).values():
+    if isinstance(conn, dict) and str(conn.get('adapter', '')) == 'msgraph':
+        auth = conn.get('msgraph_auth') or {}
+        break
+print(str(auth.get('tenant_id') or '').strip())
+print(str(auth.get('client_id') or '').strip())
+print(str(auth.get('mailbox') or '').strip())
+print(str(auth.get('secret_ref') or '').strip())
+"
+  MSG_FIELDS=()
+  while IFS= read -r _line; do MSG_FIELDS+=("${_line}"); done \
+    < <(uv run --quiet --with pyyaml python3 -c "${MSG_PARSE_PY}")
+  _MSG_TENANT="${MSG_FIELDS[0]:-}"
+  _MSG_CLIENT="${MSG_FIELDS[1]:-}"
+  _MSG_MAILBOX="${MSG_FIELDS[2]:-}"
+  _MSG_SECRET_REF="${MSG_FIELDS[3]:-}"
+  # Derive the Fly/operator-env secret NAME from the secret_ref (strip the
+  # fly-secret: prefix). Defaults to MSGRAPH_CLIENT_SECRET when unauthored.
+  _MSG_SECRET_NAME="${_MSG_SECRET_REF#fly-secret:}"
+  [ -n "${_MSG_SECRET_NAME}" ] && [ "${_MSG_SECRET_NAME}" != "${_MSG_SECRET_REF}" ] \
+    || _MSG_SECRET_NAME="MSGRAPH_CLIENT_SECRET"
+  # Per-customer source for the client secret, else the global by that name.
+  _MSG_SECRET_CID_KEY="${_MSG_SECRET_NAME}__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+  _MSG_SECRET_VALUE="${!_MSG_SECRET_CID_KEY:-${!_MSG_SECRET_NAME:-}}"
+
+  log "Microsoft Graph mail seat: mailbox=${_MSG_MAILBOX} (client secret from ${_MSG_SECRET_CID_KEY}, else ${_MSG_SECRET_NAME})"
+  stage_secret_from_env MSGRAPH_TENANT_ID     "${_MSG_TENANT}"        "Microsoft Graph tenant id (from msgraph_auth.tenant_id)"
+  stage_secret_from_env MSGRAPH_CLIENT_ID     "${_MSG_CLIENT}"        "Microsoft Graph app client id (from msgraph_auth.client_id)"
+  stage_secret_from_env MSGRAPH_MAILBOX       "${_MSG_MAILBOX}"       "Microsoft Graph pinned operator mailbox (from msgraph_auth.mailbox)"
+  stage_secret_from_env MSGRAPH_CLIENT_SECRET "${_MSG_SECRET_VALUE}"  "Microsoft Graph app client secret (per-customer ${_MSG_SECRET_CID_KEY}, else ${_MSG_SECRET_NAME})"
+  unset MSG_PARSE_PY MSG_FIELDS _MSG_TENANT _MSG_CLIENT _MSG_MAILBOX _MSG_SECRET_REF \
+    _MSG_SECRET_NAME _MSG_SECRET_CID_KEY _MSG_SECRET_VALUE
+fi
+
 # Brave Search (native:brave-free, ADR 0070). BRAVE_SEARCH_API_KEY is the env var
 # Hermes' native brave-free provider reads. The Hosted-Agent tier uses Brave's
 # FREE tier (one shared, SMD-owned key; $0, no runaway spend; keeps "your only

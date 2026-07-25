@@ -12,7 +12,7 @@
  * branch, per docs/style/empty-state-pattern.md.
  */
 
-import type { CustomerConfigRow } from '../../../customer-config'
+import { personaSendAsAddress, type CustomerConfigRow } from '../../../customer-config'
 import type { AlivenessSignal } from '../../aliveness'
 
 export interface OperatorHeroModel {
@@ -112,7 +112,7 @@ export function resolveOperatorHero(
     name: persona?.name ?? null,
     title: persona?.title ?? null,
     tone: (persona?.tone ?? []).map(humanizeTone),
-    sendAs: persona?.send_as?.agentmail_identity ?? null,
+    sendAs: personaSendAsAddress(persona?.send_as),
     alsoOperatesAs: others.map((p) => ({ name: p.name, title: p.title })),
     aliveness,
   }

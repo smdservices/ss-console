@@ -250,7 +250,13 @@ function projectPersona(p: Persona): EditablePersona {
     title: p.title,
     tone: p.tone,
     pronouns: p.pronouns,
-    send_as: p.send_as,
+    // The Advanced editor edits an AgentMail identity string only; read it from
+    // the normalized send_identity. A non-agentmail (msgraph) identity has no
+    // agentmail identity to surface here → null.
+    send_as:
+      p.send_as && p.send_as.send_identity.provider === 'agentmail'
+        ? { agentmail_identity: p.send_as.send_identity.address }
+        : null,
     skills: p.skills.map((s: PersonaSkill) => ({
       name: s.name,
       initiation: s.initiation,
@@ -536,6 +542,11 @@ function mergeConnectors(
       // auth_mode locked — set at provisioning with the OAuth flow itself;
       // the portal only READS it (connection care note).
       auth_mode: existing.auth_mode,
+      // msgraph_auth / poll_seconds locked — Microsoft Graph mail credentials
+      // and poll cadence (ADR 0078 D5) are set at provisioning, never via the
+      // general config editor. Preserved verbatim from the current connector.
+      msgraph_auth: existing.msgraph_auth,
+      poll_seconds: existing.poll_seconds,
     }
   }
   return merged
@@ -557,7 +568,12 @@ function mergePersona(current: Persona, update: EditablePersona): Persona {
     title: update.title,
     tone: update.tone,
     pronouns: update.pronouns,
-    send_as: update.send_as,
+    // Normalize the editor's AgentMail-only field back into the provider-neutral
+    // send_as shape (ADR 0078 §4). Emit only send_identity — the idempotent shape
+    // the validator itself produces, so this merged config re-validates cleanly.
+    send_as: update.send_as
+      ? { send_identity: { provider: 'agentmail', address: update.send_as.agentmail_identity } }
+      : null,
     entitlements: current.entitlements,
     channel_bindings: update.channel_bindings,
     skills: mergedSkills,

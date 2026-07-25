@@ -114,6 +114,16 @@ const PROVIDER_PATTERNS: ReadonlyArray<{
  * fields belong in Infisical, not in git. Matched case-insensitively as a
  * substring of the full key name.
  */
+/**
+ * Field names that legitimately contain a banned substring but are the permitted
+ * secret-REFERENCE channels — they carry a pointer, never a literal:
+ *   - `token_ref` — an `infisical:` path (the Infisical reference channel).
+ *   - `secret_ref` — a `fly-secret:<NAME>` reference to a per-seat Fly secret
+ *     (ADR 0010 custody for the msgraph client secret; email-channel-seam D5).
+ * Both scanners skip the field-name ban for these keys.
+ */
+const SECRET_REFERENCE_FIELD_NAMES: ReadonlySet<string> = new Set(['token_ref', 'secret_ref'])
+
 const BANNED_FIELD_NAME_SUBSTRINGS: ReadonlyArray<string> = [
   'password',
   'passwd',
@@ -141,6 +151,11 @@ const SHAPE_HEURISTIC_ALLOWLIST_PATHS: ReadonlyArray<string> = [
   'personas[*].signature_html',
   'personas[*].avatar_url',
   'personas[*].send_as.agentmail_identity',
+  'personas[*].send_as.send_identity.address',
+  // msgraph_auth carries a mailbox address, two GUIDs, and a fly-secret: ref
+  // (all references / identifiers, never literals — the GUIDs can brush the
+  // high-entropy heuristic, and the secret is custodied out-of-band per ADR 0010).
+  'connectors.Email.msgraph_auth',
   'users[*].email',
   'users[*].full_name',
   // Clerk user IDs are public stable identifiers, not credentials.
@@ -317,9 +332,9 @@ function visit(
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
       const keyLower = key.toLowerCase()
       const banned = BANNED_FIELD_NAME_SUBSTRINGS.find((s) => keyLower.includes(s))
-      // `token_ref` is the explicitly permitted Infisical-reference field,
-      // even though the name contains "token". Skip the field-name ban for it.
-      if (banned !== undefined && key !== 'token_ref') {
+      // token_ref / secret_ref are the explicitly permitted secret-reference
+      // fields (they carry a pointer, not a literal). Skip the field-name ban.
+      if (banned !== undefined && !SECRET_REFERENCE_FIELD_NAMES.has(key)) {
         findings.push({
           category: 'banned_field_name',
           line: null,
@@ -374,7 +389,7 @@ export function scanRawYaml(text: string, options: ScanOptions = {}): SecretFind
       const keyName = fieldName.replace(/^["']|["']$/g, '')
       const keyLower = keyName.toLowerCase()
       const banned = BANNED_FIELD_NAME_SUBSTRINGS.find((s) => keyLower.includes(s))
-      if (banned !== undefined && keyName !== 'token_ref') {
+      if (banned !== undefined && !SECRET_REFERENCE_FIELD_NAMES.has(keyName)) {
         findings.push({
           category: 'banned_field_name',
           line: i + 1,
