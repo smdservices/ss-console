@@ -48,6 +48,7 @@ SMD contact addresses:
 
 - **All changes through PRs.** Never push directly to main. Branch, PR, CI, QA, merge.
 - **Worktree discipline: the primary checkout is read-only.** All repo mutations happen in an isolated worktree (`EnterWorktree`). A PreToolUse hook (`.claude/hooks/worktree-guard.mjs`) rejects Edit/Write into the primary tree (paths under `.claude/` are exempt — the worktrees themselves live there), and a SessionStart hook (`.claude/hooks/sync-primary.sh`) fast-forwards a clean primary checkout to origin/main so it never drifts stale. Do not work around the guard with Bash writes. Captain-only escape hatch: `SS_ALLOW_PRIMARY_WRITES=1`. Guard tests: `tests/worktree-guard.test.ts`.
+- **Operating doctrine.** The distilled agent operating laws live in `docs/doctrine/agent-operating-doctrine.md` (registry: each law with its incidents, enforcement tier, and pointer). The always-on surface is `.claude/hooks/reflex-primer.sh` (UserPromptSubmit, every turn); `tests/doctrine-integrity.test.ts` pins primer/doctrine parity. Maintenance contract: a correction from the Captain that changes a law updates doctrine + primer in the same PR. Engagement work is gated by Law 2: read `operator/customers/<slug>/dossier.md` before touching that engagement (`.claude/hooks/engagement-guard.mjs` blocks unread-engagement writes; Bash writes are not intercepted — do not work around the guard; Captain-only escape hatch: `SS_ALLOW_UNREAD_ENGAGEMENT_WRITES=1`).
 - **Never echo secret values.** Transcripts persist in ~/.claude/ and are sent to API providers.
 - **Verify secret VALUES, not just key existence.**
 - **Never auto-save to VCMS** without explicit Captain approval.
@@ -378,6 +379,10 @@ Fetch the relevant module when working in that domain.
 | `secrets.md`          | Verify secret VALUES, not just key existence                                                                                            | Infisical, vault, API keys                                                |
 | `content-policy.md`   | Never auto-save to VCMS; agents ARE the voice                                                                                           | VCMS tags, storage rules, editorial, style                                |
 | `team-workflow.md`    | All changes through PRs; never push to main                                                                                             | Full workflow, escalation triggers                                        |
+| `guardrails.md`       | The full guardrail set the SOS Directives block summarizes                                                                              | Complete guardrails, rationale                                            |
+| `operating-ethos.md`  | Mission first; confidence, not anxiety; no corporate theater                                                                            | Full operating ethos                                                      |
+| `tooling.md`          | The toolkit catalog (MCP, fleet, subagents, browser)                                                                                    | Tool selection, capabilities                                              |
+| `session-reflexes.md` | Name the source before any factual claim                                                                                                | The four reflexes, redirect decoding                                      |
 
 Fetch with: `crane_doc('global', '<module>')`
 
