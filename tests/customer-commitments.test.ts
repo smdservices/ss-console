@@ -27,6 +27,7 @@ import { resolve, join } from 'path'
 import { parse as parseYaml } from 'yaml'
 import { validate, type CustomerYaml } from '../src/lib/operator/customer-yaml'
 import { validateRoutineGrid, type RoutineGridRow } from '../src/lib/operator/routine-grid'
+import { isCeiling, restrictiveness } from '../src/lib/portal/operator/config-governance'
 
 const SEAT_YAML_PATH = resolve('operator/customers/pilot-smokeball/customer.yaml')
 const GRID_YAML_PATH = resolve('operator/customers/pilot-smokeball/routine-grid.yaml')
@@ -211,6 +212,64 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
       byName('medical-chronology-maintainer')?.settings?.['treatment_gap_flag_days'],
       'medical-chronology-maintainer must author treatment_gap_flag_days: 45 (correspondence 09)'
     ).toBe(45)
+  })
+
+  // (h) A&P GRID TRACEABILITY. The (c) gate above checks the pilot seat
+  // against the pilot grid; the CLIENT seat's own grid was checked by
+  // nothing, and the gap it hid was real: ashton-price authored neither
+  // external_send_client nor external_send_vendor, the two keys its grid
+  // says enforce the letter's prepare-and-route tiers for client
+  // verification (the firm's #1 named routine) and records chase.
+  // resolve_ceiling does NO recipient-class fallback — unauthored is
+  // REFUSED (ADR 0056), so those routines would have refused instead of
+  // drafting. This gate makes the client seat's grid binding.
+  it('(h) every ashton-price grid row traces to the ashton-price seat config', () => {
+    const raw = parseYaml(readFileSync(join(AP_DIR, 'customer.yaml'), 'utf-8')) as Record<
+      string,
+      unknown
+    >
+    const seat = validate(raw)
+    if (!seat.ok) {
+      throw new Error(
+        `ashton-price customer.yaml no longer validates:\n${JSON.stringify(seat.errors, null, 2)}`
+      )
+    }
+    const gridResult = validateRoutineGrid(
+      parseYaml(readFileSync(join(AP_DIR, 'routine-grid.yaml'), 'utf-8'))
+    )
+    if (!gridResult.ok) {
+      throw new Error(
+        `ashton-price routine-grid.yaml no longer validates:\n${JSON.stringify(gridResult.errors, null, 2)}`
+      )
+    }
+    const exposure = seat.value.personas.find((p) => p.slug === gridResult.value.persona)
+      ?.entitlements.exposure
+    expect(exposure, `persona ${gridResult.value.persona} must exist on the seat`).toBeTruthy()
+    const seatSkills = new Set(seat.value.personas.flatMap((p) => p.skills.map((s) => s.name)))
+
+    // Direction matters. A grid-claimed key the seat does not author is a
+    // DEFECT (unauthored = REFUSED, so the routine cannot do what the letter
+    // says). A seat value MORE restrictive than the grid claims is the
+    // client's own posture and is allowed — running tighter than committed is
+    // always the firm's right (ADR 0035). Only absence, or a value LESS
+    // restrictive than the grid claims, fails.
+    for (const row of gridResult.value.rows) {
+      for (const [key, claimed] of Object.entries(row.enforcement.exposure_keys)) {
+        const authored = exposure![key as keyof typeof exposure] as string | undefined
+        expect(
+          authored,
+          `${row.routine}: grid says ${key}=${claimed} enforces this row, but the seat authors no ${key} (unauthored = REFUSED, ADR 0056 — the routine would refuse instead of acting)`
+        ).toBeTruthy()
+        if (!authored || !isCeiling(authored) || !isCeiling(claimed)) continue
+        expect(
+          restrictiveness(authored) >= restrictiveness(claimed),
+          `${row.routine}: seat authors ${key}=${authored}, LESS restrictive than the grid's ${claimed} — the seat exceeds what the letter committed`
+        ).toBe(true)
+      }
+      for (const skill of row.skills) {
+        expect(seatSkills.has(skill), `${row.routine}: skill "${skill}" not on the seat`).toBe(true)
+      }
+    }
   })
 
   // (g) Per-matter alert routing (#2004, correspondence 09): case-level alerts
