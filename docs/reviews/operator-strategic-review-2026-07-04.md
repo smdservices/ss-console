@@ -12,7 +12,7 @@ title: Operator Strategic & Architectural Review (2026-07-04)
 The audits ran against a checkout that predated several same-week merges; parallel sessions had already resolved four findings before or while this review was filed. Corrections, verified against main the same day:
 
 - **ADR 0062 exists.** The cost plane was committed 2026-07-03 (accepted, PR #1662); the "cost breaker has no ADR" finding was stale.
-- **The price is committed.** ADR 0063 (accepted 2026-07-04, PR #1692) locks $5,000/mo + $4,000 stand-up, supersedes ADR 0004's deferred-pricing clause, updates the handbook and Decision Stack #50, and closed #1659. `services.recurring_price = 5000` verified live on both operator seats. Issue #1682's pricing half was satisfied in parallel with this review's filing.
+- **The price is committed.** ADR 0063 (accepted 2026-07-04, PR #1692) locks the retainer + stand-up figures, supersedes ADR 0004's deferred-pricing clause, updates the handbook and Decision Stack #50, and closed #1659. `services.recurring_price` verified live on both operator seats. Issue #1682's pricing half was satisfied in parallel with this review's filing.
 - **The 0044 collision was already resolved** (2026-07-03, PR #1652): the static-secret contract is renumbered to ADR 0061.
 - **`docs/adr/index.md` is current** through 0063, including the entries this review listed as omitted; the omission finding described the stale checkout.
 - **"OPERATOR_RUNTIME_READ_URL unwired" was stale code comments, not reality.** Both prod secrets were set; the Activity page seam was live. The real #1678 gaps were the hardcoded home feeds and the stub aliveness resolver, both wired in PR #1695.
@@ -234,7 +234,7 @@ If an A&P-like owner walked it today: marketing > book shines (they would feel s
 | Smith.ai | AI + human receptionist (law-firm integrations) | AI from ~$95/mo; hybrid from ~$292/mo | Managed, front-door only |
 | Fyxer / Howie | AI EA (email/scheduling) | $25-95/mo | Self-serve, single-function |
 
-Structural read: the market splits into (a) self-serve builders where the owner does configuration and maintenance, (b) single-function employees owning one channel, (c) fully-managed enterprise agents at 50-100x SMD's price. No vendor found sells a cross-system, multi-function, per-customer-governed AI operations employee, managed by an accountable firm, priced against a salary, to 5-25 person businesses. Managed-service setup fees in the SMB agent market run $3k-12k, bracketing SMD's $4k stand-up.
+Structural read: the market splits into (a) self-serve builders where the owner does configuration and maintenance, (b) single-function employees owning one channel, (c) fully-managed enterprise agents at 50-100x SMD's price. No vendor found sells a cross-system, multi-function, per-customer-governed AI operations employee, managed by an accountable firm, priced against a salary, to 5-25 person businesses. Managed-service setup fees in the SMB agent market run $3k-12k, bracketing SMD's stand-up fee.
 
 ## Legal vertical: what a PI firm on Smokeball can buy today
 

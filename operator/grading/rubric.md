@@ -160,7 +160,7 @@ The audit trail is what makes the grading matrix defensible: when Captain asks "
 
 For each skill graded, the audit trail provides tokens + tool calls per fixture. The rollup script in `operator/grading/rollup.py` (pending Phase E) sums these across a customer's enabled-skill set + estimated cadence (from the skill's SKILL.md frontmatter `cost_estimate`) to produce a monthly cost projection per customer.
 
-This is the input to the $5K/mo SKU margin check: if a typical customer's projected cost is < $300/mo, the SKU has 94%+ margin pre-support-labor. If it's $1500+, the SKU needs re-architecting before customer-2 signs.
+This is the input to the SKU margin check (retainer figure: `venturecrane/engagements:pricing/`): if a typical customer's projected cost is < $300/mo, the SKU has 94%+ margin pre-support-labor. If it's $1500+, the SKU needs re-architecting before customer-2 signs.
 
 ## When to update the rubric
 

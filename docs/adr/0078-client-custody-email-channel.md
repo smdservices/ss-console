@@ -100,7 +100,7 @@ to "an adapter with a default role" loses nothing.
 ## Consequences
 
 - **A&P (first application):** go-live recommendation is
-  `operator@ashtonandprice.com` on their M365 via the app-only pattern,
+  `operator@firm.example` on their M365 via the app-only pattern,
   AgentMail unbound. Tracked as #1978; build list B1–B6 in the
   channel-coupling audit (`~/Desktop/channel-coupling-audit-2026-07-24.md`,
   to be committed alongside the #1978 work).
