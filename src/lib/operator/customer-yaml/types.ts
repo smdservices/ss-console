@@ -394,6 +394,15 @@ export interface PersonaSkill {
   enabled: boolean
   cost_estimate: CostEstimate | null
   scope: string[]
+  /**
+   * Authored scalar knobs the skill reads at runtime (ADR 0075) — e.g. a
+   * chase cadence, an escalation attempt count, a treatment-gap threshold.
+   * Scalar-only, mirroring the overlay's `_skill_settings_block`: nested
+   * maps/lists are a validation error here (the overlay silently drops
+   * them, so accepting one would author a value the runtime never sees).
+   * Absent when the skill has no settings.
+   */
+  settings?: Record<string, string | number | boolean>
 }
 
 /**

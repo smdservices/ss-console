@@ -641,6 +641,49 @@ describe('validate — InvalidSlug', () => {
 // Personas: array invariants
 // -----------------------------------------------------------------------------
 
+describe('validate — skills[].settings (ADR 0075 scalar knobs, #2005)', () => {
+  const skillsOf = (f: Record<string, unknown>) =>
+    (f['personas'] as Array<{ skills: Array<Record<string, unknown>> }>)[0].skills
+
+  it('accepts a scalar settings map and carries it through verbatim', () => {
+    const f = validFixture()
+    skillsOf(f)[0]['settings'] = { escalate_after_attempts: 3, treatment_gap_flag_days: 45 }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.personas[0].skills[0].settings).toEqual({
+      escalate_after_attempts: 3,
+      treatment_gap_flag_days: 45,
+    })
+  })
+
+  it('omits settings entirely when unauthored (byte-stable absence, not {})', () => {
+    const f = validFixture()
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect('settings' in r.value.personas[0].skills[0]).toBe(false)
+  })
+
+  it('rejects a nested (non-scalar) settings value — the overlay would silently drop it', () => {
+    const f = validFixture()
+    skillsOf(f)[0]['settings'] = { cadence: { days: 5 } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects settings authored as a non-object', () => {
+    const f = validFixture()
+    skillsOf(f)[0]['settings'] = 'escalate_after_attempts=3'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+})
+
 describe('validate — personas[]', () => {
   it('rejects personas as a singular object (ADR 0011 enforcement)', () => {
     const f = validFixture()

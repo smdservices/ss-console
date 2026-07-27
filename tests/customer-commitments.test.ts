@@ -179,4 +179,37 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
       ).not.toBe('autonomous')
     }
   })
+
+  // (f) Christa's confirmed settings (correspondence 09, 2026-07-23; #2005).
+  // The diligence reply (10) states these as set — the ashton-price seat must
+  // author exactly these values, and chase_cadence_days must stay UNAUTHORED
+  // (the letter commits a cadence "you set per matter": a firm input at the
+  // working session; authoring a guessed value here would be fabrication).
+  it('(f) ashton-price authors the two confirmed settings and no invented cadence', () => {
+    const raw = parseYaml(readFileSync(join(AP_DIR, 'customer.yaml'), 'utf-8')) as Record<
+      string,
+      unknown
+    >
+    const result = validate(raw)
+    if (!result.ok) {
+      throw new Error(
+        `ashton-price customer.yaml no longer validates:\n${JSON.stringify(result.errors, null, 2)}`
+      )
+    }
+    const skills = result.value.personas.flatMap((p) => p.skills)
+    const byName = (name: string) => skills.find((s) => s.name === name)
+
+    expect(
+      byName('client-verification-tracker')?.settings?.['escalate_after_attempts'],
+      'client-verification-tracker must author escalate_after_attempts: 3 (correspondence 09)'
+    ).toBe(3)
+    expect(
+      byName('client-verification-tracker')?.settings?.['chase_cadence_days'],
+      'chase_cadence_days must stay unauthored until the firm sets it (per-matter, letter 07)'
+    ).toBeUndefined()
+    expect(
+      byName('medical-chronology-maintainer')?.settings?.['treatment_gap_flag_days'],
+      'medical-chronology-maintainer must author treatment_gap_flag_days: 45 (correspondence 09)'
+    ).toBe(45)
+  })
 })
