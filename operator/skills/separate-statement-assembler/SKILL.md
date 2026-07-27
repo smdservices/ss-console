@@ -266,7 +266,7 @@ hermes run separate-statement-assembler --matter <matter-id> --request-set <id> 
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: a served
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a served
 request has no matching served response; a response has no matching request; the
 request/response documents cannot be located or paired with confidence; the located
 responses appear to be the firm's own rather than the opposing party's served responses

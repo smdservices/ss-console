@@ -243,6 +243,21 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
           added.
         </p>
         {
+          account.escalation.caseAlertRouting?.mode === 'matter_staff' && (
+            <div class="mt-4">
+              <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Case alerts
+              </p>
+              <p class="mt-1 m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-primary)]">
+                Routed to the people assigned to each record in your system of record.
+                {account.escalation.caseAlertRouting.fallbackRecipients.length > 0
+                  ? ` If a record has no usable assignment: ${account.escalation.caseAlertRouting.fallbackRecipients.join(', ')}.`
+                  : ' If a record has no usable assignment, the alert holds and the record is flagged until a fallback contact is set.'}
+              </p>
+            </div>
+          )
+        }
+        {
           account.escalation.redFlagRecipients.length > 0 && (
             <div class="mt-4">
               <p class="m-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">

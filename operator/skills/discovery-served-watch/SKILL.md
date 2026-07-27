@@ -295,7 +295,7 @@ hermes run discovery-served-watch --action scan
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: the proof
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: the proof
 of service is missing, illegible, or ambiguous; the POS states **more than one service
 method**; the discovery type cannot be classified with confidence; a **deposition
 notice carries an embedded document demand** and either facet cannot be read cleanly;

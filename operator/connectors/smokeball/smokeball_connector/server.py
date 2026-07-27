@@ -246,7 +246,9 @@ def list_matters(
 
 @server.tool()
 def get_matter(matter_id: str) -> Any:
-    """Get one matter by id (includes personResponsibleStaffId, status, isLead).
+    """Get one matter by id (includes the staff-assignment fields
+    ``personResponsibleStaffId`` and ``personAssistingStaffId`` — the inputs to
+    per-matter case-alert routing — plus status, isLead).
 
     Enriched with a composed ``caption`` ("Plaintiff v. Defendant") from the
     matter's own party contacts (best-effort; absent for party-less matters)."""

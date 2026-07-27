@@ -211,7 +211,7 @@ hermes run motion-calendar-tracker --action scan --window 30d
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: a hearing
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a hearing
 is on the calendar with no corresponding filed motion in the record; a motion is
 filed with no hearing date set; an opposition/reply window is un-calendared as a
 hearing approaches; a status is reported in a note but not otherwise confirmed; or an

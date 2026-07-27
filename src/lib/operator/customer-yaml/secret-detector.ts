@@ -163,6 +163,9 @@ const SHAPE_HEURISTIC_ALLOWLIST_PATHS: ReadonlyArray<string> = [
   'mcp_connector.access[*].clerk_subjects',
   'escalation.red_flag_recipients',
   'escalation.failure_recipients',
+  // Case-alert fallback addresses (#2004) — human-authored recipient list,
+  // same posture as the two lists above.
+  'escalation.case_alert_routing.fallback_recipients',
   // token_ref is the ONE permitted secret-reference channel. The value is an
   // Infisical path string; it carries no secret. Bypass shape heuristics so
   // the path is not flagged as base64-shaped or high-entropy.

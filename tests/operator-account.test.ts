@@ -48,6 +48,25 @@ describe('parseEscalation: defensive, never a fabricated contact', () => {
       expect(e.redFlagRecipients).toEqual([])
       expect(e.failureRecipients).toEqual([])
       expect(e.ackWindowMinutes).toBeNull()
+      expect(e.caseAlertRouting).toBeNull()
+    }
+  })
+
+  it('parses case_alert_routing (#2004); unauthored or malformed resolves to null (= central)', () => {
+    expect(
+      parseEscalation({
+        red_flag_recipients: ['a@firm.com'],
+        failure_recipients: ['ops@smd.services'],
+        case_alert_routing: { mode: 'matter_staff', fallback_recipients: ['admin@firm.com'] },
+      }).caseAlertRouting
+    ).toEqual({ mode: 'matter_staff', fallbackRecipients: ['admin@firm.com'] })
+
+    expect(
+      parseEscalation({ case_alert_routing: { mode: 'matter_staff' } }).caseAlertRouting
+    ).toEqual({ mode: 'matter_staff', fallbackRecipients: [] })
+
+    for (const bad of [undefined, null, 'matter_staff', { mode: 'per-matter' }, { mode: 42 }]) {
+      expect(parseEscalation({ case_alert_routing: bad }).caseAlertRouting).toBeNull()
     }
   })
 })

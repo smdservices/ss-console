@@ -11,7 +11,6 @@ import {
   VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
   type BusinessHours,
   type Digest,
-  type Escalation,
   type LogLevel,
   type LogShip,
   type Logging,
@@ -22,80 +21,7 @@ import {
   type Vertical,
   type VoiceLibrary,
 } from './types'
-import { isPlainObject, optionalNonEmptyString, requireStringList } from './helpers'
-
-export function checkEscalation(
-  root: Record<string, unknown>,
-  errors: ValidationError[]
-): Escalation {
-  const raw = root['escalation']
-  const empty: Escalation = {
-    red_flag_recipients: [],
-    failure_recipients: [],
-    acknowledgement_window_minutes: null,
-  }
-  if (raw === undefined || raw === null) {
-    errors.push({
-      code: 'MissingField',
-      path: 'escalation',
-      message: 'escalation is required',
-    })
-    return empty
-  }
-  if (!isPlainObject(raw)) {
-    errors.push({
-      code: 'TypeMismatch',
-      path: 'escalation',
-      message: 'escalation must be an object',
-    })
-    return empty
-  }
-  const reds = requireStringList(
-    raw,
-    'red_flag_recipients',
-    'escalation.red_flag_recipients',
-    errors
-  )
-  if (reds.length === 0) {
-    errors.push({
-      code: 'EmptyList',
-      path: 'escalation.red_flag_recipients',
-      message: 'escalation.red_flag_recipients must contain at least one address',
-    })
-  }
-  const fails = requireStringList(
-    raw,
-    'failure_recipients',
-    'escalation.failure_recipients',
-    errors
-  )
-  if (fails.length === 0) {
-    errors.push({
-      code: 'EmptyList',
-      path: 'escalation.failure_recipients',
-      message: 'escalation.failure_recipients must contain at least one address',
-    })
-  }
-  const ack = checkAckWindow(raw['acknowledgement_window_minutes'], errors)
-  return {
-    red_flag_recipients: reds,
-    failure_recipients: fails,
-    acknowledgement_window_minutes: ack,
-  }
-}
-
-function checkAckWindow(a: unknown, errors: ValidationError[]): number | null {
-  if (a === undefined || a === null) return null
-  if (typeof a !== 'number' || !Number.isInteger(a) || a <= 0) {
-    errors.push({
-      code: 'TypeMismatch',
-      path: 'escalation.acknowledgement_window_minutes',
-      message: 'acknowledgement_window_minutes must be a positive integer',
-    })
-    return null
-  }
-  return a
-}
+import { isPlainObject, optionalNonEmptyString } from './helpers'
 
 export function checkMemory(
   root: Record<string, unknown>,

@@ -241,7 +241,7 @@ hermes run mediation-settlement-tracker --matter <matter-id> --conference <media
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: a §998
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a §998
 acceptance window is near expiry; a mediation/MSC is imminent and the brief inputs are
 not assembled; the conference date or the §998 cutoff cannot be read with confidence
 (including an unreadable trial date the "whichever occurs first" rule turns on); a

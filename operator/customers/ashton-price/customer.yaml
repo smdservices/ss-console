@@ -93,6 +93,14 @@ personas:
       exposure:
         internal_write: draft_for_review
         external_send: draft_for_review
+        # Internal alert delivery to firm staff (#2004, correspondence 09/10):
+        # case-level alerts route per matter to the assigned attorney/paralegal
+        # "the same way work reaches them today" — an alert that waits for SMD
+        # approval is not an alert. Recipients classify INTERNAL only through
+        # the authored @ashtonandprice.com roster grant (ADR 0072); this key
+        # authorizes nothing outside it. Client- and tribunal-bound mail stays
+        # governed by external_send above. Pinned by customer-commitments (g).
+        external_send_internal: autonomous
     skills:
       # spine
       - name: matter-inbox-router
@@ -537,10 +545,26 @@ business_hours:
   end: '18:00'
 
 escalation:
+  # red_flag_recipients is the CENTRAL case-alert list — under matter_staff
+  # routing (below) it is no longer the delivery target for case-level alerts;
+  # it remains the pre-connect placeholder and the central-mode target.
   red_flag_recipients:
     - scott@smd.services
+  # System/technical failures stay with SMD (correspondence 10: "System and
+  # technical monitoring stays with us").
   failure_recipients:
     - scott@smd.services
+  # Christa's routing requirement (correspondence 09, 2026-07-23; committed in
+  # 10): case-level alerts (verification stalls, deadline flags, drafts
+  # awaiting review) route per matter to the attorney/paralegal assigned in
+  # Smokeball — never a central inbox on the firm's side. Resolution + fallback
+  # algorithm: operator/skills/deadline-miss-escalator/references/case-alert-routing.md.
+  # fallback_recipients is DELIBERATELY unauthored: who receives an alert when
+  # a matter has no usable assignment is the firm's call (working-session
+  # input, firm-input register); until authored, resolution failure HOLDS the
+  # alert fail-closed and flags the matter in place. Never invented.
+  case_alert_routing:
+    mode: matter_staff
 
 # ---- VOICE LIBRARY ----
 # Empty until the firm supplies writing samples; ships with the general voice.

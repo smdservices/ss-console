@@ -765,10 +765,44 @@ export interface Scope {
   outbound_roster: OutboundRosterEntry[]
 }
 
+/**
+ * Closed vocabulary for how CASE-LEVEL alerts (verification stalls, deadline
+ * flags, drafts awaiting review) reach a person (#2004, A&P correspondence 09):
+ *
+ * - `central` — today's behavior: every case alert delivers to the authored
+ *   `red_flag_recipients` list.
+ * - `matter_staff` — case alerts resolve per matter from Smokeball's
+ *   assignment fields (`personResponsibleStaffId` / `personAssistingStaffId`
+ *   via `get_matter`, resolved through `get_staff`), so alerts reach whoever
+ *   already owns the matter. Resolution failure takes the authored
+ *   `fallback_recipients`; with no authored fallback the alert HOLDS
+ *   fail-closed and the matter is flagged in place (never an invented
+ *   recipient, never a silent drop).
+ *
+ * System/technical monitoring is out of scope for this block — it stays on
+ * `failure_recipients` + the fleet-alerts Worker (ADR 0079/0080).
+ */
+export const ACCEPTED_CASE_ALERT_ROUTING_MODES = ['central', 'matter_staff'] as const
+export type CaseAlertRoutingMode = (typeof ACCEPTED_CASE_ALERT_ROUTING_MODES)[number]
+
+export interface CaseAlertRouting {
+  mode: CaseAlertRoutingMode
+  /**
+   * Authored addresses that receive a case alert when per-matter resolution
+   * fails (staff fields empty, staff record deleted, or resolved address not
+   * covered by an authored roster grant). HUMAN-AUTHORED ONLY — never grown
+   * from runtime data (recipient_classifier roster discipline). Empty/absent
+   * = fail-closed hold + matter flag.
+   */
+  fallback_recipients: string[]
+}
+
 export interface Escalation {
   red_flag_recipients: string[]
   failure_recipients: string[]
   acknowledgement_window_minutes: number | null
+  /** Absent = `central` (today's behavior, backwards compatible). */
+  case_alert_routing: CaseAlertRouting | null
 }
 
 /**

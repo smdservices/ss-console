@@ -272,7 +272,7 @@ hermes run trial-binder-assembler --matter <matter-id> --action track
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: a core
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a core
 component (exhibit list, witness list, a deposition summary) is missing or unreadable;
 the trial date or the trial-setting order cannot be read; the firm's PDF tool for
 Bates-stamping is not configured at connect; a captured trial-prep or pre-trial-filing
