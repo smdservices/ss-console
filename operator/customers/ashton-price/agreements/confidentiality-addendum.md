@@ -27,21 +27,20 @@
 
 ## Term provenance (doctrine Law 5)
 
-| Term                                                       | Source                                                |
-| ---------------------------------------------------------- | ----------------------------------------------------- |
-| Grid caps (opposing counsel / court / deadlines / money)   | Letter 07 grid; letters 09-10; Agreement §2.3         |
-| No send under a firm principal's identity                  | Letter 10 §4                                          |
-| Audit record + operational memory on the dedicated machine | Letter 10 §4                                          |
-| Export / destruction windows                               | Letter 10 §5; DPA §8; ADR 0065                        |
-| Incident notification base                                 | DPA §7; ADR 0064                                      |
-| Governing law: Arizona                                     | Captain decision 2026-07-27                           |
-| `[CONFLICT NOTIFICATION DAYS]`                             | **TBD: Captain** (template field; no recorded source) |
-| `[SUBPOENA NOTIFICATION HOURS]`                            | **TBD: Captain** (template field; no recorded source) |
+| Term                                                       | Source                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Grid caps (opposing counsel / court / deadlines / money)   | Letter 07 grid; letters 09-10; Agreement §2.3                              |
+| No send under a firm principal's identity                  | Letter 10 §4                                                               |
+| Audit record + operational memory on the dedicated machine | Letter 10 §4                                                               |
+| Export / destruction windows                               | Letter 10 §5; DPA §8; ADR 0065                                             |
+| Incident notification base                                 | DPA §7; ADR 0064                                                           |
+| Governing law: Arizona                                     | Captain decision 2026-07-27                                                |
+| Conflict notification: 5 business days                     | Captain decision 2026-07-27                                                |
+| Subpoena notification: 24 hours                            | Captain decision 2026-07-27 (matches the DPA §7 / ADR 0064 incident clock) |
 
 ## Open items before this leaves the building
 
-1. `[CONFLICT NOTIFICATION DAYS]` and `[SUBPOENA NOTIFICATION HOURS]` - Captain sets both (no letter or ADR names a number).
-2. Counsel review alongside the Agreement and DPA.
+1. Counsel review alongside the Agreement and DPA.
 
 ---
 
@@ -101,13 +100,13 @@ Where a third-party content source the Firm uses prohibits providing its content
 
 (a) **Cross-customer prohibition.** SMD's architecture prevents one customer's data from informing another customer's service (Section 4.2; DPA §5).
 
-(b) **Operational conflict notification.** If SMD becomes aware that it provides services to multiple firms with adverse interests in a known Matter, SMD will notify the Firm within [CONFLICT NOTIFICATION DAYS] days of becoming aware, to the extent notice does not itself breach another customer's confidentiality. The notice identifies the existence of the potential adversity only, never another customer's matters, clients, or content.
+(b) **Operational conflict notification.** If SMD becomes aware that it provides services to multiple firms with adverse interests in a known Matter, SMD will notify the Firm within five (5) business days of becoming aware, to the extent notice does not itself breach another customer's confidentiality. The notice identifies the existence of the potential adversity only, never another customer's matters, clients, or content.
 
 (c) **No conflict warranty.** SMD does not represent that its customer base is conflict-free with respect to any Matter. The Firm remains solely responsible for its own conflict checks.
 
 ## 7. Compelled Disclosure
 
-7.1 If SMD receives a subpoena, court order, warrant, civil investigative demand, or other compulsory process seeking Protected Information, SMD will, except to the extent prohibited by law: (a) notify the Firm in writing within [SUBPOENA NOTIFICATION HOURS] hours of receipt; (b) provide a copy of the process and the issuing authority's identity; (c) not produce Protected Information until the Firm has had a reasonable opportunity to object, move to quash, or seek a protective order; and (d) reasonably cooperate, at the Firm's expense, with the Firm's efforts to challenge or limit the process.
+7.1 If SMD receives a subpoena, court order, warrant, civil investigative demand, or other compulsory process seeking Protected Information, SMD will, except to the extent prohibited by law: (a) notify the Firm in writing within twenty-four (24) hours of receipt; (b) provide a copy of the process and the issuing authority's identity; (c) not produce Protected Information until the Firm has had a reasonable opportunity to object, move to quash, or seek a protective order; and (d) reasonably cooperate, at the Firm's expense, with the Firm's efforts to challenge or limit the process.
 
 7.2 If production is ultimately required, SMD produces only the minimum legally required and requests confidential treatment, including filing under seal where applicable.
 
