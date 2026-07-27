@@ -257,8 +257,8 @@ Date: `______________________________`
 
 ## Exhibit B: Data Processing Addendum
 
-Attached as a separate document (instantiated from `docs/legal/operator-dpa-template.md`).
+Attached as a separate document: [`data-processing-addendum.md`](./data-processing-addendum.md).
 
 ## Exhibit C: Confidentiality Addendum (Law Firm)
 
-Attached as a separate document (instantiated from the BAA-equivalent confidentiality addendum template).
+Attached as a separate document: [`confidentiality-addendum.md`](./confidentiality-addendum.md).
