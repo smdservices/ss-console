@@ -470,7 +470,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // HARD_STOP (the chokepoint covering cron-fired wakes, which no pre_run
     // gates). Range also carries overlay#187 (secret-scan fallback-recipients
     // exemption, ss#2004). overlayRef-only across bed9ebdd..9d15c6a9.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9d15c6a9509b58ecd0e7a54bcf3227070b73f166"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="aac0447e44252a06c16ef3f7c611ef50277e9903"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

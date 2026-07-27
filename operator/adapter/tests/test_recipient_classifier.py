@@ -31,7 +31,7 @@ from adapter.recipient_classifier import (  # noqa: E402
     send_action_class,
 )
 
-ROSTER = ["@ashtonandprice.com", "scott@smd.services"]
+ROSTER = ["@firm.example", "scott@smd.services"]
 # Typed outbound roster: the firm's own client (a consumer on gmail) and a records
 # vendor. Exact addresses — a whole-@domain grant at a public provider is rejected
 # by the validator; the classifier matches these exactly.
@@ -45,8 +45,8 @@ def test_exact_address_match_is_internal():
 
 
 def test_domain_entry_matches_any_local_part():
-    assert classify_recipient("chris@ashtonandprice.com", ROSTER) is RecipientClass.INTERNAL
-    assert classify_recipient("christa@ashtonandprice.com", ROSTER) is RecipientClass.INTERNAL
+    assert classify_recipient("amara@firm.example", ROSTER) is RecipientClass.INTERNAL
+    assert classify_recipient("devi@firm.example", ROSTER) is RecipientClass.INTERNAL
 
 
 def test_non_roster_recipient_is_outside():
@@ -55,7 +55,7 @@ def test_non_roster_recipient_is_outside():
 
 def test_case_insensitive_match():
     assert classify_recipient("Scott@SMD.Services", ROSTER) is RecipientClass.INTERNAL
-    assert classify_recipient("CHRIS@AshtonAndPrice.com", ROSTER) is RecipientClass.INTERNAL
+    assert classify_recipient("AMARA@Firm.Example", ROSTER) is RecipientClass.INTERNAL
 
 
 # ---- SPOOF vectors (load-bearing) -----------------------------------------
@@ -66,18 +66,18 @@ def test_plus_tag_is_not_widened_for_full_address_entry():
 
 
 def test_plus_tag_still_matches_a_whole_domain_grant():
-    # But it IS genuinely on the ashtonandprice.com domain, which is granted.
-    assert classify_recipient("chris+tag@ashtonandprice.com", ROSTER) is RecipientClass.INTERNAL
+    # But it IS genuinely on the firm.example domain, which is granted.
+    assert classify_recipient("amara+tag@firm.example", ROSTER) is RecipientClass.INTERNAL
 
 
 def test_parent_domain_lookalike_is_outside():
-    # attacker registers ashtonandprice.com.evil.com — exact domain equality blocks it.
-    assert classify_recipient("x@ashtonandprice.com.evil.com", ROSTER) is RecipientClass.OUTSIDE
+    # attacker registers firm.example.evil.com — exact domain equality blocks it.
+    assert classify_recipient("x@firm.example.evil.com", ROSTER) is RecipientClass.OUTSIDE
 
 
 def test_subdomain_is_not_widened_to_parent_grant():
-    # @ashtonandprice.com grants the apex only, not mail.ashtonandprice.com.
-    assert classify_recipient("x@mail.ashtonandprice.com", ROSTER) is RecipientClass.OUTSIDE
+    # @firm.example grants the apex only, not mail.firm.example.
+    assert classify_recipient("x@mail.firm.example", ROSTER) is RecipientClass.OUTSIDE
 
 
 def test_display_name_form_is_unknown_not_parsed():
@@ -123,7 +123,7 @@ def test_tainted_unresolvable_is_still_unknown():
 # ---- multi-recipient aggregation (most-restrictive wins) -------------------
 
 def test_all_internal_recipients_aggregate_internal():
-    rs = ["scott@smd.services", "chris@ashtonandprice.com"]
+    rs = ["scott@smd.services", "amara@firm.example"]
     assert classify_recipients(rs, ROSTER) is RecipientClass.INTERNAL
 
 
