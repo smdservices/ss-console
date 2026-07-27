@@ -40,7 +40,7 @@ written as explicit bracketed TBDs, never filled with plausible content.
 ## Open items before this leaves the building
 
 1. `[LIABILITY CAP]` - Captain decision with counsel input.
-2. Insurance: limits FILLED in Exhibit A from the bound COI (policies effective 2026-07-27 to 2027-07-27; the A&P-named certificate-holder COI was requested 2026-07-27, 1-2 business days). Remaining check: confirm the AI-services and privacy/regulatory (PHI) endorsements appear on the bound policy documents; the ACORD certificate does not show endorsements, and §10.5 warrants them.
+2. Insurance: CLOSED. Limits filled in Exhibit A from the bound COI; the A&P-named certificate-holder COI was requested 2026-07-27 (1-2 business days). Endorsements verified on the bound CEM policy `HDG.CEM.7BB397E8.26` (verify `vfy_01KYJKK5J2TQSVQ2YE8ANTX3XC`): AI Endorsement CET 10-0052 present with $1M sub-limits (AI regulatory investigations, algorithm removal, algorithmic bias, AI IP); Privacy Liability $1M and Privacy Regulatory Liability $1M purchased; no health-data-processing exclusion. §10.5's warranted coverage matches the bound policy.
 3. `[A&P ENTITY]` - confirm exact legal entity name and form ("Ashton & Price LLP" per letter 10 §3) and principal address.
 4. `[SIGNATORY]` - Chris Price's exact title for the signature block.
 5. `[NAMED ADMINISTRATORS]` - the two portal administrators the firm names (letter 10 §7).
