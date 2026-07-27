@@ -24,7 +24,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, utimesSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -36,7 +36,9 @@ const SESSION = 'sess-test-123'
 
 let root: string // fake repo tree
 let altRoot: string // a second "worktree" of the same repo
+let engagementsRoot: string // stand-in for the private venturecrane/engagements clone
 let logDir: string
+let hatchAudit: string
 
 function seedTree(base: string): void {
   mkdirSync(path.join(base, 'operator', 'customers', SLUG, 'correspondence'), { recursive: true })
@@ -51,10 +53,18 @@ function seedTree(base: string): void {
 beforeEach(() => {
   root = mkdtempSync(path.join(os.tmpdir(), 'eg-root-'))
   altRoot = mkdtempSync(path.join(os.tmpdir(), 'eg-alt-'))
+  engagementsRoot = mkdtempSync(path.join(os.tmpdir(), 'eg-engagements-'))
   logDir = mkdtempSync(path.join(os.tmpdir(), 'eg-log-'))
+  hatchAudit = path.join(mkdtempSync(path.join(os.tmpdir(), 'eg-audit-')), 'hatch.log')
   seedTree(root)
   seedTree(altRoot)
+  // The engagements clone holds the material but is NOT a checkout of this
+  // repo: it carries the engagement tree only.
+  mkdirSync(path.join(engagementsRoot, 'operator', 'customers'), { recursive: true })
 })
+
+/** A path that does not exist, standing in for "engagements repo not cloned". */
+const MISSING_ENGAGEMENTS = path.join(os.tmpdir(), 'eg-nonexistent-engagements-dir')
 
 function payload(target: string, overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -67,17 +77,30 @@ function payload(target: string, overrides: Record<string, unknown> = {}): strin
   })
 }
 
+/**
+ * SS_ENGAGEMENTS_DIR and SS_HATCH_AUDIT_FILE are pinned to scratch on EVERY
+ * run. Without that the hooks would fall back to `~/dev/engagements` and
+ * `~/.claude/`, so results would depend on whether the developer happens to
+ * have the private repo cloned -- passing locally and failing in CI, or worse,
+ * the reverse.
+ */
+function hookEnv(extraEnv: Record<string, string> = {}): Record<string, string> {
+  return {
+    ...(process.env as Record<string, string>),
+    CLAUDE_PROJECT_DIR: root,
+    SS_READ_LOG_DIR: logDir,
+    SS_ENGAGEMENTS_DIR: engagementsRoot,
+    SS_HATCH_AUDIT_FILE: hatchAudit,
+    SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: '',
+    ...extraEnv,
+  }
+}
+
 function run(script: string, input: string, extraEnv: Record<string, string> = {}): number {
   try {
     execFileSync('node', [script], {
       input,
-      env: {
-        ...process.env,
-        CLAUDE_PROJECT_DIR: root,
-        SS_READ_LOG_DIR: logDir,
-        SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: '',
-        ...extraEnv,
-      },
+      env: hookEnv(extraEnv),
       stdio: ['pipe', 'ignore', 'ignore'],
     })
     return 0
@@ -86,16 +109,11 @@ function run(script: string, input: string, extraEnv: Record<string, string> = {
   }
 }
 
-function stderrOf(script: string, input: string): string {
+function stderrOf(script: string, input: string, extraEnv: Record<string, string> = {}): string {
   try {
     execFileSync('node', [script], {
       input,
-      env: {
-        ...process.env,
-        CLAUDE_PROJECT_DIR: root,
-        SS_READ_LOG_DIR: logDir,
-        SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: '',
-      },
+      env: hookEnv(extraEnv),
       stdio: ['pipe', 'ignore', 'pipe'],
     })
     return ''
@@ -156,9 +174,61 @@ describe('engagement-guard: blocks unread-engagement writes', () => {
     expect(run(guard, payload(dossier))).toBe(0)
   })
 
-  it('allows writes when the slug has no dossier on disk yet (structure test closes this window)', () => {
+  it('allows writes when no dossier exists yet AND the engagements repo is present (bootstrap)', () => {
     rmSync(path.join(root, 'operator', 'customers', SLUG, 'dossier.md'))
     rmSync(path.join(altRoot, 'operator', 'customers', SLUG, 'dossier.md'))
+    expect(run(guard, payload(engagementFile()))).toBe(0)
+  })
+
+  // The fail-closed rewire. Before the split, "no dossier on disk" meant "this
+  // engagement has not been written up yet" and allowing was right. Across a
+  // repo boundary the same condition also means "the repo holding every
+  // dossier is not on this machine", where allowing silently disables Law 2
+  // exactly where the client context is missing. Presence of the engagements
+  // checkout is what tells those two apart.
+  it('BLOCKS when no dossier exists and the engagements repo is ABSENT (fail-closed)', () => {
+    rmSync(path.join(root, 'operator', 'customers', SLUG, 'dossier.md'))
+    rmSync(path.join(altRoot, 'operator', 'customers', SLUG, 'dossier.md'))
+    expect(run(guard, payload(engagementFile()), { SS_ENGAGEMENTS_DIR: MISSING_ENGAGEMENTS })).toBe(
+      2
+    )
+  })
+
+  it('the absent-repo block prints the exact clone command', () => {
+    rmSync(path.join(root, 'operator', 'customers', SLUG, 'dossier.md'))
+    rmSync(path.join(altRoot, 'operator', 'customers', SLUG, 'dossier.md'))
+    const err = stderrOf(guard, payload(engagementFile()), {
+      SS_ENGAGEMENTS_DIR: MISSING_ENGAGEMENTS,
+    })
+    expect(err).toContain('git clone https://github.com/venturecrane/engagements.git')
+    expect(err).toContain(MISSING_ENGAGEMENTS)
+  })
+
+  // The read log is pinned to one absolute location precisely so this works.
+  it('cross-repo: a dossier that lives ONLY in the engagements repo is found and gates the write', () => {
+    rmSync(path.join(root, 'operator', 'customers', SLUG, 'dossier.md'))
+    rmSync(path.join(altRoot, 'operator', 'customers', SLUG, 'dossier.md'))
+    mkdirSync(path.join(engagementsRoot, 'operator', 'customers', SLUG), { recursive: true })
+    writeFileSync(path.join(engagementsRoot, 'operator', 'customers', SLUG, 'dossier.md'), '# d\n')
+
+    // Dossier exists (in the other repo) but was never read -> blocked.
+    expect(run(guard, payload(engagementFile()))).toBe(2)
+
+    // Reading it there satisfies a write here.
+    logRead(SESSION, dossierSuffix)
+    expect(run(guard, payload(engagementFile()))).toBe(0)
+  })
+
+  it('cross-repo: a read in the engagements repo unlocks a write in ss-console', () => {
+    mkdirSync(path.join(engagementsRoot, 'operator', 'customers', SLUG), { recursive: true })
+    const remoteDossier = path.join(engagementsRoot, 'operator', 'customers', SLUG, 'dossier.md')
+    writeFileSync(remoteDossier, '# d\n')
+
+    // Read happens in repo A (engagements), tracked by the shared log...
+    expect(
+      run(tracker, payload(remoteDossier, { hook_event_name: 'PostToolUse', tool_name: 'Read' }))
+    ).toBe(0)
+    // ...and authorizes the write in repo B (ss-console).
     expect(run(guard, payload(engagementFile()))).toBe(0)
   })
 
@@ -168,10 +238,44 @@ describe('engagement-guard: blocks unread-engagement writes', () => {
     expect(run(guard, payload(path.join(root, 'src', 'anything.ts')))).toBe(0)
   })
 
-  it('escape hatch: SS_ALLOW_UNREAD_ENGAGEMENT_WRITES=1 allows everything', () => {
+  // The hatch was a global off-switch: one `=1` export disabled Law 2 for
+  // every engagement, indefinitely, with no trace. It is now path-scoped and
+  // audited, so an exemption covers the file the Captain meant and a
+  // permanently-exported hatch is visible instead of quiet.
+  it('escape hatch: =1 is REJECTED and says how to scope it', () => {
     expect(run(guard, payload(engagementFile()), { SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: '1' })).toBe(
-      0
+      2
     )
+    expect(
+      stderrOf(guard, payload(engagementFile()), { SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: '1' })
+    ).toContain('no longer accepted')
+  })
+
+  it('escape hatch: a path-scoped value allows the file it names', () => {
+    expect(
+      run(guard, payload(engagementFile()), {
+        SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: `${SLUG}/correspondence/01_letter.md`,
+      })
+    ).toBe(0)
+  })
+
+  it('escape hatch: a path-scoped value does NOT allow other files', () => {
+    const other = path.join(root, 'operator', 'customers', SLUG, 'SCOPING.md')
+    writeFileSync(other, 'scope\n')
+    expect(
+      run(guard, payload(other), {
+        SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: `${SLUG}/correspondence/01_letter.md`,
+      })
+    ).toBe(2)
+  })
+
+  it('escape hatch: every use is written to the audit file', () => {
+    run(guard, payload(engagementFile()), {
+      SS_ALLOW_UNREAD_ENGAGEMENT_WRITES: `${SLUG}/correspondence/01_letter.md`,
+    })
+    const audit = readFileSync(hatchAudit, 'utf-8')
+    expect(audit).toContain(SESSION)
+    expect(audit).toContain(`operator/customers/${SLUG}/correspondence/01_letter.md`)
   })
 
   it('fails open on malformed stdin', () => {
