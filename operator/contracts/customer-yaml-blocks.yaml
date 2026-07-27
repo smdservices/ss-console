@@ -172,6 +172,16 @@ top_level:
   users:
     status: implemented
     materializer: ss-console portal (console-side access control); not staged to the Machine
+  authority:
+    status: implemented
+    materializer: ss-console portal domain-surface composition (projected to customer_configs.authority_json; resolveDomainSurfaceMode gates which domains render operable to client roles); not staged to the Machine
+    note: >-
+      ADR 0041/0042 domain switches (#2003). Consumed console-side only:
+      validated by src/lib/operator/customer-yaml (checkAuthority), projected
+      by customer-config-projection.ts, enforced per-request by the portal
+      routes (e.g. the pause route requires runtime: client). The Machine
+      never reads it — Machine-side enforcement is the entitlements/exposure
+      model (ADR 0056), a separate axis.
   mcp_connector:
     status: implemented
     materializer: ss-console MCP endpoint (console-hosted Operator<->Claude connector; reads enabled/data_posture/policy/allowed_domains/default_profile/ttl_days/access to authorize MCP tool calls) + WEBHOOK_SECRET_MCP staged by provision-customer.sh for the handoff route
