@@ -106,11 +106,15 @@ describe('doctrine registry: schema', () => {
 // reported as unverifiable rather than silently accepted -- a law claiming
 // coverage that cannot be checked must not read the same as one that passed.
 const CROSS_REPO_PREFIX = 'venturecrane/engagements:'
+const ENGAGEMENTS_DIR =
+  process.env.SS_ENGAGEMENTS_DIR || join(process.env.HOME ?? '', 'dev', 'engagements')
+const ENGAGEMENTS_GUARD_FILE = join(ENGAGEMENTS_DIR, 'tests', 'engagement-guards.test.ts')
+const ENGAGEMENTS_GUARD_FILE_PRESENT = existsSync(ENGAGEMENTS_GUARD_FILE)
 
 describe('doctrine registry: enforcement pointers resolve', () => {
   const unverifiable: string[] = []
 
-  it('every enforcement pointer names a file that exists', () => {
+  it('every enforcement pointer names a file that exists', (ctx) => {
     const violations: string[] = []
     for (const law of laws) {
       if (!Array.isArray(law.enforcement) || law.enforcement.length === 0) {
@@ -130,10 +134,8 @@ describe('doctrine registry: enforcement pointers resolve', () => {
         }
         if (pointer.startsWith(CROSS_REPO_PREFIX)) {
           const rel = pointer.slice(CROSS_REPO_PREFIX.length).trim()
-          const engagementsDir =
-            process.env.SS_ENGAGEMENTS_DIR || join(process.env.HOME ?? '', 'dev', 'engagements')
-          if (existsSync(join(engagementsDir, rel))) continue
-          if (existsSync(engagementsDir)) {
+          if (existsSync(join(ENGAGEMENTS_DIR, rel))) continue
+          if (existsSync(ENGAGEMENTS_DIR)) {
             violations.push(`${law.id}: "${rel}" missing from the engagements repo`)
           } else {
             unverifiable.push(`${law.id}: "${pointer}"`)
@@ -145,11 +147,14 @@ describe('doctrine registry: enforcement pointers resolve', () => {
     }
     expect(violations).toEqual([])
 
+    // Pointers into the private repo could not be checked at all when it is
+    // not on this machine. Reporting that as a pass would be the same lie the
+    // vacuous guards told, so the test is skipped instead: it leaves the
+    // passed count and says why, rather than claiming coverage it lacks.
     if (unverifiable.length > 0) {
-      console.warn(
-        `[doctrine-integrity] ${unverifiable.length} enforcement pointer(s) NOT VERIFIED (engagements ` +
-          `repo not checked out): ${unverifiable.join(', ')}. Expected in ss-console CI; not evidence ` +
-          `the pointer resolves.`
+      ctx.skip(
+        `${unverifiable.length} cross-repo enforcement pointer(s) NOT VERIFIED (engagements repo ` +
+          `not at ${ENGAGEMENTS_DIR}): ${unverifiable.join(', ')}`
       )
     }
   })
@@ -235,28 +240,25 @@ describe('engagement structure: Law 2 has something to gate on', () => {
     expect(strays).toEqual([])
   })
 
-  it('the correspondence-implies-dossier rule is enforced in the engagements repo', () => {
-    const engagementsDir =
-      process.env.SS_ENGAGEMENTS_DIR || join(process.env.HOME ?? '', 'dev', 'engagements')
-    const guardFile = join(engagementsDir, 'tests', 'engagement-guards.test.ts')
-
-    if (!existsSync(guardFile)) {
-      // Loud skip, never a silent pass. CI does not clone the private repo,
-      // and giving ss-console a token that reads client data is precisely
-      // what the split avoids -- so absence here is expected, and stated.
-      console.warn(
-        `[doctrine-integrity] SKIPPED: engagements repo not resolvable at ${engagementsDir}. ` +
-          `The correspondence-implies-dossier rule is enforced by that repo's own CI ` +
-          `(tests/engagement-guards.test.ts). This is expected in ss-console CI and is NOT ` +
-          `evidence the rule holds.`
+  // ctx.skip() rather than a console.warn + return: vitest's default reporter
+  // SWALLOWS console output, so warn-and-return is indistinguishable from a
+  // pass. Skipping moves the test out of the passed count and the reason rides
+  // in the test NAME. A check that could not run must never look like one that
+  // succeeded -- that is the whole failure class this split exists to remove.
+  it(
+    ENGAGEMENTS_GUARD_FILE_PRESENT
+      ? 'the correspondence-implies-dossier rule is enforced in the engagements repo'
+      : `NOT RUN: engagements repo not resolvable at ${ENGAGEMENTS_DIR}; the rule is enforced by that repo's own CI, which this does NOT verify`,
+    (ctx) => {
+      if (!ENGAGEMENTS_GUARD_FILE_PRESENT) {
+        ctx.skip()
+        return
+      }
+      expect(readFileSync(ENGAGEMENTS_GUARD_FILE, 'utf-8')).toContain(
+        'every engagement with a correspondence/ archive has a dossier.md'
       )
-      return
     }
-
-    expect(readFileSync(guardFile, 'utf-8')).toContain(
-      'every engagement with a correspondence/ archive has a dossier.md'
-    )
-  })
+  )
 })
 
 describe('mechanisms under review are falsifiable', () => {
