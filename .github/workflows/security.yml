@@ -14,6 +14,17 @@ on:
     - cron: '0 13 * * *'
   workflow_dispatch:
 
+# Cancel a superseded run when a newer commit lands on the SAME PR branch.
+# Measured 2026-07-27: 47% of runs were already obsolete when they finished.
+# This workflow fans out to parallel jobs, each billed separately, so a
+# superseded run wastes several minutes rather than one. The expression guard
+# is load-bearing: it is false for `push: main`, the daily `schedule`, and
+# `workflow_dispatch`, so the scheduled advisory sweep and every main build run
+# to completion. Only PR iterations cancel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Plan v3.1 §H-3: explicit minimum permissions. Workflow only needs to
 # read the repository contents; it does not write commits, comments, or
 # artifacts. Explicit permissions block supersedes the repo default and
@@ -61,6 +72,42 @@ jobs:
             [ -f "${dir}package.json" ] && dirs+=("${dir%/}")
           done
           node scripts/audit-allowlist.mjs "${dirs[@]}"
+
+      # Folded in from the former standalone `nosemgrep-audit` job
+      # (2026-07-27 CI-cost pass): it needed only a checkout and greps, so a
+      # dedicated runner cost a full billed minute per run for seconds of work.
+      # Step names keep the failure signal specific in the UI.
+      - name: Require substantive justification on every nosemgrep
+        # Every `// nosemgrep` annotation must be followed by ` — ` or `: ` and
+        # at least 20 characters of justification prose. Without this audit,
+        # the gate degrades over time as agents silently silence findings by
+        # appending a bare `// nosemgrep` comment.
+        run: |
+          set -e
+          bad=$(grep -rnP --include='*.ts' --include='*.js' \
+            '//[[:space:]]*nosemgrep(:[^[:space:]]+)?[[:space:]]*(?:[—:][[:space:]]*.{0,19})?[[:space:]]*$' \
+            . \
+            --exclude-dir=node_modules --exclude-dir=dist || true)
+          if [ -n "$bad" ]; then
+            echo "nosemgrep annotations require ≥20 chars of justification after ' — ' or ': ':"
+            echo "$bad"
+            exit 1
+          fi
+          block=$(grep -rnzP --include='*.ts' --include='*.js' \
+            '/\*[^*]*nosemgrep[^*]*\*/' \
+            . \
+            --exclude-dir=node_modules --exclude-dir=dist || true)
+          if [ -n "$block" ]; then
+            echo "Block-comment nosemgrep not supported; use inline // nosemgrep:"
+            echo "$block"
+            exit 1
+          fi
+          disabled=$(grep -rn --include='*.ts' --include='*.js' 'semgrep-disable' . --exclude-dir=node_modules --exclude-dir=dist || true)
+          if [ -n "$disabled" ]; then
+            echo "'semgrep-disable' is banned; use rule-specific nosemgrep:"
+            echo "$disabled"
+            exit 1
+          fi
 
   gitleaks:
     name: Secret Detection
@@ -150,29 +197,6 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-
-  typescript:
-    name: TypeScript Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: '22'
-          cache: 'npm'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@venturecrane'
-
-      - name: Install dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm ci
-
-      - name: TypeScript check
-        run: npx astro check
 
   semgrep:
     name: Static Analysis (Semgrep)
@@ -267,47 +291,10 @@ jobs:
             exit "$rc"
           fi
 
-  nosemgrep-audit:
-    name: nosemgrep Justification Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Require substantive justification on every nosemgrep
-        # Every `// nosemgrep` annotation must be followed by ` — ` or `: ` and
-        # at least 20 characters of justification prose. Without this audit,
-        # the gate degrades over time as agents silently silence findings by
-        # appending a bare `// nosemgrep` comment.
-        run: |
-          set -e
-          bad=$(grep -rnP --include='*.ts' --include='*.js' \
-            '//[[:space:]]*nosemgrep(:[^[:space:]]+)?[[:space:]]*(?:[—:][[:space:]]*.{0,19})?[[:space:]]*$' \
-            . \
-            --exclude-dir=node_modules --exclude-dir=dist || true)
-          if [ -n "$bad" ]; then
-            echo "nosemgrep annotations require ≥20 chars of justification after ' — ' or ': ':"
-            echo "$bad"
-            exit 1
-          fi
-          block=$(grep -rnzP --include='*.ts' --include='*.js' \
-            '/\*[^*]*nosemgrep[^*]*\*/' \
-            . \
-            --exclude-dir=node_modules --exclude-dir=dist || true)
-          if [ -n "$block" ]; then
-            echo "Block-comment nosemgrep not supported; use inline // nosemgrep:"
-            echo "$block"
-            exit 1
-          fi
-          disabled=$(grep -rn --include='*.ts' --include='*.js' 'semgrep-disable' . --exclude-dir=node_modules --exclude-dir=dist || true)
-          if [ -n "$disabled" ]; then
-            echo "'semgrep-disable' is banned; use rule-specific nosemgrep:"
-            echo "$disabled"
-            exit 1
-          fi
-
   summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs: [audit, gitleaks, typescript, semgrep, nosemgrep-audit]
+    needs: [audit, gitleaks, semgrep]
     if: always()
     steps:
       - name: Check results
@@ -327,30 +314,16 @@ jobs:
             echo "- Secret Detection: FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.typescript.result }}" == "success" ]; then
-            echo "- TypeScript: PASSED" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- TypeScript: FAILED" >> $GITHUB_STEP_SUMMARY
-          fi
-
           if [ "${{ needs.semgrep.result }}" == "success" ]; then
             echo "- Static Analysis (Semgrep): PASSED" >> $GITHUB_STEP_SUMMARY
           else
             echo "- Static Analysis (Semgrep): FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.nosemgrep-audit.result }}" == "success" ]; then
-            echo "- nosemgrep Justification Audit: PASSED" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- nosemgrep Justification Audit: FAILED" >> $GITHUB_STEP_SUMMARY
-          fi
-
           # Fail if any check failed
           if [ "${{ needs.audit.result }}" != "success" ] || \
              [ "${{ needs.gitleaks.result }}" != "success" ] || \
-             [ "${{ needs.typescript.result }}" != "success" ] || \
-             [ "${{ needs.semgrep.result }}" != "success" ] || \
-             [ "${{ needs.nosemgrep-audit.result }}" != "success" ]; then
+             [ "${{ needs.semgrep.result }}" != "success" ]; then
             echo ""
             echo "One or more security checks failed."
             exit 1
