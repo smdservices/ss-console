@@ -947,6 +947,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                                 |
 | #50   | Operator launch pricing - $5,000/mo flat + $4,000 stand-up, internal, never published (see ADR 0063)                                 |
 | #51   | Hosted Agent self-serve SKU - $79/mo BYO-key personal Hermes agent, 25 founding seats at $49/mo (see ADR 0067)                       |
+| #52   | Repository visibility - venture consoles PRIVATE, hermes-smd-overlay PUBLIC (provisioning depends on it) (see ADR 0081)              |
 
 ---
 
