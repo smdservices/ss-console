@@ -10,6 +10,15 @@ on:
   # shallow PRs equally safe; re-adding a base filter reopens that hole.
   pull_request:
 
+# Cancel a superseded run when a newer commit lands on the SAME PR branch.
+# Measured 2026-07-27: 47% of runs on this repo were already obsolete when they
+# finished, because nothing cancelled them. The expression guard is load-bearing
+# — it evaluates false for `push: main`, so a merge-queue run or a main build is
+# NEVER cancelled by a following merge. Only PR iterations cancel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     name: Typecheck, Lint, Format, Test

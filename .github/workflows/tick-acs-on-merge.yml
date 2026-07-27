@@ -7,6 +7,10 @@ on:
   pull_request:
     types: [closed]
 
+# NO `concurrency:` here, deliberately. This fires once on PR close and does
+# post-merge bookkeeping (ticking acceptance criteria). Cancelling a superseded
+# run would silently drop the tick for that PR. Cheap to run; never cancel.
+
 jobs:
   tick:
     uses: venturecrane/crane-console/.github/workflows/tick-acs-on-merge-reusable.yml@ec197443b763c444751ce4ea50558130c9c856c2 # tick-acs-v1

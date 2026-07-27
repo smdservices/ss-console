@@ -18,6 +18,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# NO `concurrency:` here, deliberately. Cancelling a superseded run could leave
+# a dependabot PR neither merged nor reported. It is a ~1-minute job, so there
+# is nothing to save. (Separately: this runs `pull_request_target` with write
+# permissions — the classic public-repo escalation surface. It needs a hard
+# review before this repo is ever made public again. See the Phase 5 gate.)
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
