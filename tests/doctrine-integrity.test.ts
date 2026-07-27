@@ -229,15 +229,42 @@ describe('engagement structure: Law 2 has something to gate on', () => {
     expect(slugs.length).toBeGreaterThan(0)
   })
 
-  it('no correspondence archive has reappeared in ss-console', () => {
-    const strays = slugs
-      .filter((slug) => existsSync(join(CUSTOMERS_ROOT, slug, 'correspondence')))
-      .map(
-        (slug) =>
-          `operator/customers/${slug}/correspondence/ is client material and belongs in ` +
-          `venturecrane/engagements, not here`
-      )
-    expect(strays).toEqual([])
+  // Every shape of client material that moved out, not just correspondence/.
+  //
+  // The first cut of this test guarded correspondence/ alone, and an
+  // agreements/ directory (the DPA and Confidentiality Addendum drafted in
+  // #2031 by a parallel session, mid-split) walked straight past it. It was
+  // caught by a rebase conflict, which is luck, not a control. While both
+  // repos can physically hold engagement paths, a concurrent session can put
+  // client material in the wrong one; this is what notices.
+  //
+  // Deliberately shape-based rather than a whitelist: pilot-smokeball carries
+  // operational seed code and smd carries our own dogfood onboarding notes,
+  // neither of which is client material.
+  const CLIENT_MATERIAL = [
+    { name: 'dossier.md', why: 'engagement dossier' },
+    { name: 'correspondence', why: 'client correspondence archive' },
+    { name: 'agreements', why: 'client agreements' },
+  ]
+
+  it('no client material has reappeared in ss-console', () => {
+    const strays: string[] = []
+    for (const slug of slugs) {
+      for (const { name, why } of CLIENT_MATERIAL) {
+        if (existsSync(join(CUSTOMERS_ROOT, slug, name))) {
+          strays.push(`operator/customers/${slug}/${name} (${why})`)
+        }
+      }
+      const clientDocs = existsSync(join(CUSTOMERS_ROOT, slug))
+        ? readdirSync(join(CUSTOMERS_ROOT, slug)).filter((f) => /^CLIENT-.*\.md$/.test(f))
+        : []
+      strays.push(...clientDocs.map((f) => `operator/customers/${slug}/${f} (client document)`))
+    }
+    expect(
+      strays,
+      `client material belongs in the private venturecrane/engagements repo, not here:\n` +
+        strays.join('\n')
+    ).toEqual([])
   })
 
   // ctx.skip() rather than a console.warn + return: vitest's default reporter
