@@ -212,4 +212,38 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
       'medical-chronology-maintainer must author treatment_gap_flag_days: 45 (correspondence 09)'
     ).toBe(45)
   })
+
+  // (g) Per-matter alert routing (#2004, correspondence 09): case-level alerts
+  // route to the matter's assigned attorney/paralegal — never a central inbox
+  // on the firm's side. The seat must author matter_staff routing, must NOT
+  // author a fallback (who receives an unassigned matter's alert is the firm's
+  // working-session call; until then resolution failure holds fail-closed),
+  // and must author external_send_internal so the routed delivery is not
+  // refused at the gate.
+  it('(g) ashton-price authors matter_staff routing, no invented fallback, and internal-send delivery', () => {
+    const raw = parseYaml(readFileSync(join(AP_DIR, 'customer.yaml'), 'utf-8')) as Record<
+      string,
+      unknown
+    >
+    const result = validate(raw)
+    if (!result.ok) {
+      throw new Error(
+        `ashton-price customer.yaml no longer validates:\n${JSON.stringify(result.errors, null, 2)}`
+      )
+    }
+    const routing = result.value.escalation.case_alert_routing
+    expect(routing?.mode, 'case_alert_routing.mode must be matter_staff (correspondence 09)').toBe(
+      'matter_staff'
+    )
+    expect(
+      routing?.fallback_recipients,
+      'fallback_recipients must stay unauthored until the firm names one (working-session input)'
+    ).toEqual([])
+
+    const operator = result.value.personas.find((p) => p.slug === 'operator')
+    expect(
+      operator?.entitlements.exposure['external_send_internal'],
+      'external_send_internal must be authored autonomous — a routed alert that waits for SMD approval is not an alert'
+    ).toBe('autonomous')
+  })
 })

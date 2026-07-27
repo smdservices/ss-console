@@ -272,7 +272,7 @@ hermes run lien-ledger-tracker --action chase
 
 ## Escalation
 
-Raise to the responsible attorney (and the escalation recipients) when: any request
+Raise to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: any request
 asks the skill to compute a reduction or a payoff; any request asks to move money or
 disburse; a lien amount is disputed or two sources conflict; a payoff is stalling as
 settlement approaches (Medicare and ERISA highest, given the reimbursement exposure);

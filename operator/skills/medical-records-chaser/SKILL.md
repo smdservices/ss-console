@@ -256,7 +256,7 @@ hermes run medical-records-chaser --action chase
 
 ## Escalation
 
-Red-flag to the responsible attorney (and the escalation recipients) when: records
+Red-flag to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: records
 are still outstanding as a demand-prep or statute-of-limitations date approaches; a
 provider or vendor refuses or is non-responsive past the cadence; a matter has no
 authored records-request roster; or a landed record cannot be matched to a request

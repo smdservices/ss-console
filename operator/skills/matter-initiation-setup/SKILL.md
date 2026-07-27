@@ -312,7 +312,7 @@ hermes run matter-initiation-setup --matter <matter-id> --action stage-filing-pa
 
 ## Escalation
 
-Red-flag to the responsible attorney (and the escalation recipients) when: a government
+Red-flag to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a government
 defendant or a minor plaintiff is present (the SOL timeline is not the default); the
 setup convention (folders / tasks) is not established for the matter type; a party or the
 defendant roster cannot be resolved with confidence; or **any write fails or cannot be

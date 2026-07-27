@@ -404,7 +404,13 @@ export function applyEditableChanges(
     // outbound_roster (ADR 0075) is governance-sensitive and NOT portal-editable;
     // preserve the current value verbatim (same posture as voice_cohorts below).
     scope: { ...changes.scope, outbound_roster: current.scope.outbound_roster },
-    escalation: { ...changes.escalation },
+    // case_alert_routing (#2004) is governance-sensitive (it decides who at
+    // the firm receives case alerts) and NOT portal-editable; preserve the
+    // current value verbatim (same posture as outbound_roster above).
+    escalation: {
+      ...changes.escalation,
+      case_alert_routing: current.escalation.case_alert_routing,
+    },
     voice_library:
       changes.voiceLibrary.samples_path === null
         ? null

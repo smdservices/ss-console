@@ -238,7 +238,7 @@ hermes run discovery-response-staging --action route
 
 ## Escalation
 
-Red-flag to the responsible attorney (and the escalation recipients) when: the input
+Red-flag to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: the input
 folder or return-location convention is not established for the matter; **any write
 fails or cannot be confirmed by a read** - a staging write (`add_file` /
 `create_folder`), the routing write (`create_task`), or the log write (`create_memo`);

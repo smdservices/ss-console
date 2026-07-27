@@ -621,6 +621,16 @@ escalation:
   # (SMD_CUSTOMER_YAML_PATH); absent => the same pack defaults.
   refire_days: 3 # re-fire an unacked, still-open deadline only this many days after the last raise
   ack_snooze_days: 7 # an acked-but-unresolved deadline re-surfaces this many days after the ack
+  # Rehearses A&P's per-matter routing posture (#2004, correspondence 09): case
+  # alerts resolve to the matter's assigned staff in the staging tenant. The
+  # authored fallback keeps the fallback leg exercisable in rehearsal (L2 can
+  # drive an unstaffed matter through resolution failure to a real delivery);
+  # the client seat deliberately authors NO fallback until the firm names one.
+  # Algorithm: operator/skills/deadline-miss-escalator/references/case-alert-routing.md
+  case_alert_routing:
+    mode: matter_staff
+    fallback_recipients:
+      - scott@smd.services
 
 # ---- VOICE LIBRARY ----
 # Empty until the firm supplies writing samples to tune the voice; ships with the

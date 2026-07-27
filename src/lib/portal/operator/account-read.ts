@@ -34,10 +34,17 @@ export interface SubscriptionView {
   endedAt: string | null
 }
 
+export interface CaseAlertRoutingView {
+  mode: 'central' | 'matter_staff'
+  fallbackRecipients: string[]
+}
+
 export interface EscalationView {
   redFlagRecipients: string[]
   failureRecipients: string[]
   ackWindowMinutes: number | null
+  /** Null = unauthored = central (today's behavior). See #2004. */
+  caseAlertRouting: CaseAlertRoutingView | null
 }
 
 export interface AccountState {
@@ -79,14 +86,32 @@ function stringList(v: unknown): string[] {
  */
 export function parseEscalation(raw: unknown): EscalationView {
   if (!isRecord(raw)) {
-    return { redFlagRecipients: [], failureRecipients: [], ackWindowMinutes: null }
+    return {
+      redFlagRecipients: [],
+      failureRecipients: [],
+      ackWindowMinutes: null,
+      caseAlertRouting: null,
+    }
   }
   const ack = raw['acknowledgement_window_minutes']
   return {
     redFlagRecipients: stringList(raw['red_flag_recipients']),
     failureRecipients: stringList(raw['failure_recipients']),
     ackWindowMinutes: typeof ack === 'number' && Number.isFinite(ack) && ack > 0 ? ack : null,
+    caseAlertRouting: parseCaseAlertRouting(raw['case_alert_routing']),
   }
+}
+
+/**
+ * Total parse of the projected case-alert routing block (#2004). null =
+ * unauthored = central (today's behavior); a malformed blob also resolves to
+ * null rather than throwing, matching the rest of this reader.
+ */
+function parseCaseAlertRouting(raw: unknown): CaseAlertRoutingView | null {
+  if (!isRecord(raw)) return null
+  const mode = raw['mode']
+  if (mode !== 'central' && mode !== 'matter_staff') return null
+  return { mode, fallbackRecipients: stringList(raw['fallback_recipients']) }
 }
 
 /** One-line human label for a subscription status. Client language, not

@@ -235,7 +235,7 @@ hermes run meet-and-confer-drafter --action resurface
 
 ## Escalation
 
-Bring it to the responsible attorney (and the escalation recipients) whenever: a
+Bring it to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — whenever: a
 letter is drafted and awaiting the go/no-go; the compel window is approaching with the
 deficiencies unresolved (waiver risk); the verified-response service date or method
 cannot be read, so the window cannot be confirmed; or the input does not carry an
