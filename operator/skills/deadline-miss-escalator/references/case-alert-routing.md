@@ -19,11 +19,18 @@ For each alert item (items already carry a `matter_id` — the ledger requires
 it):
 
 1. **Read the matter's assignment fields**: `get_matter(matter_id)` returns
-   `personResponsibleStaffId` (the responsible attorney) and
-   `personAssistingStaffId` (the assisting staff) directly on the matter.
-2. **Resolve each populated id through `get_staff(staff_id)`**. A staff record
-   that is deleted/disabled (`isDeleted`) is treated as UNPOPULATED — stale
-   assignment takes the fallback path, same as empty.
+   `personResponsibleStaffId` (the responsible attorney) and the
+   `personAssistingStaffs` list (assisting staff) on the matter. Tenant
+   ground truth (staging probe, 2026-07-27): these fields are **absent
+   entirely until populated** — treat absent and empty identically as
+   UNPOPULATED, never as an error.
+2. **Resolve each populated id through `get_staff(staff_id)`**. A staff
+   record that is disabled or departed (`enabled: false` or `former: true` —
+   the actual staff-record fields; there is no `isDeleted` on staff) is
+   treated as UNPOPULATED — stale assignment takes the fallback path, same
+   as empty. Staff records carry a top-level `email` field (verified on the
+   staging tenant), which is the delivery address candidate the roster check
+   in step 4 evaluates.
 3. **Recipient set**: the responsible attorney always; the assisting staff
    additionally where the skill's own body says paralegal-class work routes to
    assisting staff. At least one resolved, usable person = deliver to that
