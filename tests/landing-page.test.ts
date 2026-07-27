@@ -27,7 +27,7 @@ function readAllSrcFiles(): string[] {
 
 // Marketing surfaces. The "no dollar amounts" check below applies to these
 // files. The Operator SKU page (src/pages/operator.astro) is included:
-// as of 2026-05-30 we pulled the published $5,000/mo price and route pricing
+// as of 2026-05-30 we pulled the published price and route pricing
 // to the first conversation, so no dollar amount may appear on that surface
 // either. New marketing sections SHOULD be added here so a future edit cannot
 // accidentally publish a price.

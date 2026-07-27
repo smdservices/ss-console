@@ -35,7 +35,7 @@ Content spot-checks (grep against `origin/main`, counts as observed):
 | --- | --- |
 | Trust pages live | `GET smd.services/security` 200; `GET smd.services/ai-disclosure` 200; footer link present on the live homepage |
 | Migration 0084 applied AND tracked | `d1_migrations` has the 0084 row (count 1); `stripe_subscription_id` column queryable |
-| Pricing authored on live seats | 2 services rows with `recurring_price = 5000` |
+| Pricing authored on live seats | 2 services rows with `recurring_price` authored at list |
 | Pilot seats deliberately unbilled | 0 subscriptions rows with `stripe_subscription_id` attached (correct per ADR 0063: pilot/dogfood invoice $0) |
 | Heartbeats live | 2 seats with `last_heartbeat_ts` under 5 minutes old (smd, pilot-smokeball; ashton-price has no row until its reprovision - known, honest) |
 | Stripe webhook endpoint | enabled, 5 events: invoice.paid, invoice.payment_failed, invoice.finalized, customer.subscription.updated, customer.subscription.deleted |

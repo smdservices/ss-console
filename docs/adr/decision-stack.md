@@ -813,9 +813,9 @@ Cross-customer learning is not available as a feature. Platform improvements are
 
 **ADR:** [docs/adr/0063-operator-launch-pricing.md](./0063-operator-launch-pricing.md)
 
-**Decision: The Operator launch price is $5,000/month flat-rate retainer plus a one-time $4,000 stand-up fee. Internal, never published; the client sees the price in their proposal.**
+**Decision: The Operator launch price is a flat-rate monthly retainer plus a one-time stand-up fee. Internal, never published; the client sees the price in their proposal. The figures live in `venturecrane/engagements:pricing/`.**
 
-Prices at the salary anchor (ADR 0037: compete with a hire — the displaced coordinator seat runs ~$60k/yr ≈ $5,000/mo loaded), above the Review 5 cost floor ($3,500/mo was ~90% labor and would have been break-even as a price). At $5,000 MRR the COGS>40% kill criterion trips at $2,000/mo seat cost — a genuine anomaly signal rather than ordinary-month noise. Pilot/dogfood seats carry list price for gate purposes while invoiced at $0.
+Prices at the salary anchor (ADR 0037: compete with a hire — the displaced coordinator seat runs ~$60k/yr loaded), above the Review 5 cost floor (which was ~90% labor and would have been break-even as a price). At the locked MRR the COGS>40% kill criterion trips at a seat cost — a genuine anomaly signal rather than ordinary-month noise. Pilot/dogfood seats carry list price for gate purposes while invoiced at $0.
 
 **Cross-layer impact (Layer 3 - Pricing).** Supersedes ADR 0004's deferred-pricing clause; the retainer _shape_ (flat, not metered) is unchanged. Arms the cost-plane kill gate (ADR 0062).
 
@@ -945,7 +945,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007)           |
 | #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)                        |
 | #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                                 |
-| #50   | Operator launch pricing - $5,000/mo flat + $4,000 stand-up, internal, never published (see ADR 0063)                                 |
+| #50   | Operator launch pricing - flat monthly retainer + stand-up fee, internal, never published (see ADR 0063)                             |
 | #51   | Hosted Agent self-serve SKU - $79/mo BYO-key personal Hermes agent, 25 founding seats at $49/mo (see ADR 0067)                       |
 | #52   | Repository visibility - venture consoles PRIVATE, hermes-smd-overlay PUBLIC (provisioning depends on it) (see ADR 0081)              |
 
