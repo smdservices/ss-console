@@ -65,7 +65,7 @@ Client-engagement work begins by reading `operator/customers/<slug>/dossier.md`.
 
 ```yaml
 id: verb-is-scope
-primer_line: 'The verb is the scope: review means read and report. Edit only under an editing verb or explicit ask; never edit Captain-authored client documents unasked.'
+primer_line: 'The verb is the scope: reviewing for discussion means read and orient, not adjudicate; verdicts only under an evaluating ask, edits only under an editing verb. Never edit Captain-authored client documents unasked.'
 cost: high
 tier: primer
 enforcement:
@@ -73,6 +73,8 @@ enforcement:
 incidents:
   - date: 2026-07-26
     ref: Christa-reply session ("review the pricing section" became unauthorized edits to an approved client draft)
+  - date: 2026-07-26
+    ref: Christa-reply review, second failure mode same day (a read-for-discussion request produced an unsolicited audit with a verdict on the approved letter; the editing failure was fixed, the adjudicating one recurred)
   - date: 2026-05-20
     ref: feedback_restore_not_rebuild ("restore" became a partial rebuild)
   - date: 2026-06-12
@@ -80,7 +82,7 @@ incidents:
 escalation: none pending
 ```
 
-The requested verb defines the deliverable. Review and discuss mean read, form a view, report it. Draft means write new. Revise and fix mean edit. Substituting an adjacent verb, in either direction, is scope failure even when the substitute work is good. Client-facing documents authored or approved by the Captain are never edited without an explicit editing instruction; a review of such a document produces observations, not diffs.
+The requested verb defines the deliverable, and review itself has two modes the framing picks between. Reading for discussion ("let's review X", "review this in preparation to discuss") means load the document and its sources, orient in a few sentences of plain fact, then stop and let the Captain set the agenda: no grades, no verdicts, no unsolicited recommendations, no stamping approved work as sound or ready. A delegated evaluation ("review this and tell me if it holds", "check this against X") means read, form a view, report it. First person plural and a coming conversation signal the first mode; an evaluating question signals the second. When unclear, orient first: judgment can always be asked for, but an unrequested verdict preempts the conversation and re-adjudicates calls already made. Draft means write new. Revise and fix mean edit. Substituting an adjacent verb, in either direction, is scope failure even when the substitute work is good. Client-facing documents authored or approved by the Captain are never edited without an explicit editing instruction; a review of such a document produces observations, not diffs.
 
 ### Law 4: A gap in your context is a question, not a finding
 
