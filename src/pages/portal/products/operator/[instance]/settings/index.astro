@@ -11,6 +11,7 @@ import PortalPageHead from '../../../../../../components/portal/PortalPageHead.a
 import DomainSurface from '../../../../../../components/portal/operator/DomainSurface.astro'
 import { hasPortalVisibleInvoices } from '../../../../../../lib/portal/offerings'
 import { env } from 'cloudflare:workers'
+import { readPausePosture } from '../../../../../../lib/portal/operator/pause-control'
 
 /**
  * Operator — Settings, the ACT surface (console blueprint §5, amended
@@ -98,7 +99,30 @@ function resolveBanner(status: string | null, reason: string | null): Banner | n
   return null
 }
 
-const banner = resolveBanner(status, reason)
+// Pause posture (#2003): the Machine-reported sticky-stop level, read from
+// this customer's own fleet_status row (display mirror; enforcement is the
+// Machine-side ladder). 'HARD_STOP' renders the resume control; anything
+// else renders pause. NULL/missing row reads as unknown -> control still
+// renders (the gate call is the truth; a stale mirror must not hide the
+// switch).
+const pausedNow = await readPausePosture(env.DB, instance ?? '')
+
+const PAUSE_BANNERS: Record<string, Banner> = {
+  paused: { text: 'The Operator is paused. It stays off until an admin resumes it.', tone: 'info' },
+  resumed: { text: 'The Operator is resumed and running.', tone: 'success' },
+  pause_reason_required: { text: 'A reason is required to pause or resume.', tone: 'error' },
+  pause_gate_unreachable: {
+    text: 'We could not reach the Operator to change its state. Nothing was changed. Try again, or contact us if the problem persists.',
+    tone: 'error',
+  },
+  pause_not_operable: {
+    text: 'Pause and resume are not enabled for your account yet.',
+    tone: 'error',
+  },
+  pause_invalid_action: { text: 'Invalid pause action.', tone: 'error' },
+}
+
+const banner = (status && PAUSE_BANNERS[status]) || resolveBanner(status, reason)
 
 const subStatus = account.subscription?.status ?? null
 const statusToneClass =
@@ -166,6 +190,68 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
       </div>
     )
   }
+
+  <!-- Pause control — the kill switch (#2003, runtime domain). Operable only
+       when the seat authors authority.runtime: client AND the acting user's
+       role permits runtime (principal). Q6: stops all activity immediately,
+       stays off until resumed, client-usable without SMD, every change
+       logged. -->
+  <section class="mt-8" aria-label="Pause control">
+    <p class={sectionLabelClass}>Pause control</p>
+    <DomainSurface
+      authority={config?.authority ?? null}
+      domain="runtime"
+      roles={roles}
+      returnTo={RETURN_TO}
+      domainLabel="pausing and resuming the Operator"
+    >
+      <div slot="operable" class={cardClass}>
+        <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
+          {
+            pausedNow
+              ? 'The Operator is paused: nothing runs, nothing sends, nothing is scheduled until an admin resumes it. Resuming restarts all configured activity.'
+              : 'Pausing stops all Operator activity immediately and keeps it off until an admin resumes it. Every pause and resume is logged with who made it and when.'
+          }
+        </p>
+        <form
+          method="POST"
+          action={`/api/portal/products/operator/${instance}/pause`}
+          class="mt-4 flex flex-col gap-3"
+        >
+          <input type="hidden" name="action" value={pausedNow ? 'resume' : 'pause'} />
+          <label class="flex flex-col gap-1">
+            <span class={emptyNoteClass}>Reason (required, kept in the log)</span>
+            <input
+              type="text"
+              name="reason"
+              required
+              maxlength="300"
+              class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            class={`w-fit px-5 py-2.5 border-[3px] font-bold uppercase tracking-[0.08em] font-body transition-colors ${
+              pausedNow
+                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)] hover:bg-[color:var(--ss-color-complete)] hover:text-[color:var(--ss-color-background)]'
+                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-error)] hover:text-[color:var(--ss-color-background)]'
+            }`}
+          >
+            {pausedNow ? 'Resume the Operator' : 'Pause the Operator'}
+          </button>
+        </form>
+      </div>
+      <div slot="read" class={cardClass}>
+        <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
+          {
+            pausedNow
+              ? 'The Operator is currently paused.'
+              : 'The Operator is running. Pausing stops all activity immediately; it stays off until resumed, and every change is logged.'
+          }
+        </p>
+      </div>
+    </DomainSurface>
+  </section>
 
   <!-- Plan & billing — provisioning domain: SMD-only, read-only, no request
        form. Absent entirely pre-go-live (billing-relationship gate above). -->

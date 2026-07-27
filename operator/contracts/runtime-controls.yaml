@@ -239,3 +239,31 @@ controls:
     note: >-
       record_runtime_seconds() 3600s wall-clock single-run cap → SOFT_STOP. Built
       + tested; no dispatch caller. Wired by B3.
+
+  operator_pause:
+    control: operator_pause
+    class: dispatch-guard
+    substrate_module: safety-substrate/sticky_stop.py
+    # The pause rides the SAME persisted ladder as sticky_stop_cost_cap:
+    # pin_hard_stops (overlay#188) writes HARD_STOP rows; every enforcement arm
+    # of that control (gate 503s, wake-guard park, job dead-letter) fires for a
+    # pinned pause identically to a cost trip, PLUS the trust plugin's total
+    # tool wall (pre_tool_call refuses every call at HARD_STOP — the chokepoint
+    # covering cron-fired wakes, which no pre_run gates). Resume is the
+    # existing Captain clear surface.
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: '#2003'
+    note: >-
+      Portal kill switch (ss#2003, A&P diligence reply Q6): client-admin
+      pause/resume via portal -> console proxy -> gate POST /sticky-stop/set /
+      /sticky-stop/clear (overlay#188, OVERLAY_REF 9d15c6a9). Governance rows
+      in operator_pause_events (control-plane; broker PID-gates the Machine
+      ledger). UNPROBED until the live negative-fire probe runs on
+      pilot-smokeball at next reprovision: pause via portal route -> verify
+      /mcp/turn 503 + a cron-fired turn refuses at the tool wall -> resume ->
+      verify a turn completes. Promote to enforced with the probe name when
+      that run is recorded (crane_verify).

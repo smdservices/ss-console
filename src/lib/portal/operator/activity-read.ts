@@ -23,6 +23,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { readMachineRuntime, type RuntimeReadActor } from '../../operator/runtime-read'
 import { isClientVisibleAction } from './activity-language'
+import { listPauseEvents } from './pause-control'
 import {
   createMachineRuntimeTransport,
   createRuntimeReadAudit,
@@ -74,7 +75,38 @@ export async function loadActivityPage(
   // Curated client language only (Captain decision 7): entries without
   // authored client copy never reach the page, regardless of filters.
   const clientRows = rows.filter((r) => isClientVisibleAction(r.action))
-  return buildAuditListPage(clientRows, params)
+  // Union the console-side pause/resume governance rows (#2003, Q6: "every
+  // pause and resume is logged"). The Machine ledger cannot carry them (the
+  // broker PID-gates appends to the gateway process), so the client-readable
+  // record is Machine ledger ∪ operator_pause_events. Defensive: a missing
+  // table (fresh environment) contributes nothing rather than blanking the
+  // page.
+  const pauseRows = await loadPauseEventEntries(deps.db, customerSlug)
+  return buildAuditListPage([...clientRows, ...pauseRows], params)
+}
+
+/**
+ * Map the operator_pause_events governance rows into AuditEntry shape so the
+ * activity page renders one unified record. AGENT_STOPPED / AGENT_RESUMED
+ * carry authored client copy in activity-language.ts.
+ */
+async function loadPauseEventEntries(db: D1Database, customerSlug: string): Promise<AuditEntry[]> {
+  try {
+    const events = await listPauseEvents(db, customerSlug)
+    return events.map((e) => ({
+      id: `pause:${e.id}`,
+      ts: e.created_at,
+      actor: e.actor_email,
+      actorRole: asActorRole(e.actor_role),
+      action: e.action === 'pause' ? 'AGENT_STOPPED' : 'AGENT_RESUMED',
+      target: null,
+      decision: null,
+      reason: e.reason,
+      skill: null,
+    }))
+  } catch {
+    return []
+  }
 }
 
 // ---------------------------------------------------------------------------
