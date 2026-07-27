@@ -1110,3 +1110,77 @@ describe('console vocabulary guard (blueprint §6 — retired display labels)', 
     })
   }
 })
+
+// ---------------------------------------------------------------------------
+// Correspondence terms provenance (doctrine Law 5; incident 2026-07-26).
+//
+// A "review" of the Christa reply invented two commercial terms into an
+// approved client draft. The convention (correspondence README + Law 5,
+// docs/doctrine/agent-operating-doctrine.md): every DRAFT letter carries the
+// "Commitments this email creates" provenance header, where each dollar
+// amount, date, duration, or guarantee traces to an ADR, a prior letter, or
+// a dated statement from the Captain; no source means an explicit TBD.
+// This gate checks header PRESENCE (deterministic); per-term tracing stays
+// with the human reviewer reading the block (radar tier, by design).
+// Drafts are transient (renamed on send), so an empty draft set passes.
+// ---------------------------------------------------------------------------
+
+const CORRESPONDENCE_ROOT = resolve('operator/customers')
+
+function collectCorrespondenceFiles(): string[] {
+  if (!existsSync(CORRESPONDENCE_ROOT)) return []
+  return readdirSync(CORRESPONDENCE_ROOT)
+    .filter((slug) => !slug.startsWith('_'))
+    .map((slug) => join(CORRESPONDENCE_ROOT, slug, 'correspondence'))
+    .filter((dir) => existsSync(dir))
+    .flatMap((dir) =>
+      readdirSync(dir)
+        .filter((f) => f.endsWith('.md'))
+        .map((f) => join(dir, f))
+    )
+}
+
+describe('correspondence DRAFT provenance header (doctrine Law 5)', () => {
+  const drafts = collectCorrespondenceFiles().filter((f) => /DRAFT/i.test(f))
+
+  it('every DRAFT letter carries the commitments/provenance header', () => {
+    const violations = drafts
+      .filter((f) => !readFileSync(f, 'utf-8').includes('Commitments this email creates'))
+      .map((f) => relOf(f))
+    expect(violations).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Dossier sentinels stay out of correspondence (doctrine Law 2 leakage rule).
+//
+// Engagement dossiers carry relationship posture and Captain-only facts under
+// a "Context, never quotable" header; the read gate FORCES that context into
+// the session right before client copy gets drafted, so the leak direction
+// must be guarded. These sentinels are dossier-register phrases that have no
+// legitimate use in a letter to a client. Dossier authors: when adding a new
+// sensitive shorthand to a dossier, add its sentinel here in the same PR.
+// ---------------------------------------------------------------------------
+
+const DOSSIER_SENTINELS: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'relationship posture: "ours to lose"', pattern: /ours to lose/i },
+  { label: 'dossier header register: "never quotable"', pattern: /never quotable/i },
+  { label: 'internal register: "Captain-only"', pattern: /captain-only/i },
+]
+
+describe('dossier sentinels never appear in correspondence (doctrine Law 2)', () => {
+  const letters = collectCorrespondenceFiles()
+
+  it('finds correspondence files to scan (sanity)', () => {
+    expect(letters.length).toBeGreaterThan(0)
+  })
+
+  for (const { label, pattern } of DOSSIER_SENTINELS) {
+    it(`must not contain: ${label}`, () => {
+      const violations = letters
+        .filter((f) => pattern.test(readFileSync(f, 'utf-8')))
+        .map((f) => relOf(f))
+      expect(violations).toEqual([])
+    })
+  }
+})
