@@ -1,0 +1,199 @@
+/**
+ * Integrity gate for docs/doctrine/agent-operating-doctrine.md (the operating-law
+ * registry) and its always-on surface, .claude/hooks/reflex-primer.sh.
+ *
+ * Why this exists (2026-07-26, the Christa-reply session): a five-word review
+ * request went sideways because the venture's 72 recorded corrections lived as
+ * prose behind index pointers with no binding to the moment of action. The
+ * doctrine registry distills them into laws, each carrying its incidents and its
+ * enforcement mechanism, honestly labeled by tier. This test is the registry's
+ * conformance gate in the handbook-integrity idiom:
+ *
+ *   1. every law parses against a closed schema (id / primer_line / cost /
+ *      tier / enforcement / incidents / escalation)
+ *   2. every enforcement pointer resolves to a real file (a law claiming gate
+ *      coverage that does not exist is the C2 failure class in a registry row)
+ *   3. every law cites at least one dated incident (rules trace to harm; that
+ *      is what keeps them from being deleted as noise)
+ *   4. every primer_line appears VERBATIM in reflex-primer.sh (the doctrine
+ *      file is the single source of truth; the primer is a rendered copy, and
+ *      unpinned copies drift -- the exact failure the crane Directives block
+ *      has, ported here with a test so it cannot happen to the laws)
+ *   5. no em dashes (venture style law)
+ *   6. structural: every real engagement with a correspondence/ archive has a
+ *      dossier.md (Law 2 has nothing to gate on otherwise)
+ *   7. mechanisms under review carry a falsifiable success criterion and a
+ *      review date (a mechanism that cannot be demoted is ceremony)
+ *
+ * @see docs/doctrine/agent-operating-doctrine.md
+ */
+import { describe, it, expect } from 'vitest'
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
+import { join, resolve } from 'path'
+import { parse as parseYaml } from 'yaml'
+
+const DOCTRINE_PATH = resolve('docs/doctrine/agent-operating-doctrine.md')
+const PRIMER_PATH = resolve('.claude/hooks/reflex-primer.sh')
+const CUSTOMERS_ROOT = resolve('operator/customers')
+
+const TIERS = ['gate', 'radar', 'primer', 'prose'] as const
+const COSTS = ['high', 'medium', 'low'] as const
+
+interface Law {
+  id: string
+  primer_line: string
+  cost: string
+  tier: string
+  enforcement: string[]
+  incidents: Array<{ date: string; ref: string }>
+  escalation: string
+}
+
+interface Mechanism {
+  id: string
+  file: string
+  hypothesis: string
+  success_criterion: string
+  review: string | Date
+  on_failure: string
+}
+
+const doctrineRaw = readFileSync(DOCTRINE_PATH, 'utf8')
+const primerRaw = readFileSync(PRIMER_PATH, 'utf8')
+
+const yamlFences = [...doctrineRaw.matchAll(/```yaml\n([\s\S]*?)```/g)].map((m) => m[1])
+const laws: Law[] = yamlFences
+  .map((f) => parseYaml(f) as Record<string, unknown>)
+  .filter((doc): doc is Law & Record<string, unknown> => typeof doc?.id === 'string')
+const mechanisms: Mechanism[] = yamlFences
+  .map((f) => parseYaml(f) as Record<string, unknown>)
+  .filter((doc) => Array.isArray(doc?.mechanisms))
+  .flatMap((doc) => doc.mechanisms as Mechanism[])
+
+describe('doctrine registry: schema', () => {
+  it('finds the laws (sanity: an emptied registry must not pass green)', () => {
+    expect(laws.length).toBeGreaterThanOrEqual(8)
+  })
+
+  it('law ids are unique kebab-case', () => {
+    const ids = laws.map((l) => l.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    const bad = ids.filter((id) => !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id))
+    expect(bad).toEqual([])
+  })
+
+  it('every law has a non-empty primer_line, valid cost, and valid tier', () => {
+    const violations: string[] = []
+    for (const law of laws) {
+      if (typeof law.primer_line !== 'string' || law.primer_line.trim().length === 0)
+        violations.push(`${law.id}: empty primer_line`)
+      if (!COSTS.includes(law.cost as (typeof COSTS)[number]))
+        violations.push(`${law.id}: cost "${law.cost}" not in ${COSTS.join('/')}`)
+      if (!TIERS.includes(law.tier as (typeof TIERS)[number]))
+        violations.push(`${law.id}: tier "${law.tier}" not in ${TIERS.join('/')}`)
+      if (typeof law.escalation !== 'string' || law.escalation.length === 0)
+        violations.push(`${law.id}: missing escalation state`)
+    }
+    expect(violations).toEqual([])
+  })
+})
+
+describe('doctrine registry: enforcement pointers resolve', () => {
+  it('every enforcement pointer names a file that exists', () => {
+    const violations: string[] = []
+    for (const law of laws) {
+      if (!Array.isArray(law.enforcement) || law.enforcement.length === 0) {
+        violations.push(`${law.id}: no enforcement pointers`)
+        continue
+      }
+      for (const pointer of law.enforcement) {
+        if (!existsSync(resolve(pointer))) violations.push(`${law.id}: "${pointer}" does not exist`)
+      }
+    }
+    expect(violations).toEqual([])
+  })
+})
+
+describe('doctrine registry: incident provenance', () => {
+  it('every law cites at least one dated incident', () => {
+    const violations: string[] = []
+    for (const law of laws) {
+      if (!Array.isArray(law.incidents) || law.incidents.length === 0) {
+        violations.push(`${law.id}: no incidents`)
+        continue
+      }
+      for (const inc of law.incidents) {
+        const date = String(inc.date ?? '')
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
+          violations.push(`${law.id}: incident date "${date}" not YYYY-MM-DD`)
+        if (typeof inc.ref !== 'string' || inc.ref.trim().length === 0)
+          violations.push(`${law.id}: incident missing ref`)
+      }
+    }
+    expect(violations).toEqual([])
+  })
+})
+
+describe('doctrine <-> primer parity (the anti-drift pin)', () => {
+  it('every primer_line appears verbatim in reflex-primer.sh', () => {
+    const missing = laws
+      .filter((law) => !primerRaw.includes(law.primer_line))
+      .map((law) => `${law.id}: primer_line not found verbatim in ${PRIMER_PATH}`)
+    expect(missing).toEqual([])
+  })
+
+  it('the primer names the doctrine file so readers can find the source', () => {
+    expect(primerRaw).toContain('docs/doctrine/agent-operating-doctrine.md')
+  })
+})
+
+describe('doctrine style', () => {
+  it('the doctrine file contains no em dashes', () => {
+    const lines = doctrineRaw
+      .split('\n')
+      .map((line, i) => ({ line, n: i + 1 }))
+      .filter(({ line }) => line.includes('—'))
+      .map(({ n }) => `line ${n}`)
+    expect(lines).toEqual([])
+  })
+})
+
+describe('engagement structure: Law 2 has something to gate on', () => {
+  const slugs = readdirSync(CUSTOMERS_ROOT).filter(
+    (name) => !name.startsWith('_') && statSync(join(CUSTOMERS_ROOT, name)).isDirectory()
+  )
+
+  it('finds customer slugs (sanity)', () => {
+    expect(slugs.length).toBeGreaterThan(0)
+  })
+
+  it('every engagement with a correspondence/ archive has a dossier.md', () => {
+    const violations = slugs
+      .filter((slug) => existsSync(join(CUSTOMERS_ROOT, slug, 'correspondence')))
+      .filter((slug) => !existsSync(join(CUSTOMERS_ROOT, slug, 'dossier.md')))
+      .map((slug) => `operator/customers/${slug}/ has correspondence/ but no dossier.md`)
+    expect(violations).toEqual([])
+  })
+})
+
+describe('mechanisms under review are falsifiable', () => {
+  it('finds the mechanisms block (sanity)', () => {
+    expect(mechanisms.length).toBeGreaterThan(0)
+  })
+
+  it('each mechanism has a resolving file, a success criterion, and a review date', () => {
+    const violations: string[] = []
+    for (const m of mechanisms) {
+      if (!existsSync(resolve(m.file))) violations.push(`${m.id}: file "${m.file}" does not exist`)
+      if (typeof m.success_criterion !== 'string' || m.success_criterion.trim().length === 0)
+        violations.push(`${m.id}: no success_criterion`)
+      const review =
+        m.review instanceof Date ? m.review.toISOString().slice(0, 10) : String(m.review ?? '')
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(review))
+        violations.push(`${m.id}: review "${review}" not a date`)
+      if (typeof m.on_failure !== 'string' || m.on_failure.trim().length === 0)
+        violations.push(`${m.id}: no on_failure disposition`)
+    }
+    expect(violations).toEqual([])
+  })
+})

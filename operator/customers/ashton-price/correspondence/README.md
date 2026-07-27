@@ -79,3 +79,13 @@ writing — it does not.
 
 _Source of record: `smdurgan@smdurgan.com` mailbox. Message-ids are recorded per file so any
 item can be re-fetched if needed, but the archived copy here is authoritative for reference._
+
+## DRAFT provenance convention (doctrine Law 5, added 2026-07-26)
+
+Every `*DRAFT*` letter in this folder carries a **"Commitments this email creates"** header, and every commercial term in the body (dollar amount, date, duration, guarantee) traces to a source: an ADR, a prior letter in this archive, or a dated statement from the Captain. A term with no source is written as an explicit TBD, never filled with plausible content.
+
+- Header presence is gated by `tests/forbidden-strings.test.ts` (a DRAFT without the header fails `npm run verify`).
+- Per-term tracing is the human reviewer's read of the header block; the gate checks presence, not truth, by design.
+- Incident that produced this rule: 2026-07-26, a "review" of the `10-DRAFT` pricing section invented two commercial terms (a billing backstop date and a rate hold) that existed nowhere. See `docs/doctrine/agent-operating-doctrine.md`, Law 5.
+
+Read the engagement dossier (`../dossier.md`) before drafting or editing anything here; the read gate enforces the edit half of that rule.
