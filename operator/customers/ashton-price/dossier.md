@@ -37,6 +37,7 @@ Closed facts an agent relies on without comment. Surfacing any of these as a fla
 
 - **The stand-up waiver.** Rationale recorded in Commercial rationale above, Captain-confirmed 2026-07-26. Letter 10 states the waiver in one clause without justification by design; the omission is the approved posture, not a gap. Needs no comment in any review.
 - **Claude direct access.** A deliverable Chris himself requested; we built it and we provide it. The firm's own Claude Enterprise account carries the seats; SMD sets up and maintains the access for the people the firm chooses. Letter 10's wording is correct as written. The 07-26 account fact creates no tension with the 07-24 approval.
+- **Voice-sample sourcing.** The firm never assembles or hands over documents (letter 07 "Getting set up": "You do not need to send us anything"; letter 10 item 4: "We don't keep a copy of your matter files"). Christa at most points at specific matters, letters, or folders; we read them in place through the authorized connector and persist only content-free structural fingerprints. Any plan or issue language asking the firm to "provide samples" is drift from the sent commitment — it re-triggered her retention/destruction concerns once (letter 09 cycle) and must not resurface. Build item: #2036. (Captain re-affirmed 2026-07-27.)
 
 ## Firm research
 

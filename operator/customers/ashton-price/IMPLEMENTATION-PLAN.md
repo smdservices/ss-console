@@ -187,12 +187,19 @@ principal) to correct the model and lock what only the firm can give:
    meeting; sets motion/response orchestration.
 6. **Voice samples** — ~30 firm-authored letters/templates (the ADR 0028
    anchor-pack size) into the voice library, so Layer 2 has a real corpus to
-   transform toward instead of the general fallback. Christa provides the
-   samples; we ingest them through the leak-guarded differ
+   transform toward instead of the general fallback. The firm never
+   assembles or provides documents (letter 07 "Getting set up": "You do not
+   need to send us anything"; letter 10 item 4: "We don't keep a copy of
+   your matter files"). Christa points at sample matters, letters, or
+   folders in Smokeball (or the firm's directory); we read each document in
+   place through the authorized connector and pass the text transiently
+   through the leak-guarded differ
    (`operator/bin/voice-ingest-corpus.py`) to content-free structural-diff
-   cohort JSONs in the seat vault — raw letter text never lands in the vault
-   or logs. The portal self-serve upload path (#1851) is a later
-   convenience; at onboarding we ingest the pack directly.
+   cohort JSONs in the seat vault — raw letter text is discarded after
+   extraction and never lands in the vault, logs, or any SMD store. The
+   Smokeball-fetch front end for the differ is #2036; the portal
+   self-serve upload path (#1851) is a later convenience for firms without
+   a readable document source.
 7. **Monitored-inbox decision** — owned address vs forwarding vs Graph watch
    (feeds M6).
 8. **Starting matter set** — which live matters observation watches first.
@@ -347,7 +354,7 @@ is the artifact to speak from (in its client-facing shape,
 | 4   | Markup + 7 proposal questions                                                                                                   | Christa          | Lane final shapes                                                                                                       |
 | 5   | Deadline-fork answer                                                                                                            | Christa          | Deadline-lane shape                                                                                                     |
 | 6   | CoCounsel division (post-TR meeting)                                                                                            | Christa          | Motion/response lane                                                                                                    |
-| 7   | Voice samples (letters/templates)                                                                                               | Christa          | Firm-voice drafting                                                                                                     |
+| 7   | Voice-sample pointers (which matters/letters to read in Smokeball; no documents handed over)                                    | Christa          | Firm-voice drafting                                                                                                     |
 | 8   | Inbox decision + M365 admin consent                                                                                             | Christa + IT     | M6                                                                                                                      |
 | 9   | Starting matter set                                                                                                             | Christa          | M4 shadow scope                                                                                                         |
 | 10  | Lifecycle sign-off (per-lane acceptance)                                                                                        | Chris + Christa  | Gate (a) → M5+                                                                                                          |
