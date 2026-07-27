@@ -104,17 +104,11 @@ ssh_exec "hermes-profiles-dir" "test -d /opt/data/profiles && [ -n \"\$(ls -A /o
 # orphans (overlay#185); this check proves it held on THIS boot, so any
 # future orphan class in profiles/ fails the smoke test instead of lurking.
 # Dot-prefixed entries and plain files are exempt, matching the reconciler.
-ssh_exec "no-unauthored-profile-homes" "/opt/hermes/.venv/bin/python3 -c \"
-import sys, yaml
-from pathlib import Path
-authored = {p['slug'] for p in (yaml.safe_load(open('/var/lib/smd-config/customer.yaml')) or {}).get('personas', [])}
-on_disk = {e.name for e in Path('/opt/data/profiles').iterdir() if e.is_dir() and not e.name.startswith('.')}
-orphans = sorted(on_disk - authored)
-missing = sorted(authored - on_disk)
-if orphans or missing:
-    print(f'profile-home drift: orphans={orphans} missing={missing}', file=sys.stderr)
-    sys.exit(1)
-\""
+# QUOTING CONSTRAINT: ssh_exec wraps the command in sh -c '...' — the check
+# must contain NO single quotes and NO newlines (the first cut of this step
+# used both and never parsed on the Machine; the volume was clean, the check
+# was broken). Python strings below are double-quoted only, one line.
+ssh_exec "no-unauthored-profile-homes" "/opt/hermes/.venv/bin/python3 -c \"import sys, yaml, pathlib; a = {p[\\\"slug\\\"] for p in (yaml.safe_load(open(\\\"/var/lib/smd-config/customer.yaml\\\")) or {}).get(\\\"personas\\\", [])}; d = {e.name for e in pathlib.Path(\\\"/opt/data/profiles\\\").iterdir() if e.is_dir() and not e.name.startswith(\\\".\\\")}; drift = sorted(d - a) + sorted(a - d); sys.stderr.write(f\\\"profile-home drift: orphans={sorted(d - a)} missing={sorted(a - d)}\\n\\\") if drift else None; sys.exit(1 if drift else 0)\""
 
 # ---------- Step 7: overlay plugins installed ----------
 # `hermes plugins list` should include the four hermes-smd-* plugins

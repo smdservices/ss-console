@@ -372,7 +372,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the connector was baked but never launched (no registry entry). Range also
 # carries overlay#179 (connector-health ledger, ss#1990/ADR 0080). NONE of the 8
 # tracked twins changed (git-diff-verified 9b3f712..e031c09). Superset of 9b3f712.
-ARG OVERLAY_REF="293a042444ba6e0866e5da3315336f398b70a8cf"
+ARG OVERLAY_REF="bed9ebdd9c918851b9205f8c97c187326f5c4aef"
 
 ARG CUSTOMER_SLUG=customer-zero
 

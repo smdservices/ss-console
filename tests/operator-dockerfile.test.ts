@@ -460,7 +460,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // serves. Orphaned homes are now deleted at translate, so renames are
     // self-cleaning. Range also carries overlay#184 (Sentry event throttle).
     // overlayRef-only across cd213a54..293a0424.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="293a042444ba6e0866e5da3315336f398b70a8cf"')
+    // bed9ebdd — retired persona name purged from overlay fixtures + permanent
+    // full-repo guard test (overlay#186, ss#2009 close-out): the fixture copies
+    // shipped inside the overlay pack onto customer volumes; the volume-wide
+    // negative scan found them. overlayRef-only across 293a0424..bed9ebdd.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="bed9ebdd9c918851b9205f8c97c187326f5c4aef"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
