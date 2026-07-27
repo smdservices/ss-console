@@ -464,7 +464,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // full-repo guard test (overlay#186, ss#2009 close-out): the fixture copies
     // shipped inside the overlay pack onto customer volumes; the volume-wide
     // negative scan found them. overlayRef-only across 293a0424..bed9ebdd.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="bed9ebdd9c918851b9205f8c97c187326f5c4aef"')
+    // 9d15c6a9 — operator pause (overlay#188, ss#2003): pin_hard_stops +
+    // gate POST /sticky-stop/set (exact mirror of /sticky-stop/clear, same
+    // console-proxy bearer, idempotent) + trust-plugin total tool wall at
+    // HARD_STOP (the chokepoint covering cron-fired wakes, which no pre_run
+    // gates). Range also carries overlay#187 (secret-scan fallback-recipients
+    // exemption, ss#2004). overlayRef-only across bed9ebdd..9d15c6a9.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9d15c6a9509b58ecd0e7a54bcf3227070b73f166"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

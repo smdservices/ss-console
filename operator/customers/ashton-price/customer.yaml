@@ -69,6 +69,18 @@ users:
     role: principal
     full_name: Scott Durgan
 
+# ---- AUTHORITY (ADR 0041/0042 domain switches) ----
+# The diligence reply (10, Q6/Q7) commits the pause control and entitlement
+# visibility to the firm's named admins "without us." The runtime switch is
+# therefore CLIENT-held: the portal pause/resume control (#2003) is operable
+# by the firm's principal-role users. Every other domain stays managed for
+# the pilot; entitlement-setting changes (Q7's second half) flip `trust` to
+# client when that control ships. No imposed defaults — this is authored.
+authority:
+  default: managed
+  overrides:
+    runtime: client
+
 # ---- PERSONAS ----
 # One coordinator persona — the law spine + the two committed deliverables
 # (matter-memo-on-update, matter-document-review). Entitlements are the FIRM's to
