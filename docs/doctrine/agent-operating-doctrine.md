@@ -65,7 +65,7 @@ Client-engagement work begins by reading `operator/customers/<slug>/dossier.md`.
 
 ```yaml
 id: verb-is-scope
-primer_line: 'The verb is the scope: reviewing for discussion means read and orient, not adjudicate; verdicts only under an evaluating ask, edits only under an editing verb. Never edit Captain-authored client documents unasked.'
+primer_line: 'The verb is the scope: "review X" or "let''s review X" delivers exactly the text of X plus "what would you like to discuss", nothing volunteered; verdicts only under an evaluating ask, edits only under an editing verb. Never edit Captain-authored client documents unasked.'
 cost: high
 tier: primer
 enforcement:
@@ -75,14 +75,16 @@ incidents:
     ref: Christa-reply session ("review the pricing section" became unauthorized edits to an approved client draft)
   - date: 2026-07-26
     ref: Christa-reply review, second failure mode same day (a read-for-discussion request produced an unsolicited audit with a verdict on the approved letter; the editing failure was fixed, the adjudicating one recurred)
+  - date: 2026-07-26
+    ref: Christa-reply review, third recurrence same day ("orient in a few sentences" was read as license for an orientation report with sourcing tables and a volunteered flag on a settled term; the Captain spent the day battling agents instead of working the letter; this law's prose now carries the output contract instead of "orient")
   - date: 2026-05-20
     ref: feedback_restore_not_rebuild ("restore" became a partial rebuild)
   - date: 2026-06-12
     ref: feedback_redesign_is_subtraction_and_proof_before_scale ("redesign" became polish)
-escalation: none pending
+escalation: 'Third incident 2026-07-26 evaluated for promotion per the escalation rule. Held at primer tier: the failure lives in response composition, which no deterministic gate or radar can inspect (the redirect-reflex v2 lesson: pattern-matching agent output is too brittle to build a forcing function on). Remedy applied instead: primer_line and prose sharpened from "orient" to an explicit output contract.'
 ```
 
-The requested verb defines the deliverable, and review itself has two modes the framing picks between. Reading for discussion ("let's review X", "review this in preparation to discuss") means load the document and its sources, orient in a few sentences of plain fact, then stop and let the Captain set the agenda: no grades, no verdicts, no unsolicited recommendations, no stamping approved work as sound or ready. A delegated evaluation ("review this and tell me if it holds", "check this against X") means read, form a view, report it. First person plural and a coming conversation signal the first mode; an evaluating question signals the second. When unclear, orient first: judgment can always be asked for, but an unrequested verdict preempts the conversation and re-adjudicates calls already made. Draft means write new. Revise and fix mean edit. Substituting an adjacent verb, in either direction, is scope failure even when the substitute work is good. Client-facing documents authored or approved by the Captain are never edited without an explicit editing instruction; a review of such a document produces observations, not diffs.
+The requested verb defines the deliverable, and review itself has two modes the framing picks between. Reading for discussion ("let's review X", "review this in preparation to discuss") has a fixed output shape: load the dossier and the document, then respond with exactly three things, namely confirmation of what was read, the text of the requested section, and the question of what the Captain wants to discuss. Nothing volunteered: no orientation summary, no source-tracing recital, no flags or "worth confirming" observations on settled terms, no grades, no verdicts, no stamping approved work as sound or ready. The reading primes judgment for the conversation; the judgment stays unvoiced until asked for. A delegated evaluation ("review this and tell me if it holds", "check this against X") means read, form a view, report it. First person plural and a coming conversation signal the first mode; an evaluating question signals the second. When unclear, deliver the text and ask: judgment can always be asked for, but an unrequested verdict preempts the conversation and re-adjudicates calls already made. Draft means write new. Revise and fix mean edit. Substituting an adjacent verb, in either direction, is scope failure even when the substitute work is good. Client-facing documents authored or approved by the Captain are never edited without an explicit editing instruction; a review of such a document produces observations, not diffs.
 
 ### Law 4: A gap in your context is a question, not a finding
 
