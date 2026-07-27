@@ -32,8 +32,8 @@ written as explicit bracketed TBDs, never filled with plausible content.
 | No training on Customer Data                                                                             | Letter 10 §2; DPA §5                                                     |
 | Dedicated machine + encrypted volume; per-customer isolation                                             | ADR 0007; letter 10 §4                                                   |
 | Insurance limits: Tech E&O + Cyber $1M aggregate; CGL $1M/occ, $2M agg                                   | COI (ACORD 25, Vouch, 2026-07-24; policies eff 2026-07-27 to 2027-07-27) |
-| Invoiced monthly in advance; due net 30; 1.5%/mo late interest                                           | Template standard (#827); **Captain ratification pending**               |
-| Fee changes: 60 days written notice                                                                      | Template standard (#827); **Captain ratification pending**               |
+| Invoiced monthly in advance; due net 30; 1.5%/mo late interest                                           | Template standard (#827); ratified by Captain 2026-07-27                 |
+| Fee changes: 60 days written notice                                                                      | Template standard (#827); ratified by Captain 2026-07-27                 |
 | Liability cap: greater of trailing-12-month fees or $60,000                                              | Captain decision 2026-07-27; counsel confirmation pending                |
 | Governing law: Arizona                                                                                   | Captain decision, 2026-07-27 (opening position)                          |
 
@@ -44,7 +44,7 @@ written as explicit bracketed TBDs, never filled with plausible content.
 3. `[A&P ENTITY]` - confirm exact legal entity name and form ("Ashton & Price LLP" per letter 10 §3) and principal address.
 4. `[SIGNATORY]` - Chris Price's exact title for the signature block.
 5. `[NAMED ADMINISTRATORS]` - the two portal administrators the firm names (letter 10 §7).
-6. Invoicing standards (net 30, late interest, 60-day fee-change notice) are template boilerplate, not letter commitments; Captain ratifies or strikes.
+6. Invoicing standards: RATIFIED as-is by Captain 2026-07-27 (net 30, 1.5%/mo late interest, 60-day fee-change notice).
 7. Counsel review of Sections 10 through 13 (warranties, liability, indemnification, disputes) before signature.
 
 ---
