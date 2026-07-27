@@ -64,6 +64,13 @@ export function personaSendAsAddress(sendAs: PersonaSendAs | null | undefined): 
 export interface PersonaSkill {
   name: string
   initiation: SkillInitiation
+  /**
+   * Authored scalar knobs (ADR 0075) the runtime reads verbatim — projected
+   * so the portal (config source of truth to the client, correspondence 08)
+   * can render the firm's confirmed numbers, e.g. the #2005 pair. Rows
+   * projected before this field existed parse as absent (defensive read side).
+   */
+  settings?: Record<string, string | number | boolean>
 }
 
 export interface PersonaChannelBinding {
