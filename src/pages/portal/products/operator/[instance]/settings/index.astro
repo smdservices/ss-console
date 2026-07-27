@@ -12,6 +12,7 @@ import DomainSurface from '../../../../../../components/portal/operator/DomainSu
 import { hasPortalVisibleInvoices } from '../../../../../../lib/portal/offerings'
 import { env } from 'cloudflare:workers'
 import { readPausePosture } from '../../../../../../lib/portal/operator/pause-control'
+import { liveTierOf, selectableTiers } from '../../../../../../lib/operator/entitlement-compiler'
 
 /**
  * Operator — Settings, the ACT surface (console blueprint §5, amended
@@ -68,6 +69,15 @@ const showPlanBilling = subscriptionLive || (await hasPortalVisibleInvoices(env.
 
 const RETURN_TO = `${operatorBase}/settings`
 
+// Client language for the tier vocabulary. The internal terms (flag-only /
+// prepare-and-route / auto-handle) are ours; the client reads what the level
+// DOES, in the letter's own framing.
+const TIER_LABELS: Record<string, string> = {
+  'flag-only': 'Surfaces it for you',
+  'prepare-and-route': 'Prepares it for someone to send',
+  'auto-handle': 'Handles it end to end',
+}
+
 // Connect-status banner — set by the OAuth callback / initiate on redirect.
 const status = Astro.url.searchParams.get('status')
 const reason = Astro.url.searchParams.get('reason')
@@ -107,6 +117,20 @@ function resolveBanner(status: string | null, reason: string | null): Banner | n
 // switch).
 const pausedNow = await readPausePosture(env.DB, instance ?? '')
 
+// Entitlement control (#2003 Q7): the seat's routine grid, each row with the
+// tiers it may legally be set to (compiler-derived, so the control can never
+// offer a choice the route would reject).
+const routineRows = (config?.routine_grid?.rows ?? []).map((row) => ({
+  routine: row.routine,
+  liveTier: liveTierOf(row, {
+    personaSlug: config?.routine_grid?.persona ?? '',
+    exposure: (config?.personas.find((p) => p.slug === config?.routine_grid?.persona)?.entitlements
+      .exposure ?? {}) as Record<string, string>,
+  }),
+  ceiling: row.ceiling_tier,
+  options: selectableTiers(row),
+}))
+
 const PAUSE_BANNERS: Record<string, Banner> = {
   paused: { text: 'The Operator is paused. It stays off until an admin resumes it.', tone: 'info' },
   resumed: { text: 'The Operator is resumed and running.', tone: 'success' },
@@ -120,6 +144,32 @@ const PAUSE_BANNERS: Record<string, Banner> = {
     tone: 'error',
   },
   pause_invalid_action: { text: 'Invalid pause action.', tone: 'error' },
+  entitlement_submitted: {
+    text: 'Change submitted for review. It takes effect once approved and rolled out; the record below tracks it.',
+    tone: 'success',
+  },
+  entitlement_no_change: { text: 'That routine is already set that way.', tone: 'info' },
+  entitlement_reason_required: { text: 'A reason is required to change a setting.', tone: 'error' },
+  entitlement_not_operable: {
+    text: 'Changing autonomy settings is not enabled for your account yet.',
+    tone: 'error',
+  },
+  entitlement_rejected_above_letter_ceiling: {
+    text: 'That level is above what this routine is set up to do. Changing it is a scope conversation with us, not a settings change.',
+    tone: 'error',
+  },
+  entitlement_rejected_no_graduation_path: {
+    text: 'This routine only surfaces work; it has no drafting or sending step to raise.',
+    tone: 'error',
+  },
+  entitlement_config_unreadable: {
+    text: 'We could not read this Operator configuration. Nothing was changed.',
+    tone: 'error',
+  },
+  entitlement_failed: {
+    text: 'We could not submit that change. Nothing was changed. Try again, or contact us if the problem persists.',
+    tone: 'error',
+  },
 }
 
 const banner = (status && PAUSE_BANNERS[status]) || resolveBanner(status, reason)
@@ -252,6 +302,94 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
       </div>
     </DomainSurface>
   </section>
+
+  <!-- Autonomy per routine — the entitlement control (#2003, trust domain).
+       Operable only when the seat authors authority.trust: client AND the
+       role matrix permits. A submitted change opens a reviewable change to
+       the authored configuration; it is never applied by the click. -->
+  {
+    routineRows.length > 0 && (
+      <section class="mt-10" aria-label="Autonomy per routine">
+        <p class={sectionLabelClass}>Autonomy per routine</p>
+        <DomainSurface
+          authority={config?.authority ?? null}
+          domain="trust"
+          roles={roles}
+          returnTo={RETURN_TO}
+          domainLabel="how much each routine does on its own"
+        >
+          <div slot="operable" class={cardClass}>
+            <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
+              Each routine runs at one of three levels: it can surface work, prepare it for someone
+              to send, or handle it end to end. Raising a level is submitted for review and takes
+              effect once approved and rolled out. Every change is logged with who made it and when.
+            </p>
+            <ul class="mt-4 flex flex-col gap-4 list-none p-0">
+              {routineRows.map((row) => (
+                <li class="border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-4">
+                  <p class="m-0 font-body font-bold text-[color:var(--ss-color-text-primary)]">
+                    {row.routine}
+                  </p>
+                  <form
+                    method="POST"
+                    action={`/api/portal/products/operator/${instance}/entitlement`}
+                    class="mt-2 flex flex-col gap-2 md:flex-row md:items-end"
+                  >
+                    <input type="hidden" name="routine" value={row.routine} />
+                    <label class="flex flex-col gap-1">
+                      <span class={emptyNoteClass}>Level</span>
+                      <select
+                        name="targetTier"
+                        class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm"
+                      >
+                        {row.options.map((tier) => (
+                          <option value={tier} selected={tier === row.liveTier}>
+                            {TIER_LABELS[tier]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label class="flex flex-1 flex-col gap-1">
+                      <span class={emptyNoteClass}>Reason (required, kept in the log)</span>
+                      <input
+                        type="text"
+                        name="reason"
+                        required
+                        maxlength="300"
+                        class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      class="w-fit px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
+                    >
+                      Submit
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div slot="read" class={cardClass}>
+            <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
+              Each routine runs at one of three levels: it can surface work, prepare it for someone
+              to send, or handle it end to end.
+            </p>
+            <ul class="mt-4 flex flex-col gap-2 list-none p-0">
+              {routineRows.map((row) => (
+                <li class="flex flex-wrap items-baseline justify-between gap-2 border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-2">
+                  <span class="font-body text-sm text-[color:var(--ss-color-text-primary)]">
+                    {row.routine}
+                  </span>
+                  <span class={emptyNoteClass}>{TIER_LABELS[row.liveTier]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </DomainSurface>
+      </section>
+    )
+  }
 
   <!-- Plan & billing — provisioning domain: SMD-only, read-only, no request
        form. Absent entirely pre-go-live (billing-relationship gate above). -->

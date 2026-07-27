@@ -246,6 +246,19 @@ declare namespace Cloudflare {
      */
     OPERATOR_MCP_WEBHOOK_SECRET?: string
     /**
+     * FINE-GRAINED GitHub token, scoped to venturecrane/ss-console ONLY with
+     * `contents: write` + `pull_requests: write`. Opens the reviewable pull
+     * request that carries a client-submitted entitlement change to the
+     * source of truth (#2003, ADR 0012 + ADR 0069 Lock 3).
+     *
+     * Deliberately NOT the fleet `GH_TOKEN`: this credential sits in a
+     * client-reachable request path, so its blast radius is bounded to
+     * opening a PR on one repo — it can never push to a default branch
+     * (branch protection) or touch another repository. Unset = the
+     * entitlement control fails closed with an honest error.
+     */
+    OPERATOR_CONFIG_PR_TOKEN?: string
+    /**
      * Sentry Internal Integration Client Secret used to verify
      * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
      * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned
