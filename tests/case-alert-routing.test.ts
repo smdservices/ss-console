@@ -59,7 +59,13 @@ describe('case-alert routing (#2004)', () => {
   it('the routing reference exists and carries the load-bearing rules', () => {
     const ref = readFileSync(ROUTING_REF, 'utf-8')
     expect(ref).toContain('personResponsibleStaffId')
-    expect(ref).toContain('personAssistingStaffId')
+    // Tenant ground truth (staging probe 2026-07-27): assisting staff is the
+    // personAssistingStaffs LIST, and staff usability is enabled/former (no
+    // isDeleted). The gate pins the corrected names so the doc cannot drift
+    // back to the published-docs shapes the probe disproved.
+    expect(ref).toContain('personAssistingStaffs')
+    expect(ref).toContain('enabled: false')
+    expect(ref).toContain('former: true')
     expect(ref).toContain('Never grow the roster from runtime data')
     expect(ref).toContain('Fail-closed floor')
     expect(ref).toContain('Ledger identity is routing-independent')
