@@ -31,6 +31,13 @@
 
 **Claude access:** the firm has its own Claude Enterprise account; the Claude-to-Operator connector rides it (the Captain, 2026-07-26). Claude was already in their stack in letter 04, and they dropped CoCounsel in letter 06 in favor of BriefPoint plus Claude as the drafting tools. Do not describe Claude seats as an SMD cost or an SMD deliverable.
 
+## Settled items, do not re-raise
+
+Closed facts an agent relies on without comment. Surfacing any of these as a flag, a tension, or a "worth confirming" item is the failure the 2026-07-26 sessions recorded (Law 3, third incident); the Captain has closed each one explicitly.
+
+- **The stand-up waiver.** Rationale recorded in Commercial rationale above, Captain-confirmed 2026-07-26. Letter 10 states the waiver in one clause without justification by design; the omission is the approved posture, not a gap. Needs no comment in any review.
+- **Claude direct access.** A deliverable Chris himself requested; we built it and we provide it. The firm's own Claude Enterprise account carries the seats; SMD sets up and maintains the access for the people the firm chooses. Letter 10's wording is correct as written. The 07-26 account fact creates no tension with the 07-24 approval.
+
 ## Firm research
 
 - Plaintiff personal-injury firm, roughly 11 to 15 people, 6 attorneys; Fair Oaks (Sacramento) main office at 8243 Greenback Ln, plus SF. Phone (916) 786-7787.
