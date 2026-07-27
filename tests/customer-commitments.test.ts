@@ -151,10 +151,18 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
 
   // (d) Placeholder go-live gate: PLACEHOLDER markers are permitted on the
   // pilot-smokeball staging seat but must NEVER inherit to the real client seat.
-  it('(d) no PLACEHOLDER marker exists anywhere under operator/customers/ashton-price/', () => {
-    const offenders = walkFiles(AP_DIR).filter((f) =>
-      readFileSync(f, 'utf-8').includes('PLACEHOLDER')
-    )
+  //
+  // This walk used to cover the whole ashton-price directory. The engagement
+  // documents moved to venturecrane/engagements, which now runs the same walk
+  // over the material it holds; what remains here is the operational config,
+  // and that is exactly where a PLACEHOLDER does the most damage, because it
+  // reaches the running seat. Both halves of the gate are live, in the repo
+  // that holds each half.
+  it('(d) no PLACEHOLDER marker exists in the ashton-price operational config', () => {
+    const files = walkFiles(AP_DIR)
+    expect(files.length, 'ashton-price config must still be present to scan').toBeGreaterThan(0)
+
+    const offenders = files.filter((f) => readFileSync(f, 'utf-8').includes('PLACEHOLDER'))
     expect(
       offenders,
       `PLACEHOLDER markers found under ashton-price (Christa's real numbers are a go-live gate):\n${offenders.join('\n')}`
