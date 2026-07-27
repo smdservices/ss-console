@@ -54,6 +54,19 @@ SMD contact addresses:
 - **Scope discipline.** Discover additional work mid-task — finish current scope, file a new issue.
 - **Escalation triggers.** Credential not found in 2 min, same error 3 times, blocked >30 min — stop and escalate.
 
+### Gone means gone (removal discipline)
+
+"Done means wired" has an inverse, and it is enforced the same way: **a removal, rename, or retirement is complete only when the artifact is absent from every layer it ever lived in, proven by a probe of each RUNTIME layer — not by the diff that deleted it from git.**
+
+The lesson (the quinn incident, 2026-07-02 → 2026-07-26): a persona name was "removed" four separate times — display name (07-02), D1 projection (07-09), repo slug + CI guard (07-13) — and each completion report was honest about the layer it touched while wrong about the job, because state the repo materializes outlives the repo: the Fly volume kept the retired slug's profile home and its frozen cron store until monitoring paged on it 12 days later. Same failure class as built-but-not-wired: the claim was scoped to the artifact the agent could see, not the mission.
+
+The rule, mechanically:
+
+1. **Inventory before claiming.** Before reporting a removal complete, enumerate the layers the artifact can live in. For this venture that list is: git (source, fixtures, docs), D1 projections (`customer_configs` — no auto-sync, #1308), R2 (skills, vaults, config), the Fly volume (`/opt/data` — profile homes, cron stores, tokens; survives reprovision BY DESIGN), the running Machine (env, loaded config, skills_list), monitoring surfaces (heartbeat fields, alert sinks, Sentry), and external records (GitHub issues/PRs, mailboxes, calendars, vendor dashboards).
+2. **Negative probe per runtime layer.** Each runtime layer gets a probe showing absence, recorded via `crane_verify` with the probe output. Repo layers are covered by CI guards (`tests/forbidden-strings.test.ts`); runtime layers are never covered by CI guards — that is the whole point.
+3. **Prefer structural fixes over sweeps.** A one-time cleanup leaves the class alive. When a removal keeps resurfacing, the fix is a reconciler that makes the layer converge on authored state (the overlay#185 profile-home reconciler is the template) plus a boot/smoke assertion that the convergence held (`boot-smoke-test.sh` step 6b).
+4. **The completion report cites the probes.** "Removed X" without verify IDs for the runtime layers is a repo-layer claim and must be worded as one.
+
 ### No fabricated client-facing content
 
 Any information displayed to a client (timelines, schedules, deliverables, pricing, deposit terms, guarantees, consultant names, dates, scope language, post-signing promises, first-person sentences about future business behavior) MUST come from data authored for that specific engagement. That means database columns populated by a human-reviewed admin flow, CMS content, or source files explicitly reviewed by Captain.

@@ -96,6 +96,26 @@ ssh_exec "customer-yaml-absent-from-agent-volume" "! test -e /opt/data/customer.
 # verify the parent directory exists and is non-empty.
 ssh_exec "hermes-profiles-dir" "test -d /opt/data/profiles && [ -n \"\$(ls -A /opt/data/profiles)\" ]"
 
+# ---------- Step 6b: no unauthored profile homes ----------
+# The on-volume profile set must EQUAL the authored persona set — not merely
+# contain it. A persona slug rename once left the retired slug's home (and
+# its frozen cron store) on the volume for 12 days until the scheduler
+# monitoring paged on a store nothing serves (#2009). translate now deletes
+# orphans (overlay#185); this check proves it held on THIS boot, so any
+# future orphan class in profiles/ fails the smoke test instead of lurking.
+# Dot-prefixed entries and plain files are exempt, matching the reconciler.
+ssh_exec "no-unauthored-profile-homes" "/opt/hermes/.venv/bin/python3 -c \"
+import sys, yaml
+from pathlib import Path
+authored = {p['slug'] for p in (yaml.safe_load(open('/var/lib/smd-config/customer.yaml')) or {}).get('personas', [])}
+on_disk = {e.name for e in Path('/opt/data/profiles').iterdir() if e.is_dir() and not e.name.startswith('.')}
+orphans = sorted(on_disk - authored)
+missing = sorted(authored - on_disk)
+if orphans or missing:
+    print(f'profile-home drift: orphans={orphans} missing={missing}', file=sys.stderr)
+    sys.exit(1)
+\""
+
 # ---------- Step 7: overlay plugins installed ----------
 # `hermes plugins list` should include the four hermes-smd-* plugins
 # installed at image-build time via `hermes plugins install venturecrane/hermes-smd-overlay`.

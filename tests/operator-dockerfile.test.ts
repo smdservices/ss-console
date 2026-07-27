@@ -453,7 +453,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // because "nothing overdue" was unreported and NULL holds (pilot's 02:29Z
     // reprovision-window alert sat open forever). None now = unmeasurable only.
     // overlayRef-only across 167ebc50..cd213a54.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="cd213a54b095799cc566755e853de08bae45fb2b"')
+    // 293a0424 — bootstrap reconciles profile homes against the authored
+    // persona set (overlay#185, ss#2009): the 2026-07-13 persona-slug rename
+    // left the retired slug's home + frozen cron store on the volume; the
+    // scheduler monitoring then raised work_overdue on a store nothing
+    // serves. Orphaned homes are now deleted at translate, so renames are
+    // self-cleaning. Range also carries overlay#184 (Sentry event throttle).
+    // overlayRef-only across cd213a54..293a0424.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="293a042444ba6e0866e5da3315336f398b70a8cf"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
