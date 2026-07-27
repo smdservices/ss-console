@@ -54,12 +54,12 @@ import {
   checkBusinessHours,
   checkDigest,
   checkComplianceEnabled,
-  checkEscalation,
   checkLogging,
   checkMemory,
   checkPause,
   checkVoiceLibrary,
 } from './sections-other'
+import { checkEscalation } from './sections-escalation'
 import { checkCredentialCustodyDefault } from './sections-connectors'
 import { checkGmailPush } from './sections-gmail-push'
 import { checkTelegram } from './sections-telegram'

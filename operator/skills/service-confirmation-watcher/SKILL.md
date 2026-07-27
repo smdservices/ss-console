@@ -291,7 +291,7 @@ hermes run service-confirmation-watcher --action scan
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: the proof of
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: the proof of
 service is missing, illegible, or ambiguous; the served defendant cannot be resolved to
 a single defendant on the matter; the service method changes the effective served date
 (substituted service, §415.20) and the governing date is unclear; more than one

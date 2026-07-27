@@ -328,7 +328,7 @@ hermes run discovery-response-tracker --direction outbound --action watch
 
 ## Escalation
 
-Red-flag to the responsible attorney (and the escalation recipients) when: a response
+Red-flag to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a response
 deadline is unconfirmed and near; the deadline mode is unconfigured; the engine's
 discovery-response event cannot be identified (or multiple candidates); a proof of service
 is unreadable; a computed final date lands on a weekend/holiday (§2016.060 roll to confirm);

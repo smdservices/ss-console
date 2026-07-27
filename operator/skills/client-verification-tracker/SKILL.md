@@ -317,9 +317,10 @@ surface), never a silent default.
      ledger event (attempt = the new count); tell the attorney only if it stalls
      (quiet by design). Never auto-close on an ambiguous match.
    - attempt count **has reached `escalate_after_attempts`** → **stop chasing the
-     client** and red-flag the responsible attorney (Shape D); append a `handed_off`
-     ledger event so the hand-off fires once; the client chase is done, the open item
-     moves to a person.
+     client** and red-flag the matter's assigned staff (Shape D) — delivery per the
+     case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md);
+     append a `handed_off` ledger event so the hand-off fires once; the client chase
+     is done, the open item moves to a person.
    - `chase_cadence_days` or `escalate_after_attempts` unauthored → send no chase;
      surface the missing-config note (append a `fired` event on the ledger config
      sentinel so the raise is remembered), hold quiet through the re-fire window,
@@ -398,7 +399,7 @@ hermes run client-verification-tracker --action chase
 
 ## Escalation
 
-Red-flag to the responsible attorney (and the escalation recipients) when: a
+Red-flag to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a
 verification is unsigned and its response deadline is near (RFAs highest severity);
 **the unanswered chase attempts have reached `escalate_after_attempts` (stop chasing
 the client, hand the open item to the attorney)**; the signer cannot be resolved with

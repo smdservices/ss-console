@@ -258,7 +258,7 @@ hermes run minors-compromise-packet --action track
 
 ## Escalation
 
-Red-flag to the responsible attorney (and the escalation recipients) when: no
+Red-flag to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: no
 Guardian ad Litem is appointed on a matter headed to compromise; the authored net to
 the minor or another required figure is missing; a lien payoff the disclosure needs is
 outstanding as the hearing approaches; the fund-handling disposition is undecided; or

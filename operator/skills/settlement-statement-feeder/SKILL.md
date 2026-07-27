@@ -237,7 +237,7 @@ hermes run settlement-statement-feeder --matter <matter-id> --action feed
 
 ## Escalation
 
-Raise to the responsible attorney (and the escalation recipients) when: anyone asks
+Raise to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: anyone asks
 to disburse or move money (refuse and surface); a core figure is missing (no recorded
 gross); a lien payoff or reduction is unconfirmed so the net cannot be finalized; the
 trust `availableBalance` is below the gross to be disbursed (funds not in trust yet);

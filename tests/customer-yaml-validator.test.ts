@@ -932,6 +932,55 @@ describe('validate — escalation', () => {
     if (r.ok) return
     expect(r.errors.some((e) => e.path === 'escalation.failure_recipients')).toBe(true)
   })
+
+  it("case_alert_routing absent parses to null (= central, today's behavior) (#2004)", () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.escalation.case_alert_routing).toBeNull()
+  })
+
+  it('accepts matter_staff routing; fallback optional and may be empty (fail-closed posture)', () => {
+    const f = validFixture()
+    ;(f['escalation'] as Record<string, unknown>)['case_alert_routing'] = { mode: 'matter_staff' }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.escalation.case_alert_routing).toEqual({
+      mode: 'matter_staff',
+      fallback_recipients: [],
+    })
+  })
+
+  it('accepts an authored fallback list', () => {
+    const f = validFixture()
+    ;(f['escalation'] as Record<string, unknown>)['case_alert_routing'] = {
+      mode: 'matter_staff',
+      fallback_recipients: ['admin@firm.com'],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.escalation.case_alert_routing?.fallback_recipients).toEqual(['admin@firm.com'])
+  })
+
+  it('rejects an unknown routing mode', () => {
+    const f = validFixture()
+    ;(f['escalation'] as Record<string, unknown>)['case_alert_routing'] = { mode: 'per-matter' }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'escalation.case_alert_routing.mode')).toBe(true)
+  })
+
+  it('rejects a non-object routing block', () => {
+    const f = validFixture()
+    ;(f['escalation'] as Record<string, unknown>)['case_alert_routing'] = 'matter_staff'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'escalation.case_alert_routing')).toBe(true)
+  })
 })
 
 // -----------------------------------------------------------------------------

@@ -306,7 +306,7 @@ hermes run motion-package-assembler --matter <matter-id> --motion <motion-id> --
 
 ## Escalation
 
-Surface to the responsible attorney (and the escalation recipients) when: a drafting
+Surface to the matter's assigned staff — resolution, fallback, and fail-closed floor per the case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md) — when: a drafting
 component (notice, points and authorities, declaration, separate statement) is missing or
 cannot be located with confidence; a component pairing is ambiguous under an unconfirmed
 file-naming convention; the department format is not yet confirmed for the venue; no

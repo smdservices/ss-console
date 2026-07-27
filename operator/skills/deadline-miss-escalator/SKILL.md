@@ -36,7 +36,7 @@ Three rungs, chosen by proximity (arithmetic on authored dates only). All rungs 
 
 1. **Re-surface** (outer window) — refresh the date on the firm-internal surface with an elevated flag, so it stands out from the standing tracker view.
 2. **Re-route** (near window) — flag the matter to the responsible humans on the internal surface. Smokeball returns the responsible attorney directly (`personResponsibleStaffId`, resolved via `get_staff`), so re-route can target the matter's responsible attorney; it falls back to the firm's authored `escalation.red_flag_recipients` when no responsible attorney is set.
-3. **Notify** (within the notify window, or overdue) — deliver a triaged alert to the named human via the firm's existing `escalation.red_flag_recipients` channel. Each item carries a per-item `ACK-XXXXXX` code. This is an **internal alert to a person inside the firm**, not a client message — there is no external send.
+3. **Notify** (within the notify window, or overdue) — deliver a triaged alert to a person. Recipient selection follows the case-alert routing rule (`references/case-alert-routing.md`): under `matter_staff` routing each item routes to its matter's assigned staff (grouped one alert per recipient); under `central` routing (or when the routing block is unauthored) delivery goes to the firm's authored `escalation.red_flag_recipients`, exactly as before. Each item carries a per-item `ACK-XXXXXX` code. This is an **internal alert to a person inside the firm**, not a client message — there is no external send.
 
 **Held matters** route to **clearance**, not the ladder: a matter on CONFLICT-HOLD with an approaching date is surfaced for human clearance and never gets a client-facing step.
 
