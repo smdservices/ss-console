@@ -84,9 +84,9 @@ written as explicit bracketed TBDs, never filled with plausible content.
 
 (c) The medical chronology is an internal record only; the Operator records what is in the file and does not characterize it.
 
-2.4 **Graduation.** Where the routine grid in Exhibit A records a higher ceiling than the starting setting, the Firm may graduate that routine at its discretion by written request from a Named Administrator. Graduation is never automatic and never initiated by SMD or by the Operator.
+2.4 **Graduation.** Where the routine grid in Exhibit A records a higher ceiling than the starting setting, the Firm may graduate that routine at its discretion: a Named Administrator may make the change directly in the portal's entitlement settings, or request it of SMD in writing. Graduation is never automatic and never initiated by SMD or by the Operator, and no setting may be raised above the ceiling the grid records.
 
-2.5 **Configuration changes.** The Firm may request configuration changes (routine settings, entitlement changes, connector grants, new or adjusted skills) at any time through a Named Administrator. SMD implements changes to entitlement settings only at the request of a Named Administrator, and every change, whether made by the Firm in the portal or by SMD at the Firm's request, is recorded in the audit record with who made it and when.
+2.5 **Configuration changes.** Entitlement settings are changeable by two paths: Named Administrators change them directly in the portal, and SMD changes them only at the request of a Named Administrator. Every change, by either path, is recorded in the audit record with who made it and when. Other configuration changes (new or adjusted skills, connector grants, routine adjustments beyond the entitlement dials) are requested through a Named Administrator and implemented by SMD.
 
 2.6 **Managed-service partnership.** As part of the Service, SMD follows the evolving technology landscape on the Firm's behalf, evaluates what is useful for the Firm's practice, and brings the Firm guidance, ideas, and ways to put the Operator to work. SMD keeps the Operator on the best suited frontier AI models as they release.
 
