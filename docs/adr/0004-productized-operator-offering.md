@@ -75,7 +75,7 @@ Captain's directive: add this offering to SMD's catalog. Two front doors, one fi
 - Repositioning the firm. SMD remains a solutions consulting firm. Operator is a productized SKU, not a new firm identity.
 - Building the agent stack. This ADR authorizes the offering; the build follows after stack evaluation and pricing analysis.
 - Migrating existing scope-based clients to Operator. The two offerings serve different acquisition shapes; cross-conversion is opportunistic, not systematic.
-- Specific pricing math. The $5K/mo and $10K/mo numbers cited in market practice are reference points, not commitments. SMD's number comes from cost-up analysis once the stack is locked.
+- Specific pricing math. The market-practice figures cited above are reference points, not commitments. SMD's number comes from cost-up analysis once the stack is locked.
 
 ## Positioning guardrails
 

@@ -46,7 +46,7 @@ Two failure modes if this stays informal:
    linearly more than the last.
 
 2. **Customer-specific evolution mixes with vertical-default behavior in ways
-   that aren't reconstructable.** When a customer at $5k/mo for six months
+   that aren't reconstructable.** When a customer on the monthly retainer for six months
    reports "things have been drifting for the last few weeks," there is no
    structured way to show what changed when. The audit log captures events but
    the application logic to reconstruct historical state does not exist, and
