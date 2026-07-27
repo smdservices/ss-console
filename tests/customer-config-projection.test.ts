@@ -50,6 +50,31 @@ describe('customer-config projection: real smd yaml', () => {
     expect(row.compliance_enabled).toBe(0)
   })
 
+  it('carries authored skill settings into personas_json (#2005 — the ashton-price pair)', () => {
+    const parsed = parseYaml(
+      readFileSync(resolve('operator/customers/ashton-price/customer.yaml'), 'utf-8')
+    )
+    const result = validate(parsed)
+    if (!result.ok) {
+      throw new Error(
+        'ashton-price customer.yaml failed validation: ' + JSON.stringify(result.errors)
+      )
+    }
+    const row = projectCustomerYamlToConfigRow(result.value, CTX)
+    const personas = JSON.parse(row.personas_json) as PersonaConfig[]
+    const skills = personas.flatMap((p) => p.skills)
+    expect(skills.find((s) => s.name === 'client-verification-tracker')?.settings).toEqual({
+      escalate_after_attempts: 3,
+    })
+    expect(skills.find((s) => s.name === 'medical-chronology-maintainer')?.settings).toEqual({
+      treatment_gap_flag_days: 45,
+    })
+    // Skills without authored settings must project WITHOUT the key (byte-stable).
+    expect('settings' in (skills.find((s) => s.name === 'discovery-served-watch') ?? {})).toBe(
+      false
+    )
+  })
+
   it('preserves persona exposure and skill initiation in the read-side shape', () => {
     const row = projectCustomerYamlToConfigRow(smdYaml(), CTX)
     const personas = JSON.parse(row.personas_json) as PersonaConfig[]

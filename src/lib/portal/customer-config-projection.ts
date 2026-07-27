@@ -57,7 +57,11 @@ function toPersonaConfig(p: Persona): PersonaConfig {
     tone: p.tone ?? [],
     send_as: p.send_as ?? null,
     entitlements: p.entitlements,
-    skills: (p.skills ?? []).map((s) => ({ name: s.name, initiation: s.initiation })),
+    skills: (p.skills ?? []).map((s) => ({
+      name: s.name,
+      initiation: s.initiation,
+      ...(s.settings !== undefined ? { settings: s.settings } : {}),
+    })),
     cron: (p.cron ?? []).map((c) => ({ skill: c.skill, schedule: c.schedule })),
     channel_bindings: (p.channel_bindings ?? []).map((c) => ({
       integration: c.integration,

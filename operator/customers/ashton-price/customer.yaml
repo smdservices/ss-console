@@ -226,6 +226,14 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
+        # Christa's confirmed number (correspondence 09, 2026-07-23; pinned by
+        # tests/customer-commitments.test.ts): after 3 unanswered attempts the
+        # skill stops chasing and escalates to a person. chase_cadence_days is
+        # DELIBERATELY unauthored: the letter (07) commits a cadence "you set
+        # per matter" — a firm input at the working session, not ours to guess.
+        # The skill fail-closes on the chase until it is authored.
+        settings:
+          escalate_after_attempts: 3
       - name: separate-statement-assembler # CRC 3.1345 collation, person-invoked
         version: pending
         initiation:
@@ -285,6 +293,12 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
+        # Christa's confirmed number (correspondence 09, 2026-07-23; pinned by
+        # tests/customer-commitments.test.ts): flag treatment gaps beyond 45
+        # days. She may tighten to 30 after observing the fire rate — that is
+        # a one-line settings change here when she asks.
+        settings:
+          treatment_gap_flag_days: 45
       # motions
       - name: motion-calendar-tracker # keeps motion deadlines/hearings current
         version: pending
