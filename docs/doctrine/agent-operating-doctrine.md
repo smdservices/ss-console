@@ -114,7 +114,7 @@ cost: high
 tier: gate
 enforcement:
   - tests/forbidden-strings.test.ts
-  - operator/customers/ashton-price/correspondence/README.md
+  - 'venturecrane/engagements: operator/customers/ashton-price/correspondence/README.md'
   - tests/customer-commitments.test.ts
 incidents:
   - date: 2026-07-26

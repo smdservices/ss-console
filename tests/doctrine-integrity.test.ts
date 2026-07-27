@@ -98,7 +98,18 @@ describe('doctrine registry: schema', () => {
   })
 })
 
+// A law's enforcement may live in another repo: client material moved to the
+// private venturecrane/engagements, and Law 5's correspondence README went with
+// it. Such pointers carry an explicit `venturecrane/engagements:` prefix, and
+// are resolved against that checkout when it is available. When it is not
+// (ss-console CI, deliberately tokenless for client data), the pointer is
+// reported as unverifiable rather than silently accepted -- a law claiming
+// coverage that cannot be checked must not read the same as one that passed.
+const CROSS_REPO_PREFIX = 'venturecrane/engagements:'
+
 describe('doctrine registry: enforcement pointers resolve', () => {
+  const unverifiable: string[] = []
+
   it('every enforcement pointer names a file that exists', () => {
     const violations: string[] = []
     for (const law of laws) {
@@ -107,10 +118,40 @@ describe('doctrine registry: enforcement pointers resolve', () => {
         continue
       }
       for (const pointer of law.enforcement) {
+        // A cross-repo pointer contains a colon, so it MUST be quoted in the
+        // doctrine YAML or it parses as a map instead of a string. Catch that
+        // authoring slip here rather than letting it read as a missing file.
+        if (typeof pointer !== 'string') {
+          violations.push(
+            `${law.id}: enforcement entry parsed as ${typeof pointer}, not a string ` +
+              `(a pointer containing ":" must be quoted in the YAML)`
+          )
+          continue
+        }
+        if (pointer.startsWith(CROSS_REPO_PREFIX)) {
+          const rel = pointer.slice(CROSS_REPO_PREFIX.length).trim()
+          const engagementsDir =
+            process.env.SS_ENGAGEMENTS_DIR || join(process.env.HOME ?? '', 'dev', 'engagements')
+          if (existsSync(join(engagementsDir, rel))) continue
+          if (existsSync(engagementsDir)) {
+            violations.push(`${law.id}: "${rel}" missing from the engagements repo`)
+          } else {
+            unverifiable.push(`${law.id}: "${pointer}"`)
+          }
+          continue
+        }
         if (!existsSync(resolve(pointer))) violations.push(`${law.id}: "${pointer}" does not exist`)
       }
     }
     expect(violations).toEqual([])
+
+    if (unverifiable.length > 0) {
+      console.warn(
+        `[doctrine-integrity] ${unverifiable.length} enforcement pointer(s) NOT VERIFIED (engagements ` +
+          `repo not checked out): ${unverifiable.join(', ')}. Expected in ss-console CI; not evidence ` +
+          `the pointer resolves.`
+      )
+    }
   })
 })
 
@@ -158,6 +199,22 @@ describe('doctrine style', () => {
   })
 })
 
+// Structural check for Law 2, now enforced across a repo boundary.
+//
+// Dossiers and correspondence live in the private venturecrane/engagements
+// repo. Left as-written, this check would keep passing here forever: it
+// filters for slugs that HAVE a correspondence/ archive, and after the split
+// none do, so the filter empties and the assertion trivially holds. A guard
+// that goes green because it stopped looking is the exact failure the split
+// was supposed to remove, not introduce.
+//
+// So the enforcement moved with the material (engagements repo,
+// tests/engagement-guards.test.ts, where it now also carries a sanity
+// assertion). What remains here is a POINTER test that refuses to pass
+// silently: if the engagements repo is not resolvable it skips with a named
+// reason rather than asserting nothing, and if correspondence ever reappears
+// in this tree it fails, because client material landing back in ss-console
+// is itself the regression.
 describe('engagement structure: Law 2 has something to gate on', () => {
   const slugs = readdirSync(CUSTOMERS_ROOT).filter(
     (name) => !name.startsWith('_') && statSync(join(CUSTOMERS_ROOT, name)).isDirectory()
@@ -167,12 +224,38 @@ describe('engagement structure: Law 2 has something to gate on', () => {
     expect(slugs.length).toBeGreaterThan(0)
   })
 
-  it('every engagement with a correspondence/ archive has a dossier.md', () => {
-    const violations = slugs
+  it('no correspondence archive has reappeared in ss-console', () => {
+    const strays = slugs
       .filter((slug) => existsSync(join(CUSTOMERS_ROOT, slug, 'correspondence')))
-      .filter((slug) => !existsSync(join(CUSTOMERS_ROOT, slug, 'dossier.md')))
-      .map((slug) => `operator/customers/${slug}/ has correspondence/ but no dossier.md`)
-    expect(violations).toEqual([])
+      .map(
+        (slug) =>
+          `operator/customers/${slug}/correspondence/ is client material and belongs in ` +
+          `venturecrane/engagements, not here`
+      )
+    expect(strays).toEqual([])
+  })
+
+  it('the correspondence-implies-dossier rule is enforced in the engagements repo', () => {
+    const engagementsDir =
+      process.env.SS_ENGAGEMENTS_DIR || join(process.env.HOME ?? '', 'dev', 'engagements')
+    const guardFile = join(engagementsDir, 'tests', 'engagement-guards.test.ts')
+
+    if (!existsSync(guardFile)) {
+      // Loud skip, never a silent pass. CI does not clone the private repo,
+      // and giving ss-console a token that reads client data is precisely
+      // what the split avoids -- so absence here is expected, and stated.
+      console.warn(
+        `[doctrine-integrity] SKIPPED: engagements repo not resolvable at ${engagementsDir}. ` +
+          `The correspondence-implies-dossier rule is enforced by that repo's own CI ` +
+          `(tests/engagement-guards.test.ts). This is expected in ss-console CI and is NOT ` +
+          `evidence the rule holds.`
+      )
+      return
+    }
+
+    expect(readFileSync(guardFile, 'utf-8')).toContain(
+      'every engagement with a correspondence/ archive has a dossier.md'
+    )
   })
 })
 

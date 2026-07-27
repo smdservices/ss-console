@@ -1014,16 +1014,13 @@ describe('retired persona name stays retired (Captain directive 2026-07-13)', ()
   // makes any reintroduction a CI failure.
   //
   // Historical records keep the word legitimately and are excluded: dated
-  // grading run logs and the A&P correspondence archive (rewriting dated
-  // records would falsify them). This test file excludes itself (it must
-  // spell the pattern to ban it).
+  // grading run logs (rewriting dated records would falsify them). This test
+  // file excludes itself (it must spell the pattern to ban it). The A&P
+  // correspondence archive was a third exclusion until the engagement material
+  // moved to venturecrane/engagements; it is no longer in this tree to scan.
   const RETIRED_NAME = /quinn/i
   const SCAN_ROOTS = ['operator', 'src', 'tests', 'scripts', 'docs/design', 'docs/handbook']
-  const EXCLUDED = [
-    resolve('operator/grading/runs'),
-    resolve('operator/customers/ashton-price/correspondence'),
-    resolve('tests/forbidden-strings.test.ts'),
-  ]
+  const EXCLUDED = [resolve('operator/grading/runs'), resolve('tests/forbidden-strings.test.ts')]
 
   function scanFiles(dir: string): string[] {
     const out: string[] = []
@@ -1112,75 +1109,21 @@ describe('console vocabulary guard (blueprint §6 — retired display labels)', 
 })
 
 // ---------------------------------------------------------------------------
-// Correspondence terms provenance (doctrine Law 5; incident 2026-07-26).
+// MOVED to venturecrane/engagements -> tests/engagement-guards.test.ts
 //
-// A "review" of the Christa reply invented two commercial terms into an
-// approved client draft. The convention (correspondence README + Law 5,
-// docs/doctrine/agent-operating-doctrine.md): every DRAFT letter carries the
-// "Commitments this email creates" provenance header, where each dollar
-// amount, date, duration, or guarantee traces to an ADR, a prior letter, or
-// a dated statement from the Captain; no source means an explicit TBD.
-// This gate checks header PRESENCE (deterministic); per-term tracing stays
-// with the human reviewer reading the block (radar tier, by design).
-// Drafts are transient (renamed on send), so an empty draft set passes.
-// ---------------------------------------------------------------------------
-
-const CORRESPONDENCE_ROOT = resolve('operator/customers')
-
-function collectCorrespondenceFiles(): string[] {
-  if (!existsSync(CORRESPONDENCE_ROOT)) return []
-  return readdirSync(CORRESPONDENCE_ROOT)
-    .filter((slug) => !slug.startsWith('_'))
-    .map((slug) => join(CORRESPONDENCE_ROOT, slug, 'correspondence'))
-    .filter((dir) => existsSync(dir))
-    .flatMap((dir) =>
-      readdirSync(dir)
-        .filter((f) => f.endsWith('.md'))
-        .map((f) => join(dir, f))
-    )
-}
-
-describe('correspondence DRAFT provenance header (doctrine Law 5)', () => {
-  const drafts = collectCorrespondenceFiles().filter((f) => /DRAFT/i.test(f))
-
-  it('every DRAFT letter carries the commitments/provenance header', () => {
-    const violations = drafts
-      .filter((f) => !readFileSync(f, 'utf-8').includes('Commitments this email creates'))
-      .map((f) => relOf(f))
-    expect(violations).toEqual([])
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Dossier sentinels stay out of correspondence (doctrine Law 2 leakage rule).
+// Two guards used to live here and read client letters directly:
 //
-// Engagement dossiers carry relationship posture and Captain-only facts under
-// a "Context, never quotable" header; the read gate FORCES that context into
-// the session right before client copy gets drafted, so the leak direction
-// must be guarded. These sentinels are dossier-register phrases that have no
-// legitimate use in a letter to a client. Dossier authors: when adding a new
-// sensitive shorthand to a dossier, add its sentinel here in the same PR.
+//   - correspondence DRAFT provenance header (Law 5; incident 2026-07-26,
+//     where a "review" invented two commercial terms into an approved draft)
+//   - dossier sentinels never appear in correspondence (Law 2 leakage rule)
+//
+// Correspondence and dossiers now live in the private engagements repo, and
+// ss-console CI is deliberately NOT given a token that can read client data.
+// So the guards moved to the material rather than the material being exposed
+// to the guards. They did not weaken in the move: each now opens with a
+// sanity assertion, where the DRAFT check here passed vacuously on an empty
+// draft set, and each was proven red-then-green against injected defects.
+//
+// Do not re-add a client-data scan to this file. If the engagements repo's
+// guards need extending, extend them there.
 // ---------------------------------------------------------------------------
-
-const DOSSIER_SENTINELS: Array<{ label: string; pattern: RegExp }> = [
-  { label: 'relationship posture: "ours to lose"', pattern: /ours to lose/i },
-  { label: 'dossier header register: "never quotable"', pattern: /never quotable/i },
-  { label: 'internal register: "Captain-only"', pattern: /captain-only/i },
-]
-
-describe('dossier sentinels never appear in correspondence (doctrine Law 2)', () => {
-  const letters = collectCorrespondenceFiles()
-
-  it('finds correspondence files to scan (sanity)', () => {
-    expect(letters.length).toBeGreaterThan(0)
-  })
-
-  for (const { label, pattern } of DOSSIER_SENTINELS) {
-    it(`must not contain: ${label}`, () => {
-      const violations = letters
-        .filter((f) => pattern.test(readFileSync(f, 'utf-8')))
-        .map((f) => relOf(f))
-      expect(violations).toEqual([])
-    })
-  }
-})

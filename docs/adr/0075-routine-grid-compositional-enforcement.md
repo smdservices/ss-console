@@ -3,7 +3,7 @@
 - **Status:** Accepted (2026-07-13)
 - **Decider:** Captain (plan approved this date)
 - **Builds on:** ADR 0072 (recipient-aware proactive send), ADR 0073 (external-send floor removed), ADR 0071 (`confirm` ceiling), ADR 0031 (content-sensitivity floor), ADR 0035 (no imposed defaults, fail-closed)
-- **Client commitment implemented:** `operator/customers/ashton-price/correspondence/07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md`
+- **Client commitment implemented:** `operator/customers/ashton-price/correspondence/07_2026-07-09_scott-to-christa_responses-and-routine-matrix.md` (in the private `venturecrane/engagements` repo)
 
 ## Context
 

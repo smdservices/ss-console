@@ -43,4 +43,22 @@ cat <<'PRIMER'
 8. Finish or say why: no stopping-point offers, no hedging finished work as draft, no relitigating settled calls.
 PRIMER
 
+# Law 2 escape-hatch visibility.
+#
+# SS_ALLOW_UNREAD_ENGAGEMENT_WRITES bypasses the engagement read gate. It is
+# path-scoped and audited by engagement-guard.mjs, but an exported hatch is
+# still invisible in the moment it matters most -- the session that has it set
+# is the session that never sees the gate. Surfacing the recent count here
+# turns a quiet permanent bypass into something stated on every prompt.
+HATCH_LOG="${SS_HATCH_AUDIT_FILE:-$HOME/.claude/ss-hatch-audit.log}"
+if [ -f "$HATCH_LOG" ]; then
+  CUTOFF=$(date -u -v-7d +%Y-%m-%d 2>/dev/null || date -u -d '7 days ago' +%Y-%m-%d 2>/dev/null)
+  if [ -n "$CUTOFF" ]; then
+    RECENT=$(awk -v c="$CUTOFF" -F'\t' '$1 >= c' "$HATCH_LOG" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${RECENT:-0}" -gt 0 ]; then
+      echo "[doctrine] Law 2 escape hatch used ${RECENT}x in the last 7 days (${HATCH_LOG}). If it is exported permanently, unset it."
+    fi
+  fi
+fi
+
 exit 0
