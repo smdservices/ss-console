@@ -113,6 +113,17 @@ personas:
         # authorizes nothing outside it. Client- and tribunal-bound mail stays
         # governed by external_send above. Pinned by customer-commitments (g).
         external_send_internal: autonomous
+        # Recipient-class exposures the routine grid says enforce the letter's
+        # prepare-and-route tiers (letter 07: client verification, records
+        # chase). resolve_ceiling does NO fallback from a recipient class to
+        # the base external_send — unauthored is REFUSED (ADR 0056), so
+        # without these two keys the firm's #1 named routine (verification
+        # chase) and the records chase would refuse instead of drafting.
+        # Found by the #2003 compiler build; the A&P grid had no traceability
+        # gate (the commitments suite pointed only at pilot-smokeball) — gate
+        # (h) now covers it.
+        external_send_client: draft_for_review
+        external_send_vendor: draft_for_review
     skills:
       # spine
       - name: matter-inbox-router
