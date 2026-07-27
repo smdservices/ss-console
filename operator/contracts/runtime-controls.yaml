@@ -252,9 +252,9 @@ controls:
     # covering cron-fired wakes, which no pre_run gates). Resume is the
     # existing Captain clear surface.
     wired_via: 'pre_tool_call / hermes-smd-trust'
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    live_probe: operator_pause_negative_fire
+    probe_surface: staging
+    status: enforced
     owner: SMDurgan
     tracking: '#2003'
     note: >-
@@ -262,8 +262,16 @@ controls:
       pause/resume via portal -> console proxy -> gate POST /sticky-stop/set /
       /sticky-stop/clear (overlay#188, OVERLAY_REF 9d15c6a9). Governance rows
       in operator_pause_events (control-plane; broker PID-gates the Machine
-      ledger). UNPROBED until the live negative-fire probe runs on
-      pilot-smokeball at next reprovision: pause via portal route -> verify
-      /mcp/turn 503 + a cron-fired turn refuses at the tool wall -> resume ->
-      verify a turn completes. Promote to enforced with the probe name when
-      that run is recorded (crane_verify).
+      ledger). PROBED LIVE 2026-07-27 on pilot-smokeball
+      (vfy_01KYH5DV0VC9Q8WPKHMDW3T8HZ): baseline turn 200 -> set pins
+      HARD_STOP -> /mcp/turn 503 "operator paused" -> clear -> turn completes.
+      While paused, three forced cron fires plus a vendor task-create webhook
+      produced ZERO agent turns (audit-seam negative read) - every wake path
+      on the seat refused UPSTREAM of the tool wall (interactive at the gate,
+      cron at pre_run state starvation because the parked webhooks never fed
+      it, webhooks at the wake guard). The pre_tool_call wall itself is the
+      defense-in-depth backstop for a wake that slips those layers; its
+      refusal behavior is pinned by overlay integration tests
+      (test_trust_enforce.py: refuses a plain READ at HARD_STOP through the
+      real plugin + real state db) and has no live exercise yet precisely
+      because no live wake path survives to reach it.
