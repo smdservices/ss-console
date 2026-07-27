@@ -11,36 +11,36 @@
 Every commercial term in the body traces to a recorded source. Terms with no source are
 written as explicit bracketed TBDs, never filled with plausible content.
 
-| Term                                                                                                     | Source                                                     |
-| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| $5,000/month, fully managed                                                                              | ADR 0063; letter 10 §2 (sent 2026-07-27)                   |
-| $4,000 one-time stand-up fee, waived                                                                     | ADR 0063; letter 10 §2                                     |
-| Month to month; 30 days written notice                                                                   | Letter 10 §2                                               |
-| Billing begins when implementation testing wraps; no charge before                                       | Letter 10 §2                                               |
-| All AI usage included; nothing metered; no per-task charges                                              | Letter 10 §2                                               |
-| Token-usage monitoring; re-scope together if work grows well beyond                                      | Letter 10 §2 (Captain edit, sent version)                  |
-| Severity ladder; no uptime nines; no service credits                                                     | ADR 0064                                                   |
-| Security-incident notification within 24 hours                                                           | ADR 0064; DPA §6                                           |
-| 14-day export; 30-day return-and-destruction; written attestation                                        | Letter 10 §5; ADR 0065; DPA §7                             |
-| Portal pause control (kill switch); firm-operable without SMD                                            | Letter 10 §6                                               |
-| Entitlement changes: portal self-service by Named Administrators, or by SMD at their request; all logged | Letter 10 §7; #2003                                        |
-| Operator mailbox in the firm's M365 tenant; AgentMail excluded                                           | Letter 10 §8; ADR 0078                                     |
-| Per-matter alert routing via Smokeball roles                                                             | Letter 10 (alert routing); #2004                           |
-| Stop-then-reconcile failure mode; Smokeball stays calendar of record                                     | Letter 10 §9                                               |
-| Routine grid + permanent caps                                                                            | Letter 07 grid; accepted letter 09; confirmed letter 10    |
-| Verification = 3 attempts; treatment gap = 45 days (adjustable 30)                                       | Letters 09 and 10                                          |
-| No training on Customer Data                                                                             | Letter 10 §2; DPA §5                                       |
-| Dedicated machine + encrypted volume; per-customer isolation                                             | ADR 0007; letter 10 §4                                     |
-| E&O + cyber with AI-services and privacy/regulatory coverage; COI                                        | Letter 10 §3 (limits TBD below)                            |
-| Invoiced monthly in advance; due net 30; 1.5%/mo late interest                                           | Template standard (#827); **Captain ratification pending** |
-| Fee changes: 60 days written notice                                                                      | Template standard (#827); **Captain ratification pending** |
-| Liability cap                                                                                            | **TBD: Captain + counsel**                                 |
-| Governing law: Arizona                                                                                   | Captain decision, 2026-07-27 (opening position)            |
+| Term                                                                                                     | Source                                                                   |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| $5,000/month, fully managed                                                                              | ADR 0063; letter 10 §2 (sent 2026-07-27)                                 |
+| $4,000 one-time stand-up fee, waived                                                                     | ADR 0063; letter 10 §2                                                   |
+| Month to month; 30 days written notice                                                                   | Letter 10 §2                                                             |
+| Billing begins when implementation testing wraps; no charge before                                       | Letter 10 §2                                                             |
+| All AI usage included; nothing metered; no per-task charges                                              | Letter 10 §2                                                             |
+| Token-usage monitoring; re-scope together if work grows well beyond                                      | Letter 10 §2 (Captain edit, sent version)                                |
+| Severity ladder; no uptime nines; no service credits                                                     | ADR 0064                                                                 |
+| Security-incident notification within 24 hours                                                           | ADR 0064; DPA §6                                                         |
+| 14-day export; 30-day return-and-destruction; written attestation                                        | Letter 10 §5; ADR 0065; DPA §7                                           |
+| Portal pause control (kill switch); firm-operable without SMD                                            | Letter 10 §6                                                             |
+| Entitlement changes: portal self-service by Named Administrators, or by SMD at their request; all logged | Letter 10 §7; #2003                                                      |
+| Operator mailbox in the firm's M365 tenant; AgentMail excluded                                           | Letter 10 §8; ADR 0078                                                   |
+| Per-matter alert routing via Smokeball roles                                                             | Letter 10 (alert routing); #2004                                         |
+| Stop-then-reconcile failure mode; Smokeball stays calendar of record                                     | Letter 10 §9                                                             |
+| Routine grid + permanent caps                                                                            | Letter 07 grid; accepted letter 09; confirmed letter 10                  |
+| Verification = 3 attempts; treatment gap = 45 days (adjustable 30)                                       | Letters 09 and 10                                                        |
+| No training on Customer Data                                                                             | Letter 10 §2; DPA §5                                                     |
+| Dedicated machine + encrypted volume; per-customer isolation                                             | ADR 0007; letter 10 §4                                                   |
+| Insurance limits: Tech E&O + Cyber $1M aggregate; CGL $1M/occ, $2M agg                                   | COI (ACORD 25, Vouch, 2026-07-24; policies eff 2026-07-27 to 2027-07-27) |
+| Invoiced monthly in advance; due net 30; 1.5%/mo late interest                                           | Template standard (#827); **Captain ratification pending**               |
+| Fee changes: 60 days written notice                                                                      | Template standard (#827); **Captain ratification pending**               |
+| Liability cap                                                                                            | **TBD: Captain + counsel**                                               |
+| Governing law: Arizona                                                                                   | Captain decision, 2026-07-27 (opening position)                          |
 
 ## Open items before this leaves the building
 
 1. `[LIABILITY CAP]` - Captain decision with counsel input.
-2. `[INSURANCE LIMITS]` - transcribe per-claim/aggregate limits from the COI once received (Captain is requesting it via the insurer portal as certificate holder, Ashton & Price LLP; the COI also evidences bound coverage).
+2. Insurance: limits FILLED in Exhibit A from the bound COI (policies effective 2026-07-27 to 2027-07-27; the A&P-named certificate-holder COI was requested 2026-07-27, 1-2 business days). Remaining check: confirm the AI-services and privacy/regulatory (PHI) endorsements appear on the bound policy documents; the ACORD certificate does not show endorsements, and §10.5 warrants them.
 3. `[A&P ENTITY]` - confirm exact legal entity name and form ("Ashton & Price LLP" per letter 10 §3) and principal address.
 4. `[SIGNATORY]` - Chris Price's exact title for the signature block.
 5. `[NAMED ADMINISTRATORS]` - the two portal administrators the firm names (letter 10 §7).
@@ -249,7 +249,7 @@ Date: `______________________________`
 
 **Payment method.** [PAYMENT METHOD].
 
-**Insurance limits.** [INSURANCE LIMITS: per-claim and aggregate for the coverage in Section 10.5].
+**Insurance limits.** Technology errors & omissions and cyber liability: $1,000,000 policy aggregate. Commercial general liability: $1,000,000 each occurrence, $2,000,000 general aggregate.
 
 **Pass-through cost categories.** None.
 
