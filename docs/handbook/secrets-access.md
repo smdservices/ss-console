@@ -72,6 +72,13 @@ not secrets, and are set in the build/deploy environment - see
   tokens (ADR 0007, ADR 0010); a credential for one customer never reaches another.
 - **Never grant or change access controls casually.** Modifying auth flows, sharing
   permissions, or access controls is a Captain decision, not an agent one.
+- **Client-reachable credentials are scoped to one action.** `OPERATOR_CONFIG_PR_TOKEN`
+  (the entitlement control's git transport, #2003) is a fine-grained GitHub token limited
+  to this one repository with `contents: write` + `pull_requests: write`. It sits in a
+  request path a client admin can reach, so its blast radius is deliberately bounded to
+  opening a pull request: branch protection keeps it off the default branch, and it can
+  touch no other repository. It is never the fleet `GH_TOKEN`. Unset means the control
+  fails closed, which is the correct posture until the token is minted.
 
 ## Related
 
