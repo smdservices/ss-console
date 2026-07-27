@@ -32,19 +32,19 @@ written as explicit bracketed TBDs, never filled with plausible content.
 | No training on Customer Data                                                                             | Letter 10 §2; DPA §5                                                     |
 | Dedicated machine + encrypted volume; per-customer isolation                                             | ADR 0007; letter 10 §4                                                   |
 | Insurance limits: Tech E&O + Cyber $1M aggregate; CGL $1M/occ, $2M agg                                   | COI (ACORD 25, Vouch, 2026-07-24; policies eff 2026-07-27 to 2027-07-27) |
-| Invoiced monthly in advance; due net 30; 1.5%/mo late interest                                           | Template standard (#827); **Captain ratification pending**               |
-| Fee changes: 60 days written notice                                                                      | Template standard (#827); **Captain ratification pending**               |
-| Liability cap                                                                                            | **TBD: Captain + counsel**                                               |
+| Invoiced monthly in advance; due net 30; 1.5%/mo late interest                                           | Template standard (#827); ratified by Captain 2026-07-27                 |
+| Fee changes: 60 days written notice                                                                      | Template standard (#827); ratified by Captain 2026-07-27                 |
+| Liability cap: greater of trailing-12-month fees or $60,000                                              | Captain decision 2026-07-27; counsel confirmation pending                |
 | Governing law: Arizona                                                                                   | Captain decision, 2026-07-27 (opening position)                          |
 
 ## Open items before this leaves the building
 
-1. `[LIABILITY CAP]` - Captain decision with counsel input.
+1. Liability cap: SET (greater of trailing-12-month fees or $60,000; the floor covers the pre-billing pilot window when trailing fees are near zero). Counsel confirms in the Sections 10-13 pass.
 2. Insurance: CLOSED. Limits filled in Exhibit A from the bound COI; the A&P-named certificate-holder COI was requested 2026-07-27 (1-2 business days). Endorsements verified on the bound CEM policy `HDG.CEM.7BB397E8.26` (verify `vfy_01KYJKK5J2TQSVQ2YE8ANTX3XC`): AI Endorsement CET 10-0052 present with $1M sub-limits (AI regulatory investigations, algorithm removal, algorithmic bias, AI IP); Privacy Liability $1M and Privacy Regulatory Liability $1M purchased; no health-data-processing exclusion. §10.5's warranted coverage matches the bound policy.
 3. `[A&P ENTITY]` - confirm exact legal entity name and form ("Ashton & Price LLP" per letter 10 §3) and principal address.
 4. `[SIGNATORY]` - Chris Price's exact title for the signature block.
 5. `[NAMED ADMINISTRATORS]` - the two portal administrators the firm names (letter 10 §7).
-6. Invoicing standards (net 30, late interest, 60-day fee-change notice) are template boilerplate, not letter commitments; Captain ratifies or strikes.
+6. Invoicing standards: RATIFIED as-is by Captain 2026-07-27 (net 30, 1.5%/mo late interest, 60-day fee-change notice).
 7. Counsel review of Sections 10 through 13 (warranties, liability, indemnification, disputes) before signature.
 
 ---
@@ -193,7 +193,7 @@ written as explicit bracketed TBDs, never filled with plausible content.
 
 ## 11. Limitation of Liability
 
-11.1 EXCEPT FOR THE EXCLUSIONS IN SECTION 11.3, EACH PARTY'S AGGREGATE LIABILITY UNDER THIS AGREEMENT WILL NOT EXCEED [LIABILITY CAP].
+11.1 EXCEPT FOR THE EXCLUSIONS IN SECTION 11.3, EACH PARTY'S AGGREGATE LIABILITY UNDER THIS AGREEMENT WILL NOT EXCEED THE GREATER OF (a) THE FEES PAID OR PAYABLE BY THE FIRM UNDER THIS AGREEMENT IN THE TWELVE (12) MONTHS PRECEDING THE EVENT GIVING RISE TO THE CLAIM, OR (b) SIXTY THOUSAND DOLLARS ($60,000).
 
 11.2 EXCEPT FOR THE EXCLUSIONS IN SECTION 11.3, NEITHER PARTY IS LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS OPPORTUNITY.
 
@@ -257,8 +257,8 @@ Date: `______________________________`
 
 ## Exhibit B: Data Processing Addendum
 
-Attached as a separate document (instantiated from `docs/legal/operator-dpa-template.md`).
+Attached as a separate document: [`data-processing-addendum.md`](./data-processing-addendum.md).
 
 ## Exhibit C: Confidentiality Addendum (Law Firm)
 
-Attached as a separate document (instantiated from the BAA-equivalent confidentiality addendum template).
+Attached as a separate document: [`confidentiality-addendum.md`](./confidentiality-addendum.md).
