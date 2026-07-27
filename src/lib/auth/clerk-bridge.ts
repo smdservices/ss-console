@@ -21,10 +21,13 @@
 
 import { ORG_ID } from '../constants'
 import type { Entity } from '../db/entities'
+import { stampLoginIfNewSession } from './login-events'
 
 export interface ClerkAuthState {
   userId: string | null | undefined
   orgId: string | null | undefined
+  /** Clerk session id; stable within a session, new on each real sign-in. */
+  sessionId?: string | null | undefined
 }
 
 export interface PortalUserRow {
@@ -35,6 +38,8 @@ export interface PortalUserRow {
   role: string
   entity_id: string | null
   clerk_user_id: string | null
+  /** Skip cache for login detection (0098). Truth is the unique index on portal_login_events. */
+  last_clerk_session_id: string | null
 }
 
 export interface ClerkUserProfile {
@@ -179,19 +184,25 @@ export async function resolveEntityByUserBinding(
 export async function resolveClerkPortalContext(
   db: D1Database,
   auth: ClerkAuthState,
-  profile: ClerkUserProfile
+  profile: ClerkUserProfile,
+  opts?: { waitUntil?: (p: Promise<unknown>) => void }
 ): Promise<PortalContext | null> {
   if (!auth.userId) return null
 
   const user = await ensureLocalUser(db, auth.userId, profile)
 
+  let client: Entity | null = null
   if (user.entity_id) {
-    const client = await resolveEntityByUserBinding(db, user.entity_id)
-    if (client) return { user, client }
+    client = await resolveEntityByUserBinding(db, user.entity_id)
+  }
+  if (!client && auth.orgId) {
+    client = await resolveClerkEntity(db, auth.orgId)
   }
 
-  if (!auth.orgId) return { user, client: null }
+  // Login accountability: stamp last_login_at + append sign-in history when
+  // this Clerk session has never been seen. After entity resolution so the
+  // event carries the entity scope. Never throws.
+  await stampLoginIfNewSession(db, user, auth.sessionId, client?.id ?? null, opts?.waitUntil)
 
-  const client = await resolveClerkEntity(db, auth.orgId)
   return { user, client }
 }

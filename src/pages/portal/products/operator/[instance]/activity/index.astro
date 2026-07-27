@@ -93,7 +93,7 @@ const resolvedParams = (() => {
 })()
 
 const activityPage = await loadActivityPage(
-  { db: env.DB, env, actorUserId: user.id },
+  { db: env.DB, env, actorUserId: user.id, entityId: client.id },
   customerSlug,
   { actor: user.email, actorRole },
   resolvedParams

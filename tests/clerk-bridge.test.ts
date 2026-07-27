@@ -246,4 +246,59 @@ describe('resolveClerkPortalContext', () => {
     )
     expect(ctx).toBeNull()
   })
+
+  // ---- login stamping (portal accountability slice) ----
+
+  async function loginEvents(): Promise<
+    { entity_id: string | null; clerk_session_id: string | null }[]
+  > {
+    const res = await db
+      .prepare('SELECT entity_id, clerk_session_id FROM portal_login_events ORDER BY created_at')
+      .all<{ entity_id: string | null; clerk_session_id: string | null }>()
+    return res.results ?? []
+  }
+
+  it('stamps last_login_at + history on first resolve with a session id, no-op on second', async () => {
+    const auth = { userId: BOUND_CLERK_ID, orgId: null, sessionId: 'sess_stamp_1' }
+    const profile = { email: PRE_CLERK_EMAIL, name: 'Pre Clerk Client' }
+
+    await resolveClerkPortalContext(db, auth, profile)
+    let events = await loginEvents()
+    expect(events).toHaveLength(1)
+    // Entity resolution ran BEFORE stamping: the event carries the entity.
+    expect(events[0].entity_id).toBe(PRE_CLERK_ENTITY_ID)
+
+    const stamped = await db
+      .prepare('SELECT last_login_at FROM users WHERE id = ?')
+      .bind(PRE_CLERK_USER_ID)
+      .first<{ last_login_at: string | null }>()
+    expect(stamped?.last_login_at).not.toBeNull()
+
+    // Same session again (the users row now carries the skip-cache value).
+    await resolveClerkPortalContext(db, auth, profile)
+    events = await loginEvents()
+    expect(events).toHaveLength(1)
+  })
+
+  it('stamps a JIT-created user on the same request (entity null)', async () => {
+    const ctx = await resolveClerkPortalContext(
+      db,
+      { userId: 'user_jit_login', orgId: null, sessionId: 'sess_jit' },
+      { email: 'jit@example.com', name: 'JIT' }
+    )
+    expect(ctx!.client).toBeNull()
+    const events = await loginEvents()
+    expect(events).toHaveLength(1)
+    expect(events[0].entity_id).toBeNull()
+    expect(events[0].clerk_session_id).toBe('sess_jit')
+  })
+
+  it('does not stamp when no session id is available (legacy callers unaffected)', async () => {
+    await resolveClerkPortalContext(
+      db,
+      { userId: BOUND_CLERK_ID, orgId: null },
+      { email: PRE_CLERK_EMAIL, name: 'Pre Clerk Client' }
+    )
+    expect(await loginEvents()).toHaveLength(0)
+  })
 })

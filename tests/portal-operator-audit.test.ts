@@ -20,6 +20,7 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import {
   AUDIT_ACTION_TYPES,
+  CONSOLE_ACTION_TYPES,
   AUDIT_DECISIONS,
   AUDIT_SORTS,
   DEFAULT_AUDIT_PAGE_SIZE,
@@ -117,6 +118,15 @@ describe('parseAuditListParams', () => {
     // Defensive: if any vocabulary entry would silently get dropped by
     // the parser, this test catches it before users hit it.
     for (const action of AUDIT_ACTION_TYPES) {
+      const params = parseAuditListParams(new URLSearchParams(`action=${action}`))
+      expect(params.actions).toEqual([action])
+    }
+  })
+
+  it('accepts every CONSOLE_ACTION_TYPES value via the action filter', () => {
+    // Console-plane synthetic actions (logins, team/config events) are not
+    // Machine vocabulary but must survive ?action= bookmarks.
+    for (const action of CONSOLE_ACTION_TYPES) {
       const params = parseAuditListParams(new URLSearchParams(`action=${action}`))
       expect(params.actions).toEqual([action])
     }

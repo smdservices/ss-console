@@ -56,6 +56,7 @@ function primeAccess(clerkUserId: string | null): void {
       role: 'principal',
       entity_id: 'ent-1',
       clerk_user_id: clerkUserId,
+      last_clerk_session_id: null,
     },
     client: { id: 'ent-1' } as never,
     subscription: {} as never,

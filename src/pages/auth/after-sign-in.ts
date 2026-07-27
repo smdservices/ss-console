@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { resolveAdminSessionFromClerk } from '../../lib/auth/admin-session-shim'
-import { ensureLocalUser } from '../../lib/auth/clerk-bridge'
+import { ensureLocalUser, resolveClerkEntity } from '../../lib/auth/clerk-bridge'
+import { stampLoginIfNewSession } from '../../lib/auth/login-events'
 import {
   buildAdminUrl,
   buildPortalUrl,
@@ -70,6 +71,15 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
 
   // Link/JIT the local row first; the admin shim then sees the linked row.
   const userRow = await ensureLocalUser(env.DB, auth.userId, clerkProfile(clerkUser))
+
+  // Login accountability: record the sign-in at the true sign-in moment.
+  // Covers admin-only and dual-eligible users who may never hit a portal
+  // route (entity_id is NULL for admin-only). Never throws.
+  const loginEntityId =
+    userRow.entity_id ??
+    (auth.orgId ? ((await resolveClerkEntity(env.DB, auth.orgId))?.id ?? null) : null)
+  await stampLoginIfNewSession(env.DB, userRow, auth.sessionId, loginEntityId)
+
   const adminSession = await resolveAdminSessionFromClerk(auth.userId, env.DB, env.SESSIONS)
 
   const adminEligible = adminSession !== null

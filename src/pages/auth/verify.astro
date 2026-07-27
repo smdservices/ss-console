@@ -41,7 +41,7 @@ if (!user) {
   return Astro.redirect('/auth/sign-in?error=no_account')
 }
 
-await recordUserLogin(env.DB, user.id)
+await recordUserLogin(env.DB, user)
 
 const sessionToken = await createSession(env.DB, env.SESSIONS, {
   id: user.id,

@@ -24,6 +24,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { readMachineRuntime, type RuntimeReadActor } from '../../operator/runtime-read'
 import { isClientVisibleAction } from './activity-language'
 import { listPauseEvents } from './pause-control'
+import { listPortalActionEvents, type PortalActionEventRow } from './action-events'
 import {
   createMachineRuntimeTransport,
   createRuntimeReadAudit,
@@ -46,6 +47,8 @@ export interface ActivityReadDeps {
   env: RuntimeReadEnv
   /** Console-side actor id for the read-audit row (distinct from the operator's log). */
   actorUserId: string
+  /** Entity scope for the console-plane unions (logins, team/config actions). */
+  entityId: string
 }
 
 /**
@@ -59,8 +62,21 @@ export async function loadActivityPage(
   actor: RuntimeReadActor,
   params: AuditListParams
 ): Promise<AuditListPage> {
+  // Console-plane unions (#2003 Q6 and the portal-accountability slice): the
+  // Machine ledger cannot carry console-side governance events (the broker
+  // PID-gates appends to the gateway process), so the client-readable record
+  // is Machine ledger ∪ operator_pause_events ∪ portal_login_events ∪
+  // portal_action_events. Each loader is defensive: a missing table (fresh
+  // environment) contributes nothing rather than blanking the page. These
+  // rows do not depend on the Machine read path, so they render even when
+  // runtime read is not configured.
+  const pauseRows = await loadPauseEventEntries(deps.db, customerSlug)
+  const loginRows = await loadLoginEventEntries(deps.db, deps.entityId)
+  const actionRows = await loadActionEventEntries(deps.db, deps.entityId)
+  const consoleRows = [...pauseRows, ...loginRows, ...actionRows]
+
   if (!isRuntimeReadConfigured(deps.env)) {
-    return buildAuditListPage([], params)
+    return buildAuditListPage(consoleRows, params)
   }
   const result = await readMachineRuntime(
     {
@@ -75,14 +91,7 @@ export async function loadActivityPage(
   // Curated client language only (Captain decision 7): entries without
   // authored client copy never reach the page, regardless of filters.
   const clientRows = rows.filter((r) => isClientVisibleAction(r.action))
-  // Union the console-side pause/resume governance rows (#2003, Q6: "every
-  // pause and resume is logged"). The Machine ledger cannot carry them (the
-  // broker PID-gates appends to the gateway process), so the client-readable
-  // record is Machine ledger ∪ operator_pause_events. Defensive: a missing
-  // table (fresh environment) contributes nothing rather than blanking the
-  // page.
-  const pauseRows = await loadPauseEventEntries(deps.db, customerSlug)
-  return buildAuditListPage([...clientRows, ...pauseRows], params)
+  return buildAuditListPage([...clientRows, ...consoleRows], params)
 }
 
 /**
@@ -106,6 +115,91 @@ async function loadPauseEventEntries(db: D1Database, customerSlug: string): Prom
     }))
   } catch {
     return []
+  }
+}
+
+/**
+ * Map portal_login_events into AuditEntry shape. PORTAL_LOGIN carries
+ * authored client copy in activity-language.ts. Entity-scoped: an entity's
+ * sign-ins show on all of its operator instances (portal access spans the
+ * entity, not one instance).
+ */
+async function loadLoginEventEntries(db: D1Database, entityId: string): Promise<AuditEntry[]> {
+  try {
+    const res = await db
+      .prepare(
+        'SELECT id, email, created_at FROM portal_login_events ' +
+          'WHERE entity_id = ? ORDER BY created_at DESC LIMIT 50'
+      )
+      .bind(entityId)
+      .all<{ id: string; email: string; created_at: string }>()
+    return (res.results ?? []).map((e) => ({
+      id: `login:${e.id}`,
+      ts: e.created_at,
+      actor: e.email,
+      actorRole: null,
+      action: 'PORTAL_LOGIN',
+      target: null,
+      decision: null,
+      reason: null,
+      skill: null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/** Console action → synthetic feed action. Kept out of AUDIT_ACTION_TYPES
+ * (Machine writer vocabulary, Python-parity-tested); see CONSOLE_ACTION_TYPES
+ * in audit.ts. */
+const ACTION_EVENT_FEED_MAP: Record<PortalActionEventRow['action_type'], string> = {
+  role_granted: 'TEAM_ROLE_GRANTED',
+  role_revoked: 'TEAM_ROLE_REVOKED',
+  invite_sent: 'TEAM_INVITE_SENT',
+  customer_yaml_update_submitted: 'CONFIG_CHANGE_SUBMITTED',
+  connector_reconsent_requested: 'CONNECTOR_RECONSENT_REQUESTED',
+}
+
+/**
+ * Map portal_action_events into AuditEntry shape. A rejected customer.yaml
+ * submission surfaces as CONFIG_CHANGE_REJECTED; role events carry the role
+ * in the reason cell (parsed defensively from metadata).
+ */
+async function loadActionEventEntries(db: D1Database, entityId: string): Promise<AuditEntry[]> {
+  try {
+    const events = await listPortalActionEvents(db, entityId)
+    return events.map((e) => {
+      const action =
+        e.action_type === 'customer_yaml_update_submitted' && e.status === 'rejected'
+          ? 'CONFIG_CHANGE_REJECTED'
+          : ACTION_EVENT_FEED_MAP[e.action_type]
+      return {
+        id: `action:${e.id}`,
+        ts: e.created_at,
+        actor: e.actor_email,
+        actorRole: asActorRole(e.actor_role),
+        action,
+        target: e.target,
+        decision: null,
+        reason: roleFromMetadata(e),
+        skill: null,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+/** For role events, surface the granted/revoked role. Malformed metadata → null. */
+function roleFromMetadata(e: PortalActionEventRow): string | null {
+  if (e.action_type !== 'role_granted' && e.action_type !== 'role_revoked') return null
+  try {
+    const parsed: unknown = JSON.parse(e.metadata_json)
+    if (!isRecord(parsed)) return null
+    const role = parsed['role']
+    return typeof role === 'string' && role.length > 0 ? `Role: ${role}` : null
+  } catch {
+    return null
   }
 }
 
