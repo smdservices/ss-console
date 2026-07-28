@@ -13,6 +13,7 @@ import {
   buildRoleAuditEvent,
   recordRbacAuditEvent,
 } from '../../../../../lib/portal/operator/rbac-audit'
+import { recordPortalActionEvent } from '../../../../../lib/portal/operator/action-events'
 import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
 import { env } from 'cloudflare:workers'
 import { errorResponse } from '../../../../../lib/api/helpers'
@@ -175,6 +176,26 @@ async function emitRoleAudit(
       role: parsed.role,
     })
   )
+
+  // Durable ledger (0099) — primary record; the tail-log line above is the
+  // secondary sink. The role mutation already landed, so a ledger failure
+  // must not turn a completed action into an error response.
+  try {
+    await recordPortalActionEvent(env.DB, {
+      entity_id: ctx.client.id,
+      customer_slug: ctx.instance,
+      action_type: subAction,
+      actor_user_id: ctx.user.id,
+      actor_email: ctx.user.email,
+      actor_role: 'principal',
+      source: 'portal',
+      target: target.email,
+      status: null,
+      metadata: { role: parsed.role, target_user_id: target.id },
+    })
+  } catch (err) {
+    console.error('role-action: failed to record portal_action_events row', err)
+  }
 }
 
 async function handleRevoke(

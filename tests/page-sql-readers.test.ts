@@ -53,7 +53,8 @@ describe('page reader helpers', () => {
       .run()
 
     const user = await getMagicLinkClientUser(db, ORG_ID, 'user-a')
-    await recordUserLogin(db, 'user-a')
+    if (!user) throw new Error('expected magic-link user row')
+    await recordUserLogin(db, user)
     const row = await db
       .prepare('SELECT last_login_at FROM users WHERE id = ?')
       .bind('user-a')

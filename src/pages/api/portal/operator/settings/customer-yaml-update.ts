@@ -67,6 +67,7 @@ import {
   buildAuditMetadata,
   recordCustomerYamlUpdateAudit,
 } from '../../../../../lib/portal/operator/customer-yaml-audit'
+import { recordPortalActionEvent } from '../../../../../lib/portal/operator/action-events'
 import {
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
@@ -245,6 +246,7 @@ function parseFormToConfig(
 
 interface AuthCtx {
   userId: string
+  userEmail: string
   customerId: string
   customerSlug: string
 }
@@ -268,7 +270,7 @@ async function authorize(locals: App.Locals, instance: string): Promise<Response
 
   // customerSlug is the real instance slug (not client.id — the pre-fix bug that
   // stamped an entity id into the audit customer_id field).
-  return { userId: user.id, customerId: client.id, customerSlug: instance }
+  return { userId: user.id, userEmail: user.email, customerId: client.id, customerSlug: instance }
 }
 
 async function resolveCurrentYaml(
@@ -334,22 +336,45 @@ interface AuditArgs {
   customerId: string
   before: EditableCustomerConfig
   after: EditableCustomerConfig
-  actorId: string
+  auth: AuthCtx
   errors: ValidationError[] | null
 }
 
 async function emitAudit(args: AuditArgs): Promise<void> {
-  const metadata = buildAuditMetadata(args.before, args.after, args.actorId)
+  const metadata = buildAuditMetadata(args.before, args.after, args.auth.userId)
+  const fullMetadata = {
+    ...metadata,
+    ...(args.errors !== null
+      ? { validation_error_codes: args.errors.map((e) => `${e.code}:${e.path}`) }
+      : {}),
+  }
   await recordCustomerYamlUpdateAudit({
     status: args.status,
     customer_id: args.customerId,
-    metadata: {
-      ...metadata,
-      ...(args.errors !== null
-        ? { validation_error_codes: args.errors.map((e) => `${e.code}:${e.path}`) }
-        : {}),
-    },
+    metadata: fullMetadata,
   })
+
+  // Durable ledger (0099) — primary record; the tail-log line above is the
+  // secondary sink. STATUS SEMANTICS, deliberately honest: this endpoint
+  // validates and acknowledges but git write-back is out of scope at v1, so
+  // a passing edit is recorded as 'submitted', never 'applied'. Nothing
+  // fabricates an applied state.
+  try {
+    await recordPortalActionEvent(env.DB, {
+      entity_id: args.auth.customerId,
+      customer_slug: args.auth.customerSlug,
+      action_type: 'customer_yaml_update_submitted',
+      actor_user_id: args.auth.userId,
+      actor_email: args.auth.userEmail,
+      actor_role: 'principal',
+      source: 'portal',
+      target: null,
+      status: args.status === 'applied' ? 'submitted' : 'rejected',
+      metadata: fullMetadata,
+    })
+  } catch (err) {
+    console.error('customer-yaml-update: failed to record portal_action_events row', err)
+  }
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -378,7 +403,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       customerId: auth.customerSlug,
       before,
       after: proposed,
-      actorId: auth.userId,
+      auth,
       errors: result.errors,
     })
     return redirectWithStatus(auth.customerSlug, 'invalid')
@@ -390,7 +415,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     customerId: auth.customerSlug,
     before,
     after,
-    actorId: auth.userId,
+    auth,
     errors: null,
   })
   return redirectWithStatus(auth.customerSlug, 'applied')
