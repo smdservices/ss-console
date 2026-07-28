@@ -130,7 +130,28 @@ export const AUDIT_ACTION_TYPES = [
 
 export type AuditActionType = (typeof AUDIT_ACTION_TYPES)[number]
 
-const AUDIT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(AUDIT_ACTION_TYPES)
+/**
+ * Console-ledger synthetic actions (portal_login_events / portal_action_events
+ * unions in activity-read.ts). Deliberately NOT part of AUDIT_ACTION_TYPES:
+ * that constant mirrors the Machine writer vocabulary and is parity-tested
+ * against operator/adapter/audit_log.py — these actions have no Machine
+ * producer and never will. They are validated separately for the ?action=
+ * filter below and carry authored client copy in activity-language.ts.
+ */
+export const CONSOLE_ACTION_TYPES = [
+  'PORTAL_LOGIN',
+  'TEAM_ROLE_GRANTED',
+  'TEAM_ROLE_REVOKED',
+  'TEAM_INVITE_SENT',
+  'CONFIG_CHANGE_SUBMITTED',
+  'CONFIG_CHANGE_REJECTED',
+  'CONNECTOR_RECONSENT_REQUESTED',
+] as const
+
+const AUDIT_ACTION_TYPE_SET: ReadonlySet<string> = new Set([
+  ...AUDIT_ACTION_TYPES,
+  ...CONSOLE_ACTION_TYPES,
+])
 
 /**
  * The effective decision the writer recorded for an action. Mirrors the

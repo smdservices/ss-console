@@ -54,6 +54,11 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
     actions: ['AGENT_STOPPED', 'AGENT_RESUMED'],
   },
   {
+    key: 'access',
+    label: 'Team and access',
+    actions: ['PORTAL_LOGIN', 'TEAM_ROLE_GRANTED', 'TEAM_ROLE_REVOKED', 'TEAM_INVITE_SENT'],
+  },
+  {
     key: 'configuration',
     label: 'Configuration',
     actions: [
@@ -62,6 +67,8 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'TRUST_PROMOTED',
       'TRUST_DEMOTED',
       'SCOPE_CHANGED',
+      'CONFIG_CHANGE_SUBMITTED',
+      'CONFIG_CHANGE_REJECTED',
     ],
   },
   {
@@ -72,6 +79,7 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'CONNECTOR_UNBOUND',
       'CONNECTOR_AUTH_EXPIRED',
       'CONNECTOR_AUTH_RESTORED',
+      'CONNECTOR_RECONSENT_REQUESTED',
     ],
   },
   {
@@ -145,6 +153,17 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   CONNECTOR_AUTH_RESTORED: () => 'A connection was restored',
   SCOPE_CHANGED: () => 'Working scope was updated',
   COMPLIANCE_PACKET_EXPORTED: () => 'A compliance export was produced',
+  // Console-plane events (CONSOLE_ACTION_TYPES in audit.ts): sign-in history
+  // and team/config actions recorded by the console itself, unioned into the
+  // feed by activity-read.ts. Copy states only what durably happened; the
+  // actor and target render in their own cells.
+  PORTAL_LOGIN: () => 'Signed in to the client portal',
+  TEAM_ROLE_GRANTED: () => 'A team member role was granted',
+  TEAM_ROLE_REVOKED: () => 'A team member role was revoked',
+  TEAM_INVITE_SENT: () => 'A team invitation was sent',
+  CONFIG_CHANGE_SUBMITTED: () => 'An advanced configuration change was submitted',
+  CONFIG_CHANGE_REJECTED: () => 'An advanced configuration change was not accepted',
+  CONNECTOR_RECONSENT_REQUESTED: () => 'A connection re-authorization was requested',
 }
 
 /** Raw action strings with authored client copy. */

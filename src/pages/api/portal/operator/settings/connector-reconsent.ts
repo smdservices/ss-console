@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
+import { recordPortalActionEvent } from '../../../../../lib/portal/operator/action-events'
 import { env } from 'cloudflare:workers'
 import { errorResponse } from '../../../../../lib/api/helpers'
 
@@ -71,6 +72,24 @@ export const POST: APIRoute = async ({ locals, request }) => {
     user_id: access.user.id,
     capability: capabilityName,
   })
+
+  // Durable ledger (0099) — the intent log above is the secondary sink.
+  try {
+    await recordPortalActionEvent(env.DB, {
+      entity_id: access.client.id,
+      customer_slug: access.customerSlug,
+      action_type: 'connector_reconsent_requested',
+      actor_user_id: access.user.id,
+      actor_email: access.user.email,
+      actor_role: 'principal',
+      source: 'portal',
+      target: capabilityName,
+      status: null,
+      metadata: {},
+    })
+  } catch (err) {
+    console.error('connector-reconsent: failed to record portal_action_events row', err)
+  }
 
   return redirectWithStatus(instance, 'reconsent_started')
 }

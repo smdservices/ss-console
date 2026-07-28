@@ -114,6 +114,7 @@ function mockUser(id: string, email: string) {
     role: 'client',
     entity_id: ENTITY_ID,
     clerk_user_id: `clerk_${id}`,
+    last_clerk_session_id: null,
   }
 }
 

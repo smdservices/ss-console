@@ -9,6 +9,7 @@ import {
   recordRbacAuditEvent,
 } from '../../../../../lib/portal/operator/rbac-audit'
 import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
+import { recordPortalActionEvent } from '../../../../../lib/portal/operator/action-events'
 import { env } from 'cloudflare:workers'
 import { errorResponse } from '../../../../../lib/api/helpers'
 
@@ -162,6 +163,26 @@ export const POST: APIRoute = async (context: APIContext) => {
       clerkInvitationId: invitationId,
     })
   )
+
+  // Durable ledger (0099) — primary record; the tail-log line above is the
+  // secondary sink. The invitation already went out, so a ledger failure
+  // must not surface as an error to the principal.
+  try {
+    await recordPortalActionEvent(env.DB, {
+      entity_id: ctx.client.id,
+      customer_slug: ctx.instance,
+      action_type: 'invite_sent',
+      actor_user_id: ctx.user.id,
+      actor_email: ctx.user.email,
+      actor_role: 'principal',
+      source: 'portal',
+      target: email,
+      status: null,
+      metadata: { clerk_invitation_id: invitationId, clerk_org_id: ctx.client.clerk_org_id },
+    })
+  } catch (err) {
+    console.error('invitations: failed to record portal_action_events row', err)
+  }
 
   return redirectWithStatus(instance, 'invited')
 }

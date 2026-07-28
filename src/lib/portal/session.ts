@@ -47,5 +47,12 @@ export async function getPortalClient(
     clerkUser.username ||
     email
 
-  return resolveClerkPortalContext(db, { userId: auth.userId, orgId: auth.orgId }, { email, name })
+  return resolveClerkPortalContext(
+    db,
+    { userId: auth.userId, orgId: auth.orgId, sessionId: auth.sessionId },
+    { email, name },
+    // Fire-and-forget on the Workers request path; awaited when no
+    // ExecutionContext is available (local dev, tests).
+    { waitUntil: locals.cfContext ? (p) => locals.cfContext!.waitUntil(p) : undefined }
+  )
 }
