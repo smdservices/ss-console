@@ -98,8 +98,23 @@ describe('doctrine registry: schema', () => {
   })
 })
 
+// A law's enforcement may live in another repo: client material moved to the
+// private venturecrane/engagements, and Law 5's correspondence README went with
+// it. Such pointers carry an explicit `venturecrane/engagements:` prefix, and
+// are resolved against that checkout when it is available. When it is not
+// (ss-console CI, deliberately tokenless for client data), the pointer is
+// reported as unverifiable rather than silently accepted -- a law claiming
+// coverage that cannot be checked must not read the same as one that passed.
+const CROSS_REPO_PREFIX = 'venturecrane/engagements:'
+const ENGAGEMENTS_DIR =
+  process.env.SS_ENGAGEMENTS_DIR || join(process.env.HOME ?? '', 'dev', 'engagements')
+const ENGAGEMENTS_GUARD_FILE = join(ENGAGEMENTS_DIR, 'tests', 'engagement-guards.test.ts')
+const ENGAGEMENTS_GUARD_FILE_PRESENT = existsSync(ENGAGEMENTS_GUARD_FILE)
+
 describe('doctrine registry: enforcement pointers resolve', () => {
-  it('every enforcement pointer names a file that exists', () => {
+  const unverifiable: string[] = []
+
+  it('every enforcement pointer names a file that exists', (ctx) => {
     const violations: string[] = []
     for (const law of laws) {
       if (!Array.isArray(law.enforcement) || law.enforcement.length === 0) {
@@ -107,10 +122,41 @@ describe('doctrine registry: enforcement pointers resolve', () => {
         continue
       }
       for (const pointer of law.enforcement) {
+        // A cross-repo pointer contains a colon, so it MUST be quoted in the
+        // doctrine YAML or it parses as a map instead of a string. Catch that
+        // authoring slip here rather than letting it read as a missing file.
+        if (typeof pointer !== 'string') {
+          violations.push(
+            `${law.id}: enforcement entry parsed as ${typeof pointer}, not a string ` +
+              `(a pointer containing ":" must be quoted in the YAML)`
+          )
+          continue
+        }
+        if (pointer.startsWith(CROSS_REPO_PREFIX)) {
+          const rel = pointer.slice(CROSS_REPO_PREFIX.length).trim()
+          if (existsSync(join(ENGAGEMENTS_DIR, rel))) continue
+          if (existsSync(ENGAGEMENTS_DIR)) {
+            violations.push(`${law.id}: "${rel}" missing from the engagements repo`)
+          } else {
+            unverifiable.push(`${law.id}: "${pointer}"`)
+          }
+          continue
+        }
         if (!existsSync(resolve(pointer))) violations.push(`${law.id}: "${pointer}" does not exist`)
       }
     }
     expect(violations).toEqual([])
+
+    // Pointers into the private repo could not be checked at all when it is
+    // not on this machine. Reporting that as a pass would be the same lie the
+    // vacuous guards told, so the test is skipped instead: it leaves the
+    // passed count and says why, rather than claiming coverage it lacks.
+    if (unverifiable.length > 0) {
+      ctx.skip(
+        `${unverifiable.length} cross-repo enforcement pointer(s) NOT VERIFIED (engagements repo ` +
+          `not at ${ENGAGEMENTS_DIR}): ${unverifiable.join(', ')}`
+      )
+    }
   })
 })
 
@@ -158,6 +204,22 @@ describe('doctrine style', () => {
   })
 })
 
+// Structural check for Law 2, now enforced across a repo boundary.
+//
+// Dossiers and correspondence live in the private venturecrane/engagements
+// repo. Left as-written, this check would keep passing here forever: it
+// filters for slugs that HAVE a correspondence/ archive, and after the split
+// none do, so the filter empties and the assertion trivially holds. A guard
+// that goes green because it stopped looking is the exact failure the split
+// was supposed to remove, not introduce.
+//
+// So the enforcement moved with the material (engagements repo,
+// tests/engagement-guards.test.ts, where it now also carries a sanity
+// assertion). What remains here is a POINTER test that refuses to pass
+// silently: if the engagements repo is not resolvable it skips with a named
+// reason rather than asserting nothing, and if correspondence ever reappears
+// in this tree it fails, because client material landing back in ss-console
+// is itself the regression.
 describe('engagement structure: Law 2 has something to gate on', () => {
   const slugs = readdirSync(CUSTOMERS_ROOT).filter(
     (name) => !name.startsWith('_') && statSync(join(CUSTOMERS_ROOT, name)).isDirectory()
@@ -167,13 +229,63 @@ describe('engagement structure: Law 2 has something to gate on', () => {
     expect(slugs.length).toBeGreaterThan(0)
   })
 
-  it('every engagement with a correspondence/ archive has a dossier.md', () => {
-    const violations = slugs
-      .filter((slug) => existsSync(join(CUSTOMERS_ROOT, slug, 'correspondence')))
-      .filter((slug) => !existsSync(join(CUSTOMERS_ROOT, slug, 'dossier.md')))
-      .map((slug) => `operator/customers/${slug}/ has correspondence/ but no dossier.md`)
-    expect(violations).toEqual([])
+  // Every shape of client material that moved out, not just correspondence/.
+  //
+  // The first cut of this test guarded correspondence/ alone, and an
+  // agreements/ directory (the DPA and Confidentiality Addendum drafted in
+  // #2031 by a parallel session, mid-split) walked straight past it. It was
+  // caught by a rebase conflict, which is luck, not a control. While both
+  // repos can physically hold engagement paths, a concurrent session can put
+  // client material in the wrong one; this is what notices.
+  //
+  // Deliberately shape-based rather than a whitelist: pilot-smokeball carries
+  // operational seed code and smd carries our own dogfood onboarding notes,
+  // neither of which is client material.
+  const CLIENT_MATERIAL = [
+    { name: 'dossier.md', why: 'engagement dossier' },
+    { name: 'correspondence', why: 'client correspondence archive' },
+    { name: 'agreements', why: 'client agreements' },
+  ]
+
+  it('no client material has reappeared in ss-console', () => {
+    const strays: string[] = []
+    for (const slug of slugs) {
+      for (const { name, why } of CLIENT_MATERIAL) {
+        if (existsSync(join(CUSTOMERS_ROOT, slug, name))) {
+          strays.push(`operator/customers/${slug}/${name} (${why})`)
+        }
+      }
+      const clientDocs = existsSync(join(CUSTOMERS_ROOT, slug))
+        ? readdirSync(join(CUSTOMERS_ROOT, slug)).filter((f) => /^CLIENT-.*\.md$/.test(f))
+        : []
+      strays.push(...clientDocs.map((f) => `operator/customers/${slug}/${f} (client document)`))
+    }
+    expect(
+      strays,
+      `client material belongs in the private venturecrane/engagements repo, not here:\n` +
+        strays.join('\n')
+    ).toEqual([])
   })
+
+  // ctx.skip() rather than a console.warn + return: vitest's default reporter
+  // SWALLOWS console output, so warn-and-return is indistinguishable from a
+  // pass. Skipping moves the test out of the passed count and the reason rides
+  // in the test NAME. A check that could not run must never look like one that
+  // succeeded -- that is the whole failure class this split exists to remove.
+  it(
+    ENGAGEMENTS_GUARD_FILE_PRESENT
+      ? 'the correspondence-implies-dossier rule is enforced in the engagements repo'
+      : `NOT RUN: engagements repo not resolvable at ${ENGAGEMENTS_DIR}; the rule is enforced by that repo's own CI, which this does NOT verify`,
+    (ctx) => {
+      if (!ENGAGEMENTS_GUARD_FILE_PRESENT) {
+        ctx.skip()
+        return
+      }
+      expect(readFileSync(ENGAGEMENTS_GUARD_FILE, 'utf-8')).toContain(
+        'every engagement with a correspondence/ archive has a dossier.md'
+      )
+    }
+  )
 })
 
 describe('mechanisms under review are falsifiable', () => {

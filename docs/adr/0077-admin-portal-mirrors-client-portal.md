@@ -26,7 +26,7 @@ walking every surface) found:
    We do not harvest leads. These surfaces present dead machinery as live product lines.
 2. **`Services` is trying to be two things at once** — delivery status and the commercial spine — and its own page
    admits it with a "SERVICE SPINE DRIFT / these need manual reconciliation" banner. It reconciles nothing.
-3. **`Billing` encodes a false assumption** — every operator worth `$5,000/mo`, summed to a hardcoded `$10,000` MRR —
+3. **`Billing` encodes a false assumption** — every operator worth the same hardcoded amount, summed to a hardcoded MRR —
    because there is no real per-engagement pricing behind it.
 4. **The core surfaces are half-built.** `Clients` has no way to add a client and columns that mean nothing.
    `Provision operator` is unexplained. There is no screen that reads as "run the venture today."
