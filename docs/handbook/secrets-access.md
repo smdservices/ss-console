@@ -72,13 +72,14 @@ not secrets, and are set in the build/deploy environment - see
   tokens (ADR 0007, ADR 0010); a credential for one customer never reaches another.
 - **Never grant or change access controls casually.** Modifying auth flows, sharing
   permissions, or access controls is a Captain decision, not an agent one.
-- **Client-reachable credentials are scoped to one action.** `OPERATOR_CONFIG_PR_TOKEN`
-  (the entitlement control's git transport, #2003) is a fine-grained GitHub token limited
-  to this one repository with `contents: write` + `pull_requests: write`. It sits in a
-  request path a client admin can reach, so its blast radius is deliberately bounded to
-  opening a pull request: branch protection keeps it off the default branch, and it can
-  touch no other repository. It is never the fleet `GH_TOKEN`. Unset means the control
-  fails closed, which is the correct posture until the token is minted.
+- **Client-reachable controls carry no git credential.** The entitlement dial
+  (#2003 Q7) and the pause control both ride the console-proxy bearer
+  (`OPERATOR_MCP_WEBHOOK_SECRET`-derived, per customer) to the Machine's gate;
+  neither path holds a GitHub token. The Machine clamps every entitlement set
+  to the authored `exposure_ceiling` itself, so even a compromised console
+  credential cannot raise the Operator above the letter commitment. (The
+  fine-grained `OPERATOR_CONFIG_PR_TOKEN` this section previously described
+  belonged to the superseded PR-based delivery leg and was never minted.)
 
 ## Related
 

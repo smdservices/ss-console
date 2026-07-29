@@ -194,6 +194,34 @@ escalation: none pending
 
 Work continues until it is done, blocked, or the Captain redirects. No milestone pauses offered as questions, no finished work labeled draft to dodge standing behind it, no relitigating decisions the Captain has made, no citing a document's caution against the Captain's live direction. When genuinely blocked, say what is blocked, why, and what would unblock it, and finish everything that does not depend on the answer.
 
+### Law 9: The deliverable is the act, not the artifact
+
+```yaml
+id: deliverable-is-the-act
+primer_line: "The deliverable is the client's act, not your artifact: name the terminal seam, enumerate every gate between the client and the effect, and escalate an unclosable gate before building the closable ones."
+cost: high
+tier: gate
+enforcement:
+  - .github/workflows/runtime-ac-proof.yml
+  - scripts/runtime-ac-proof.mjs
+  - tests/runtime-ac-proof.test.ts
+  - docs/doctrine/wired-contract.md
+incidents:
+  - date: 2026-07-28
+    ref: entitlement-control incident (four PRs, each honest about its own artifact, one stating "Next slices, unbuilt and not implied here"; reported built, wired, and tested while a Named Administrator could not perform the act)
+  - date: 2026-07-25
+    ref: 'feedback_built_not_wired_into_behavior (escalated that day: handoffs must lead with mission-level readiness, and "end-to-end" is banned unless the end is customer-visible; the escalation did not stop the recurrence three days later)'
+  - date: 2026-06-30
+    ref: feedback_verify_operator_runtime_not_config (a runbook claimed a cron fires that had never run; the same gap between config and adoption)
+escalation: none pending
+```
+
+Built, wired, and tested are three different claims, and the distance between them is where features die while every ledger reads green. Built means the code exists and its own tests pass, which is the weakest of the three and the easiest to mistake for done because it produces the most visible evidence. Wired means every gate between a real client's finger and the effect is open on the deployment that client uses, configured rather than configurable; secrets and config authoring are part of the deliverable, not prerequisites belonging to someone else. Tested means someone performed the act as the client, on the real seat, and observed the far end change; a green unit test against a fake token is not that.
+
+The failure is scope, not honesty. A PR that defines done as the artifact it added can be entirely truthful and still leave the feature dead, which is why asking for more diligence does not reach it. So the deliverable is stated as an act a named person performs and an outcome they observe, never a component noun. The terminal seam is named, and whoever takes the work owns the whole distance to it. Gates are enumerated backwards from that seam, because forward enumeration only ever produces the artifacts already planned, and the gates that kill features (adoption, roles, secrets, transport) are the ones that are not code. Any gate that cannot be closed is escalated before the closable ones are built, which is what turns an honest slice into a required stop.
+
+The gate is deliberately narrow. The `/wired` skill tags each acceptance criterion with its layer, and `runtime-ac-proof` blocks a PR that marks a `(runtime)` criterion met without a `crane_verify` ID; repo-layer criteria still take a file:line, because that is the right evidence for code. It exists because the acceptance-criteria machinery otherwise certifies the author's own definition: `tick-acs-on-merge` parses the merging PR's own status table to tick the linked issue, and `unmet-ac-on-close` skips PR-driven closes, so a slice that declares itself met is what closes the epic (`vfy_01KYNVJ4VG90G26SZSYPXF05KY`).
+
 ---
 
 ## Mechanisms under review
@@ -202,7 +230,7 @@ Work continues until it is done, blocked, or the Captain redirects. No milestone
 mechanisms:
   - id: reflex-primer
     file: .claude/hooks/reflex-primer.sh
-    hypothesis: 'Always-on injection of the eight primer lines reduces judgment-class incidents (Laws 1, 3, 4, 8) that no deterministic gate can reach.'
+    hypothesis: 'Always-on injection of the nine primer lines reduces judgment-class incidents (Laws 1, 3, 4, 8) that no deterministic gate can reach.'
     success_criterion: 'Corrections attributable to Laws 1/3/4/8 captured at session close trend toward zero across the sessions between now and the review date.'
     review: 2026-09-30
     on_failure: 'Demote or redesign. A mechanism that cannot be demoted is ceremony.'

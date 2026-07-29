@@ -61,6 +61,7 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'DRAFT_CREATED',
         'DRAFT_EXPIRED',
         'DRAFT_REJECTED',
+        'ENTITLEMENT_CHANGED',
         'ESCALATION_ACKNOWLEDGED',
         'ESCALATION_FIRED',
         'PORTAL_LOGIN',

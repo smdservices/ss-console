@@ -86,6 +86,14 @@ personas:
         external_send_client: draft_for_review # day-one grid posture (graduation proven config-correct; see ADR 0075 + the send-delivery follow-on)
         external_send_vendor: draft_for_review # day-one grid posture
         destructive: autonomous
+      # Letter-commitment bounds for the runtime entitlement dial (ss#2003
+      # Q7), mirroring the A&P seat (this seat rehearses that grid). Derived
+      # from routine-grid.yaml ceiling_tier per send class; the Machine clamps
+      # every portal-set override to these.
+      exposure_ceiling:
+        external_send: draft_for_review
+        external_send_client: autonomous
+        external_send_vendor: autonomous
         # code_execution stays UNAUTHORED (= refused) on this seat, and the
         # custody guard (#1841, ADR 0044 Decision 8) enforces it: gateway-held
         # credential surfaces exist (agentmail/brave/smokeball), executed code
@@ -497,6 +505,17 @@ mcp_connector:
       clerk_subjects:
         - user_3EEs0aMBRgu6PRxBa4g5YhHjggD
         - user_3E1RPGrTMxkSqciXMTyybUNSJWu
+
+# ---- AUTHORITY (ADR 0041 dual-mode portal surfaces) ----
+# The entitlement dial (ss#2003 Q7) rehearses here before the client seat
+# enables it: trust is client-operable so the live probes exercise the same
+# portal path a Named Administrator uses. runtime deliberately NOT flipped —
+# this seat's pause stays SMD-managed (the A&P seat is the one that authors
+# runtime: client).
+authority:
+  default: managed
+  overrides:
+    trust: client
 
 # ---- CONNECTORS ----
 connectors:
