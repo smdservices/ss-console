@@ -116,15 +116,6 @@ export function resolveQuoteLabel(status: string): string {
  *   - Other labels mirror the internal enum in title case; they are
  *     already plain English and don't read as jargon.
  */
-const ENGAGEMENT_TONE: Record<EngagementStatus, Tone> = {
-  scheduled: 'info',
-  active: 'success',
-  handoff: 'info',
-  safety_net: 'warning',
-  completed: 'success',
-  cancelled: 'neutral',
-}
-
 const ENGAGEMENT_LABEL: Record<EngagementStatus, string> = {
   scheduled: 'Starting Soon',
   active: 'Underway',
@@ -132,10 +123,6 @@ const ENGAGEMENT_LABEL: Record<EngagementStatus, string> = {
   safety_net: 'Stabilization',
   completed: 'Complete',
   cancelled: 'Cancelled',
-}
-
-export function resolveEngagementTone(status: string): Tone {
-  return ENGAGEMENT_TONE[status as EngagementStatus] ?? 'neutral'
 }
 
 export function resolveEngagementLabel(status: string): string {

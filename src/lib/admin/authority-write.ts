@@ -28,8 +28,6 @@ import {
   type SwitchableAuthorityDomain,
 } from '../operator/authority'
 
-const HOLDERS: readonly AuthorityHolder[] = ['managed', 'client']
-
 export function isAuthorityHolder(value: unknown): value is AuthorityHolder {
   return value === 'managed' || value === 'client'
 }
@@ -133,9 +131,4 @@ export async function listAuthorityAudit(
     .bind(entityId, limit)
     .all<AuthorityAuditRow>()
   return result.results ?? []
-}
-
-/** The valid holder values, for callers that need to enumerate them. */
-export function authorityHolders(): readonly AuthorityHolder[] {
-  return HOLDERS
 }

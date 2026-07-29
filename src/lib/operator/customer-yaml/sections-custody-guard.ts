@@ -31,7 +31,7 @@ import type { Connector, Persona, ValidationError } from './types'
 import { isPlainObject } from './helpers'
 
 /** Identity-channel adapters that MAY be excepted (never client-data). */
-export const CUSTODY_EXCEPTION_ELIGIBLE = ['telegram', 'agentmail', 'brave'] as const
+const CUSTODY_EXCEPTION_ELIGIBLE = ['telegram', 'agentmail', 'brave'] as const
 export type CustodyExceptionAdapter = (typeof CUSTODY_EXCEPTION_ELIGIBLE)[number]
 
 /**
@@ -40,7 +40,7 @@ export type CustodyExceptionAdapter = (typeof CUSTODY_EXCEPTION_ELIGIBLE)[number
  * construction, not a connectors{} backend. Grows as ADR 0045 migration
  * step 7 moves connectors behind the broker.
  */
-export const BROKER_MEDIATED_BACKENDS: ReadonlySet<string> = new Set()
+const BROKER_MEDIATED_BACKENDS: ReadonlySet<string> = new Set()
 
 /**
  * Parse the optional top-level `custody_exceptions` list. Returns the parsed

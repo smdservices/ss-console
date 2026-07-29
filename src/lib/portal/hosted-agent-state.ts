@@ -21,7 +21,7 @@ export interface HostedAgentState {
 }
 
 /** Pure derivation from already-fetched rows. */
-export function deriveHostedAgentState(input: {
+function deriveHostedAgentState(input: {
   subscription: SubscriptionRow | null
   roles: string[]
   intake: HostedAgentIntakeRow | null

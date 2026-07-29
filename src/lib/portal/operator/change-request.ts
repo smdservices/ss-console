@@ -16,8 +16,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { isSwitchableDomain, type SwitchableAuthorityDomain } from '../../operator/authority'
 
-export const CHANGE_REQUEST_STATUSES = ['open', 'acknowledged', 'resolved', 'declined'] as const
-export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number]
+export type ChangeRequestStatus = 'open' | 'acknowledged' | 'resolved' | 'declined'
 
 export interface ChangeRequestRow {
   id: number
@@ -47,7 +46,7 @@ export type CreateChangeRequestResult =
   { ok: true; id: number } | { ok: false; error: 'invalid_domain' | 'empty_summary' }
 
 /** Max accepted request text — generous for a paragraph, rejects pasted blobs. */
-export const MAX_SUMMARY_LENGTH = 4000
+const MAX_SUMMARY_LENGTH = 4000
 
 /**
  * File a client change request. Validates the domain (must be a switchable

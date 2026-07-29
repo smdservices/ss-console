@@ -17,14 +17,6 @@ export const coldLanderLink = {
   href: '/operator',
 }
 
-// The three customization zones of every pack, shown in the "Yours To Shape"
-// section. Titles are shared; the body under each is per-vertical.
-export const shapeZoneTitles = {
-  prebuilt: 'Pre-built',
-  connected: 'Connected to your stack',
-  yours: 'Yours to shape',
-}
-
 // The pricing line shown in every pack's closing section.
 export const ctaPricingLine =
   'Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk through it before any setup begins.'

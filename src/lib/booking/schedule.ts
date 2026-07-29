@@ -134,26 +134,6 @@ export async function updateScheduleGoogleSync(
 }
 
 /**
- * Mark the schedule's Google sync as failed.
- */
-export async function markScheduleGoogleError(
-  db: D1Database,
-  scheduleId: string,
-  error: string
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE assessment_schedule SET
-        google_sync_state = 'error',
-        google_last_error = ?,
-        updated_at = datetime('now')
-      WHERE id = ?`
-    )
-    .bind(error, scheduleId)
-    .run()
-}
-
-/**
  * Look up a schedule by its manage_token_hash. Used by the manage endpoints
  * to resolve the raw token from the URL into a schedule row.
  */
