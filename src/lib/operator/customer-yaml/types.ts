@@ -231,6 +231,15 @@ export interface PersonaEntitlements {
    * customer-authored; the enforcement layer always allows read.
    */
   exposure: Partial<Record<AuthoredExposureActionClass, ExposureCeiling>>
+  /**
+   * Letter-commitment bound for the runtime entitlement dial (ss#2003 Q7).
+   * The most autonomous value a portal-set runtime override may reach for a
+   * class; absent means the authored exposure value is the bound (no
+   * permission to raise, ADR 0056). Enforced Machine-side (write clamp in the
+   * gate + read clamp in the trust plugin) — this authored map IS the bound
+   * the Machine holds against the console.
+   */
+  exposure_ceiling?: Partial<Record<AuthoredExposureActionClass, ExposureCeiling>>
 }
 
 export interface SkillInitiation {

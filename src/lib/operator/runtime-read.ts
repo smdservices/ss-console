@@ -65,6 +65,11 @@ export const RUNTIME_READ_KINDS = [
   'memory_export',
   'config_export',
   'jobs',
+  // Live runtime exposure overrides (ss#2003 Q7 — the entitlement dial). The
+  // Machine serves its volume-backed override store directly, so the portal
+  // settings surface and the live probes read the ACTUAL enforced posture,
+  // never a projection.
+  'entitlements',
 ] as const
 export type RuntimeReadKind = (typeof RUNTIME_READ_KINDS)[number]
 

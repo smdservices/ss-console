@@ -275,3 +275,34 @@ controls:
       (test_trust_enforce.py: refuses a plain READ at HARD_STOP through the
       real plugin + real state db) and has no live exercise yet precisely
       because no live wake path survives to reach it.
+
+  entitlement_dial:
+    control: entitlement_dial
+    class: dispatch-guard
+    # Overlay-resident (born there, no vendored twin): the store + the
+    # _resolve_persona_exposure overlay both live in hermes-smd-overlay.
+    substrate_module: 'overlay:shared/exposure_override.py'
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: '#2003'
+    note: >-
+      Portal entitlement dial (ss#2003 Q7, agreement §2.4-2.5): Named
+      Administrator changes a routine's tier in the portal -> console compiles
+      to per-action-class ceilings (letter ceiling + vertical floor
+      non-raisable) -> gate POST /entitlement/set (console-proxy bearer, same
+      boundary as the pause) -> volume-backed override store (survives restart
+      AND reprovision) -> trust plugin resolves effective exposure = authored
+      overlaid by overrides, re-clamped to authored exposure_ceiling at read
+      time (a tampered row is narrowed, never honored). Governance rows in
+      operator_entitlement_changes (status `applied`, Machine-first ordering);
+      activity feed unions them as ENTITLEMENT_CHANGED. PROMOTION PATH: live
+      probe on pilot-smokeball at next reprovision — as a portal principal,
+      lower a send-class routine and observe the next execution draft instead
+      of send; raise it back and observe the send; restart the Machine and
+      observe the level hold; then promote to enforced with the crane_verify
+      ids. The write-clamp arm (409 on an above-ceiling set) and read-clamp
+      arm are pinned by overlay tests (test_exposure_override.py) pending the
+      live exercise.
