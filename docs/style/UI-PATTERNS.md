@@ -461,7 +461,10 @@ The test auto-enrolls new portal list-index files. Exceptions are an explicit `L
 - [`src/components/portal/form/Field.astro`](../../src/components/portal/form/Field.astro) — mono eyebrow label + control slot; width is the caller's layout column.
 - [`src/components/portal/form/TextInput.astro`](../../src/components/portal/form/TextInput.astro) — single-line text input.
 - [`src/components/portal/form/SelectField.astro`](../../src/components/portal/form/SelectField.astro) — `appearance-none` select with inked chevron; never intrinsic-width.
-- [`src/components/portal/form/SubmitButton.astro`](../../src/components/portal/form/SubmitButton.astro) — kit-height submit; `neutral` / `danger` / `success` tones.
+- [`src/components/portal/form/SubmitButton.astro`](../../src/components/portal/form/SubmitButton.astro) — kit-height submit; `primary` (filled, the Rule 3 primary treatment) / `neutral` / `danger` / `success` tones.
+- [`src/components/portal/form/TextArea.astro`](../../src/components/portal/form/TextArea.astro) — multi-line input; height from `rows`; `mono` for data-like content.
+- [`src/components/portal/form/MultiSelectField.astro`](../../src/components/portal/form/MultiSelectField.astro) — open-listbox multi-select; height from `size`.
+- [`src/components/portal/form/CheckboxOption.astro`](../../src/components/portal/form/CheckboxOption.astro) — labeled checkbox for filter/option stacks.
 
 `StatusDot.astro` remains registered (register-neutral, used by `AlivenessHeader`). The unused calm card primitives (`Card.astro`, `CardHeader.astro`) were deleted with the calm migration.
 
