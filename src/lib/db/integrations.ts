@@ -68,13 +68,6 @@ export async function getIntegration(
   )
 }
 
-export async function getIntegrationById(db: D1Database, id: string): Promise<Integration | null> {
-  return (
-    (await db.prepare('SELECT * FROM integrations WHERE id = ?').bind(id).first<Integration>()) ??
-    null
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Upsert
 // ---------------------------------------------------------------------------
@@ -129,7 +122,7 @@ export async function upsertIntegration(
 // Update cached access token
 // ---------------------------------------------------------------------------
 
-export async function updateAccessToken(
+async function updateAccessToken(
   db: D1Database,
   integrationId: string,
   accessToken: string,
@@ -149,7 +142,7 @@ export async function updateAccessToken(
 // Update status (revoke / error)
 // ---------------------------------------------------------------------------
 
-export async function updateIntegrationStatus(
+async function updateIntegrationStatus(
   db: D1Database,
   integrationId: string,
   status: 'active' | 'revoked' | 'error',

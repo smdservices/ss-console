@@ -242,8 +242,3 @@ export function toClientActivity(entries: readonly AuditEntry[]): ClientActivity
   }
   return lines
 }
-
-/** Options for the client-facing activity filter control. */
-export function clientActivityFilterOptions(): { value: string; label: string }[] {
-  return CLIENT_ACTIVITY_CATEGORIES.map((c) => ({ value: c.key, label: c.label }))
-}

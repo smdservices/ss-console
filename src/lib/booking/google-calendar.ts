@@ -35,11 +35,6 @@ export interface CalendarEvent {
   status: string
 }
 
-export interface FreeBusySlot {
-  start: string
-  end: string
-}
-
 export interface TokenResponse {
   access_token: string
   expires_in: number
@@ -77,54 +72,9 @@ async function googleFetch(
   }
 }
 
-function buildEventBody(event: CalendarEventInput): Record<string, unknown> {
-  const body: Record<string, unknown> = {
-    summary: event.summary,
-    description: event.description,
-    start: event.start,
-    end: event.end,
-  }
-
-  if (event.attendees?.length) {
-    body.attendees = event.attendees
-  }
-
-  if (event.assessmentId) {
-    body.extendedProperties = {
-      private: { assessment_id: event.assessmentId },
-    }
-  }
-
-  return body
-}
-
 // ---------------------------------------------------------------------------
 // CRUD
 // ---------------------------------------------------------------------------
-
-/**
- * Create a Google Calendar event.
- */
-export async function createCalendarEvent(
-  accessToken: string,
-  calendarId: string,
-  event: CalendarEventInput
-): Promise<CalendarEvent> {
-  const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`
-  const body = buildEventBody(event)
-
-  const response = await googleFetch(url, accessToken, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`Google Calendar create failed (${response.status}): ${text}`)
-  }
-
-  return await response.json()
-}
 
 /**
  * Update an existing Google Calendar event.
@@ -178,68 +128,6 @@ export async function deleteCalendarEvent(
     const text = await response.text()
     throw new Error(`Google Calendar delete failed (${response.status}): ${text}`)
   }
-}
-
-/**
- * Query free/busy data for slot availability.
- */
-export async function getFreeBusy(
-  accessToken: string,
-  calendarId: string,
-  timeMin: string,
-  timeMax: string
-): Promise<FreeBusySlot[]> {
-  const url = `${BASE_URL}/freeBusy`
-
-  const response = await googleFetch(url, accessToken, {
-    method: 'POST',
-    body: JSON.stringify({
-      timeMin,
-      timeMax,
-      items: [{ id: calendarId }],
-    }),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`Google Calendar freeBusy failed (${response.status}): ${text}`)
-  }
-
-  const data: { calendars?: Record<string, { busy?: Array<{ start: string; end: string }> }> } =
-    await response.json()
-
-  return data.calendars?.[calendarId]?.busy ?? []
-}
-
-// ---------------------------------------------------------------------------
-// Token refresh
-// ---------------------------------------------------------------------------
-
-/**
- * Refresh an expired access token using a refresh token.
- */
-export async function refreshAccessToken(
-  clientId: string,
-  clientSecret: string,
-  refreshToken: string
-): Promise<TokenResponse> {
-  const response = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`Token refresh failed (${response.status}): ${text}`)
-  }
-
-  return await response.json()
 }
 
 // ---------------------------------------------------------------------------

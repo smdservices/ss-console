@@ -199,44 +199,6 @@ export async function getLatestDownloadableSOWRevisionForQuote(
   )
 }
 
-export async function createSOWRevision(
-  db: D1Database,
-  data: CreateSOWRevisionData
-): Promise<SOWRevision> {
-  const id = crypto.randomUUID()
-  const now = data.rendered_at
-
-  await db
-    .prepare(
-      `INSERT INTO sow_revisions (
-        id, org_id, quote_id, quote_version, sow_number, status,
-        unsigned_storage_key, checksum_sha256, rendered_by, rendered_at,
-        metadata_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'rendered', ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      id,
-      data.org_id,
-      data.quote_id,
-      data.quote_version,
-      data.sow_number,
-      data.unsigned_storage_key,
-      data.checksum_sha256,
-      data.rendered_by,
-      data.rendered_at,
-      data.metadata_json ?? null,
-      now,
-      now
-    )
-    .run()
-
-  const revision = await getSOWRevision(db, data.org_id, id)
-  if (!revision) {
-    throw new Error('Failed to retrieve created SOW revision')
-  }
-  return revision
-}
-
 export async function supersedeRenderedSOWRevisionsForQuote(
   db: D1Database,
   orgId: string,

@@ -86,7 +86,7 @@ export interface ClerkOrgPendingInvite {
  * we surface the truncation in the UI (the page checks the result
  * shape's `truncated` flag).
  */
-export const CLERK_ORG_PARTICIPANT_PAGE_LIMIT = 100
+const CLERK_ORG_PARTICIPANT_PAGE_LIMIT = 100
 
 export interface ClerkOrgParticipantsResult {
   members: readonly ClerkOrgMember[]

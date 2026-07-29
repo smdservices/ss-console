@@ -374,15 +374,3 @@ export const OPERATOR_FACETS: readonly OperatorFacet[] = [
     inert: true,
   },
 ] as const
-
-/** Facets currently intended for the client portal (surfaced or planned). */
-export function clientFacets(): OperatorFacet[] {
-  return OPERATOR_FACETS.filter(
-    (f) => f.mounts.includes('client') && f.surface.kind !== 'suppressed'
-  )
-}
-
-/** Lookup by id. */
-export function facetById(id: string): OperatorFacet | undefined {
-  return OPERATOR_FACETS.find((f) => f.id === id)
-}

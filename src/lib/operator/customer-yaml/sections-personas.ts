@@ -226,7 +226,7 @@ function extractToneList(tone: unknown): string[] {
   return tone.filter((t): t is string => typeof t === 'string')
 }
 
-export function checkChannelBindings(
+function checkChannelBindings(
   raw: unknown,
   path: string,
   errors: ValidationError[]

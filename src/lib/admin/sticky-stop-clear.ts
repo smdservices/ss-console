@@ -38,7 +38,7 @@ function machineBaseUrl(template: string, app: string): string {
 }
 
 /** True when the clear transport can reach a Machine (secret + URL present). */
-export function isClearConfigured(env: StickyStopClearEnv): boolean {
+function isClearConfigured(env: StickyStopClearEnv): boolean {
   return (
     typeof env.OPERATOR_MCP_WEBHOOK_SECRET === 'string' &&
     env.OPERATOR_MCP_WEBHOOK_SECRET.length > 0 &&

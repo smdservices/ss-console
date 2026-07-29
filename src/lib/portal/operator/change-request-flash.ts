@@ -9,7 +9,7 @@
 
 import type { AstroCookies } from 'astro'
 
-export const CR_FLASH_COOKIE = 'ss_cr_flash'
+const CR_FLASH_COOKIE = 'ss_cr_flash'
 
 export type ChangeRequestFlash = 'filed' | 'invalid' | 'error'
 

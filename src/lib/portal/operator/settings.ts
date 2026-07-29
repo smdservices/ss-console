@@ -157,13 +157,6 @@ export function skillToggleRowsFromPersona(persona: PersonaConfig | null): Skill
  */
 export type ConnectorHealth = 'ok' | 'warn' | 'fail' | 'unconfigured'
 
-export const CONNECTOR_HEALTHS: readonly ConnectorHealth[] = [
-  'ok',
-  'warn',
-  'fail',
-  'unconfigured',
-] as const
-
 export function formatConnectorHealth(health: ConnectorHealth): string {
   switch (health) {
     case 'ok':

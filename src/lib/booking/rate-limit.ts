@@ -39,7 +39,7 @@ export interface RateLimitResult {
  *
  * If `kv` is undefined (dev mode without KV binding), allows the request.
  */
-export async function checkAndIncrementRateLimit(
+async function checkAndIncrementRateLimit(
   kv: KVNamespace | undefined,
   bucketKey: string,
   limit: number = DEFAULT_LIMIT,
