@@ -82,16 +82,19 @@ const skillOptions =
   class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 flex flex-col gap-3 md:gap-4"
   aria-label="Filter and sort audit log"
 >
-  <div
-    class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 md:gap-4 md:items-end"
-  >
-    {/* Skill multi-select */}
+  {
+    /* Row 1 — the two multi-selects at readable widths. A fixed size={4}
+      even when the skill list is EMPTY keeps the empty state the same
+      listbox shape as its neighbor: Chrome renders a 1-row <select
+      multiple> as a collapsed "0 selected" widget that reads as broken. */
+  }
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
     <div class="flex flex-col gap-1 min-w-0">
       <Field label="Skill">
         <MultiSelectField
           name="skill"
           options={skillOptions}
-          size={Math.min(Math.max(availableSkills.length, 1), 4)}
+          size={4}
           disabled={availableSkills.length === 0}
           describedBy={availableSkills.length === 0 ? 'audit-filter-skill-empty' : undefined}
         />
@@ -123,18 +126,18 @@ const skillOptions =
         }))}
       />
     </Field>
+  </div>
 
-    {/* From date */}
+  {/* Row 2 — date range, sort, and the view's one primary action (Rule 3) */}
+  <div class="flex flex-col md:flex-row md:flex-wrap gap-3 md:gap-4 md:items-end">
     <Field label="From" class="md:w-40">
       <TextInput type="date" name="from" value={toDateValue(from)} />
     </Field>
 
-    {/* To date */}
     <Field label="To" class="md:w-40">
       <TextInput type="date" name="to" value={toDateValue(to)} />
     </Field>
 
-    {/* Sort */}
     <Field label="Sort" class="md:w-44">
       <SelectField
         name="sort"
@@ -146,7 +149,6 @@ const skillOptions =
       />
     </Field>
 
-    {/* Submit — the view's one primary action (Rule 3) */}
     <SubmitButton label="Apply" tone="primary" />
   </div>
 
