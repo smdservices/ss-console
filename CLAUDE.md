@@ -69,6 +69,22 @@ The rule, mechanically:
 3. **Prefer structural fixes over sweeps.** A one-time cleanup leaves the class alive. When a removal keeps resurfacing, the fix is a reconciler that makes the layer converge on authored state (the overlay#185 profile-home reconciler is the template) plus a boot/smoke assertion that the convergence held (`boot-smoke-test.sh` step 6b).
 4. **The completion report cites the probes.** "Removed X" without verify IDs for the runtime layers is a repo-layer claim and must be worded as one.
 
+### Done means the client can do it (reachability discipline)
+
+The positive twin of "gone means gone", and the same enumeration in the other direction. **A feature is done when a real client can perform the act on the deployment they use, proven by an observation of the running system.** Not when the PR merged, not when tests passed, not when the component exists.
+
+The lesson (the entitlement-control incident, 2026-07-28): four PRs, each individually honest, each defining "done" as the artifact it added. One wrote "Next slices, unbuilt and not implied here." Nobody lied. The artifacts summed to less than the feature, the epic closed green, and a Named Administrator could not change a routine's level. That is a definition problem, not a diligence problem, which is why asking for more care would not have caught it.
+
+Three claims, kept distinct:
+
+- **Built** — the code exists and its own tests pass. The weakest of the three and the easiest to mistake for done, because it produces the most visible evidence.
+- **Wired** — every gate between a real client's finger and the effect is open on the deployment that client uses. Configured, not configurable. Secrets and config authoring are part of the deliverable, not prerequisites belonging to someone else.
+- **Tested** — someone performed the act as the client, on the real seat, and observed the far end change. A green unit test against a fake token is not this.
+
+**Follow the reachability contract (`docs/doctrine/wired-contract.md`) before planning any work whose effect is observable outside this repo** (a client, the Captain on a live surface, an Operator seat, a prospect on a marketing page). It produces the contract: the act as a sentence, the terminal seam, the gate chain enumerated backwards from that seam, and a feasibility probe that escalates unclosable gates **before** the closable ones get built. Then plan against the contract, then `/critique`. Internal refactors, tests, and docs skip it.
+
+**Enforcement.** Law 9 in `docs/doctrine/agent-operating-doctrine.md` (primer tier, always on). Merge gate is `.github/workflows/runtime-ac-proof.yml`: an AC tagged `(runtime)` cannot be marked `met` without a `crane_verify` ID in the PR's Evidence column. That gate exists because `tick-acs-on-merge` ticks whatever the merging PR declares about itself and `unmet-ac-on-close` skips PR-driven closes, so without it the system certifies the author's own definition of done.
+
 ### No fabricated client-facing content
 
 Any information displayed to a client (timelines, schedules, deliverables, pricing, deposit terms, guarantees, consultant names, dates, scope language, post-signing promises, first-person sentences about future business behavior) MUST come from data authored for that specific engagement. That means database columns populated by a human-reviewed admin flow, CMS content, or source files explicitly reviewed by Captain.
