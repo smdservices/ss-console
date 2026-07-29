@@ -18,7 +18,7 @@ customer_id: pilot-smokeball
 customer_name: 'Pilot Law (Smokeball Staging)'
 vertical: law-firm
 addons:
-  - law-firm/pi@0.2.0 # the full CA PI-litigation lifecycle pack (19 skills)
+  - law-firm/pi@0.3.0 # the CA PI-litigation lifecycle pack (19 routine skills + the 4-skill work-product drafting lane, v0.3.0 2026-07-28)
 practice_areas:
   - personal-injury-plaintiff
 fly_region: lax # Pacific — the pilot firm is California-based
@@ -368,6 +368,48 @@ personas:
         initiation:
           manual: true
           scheduled: true
+          webhook: false
+        enabled: true
+      # ---- work-product drafting lane (law-firm/pi@0.3.0, staged 2026-07-28) ----
+      # ON-DEMAND, ATTORNEY-INITIATED ONLY: manual initiation, never scheduled,
+      # never webhook — no routine may produce work product (the routine lanes
+      # keep the assembly-no-argument floor; this lane exists because an
+      # attorney hands the Operator drafting work directly). Output is always a
+      # draft delivered internally for attorney review; never served, filed, or
+      # sent outside the firm by the Operator. Discipline + ten evidence-derived
+      # gates: operator/templates/drafting/drafting-discipline.md (prove-out:
+      # venturecrane/engagements ashton-price/prove-out/EVIDENCE.md). No draft
+      # surfaces without passing drafting_gate_check.py (execution point per the
+      # discipline doc — code_execution stays refused on this seat).
+      # STAGING REHEARSAL SEAT: this authoring is ours, for the fixture
+      # kill-test battery; a client seat activates this lane only when the firm
+      # authors it.
+      - name: discovery-response-drafter # responses to served sets; candidate objections only; coverage-diffed
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: follow-up-discovery-drafter # RFP/RFA/SROG sets + record-grounded discovery plan; premise-clean; SPROG lint
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: demand-letter-drafter # policy-limits demand vs skeleton; settlement authority always reserved
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: mediation-brief-drafter # confidential mediation brief vs skeleton; three-layer quote gate
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
           webhook: false
         enabled: true
     # Every entry is pre_run-gated (ADR 0021 Stream B, #1748). The escalator's
