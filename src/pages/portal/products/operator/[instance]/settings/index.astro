@@ -12,6 +12,7 @@ import DomainSurface from '../../../../../../components/portal/operator/DomainSu
 import { hasPortalVisibleInvoices } from '../../../../../../lib/portal/offerings'
 import { env } from 'cloudflare:workers'
 import { readPausePosture } from '../../../../../../lib/portal/operator/pause-control'
+import { readLiveOverrides } from '../../../../../../lib/portal/operator/entitlement-change'
 import { liveTierOf, selectableTiers } from '../../../../../../lib/operator/entitlement-compiler'
 
 /**
@@ -117,15 +118,31 @@ function resolveBanner(status: string | null, reason: string | null): Banner | n
 // switch).
 const pausedNow = await readPausePosture(env.DB, instance ?? '')
 
-// Entitlement control (#2003 Q7): the seat's routine grid, each row with the
+// Entitlement dial (#2003 Q7): the seat's routine grid, each row with the
 // tiers it may legally be set to (compiler-derived, so the control can never
-// offer a choice the route would reject).
+// offer a choice the route would reject). The tier DISPLAYED is the tier
+// ENFORCED: the Machine's live override store is overlaid onto the projected
+// authored exposure (a portal-set change is runtime posture the projection
+// never carries). A failed live read falls back to authored-only display.
+const gridPersona = config?.routine_grid?.persona ?? ''
+const authoredExposure = (config?.personas.find((p) => p.slug === gridPersona)?.entitlements
+  .exposure ?? {}) as Record<string, string>
+const liveOverrides =
+  instance && gridPersona
+    ? await readLiveOverrides(
+        {
+          OPERATOR_RUNTIME_READ_SECRET: env.OPERATOR_RUNTIME_READ_SECRET,
+          OPERATOR_RUNTIME_READ_URL: env.OPERATOR_RUNTIME_READ_URL,
+        },
+        instance,
+        gridPersona
+      )
+    : null
 const routineRows = (config?.routine_grid?.rows ?? []).map((row) => ({
   routine: row.routine,
   liveTier: liveTierOf(row, {
-    personaSlug: config?.routine_grid?.persona ?? '',
-    exposure: (config?.personas.find((p) => p.slug === config?.routine_grid?.persona)?.entitlements
-      .exposure ?? {}) as Record<string, string>,
+    personaSlug: gridPersona,
+    exposure: { ...authoredExposure, ...(liveOverrides ?? {}) },
   }),
   ceiling: row.ceiling_tier,
   options: selectableTiers(row),
@@ -144,8 +161,8 @@ const PAUSE_BANNERS: Record<string, Banner> = {
     tone: 'error',
   },
   pause_invalid_action: { text: 'Invalid pause action.', tone: 'error' },
-  entitlement_submitted: {
-    text: 'Change submitted for review. It takes effect once approved and rolled out; the record below tracks it.',
+  entitlement_applied: {
+    text: 'Done. The Operator runs this routine at the new level from now on; the change is logged below.',
     tone: 'success',
   },
   entitlement_no_change: { text: 'That routine is already set that way.', tone: 'info' },
@@ -167,7 +184,7 @@ const PAUSE_BANNERS: Record<string, Banner> = {
     tone: 'error',
   },
   entitlement_failed: {
-    text: 'We could not submit that change. Nothing was changed. Try again, or contact us if the problem persists.',
+    text: 'We could not reach the Operator to change this setting. Nothing was changed. Try again, or contact us if the problem persists.',
     tone: 'error',
   },
 }
@@ -321,8 +338,8 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
           <div slot="operable" class={cardClass}>
             <p class="m-0 font-body text-sm leading-snug text-[color:var(--ss-color-text-secondary)]">
               Each routine runs at one of three levels: it can surface work, prepare it for someone
-              to send, or handle it end to end. Raising a level is submitted for review and takes
-              effect once approved and rolled out. Every change is logged with who made it and when.
+              to send, or handle it end to end. A change takes effect right away and stays in place
+              until someone changes it again. Every change is logged with who made it and when.
             </p>
             <ul class="mt-4 flex flex-col gap-4 list-none p-0">
               {routineRows.map((row) => (

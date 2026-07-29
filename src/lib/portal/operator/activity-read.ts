@@ -24,6 +24,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { readMachineRuntime, type RuntimeReadActor } from '../../operator/runtime-read'
 import { isClientVisibleAction } from './activity-language'
 import { listPauseEvents } from './pause-control'
+import { listEntitlementChanges } from './entitlement-change'
 import { listPortalActionEvents, type PortalActionEventRow } from './action-events'
 import {
   createMachineRuntimeTransport,
@@ -71,9 +72,10 @@ export async function loadActivityPage(
   // rows do not depend on the Machine read path, so they render even when
   // runtime read is not configured.
   const pauseRows = await loadPauseEventEntries(deps.db, customerSlug)
+  const entitlementRows = await loadEntitlementChangeEntries(deps.db, customerSlug)
   const loginRows = await loadLoginEventEntries(deps.db, deps.entityId)
   const actionRows = await loadActionEventEntries(deps.db, deps.entityId)
-  const consoleRows = [...pauseRows, ...loginRows, ...actionRows]
+  const consoleRows = [...pauseRows, ...entitlementRows, ...loginRows, ...actionRows]
 
   if (!isRuntimeReadConfigured(deps.env)) {
     return buildAuditListPage(consoleRows, params)
@@ -109,6 +111,34 @@ async function loadPauseEventEntries(db: D1Database, customerSlug: string): Prom
       actorRole: asActorRole(e.actor_role),
       action: e.action === 'pause' ? 'AGENT_STOPPED' : 'AGENT_RESUMED',
       target: null,
+      decision: null,
+      reason: e.reason,
+      skill: null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Map operator_entitlement_changes into AuditEntry shape (#2003 Q7 — "every
+ * change is logged with who made it and when"). ENTITLEMENT_CHANGED carries
+ * authored client copy in activity-language.ts; the routine and tier movement
+ * ride the target field.
+ */
+async function loadEntitlementChangeEntries(
+  db: D1Database,
+  customerSlug: string
+): Promise<AuditEntry[]> {
+  try {
+    const events = await listEntitlementChanges(db, customerSlug)
+    return events.map((e) => ({
+      id: `entitlement:${e.id}`,
+      ts: e.created_at,
+      actor: e.actor_email,
+      actorRole: asActorRole(e.actor_role),
+      action: 'ENTITLEMENT_CHANGED',
+      target: `${e.routine}: ${e.from_tier} → ${e.to_tier}`,
       decision: null,
       reason: e.reason,
       skill: null,

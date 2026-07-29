@@ -1,20 +1,29 @@
 /**
- * Entitlement tier change — orchestration + governance ledger (#2003 slice 2).
+ * Entitlement tier change — runtime transport + governance ledger (#2003 Q7).
  *
- * One governed path from a client's click to the source of truth:
+ * One governed path from a Named Administrator's click to the running
+ * Operator, modeled exactly as the pause (Q6) is modeled:
  *
- *   compile (ceilings + floors)  →  surgical customer.yaml edit
- *                                →  reviewable pull request
- *                                →  governance row
+ *   compile (letter ceiling + vertical floor, both non-raisable)
+ *     →  Machine gate (POST /entitlement/set — the runtime override store)
+ *     →  governance row (status `applied`)
  *
- * Ordering is remote-first, record-second — the same rule the pause control
- * follows: a change whose PR did not open is never recorded as submitted.
+ * Captain ruling 2026-07-28: the within-ceiling entitlement level is
+ * CLIENT-OWNED RUNTIME POSTURE, not an edit to authored config. The authored
+ * ceiling stays in git (`entitlements.exposure_ceiling`, gate (i) of the
+ * commitments suite); the setting underneath it lives in the Machine's
+ * volume-backed override store, takes effect on the next tool call, and
+ * survives restart and reprovision. The Machine clamps every set to the
+ * authored ceiling itself — the console is trusted for WHO, never for HOW FAR.
  *
- * What a submitted change IS and IS NOT: the PR carries the one-line diff to
- * `customer.yaml`; merging it re-projects config; the running Machine adopts
- * it at its next reprovision. Nothing here changes a live runtime, and no
- * surface may say it did (letter 10 Q7 commits access + audit, not instant
- * self-serve — that is Q6's kill-switch promise, and only that).
+ * Ordering is Machine-first, record-second — the same rule the pause control
+ * follows: a change the Machine did not acknowledge is never recorded, and a
+ * recorded change is one the runtime is already enforcing. The ledger row is
+ * the client-readable audit record (who/when/why); the portal activity feed
+ * unions it alongside pause events.
+ *
+ * The PR-based delivery leg this module previously carried (compile → yaml
+ * edit → reviewable PR, #2020) is superseded and removed — one path only.
  */
 
 import type { D1Database } from '@cloudflare/workers-types'
@@ -25,8 +34,13 @@ import {
   type TierChangeDelta,
 } from '../../operator/entitlement-compiler'
 import type { RoutineGrid } from '../../operator/routine-grid'
-import { setExposureKey } from '../../operator/exposure-yaml-edit'
-import { openConfigPr, type ConfigPrEnv } from '../../operator/config-pr'
+import { deriveRuntimeReadKey } from '../../operator/runtime-read-transport'
+import { resolveCustomerFlyApp } from '../../operator/fly-app-registry'
+
+export interface EntitlementGateEnv {
+  OPERATOR_MCP_WEBHOOK_SECRET?: string
+  OPERATOR_RUNTIME_READ_URL?: string
+}
 
 export interface TierChangeActor {
   userId: string
@@ -46,65 +60,97 @@ export interface TierChangeInput {
 }
 
 export type TierChangeOutcome =
-  | { kind: 'submitted'; prUrl: string; prNumber: number; delta: TierChangeDelta }
+  | { kind: 'applied'; delta: TierChangeDelta }
   | { kind: 'noop'; delta: TierChangeDelta }
   | { kind: 'rejected'; rejections: readonly Rejection[] }
   | { kind: 'failed'; error: string }
 
-/** Repo path of a seat's authored config. */
-export function customerYamlPath(slug: string): string {
-  return `operator/customers/${slug}/customer.yaml`
+export interface GateEntitlementResult {
+  applied: { action_class: string; ceiling: string }[]
+  persona: string
+  updated_at: string
+}
+
+function machineBaseUrl(template: string, app: string): string {
+  return template.includes('{app}') ? template.replace('{app}', app) : `https://${app}.fly.dev`
+}
+
+/** True when the entitlement transport can reach a Machine (secret + URL present). */
+export function isEntitlementConfigured(env: EntitlementGateEnv): boolean {
+  return (
+    typeof env.OPERATOR_MCP_WEBHOOK_SECRET === 'string' &&
+    env.OPERATOR_MCP_WEBHOOK_SECRET.length > 0 &&
+    typeof env.OPERATOR_RUNTIME_READ_URL === 'string' &&
+    env.OPERATOR_RUNTIME_READ_URL.length > 0
+  )
 }
 
 /**
- * Branch name for one submission. Deterministic in its inputs except for the
- * caller-supplied `nonce` (a request id / timestamp the caller owns) — this
- * module never reads the clock, so it stays pure enough to test.
+ * A compiled exposure change as the gate speaks it. `to: null` (deauthorize —
+ * the flag-only target) maps to `refused`: the override store has no delete
+ * verb, and a refused send class is enforcement-equivalent to the unauthored
+ * key (ADR 0056 fail-closed) the authored-config model expressed by absence.
  */
-export function changeBranchName(slug: string, routine: string, nonce: string): string {
-  const slugified = routine
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40)
-  return `operator-entitlement/${slug}/${slugified}-${nonce}`
+export function gateChangesOf(delta: TierChangeDelta): { action_class: string; ceiling: string }[] {
+  return delta.exposureChanges.map((c) => ({
+    action_class: c.actionClass,
+    ceiling: c.to ?? 'refused',
+  }))
 }
 
-function prBody(input: TierChangeInput, delta: TierChangeDelta): string {
-  const changes = delta.exposureChanges
-    .map(
-      (c) =>
-        `- \`${c.actionClass}\`: ${c.from ?? '(unauthored)'} → ${c.to ?? '(unauthored — fail-closed)'} (${c.direction})`
+/**
+ * Proxy the compiled change to the customer's Machine gate. Throws on any
+ * failure so the caller records nothing and surfaces an honest error — a
+ * change the Machine did not acknowledge must never be reported as applied.
+ * A 409 is the Machine's own clamp refusing a raise above the authored
+ * ceiling (defense in depth behind the compiler's identical check).
+ */
+export async function setEntitlementOnMachine(
+  env: EntitlementGateEnv,
+  customerSlug: string,
+  body: {
+    persona: string
+    changes: { action_class: string; ceiling: string }[]
+    actor_id: string
+    reason: string
+  }
+): Promise<GateEntitlementResult> {
+  if (!isEntitlementConfigured(env)) {
+    throw new Error(
+      'entitlement transport not configured (OPERATOR_MCP_WEBHOOK_SECRET / URL unset)'
     )
-    .join('\n')
-  return [
-    `Entitlement tier change submitted from the ${input.source === 'portal' ? 'client portal' : 'admin console'}.`,
-    '',
-    `**Routine:** ${delta.routine}`,
-    `**Tier:** ${delta.fromTier} → ${delta.toTier}`,
-    `**Skills affected:** ${delta.skills.join(', ')}`,
-    '',
-    '**Compiled exposure delta**',
-    changes,
-    '',
-    `**Requested by:** ${input.actor.email} (${input.actor.role})`,
-    `**Reason given:** ${input.reason}`,
-    '',
-    'Compiled by `src/lib/operator/entitlement-compiler.ts`: the target is at or below',
-    "this routine's committed letter ceiling and clears every vertical floor.",
-    'Merging re-projects the config; the running Machine adopts it at its next reprovision.',
-  ].join('\n')
+  }
+  const app = resolveCustomerFlyApp(customerSlug)
+  if (!app) throw new Error(`entitlement: unknown customer ${customerSlug}`)
+
+  const bearer = await deriveRuntimeReadKey(env.OPERATOR_MCP_WEBHOOK_SECRET!, customerSlug)
+  const url = `${machineBaseUrl(env.OPERATOR_RUNTIME_READ_URL!, app)}/entitlement/set`
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '')
+    throw new Error(`gate entitlement set failed: ${resp.status} ${detail.slice(0, 200)}`)
+  }
+  const data: Partial<GateEntitlementResult> = await resp.json()
+  return {
+    applied: Array.isArray(data.applied) ? data.applied : [],
+    persona: data.persona ?? body.persona,
+    updated_at: data.updated_at ?? '',
+  }
 }
 
 /**
- * Execute one tier change end to end. `readYaml` supplies the current file
- * text (injected so this is testable without git); `nonce` makes the branch
- * unique.
+ * Execute one tier change end to end: compile, apply on the Machine, record.
+ * The outcome the portal renders says `applied` and means it — the runtime
+ * was enforcing the new level before the row was written.
  */
-export async function submitTierChange(
+export async function applyTierChange(
   db: D1Database,
-  env: ConfigPrEnv,
-  deps: { grid: RoutineGrid; live: LiveExposure; readYaml: () => Promise<string>; nonce: string },
+  env: EntitlementGateEnv,
+  deps: { grid: RoutineGrid; live: LiveExposure },
   input: TierChangeInput
 ): Promise<TierChangeOutcome> {
   const compiled = compileTierChange(deps.grid, deps.live, {
@@ -116,33 +162,15 @@ export async function submitTierChange(
   const delta = compiled.delta
   if (delta.noop) return { kind: 'noop', delta }
 
-  let nextYaml: string
   try {
-    let text = await deps.readYaml()
-    for (const change of delta.exposureChanges) {
-      const edited = setExposureKey(text, change.personaSlug, change.actionClass, change.to)
-      if (!edited.ok) return { kind: 'failed', error: edited.error }
-      text = edited.text
-    }
-    nextYaml = text
-  } catch (err) {
-    return { kind: 'failed', error: err instanceof Error ? err.message : 'config read failed' }
-  }
-
-  const branch = changeBranchName(input.customerSlug, delta.routine, deps.nonce)
-  const title = `config(${input.customerSlug}): ${delta.routine} → ${delta.toTier}`
-
-  let pr
-  try {
-    pr = await openConfigPr(env, {
-      path: customerYamlPath(input.customerSlug),
-      content: nextYaml,
-      branch,
-      title,
-      body: prBody(input, delta),
+    await setEntitlementOnMachine(env, input.customerSlug, {
+      persona: deps.live.personaSlug,
+      changes: gateChangesOf(delta),
+      actor_id: input.actor.email,
+      reason: input.reason,
     })
   } catch (err) {
-    return { kind: 'failed', error: err instanceof Error ? err.message : 'pull request failed' }
+    return { kind: 'failed', error: err instanceof Error ? err.message : 'gate set failed' }
   }
 
   await db
@@ -165,13 +193,63 @@ export async function submitTierChange(
       input.actor.role,
       input.source,
       input.reason,
-      'submitted',
-      pr.url,
-      pr.number
+      'applied',
+      null,
+      null
     )
     .run()
 
-  return { kind: 'submitted', prUrl: pr.url, prNumber: pr.number, delta }
+  return { kind: 'applied', delta }
+}
+
+export interface LiveOverrideReadEnv {
+  OPERATOR_RUNTIME_READ_SECRET?: string
+  OPERATOR_RUNTIME_READ_URL?: string
+}
+
+/**
+ * Read the Machine's live override store (`GET /runtime/entitlements`) for
+ * display: the settings page overlays these onto the projected authored
+ * exposure so the tier shown is the tier ENFORCED, not the authored default.
+ * Returns null when the read is unconfigured or fails — the caller falls back
+ * to authored-only display (display never blocks the control; enforcement is
+ * Machine-side either way).
+ */
+export async function readLiveOverrides(
+  env: LiveOverrideReadEnv,
+  customerSlug: string,
+  personaSlug: string
+): Promise<Record<string, string> | null> {
+  if (
+    typeof env.OPERATOR_RUNTIME_READ_SECRET !== 'string' ||
+    env.OPERATOR_RUNTIME_READ_SECRET.length === 0 ||
+    typeof env.OPERATOR_RUNTIME_READ_URL !== 'string' ||
+    env.OPERATOR_RUNTIME_READ_URL.length === 0
+  ) {
+    return null
+  }
+  const app = resolveCustomerFlyApp(customerSlug)
+  if (!app) return null
+  try {
+    const bearer = await deriveRuntimeReadKey(env.OPERATOR_RUNTIME_READ_SECRET, customerSlug)
+    const resp = await fetch(
+      `${machineBaseUrl(env.OPERATOR_RUNTIME_READ_URL, app)}/runtime/entitlements`,
+      { headers: { Authorization: `Bearer ${bearer}`, 'X-Tenant-Slug': customerSlug } }
+    )
+    if (!resp.ok) return null
+    const data: {
+      entries?: { persona?: string; action_class?: string; ceiling?: string }[]
+    } = await resp.json()
+    const out: Record<string, string> = {}
+    for (const entry of data.entries ?? []) {
+      if (entry.persona === personaSlug && entry.action_class && entry.ceiling) {
+        out[entry.action_class] = entry.ceiling
+      }
+    }
+    return out
+  } catch {
+    return null
+  }
 }
 
 export interface EntitlementChangeRow {
@@ -188,7 +266,7 @@ export interface EntitlementChangeRow {
   created_at: string
 }
 
-/** Submitted changes for one customer, newest first (audit + portal surface). */
+/** Applied changes for one customer, newest first (audit + portal surface). */
 export async function listEntitlementChanges(
   db: D1Database,
   customerSlug: string,

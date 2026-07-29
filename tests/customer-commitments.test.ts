@@ -280,6 +280,55 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
     }
   })
 
+  // (i) EXPOSURE_CEILING DERIVATION (ss#2003 Q7 — the entitlement dial). The
+  // seat's authored exposure_ceiling is the Machine-side clamp on portal-set
+  // runtime overrides; it must equal the grid's own commitment: per send
+  // class, the most autonomous TIER_SEND_CEILING across routines sharing the
+  // class (auto-handle -> autonomous, prepare-and-route -> draft_for_review).
+  // Too LOW a ceiling silently blocks a graduation the letter authorizes; too
+  // HIGH permits a raise the letter never committed. Both directions fail.
+  it('(i) ashton-price exposure_ceiling equals the grid-derived clamp per send class', () => {
+    const seat = validate(
+      parseYaml(readFileSync(join(AP_DIR, 'customer.yaml'), 'utf-8')) as Record<string, unknown>
+    )
+    if (!seat.ok) throw new Error('ashton-price customer.yaml no longer validates')
+    const gridResult = validateRoutineGrid(
+      parseYaml(readFileSync(join(AP_DIR, 'routine-grid.yaml'), 'utf-8'))
+    )
+    if (!gridResult.ok) throw new Error('ashton-price routine-grid.yaml no longer validates')
+    const persona = seat.value.personas.find((p) => p.slug === gridResult.value.persona)
+    const authoredCeiling = persona?.entitlements.exposure_ceiling
+    expect(
+      authoredCeiling,
+      'the seat must author entitlements.exposure_ceiling (the entitlement dial has no bound without it)'
+    ).toBeTruthy()
+
+    const tierCeiling: Record<string, string | null> = {
+      'flag-only': null,
+      'prepare-and-route': 'draft_for_review',
+      'auto-handle': 'autonomous',
+    }
+    const derived: Record<string, string> = {}
+    for (const row of gridResult.value.rows) {
+      const sendKeys = Object.keys(row.enforcement.exposure_keys).filter(
+        (k) => k !== 'internal_write'
+      )
+      const ceiling = tierCeiling[row.ceiling_tier]
+      if (sendKeys.length === 0 || ceiling === null || ceiling === undefined) continue
+      const key = sendKeys[0]
+      const prior = derived[key]
+      if (
+        prior === undefined ||
+        (isCeiling(ceiling) &&
+          isCeiling(prior) &&
+          restrictiveness(ceiling) < restrictiveness(prior))
+      ) {
+        derived[key] = ceiling
+      }
+    }
+    expect({ ...authoredCeiling }).toEqual(derived)
+  })
+
   // (g) Per-matter alert routing (#2004, correspondence 09): case-level alerts
   // route to the matter's assigned attorney/paralegal — never a central inbox
   // on the firm's side. The seat must author matter_staff routing, must NOT

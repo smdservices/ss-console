@@ -66,6 +66,7 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'SKILL_DISABLED',
       'TRUST_PROMOTED',
       'TRUST_DEMOTED',
+      'ENTITLEMENT_CHANGED',
       'SCOPE_CHANGED',
       'CONFIG_CHANGE_SUBMITTED',
       'CONFIG_CHANGE_REJECTED',
@@ -143,6 +144,10 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   ESCALATION_ACKNOWLEDGED: () => 'An escalation was acknowledged',
   AGENT_STOPPED: () => 'Your operator was paused',
   AGENT_RESUMED: () => 'Your operator resumed work',
+  ENTITLEMENT_CHANGED: (e) =>
+    e.target
+      ? `A routine's autonomy level was changed (${e.target})`
+      : "A routine's autonomy level was changed",
   SKILL_ENABLED: withSkill('A skill was turned on'),
   SKILL_DISABLED: withSkill('A skill was turned off'),
   TRUST_PROMOTED: withSkill('An approval level was raised'),
