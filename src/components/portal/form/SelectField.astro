@@ -1,0 +1,38 @@
+---
+/**
+ * Select in the portal control kit (UI-PATTERNS Rule 8, ADR 0082).
+ * `appearance-none` + an inked chevron replaces the native arrow so the
+ * control matches the kit border/height exactly; `w-full` (from
+ * CONTROL_BASE) kills intrinsic sizing so every select in a column renders
+ * at the column's width, not its longest option's.
+ */
+import { CONTROL_BASE } from './control-classes'
+
+export interface SelectOption {
+  value: string
+  label: string
+  selected?: boolean
+}
+interface Props {
+  name: string
+  options: SelectOption[]
+}
+const { name, options } = Astro.props
+
+const CHEVRON =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231a1512' stroke-width='2'/%3E%3C/svg%3E\")"
+---
+
+<select
+  name={name}
+  class={`${CONTROL_BASE} appearance-none truncate pr-9 bg-no-repeat`}
+  style={`background-image:${CHEVRON};background-position:right 0.75rem center;background-size:12px 8px;`}
+>
+  {
+    options.map((o) => (
+      <option value={o.value} selected={o.selected}>
+        {o.label}
+      </option>
+    ))
+  }
+</select>
