@@ -30,8 +30,3 @@ const CUSTOMER_FLY_APPS: Readonly<Record<string, string>> = Object.freeze({
 export function resolveCustomerFlyApp(customerId: string): string | null {
   return CUSTOMER_FLY_APPS[customerId] ?? null
 }
-
-/** Test/introspection helper: the registered customer_ids. */
-export function registeredCustomerIds(): string[] {
-  return Object.keys(CUSTOMER_FLY_APPS)
-}

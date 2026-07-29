@@ -155,7 +155,7 @@ export async function resolveClerkEntity(
  * for invitation + member management, so resolveClerkEntity(orgId) stays
  * the fallback when entity_id is null.
  */
-export async function resolveEntityByUserBinding(
+async function resolveEntityByUserBinding(
   db: D1Database,
   entityId: string
 ): Promise<Entity | null> {

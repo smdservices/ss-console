@@ -28,9 +28,9 @@
  */
 
 /** Published launch pricing (ADR 0067). Cents. */
-export const HOSTED_AGENT_PRICE_CENTS = 7900
-export const HOSTED_AGENT_FOUNDING_DISCOUNT_CENTS = 3000
-export const HOSTED_AGENT_FOUNDING_SEATS = 25
+const HOSTED_AGENT_PRICE_CENTS = 7900
+const HOSTED_AGENT_FOUNDING_DISCOUNT_CENTS = 3000
+const HOSTED_AGENT_FOUNDING_SEATS = 25
 
 /**
  * Stripe Tax code: "Software as a service (SaaS) - personal use"

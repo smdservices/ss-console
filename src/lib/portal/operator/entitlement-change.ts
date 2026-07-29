@@ -76,7 +76,7 @@ function machineBaseUrl(template: string, app: string): string {
 }
 
 /** True when the entitlement transport can reach a Machine (secret + URL present). */
-export function isEntitlementConfigured(env: EntitlementGateEnv): boolean {
+function isEntitlementConfigured(env: EntitlementGateEnv): boolean {
   return (
     typeof env.OPERATOR_MCP_WEBHOOK_SECRET === 'string' &&
     env.OPERATOR_MCP_WEBHOOK_SECRET.length > 0 &&
@@ -105,7 +105,7 @@ export function gateChangesOf(delta: TierChangeDelta): { action_class: string; c
  * A 409 is the Machine's own clamp refusing a raise above the authored
  * ceiling (defense in depth behind the compiler's identical check).
  */
-export async function setEntitlementOnMachine(
+async function setEntitlementOnMachine(
   env: EntitlementGateEnv,
   customerSlug: string,
   body: {

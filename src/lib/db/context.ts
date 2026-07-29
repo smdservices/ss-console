@@ -56,23 +56,6 @@ export type ContextType =
   | 'scorecard'
   | 'alert'
 
-export const CONTEXT_TYPES: { value: ContextType; label: string }[] = [
-  { value: 'signal', label: 'Pipeline Signal' },
-  { value: 'enrichment', label: 'Enrichment' },
-  { value: 'note', label: 'Note' },
-  { value: 'transcript', label: 'Transcript' },
-  { value: 'extraction', label: 'Extraction' },
-  { value: 'outreach_draft', label: 'Outreach Draft' },
-  { value: 'engagement_log', label: 'Engagement Log' },
-  { value: 'follow_up_result', label: 'Follow-up Result' },
-  { value: 'feedback', label: 'Feedback' },
-  { value: 'parking_lot', label: 'Parking Lot' },
-  { value: 'stage_change', label: 'Stage Change' },
-  { value: 'intake', label: 'Intake' },
-  { value: 'scorecard', label: 'Scorecard' },
-  { value: 'alert', label: 'Alert' },
-]
-
 export interface AppendContextData {
   entity_id: string
   type: ContextType
@@ -180,10 +163,7 @@ export async function appendContextRaw(
 // Read
 // ---------------------------------------------------------------------------
 
-export async function getContextEntry(
-  db: D1Database,
-  contextId: string
-): Promise<ContextEntry | null> {
+async function getContextEntry(db: D1Database, contextId: string): Promise<ContextEntry | null> {
   return (
     (await db
       .prepare('SELECT * FROM context WHERE id = ?')
@@ -274,28 +254,6 @@ export async function getLatestOutreachDraftForEntities(
     }
   }
   return result
-}
-
-/**
- * Count context entries for an entity.
- */
-export async function countContext(db: D1Database, entityId: string): Promise<number> {
-  const result = await db
-    .prepare('SELECT COUNT(*) as count FROM context WHERE entity_id = ?')
-    .bind(entityId)
-    .first<{ count: number }>()
-  return result?.count ?? 0
-}
-
-/**
- * Get total content size for an entity's context (for budget estimation).
- */
-export async function getContextSize(db: D1Database, entityId: string): Promise<number> {
-  const result = await db
-    .prepare('SELECT SUM(content_size) as total FROM context WHERE entity_id = ?')
-    .bind(entityId)
-    .first<{ total: number | null }>()
-  return result?.total ?? 0
 }
 
 // ---------------------------------------------------------------------------

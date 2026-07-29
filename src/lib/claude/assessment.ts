@@ -50,7 +50,7 @@ export const ASSESSMENT_OPENING_MESSAGE =
   "Thanks for making the time. I'd love to start by just understanding how your business actually runs day to day. Walk me through it in your own words. Where does the day usually start, and what's on your plate before anything else happens?"
 
 /** Error from the Anthropic API or an unexpected response shape. */
-export class AssessmentApiError extends Error {
+class AssessmentApiError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number

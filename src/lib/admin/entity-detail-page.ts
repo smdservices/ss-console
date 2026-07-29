@@ -86,7 +86,7 @@ export function parseMetadata(json: string | null): Record<string, unknown> | nu
  * former decision-evidence module; the machine source-dedup branches are inert
  * now that the enrichment pipeline is gone, but harmless for any legacy rows.
  */
-export function composeDeduplicatedTimeline(contextEntries: ContextEntry[]): ContextEntry[] {
+function composeDeduplicatedTimeline(contextEntries: ContextEntry[]): ContextEntry[] {
   const out: ContextEntry[] = []
   const latestBySource = new Set<string>()
 
