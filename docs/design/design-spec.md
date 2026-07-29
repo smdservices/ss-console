@@ -2,7 +2,7 @@
 
 > Design system reference for SMD Services agents. Auto-synced to crane-context.
 > Design Maturity: Tier 1 - Established system with documented tokens, component library, and 7 enforced UI patterns.
-> Last updated: 2026-04-26
+> Last updated: 2026-07-29
 
 ## Identity
 
@@ -215,8 +215,9 @@ The 7 cited rules promoted from SS to enterprise scope. Source: `docs/style/UI-P
 5. **Typography scale** — 7 functional tokens, no inline sizes. Cited: Material 3.
 6. **Spacing rhythm** — 4 tokens (section/card/stack/row). Cited: Atlassian, NN/g.
 7. **Shared primitives** — repeated elements rendered through components, not hand-rolled. Cited: Polaris.
+8. **Portal register + form-control kit** — the client portal's settled identity is LOUD Plainspoken (ADR 0082, Captain 2026-07-29; the earlier calm-register migration is retired — do not re-derive). Form controls render through `src/components/portal/form/` (Field, TextInput, TextArea, SelectField, MultiSelectField, CheckboxOption, SubmitButton): one h-11 control height, one border weight, column-delegated width. Cited: WCAG 2.5.5/2.5.8, Material 3 text fields, Polaris form layout.
 
-Pattern 8 (Actions and menus) authored in enterprise scope, applies to row-action / context-menu surfaces in admin.
+Pattern 8 in the ENTERPRISE catalog (Actions and menus) applies to row-action / context-menu surfaces in admin; the venture-local Rule 8 above is the portal register + control kit.
 
 **Empty-state pattern:** `docs/style/empty-state-pattern.md` — render nothing or "TBD in SOW" rather than fabricated client-facing copy. P0 enforcement via `forbidden-strings.test.ts` and merge-gate workflows.
 
