@@ -80,6 +80,11 @@ authority:
   default: managed
   overrides:
     runtime: client
+    # The entitlement dial (ss#2003 Q7, letter 10; agreement §2.4-2.5): Named
+    # Administrators change routine autonomy levels directly in the portal,
+    # within the grid ceilings. Captain ruling 2026-07-28 — runtime posture,
+    # effective on completion of the portal action.
+    trust: client
 
 # ---- PERSONAS ----
 # One coordinator persona — the law spine + the two committed deliverables
@@ -124,6 +129,21 @@ personas:
         # (h) now covers it.
         external_send_client: draft_for_review
         external_send_vendor: draft_for_review
+      # Letter-commitment bounds for the runtime entitlement dial (ss#2003
+      # Q7). Derived from routine-grid.yaml ceiling_tier per send class
+      # (auto-handle -> autonomous, prepare-and-route -> draft_for_review),
+      # taking the most autonomous committed tier across routines sharing a
+      # class; gate (h) of the commitments suite pins the derivation. The
+      # Machine clamps every portal-set override to these — raising a bound
+      # is a commitment change (a letter), never a settings change.
+      #   external_send_client -> autonomous  (client verification, ceiling auto-handle)
+      #   external_send_vendor -> autonomous  (records chase, ceiling auto-handle)
+      #   external_send        -> draft_for_review (the letter's permanent
+      #                           "a person sends it" cap on outside recipients)
+      exposure_ceiling:
+        external_send: draft_for_review
+        external_send_client: autonomous
+        external_send_vendor: autonomous
     skills:
       # spine
       - name: matter-inbox-router

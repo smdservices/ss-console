@@ -132,7 +132,39 @@ export function checkPersonaEntitlements(
   rejectLegacyField(raw, 'trust_ceiling', path, errors)
   rejectLegacyField(raw, 'action_ceilings', path, errors)
   const exposure = checkExposureMap(raw['exposure'], `${path}.exposure`, errors)
-  return { exposure }
+  if (raw['exposure_ceiling'] === undefined || raw['exposure_ceiling'] === null) {
+    return { exposure }
+  }
+  // The runtime entitlement dial's letter-commitment bound (ss#2003 Q7): same
+  // per-entry vocabulary as exposure, plus coherence — an authored exposure
+  // above its own ceiling is incoherent, not sparse.
+  const ceiling = checkExposureMap(raw['exposure_ceiling'], `${path}.exposure_ceiling`, errors)
+  for (const [key, bound] of Object.entries(ceiling)) {
+    const authored = exposure[key as AuthoredExposureActionClass]
+    if (authored !== undefined && restrictiveness(authored) < restrictiveness(bound)) {
+      errors.push({
+        code: 'InvalidActionCeiling',
+        path: `${path}.exposure.${key}`,
+        message: `authored value '${authored}' exceeds its own exposure_ceiling '${bound}' — raise the ceiling or lower the exposure`,
+      })
+    }
+  }
+  return { exposure, exposure_ceiling: ceiling }
+}
+
+// Restrictiveness ordering for the exposure / exposure_ceiling coherence
+// check (higher == more restrictive). Local mirror of the frozen governance
+// table (src/lib/portal/operator/config-governance.ts) — the validator layer
+// stays free of portal imports.
+const CEILING_RESTRICTIVENESS: Record<ExposureCeiling, number> = {
+  autonomous: 0,
+  confirm: 1,
+  draft_for_review: 2,
+  refused: 3,
+}
+
+function restrictiveness(c: ExposureCeiling): number {
+  return CEILING_RESTRICTIVENESS[c]
 }
 
 function checkExposureMap(

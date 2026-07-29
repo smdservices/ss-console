@@ -4,26 +4,26 @@ import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-acc
 import { getCustomerConfigBySlug } from '../../../../../../lib/portal/customer-config'
 import { clientRolePermits } from '../../../../../../lib/portal/operator/client-rbac'
 import { resolveDomainSurfaceMode } from '../../../../../../lib/portal/operator/domain-surface'
-import { readConfigFile } from '../../../../../../lib/operator/config-pr'
 import type { LiveExposure } from '../../../../../../lib/operator/entitlement-compiler'
 import {
-  customerYamlPath,
-  submitTierChange,
+  applyTierChange,
+  readLiveOverrides,
 } from '../../../../../../lib/portal/operator/entitlement-change'
 
 /**
  * POST /api/portal/products/operator/[instance]/entitlement — the entitlement
- * control (#2003, A&P diligence reply Q7).
+ * dial (#2003, A&P diligence reply Q7; agreement §2.4-2.5).
  *
  * Form fields: routine, targetTier, reason (all required).
  *
- * Q7 commits ACCESS + AUDIT ("the portal gives authorized users access to...
- * the entitlement settings... every change is logged with who made it and
- * when"), NOT instant self-serve — that is Q6's kill-switch promise alone.
- * So a submitted change opens a reviewable pull request against the seat's
- * customer.yaml; merging re-projects it and the Machine adopts it at its next
- * reprovision. Every status string this route returns says "submitted",
- * never "applied".
+ * A Named Administrator's tier change is RUNTIME POSTURE (Captain ruling
+ * 2026-07-28): compiled to per-action-class ceiling values, applied on the
+ * running Machine through the gate (POST /entitlement/set — the same
+ * console-proxy trust boundary as the pause), and enforced from the next tool
+ * call. The authored ceiling in git is non-raisable from here — the compiler
+ * refuses above-ceiling targets, and the Machine's own clamp refuses them
+ * independently. Every change is recorded with who/when/why and unioned into
+ * the activity feed.
  *
  * Enforcement chain:
  *  1. resolveOperatorAccess — Clerk session, entity binding, live
@@ -31,7 +31,8 @@ import {
  *  2. `trust` authority domain must be client-operable AND the role matrix
  *     must permit; unauthored authority = managed = refused (fail-closed)
  *  3. compileTierChange — letter ceiling + vertical floor, both non-raisable
- *  4. PR first, governance row second (never record an unopened change)
+ *  4. Machine first, record second (never record a change the Machine did
+ *     not acknowledge; the Machine re-clamps as defense in depth)
  */
 
 const OPERATOR_LANDING = '/portal/products/operator'
@@ -76,24 +77,37 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   }
   if (reason === '') return redirectWithStatus(instance, 'entitlement_reason_required')
 
-  // A Worker has no filesystem: the grid and the live exposure come from the
-  // D1 projection, and the authored TEXT comes from git at the base branch
-  // (the same bytes the PR is based on — no bundled-copy drift).
   const resolved = resolveGridAndExposure(config)
   if (!resolved) return redirectWithStatus(instance, 'entitlement_config_unreadable')
 
-  // Narrow the Worker env to exactly the transport's credential surface.
-  const prEnv = { OPERATOR_CONFIG_PR_TOKEN: env.OPERATOR_CONFIG_PR_TOKEN }
-
-  const outcome = await submitTierChange(
-    env.DB,
-    prEnv,
+  // Overlay the Machine's LIVE overrides onto the projected authored exposure
+  // before compiling: the projection is the authored baseline, but the tier
+  // the client is moving FROM is the enforced one — without this, lowering a
+  // previously-raised routine would no-op against the stale authored value.
+  // A failed read falls back to authored (the apply itself stays safe: the
+  // set is absolute and the Machine re-clamps).
+  const overrides = await readLiveOverrides(
     {
-      grid: resolved.grid,
-      live: resolved.live,
-      readYaml: () => readConfigFile(prEnv, customerYamlPath(instance)),
-      nonce: crypto.randomUUID().slice(0, 8),
+      OPERATOR_RUNTIME_READ_SECRET: env.OPERATOR_RUNTIME_READ_SECRET,
+      OPERATOR_RUNTIME_READ_URL: env.OPERATOR_RUNTIME_READ_URL,
     },
+    instance,
+    resolved.live.personaSlug
+  )
+  if (overrides) {
+    resolved.live = {
+      personaSlug: resolved.live.personaSlug,
+      exposure: { ...resolved.live.exposure, ...overrides },
+    }
+  }
+
+  const outcome = await applyTierChange(
+    env.DB,
+    {
+      OPERATOR_MCP_WEBHOOK_SECRET: env.OPERATOR_MCP_WEBHOOK_SECRET,
+      OPERATOR_RUNTIME_READ_URL: env.OPERATOR_RUNTIME_READ_URL,
+    },
+    { grid: resolved.grid, live: resolved.live },
     {
       entityId: access.client.id,
       customerSlug: instance,
@@ -131,10 +145,10 @@ function resolveGridAndExposure(
 }
 
 /** Outcome → status slug the settings page renders as client copy. */
-function statusFor(outcome: Awaited<ReturnType<typeof submitTierChange>>): string {
+function statusFor(outcome: Awaited<ReturnType<typeof applyTierChange>>): string {
   switch (outcome.kind) {
-    case 'submitted':
-      return 'entitlement_submitted'
+    case 'applied':
+      return 'entitlement_applied'
     case 'noop':
       return 'entitlement_no_change'
     case 'rejected':
