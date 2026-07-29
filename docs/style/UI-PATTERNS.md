@@ -468,7 +468,7 @@ The test auto-enrolls new portal list-index files. Exceptions are an explicit `L
 **Correct pattern (the entitlement control row, `settings/index.astro`).**
 
 ```astro
-<form class="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] md:items-end">
+<form class="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_auto] md:items-end">
   <Field label="Level">
     <SelectField name="targetTier" options={options} />
   </Field>
@@ -479,7 +479,7 @@ The test auto-enrolls new portal list-index files. Exceptions are an explicit `L
 </form>
 ```
 
-Fixed select column so every row aligns down the page; the reason field takes the remaining width; all three controls are one height.
+Fixed select column so every row aligns down the page; the reason field takes the remaining width; all three controls are one height. Size a fixed select column to the longest option label — a truncated selected value hides the very state the control exists to show.
 
 **Anti-pattern (the 2026-07-29 screenshot that triggered ADR 0082).** The same form hand-rolled: select at `px-3 py-2 text-sm` (intrinsic width), input at `px-3 py-2 text-sm` (different computed height), button at `px-5 py-2.5` + bold (taller still) — three heights ascending left to right, selects ragged down the page, the required reason field a squat sliver.
 
