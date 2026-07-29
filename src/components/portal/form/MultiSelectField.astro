@@ -1,0 +1,41 @@
+---
+/**
+ * Multi-select listbox in the portal control kit (UI-PATTERNS Rule 8).
+ * The open-listbox counterpart to SelectField: same border and typography,
+ * height from `size` rows. Width delegates to the layout column (w-full),
+ * never to option text.
+ */
+export interface MultiSelectOption {
+  value: string
+  label: string
+  selected?: boolean
+  disabled?: boolean
+}
+interface Props {
+  name: string
+  options: MultiSelectOption[]
+  id?: string
+  size?: number
+  disabled?: boolean
+  describedBy?: string
+}
+const { name, options, id, size = 4, disabled = false, describedBy } = Astro.props
+---
+
+<select
+  id={id}
+  name={name}
+  multiple
+  size={size}
+  disabled={disabled}
+  aria-describedby={describedBy}
+  class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-body text-[color:var(--ss-color-text-primary)] disabled:bg-[color:var(--ss-color-border-subtle)] disabled:text-[color:var(--ss-color-text-muted)]"
+>
+  {
+    options.map((o) => (
+      <option value={o.value} selected={o.selected} disabled={o.disabled}>
+        {o.label}
+      </option>
+    ))
+  }
+</select>

@@ -24,6 +24,9 @@ import {
   type EmailAccessView,
 } from '../../../lib/portal/operator/connections'
 import type { ConnectorHealth } from '../../../lib/portal/operator/settings'
+import Field from '../form/Field.astro'
+import TextInput from '../form/TextInput.astro'
+import SubmitButton from '../form/SubmitButton.astro'
 
 interface Props {
   row: ConnectionRow
@@ -159,34 +162,23 @@ const btn =
             <form method="POST" action={secretAction} class="flex flex-col gap-3 pt-2">
               <input type="hidden" name="instance" value={instance} />
               <input type="hidden" name="return_to" value={returnTo} />
-              <label
-                for={fieldId}
-                class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-              >
-                API key for {displayName}
-              </label>
-              <input
-                id={fieldId}
-                type="password"
-                name="secret"
-                required
-                autocomplete="off"
-                spellcheck={false}
-                class="w-full border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-              />
+              <Field label={`API key for ${displayName}`}>
+                <TextInput
+                  id={fieldId}
+                  type="password"
+                  name="secret"
+                  required
+                  autocomplete="off"
+                  spellcheck="false"
+                  mono
+                />
+              </Field>
               <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">
                 {row.smdReachable
                   ? 'Stored so SMD can rotate it for you when needed.'
                   : 'Stored write-only. Only your Operator can use it; SMD cannot read it back.'}
               </p>
-              <div>
-                <button
-                  type="submit"
-                  class={`${btn} text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)]`}
-                >
-                  Save key
-                </button>
-              </div>
+              <SubmitButton label="Save key" />
             </form>
           </details>
         </div>

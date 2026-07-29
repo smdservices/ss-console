@@ -804,22 +804,15 @@ const FORM_KIT_ROOTS = [resolve('src/pages/portal'), resolve('src/components/por
 const FORM_KIT_DIR = 'src/components/portal/form/'
 
 const FORM_KIT_PENDING: string[] = [
-  'src/components/portal/operator/AuditFilterBar.astro',
-  'src/components/portal/operator/ConnectionRowCard.astro',
-  'src/components/portal/operator/RequestChangeForm.astro',
-  'src/components/portal/operator/TrustCeilingSection.astro',
-  // Advanced-editor field components (surface currently unlinked; see
-  // settings/index.astro SETTINGS_LINKS note). Migrate when the editor
+  // Advanced-editor field components — the ONLY sanctioned holdouts (ADR
+  // 0082 sweep, 2026-07-29). The surface is unlinked and broken (see
+  // settings/index.astro SETTINGS_LINKS note); migrate when the editor
   // itself is restored.
   'src/components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro',
   'src/components/portal/operator/customer-yaml-editor/ConnectorRow.astro',
   'src/components/portal/operator/customer-yaml-editor/EscalationFields.astro',
   'src/components/portal/operator/customer-yaml-editor/PersonaRow.astro',
   'src/components/portal/operator/customer-yaml-editor/ScopeFields.astro',
-  'src/pages/portal/products/hosted-agent/api-key.astro',
-  'src/pages/portal/products/hosted-agent/intake.astro',
-  'src/pages/portal/products/operator/[instance]/calendar/index.astro',
-  'src/pages/portal/products/operator/[instance]/settings/users.astro',
 ]
 
 // PENDING entries are repo-relative paths; the collected files are absolute.
