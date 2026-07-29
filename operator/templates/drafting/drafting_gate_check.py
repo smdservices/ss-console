@@ -161,24 +161,60 @@ _LETTERED_INLINE_RE = re.compile(r"\(([a-h])\)")
 # Propounded-item id aliases. Left side is what an items file may carry, right
 # side is what a response heading may read.
 _ITEM_ALIASES: dict[str, tuple[str, ...]] = {
-    "SROG": ("SPECIAL INTERROGATORY", "INTERROGATORY"),
-    "SI": ("SPECIAL INTERROGATORY", "INTERROGATORY"),
-    "FROG": ("FORM INTERROGATORY", "INTERROGATORY"),
-    "FI": ("FORM INTERROGATORY", "INTERROGATORY"),
-    "ROG": ("INTERROGATORY",),
+    "SROG": ("SPECIAL INTERROGATORY", "INTERROGATORY", "SROG"),
+    "SI": ("SPECIAL INTERROGATORY", "INTERROGATORY", "SROG"),
+    "FROG": ("FORM INTERROGATORY", "INTERROGATORY", "FROG", "SECTION"),
+    "FI": ("FORM INTERROGATORY", "INTERROGATORY", "FROG", "SECTION"),
+    "ROG": ("INTERROGATORY", "ROG"),
     "INTERROGATORY": ("INTERROGATORY",),
-    "RFP": ("REQUEST FOR PRODUCTION", "DEMAND FOR PRODUCTION", "REQUEST FOR DOCUMENTS"),
-    "RPD": ("REQUEST FOR PRODUCTION", "DEMAND FOR PRODUCTION"),
-    "RFPD": ("REQUEST FOR PRODUCTION", "DEMAND FOR PRODUCTION"),
-    "RFA": ("REQUEST FOR ADMISSION", "REQUESTS FOR ADMISSION"),
-    "RFAD": ("REQUEST FOR ADMISSION",),
+    "RFP": (
+        "REQUEST FOR PRODUCTION",
+        "DEMAND FOR PRODUCTION",
+        "REQUEST FOR DOCUMENTS",
+        "RFP",
+    ),
+    "RPD": ("REQUEST FOR PRODUCTION", "DEMAND FOR PRODUCTION", "RPD"),
+    "RFPD": ("REQUEST FOR PRODUCTION", "DEMAND FOR PRODUCTION", "RFPD"),
+    "RFA": ("REQUEST FOR ADMISSION", "REQUESTS FOR ADMISSION", "RFA"),
+    "RFAD": ("REQUEST FOR ADMISSION", "RFAD"),
 }
+# Response headings appear both long-form ("REQUEST FOR PRODUCTION NO. 2") and
+# short-form ("RFP NO. 2:", "SROG 4", "SECTION 1.1:"). Real drafts group form
+# interrogatories by section ("SECTIONS 2.1-2.8"), so the range form is a
+# heading too; gate_coverage expands ranges when matching. The 2026-07-29 live
+# rehearsal scored a complete 53-item draft as 53 misses because only the
+# long forms were recognized here.
 _HEADING_ITEM_RE = re.compile(
     r"(SPECIAL INTERROGATORY|FORM INTERROGATORY|INTERROGATORY|"
     r"REQUEST FOR PRODUCTION|DEMAND FOR PRODUCTION|REQUEST FOR DOCUMENTS|"
-    r"REQUESTS? FOR ADMISSION)"
+    r"REQUESTS? FOR ADMISSION|"
+    r"\bSROG\b|\bFROG\b|\bRFPD?\b|\bRPD\b|\bRFAD?\b|\bROG\b|\bSECTIONS?\b)"
     r"[^0-9\n]{0,30}?(\d+(?:\.\d+)?)"
 )
+_HEADING_RANGE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:-|–|TO)\s*(\d+(?:\.\d+)?)")
+
+
+def _expand_heading_numbers(heading: str) -> set[str]:
+    """All item numbers a heading covers, expanding 'SECTIONS 2.1-2.8' ranges.
+
+    Only same-major dotted ranges and plain integer ranges expand; a malformed
+    or reversed range contributes its endpoints only (fail-closed toward
+    reporting a miss rather than inventing coverage).
+    """
+    numbers: set[str] = set(re.findall(r"\d+(?:\.\d+)?", heading))
+    for lo_raw, hi_raw in _HEADING_RANGE_RE.findall(heading):
+        if "." in lo_raw and "." in hi_raw:
+            lo_major, lo_minor = lo_raw.split(".", 1)
+            hi_major, hi_minor = hi_raw.split(".", 1)
+            if lo_major == hi_major and lo_minor.isdigit() and hi_minor.isdigit():
+                lo_n, hi_n = int(lo_minor), int(hi_minor)
+                if lo_n <= hi_n and hi_n - lo_n <= 200:
+                    numbers.update(f"{lo_major}.{n}" for n in range(lo_n, hi_n + 1))
+        elif lo_raw.isdigit() and hi_raw.isdigit():
+            lo_n, hi_n = int(lo_raw), int(hi_raw)
+            if lo_n <= hi_n and hi_n - lo_n <= 200:
+                numbers.update(str(n) for n in range(lo_n, hi_n + 1))
+    return numbers
 
 
 class GateUsageError(Exception):
@@ -1071,12 +1107,9 @@ def gate_coverage(draft: Draft, items: list[str]) -> list[Finding]:
             for alias in aliases:
                 if alias not in heading:
                     continue
-                for candidate in re.findall(r"\d+(?:\.\d+)?", heading):
-                    if candidate == number:
-                        found = True
-                        matched_headings.add(line_no)
-                        break
-                if found:
+                if number in _expand_heading_numbers(heading):
+                    found = True
+                    matched_headings.add(line_no)
                     break
             if found:
                 break
