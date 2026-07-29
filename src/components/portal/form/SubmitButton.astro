@@ -1,0 +1,29 @@
+---
+/**
+ * Submit button in the portal control kit (UI-PATTERNS Rule 8, ADR 0082).
+ * Same h-11 and border weight as the inputs it sits beside — a control row
+ * is one height, end to end. Tones cover the settled cases: neutral ink,
+ * danger (pause/destructive), success (resume).
+ */
+interface Props {
+  label: string
+  tone?: 'neutral' | 'danger' | 'success'
+}
+const { label, tone = 'neutral' } = Astro.props
+
+const TONES: Record<NonNullable<Props['tone']>, string> = {
+  neutral:
+    'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)]',
+  danger:
+    'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-error)]',
+  success:
+    'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)] hover:bg-[color:var(--ss-color-complete)]',
+}
+---
+
+<button
+  type="submit"
+  class={`h-11 w-fit whitespace-nowrap border-[3px] bg-[color:var(--ss-color-background)] px-5 font-body text-body font-bold uppercase tracking-[0.08em] transition-colors hover:text-[color:var(--ss-color-background)] ${TONES[tone]}`}
+>
+  {label}
+</button>

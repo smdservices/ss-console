@@ -439,47 +439,53 @@ The test auto-enrolls new portal list-index files. Exceptions are an explicit `L
 
 ---
 
-## Rule 8 — Console register: calm Plainspoken
+## Rule 8 — Portal register: loud Plainspoken, controls through the form kit
 
-**Rule.** The client portal and the admin console render in the _calm_ Plainspoken register: cards are a white raised surface (`bg-surface-raised`) with a hairline border (`border` — ink at ~16%), **never** `border-[3px]` and never a full-ink rule. Headings are sentence case at the Rule 5 scale (`text-title` / `text-heading`), never `font-black` and never all-caps. Monospace (`font-mono`) is reserved for `text-label` eyebrows, status chips, and fixed-width data — not body, not headings. Ink-fill header bars (ink background, cream text) are a marketing device and do not appear on console surfaces.
+**Rule.** The client portal's settled visual identity is the **loud Plainspoken register** — bold ink rules (`border-[3px]`), weight-900 uppercase section heads on the Plainspoken display scale, mono eyebrow labels, cream paper — the same family as the marketing site. That identity is ratified, not provisional ([ADR 0082](../adr/0082-portal-register-loud-plainspoken.md), Captain 2026-07-29). What the register does NOT license is inconsistency in **form controls**: every text input, select, and submit button on a portal surface renders through the shared control kit in `src/components/portal/form/`, which fixes one control height (`h-11`, the 44px touch-target floor), one border weight, and full-width (never intrinsic-width) sizing delegated to the layout column.
 
-**Why.** The portal and admin drifted into two different-looking products off the _same_ tokens — the portal rendered them loud (3px ink rules, flat cream, black uppercase), the admin softened them (white cards, hairline borders, sentence case). One console in two registers is the "they don't look remotely similar" problem (Captain, 2026-07-07). The loud register is a marketing asset — a sign-shop shout on a page you visit once — and a tax on a console someone operates daily. Rules 5–7 already prescribe the calm _mechanics_ (token type, token spacing, shared primitives); this rule names the register they add up to and bans the loud markers explicitly, so the portal remediation converges and cannot regress.
+**History (do not re-derive).** A calm register (white raised cards, hairline borders, sentence case) was declared the portal end state on 2026-07-07, reverted by the Captain on the first migrated surface on 2026-07-08 (PR #1821), and formally retired on 2026-07-29 when the Captain ratified loud as the identity: the objection behind the original "two different products" complaint was never boldness — it was sloppy controls ("dropdowns... the size of whatever text is in them," mixed control heights in one row). The register question is settled; only an explicit Captain reversal reopens it.
 
-**Scope.** Console surfaces only: `src/pages/portal/**`, `src/components/portal/**`, `src/pages/admin/**`, `src/components/admin/**`. The marketing site (`src/pages/*.astro` at root, `src/components/{marketing,packs}/**`, `Nav`, `Footer`) keeps the loud register — that is where the shout belongs.
+**Why.** Form controls hand-rolled per page each pick their own padding, text size, and width. On one row that yields a select, an input, and a button at three different heights; down a page it yields selects ragged to their longest option. Bold borders at one uniform height read as intentional; the same borders at three heights read as accidental. The kit is the enforcement — prose rules about "make controls consistent" do not survive generations of AI-authored pages (same argument as Rule 7).
 
-**Authority.** Same anchors as Rules 5–7 (Material 3, IBM Carbon, Shopify Polaris): a console is scanned and operated, not read; calm surfaces with semantic status and generous whitespace are the documented pattern for repeat-use tools.
+**Scope.** Client portal: `src/pages/portal/**`, `src/components/portal/**`. The admin console is out of scope for the register ruling (it keeps its current quieter treatment; unifying the consoles is a separate Captain decision, per ADR 0082). The marketing site was always loud and is untouched.
 
-**Loud markers (banned on migrated console surfaces).**
+**Authority.**
 
-- `border-[3px]` (or any `border-[Npx]` used as a card rule) → `border` / `border-[color:var(--color-border)]`.
-- `font-black` on headings → Rule 5 token weights (`text-title` 700, `text-heading` 600), sentence case.
-- Uppercasing whole headings → uppercase belongs only to `text-label` eyebrows and chips.
-- Ink-fill header bars (`bg-[color:var(--ss-color-text-primary)]` behind inverted section-header text) → a plain `CardHeader`.
-
-**Correct pattern.**
-
-```astro
-<Card>
-  <CardHeader title="Recent activity" actionLabel="Full record" actionHref="/portal/products/operator/activity" />
-  <PortalListItem variant="status" ... />
-</Card>
-```
-
-where `Card` renders `bg-surface-raised rounded-card border p-card` (Rule 6), `CardHeader` is a sentence-case `text-heading` title with an optional action link, and inline status uses `StatusDot` (the calm counterpart to `StatusPill`).
-
-**Anti-pattern (portal, pre-migration).** The client portal shipped ~133 `border-[3px]`, ~85 `font-black`, and ~345 `uppercase` across ~60 files — the operator hero (`src/components/portal/operator/facets/OperatorHero.astro`), the account page (`src/pages/portal/products/operator/account/index.astro`), and the landing home feeds (`src/pages/portal/products/operator/index.astro`) all rendered loud. The admin console is already ~95% calm and is the reference.
+- WCAG 2.5.8 / 2.5.5 target size: https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html (the kit's 44px control height)
+- Material 3 text fields — consistent container height across field types: https://m3.material.io/components/text-fields/specs
+- Shopify Polaris form layout — related controls share dimensions and align to a grid: https://polaris.shopify.com/components/layout-and-structure/form-layout
 
 **Registered primitives (this rule).**
 
-- [`src/components/portal/Card.astro`](../../src/components/portal/Card.astro) — raised card shell (`bg-surface-raised rounded-card border p-card`).
-- [`src/components/portal/CardHeader.astro`](../../src/components/portal/CardHeader.astro) — sentence-case `text-heading` title + optional action link; replaces ink-fill header bars.
-- [`src/components/portal/StatusDot.astro`](../../src/components/portal/StatusDot.astro) — tone dot; consumes `Tone` from `status.ts`; the calm counterpart to `StatusPill`.
+- [`src/components/portal/form/control-classes.ts`](../../src/components/portal/form/control-classes.ts) — `CONTROL_BASE`: the one source of control geometry.
+- [`src/components/portal/form/Field.astro`](../../src/components/portal/form/Field.astro) — mono eyebrow label + control slot; width is the caller's layout column.
+- [`src/components/portal/form/TextInput.astro`](../../src/components/portal/form/TextInput.astro) — single-line text input.
+- [`src/components/portal/form/SelectField.astro`](../../src/components/portal/form/SelectField.astro) — `appearance-none` select with inked chevron; never intrinsic-width.
+- [`src/components/portal/form/SubmitButton.astro`](../../src/components/portal/form/SubmitButton.astro) — kit-height submit; `neutral` / `danger` / `success` tones.
 
-Reuse the Rule 7 primitives (`PortalListItem`, `StatusPill`, `MoneyDisplay`) where they fit rather than re-hardcoding.
+`StatusDot.astro` remains registered (register-neutral, used by `AlivenessHeader`). The unused calm card primitives (`Card.astro`, `CardHeader.astro`) were deleted with the calm migration.
 
-**Detection.** A "Calm register" assertion family in [`tests/forbidden-strings.test.ts`](../../tests/forbidden-strings.test.ts): every console file **not** listed in `CALM_REGISTER_PENDING` must be free of the loud markers. `CALM_REGISTER_PENDING` begins as the full loud-file set and **shrinks** with each migration slice; the end state is an empty list — whole console calm, guard fully enforcing. The list only shrinks; no allowlist grows around it.
+**Correct pattern (the entitlement control row, `settings/index.astro`).**
 
-**Escape hatch.** None on a migrated surface. If a console surface genuinely needs a heavier treatment, that is a signal the register is wrong — raise it, don't annotate around it.
+```astro
+<form class="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] md:items-end">
+  <Field label="Level">
+    <SelectField name="targetTier" options={options} />
+  </Field>
+  <Field label="Reason (required, kept in the log)">
+    <TextInput name="reason" required maxlength={300} />
+  </Field>
+  <SubmitButton label="Submit" />
+</form>
+```
+
+Fixed select column so every row aligns down the page; the reason field takes the remaining width; all three controls are one height.
+
+**Anti-pattern (the 2026-07-29 screenshot that triggered ADR 0082).** The same form hand-rolled: select at `px-3 py-2 text-sm` (intrinsic width), input at `px-3 py-2 text-sm` (different computed height), button at `px-5 py-2.5` + bold (taller still) — three heights ascending left to right, selects ragged down the page, the required reason field a squat sliver.
+
+**Detection.** A "portal form-control kit" assertion family in [`tests/forbidden-strings.test.ts`](../../tests/forbidden-strings.test.ts): every portal file containing a non-hidden `<input>`, `<select>`, or `<textarea>` must import from `components/portal/form/`, unless listed in `FORM_KIT_PENDING`. The pending list seeds with the pre-kit surfaces and **shrinks** as each migrates; new portal files are enforced from day one.
+
+**Escape hatch.** A control the kit genuinely cannot express (e.g., a checkbox toggle grid) extends the kit with a new primitive — it does not hand-roll. Pending-list entries are the only sanctioned temporary exception.
 
 ---
 
