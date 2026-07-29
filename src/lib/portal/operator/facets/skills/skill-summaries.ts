@@ -42,6 +42,10 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Surfaces your court dates, filing deadlines, and statute-of-limitations dates by urgency. Reflects dates you entered, never computes them.',
   'deadline-miss-escalator':
     'Escalates an approaching or missed deadline up a ladder so it never slips silently. Internal only.',
+  'demand-letter-drafter':
+    'Drafts a policy-limits demand letter from the matter record when your attorney asks. The demand figure and every settlement decision stay with the attorney; it never sends to a carrier.',
+  'discovery-response-drafter':
+    'Drafts responses to served discovery from the matter record when your attorney asks, with objections labeled as candidates. Never serves, never signs a verification; the attorney finalizes.',
   'discovery-response-staging':
     'Stages a served discovery request and its documents so a response can be drafted, then files the finished draft for attorney review. Never drafts the response.',
   'discovery-response-tracker':
@@ -54,6 +58,8 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Handles inbound email from allow-listed senders and drafts replies in your voice.',
   'engagement-letter-chaser':
     "Tracks an unsigned engagement letter and drafts nudges until it's signed. Never interprets the terms.",
+  'follow-up-discovery-drafter':
+    "On your attorney's request, drafts the next round of written discovery aimed at what the record leaves unestablished, plus a short plan. Targeting decisions stay with the attorney; it never serves.",
   'inbox-triage': 'Triages your inbox daily and drafts categorized replies for your review.',
   'intake-to-system-sync':
     'Syncs a converted lead from your intake CRM into Smokeball, with dedupe and conflict checks.',
@@ -71,6 +77,8 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Assembles a periodic internal digest of your matters from Smokeball. Reports state, never decides next steps.',
   'matter-status-responder':
     'Answers a client\'s routine "where are we" with a factual status from the system of record. Status only, no opinion.',
+  'mediation-brief-drafter':
+    'Drafts a confidential mediation brief from the matter record against your skeleton when your attorney asks. Valuation and negotiation stay with the attorney; it never submits to a mediator.',
   'mediation-settlement-tracker':
     'Assembles the input packet for a mediation or settlement brief and tracks settlement deadlines. Never writes the brief, never asserts a deadline as final.',
   'medical-chronology-maintainer':

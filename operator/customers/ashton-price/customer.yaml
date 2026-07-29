@@ -32,7 +32,7 @@ customer_id: ashton-price
 customer_name: 'Ashton & Price LLP'
 vertical: law-firm
 addons:
-  - law-firm/pi@0.2.0 # the full CA PI-litigation lifecycle pack (19 skills)
+  - law-firm/pi@0.3.0 # the CA PI-litigation lifecycle pack (19 routine skills active here; the v0.3.0 drafting lane is NOT activated on this seat — see the fail-closed block at the end of the skills list)
 practice_areas:
   - personal-injury-plaintiff
 fly_region: sjc # Fair Oaks (Sacramento), CA — San Jose is the nearest Fly region
@@ -411,6 +411,28 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
+      # ---- work-product drafting lane (law-firm/pi@0.3.0): NOT ACTIVATED ----
+      # FAIL-CLOSED BY OMISSION (ADR 0035, no imposed defaults): the four
+      # drafting skills (discovery-response-drafter, follow-up-discovery-drafter,
+      # demand-letter-drafter, mediation-brief-drafter) exist in the pack and
+      # are rehearsing on pilot-smokeball, but this seat does not carry them
+      # until the firm authors the lane. Unlisted = the seat refuses; there is
+      # nothing to disable.
+      # Activation requires, in order (tracked in the engagement record):
+      #   1. The firm's explicit authorization of the drafting lane (the
+      #      2026-07-29 call and its follow-up letter are the record).
+      #   2. The firm's writing samples distilled into an approved voice
+      #      profile (voice_library below is empty until then).
+      #   3. The firm's own skeletons per artifact class (the shipped defaults
+      #      in operator/templates/drafting/skeletons/ are rehearsal stand-ins).
+      #   4. The overlay drafting-gate delivery hook deployed to this seat
+      #      (code_execution is refused here, so the mechanical gate runs
+      #      harness-side; no draft surfaces ungated).
+      #   5. The pilot-smokeball kill-test battery green on the exact skill
+      #      versions being promoted.
+      # When those are met, the activation is the pilot-smokeball block
+      # (customer.yaml there, "work-product drafting lane") copied onto this
+      # seat: manual initiation only, never scheduled, never webhook.
     # Every entry is pre_run-gated (ADR 0021 Stream B, #1748). The escalator's
     # bespoke pre_run decides whether a deadline needs the ladder; the other
     # skills carry the shared empty-seat gate (operator/templates/pre_run_gate.py):

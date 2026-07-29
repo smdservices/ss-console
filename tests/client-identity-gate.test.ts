@@ -199,6 +199,8 @@ const ALLOWED_FIXTURE_DOMAINS = new Set([
   'othercarrier.example',
   'opposingfirm.example',
   'vendor.example',
+  'meridiancasualty.example', // the Alvarez fixture matter's carrier (drafting-lane fixtures)
+  'barrowkestrel.example', // the Alvarez fixture matter's opposing counsel firm (drafting-lane fixtures)
 ])
 
 describe('fixture addresses are synthetic', () => {

@@ -136,7 +136,15 @@ TASKS: dict[str, dict] = {
 # ---------------------------------------------------------- document bodies --
 
 
-def _caption(court: str, plaintiff: str, defendant: str, case_no: str, title: str) -> list[str]:
+def _caption(
+    court: str,
+    plaintiff: str,
+    defendant: str,
+    case_no: str,
+    title: str,
+    propounding: str = "Defendant",
+    responding: str = "Plaintiff",
+) -> list[str]:
     return [
         court,
         "",
@@ -150,8 +158,8 @@ def _caption(court: str, plaintiff: str, defendant: str, case_no: str, title: st
         "",
         f"                {title}",
         "",
-        "PROPOUNDING PARTY: Defendant",
-        "RESPONDING PARTY:  Plaintiff",
+        f"PROPOUNDING PARTY: {propounding}",
+        f"RESPONDING PARTY:  {responding}",
         "SET NUMBER:        As stated in the title above",
         "",
     ]
@@ -321,7 +329,15 @@ def build_documents() -> dict[str, tuple[str, str, list[str]]]:
     )
 
     # DISC-5 input: opposing party's deficient responses
-    resp = _caption(court, p, d, no, "DEFENDANT'S RESPONSES TO PLAINTIFF'S REQUESTS FOR PRODUCTION, SET ONE")
+    resp = _caption(
+        court,
+        p,
+        d,
+        no,
+        "DEFENDANT'S RESPONSES TO PLAINTIFF'S REQUESTS FOR PRODUCTION, SET ONE",
+        propounding="Plaintiff",
+        responding="Defendant",
+    )
     for i, r in enumerate(
         [
             "Objection. Vague, ambiguous, overbroad, and unduly burdensome.",
