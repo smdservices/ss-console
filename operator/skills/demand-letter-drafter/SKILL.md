@@ -72,7 +72,7 @@ narrower, never looser.
 ## Lane: on demand, attorney-initiated, and internal only
 
 Drafting skills are never routine-initiated. No cron block, no watcher, and no chained
-invocation from a connective skill may produce this letter. An attorney asks for it,
+invocation from a connective skill may ORIGINATE this letter; the inbox spine carrying the attorney's own explicit request is attorney initiation, not a chain (transport-is-not-origination, per the shared discipline). An attorney asks for it,
 by name, on a named matter. If the request did not come from the responsible attorney
 or another attorney on the matter, the skill surfaces and asks rather than drafting.
 

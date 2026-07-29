@@ -56,7 +56,7 @@ serve it, does not file it, and does not send it outside the firm by any path.
 Per the drafting lane boundary in
 `operator/templates/drafting/drafting-discipline.md`, this skill runs only when an
 attorney asks for it. No cron block, no watcher, no chained call from a connective
-skill produces a discovery set. The routine discovery lanes keep the
+skill produces a discovery set (though the inbox spine carrying the attorney's own explicit request IS attorney initiation, not a chain; the spine is transport, per the discipline's transport-is-not-origination rule). The routine discovery lanes keep the
 `assembly-no-argument` floor precisely so that work product only ever exists because
 an attorney asked for it, and that is the attorney's call to make, not the
 Operator's. A run with no attorney request behind it is refused and surfaced.

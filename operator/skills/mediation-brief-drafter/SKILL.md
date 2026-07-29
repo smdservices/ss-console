@@ -74,7 +74,7 @@ relaxes it.
 Three separate lines, and none of them is a tunable dial.
 
 **On-demand only.** No cron block, no watcher, no digest, and no chained call from
-a connective skill may produce a mediation brief. If a routine surfaces that a
+a connective skill may ORIGINATE a mediation brief; the inbox spine carrying the attorney's own explicit request is attorney initiation, not a chain (transport-is-not-origination, per the shared discipline). If a routine surfaces that a
 mediation is approaching and the brief is unwritten, the correct output of that
 routine is the surfaced gap, not a brief. This skill runs when an attorney runs
 it.
