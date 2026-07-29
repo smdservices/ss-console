@@ -280,6 +280,8 @@ time. See `references/voice.md`.
 
 ## Delivery: the draft lives in the matter, the email is a pointer
 
+**Delivery is verified by read-back (shared discipline, delivery-verification rule).** After filing, read the artifact back from the system of record and verify it is present, complete, and uncorrupted before the delivery note claims it. A failed or unverifiable delivery is reported as exactly that, never as delivered; a fallback delivery is disclosed as a fallback with the reason.
+
 A response draft is dense with statute citations, and the mail channel enforces a
 legal-citation filter that will refuse it. Emailing the draft body fights that gate by
 construction. So the split is authored, not discovered at refusal time:

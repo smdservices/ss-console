@@ -350,6 +350,8 @@ reported. Fail closed.
 
 ## Delivery: internal, and the letter never travels by email
 
+**Delivery is verified by read-back (shared discipline, delivery-verification rule).** After filing, read the artifact back from the system of record and verify it is present, complete, and uncorrupted before the delivery note claims it. A failed or unverifiable delivery is reported as exactly that, never as delivered; a fallback delivery is disclosed as a fallback with the reason.
+
 The draft, the itemized report, and the held-out list go into the **matter memo**
 (`create_memo`), which is where citations belong. The email to the requesting attorney
 (`agentmail`) is a **citation-free pointer**, not the letter: plain words naming the
