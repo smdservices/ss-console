@@ -157,6 +157,13 @@ export function liveTierOf(row: RoutineGridRow, live: LiveExposure): RoutineTier
   const authored = asCeiling(live.exposure[sendClass])
   if (authored === null) return 'flag-only'
   if (authored === 'autonomous') return 'auto-handle'
+  // `refused` IS flag-only: the runtime dial expresses a flag-only target as
+  // an explicit refused override (the store has no delete verb), which is
+  // enforcement-equivalent to the unauthored key. Mapping it to
+  // prepare-and-route rendered a lowered routine one tier too high — found by
+  // the ss#2003 live probe (portal set flag-only; page re-rendered
+  // prepare-and-route while the Machine correctly held refused).
+  if (authored === 'refused') return 'flag-only'
   return 'prepare-and-route'
 }
 
