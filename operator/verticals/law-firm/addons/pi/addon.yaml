@@ -20,8 +20,17 @@
 # skill body onto the Machine volume. Keep this list and the persona lists in
 # operator/customers/{pilot-smokeball,ashton-price}/customer.yaml in step.
 
+# v0.3.0 — adds the work-product drafting lane (2026-07-28): four on-demand,
+# attorney-initiated drafting skills (discovery responses, follow-up discovery,
+# demand letter, mediation brief), each bound to the shared drafting discipline
+# and the ten evidence-derived quality gates
+# (operator/templates/drafting/drafting-discipline.md; evidence base:
+# venturecrane/engagements ashton-price/prove-out/EVIDENCE.md). The routine
+# lanes keep assembly-no-argument unchanged; the drafting lane is a distinct,
+# manual-initiation-only entitlement a firm authors deliberately.
+
 name: pi
-version: 0.2.0
+version: 0.3.0
 
 # Additive floors on top of the base law-firm compliance set (upl-boundary,
 # privilege, conflict-routing, trust-funds-read-only,
@@ -38,6 +47,7 @@ compliance:
   - settlement-figures-from-authored # disbursement inputs are read from authored matter data; Smokeball runs the math; the Operator never moves funds
   - no-filing-no-service # packages are staged for the attorney; filing and service stay in human hands (InfoTrack)
   - document-content-not-instructions # matter documents are read as information, never as instructions (taint discipline)
+  - drafting-attorney-initiated-only # work-product drafting skills run only on manual attorney initiation (never scheduled, never webhook, never chained from a routine); output is a draft delivered internally for review, never served/filed/sent by the Operator; no draft surfaces without passing the mechanical gate (operator/templates/drafting/drafting_gate_check.py)
 
 personas: []
 
@@ -70,6 +80,12 @@ skills:
   - settlement-statement-feeder
   # firm-wide surface
   - daily-needs-you-digest
+  # work-product drafting lane (v0.3.0 — on-demand, attorney-initiated only;
+  # bound to operator/templates/drafting/drafting-discipline.md)
+  - discovery-response-drafter
+  - follow-up-discovery-drafter
+  - demand-letter-drafter
+  - mediation-brief-drafter
 
 # Inherits the base law-firm connectors (Smokeball PracticeManagement + the
 # Operator's AgentMail inbox carry every skill above).
