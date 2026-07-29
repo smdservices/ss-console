@@ -1,0 +1,42 @@
+---
+/**
+ * Multi-line input in the portal control kit (UI-PATTERNS Rule 8). Shares
+ * the kit border and typography; height comes from `rows`, not the h-11
+ * single-line height (a textarea is the one control that is legitimately
+ * taller than its row siblings).
+ */
+interface Props {
+  name: string
+  id?: string
+  rows?: number
+  required?: boolean
+  maxlength?: number
+  value?: string
+  placeholder?: string
+  /** JetBrains Mono for fixed-width data (address lists, IDs) per the register's mono rule. */
+  mono?: boolean
+}
+const {
+  name,
+  id,
+  rows = 4,
+  required = false,
+  maxlength,
+  value,
+  placeholder,
+  mono = false,
+} = Astro.props
+---
+
+<textarea
+  id={id}
+  name={name}
+  rows={rows}
+  required={required}
+  maxlength={maxlength}
+  placeholder={placeholder}
+  class:list={[
+    'w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 text-body text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)]',
+    mono ? 'font-mono' : 'font-body',
+  ]}>{value ?? ''}</textarea
+>

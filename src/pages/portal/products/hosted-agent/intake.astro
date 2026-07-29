@@ -3,6 +3,9 @@ import PortalShell from '../../../../layouts/PortalShell.astro'
 import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
 import { getIntakeByEntity } from '../../../../lib/db/hosted-agent-intake'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
+import Field from '../../../../components/portal/form/Field.astro'
+import TextInput from '../../../../components/portal/form/TextInput.astro'
+import TextArea from '../../../../components/portal/form/TextArea.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -49,13 +52,8 @@ const senders: string[] = (() => {
   }
 })()
 
-const labelClass =
-  'block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]'
-const inputBase =
-  'mt-2 w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]'
-/* Data-like fields (handle, timezone, sender emails) render mono; natural-language fields render body. */
-const inputClass = `${inputBase} font-mono`
-const proseInputClass = `${inputBase} font-body`
+/* Controls render through the portal form kit (UI-PATTERNS Rule 8, ADR 0082).
+   Data-like fields (handle, timezone, sender emails) render mono; natural-language fields render body. */
 const hintClass = 'mt-1 font-body text-sm text-[color:var(--ss-color-text-secondary)]'
 ---
 
@@ -91,29 +89,29 @@ const hintClass = 'mt-1 font-body text-sm text-[color:var(--ss-color-text-second
     class="mt-8 flex flex-col gap-6"
   >
     <div>
-      <label for="agent_name" class={labelClass}>What should your agent be called?</label>
-      <input
-        id="agent_name"
-        name="agent_name"
-        type="text"
-        required
-        maxlength="64"
-        value={intake.agent_name ?? ''}
-        class={proseInputClass}
-      />
+      <Field label="What should your agent be called?">
+        <TextInput
+          id="agent_name"
+          name="agent_name"
+          required
+          maxlength={64}
+          value={intake.agent_name ?? ''}
+        />
+      </Field>
       <p class={hintClass}>A first name works best. It signs its messages with this.</p>
     </div>
 
     <div>
-      <label for="use_cases" class={labelClass}>What do you want it working on?</label>
-      <textarea
-        id="use_cases"
-        name="use_cases"
-        required
-        rows="6"
-        maxlength="4000"
-        class={proseInputClass}>{intake.use_cases ?? ''}</textarea
-      >
+      <Field label="What do you want it working on?">
+        <TextArea
+          id="use_cases"
+          name="use_cases"
+          required
+          rows={6}
+          maxlength={4000}
+          value={intake.use_cases ?? ''}
+        />
+      </Field>
       <p class={hintClass}>
         Plain language is perfect. Examples: a morning digest of what landed overnight, research
         briefs on topics you name, watching a feed and reporting changes.
@@ -121,46 +119,46 @@ const hintClass = 'mt-1 font-body text-sm text-[color:var(--ss-color-text-second
     </div>
 
     <div>
-      <label for="telegram_handle" class={labelClass}>Your Telegram username (optional)</label>
-      <input
-        id="telegram_handle"
-        name="telegram_handle"
-        type="text"
-        maxlength="64"
-        value={intake.telegram_handle ?? ''}
-        class={inputClass}
-      />
+      <Field label="Your Telegram username (optional)">
+        <TextInput
+          id="telegram_handle"
+          name="telegram_handle"
+          maxlength={64}
+          value={intake.telegram_handle ?? ''}
+          mono
+        />
+      </Field>
       <p class={hintClass}>Telegram is the fastest way to talk to your agent.</p>
     </div>
 
     <div>
-      <label for="timezone" class={labelClass}>Your timezone</label>
-      <input
-        id="timezone"
-        name="timezone"
-        type="text"
-        required
-        maxlength="64"
-        placeholder="America/Phoenix"
-        value={intake.timezone ?? ''}
-        class={inputClass}
-      />
+      <Field label="Your timezone">
+        <TextInput
+          id="timezone"
+          name="timezone"
+          required
+          maxlength={64}
+          placeholder="America/Phoenix"
+          value={intake.timezone ?? ''}
+          mono
+        />
+      </Field>
       <p class={hintClass}>Scheduled work (digests, briefs) runs on your clock.</p>
     </div>
 
     <div>
-      <label for="allowed_senders" class={labelClass}>
-        Email addresses your agent should accept mail from
-      </label>
-      <textarea
-        id="allowed_senders"
-        name="allowed_senders"
-        required
-        rows="4"
-        maxlength="2000"
-        placeholder="you@example.com"
-        class={inputClass}>{senders.join('\n')}</textarea
-      >
+      <Field label="Email addresses your agent should accept mail from">
+        <TextArea
+          id="allowed_senders"
+          name="allowed_senders"
+          required
+          rows={4}
+          maxlength={2000}
+          placeholder="you@example.com"
+          value={senders.join('\n')}
+          mono
+        />
+      </Field>
       <p class={hintClass}>
         One address per line. Your agent has its own inbox and only accepts mail from this list.
         That is a safety feature: no stranger can reach it.
