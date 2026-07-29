@@ -7,7 +7,7 @@
  * placeholder row must not fail an otherwise-clean PR.
  *
  * @see docs/doctrine/agent-operating-doctrine.md - Law 9
- * @see .claude/commands/wired.md
+ * @see docs/doctrine/wired-contract.md
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -143,7 +143,7 @@ describe('runtime AC proof: the failure message tells you what to do', () => {
     expect(message).toContain('Operator adopts the new level')
     expect(message).toContain('src/x.ts:1')
     expect(message).toContain('crane_verify')
-    expect(message).toContain('.claude/commands/wired.md')
+    expect(message).toContain('docs/doctrine/wired-contract.md')
   })
 
   it('renders empty evidence legibly rather than as a blank', () => {

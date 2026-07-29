@@ -205,7 +205,7 @@ enforcement:
   - .github/workflows/runtime-ac-proof.yml
   - scripts/runtime-ac-proof.mjs
   - tests/runtime-ac-proof.test.ts
-  - .claude/commands/wired.md
+  - docs/doctrine/wired-contract.md
 incidents:
   - date: 2026-07-28
     ref: entitlement-control incident (four PRs, each honest about its own artifact, one stating "Next slices, unbuilt and not implied here"; reported built, wired, and tested while a Named Administrator could not perform the act)
@@ -220,7 +220,7 @@ Built, wired, and tested are three different claims, and the distance between th
 
 The failure is scope, not honesty. A PR that defines done as the artifact it added can be entirely truthful and still leave the feature dead, which is why asking for more diligence does not reach it. So the deliverable is stated as an act a named person performs and an outcome they observe, never a component noun. The terminal seam is named, and whoever takes the work owns the whole distance to it. Gates are enumerated backwards from that seam, because forward enumeration only ever produces the artifacts already planned, and the gates that kill features (adoption, roles, secrets, transport) are the ones that are not code. Any gate that cannot be closed is escalated before the closable ones are built, which is what turns an honest slice into a required stop.
 
-The gate is deliberately narrow. `/wired` tags each acceptance criterion with its layer, and `runtime-ac-proof` blocks a PR that marks a `(runtime)` criterion met without a `crane_verify` ID; repo-layer criteria still take a file:line, because that is the right evidence for code. It exists because the acceptance-criteria machinery otherwise certifies the author's own definition: `tick-acs-on-merge` parses the merging PR's own status table to tick the linked issue, and `unmet-ac-on-close` skips PR-driven closes, so a slice that declares itself met is what closes the epic (`vfy_01KYNVJ4VG90G26SZSYPXF05KY`).
+The gate is deliberately narrow. The reachability contract tags each acceptance criterion with its layer, and `runtime-ac-proof` blocks a PR that marks a `(runtime)` criterion met without a `crane_verify` ID; repo-layer criteria still take a file:line, because that is the right evidence for code. It exists because the acceptance-criteria machinery otherwise certifies the author's own definition: `tick-acs-on-merge` parses the merging PR's own status table to tick the linked issue, and `unmet-ac-on-close` skips PR-driven closes, so a slice that declares itself met is what closes the epic (`vfy_01KYNVJ4VG90G26SZSYPXF05KY`).
 
 ---
 

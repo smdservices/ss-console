@@ -23,7 +23,7 @@
  * Repo-layer ACs are untouched. A file:line is the right evidence for those,
  * and gating them would be ceremony.
  *
- * @see .claude/commands/wired.md - the contract that authors the tags
+ * @see docs/doctrine/wired-contract.md - the contract that authors the tags
  * @see docs/doctrine/agent-operating-doctrine.md - Law 9
  */
 
@@ -37,7 +37,7 @@ const SECTION_RE = /^##\s+Acceptance criteria status\s*$/im
  */
 const VERIFY_ID_RE = /\bvfy_[0-9A-Za-z]{20,}\b/
 
-/** Layer tag authored by /wired into the issue's ACs, carried verbatim into the PR table. */
+/** Layer tag authored per the reachability contract into the issue's ACs, carried verbatim into the PR table. */
 const RUNTIME_TAG_RE = /\(\s*runtime[^)]*\)/i
 
 /** A markdown table separator: cells of dashes and optional alignment colons. */
@@ -130,6 +130,6 @@ export function formatViolations(violations) {
     '',
     'Record that observation with crane_verify and put the returned vfy_... ID in',
     'the Evidence column. If the gate is not actually closed, mark the AC deferred',
-    'and say which gate is open, per .claude/commands/wired.md.',
+    'and say which gate is open, per docs/doctrine/wired-contract.md.',
   ].join('\n')
 }
