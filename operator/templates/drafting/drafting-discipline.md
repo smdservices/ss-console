@@ -26,11 +26,23 @@ instrument.
 
 **Lane boundary (who may invoke).** Drafting skills are **on-demand only,
 attorney-initiated**. They are never routine-initiated: no cron block, no watcher,
-no chained invocation from a connective skill may produce work product. The
+no chained invocation from a connective skill may ORIGINATE work product. The
 routine lanes keep the `assembly-no-argument` compliance floor; this lane exists
 because an attorney hands the Operator drafting work directly, and that is the
 attorney's call. Output is always a draft delivered to the requesting attorney
 for review. Never filed, never served, never sent outside the firm, by any path.
+
+**Transport is not origination.** A rostered firm attorney's explicit drafting
+request normally arrives through the inbox spine (`matter-inbox-router`), which
+loads the matching drafting skill and runs it on the attorney's own words. That
+IS the manual initiation this lane requires — the spine carries the request, it
+does not author one. The ban above is on a routine or connective skill
+manufacturing a drafting task with no human request behind it (a watcher
+noticing a deadline and drafting the response, a cron drafting a demand). The
+test is simple: point to the attorney's message. No message, no draft. The 2026-07-29
+rehearsal caught exactly this ambiguity read the strict way — the router refused a
+rostered attorney's direct request as "attorney work" — and this paragraph plus
+the router's drafting-request class are the fix.
 
 ---
 
