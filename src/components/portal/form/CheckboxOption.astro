@@ -1,0 +1,28 @@
+---
+/**
+ * Labeled checkbox in the portal control kit (UI-PATTERNS Rule 8). One
+ * option in a filter or option list — inline label, kit ink border. Not a
+ * row control: it sizes to its text, so it lives in option stacks, not in
+ * h-11 control rows.
+ */
+interface Props {
+  name: string
+  value: string
+  label: string
+  checked?: boolean
+}
+const { name, value, label, checked = false } = Astro.props
+---
+
+<label
+  class="inline-flex items-center gap-2 font-body text-caption text-[color:var(--ss-color-text-primary)]"
+>
+  <input
+    type="checkbox"
+    name={name}
+    value={value}
+    checked={checked}
+    class="size-4 accent-[color:var(--ss-color-primary)] border-[2px] border-[color:var(--ss-color-text-primary)]"
+  />
+  {label}
+</label>

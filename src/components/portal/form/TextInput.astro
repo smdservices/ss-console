@@ -1,23 +1,52 @@
 ---
-/** Single-line text input in the portal control kit (UI-PATTERNS Rule 8). */
+/**
+ * Single-line input in the portal control kit (UI-PATTERNS Rule 8).
+ * `type` covers the single-line variants (text/search/email/password/date);
+ * `mono` opts into JetBrains Mono for fixed-width data (API keys, IDs) per
+ * the register's mono rule. Multi-line content is TextArea; multi-choice
+ * is MultiSelectField.
+ */
 import { CONTROL_BASE } from './control-classes'
 
 interface Props {
   name: string
+  type?: 'text' | 'search' | 'email' | 'password' | 'date'
+  id?: string
   required?: boolean
   maxlength?: number
   value?: string
   placeholder?: string
+  autocomplete?: string
+  spellcheck?: 'true' | 'false'
+  mono?: boolean
 }
-const { name, required = false, maxlength, value, placeholder } = Astro.props
+const {
+  name,
+  type = 'text',
+  id,
+  required = false,
+  maxlength,
+  value,
+  placeholder,
+  autocomplete,
+  spellcheck,
+  mono = false,
+} = Astro.props
 ---
 
 <input
-  type="text"
+  type={type}
+  id={id}
   name={name}
   required={required}
   maxlength={maxlength}
   value={value}
   placeholder={placeholder}
-  class={CONTROL_BASE}
+  autocomplete={autocomplete}
+  spellcheck={spellcheck}
+  class:list={[
+    CONTROL_BASE,
+    mono ? 'font-mono' : null,
+    'placeholder:text-[color:var(--ss-color-text-muted)]',
+  ]}
 />
