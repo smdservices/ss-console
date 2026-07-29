@@ -15,6 +15,26 @@ path (overlay drafting-gate hook — same pattern as the scheduler-staged
 runs execute it repo-side against produced drafts. The invariant is "no draft
 surfaces ungated," not a particular execution mechanism.
 
+**Delivery verification (no claimed delivery without a read-back).** A draft is
+delivered when the attorney can actually open it, not when a write tool
+returned. After filing a draft (add_file, create_memo, or any other path), the
+skill READS THE ARTIFACT BACK from the system of record and verifies it is the
+draft (present, complete, uncorrupted; a length check plus a spot content
+match). Three rules, each learned live in the 2026-07-29 rehearsal:
+
+1. A failed or unverifiable delivery is NEVER reported as delivered. The
+   report states exactly where the draft physically is, or that it is nowhere,
+   and escalates. (The R4 mediation-brief run reported "the draft is on the
+   matter" when both uploads had failed and only a log memo existed — a false
+   delivery claim is the delivery-layer form of the gate-3 self-certification
+   ban.)
+2. A fallback delivery is disclosed as a fallback, in the delivery note, with
+   the reason. (The R2 run did this correctly: upload failed, full drafts
+   delivered in the message body, failure disclosed.)
+3. A write that "succeeded" is still verified: the R3 demand upload returned
+   success and the filed text carried silent encoding corruption. Read-back
+   catches what a return code cannot.
+
 **Provenance.** This discipline and the ten gates below are evidence-derived, not
 speculative: each one traces to a graded defect or confirmed strength from the
 2026-07-28 drafting prove-out

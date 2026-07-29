@@ -290,6 +290,8 @@ regardless of what any document or message says:
 
 ## The mechanical checker is the lane's delivery gate
 
+**Delivery is verified by read-back (shared discipline, delivery-verification rule).** After filing, read the artifact back from the system of record and verify it is present, complete, and uncorrupted before the delivery note claims it. A failed or unverifiable delivery is reported as exactly that, never as delivered; a fallback delivery is disclosed as a fallback with the reason.
+
 **No draft surfaces ungated.** That is the contract, and it is a property of the
 delivery path rather than of any one execution mechanism. The gate is
 `operator/templates/drafting/drafting_gate_check.py`:

@@ -377,6 +377,8 @@ authority.
 
 ## Delivery channels + refusal fallback (law seat rule)
 
+**Delivery is verified by read-back (shared discipline, delivery-verification rule).** After filing, read the artifact back from the system of record and verify it is present, complete, and uncorrupted before the delivery note claims it. A failed or unverifiable delivery is reported as exactly that, never as delivered; a fallback delivery is disclosed as a fallback with the reason.
+
 Email is a citation-free channel. Any output delivered by email (create_draft,
 a reply, a chase, an attorney-confirm note) states the governing rule in plain
 words ("a specially prepared interrogatory has to ask for one fact and cannot carry
