@@ -29,6 +29,15 @@ satisfies it OR mark it deferred with `scope-deferred` label + rationale below.
 
 Do not skip ACs you didn't touch — list them all and mark them as already-met,
 N/A, or deferred. Reviewers approve based on this table.
+
+LAYER TAGS. ACs authored per the reachability contract carry a `(repo)` or `(runtime)` tag, and
+the tag rides into this table verbatim. A `(runtime)` AC is a gate on a live
+layer: D1, R2, the Fly volume, the running Machine, monitoring, or an external
+record. Marking one `met` requires a `crane_verify` ID (`vfy_...`) in the
+Evidence column, not a file:line — a file:line says the code exists, which is
+not the same claim. `.github/workflows/runtime-ac-proof.yml` blocks the PR
+otherwise. If the gate is not actually closed, mark the AC deferred and name
+which gate is open. See `docs/doctrine/wired-contract.md` and Law 9.
 -->
 
 | AC (verbatim from issue) | Status               | Evidence                         |

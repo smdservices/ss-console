@@ -1,0 +1,59 @@
+name: Runtime AC proof
+
+# Law 9 merge gate. A PR may not mark a `(runtime)` acceptance criterion as
+# `met` without a crane_verify ID in the Evidence column.
+#
+# Rationale (2026-07-28, the entitlement-control incident): tick-acs-on-merge
+# parses the merging PR's own AC status table and ticks the linked issue's
+# boxes from it, and unmet-ac-on-close skips PR-driven closes. The author's
+# self-declaration is therefore what closes the epic. Four honest slice PRs
+# each certified their own artifact, the epic closed green, and the client
+# could not perform the act.
+#
+# This narrows self-certification for runtime layers only. Repo-layer ACs keep
+# taking a file:line, because that is the right evidence for code.
+#
+# Parser lives in scripts/runtime-ac-proof.mjs and is unit-tested in
+# tests/runtime-ac-proof.test.ts, so the gate's logic is not untestable inline
+# JavaScript.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# PR-only, so cancelling a superseded run is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Runtime ACs carry a verification ID
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the parser
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Inspect the AC status table
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { findUnprovenRuntimeAcs, formatViolations } = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/runtime-ac-proof.mjs`
+            );
+
+            const body = context.payload.pull_request.body || '';
+            const violations = findUnprovenRuntimeAcs(body);
+
+            if (violations.length === 0) {
+              core.info('No runtime ACs marked met without a verification ID.');
+              return;
+            }
+
+            const message = formatViolations(violations);
+            core.summary.addHeading('Runtime AC proof', 2).addCodeBlock(message).write();
+            core.setFailed(message);
