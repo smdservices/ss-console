@@ -84,6 +84,16 @@ describe('send-class discovery + live tier', () => {
       exposure: { internal_write: 'draft_for_review' },
     }
     expect(liveTierOf(row, stripped)).toBe('flag-only')
+
+    // An explicit `refused` value is the runtime dial's flag-only (the
+    // override store has no delete verb; deauthorize is expressed as refused).
+    // Found live by the ss#2003 probe: the page rendered prepare-and-route
+    // while the Machine correctly held refused.
+    const refusedOverride: LiveExposure = {
+      personaSlug: 'operator',
+      exposure: { ...liveExposure().exposure, [sendActionClassOf(row)!]: 'refused' },
+    }
+    expect(liveTierOf(row, refusedOverride)).toBe('flag-only')
   })
 })
 
