@@ -362,4 +362,44 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
       'external_send_internal must be authored autonomous — a routed alert that waits for SMD approval is not an alert'
     ).toBe('autonomous')
   })
+
+  // (i) ADR 0083: the persona register is an AUTHORED artifact, and the proving
+  // seat must carry the client seat's register verbatim. A rehearsal run against
+  // a different persona proves nothing about the seat it rehearses for — the
+  // same fixtures -> pilot-smokeball -> ashton-price discipline every other
+  // authored value follows. This also catches the failure this gate was written
+  // after: both seats carried three generic adjectives copied from each other,
+  // describing no firm, no vertical, and no role.
+  it('(i) the authored persona register is real and identical across the client and proving seats', () => {
+    const seats = [AP_DIR, resolve('operator/customers/pilot-smokeball')]
+    const tones = seats.map((dir) => {
+      const raw = parseYaml(readFileSync(join(dir, 'customer.yaml'), 'utf-8')) as Record<
+        string,
+        unknown
+      >
+      const result = validate(raw)
+      if (!result.ok) throw new Error(`${dir} customer.yaml no longer validates`)
+      const operator = result.value.personas.find((p) => p.slug === 'operator')
+      expect(operator, `${dir}: operator persona must exist`).toBeDefined()
+      return operator!.tone
+    })
+
+    expect(
+      tones[0],
+      'the client seat and the proving seat must carry the SAME authored register'
+    ).toEqual(tones[1])
+
+    // A register is instructions, not adjectives. The retired value averaged 11
+    // characters per entry ("concise"); an authored rule states what to do.
+    for (const entry of tones[0]) {
+      expect(
+        entry.length,
+        `persona tone entry is too thin to be a register rule: ${JSON.stringify(entry)}`
+      ).toBeGreaterThan(40)
+    }
+    expect(
+      tones[0].some((t) => /never/i.test(t)),
+      'an authored register names what the persona never does, not only what it is'
+    ).toBe(true)
+  })
 })
