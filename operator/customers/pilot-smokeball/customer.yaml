@@ -669,6 +669,31 @@ business_hours:
   start: '08:00'
   end: '18:00'
 
+# Reply-channel send policy (ss#2070). The Operator has to be usable the way a
+# person uses Claude on the web: someone at the firm emails it, gets an answer,
+# replies, gets another — for as long as the conversation lasts. The platform
+# default (3 replies per sender per 10 minutes, hardcoded until #2070) cut that
+# off at the fourth exchange and never resumed, which is exactly what the
+# 2026-07-30 burst rehearsal caught.
+#
+# So a rostered colleague is exempt from the per-sender window, and the bound
+# that remains is the reply backstop: 60 replies per hour across the whole
+# channel. No real conversation approaches that; a stuck loop hits it inside an
+# hour instead of mailing a client all day. Senders who are NOT on the roster
+# keep the tight default caps unchanged.
+send_policy:
+  reply:
+    internal_exempt: true
+    per_sender_max: 3 # non-roster senders: platform default, unchanged
+    per_sender_window_seconds: 600
+    global_max: 20 # non-roster aggregate: platform default, unchanged
+    global_window_seconds: 3600
+    backstop_max: 60 # the runaway bound, all classes
+    backstop_window_seconds: 3600
+  held_release:
+    enabled: true
+    ttl_seconds: 86400
+
 escalation:
   red_flag_recipients:
     - scott@smd.services

@@ -3443,3 +3443,111 @@ describe('validate — persona send_as normalization (ADR 0078 §4)', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+// -----------------------------------------------------------------------------
+// send_policy (#2070) — reply-channel send-rate caps
+// -----------------------------------------------------------------------------
+
+describe('send_policy', () => {
+  function withSendPolicy(block: unknown): Record<string, unknown> {
+    const f = validFixture()
+    f['send_policy'] = block
+    return f
+  }
+
+  it('accepts an absent block (platform defaults apply on-box)', () => {
+    expect(validate(validFixture()).ok).toBe(true)
+  })
+
+  it('accepts the full authored block', () => {
+    const r = validate(
+      withSendPolicy({
+        reply: {
+          internal_exempt: true,
+          per_sender_max: 3,
+          per_sender_window_seconds: 600,
+          global_max: 20,
+          global_window_seconds: 3600,
+          backstop_max: 60,
+          backstop_window_seconds: 3600,
+        },
+        held_release: { enabled: true, ttl_seconds: 86400 },
+      })
+    )
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.send_policy?.reply?.internal_exempt).toBe(true)
+    expect(r.value.send_policy?.reply?.backstop_max).toBe(60)
+    expect(r.value.send_policy?.held_release?.enabled).toBe(true)
+  })
+
+  it('accepts a partial block (dialogue exemption only)', () => {
+    const r = validate(withSendPolicy({ reply: { internal_exempt: true } }))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.send_policy?.reply?.per_sender_max).toBeNull()
+    expect(r.value.send_policy?.held_release).toBeNull()
+  })
+
+  it('rejects a non-object block', () => {
+    const r = validate(withSendPolicy('nope'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects unknown keys at every level', () => {
+    const r = validate(
+      withSendPolicy({
+        bogus: 1,
+        reply: { mystery: 2 },
+        held_release: { nonsense: 3 },
+      })
+    )
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const paths = r.errors.map((e) => e.path)
+    expect(paths).toContain('send_policy.bogus')
+    expect(paths).toContain('send_policy.reply.mystery')
+    expect(paths).toContain('send_policy.held_release.nonsense')
+  })
+
+  it('rejects a non-boolean internal_exempt', () => {
+    const r = validate(withSendPolicy({ reply: { internal_exempt: 1 } }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'send_policy.reply.internal_exempt')).toBe(true)
+  })
+
+  it('rejects negative and non-integer counts', () => {
+    const r = validate(
+      withSendPolicy({ reply: { per_sender_max: -1, global_max: 2.5, backstop_max: 'many' } })
+    )
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const paths = r.errors.map((e) => e.path)
+    expect(paths).toContain('send_policy.reply.per_sender_max')
+    expect(paths).toContain('send_policy.reply.global_max')
+    expect(paths).toContain('send_policy.reply.backstop_max')
+  })
+
+  it('rejects non-positive windows', () => {
+    const r = validate(
+      withSendPolicy({ reply: { per_sender_window_seconds: 0, backstop_window_seconds: -3 } })
+    )
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const paths = r.errors.map((e) => e.path)
+    expect(paths).toContain('send_policy.reply.per_sender_window_seconds')
+    expect(paths).toContain('send_policy.reply.backstop_window_seconds')
+  })
+
+  it('rejects a malformed held_release', () => {
+    const r = validate(withSendPolicy({ held_release: { enabled: 'yes', ttl_seconds: 0 } }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const paths = r.errors.map((e) => e.path)
+    expect(paths).toContain('send_policy.held_release.enabled')
+    expect(paths).toContain('send_policy.held_release.ttl_seconds')
+  })
+})

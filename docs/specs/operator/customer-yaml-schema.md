@@ -472,6 +472,36 @@ Field rules:
 - The ladder percentages (80/100/200) are platform semantics, not customer-authorable. Recovery from a hard stop is Captain `clear()` (audited `AGENT_RESUMED`), never automatic.
 - Materialization is runtime live-read (`CustomerConfig.sticky_stop` in the overlay), not a `translate.py` step — see `operator/contracts/customer-yaml-blocks.yaml` (`safety`).
 
+## Send policy — reply-channel rate caps (#2070)
+
+**Added by ss-console #2070** (the sustained-dialogue program; closes the caps half of #2069). Optional block. Governs **only** the `hermes-smd-reply` relay — the autonomous/confirm send lane has its own controls and never consults this limiter, so every field here is a _reply_ bound, never a seat-wide one. Live-read from the volume per reply (ADR 0044), so authoring it applies without a restart.
+
+```yaml
+send_policy: # OPTIONAL
+  reply: # OPTIONAL
+    internal_exempt: <bool> # default false
+    per_sender_max: <int> # default 3
+    per_sender_window_seconds: <number> # default 600
+    global_max: <int> # default 20
+    global_window_seconds: <number> # default 3600
+    backstop_max: <int> # default 0 (disabled)
+    backstop_window_seconds: <number> # default 3600
+  held_release: # OPTIONAL
+    enabled: <bool> # default false
+    ttl_seconds: <int> # default 86400
+```
+
+Why it exists: the caps were hardcoded platform constants that treated a rostered colleague identically to a stranger, so a sustained email dialogue (an attorney iterating on a draft) went silent at the fourth exchange — held, never released, nobody notified (observed in the 2026-07-30 burst rehearsal).
+
+Field rules:
+
+- `reply.internal_exempt` exempts senders the recipient classifier resolves as **INTERNAL** (`scope.inbound_allow_from`) from the per-sender and global windows. Exempt sends are still counted against — and bounded by — the reply backstop. Classification failures are never internal (fail-closed), so an unclassifiable sender keeps the caps.
+- `reply.per_sender_max` / `per_sender_window_seconds` and `reply.global_max` / `global_window_seconds` are the rolling windows applied to CLIENT / VENDOR / OUTSIDE senders (and to everyone when `internal_exempt` is false). Counts must be non-negative integers; windows must be positive numbers.
+- `reply.backstop_max` / `backstop_window_seconds` bound the reply channel across **all** sender classes; `0` disables. This is the runaway bound that survives the internal exemption.
+- `held_release.enabled` persists rate-held replies and auto-releases them in per-sender FIFO order once the window clears (O2); `ttl_seconds` expires a reply that never gets its window.
+- **Whole-block fail-closed:** the on-box resolver (`shared/send_policy.resolve_send_policy`) resolves the ENTIRE block to platform defaults on any fault — including dropping an authored `internal_exempt`. A typo can only ever tighten a seat, never loosen it. This validator surfaces the same faults at authoring time so the silent tightening never happens unnoticed.
+- Materialization is runtime live-read (`CustomerConfig.send_policy` → `RateLimiter.check` in the overlay), not a `translate.py` step — see `operator/contracts/customer-yaml-blocks.yaml` (`send_policy`).
+
 ## Failure modes
 
 | Condition                                                             | Validator behavior                                                                                                                                                                              |
