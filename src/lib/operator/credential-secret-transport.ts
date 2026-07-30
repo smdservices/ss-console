@@ -53,7 +53,7 @@ export function isSecretTransportConfigured(env: SecretTransportEnv): boolean {
  * so even this sentinel cannot leak — but the endpoint guards with
  * `isSecretTransportConfigured` so it is never reached in practice.
  */
-export class SecretTransportNotConfiguredError extends Error {
+class SecretTransportNotConfiguredError extends Error {
   constructor() {
     super('operator secret transport is not configured (OPERATOR_SECRET_RELAY_URL unset)')
     this.name = 'SecretTransportNotConfiguredError'

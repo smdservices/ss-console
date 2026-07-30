@@ -157,14 +157,6 @@ export async function getMeetingScheduleByManageToken(
 }
 
 /**
- * Check whether a manage token has expired.
- */
-export function isMeetingManageTokenExpired(schedule: MeetingSchedule): boolean {
-  if (!schedule.manage_token_expires_at) return false
-  return new Date(schedule.manage_token_expires_at).getTime() < Date.now()
-}
-
-/**
  * Mark a schedule as cancelled. Sets cancelled_at, cancelled_by, and
  * cancelled_reason. Also marks Google sync state as 'cancelled'.
  */

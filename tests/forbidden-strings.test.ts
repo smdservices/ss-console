@@ -784,92 +784,35 @@ describe('operator client-portal surfaces stay vertical-agnostic (ADR 0052)', ()
 })
 
 // ---------------------------------------------------------------------------
-// Calm register — UI-PATTERNS Rule 8 enforcement.
+// Portal form-control kit — UI-PATTERNS Rule 8 enforcement (ADR 0082).
 //
-// The console (client portal + admin) renders in the calm Plainspoken
-// register: white raised cards, hairline borders, sentence-case headings.
-// The loud markers below are the marketing register bleeding into a console
-// and are banned on every migrated console surface.
+// The client portal's settled register is loud Plainspoken (Captain,
+// 2026-07-29); the calm migration is retired and its guard removed. What
+// Rule 8 enforces now is CONTROL consistency: every non-hidden <input>,
+// <select>, or <textarea> on a portal surface renders through the shared kit
+// in src/components/portal/form/ — one control height, one border weight,
+// width delegated to the layout column (never an intrinsic-width select).
 //
-// CALM_REGISTER_PENDING is the set of console files still permitted to be
-// loud. It starts as the full loud-file set and SHRINKS with each migration
-// slice; the end state is an empty list — whole console calm, guard fully
-// enforcing. The list only shrinks. New console files are enforced from day
-// one (they are not in PENDING), so loudness cannot re-enter the codebase.
+// FORM_KIT_PENDING is the set of pre-kit files still hand-rolling controls.
+// It only SHRINKS as surfaces migrate; the end state is an empty list. New
+// portal files are enforced from day one (they are not in PENDING), so
+// hand-rolled controls cannot re-enter the portal.
 // ---------------------------------------------------------------------------
-const CONSOLE_ROOTS = [
-  resolve('src/pages/portal'),
-  resolve('src/components/portal'),
-  resolve('src/pages/admin'),
-  resolve('src/components/admin'),
-]
+const FORM_KIT_ROOTS = [resolve('src/pages/portal'), resolve('src/components/portal')]
 
-const LOUD_MARKERS: { re: RegExp; label: string }[] = [
-  { re: /border-\[3px\]/, label: 'border-[3px] (use `border` / --color-border hairline)' },
-  { re: /\bfont-black\b/, label: 'font-black (use text-title/text-heading token weights)' },
-]
+// The kit's own primitives contain the raw tags by definition.
+const FORM_KIT_DIR = 'src/components/portal/form/'
 
-// Comments are stripped (via the shared stripComments above) before scanning
-// so a file that merely *documents* a loud marker — like the primitives' doc
-// blocks — is not flagged. Only real class usage should trip the guard.
-const CALM_REGISTER_PENDING: string[] = [
-  // Operator landing reverted to the loud register per Captain (2026-07-08):
-  // keep the Status/Role/Management content, drop the calm register for now.
-  'src/pages/portal/products/operator/index.astro',
-  'src/pages/portal/products/operator/[instance]/index.astro',
-  'src/components/portal/operator/facets/OperatorHero.astro',
-  'src/components/portal/operator/facets/OperatorSkills.astro',
-  'src/components/portal/operator/facets/OperatorWork.astro',
-  'src/components/portal/operator/facets/OperatorScope.astro',
-  // People viewer + one-pager cards (console blueprint §5): match their loud
-  // operator-area siblings until the whole area flips to calm together.
-  'src/components/portal/operator/facets/OperatorPeople.astro',
-  'src/components/portal/operator/facets/OperatorPersonaCard.astro',
-  'src/components/portal/operator/OperatorLimits.astro',
-  'src/components/admin/EntityContactRow.astro',
-  'src/components/admin/EntityIdentityStrip.astro',
-  'src/components/admin/HostedAgentQueueCard.astro',
-  'src/components/portal/HomeOfferingCard.astro',
-  'src/components/portal/operator/AuditEntryRow.astro',
-  'src/components/portal/operator/AuditFilterBar.astro',
-  'src/components/portal/operator/AuditLogTable.astro',
-  'src/components/portal/operator/CalendarAgenda.astro',
-  'src/components/portal/operator/CalendarItemRow.astro',
-  'src/components/portal/operator/ConnectionRowCard.astro',
-  'src/components/portal/operator/ConnectorStatusSection.astro',
+const FORM_KIT_PENDING: string[] = [
+  // Advanced-editor field components — the ONLY sanctioned holdouts (ADR
+  // 0082 sweep, 2026-07-29). The surface is unlinked and broken (see
+  // settings/index.astro SETTINGS_LINKS note); migrate when the editor
+  // itself is restored.
   'src/components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro',
   'src/components/portal/operator/customer-yaml-editor/ConnectorRow.astro',
-  'src/components/portal/operator/customer-yaml-editor/ConnectorsFields.astro',
   'src/components/portal/operator/customer-yaml-editor/EscalationFields.astro',
-  'src/components/portal/operator/customer-yaml-editor/PersonaFields.astro',
   'src/components/portal/operator/customer-yaml-editor/PersonaRow.astro',
   'src/components/portal/operator/customer-yaml-editor/ScopeFields.astro',
-  'src/components/portal/operator/PromotionCard.astro',
-  'src/components/portal/operator/SkillTogglesSection.astro',
-  'src/components/portal/operator/TrustCeilingSection.astro',
-  'src/components/portal/PortalListItem.astro',
-  'src/components/portal/PortalPageHead.astro',
-  'src/components/portal/QuoteProposalSections.astro',
-  'src/pages/admin/hosted-agent/index.astro',
-  'src/pages/portal/billing/index.astro',
-  'src/pages/portal/engagement/[id].astro',
-  'src/pages/portal/engagement/documents/index.astro',
-  'src/pages/portal/engagement/index.astro',
-  'src/pages/portal/engagement/proposals/[id].astro',
-  'src/pages/portal/index.astro',
-  'src/pages/portal/products/hosted-agent/api-key.astro',
-  'src/pages/portal/products/hosted-agent/index.astro',
-  'src/pages/portal/products/hosted-agent/intake.astro',
-  'src/pages/portal/products/operator/[instance]/activity/index.astro',
-  'src/pages/portal/products/operator/[instance]/calendar/index.astro',
-  'src/pages/portal/products/operator/[instance]/compliance/index.astro',
-  'src/pages/portal/products/operator/[instance]/connections/index.astro',
-  'src/pages/portal/products/operator/[instance]/onboarding/index.astro',
-  'src/pages/portal/products/operator/[instance]/settings/advanced/index.astro',
-  'src/pages/portal/products/operator/[instance]/settings/index.astro',
-  'src/pages/portal/products/operator/[instance]/settings/users.astro',
-  'src/pages/portal/products/operator/[instance]/skills/index.astro',
-  'src/pages/portal/products/operator/[instance]/team/index.astro',
 ]
 
 // PENDING entries are repo-relative paths; the collected files are absolute.
@@ -879,38 +822,53 @@ function relOf(absPath: string): string {
   return absPath.replace(resolve('.') + '/', '')
 }
 
-describe('calm register: UI-PATTERNS R8 enforcement', () => {
-  const migrated = CONSOLE_ROOTS.flatMap((root) =>
-    existsSync(root) ? collectSourceFiles(root) : []
-  ).filter((f) => !CALM_REGISTER_PENDING.includes(relOf(f)))
+// A file "has controls" when a non-hidden input/select/textarea tag appears
+// in its markup (comments stripped). Hidden inputs carry form state, not
+// geometry, and need no kit. Tag attributes may span lines: [^>]* crosses
+// newlines because the class excludes only `>`.
+function hasHandRolledControls(src: string): boolean {
+  const tags = src.match(/<(input|select|textarea)\b[^>]*/g) ?? []
+  return tags.some((tag) => !/type=["']hidden["']/.test(tag))
+}
 
-  it('finds migrated console files to check (sanity)', () => {
-    expect(migrated.length).toBeGreaterThan(0)
+const KIT_IMPORT_RE = /['"][^'"]*\/form\/(Field|TextInput|SelectField|SubmitButton)\.astro['"]/
+
+describe('portal form-control kit: UI-PATTERNS R8 enforcement (ADR 0082)', () => {
+  const candidates = FORM_KIT_ROOTS.flatMap((root) =>
+    existsSync(root) ? collectSourceFiles(root) : []
+  ).filter((f) => !relOf(f).startsWith(FORM_KIT_DIR))
+
+  it('finds portal files to check (sanity)', () => {
+    expect(candidates.length).toBeGreaterThan(0)
   })
 
-  for (const file of migrated) {
+  for (const file of candidates) {
     const rel = relOf(file)
-    it(`${rel} — no loud markers (Rule 8)`, () => {
+    if (FORM_KIT_PENDING.includes(rel)) continue
+    it(`${rel} — controls render through the form kit (Rule 8)`, () => {
       const src = stripComments(readFileSync(file, 'utf-8'))
-      const hits = LOUD_MARKERS.filter(({ re }) => re.test(src)).map(({ label }) => label)
-      expect(hits, `${rel} still loud: ${hits.join(', ')}`).toEqual([])
+      if (!hasHandRolledControls(src)) return
+      expect(
+        KIT_IMPORT_RE.test(src),
+        `${rel} renders a non-hidden input/select/textarea without importing the portal form kit (src/components/portal/form/)`
+      ).toBe(true)
     })
   }
 
-  // Keep PENDING honest: every entry must still exist AND still be loud. Once a
-  // file is migrated clean, it MUST be removed from PENDING (else the list would
-  // silently mask a now-clean file and the guard would never enforce it). The
-  // relative paths are read relative to cwd (tests run from the repo root).
-  it('CALM_REGISTER_PENDING has no stale entries (migrated files must be removed)', () => {
+  // Keep PENDING honest: every entry must still exist AND still hand-roll
+  // controls without the kit. Once a file is migrated (or loses its
+  // controls), it MUST be removed from PENDING so the guard enforces it.
+  it('FORM_KIT_PENDING has no stale entries (migrated files must be removed)', () => {
     const stale: string[] = []
-    for (const rel of CALM_REGISTER_PENDING) {
+    for (const rel of FORM_KIT_PENDING) {
       if (!existsSync(rel)) {
         stale.push(`${rel} (no longer exists)`)
         continue
       }
       const src = stripComments(readFileSync(rel, 'utf-8'))
-      const stillLoud = LOUD_MARKERS.some(({ re }) => re.test(src))
-      if (!stillLoud) stale.push(`${rel} (now clean — remove from PENDING)`)
+      if (!hasHandRolledControls(src) || KIT_IMPORT_RE.test(src)) {
+        stale.push(`${rel} (now on the kit or control-free — remove from PENDING)`)
+      }
     }
     expect(stale, `stale PENDING entries:\n${stale.join('\n')}`).toEqual([])
   })

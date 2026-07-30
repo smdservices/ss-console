@@ -1,0 +1,21 @@
+---
+/**
+ * Label + control wrapper for portal forms (UI-PATTERNS Rule 8, ADR 0082).
+ * The label renders in the standard mono eyebrow treatment; the control goes
+ * in the slot. Width is the caller's job: pass a class (`flex-1`, a grid
+ * column) and the kit control inside stretches to fill it.
+ */
+interface Props {
+  label: string
+  class?: string
+}
+const { label, class: className } = Astro.props
+---
+
+<label class:list={['flex min-w-0 flex-col gap-1', className]}>
+  <span
+    class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
+    >{label}</span
+  >
+  <slot />
+</label>

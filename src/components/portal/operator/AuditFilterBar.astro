@@ -8,8 +8,8 @@
  * JavaScript: the page re-renders with the new query string and the
  * data resolver re-runs against the new params.
  *
- * Plainspoken aesthetic matching FilterBar.astro (#869). 3px ink
- * border, JetBrains Mono uppercase labels, no shadowy form chrome.
+ * Controls render through the portal form kit (UI-PATTERNS Rule 8,
+ * ADR 0082): one control height, kit border, column-delegated widths.
  *
  * Drift guard: every input `name` here matches a field on
  * `AuditListParams` in src/lib/portal/operator/audit.ts. If you
@@ -19,6 +19,11 @@
 
 import { AUDIT_SORTS, type AuditSort } from '../../../lib/portal/operator/audit'
 import { CLIENT_ACTIVITY_CATEGORIES } from '../../../lib/portal/operator/activity-language'
+import Field from '../form/Field.astro'
+import TextInput from '../form/TextInput.astro'
+import SelectField from '../form/SelectField.astro'
+import MultiSelectField from '../form/MultiSelectField.astro'
+import SubmitButton from '../form/SubmitButton.astro'
 
 interface Props {
   /**
@@ -61,6 +66,15 @@ function toDateValue(value: string | null): string {
   if (!Number.isFinite(parsed)) return ''
   return new Date(parsed).toISOString().slice(0, 10)
 }
+
+const skillOptions =
+  availableSkills.length === 0
+    ? [{ value: '', label: 'No skills yet', disabled: true }]
+    : availableSkills.map((skill) => ({
+        value: skill,
+        label: skill,
+        selected: selectedSkills.has(skill),
+      }))
 ---
 
 <form
@@ -68,40 +82,23 @@ function toDateValue(value: string | null): string {
   class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 flex flex-col gap-3 md:gap-4"
   aria-label="Filter and sort audit log"
 >
-  <div
-    class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 md:gap-4 md:items-end"
-  >
-    {/* Skill multi-select */}
-    <div class="flex flex-col gap-1.5 min-w-0">
-      <label
-        for="audit-filter-skill"
-        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-      >
-        Skill
-      </label>
-      <select
-        id="audit-filter-skill"
-        name="skill"
-        multiple
-        size={Math.min(Math.max(availableSkills.length, 1), 4)}
-        disabled={availableSkills.length === 0}
-        class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] disabled:bg-[color:var(--ss-color-border-subtle)] disabled:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-        aria-describedby={availableSkills.length === 0 ? 'audit-filter-skill-empty' : undefined}
-      >
-        {
-          availableSkills.length === 0 ? (
-            <option value="" disabled>
-              No skills yet
-            </option>
-          ) : (
-            availableSkills.map((skill) => (
-              <option value={skill} selected={selectedSkills.has(skill)}>
-                {skill}
-              </option>
-            ))
-          )
-        }
-      </select>
+  {
+    /* Row 1 — the two multi-selects at readable widths. A fixed size={4}
+      even when the skill list is EMPTY keeps the empty state the same
+      listbox shape as its neighbor: Chrome renders a 1-row <select
+      multiple> as a collapsed "0 selected" widget that reads as broken. */
+  }
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+    <div class="flex flex-col gap-1 min-w-0">
+      <Field label="Skill">
+        <MultiSelectField
+          name="skill"
+          options={skillOptions}
+          size={4}
+          disabled={availableSkills.length === 0}
+          describedBy={availableSkills.length === 0 ? 'audit-filter-skill-empty' : undefined}
+        />
+      </Field>
       {
         availableSkills.length === 0 && (
           <span
@@ -118,96 +115,41 @@ function toDateValue(value: string | null): string {
       /* Activity category multi-select (client language; expands to the
         mapped raw actions page-side — raw vocabulary never renders) */
     }
-    <div class="flex flex-col gap-1.5 min-w-0">
-      <label
-        for="audit-filter-category"
-        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-      >
-        Activity type
-      </label>
-      <select
-        id="audit-filter-category"
+    <Field label="Activity type" class="min-w-0">
+      <MultiSelectField
         name="cat"
-        multiple
-        size="4"
-        class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-xs text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-      >
-        {
-          CLIENT_ACTIVITY_CATEGORIES.map((category) => (
-            <option value={category.key} selected={selectedCategories.has(category.key)}>
-              {category.label}
-            </option>
-          ))
-        }
-      </select>
-    </div>
-
-    {/* From date */}
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="audit-filter-from"
-        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-      >
-        From
-      </label>
-      <input
-        type="date"
-        id="audit-filter-from"
-        name="from"
-        value={toDateValue(from)}
-        class="w-40 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        size={4}
+        options={CLIENT_ACTIVITY_CATEGORIES.map((category) => ({
+          value: category.key,
+          label: category.label,
+          selected: selectedCategories.has(category.key),
+        }))}
       />
-    </div>
+    </Field>
+  </div>
 
-    {/* To date */}
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="audit-filter-to"
-        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-      >
-        To
-      </label>
-      <input
-        type="date"
-        id="audit-filter-to"
-        name="to"
-        value={toDateValue(to)}
-        class="w-40 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-      />
-    </div>
+  {/* Row 2 — date range, sort, and the view's one primary action (Rule 3) */}
+  <div class="flex flex-col md:flex-row md:flex-wrap gap-3 md:gap-4 md:items-end">
+    <Field label="From" class="md:w-40">
+      <TextInput type="date" name="from" value={toDateValue(from)} />
+    </Field>
 
-    {/* Sort */}
-    <div class="flex flex-col gap-1.5">
-      <label
-        for="audit-filter-sort"
-        class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-      >
-        Sort
-      </label>
-      <select
-        id="audit-filter-sort"
+    <Field label="To" class="md:w-40">
+      <TextInput type="date" name="to" value={toDateValue(to)} />
+    </Field>
+
+    <Field label="Sort" class="md:w-44">
+      <SelectField
         name="sort"
-        class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-      >
-        {
-          AUDIT_SORTS.map((option) => (
-            <option value={option} selected={option === sort}>
-              {SORT_LABELS[option]}
-            </option>
-          ))
-        }
-      </select>
-    </div>
+        options={AUDIT_SORTS.map((option) => ({
+          value: option,
+          label: SORT_LABELS[option],
+          selected: option === sort,
+        }))}
+      />
+    </Field>
 
-    {/* Submit */}
-    <div class="flex flex-row gap-2 md:items-end">
-      <button
-        type="submit"
-        class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-mono text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
-      >
-        Apply
-      </button>
-    </div>
+    <SubmitButton label="Apply" tone="primary" />
   </div>
 
   {
@@ -215,21 +157,13 @@ function toDateValue(value: string | null): string {
       sibling-bar shape doesn't crowd it. Search hits reason + actor +
       target per the AC. */
   }
-  <div class="flex flex-col gap-1.5 min-w-0">
-    <label
-      for="audit-filter-q"
-      class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
-    >
-      Search
-    </label>
-    <input
+  <Field label="Search" class="min-w-0">
+    <TextInput
       type="search"
-      id="audit-filter-q"
       name="q"
       value={q ?? ''}
       placeholder="reason, actor, or target"
       autocomplete="off"
-      class="w-full border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
     />
-  </div>
+  </Field>
 </form>

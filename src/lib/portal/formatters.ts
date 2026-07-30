@@ -4,8 +4,6 @@
  * three-different-date-formats drift this registry is fixing).
  *
  * Money rendering: use `<MoneyDisplay amountCents={N}>` as the default.
- * Only fall back to `formatCentsToCurrency` when a string is required
- * (e.g., interpolation into a title attribute or aria-label).
  */
 
 /**
@@ -46,18 +44,4 @@ export function formatRelativeDueCaption(iso: string | null | undefined): string
   if (diffDays < 0) return `Overdue — was ${long}`
   if (diffDays === 0) return `Due today`
   return `Due ${long}`
-}
-
-/**
- * Cents → "$5,250" string. Whole dollars, no decimal places, en-US locale.
- * Prefer <MoneyDisplay /> for rendered output; use this only when a plain
- * string is required.
- */
-export function formatCentsToCurrency(amountCents: number): string {
-  const dollars = Math.round(amountCents / 100)
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(dollars)
 }

@@ -3,6 +3,9 @@ import PortalShell from '../../../../layouts/PortalShell.astro'
 import { resolveHostedAgentAccess } from '../../../../lib/portal/hosted-agent-access'
 import { getIntakeByEntity } from '../../../../lib/db/hosted-agent-intake'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
+import Field from '../../../../components/portal/form/Field.astro'
+import TextInput from '../../../../components/portal/form/TextInput.astro'
+import SubmitButton from '../../../../components/portal/form/SubmitButton.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -103,26 +106,10 @@ const keyReceived = intake.anthropic_key_status === 'received'
       action="/api/portal/products/hosted-agent/anthropic-key"
       class="flex flex-col gap-4"
     >
-      <label
-        for="secret"
-        class="block font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
-      >
-        {keyReceived ? 'Replace your key' : 'Paste your key'}
-      </label>
-      <input
-        id="secret"
-        name="secret"
-        type="password"
-        autocomplete="off"
-        required
-        class="w-full border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-3 font-mono text-base text-[color:var(--ss-color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]"
-      />
-      <button
-        type="submit"
-        class="inline-flex items-center justify-center px-8 py-4 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] text-white font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
-      >
-        Relay Key to Vault
-      </button>
+      <Field label={keyReceived ? 'Replace your key' : 'Paste your key'}>
+        <TextInput id="secret" name="secret" type="password" autocomplete="off" required mono />
+      </Field>
+      <SubmitButton label="Relay Key to Vault" tone="primary" />
     </form>
   </div>
 </PortalShell>

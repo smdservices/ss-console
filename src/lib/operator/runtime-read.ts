@@ -59,19 +59,17 @@
  * lease, result, error) so a background job is verifiable end-to-end over the
  * same authenticated read seam. It takes no extra query field; the Machine
  * reads its own ledger over the broker socket and returns a single page. */
-export const RUNTIME_READ_KINDS = [
-  'audit_log',
-  'activity',
-  'memory_export',
-  'config_export',
-  'jobs',
+export type RuntimeReadKind =
+  | 'audit_log'
+  | 'activity'
+  | 'memory_export'
+  | 'config_export'
+  | 'jobs'
   // Live runtime exposure overrides (ss#2003 Q7 — the entitlement dial). The
   // Machine serves its volume-backed override store directly, so the portal
   // settings surface and the live probes read the ACTUAL enforced posture,
   // never a projection.
-  'entitlements',
-] as const
-export type RuntimeReadKind = (typeof RUNTIME_READ_KINDS)[number]
+  | 'entitlements'
 
 export interface RuntimeReadQuery {
   kind: RuntimeReadKind

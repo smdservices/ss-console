@@ -1,0 +1,32 @@
+---
+/**
+ * Submit button in the portal control kit (UI-PATTERNS Rule 8, ADR 0082).
+ * Same h-11 and border weight as the inputs it sits beside — a control row
+ * is one height, end to end. Tones map to the Rule 3 hierarchy: `primary`
+ * is the filled burnt-orange treatment (the one primary action a view
+ * gets); neutral/danger/success are the bordered secondary treatments.
+ */
+interface Props {
+  label: string
+  tone?: 'neutral' | 'danger' | 'success' | 'primary'
+}
+const { label, tone = 'neutral' } = Astro.props
+
+const TONES: Record<NonNullable<Props['tone']>, string> = {
+  neutral:
+    'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]',
+  danger:
+    'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-error)] hover:text-[color:var(--ss-color-background)]',
+  success:
+    'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-complete)] hover:bg-[color:var(--ss-color-complete)] hover:text-[color:var(--ss-color-background)]',
+  primary:
+    'border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] hover:border-[color:var(--ss-color-primary-hover)] hover:bg-[color:var(--ss-color-primary-hover)]',
+}
+---
+
+<button
+  type="submit"
+  class={`h-11 w-fit whitespace-nowrap border-[3px] px-5 font-body text-body font-bold uppercase tracking-[0.08em] transition-colors ${TONES[tone]}`}
+>
+  {label}
+</button>

@@ -24,7 +24,7 @@ import { getProductSubscription, listProductRoles, type SubscriptionRow } from '
 
 export const HOSTED_AGENT_PRODUCT_SLUG = 'hosted-agent'
 
-export const HOSTED_AGENT_LANDING_PATH = '/portal/products/hosted-agent'
+const HOSTED_AGENT_LANDING_PATH = '/portal/products/hosted-agent'
 const PORTAL_SIGN_IN_PATH = '/auth/sign-in'
 const PORTAL_SIGN_IN_NO_SUBSCRIPTION_PATH = `${PORTAL_SIGN_IN_PATH}?status=no_subscription`
 

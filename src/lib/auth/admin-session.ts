@@ -19,7 +19,7 @@ export function requireAdminSession(
   return { ok: true, session: { ...session, role: 'admin' } }
 }
 
-export function adminUnauthorizedResponse(): Response {
+function adminUnauthorizedResponse(): Response {
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
     status: 401,
     headers: { 'Content-Type': 'application/json' },

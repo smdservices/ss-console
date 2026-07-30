@@ -14,6 +14,10 @@ import { env } from 'cloudflare:workers'
 import { readPausePosture } from '../../../../../../lib/portal/operator/pause-control'
 import { readLiveOverrides } from '../../../../../../lib/portal/operator/entitlement-change'
 import { liveTierOf, selectableTiers } from '../../../../../../lib/operator/entitlement-compiler'
+import Field from '../../../../../../components/portal/form/Field.astro'
+import TextInput from '../../../../../../components/portal/form/TextInput.astro'
+import SelectField from '../../../../../../components/portal/form/SelectField.astro'
+import SubmitButton from '../../../../../../components/portal/form/SubmitButton.astro'
 
 /**
  * Operator — Settings, the ACT surface (console blueprint §5, amended
@@ -283,29 +287,16 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
         <form
           method="POST"
           action={`/api/portal/products/operator/${instance}/pause`}
-          class="mt-4 flex flex-col gap-3"
+          class="mt-4 flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
         >
           <input type="hidden" name="action" value={pausedNow ? 'resume' : 'pause'} />
-          <label class="flex flex-col gap-1">
-            <span class={emptyNoteClass}>Reason (required, kept in the log)</span>
-            <input
-              type="text"
-              name="reason"
-              required
-              maxlength="300"
-              class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm"
-            />
-          </label>
-          <button
-            type="submit"
-            class={`w-fit px-5 py-2.5 border-[3px] font-bold uppercase tracking-[0.08em] font-body transition-colors ${
-              pausedNow
-                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)] hover:bg-[color:var(--ss-color-complete)] hover:text-[color:var(--ss-color-background)]'
-                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-error)] hover:text-[color:var(--ss-color-background)]'
-            }`}
-          >
-            {pausedNow ? 'Resume the Operator' : 'Pause the Operator'}
-          </button>
+          <Field label="Reason (required, kept in the log)">
+            <TextInput name="reason" required maxlength={300} />
+          </Field>
+          <SubmitButton
+            label={pausedNow ? 'Resume the Operator' : 'Pause the Operator'}
+            tone={pausedNow ? 'success' : 'danger'}
+          />
         </form>
       </div>
       <div slot="read" class={cardClass}>
@@ -322,8 +313,9 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
 
   <!-- Autonomy per routine — the entitlement control (#2003, trust domain).
        Operable only when the seat authors authority.trust: client AND the
-       role matrix permits. A submitted change opens a reviewable change to
-       the authored configuration; it is never applied by the click. -->
+       role matrix permits. A within-ceiling change is applied to the running
+       Machine on submit (runtime posture, Captain ruling 2026-07-28); the
+       authored ceiling in git stays non-raisable from this path. -->
   {
     routineRows.length > 0 && (
       <section class="mt-10" aria-label="Autonomy per routine">
@@ -350,38 +342,23 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
                   <form
                     method="POST"
                     action={`/api/portal/products/operator/${instance}/entitlement`}
-                    class="mt-2 flex flex-col gap-2 md:flex-row md:items-end"
+                    class="mt-3 flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_auto] md:items-end"
                   >
                     <input type="hidden" name="routine" value={row.routine} />
-                    <label class="flex flex-col gap-1">
-                      <span class={emptyNoteClass}>Level</span>
-                      <select
+                    <Field label="Level">
+                      <SelectField
                         name="targetTier"
-                        class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm"
-                      >
-                        {row.options.map((tier) => (
-                          <option value={tier} selected={tier === row.liveTier}>
-                            {TIER_LABELS[tier]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label class="flex flex-1 flex-col gap-1">
-                      <span class={emptyNoteClass}>Reason (required, kept in the log)</span>
-                      <input
-                        type="text"
-                        name="reason"
-                        required
-                        maxlength="300"
-                        class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-body text-sm"
+                        options={row.options.map((tier) => ({
+                          value: tier,
+                          label: TIER_LABELS[tier],
+                          selected: tier === row.liveTier,
+                        }))}
                       />
-                    </label>
-                    <button
-                      type="submit"
-                      class="w-fit px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors"
-                    >
-                      Submit
-                    </button>
+                    </Field>
+                    <Field label="Reason (required, kept in the log)">
+                      <TextInput name="reason" required maxlength={300} />
+                    </Field>
+                    <SubmitButton label="Submit" />
                   </form>
                 </li>
               ))}
