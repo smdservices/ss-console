@@ -45,3 +45,19 @@ export async function withSentryRequestHandler(
     handler
   )
 }
+
+/**
+ * Report a caught-and-degraded error to Sentry without changing the
+ * caller's control flow. Use at catch sites where the request continues
+ * (or returns a handled 4xx/5xx) but the failure is operationally
+ * significant — otherwise the graceful degrade makes the error invisible
+ * to monitoring (2026-07-29 code review, Security §2.8).
+ *
+ * Only meaningful inside a request wrapped by `withSentryRequestHandler`
+ * (the middleware wraps every request). No-ops when SENTRY_DSN is unset,
+ * matching the wrapper's contract.
+ */
+export function captureError(err: unknown, area: string): void {
+  if (!env.SENTRY_DSN) return
+  Sentry.captureException(err, { tags: { area } })
+}
