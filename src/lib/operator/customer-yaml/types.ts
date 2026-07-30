@@ -815,6 +815,43 @@ export interface Escalation {
 }
 
 /**
+ * Authored reply-channel send-rate policy (#2070). Governs ONLY the
+ * hermes-smd-reply relay — the autonomous/confirm send lane never consults
+ * this limiter. The Machine live-reads the block per reply
+ * (`shared/send_policy.resolve_send_policy`), whole-block fail-closed: any
+ * malformed field resolves the ENTIRE block to the platform defaults
+ * (3/sender/600s, 20/3600s, no exemption, no backstop, no held release), so
+ * a typo can only ever tighten a seat. This validator surfaces those same
+ * faults at authoring time.
+ */
+export interface SendPolicyReply {
+  /**
+   * Rostered-INTERNAL senders skip the per-sender and external-global caps;
+   * their sends are bounded only by the reply backstop. The dialogue-rate
+   * posture (a sustained email back-and-forth never rate-holds).
+   */
+  internal_exempt: boolean
+  per_sender_max: number | null
+  per_sender_window_seconds: number | null
+  global_max: number | null
+  global_window_seconds: number | null
+  /** Reply-channel backstop across ALL sender classes. 0/absent = disabled. */
+  backstop_max: number | null
+  backstop_window_seconds: number | null
+}
+
+export interface SendPolicyHeldRelease {
+  /** Persist rate-held replies and auto-release them in order when the window clears. */
+  enabled: boolean
+  ttl_seconds: number | null
+}
+
+export interface SendPolicy {
+  reply: SendPolicyReply | null
+  held_release: SendPolicyHeldRelease | null
+}
+
+/**
  * Authored digest destination (#1742): the designated internal/operations
  * matter whose memos carry the full daily needs-you digest, so a cron-fired
  * digest lands somewhere a person reads. Optional; unauthored seats stay
@@ -1089,6 +1126,8 @@ export interface CustomerYaml {
   google_auth: GoogleAuth | null
   scope: Scope
   escalation: Escalation
+  /** Reply-channel send-rate policy (#2070); null when unauthored (platform defaults apply on-box). */
+  send_policy: SendPolicy | null
   voice_library: VoiceLibrary | null
   voice_cohorts: VoiceCohorts | null
   business_hours: BusinessHours | null
@@ -1210,6 +1249,8 @@ export type ValidationErrorCode =
   | 'DuplicateRelationshipPersonId'
   | 'CustodyGuardViolation'
   | 'IneligibleCustodyException'
+  /** An unrecognized key inside an authored send_policy block (#2070). */
+  | 'UnknownSendPolicyField'
 
 export interface ValidationError {
   code: ValidationErrorCode
