@@ -372,7 +372,14 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the connector was baked but never launched (no registry entry). Range also
 # carries overlay#179 (connector-health ledger, ss#1990/ADR 0080). NONE of the 8
 # tracked twins changed (git-diff-verified 9b3f712..e031c09). Superset of 9b3f712.
-ARG OVERLAY_REF="23ff1575d44712fd34e94991d154c5fa56d87a8f"
+# 2026-07-30: 23ff1575 -> 12fea42b (ss#2070 Phase 1, the sustained-dialogue
+# program). overlay#196 authored send_policy (trust-class reply caps +
+# internal dialogue exemption + reply backstop), #197 held-reply persistence
+# and the auto-release sweeper, #198 deterministic session->origin binding by
+# message id (closes overlay#195, the wrong-thread reply race), #199 the
+# per-person usage meter + usage_export runtime-read kind. NONE of the 8
+# tracked twins changed (git-diff-verified 23ff1575..12fea42).
+ARG OVERLAY_REF="12fea42b68df71962662d05ab6a797d562391efa"
 
 ARG CUSTOMER_SLUG=customer-zero
 
