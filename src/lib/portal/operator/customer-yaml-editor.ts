@@ -472,10 +472,14 @@ function lockedFromCurrent(current: CustomerYaml): Pick<
   | 'digest'
   // governance-sensitive custody acceptance (ADR 0044 D8 / #1841) — never portal-editable
   | 'custody_exceptions'
+  // reply send-rate caps (#2070) bound SMD's own exposure on the reply channel;
+  // tuning them is an SMD act, not a client one — never portal-editable
+  | 'send_policy'
 > {
   return {
     schema_version: current.schema_version,
     custody_exceptions: current.custody_exceptions,
+    send_policy: current.send_policy,
     customer_id: current.customer_id,
     customer_name: current.customer_name,
     vertical: current.vertical,

@@ -60,6 +60,7 @@ import {
   checkVoiceLibrary,
 } from './sections-other'
 import { checkEscalation } from './sections-escalation'
+import { checkSendPolicy } from './sections-send-policy'
 import { checkCredentialCustodyDefault } from './sections-connectors'
 import { checkGmailPush } from './sections-gmail-push'
 import { checkTelegram } from './sections-telegram'
@@ -96,6 +97,9 @@ export type {
   ManagedMailbox,
   Scope,
   Escalation,
+  SendPolicy,
+  SendPolicyHeldRelease,
+  SendPolicyReply,
   Memory,
   MemoryRetention,
   VoiceLibrary,
@@ -236,6 +240,7 @@ interface ParsedSections {
   googleAuth: GoogleAuth | null
   scope: ReturnType<typeof checkScope>
   escalation: ReturnType<typeof checkEscalation>
+  sendPolicy: ReturnType<typeof checkSendPolicy>
   memory: Memory | null
   voiceLibrary: ReturnType<typeof checkVoiceLibrary>
   voiceCohorts: ReturnType<typeof checkVoiceCohorts>
@@ -278,6 +283,7 @@ function validateSections(
   checkTelegram(root, errors) // optional telegram block; validate-only (ADR 0033)
   checkGmailPush(root, errors) // optional gmail_push block; validate-only
   const escalation = checkEscalation(root, errors)
+  const sendPolicy = checkSendPolicy(root, errors)
   const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
   const mcpConnector = checkMcpConnector(root, users, personas, errors)
@@ -298,6 +304,7 @@ function validateSections(
     googleAuth,
     scope,
     escalation,
+    sendPolicy,
     memory,
     voiceLibrary: checkVoiceLibrary(root, errors),
     voiceCohorts: checkVoiceCohorts(root, errors),
@@ -338,6 +345,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     google_auth: p.googleAuth,
     scope: p.scope,
     escalation: p.escalation,
+    send_policy: p.sendPolicy,
     voice_library: p.voiceLibrary,
     voice_cohorts: p.voiceCohorts,
     business_hours: p.businessHours,
