@@ -84,18 +84,3 @@ export async function consumeOAuthState(db: D1Database, state: string): Promise<
 // ---------------------------------------------------------------------------
 // Cleanup (optional — called by booking-cleanup cron)
 // ---------------------------------------------------------------------------
-
-/**
- * Delete expired or consumed states older than the given cutoff.
- */
-export async function cleanupOAuthStates(db: D1Database, olderThan: string): Promise<number> {
-  const result = await db
-    .prepare(
-      `DELETE FROM oauth_states
-       WHERE (consumed_at IS NOT NULL OR expires_at < ?) AND created_at < ?`
-    )
-    .bind(olderThan, olderThan)
-    .run()
-
-  return result.meta.changes ?? 0
-}

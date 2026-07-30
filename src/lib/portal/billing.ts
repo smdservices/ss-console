@@ -42,7 +42,7 @@ export async function getStripeCustomerIdForSubscription(
 }
 
 /** Display names for subscription rows on the Billing surface. */
-export const PRODUCT_DISPLAY_NAMES: Record<string, string> = {
+const PRODUCT_DISPLAY_NAMES: Record<string, string> = {
   operator: 'Operator',
   'hosted-agent': 'Hosted Agent',
 }

@@ -113,7 +113,7 @@ function checkMemoryR2(
  * defaults. `audit_log_days` has additional rules per audit-retention.md:
  * override-up-only relative to the vertical default, capped at AUDIT_LOG_DAYS_MAX.
  */
-export function checkMemoryRetention(
+function checkMemoryRetention(
   raw: unknown,
   vertical: Vertical | null,
   errors: ValidationError[]

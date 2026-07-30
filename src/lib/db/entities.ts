@@ -200,7 +200,7 @@ export async function getEntity(
   )
 }
 
-export async function getEntityBySlug(
+async function getEntityBySlug(
   db: D1Database,
   orgId: string,
   slug: string
@@ -375,40 +375,6 @@ export async function createEntity(
 // ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
-
-export async function updateEntity(
-  db: D1Database,
-  orgId: string,
-  entityId: string,
-  data: UpdateEntityData
-): Promise<Entity | null> {
-  const existing = await getEntity(db, orgId, entityId)
-  if (!existing) return null
-
-  const fields: string[] = []
-  const params: (string | number | null)[] = []
-  const append = (col: string, val: string | number | null | undefined) => {
-    if (val !== undefined) {
-      fields.push(`${col} = ?`)
-      params.push(val)
-    }
-  }
-  append('name', data.name)
-  append('phone', data.phone)
-  append('website', data.website)
-  append('next_action', data.next_action)
-  append('next_action_at', data.next_action_at)
-  append('summary', data.summary)
-
-  if (fields.length === 0) return existing
-  fields.push("updated_at = datetime('now')")
-  params.push(entityId, orgId)
-  await db
-    .prepare(`UPDATE entities SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`)
-    .bind(...params)
-    .run()
-  return getEntity(db, orgId, entityId)
-}
 
 // ---------------------------------------------------------------------------
 // Stage transitions

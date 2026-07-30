@@ -24,7 +24,7 @@ import type { SwitchableAuthorityDomain } from '../operator/authority'
  *   - resolve     → 'resolved'     (terminal; SMD made the change)
  *   - decline     → 'declined'     (terminal; with a note)
  */
-export const CHANGE_REQUEST_ACTIONS = ['acknowledge', 'resolve', 'decline'] as const
+const CHANGE_REQUEST_ACTIONS = ['acknowledge', 'resolve', 'decline'] as const
 export type ChangeRequestAction = (typeof CHANGE_REQUEST_ACTIONS)[number]
 
 const ACTION_TO_STATUS: Record<ChangeRequestAction, ChangeRequestStatus> = {
