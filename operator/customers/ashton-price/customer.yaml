@@ -421,8 +421,11 @@ personas:
       # Activation requires, in order (tracked in the engagement record):
       #   1. The firm's explicit authorization of the drafting lane (the
       #      2026-07-29 call and its follow-up letter are the record).
-      #   2. The firm's writing samples distilled into an approved voice
-      #      profile (voice_library below is empty until then).
+      #   2. The firm's voice read IN PLACE from exemplar documents they point
+      #      at through the authorized connector (letter 07: "You do not need
+      #      to send us anything" — the firm never assembles or hands over
+      #      samples), distilled into an approved voice profile
+      #      (voice_library below is empty until then).
       #   3. The firm's own skeletons per artifact class (the shipped defaults
       #      in operator/templates/drafting/skeletons/ are rehearsal stand-ins).
       #   4. The overlay drafting-gate delivery hook deployed to this seat
@@ -632,7 +635,8 @@ escalation:
     mode: matter_staff
 
 # ---- VOICE LIBRARY ----
-# Empty until the firm supplies writing samples; ships with the general voice.
+# Empty until the firm's voice is read in place from documents they point at
+# (never handed over — letter 07); ships with the general voice until then.
 voice_library:
   samples_path: 'r2://vaults/ashton-price/voice/samples/'
 
