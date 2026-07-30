@@ -124,6 +124,15 @@ top_level:
   escalation:
     status: implemented
     materializer: translate _persona_config (config.yaml escalation)
+  send_policy:
+    status: implemented
+    materializer: Machine live-read (shared/send_policy.resolve_send_policy -> hermes-smd-reply RateLimiter.check, per reply, ADR 0044; not translated)
+    note: >-
+      Reply-channel send-rate policy (#2070): internal dialogue exemption,
+      per-sender/global caps, reply backstop, held-reply auto-release.
+      Governs ONLY the hermes-smd-reply relay; the autonomous/confirm send
+      lane never consults it. Whole-block fail-closed on-box: any malformed
+      field resolves the entire block to platform defaults.
   voice_library:
     status: implemented
     materializer: bootstrap Step 2a (R2 voice-vault sync) + translate _persona_config (config.yaml)
