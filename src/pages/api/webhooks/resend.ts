@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers'
 import { handleResendEvent, type ResendWebhookPayload } from '../../../lib/webhooks/resend-handler'
 import { handleBookingEmailDeliveryFailure } from '../../../lib/webhooks/booking-email-failure'
 import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
+import { captureError } from '../../../lib/observability/sentry'
 
 /**
  * POST /api/webhooks/resend
@@ -157,6 +158,7 @@ async function handlePost({ request }: APIContext): Promise<Response> {
     })
   } catch (err) {
     console.error('[webhook/resend] handler failed:', err)
+    captureError(err, 'webhook.resend')
     // 500 → Svix retries with backoff.
     return jsonErr(500, 'Internal error')
   }
@@ -208,6 +210,7 @@ async function verifySvixSignature(
     )
   } catch (err) {
     console.error('[webhook/resend] importKey failed:', err)
+    captureError(err, 'webhook.resend.import-key')
     return false
   }
 
