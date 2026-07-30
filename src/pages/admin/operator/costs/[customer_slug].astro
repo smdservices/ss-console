@@ -11,6 +11,12 @@ import {
   thirtyDayCogsToMonthlyEstimateCents,
   type DriverCategory,
 } from '../../../../lib/admin/cost-query'
+import { loadUsageView } from '../../../../lib/admin/usage-read'
+import {
+  isRuntimeReadConfigured,
+  createMachineRuntimeTransport,
+  createRuntimeReadAudit,
+} from '../../../../lib/operator/runtime-read-transport'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -26,6 +32,14 @@ import { env } from 'cloudflare:workers'
  * across all models. Per-model decomposition is phase-2 work; the
  * page surfaces what is recorded and explicitly says so rather than
  * fabricating attribution.
+ *
+ * TWO LANES, said plainly on the page (#2070). Everything above the
+ * per-person section reads `cost_telemetry`: SMD's nightly, day-lagged,
+ * dollar-denominated record of what the SEAT spent. The per-person section
+ * reads the SEAT ITSELF over the runtime-read seam — token counts, current as
+ * of this page load, gone if the Machine is unreachable. They answer different
+ * questions and must never be presented as one number: dollars are the cost
+ * plane's, attribution is the meter's.
  */
 
 const session = Astro.locals.session!
@@ -87,6 +101,22 @@ const ratio = cogsRatio(monthlyEstimateCents, customer.monthly_revenue_cents)
 const latestRolling = summary?.rolling7dCents.length
   ? (summary.rolling7dCents[summary.rolling7dCents.length - 1].avg_cents ?? null)
   : null
+
+// Per-person token meter, read LIVE from the seat (#2070). Separate lane from
+// cost_telemetry above — see the header comment.
+const usage = await loadUsageView(
+  {
+    transport: createMachineRuntimeTransport(env),
+    audit: createRuntimeReadAudit(env.DB, { actorUserId: session.userId }),
+  },
+  customer_slug,
+  { actor: session.email, actorRole: session.role },
+  isRuntimeReadConfigured(env)
+)
+
+function formatTokens(count: number): string {
+  return count.toLocaleString('en-US')
+}
 
 const maxDailyCents = summary ? Math.max(1, ...summary.byDay.map((d) => d.total_cents)) : 1
 const maxRollingCents = summary
@@ -368,5 +398,92 @@ const exportHref = `/api/admin/operator/costs/export?customer_slug=${encodeURICo
         </div>
       )
     }
+
+    {/* Per-person usage — live from the seat's own meter (#2070). */}
+    <div
+      class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+    >
+      <h2 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
+        Per-person usage
+      </h2>
+      <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+        Token counts read live from the seat right now — a different lane from the dollar figures
+        above, which come from the nightly cost telemetry. Use this to see who is driving usage, not
+        what it cost.
+      </p>
+
+      {
+        usage.status === 'not_enabled' && (
+          <p class="text-sm text-[color:var(--ss-color-text-muted)] mt-4">
+            The runtime read path is not configured on this deployment, so the seat's meter cannot
+            be read.
+          </p>
+        )
+      }
+      {
+        usage.status === 'unreachable' && (
+          <p class="text-sm text-[color:var(--ss-color-text-muted)] mt-4">
+            The seat did not answer ({usage.reason}). No figures are shown rather than stale ones.
+          </p>
+        )
+      }
+      {
+        usage.status === 'empty' && (
+          <p class="text-sm text-[color:var(--ss-color-text-muted)] mt-4">
+            The seat has not metered any usage yet.
+          </p>
+        )
+      }
+      {
+        usage.status === 'items' && (
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-[color:var(--ss-color-text-secondary)] border-b border-[color:var(--ss-color-border-subtle)]">
+                  <th class="pb-2 font-medium">Person</th>
+                  <th class="pb-2 font-medium text-right">Requests</th>
+                  <th class="pb-2 font-medium text-right">Input tokens</th>
+                  <th class="pb-2 font-medium text-right">Output tokens</th>
+                  <th class="pb-2 font-medium text-right">Cache read</th>
+                  <th class="pb-2 font-medium text-right">Days active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.actors.map((actor) => (
+                  <tr class="border-b border-[color:var(--ss-color-border-subtle)] last:border-0">
+                    <td class="py-2 text-[color:var(--ss-color-text-primary)]">
+                      {actor.isSystem ? (
+                        <span>
+                          {actor.actor}
+                          <span class="text-xs text-[color:var(--ss-color-text-muted)] ml-2">
+                            scheduled and delegated work
+                          </span>
+                        </span>
+                      ) : (
+                        actor.actor
+                      )}
+                    </td>
+                    <td class="py-2 text-right tabular-nums">{formatTokens(actor.requests)}</td>
+                    <td class="py-2 text-right tabular-nums">{formatTokens(actor.inputTokens)}</td>
+                    <td class="py-2 text-right tabular-nums">{formatTokens(actor.outputTokens)}</td>
+                    <td class="py-2 text-right tabular-nums">
+                      {formatTokens(actor.cacheReadTokens)}
+                    </td>
+                    <td class="py-2 text-right tabular-nums">{actor.days.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-4 pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
+              {usage.totalRequests.toLocaleString('en-US')} requests over the last{' '}
+              {usage.windowDays} days. A row is a person when the turn was opened by their email;
+              work the Operator started on its own — scheduled routines, skills, and anything it
+              delegated to a sub-agent — lands under a <code>system:</code> row, so the person who
+              triggered a delegated job is not credited with its tokens.
+            </p>
+          </div>
+        )
+      }
+    </div>
   </div>
 </AdminLayout>

@@ -70,6 +70,11 @@ export type RuntimeReadKind =
   // settings surface and the live probes read the ACTUAL enforced posture,
   // never a projection.
   | 'entitlements'
+  // Per-person token meter (#2070). The Machine attributes each API request to
+  // the inbound sender whose email opened the turn, or to `system:<platform>`
+  // for cron/skills/delegated work, and aggregates by (day, person, model).
+  // SMD-only: this feeds the admin cost plane, never a client surface.
+  | 'usage_export'
 
 export interface RuntimeReadQuery {
   kind: RuntimeReadKind
