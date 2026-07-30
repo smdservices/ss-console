@@ -637,8 +637,19 @@ escalation:
 # ---- VOICE LIBRARY ----
 # Empty until the firm's voice is read in place from documents they point at
 # (never handed over — letter 07); ships with the general voice until then.
+#
+# METADATA ONLY. Nothing reads this path at runtime: the Machine derives the
+# vault prefix from the customer slug and syncs `vaults/<slug>/voice/` to the
+# volume at BOOT (operator/templates/bootstrap.sh:157); ingested samples land
+# under `vaults/<slug>/voice/cohort/<cohort>/`. Kept for the config-plane
+# consumers (schema validation, the portal YAML editor, the D1 projection).
+#
+# `voice_cohorts:` is deliberately unauthored here: the firm's own audience
+# partition is set at onboarding from the documents they point at, not guessed
+# ahead of them. Absent the block, the seat accepts the base vocabulary
+# (client / opposing-counsel / court / internal).
 voice_library:
-  samples_path: 'r2://vaults/ashton-price/voice/samples/'
+  samples_path: 'r2://vaults/ashton-price/voice/'
 
 # ---- MEMORY (per-customer isolation invariants; must match customer_id) ----
 memory:
