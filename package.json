@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:staging": "CLOUDFLARE_ENV=staging astro build",
+    "deploy:staging": "npm run build:staging && wrangler deploy",
     "preview": "wrangler dev",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

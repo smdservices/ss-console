@@ -155,12 +155,95 @@ enabled = true
 # integrity_check_cron = "0 * * * *"
 
 # ---------- Staging environment ----------
-# Used for pre-cutover validation on a workers.dev hostname. Deploy with:
-#   wrangler deploy --env staging
-# Reuses prod bindings (same D1/R2/KV) — flip to separate resources when we
-# need data isolation for staging.
+# Pre-production verification target.
+# URL: https://ss-web-staging.automation-ab6.workers.dev
+#
+# DEPLOY WITH:  npm run deploy:staging
+#
+# DO NOT use `wrangler deploy --env staging`. It appears to work and silently
+# deploys PRODUCTION bindings under the staging name. The @astrojs/cloudflare
+# adapter emits `dist/server/wrangler.json` flattened from the TOP-LEVEL config
+# (that file has no `env` key at all), and `wrangler deploy` consumes it via
+# `.wrangler/deploy/config.json` — so `--env staging` has no environment left to
+# resolve. The environment must be selected at BUILD time:
+#   CLOUDFLARE_ENV=staging astro build
+# which is what `npm run build:staging` does. Verified 2026-07-31 by a dry-run
+# that showed `env.DB (ss-console-db)` under `--env staging`.
+# Guarded by tests/staging-isolation.test.ts.
+#
+# FULLY ISOLATED FROM PRODUCTION (2026-07-31). Every binding below points at a
+# `*-staging` resource created for this environment; nothing here touches prod
+# D1, R2, or KV. That isolation is the entire point — this environment exists so
+# a change can be exercised before a client sees it, and a staging Worker
+# pointed at production data would be worse than no staging at all.
+#
+# Until 2026-07-31 this block declared only `name`, which meant it INHERITED the
+# top-level bindings and would have run against production data. It had never
+# been deployed, so the trap was latent rather than live. Wrangler does not
+# inherit `vars`, `d1_databases`, `r2_buckets`, `kv_namespaces`, or `assets`
+# into a named environment, so each is redeclared explicitly below. Adding a
+# binding to the top-level config WITHOUT adding its staging twin here silently
+# ships a staging Worker that is missing that binding — keep the two in sync.
+#
+# HOSTNAME ROUTING. Staging runs on a single workers.dev host, so the
+# `admin.`/`portal.` subdomain rewrite in src/middleware.ts does not fire. Reach
+# those surfaces by path instead (`/admin/*`, `/portal/*`), exactly as documented
+# for localhost in CLAUDE.md. This is safe: the ADMIN_HOST_CANONICALIZE and
+# PORTAL_HOST_CANONICALIZE rules in src/lib/routing/legacy-redirects.ts match
+# `hostname === 'smd.services'` exactly, so they do not fire here and cannot
+# bounce staging traffic to production. The subdomain rewrite itself is the one
+# behavior this environment does not exercise; it is covered in prod.
+#
+# CLERK. Staging must use a Clerk DEVELOPMENT instance (`pk_test`/`sk_test`),
+# never the production instance, so staging sign-ins cannot touch real client
+# identities. Without a publishable key every SSR route returns 500 — Clerk
+# middleware runs before everything, including marketing pages.
 [env.staging]
 name = "ss-web-staging"
+workers_dev = true
+
+[env.staging.assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+
+[env.staging.observability]
+enabled = true
+
+# All three origins are the same host: staging has no subdomains (see above).
+# These drive outbound links and webhook callbacks, so pointing them at the
+# staging origin keeps staging traffic inside staging.
+[env.staging.vars]
+APP_BASE_URL = "https://ss-web-staging.automation-ab6.workers.dev"
+ADMIN_BASE_URL = "https://ss-web-staging.automation-ab6.workers.dev"
+PORTAL_BASE_URL = "https://ss-web-staging.automation-ab6.workers.dev"
+MEETING_URL = "https://zoom.us/j/4284801619"
+ENABLE_PUBLIC_PATTERNS = "0"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "ss-console-db-staging"
+database_id = "e14b1ad9-9f61-4435-bea9-e094af46a19f"
+
+[[env.staging.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "ss-console-storage-staging"
+
+[[env.staging.r2_buckets]]
+binding = "CONSULTANT_PHOTOS"
+bucket_name = "smd-consultant-photos-staging"
+
+[[env.staging.r2_buckets]]
+binding = "CUSTOMER_CONFIG"
+bucket_name = "smd-customer-config-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SESSIONS"
+id = "17827fbb0cdb40278ee03fe67984ef01"
+
+[[env.staging.kv_namespaces]]
+binding = "BOOKING_CACHE"
+id = "a5492270f5764a1dbd806dbdcec44eaa"
 
 # ---------- Secrets (set via `wrangler secret put` or `wrangler secret bulk`) ----------
 # All secrets are set per-Worker. Persist across `wrangler deploy` natively —
