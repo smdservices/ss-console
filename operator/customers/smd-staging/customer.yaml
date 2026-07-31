@@ -29,6 +29,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: smd-staging
 customer_name: 'SMD Staging (pre-prod, not a real customer)'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# The permanent, reusable pre-production gate. Not a real customer.
+seat:
+  kind: preprod
+  product: operator
+
 vertical: mixed
 fly_region: lax
 

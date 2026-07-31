@@ -30,6 +30,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: ashton-price
 customer_name: 'Ashton & Price LLP'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# A&P's REAL production Smokeball tenant; a real firm's real matters.
+seat:
+  kind: customer
+  product: operator
+
 vertical: law-firm
 addons:
   - law-firm/pi@0.3.0 # the CA PI-litigation lifecycle pack (19 routine skills active here; the v0.3.0 drafting lane is NOT activated on this seat — see the fail-closed block at the end of the skills list)

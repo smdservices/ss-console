@@ -419,6 +419,18 @@ export function applyEditableChanges(
     // schema lands the field; in-product editor is a follow-on).
     // Preserve the current value verbatim.
     voice_cohorts: current.voice_cohorts,
+    // seat: describes what this Operator IS (kind, product). It is an SMD
+    // determination about the engagement, never a customer setting — a client
+    // must not be able to relabel their production seat as a proving seat and
+    // shed the caution that label carries. Preserve verbatim.
+    seat: current.seat,
+    // output_classes declares, per class, whether an authored spec is EXPECTED
+    // (ADR 0083). Raising or dropping that expectation is a commitment change,
+    // so it moves through a PR like the rest of customer.yaml. The spec CONTENT
+    // the customer authors lives in their own vault object and is edited
+    // through the portal — a different key space, a different writer.
+    // Preserve verbatim.
+    output_classes: current.output_classes,
     business_hours: changes.businessHours,
     logging: changes.logging
       ? {

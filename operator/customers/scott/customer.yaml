@@ -16,6 +16,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: 'scott'
 customer_name: 'Scott Durgan'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# Hosted Agent founding seat.
+seat:
+  kind: internal
+  product: hosted-agent
+
 vertical: mixed
 addons: []
 practice_areas:

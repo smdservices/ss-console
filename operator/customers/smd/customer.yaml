@@ -19,6 +19,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: smd
 customer_name: 'SMDurgan, LLC'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# Works ON the venture, not in a customer's business.
+seat:
+  kind: internal
+  product: operator
+
 vertical: mixed # interview §Runtime; enum has no consulting/services value (#1141)
 fly_region: lax # "We're in Phoenix" → closest Fly region
 

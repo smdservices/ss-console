@@ -1,0 +1,516 @@
+# ============================================================================
+# Output-class registry — the single declaration of WHAT the Operator produces
+# and, per class, which of its four properties (voice, format, gates, delivery)
+# is authored, by whom, and what happens when nobody authored it.
+#
+# WHY THIS EXISTS (ADR 0083). "Voice" was treated as one global setting, and
+# format as nobody's property at all. Both vary by WHAT IS BEING PRODUCED: a
+# demand letter, a records chase, a client status update, a digest to a
+# paralegal, and a chronology row have different requirements on every axis.
+# Treating any axis as a seat-wide dial produces a pile of special cases, and
+# treating format as prose in a skill's references/ produces drift nothing
+# catches. The unit of configuration is the OUTPUT CLASS.
+#
+# THE FOUR PROPERTIES, per ADR 0083 §Decision:
+#   voice    — how it sounds. Probabilistic; graded, not asserted.
+#   format   — how it is shaped. BINARY: it complies or it does not.
+#   gates    — what must be true before it is allowed to leave.
+#   delivery — where it goes and under whose authority.
+#
+# NO SMD DEFAULTS (ADR 0037 tenet 3, ADR 0035). Every property is authored by
+# the customer or falls to an explicit, declared state. "Unauthored" is a state
+# we name, never a value we invent. The two dispositions below are the whole
+# vocabulary:
+#   unauthored-ok  — absence is a legitimate authored outcome. The persona's own
+#                    judgment produces the shape. NOT a default; the persona is
+#                    itself authored (ADR 0011).
+#   fails-closed   — absence means the Operator must not produce this at all.
+#
+# A THIRD STATE, and the reason customer.yaml carries a declaration while the
+# spec itself lives in the customer's own vault object: a class may DECLARE that
+# a spec is expected and the spec may then be missing or hash-mismatched. That
+# is not "unauthored" — it is a broken control wearing an unauthored costume,
+# and it fails closed. See customer.yaml `output_classes:` and ADR 0083.
+#
+# DERIVED VS DECLARED. Four of the six classes are resolved at the send site
+# from `shared/recipient_classifier.RecipientClass`, which the trust decision
+# already computes and already keys on (overlay plugins/hermes-smd-trust/
+# enforce.py). Nothing needs to declare them, and nothing should: a skill's
+# guess about who will read its output is worse evidence than the resolved
+# recipient at the moment of sending. Only the two INTERNAL-artifact classes
+# (work_product, record) are declared per skill, below.
+#
+# ENFORCEMENT: operator/bin/tests/test_output_class_conformance.py asserts every
+# directory under operator/skills/ appears exactly once in skill_bindings, every
+# referenced class exists here, and every class declares all four properties
+# with an explicit disposition. A NEW skill that nobody classified fails CI —
+# the same forcing function as operator/contracts/customer-yaml-blocks.yaml.
+#
+# THIS FILE SHIPS TO THE SEAT. operator/contracts/ is copied into the image
+# (operator/templates/Dockerfile), so the runtime resolves a class from the same
+# bytes CI asserted against.
+# ============================================================================
+
+schema_version: 1
+
+# ---------------------------------------------------------------------------
+# voice_provenance vocabulary
+#   persona        — the Operator speaking as itself. Authored WITH the customer
+#                    as part of the persona (ADR 0011). Needs no customer
+#                    documents, so it exists from day one.
+#   firm           — the customer speaking, Operator holding the pen. Derived
+#                    FROM their own documents, read in place. Lands during
+#                    implementation, once a corpus has been read.
+#   court-register — dictated by rule and convention, not by anyone's taste.
+#                    Neither persona nor firm voice may touch it. "Zero voice
+#                    leakage into court documents" is a pass, not a shortfall.
+#   none           — the artifact has no voice. Giving it one is a defect.
+#
+# format_provenance vocabulary
+#   customer   — their skeletons, templates, letterhead, per-person preferences.
+#   rules      — CRC, CCP, court requirements. Legitimately ours to supply and
+#                NOT an imposed default: it is the law, not a preference.
+#   convention — ordinary professional shape where neither of the above speaks.
+#   none       — no format requirement beyond being well-formed prose.
+# ---------------------------------------------------------------------------
+
+classes:
+  work_product:
+    summary: >-
+      Attorney work product. Drafted on attorney request, delivered inside the
+      firm for review, and never sent outside by the Operator by any path.
+    declared_by: metadata.smd.content_ceiling == work_product
+    voice:
+      provenance: firm
+      disposition: unauthored-ok
+      note: >-
+        Unauthored means the draft ships in the plain professional register of
+        the drafting discipline and says so, rather than implying the firm's
+        voice was applied. Court-bound artifacts take court-register regardless
+        of what the firm's voice profile says; voice never outranks the
+        discipline (see operator/templates/drafting/drafting-discipline.md).
+    format:
+      provenance: [customer, rules]
+      disposition: fails-closed
+      note: >-
+        Typography and required elements are never model-produced. The model
+        fills content into a structure; code owns the structure. A discovery set
+        without its required declaration past 35 interrogatories is not a
+        stylistic miss, it is a defective instrument.
+    gates: drafting_gate_check
+    delivery:
+      internal_only: true
+      seams: [smokeball_memo, smokeball_task, smokeball_file]
+      external_send: forbidden
+
+  record:
+    summary: >-
+      The internal record — a chronology row, a lien ledger line, a task field,
+      a receipt log. Consumed as data, not read as prose.
+    declared_by: skill_bindings
+    voice:
+      provenance: none
+      disposition: fails-closed
+      note: >-
+        fails-closed here means the class must not acquire a voice, not that it
+        needs authoring. Nothing should attempt to give a ledger a register.
+    format:
+      provenance: convention
+      disposition: fails-closed
+      note: The shape IS the artifact. A malformed row is a corrupt record.
+    gates: extractive_only
+    delivery:
+      internal_only: true
+      seams: [smokeball_memo, smokeball_task, smokeball_file, local_file]
+      external_send: forbidden
+
+  staff:
+    summary: >-
+      Everyday output to the people who work at the firm — digests, escalations,
+      replies to colleagues, the training note left on a matter. The
+      highest-volume class by a wide margin, and the one the firm forms its
+      daily impression of the Operator from.
+    derived_from_recipient: RecipientClass.INTERNAL
+    also_covers: >-
+      Internal surface artifacts with no recipient at all (a digest written to
+      the digest home, a note on a matter). Same voice, different entry point.
+    voice:
+      provenance: persona
+      disposition: unauthored-ok
+    format:
+      provenance: [customer, convention]
+      disposition: unauthored-ok
+      note: >-
+        Once the customer authors a shape here it is binding and deterministic,
+        every time. Bindingness does not scale with document importance — a
+        daily digest whose shape the firm specified is as binding as a discovery
+        set's typography. Consistency IS the feature; an output that honors a
+        requested shape most of the time is worse than one that never claimed
+        to, because the reader stops trusting it and re-reads everything.
+    gates: [content_floor, fabrication_markers]
+    delivery:
+      internal_only: false
+      seams: [email_send, email_draft, smokeball_memo, local_file, session_output]
+      external_send: external_send_internal
+
+  outbound_client:
+    summary: The firm's own client, reading something over the firm's name.
+    derived_from_recipient: RecipientClass.CLIENT
+    voice:
+      provenance: firm
+      disposition: unauthored-ok
+    format:
+      provenance: [customer, convention]
+      disposition: unauthored-ok
+    gates: [content_floor, fabrication_markers, voice_gate]
+    delivery:
+      internal_only: false
+      seams: [email_send, email_draft]
+      external_send: external_send_client
+
+  outbound_vendor:
+    summary: >-
+      A records vendor, a provider's records desk, a lienholder. Kept distinct
+      from outbound_client because the register genuinely differs — a records
+      chase is a transaction, a client status update is a relationship — and
+      because the ceiling is authored independently (external_send_vendor).
+    derived_from_recipient: RecipientClass.VENDOR
+    voice:
+      provenance: firm
+      disposition: unauthored-ok
+    format:
+      provenance: [customer, convention]
+      disposition: unauthored-ok
+    gates: [content_floor, fabrication_markers, voice_gate]
+    delivery:
+      internal_only: false
+      seams: [email_send, email_draft]
+      external_send: external_send_vendor
+
+  outbound_external:
+    summary: >-
+      Anyone else resolvable — opposing counsel, a carrier, a court, an
+      un-rostered address. The class where an invented figure travels furthest
+      over the firm's signature.
+    derived_from_recipient: RecipientClass.OUTSIDE
+    voice:
+      provenance: firm
+      disposition: unauthored-ok
+      note: Court-bound artifacts take court-register, never firm voice.
+    format:
+      provenance: [customer, rules, convention]
+      disposition: unauthored-ok
+    gates: [content_floor, fabrication_markers, voice_gate]
+    delivery:
+      internal_only: false
+      seams: [email_send, email_draft]
+      external_send: external_send
+
+# RecipientClass.UNKNOWN maps to NO class. The classifier's contract is that an
+# unresolvable recipient fails closed with a hard error, never a silent draft —
+# so there is nothing here to author, and adding a class for it would create the
+# permissive path the classifier exists to prevent.
+
+# ============================================================================
+# skill_bindings — what each skill emits INTERNALLY, and whether it emits
+# anything outbound at all.
+#
+# ONLY INTERNAL ARTIFACTS ARE DECLARED. An outbound artifact has a recipient,
+# and the recipient resolves its class at the send site with better evidence
+# than any authored guess. An internal artifact — a memo, a task, a session
+# surface — has no recipient, so nothing can derive it and the binding must
+# say. That asymmetry is why this list is short.
+#
+# `outbound:` is a THREE-VALUE assertion, not a description:
+#   derived  — this skill may address a human outside its own process; class
+#              resolves from RecipientClass at the moment of sending.
+#   none     — this skill sends NOTHING, by construction. Several skills state
+#              this in prose ("It sends nothing", "never sends") and nothing
+#              enforced it. Here it is a checkable claim.
+#
+# 32 of the 51 skills emit more than one artifact with different readers, which
+# is why every entry is a LIST. The known-hardest case is the work-product
+# drafters: three of the four put the draft in a Smokeball memo and email the
+# requesting attorney a CITATION-FREE POINTER, because the mail channel's
+# citation gate would refuse the draft itself. mediation-brief-drafter does the
+# opposite — it mails the draft and logs to the memo. Same class, different
+# declared delivery. That difference is exactly what this registry exists to
+# make visible rather than leave as a surprise in a skill body.
+# ============================================================================
+
+skill_bindings:
+  # ---- law-firm / PI: work product (content_ceiling: work_product) ----
+  demand-letter-drafter:
+    internal:
+      - { artifact: letter, seam: smokeball_memo, class: work_product }
+      - { artifact: review_task, seam: smokeball_task, class: record }
+    outbound: derived # citation-free pointer to the requesting attorney
+  discovery-response-drafter:
+    internal:
+      - { artifact: draft, seam: smokeball_memo, class: work_product }
+      - { artifact: review_task, seam: smokeball_task, class: record }
+    outbound: derived # citation-free pointer
+  follow-up-discovery-drafter:
+    internal:
+      - { artifact: draft_package, seam: smokeball_memo, class: work_product }
+      - { artifact: review_task, seam: smokeball_task, class: record }
+    outbound: derived # citation-free pointer (Shape B)
+  mediation-brief-drafter:
+    internal:
+      - { artifact: internal_log, seam: smokeball_memo, class: record }
+    outbound: derived
+    # The one work_product skill whose draft leaves by email rather than landing
+    # in a memo. Declared, not hidden: the conformance test requires every
+    # work_product skill to place its draft SOMEWHERE, and this flag is the only
+    # way to satisfy it without an internal work_product artifact. A reader who
+    # wonders why this drafter differs from the other three finds the answer
+    # here instead of inferring it from a delivery failure.
+    work_product_outbound: true
+
+  # ---- law-firm / PI: court-bound assembly (staged for an attorney to file) ----
+  separate-statement-assembler:
+    internal:
+      - { artifact: separate_statement, seam: session_output, class: work_product }
+      - { artifact: attorney_prompts, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  motion-package-assembler:
+    internal:
+      - { artifact: package_index, seam: session_output, class: work_product }
+      - { artifact: hearing_events, seam: smokeball_event, class: record }
+      - { artifact: tasks, seam: smokeball_task, class: record }
+      - { artifact: staged_files, seam: smokeball_file, class: record }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  trial-binder-assembler:
+    internal:
+      - { artifact: binder_index, seam: smokeball_file, class: work_product }
+      - { artifact: deadline_tasks, seam: smokeball_task, class: record }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  minors-compromise-packet:
+    internal:
+      - { artifact: mc350_mc351, seam: session_output, class: work_product }
+      - { artifact: dates_tracked, seam: smokeball_task, class: record }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived # lien payoff chase; a reviewer sends
+  settlement-statement-feeder:
+    internal:
+      - { artifact: settlement_statement, seam: session_output, class: work_product }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none # fund-movement tools are hard-banned; a person executes
+
+  # ---- law-firm / PI: internal surfaces (content_ceiling: surface_only) ----
+  daily-needs-you-digest:
+    internal:
+      - { artifact: digest, seam: session_output, class: staff }
+      - { artifact: heartbeat_row, seam: local_file, class: record }
+    outbound: none # declares no send connector by construction
+  matter-document-review:
+    internal:
+      - { artifact: surface_artifact, seam: session_output, class: staff }
+    outbound: none
+  opposing-response-deficiency-review:
+    internal:
+      - { artifact: candidate_gaps, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none # "It sends nothing."
+  motion-calendar-tracker:
+    internal:
+      - { artifact: calendar_surface, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  discovery-served-watch:
+    internal:
+      - { artifact: capture_surface, seam: session_output, class: staff }
+      - { artifact: confirm_task, seam: smokeball_task, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  service-confirmation-watcher:
+    internal:
+      - { artifact: capture_surface, seam: session_output, class: staff }
+      - { artifact: confirm_task, seam: smokeball_task, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  medical-chronology-maintainer:
+    internal:
+      - { artifact: chronology, seam: smokeball_memo, class: record }
+    outbound: none # extractive-only; no email or calendar connector
+
+  # ---- law-firm / PI: matter operations and trackers ----
+  matter-memo-on-update:
+    internal:
+      - { artifact: memo, seam: smokeball_memo, class: staff }
+    outbound: none # "writes ONLY an internal Smokeball memo. It never sends."
+  matter-status-digest:
+    internal:
+      - { artifact: digest, seam: session_output, class: staff }
+    outbound: none
+  matter-initiation-setup:
+    internal:
+      - { artifact: folders, seam: smokeball_file, class: record }
+      - { artifact: opening_tasks, seam: smokeball_task, class: staff }
+      - { artifact: deadline_scaffolds, seam: smokeball_task, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  discovery-response-staging:
+    internal:
+      - { artifact: staged_files, seam: smokeball_file, class: record }
+      - { artifact: internal_note, seam: smokeball_task, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  discovery-response-tracker:
+    internal:
+      - { artifact: deadline_presentation, seam: session_output, class: staff }
+      - { artifact: confirm_to_attorney, seam: smokeball_task, class: staff }
+      - { artifact: calendar_event, seam: smokeball_event, class: record }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived # action_class declares external_send
+  deadline-and-sol-tracker:
+    internal:
+      - { artifact: scan_output, seam: session_output, class: staff }
+      - { artifact: confirmation_memo, seam: smokeball_memo, class: record }
+    outbound: none # computes no date; writes only on attorney confirmation
+  deadline-miss-escalator:
+    internal:
+      - { artifact: triaged_alert, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+      - { artifact: task, seam: smokeball_task, class: record }
+    outbound: derived # confirmation reply enumerating acked codes
+  mediation-settlement-tracker:
+    internal:
+      - { artifact: brief_inputs, seam: session_output, class: staff }
+      - { artifact: deadlines_proposed, seam: session_output, class: staff }
+      - { artifact: task, seam: smokeball_task, class: record }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: none
+  lien-ledger-tracker:
+    internal:
+      - { artifact: ledger_entry, seam: smokeball_task, class: record }
+      - { artifact: snapshot, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived # payoff chase to a lienholder; the firm sends
+  document-receipt-logger:
+    internal:
+      - { artifact: filing_proposal, seam: session_output, class: staff }
+      - { artifact: receipt_memo, seam: smokeball_memo, class: record }
+    outbound: none
+  intake-to-system-sync:
+    internal:
+      - { artifact: contact_matter_draft, seam: smokeball_file, class: record }
+      - { artifact: sync_back, seam: local_file, class: record }
+    outbound: none
+  conflict-intake-router:
+    internal: []
+    outbound: derived # conflict notice routed to the responsible person
+  matter-inbox-router:
+    internal:
+      - { artifact: clearance_task, seam: smokeball_task, class: staff }
+      - { artifact: routing_decision, seam: session_output, class: record }
+    outbound: derived # colleague reply draft; the reply relay may send it
+
+  # ---- law-firm / PI: correspondence with a human on the other end ----
+  meet-and-confer-drafter:
+    internal:
+      - { artifact: go_no_go, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+      - { artifact: task, seam: smokeball_task, class: record }
+    outbound: derived # letter to opposing counsel; DRAFT ONLY, the firm sends
+  medical-records-chaser:
+    internal:
+      - { artifact: memo, seam: smokeball_memo, class: record }
+      - { artifact: task, seam: smokeball_task, class: staff }
+    outbound: derived # provider / records vendor
+  client-verification-tracker:
+    internal:
+      - { artifact: memo, seam: smokeball_memo, class: record }
+      - { artifact: ledger_row, seam: local_file, class: record }
+      - { artifact: task, seam: smokeball_task, class: record }
+    outbound: derived # signer request, plus a tokened approval mail to the attorney
+  client-matter-digest:
+    internal: []
+    outbound: derived # proactive client status update
+  matter-status-responder:
+    internal:
+      - { artifact: sources_audit, seam: session_output, class: staff }
+    outbound: derived # reactive client reply
+  stalled-matter-nudge:
+    internal:
+      - { artifact: scan_output, seam: session_output, class: staff }
+    outbound: derived # per-matter client follow-up
+  engagement-letter-chaser:
+    internal:
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived
+  trust-balance-nudge:
+    internal:
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived # IOLTA replenishment request
+  new-matter-intake:
+    internal:
+      - { artifact: matter_draft, seam: session_output, class: staff }
+      - { artifact: conflict_hold, seam: session_output, class: staff }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived # non-committal acknowledgment to a prospect
+  consult-scheduler:
+    internal:
+      - { artifact: booking_proposal, seam: session_output, class: staff }
+      - { artifact: calendar_entry, seam: smokeball_event, class: record }
+      - { artifact: memo, seam: smokeball_memo, class: record }
+    outbound: derived # consult confirmation
+  referral-source-acknowledgment:
+    internal: []
+    outbound: derived
+  email-reply:
+    internal: []
+    outbound: derived # reply draft to an allow-listed sender
+  inbox-triage:
+    internal:
+      - { artifact: triage_note, seam: local_file, class: staff }
+    outbound: derived # real drafts into the managed mailbox
+
+  # ---- SMD's own vertical (the venture operating on itself) ----
+  ar-chaser:
+    internal:
+      - { artifact: draft_file, seam: local_file, class: staff }
+      - { artifact: slack_summary, seam: slack, class: staff }
+      - { artifact: escalation, seam: slack, class: staff }
+    outbound: derived
+  asset-collection-follower:
+    internal:
+      - { artifact: tracking_note, seam: local_file, class: record }
+      - { artifact: escalation, seam: slack, class: staff }
+    outbound: derived
+  status-report-assembler:
+    internal:
+      - { artifact: slack_summary, seam: slack, class: staff }
+    outbound: derived # per-client report drafts
+  proposal-drafter:
+    internal:
+      - { artifact: proposal, seam: local_file, class: staff }
+      - { artifact: slack_thread, seam: slack, class: staff }
+    outbound: none # the owner sends; the skill writes a file
+  assessment-findings-draft:
+    internal:
+      - { artifact: findings_doc, seam: local_file, class: staff }
+      - { artifact: customer_yaml_seed, seam: local_file, class: record }
+    outbound: none
+  scope-creep-flagger:
+    internal:
+      - { artifact: scope_flag, seam: slack, class: staff }
+      - { artifact: am_response_draft, seam: slack, class: staff }
+    outbound: none # the draft is surfaced in Slack, never addressed
+  paid-media-anomaly-watcher:
+    internal:
+      - { artifact: slack_digest, seam: slack, class: staff }
+      - { artifact: client_note, seam: slack, class: staff }
+    outbound: none # the client note is owner-triggered and owner-sent
+  retainer-hours-reconciler:
+    internal:
+      - { artifact: slack_post, seam: slack, class: staff }
+    outbound: none
+
+  # ---- tool surface, authors no content of its own ----
+  workspace:
+    internal: []
+    outbound: none
