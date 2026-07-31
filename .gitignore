@@ -37,6 +37,12 @@ coverage/
 
 # Claude Code harness session-tracking artifacts
 .claude/parallel-isolation-log/
+# Per-session markers written by the user-global parallel-isolation SessionStart
+# hook and deleted once a worktree is provisioned. Nothing reaps the ones left
+# by sessions that ended before provisioning, so they accumulate; three had been
+# committed by 2026-07-31, and the untracked one showed in every session's
+# gitStatus snapshot as permanent noise.
+.claude/parallel-isolation-required-*
 
 # Playwright MCP output (screenshots, console dumps, snapshots)
 .playwright-mcp/

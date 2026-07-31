@@ -91,6 +91,32 @@ worktree. Those writes are now rejected instead of silently landing.
 `tests/worktree-guard.test.ts` pins the blocked and exempt paths; the Captain-only
 escape hatch is `SS_ALLOW_PRIMARY_WRITES=1`.
 
+Isolation stops trees colliding; it does not stop a session being briefed on a
+world that has since moved. On 2026-07-31 five concurrent sessions merged 22 PRs
+in 36 hours, and each of them repeatedly discovered it had acted on something no
+longer true: a tree snapshot listing thirty-one dirty paths that were clean
+twenty minutes later, a worktree list that disagreed with itself three minutes
+apart. The sharpest case was `sync-primary.sh` itself, which fast-forwards the
+primary at one session's startup without reinstalling, so a major-version
+lockfile change invalidated the dependency tree of sessions already running
+there, hours after their briefing had correctly reported it current.
+
+Session-start detection cannot reach this, because session start is exactly when
+every answer is still right. So `.claude/hooks/reflex-primer.sh` re-checks on
+every turn and states the decay: whether `origin/main` has moved, whether the
+working tree changed against a per-session baseline, and whether installed
+packages content-differ from `package-lock.json`. It gates the dependency check
+on mtime but speaks only on content, because `git stash`, `git restore`, and
+rebases all rewrite the lockfile without changing it, and a warning that is
+sometimes wrong and always loud teaches agents to skim past the laws above it.
+`.claude/hooks/session-peers.sh` adds the other half at startup: which sibling
+worktrees are live, which are locked by a process that has since died, and what
+landed on main ahead of this checkout. Both are covered by
+`tests/staleness-detection.test.ts`, whose load-bearing assertions are not that
+the signals fire but that every doctrine line still reaches stdout and the exit
+code is still zero on every failure path. This is Law 10 in
+`docs/doctrine/agent-operating-doctrine.md`.
+
 ## The portable coding standards
 
 Every change is written to the enterprise coding standards (global

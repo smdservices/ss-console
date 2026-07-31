@@ -40,6 +40,24 @@ git merge-base --is-ancestor origin/main HEAD 2>/dev/null && exit 0
 before=$(git rev-parse --short HEAD)
 if git merge --ff-only -q origin/main 2>/dev/null; then
   echo "worktree-guard: primary checkout fast-forwarded $before -> $(git rev-parse --short HEAD) (origin/main)."
+
+  # Announce the dependency tree this hook just invalidated.
+  #
+  # This fast-forward runs at the START of a new session but mutates a tree
+  # that OTHER sessions are already working in, and it moves source without
+  # moving node_modules. On 2026-07-31 it carried a major-version lockfile
+  # change (astro 6 to 7) into the primary at 12:36, three and a half hours
+  # after a running session had been correctly briefed "Deps | current".
+  # That session then ran builds against the wrong toolchain, and every
+  # worktree provisioned afterwards cloned the stale tree from here.
+  #
+  # It warns rather than installing: `npm ci` deletes node_modules first,
+  # which would break any concurrent build in this tree, and it would not fit
+  # the hook timeout. Per-turn detection in reflex-primer.sh (Law 10) catches
+  # the downstream cases; this line exists so the tree that caused it says so.
+  if [ -n "$(git diff --name-only "$before"..HEAD -- package-lock.json 2>/dev/null)" ]; then
+    echo "worktree-guard: that fast-forward changed package-lock.json, so node_modules in this checkout is now stale. Run npm ci before trusting any build, typecheck, or test result here, and note that worktrees provisioned from this tree clone its node_modules."
+  fi
 else
   echo "worktree-guard: primary checkout has local commits not on origin/main; not syncing. Reconcile manually."
 fi

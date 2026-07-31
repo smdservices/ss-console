@@ -66,6 +66,15 @@
             "timeout": 45
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-peers.sh\"",
+            "timeout": 20
+          }
+        ]
       }
     ]
   }
