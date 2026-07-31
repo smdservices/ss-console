@@ -379,13 +379,26 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # message id (closes overlay#195, the wrong-thread reply race), #199 the
 # per-person usage meter + usage_export runtime-read kind. NONE of the 8
 # tracked twins changed (git-diff-verified 23ff1575..12fea42).
-# 2026-07-30: 12fea42b -> 7243d3a7 (ss#2079 W0′ seam, ADR 0083). overlay#201
+# 2026-07-30b: 12fea42b -> 711310ff (overlay#200, the two defects the Phase-1
+# rehearsal exposed — vfy_01KYTG0B88R3B5K0D7FKPACRZT). The reply relay acted on
+# the tool NAME alone, so a create_draft that returned "Message not found (HTTP
+# 404)" still emailed the client and the agent's retry emailed the same answer
+# again; it now requires a draft the tool confirmed and enforces one reply per
+# inbound message id. And the relay re-ran the fabrication gate WITHOUT the
+# provenance caption allowlist the drafting path passes, so the trust gate
+# allowed a draft naming matters read from Smokeball and the relay then blocked
+# the identical body as fabrication:tier2_citation — a whole class of question
+# unanswerable by email, held silently. NONE of the 8 tracked twins changed
+# (git-diff-verified 12fea42..711310f).
+# 2026-07-30c: 711310ff -> 7243d3a7 (ss#2079 W0-prime seam, ADR 0083). overlay#201
 # makes `seat` and `output_classes` live-writable and pins `personas.*.tone` as
 # NEVER live-writable — tone is rendered into SOUL.md by translate at BOOT and
 # the applier does not re-run translate, so a live tone apply would report
-# APPLIED while the agent kept the old register. Also carries #200 (reply relay
-# only relays a draft that exists, once per inbound). NONE of the 8 tracked twins
-# changed (git-diff-verified 12fea42b..7243d3a). Superset of 12fea42b.
+# APPLIED while the agent kept the old register (a silent partial apply, worse
+# than an honest rejection). The register instead lands on the next restart via
+# the unconditional boot fetch. NONE of the 8 tracked twins changed
+# (git-diff-verified 12fea42b..7243d3a; all 8 sha256 recomputed at 7243d3a and
+# identical). Superset of 711310ff — 711310f is 7243d3a's parent.
 ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"
 
 ARG CUSTOMER_SLUG=customer-zero

@@ -480,18 +480,28 @@ describe('Operator customer Machine Dockerfile', () => {
     // got their replies crossed onto the wrong thread), #199 the per-person
     // usage meter + usage_export runtime-read kind. overlayRef-only across
     // 23ff1575..12fea42 — no tracked twin moved.
-    // 7243d3a7 — the ADR 0083 W0′ seam (ss#2079): overlay#201 makes `seat` and
-    // `output_classes` live-writable, and pins `personas.*.tone` as NEVER
+    // 711310ff — overlay#200, the two defects the Phase-1 rehearsal exposed
+    // (vfy_01KYTG0B88R3B5K0D7FKPACRZT). A create_draft that FAILED still put
+    // mail in the client's inbox because the relay decided on the tool name
+    // alone, and the agent's retry sent the same answer again; the relay now
+    // requires a draft the tool confirmed plus one reply per inbound message
+    // id. And the relay's fabrication re-check ran without the provenance
+    // caption allowlist the drafting path passes, so a reply naming matters
+    // the agent had just read from Smokeball was blocked as
+    // fabrication:tier2_citation and dropped silently. overlayRef-only across
+    // 12fea42..711310f — no tracked twin moved.
+    // 7243d3a7 — the ADR 0083 W0-prime seam (ss#2079): overlay#201 makes `seat`
+    // and `output_classes` live-writable, and pins `personas.*.tone` as NEVER
     // live-writable. The tone entry is the load-bearing one and reads backwards
     // at first glance: a merged persona register currently never reaches a seat
     // at all, so making it live-writable looks like the fix. It is not. `tone`
     // is rendered into SOUL.md by translate at BOOT and the config applier does
     // not re-run translate, so a live apply would update the volume yaml, record
     // APPLIED, and leave the agent's system prompt carrying the OLD register — a
-    // silent partial apply, worse than an honest rejection. The register instead
-    // lands on the next restart, via the unconditional boot fetch. Range also
-    // carries overlay#200 (reply relay only relays a draft that exists, once per
-    // inbound). overlayRef-only across 12fea42b..7243d3a — no tracked twin moved.
+    // silent partial apply, worse than an honest rejection because the ledger
+    // would claim it landed. The register instead arrives on the next restart,
+    // via the unconditional boot fetch. overlayRef-only across 12fea42b..7243d3a
+    // — no tracked twin moved; 711310f is 7243d3a's parent.
     expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"')
   })
 
