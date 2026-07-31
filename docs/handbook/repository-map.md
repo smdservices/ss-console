@@ -76,7 +76,7 @@ src/
 | `llm/` | Model id constants (`models.ts`). |
 | `oauth/` | OAuth provider plumbing for the console's own integrations: state, store, audit, providers. |
 | `observability/` | Sentry wiring (`sentry.ts`), no-op when `SENTRY_DSN` is unset. |
-| `operator/` | The console side of the Operator plane: `apply-config.ts` (write live config to R2), `runtime-read.ts` (the read seam), `customer-yaml/` (authoring and validation, one file per `customer.yaml` section), `capabilities/` (typed capability adapters), `mcp/` (the MCP route and audit), `authority.ts`, credential custody and secret transport, the Fly app registry. |
+| `operator/` | The console side of the Operator plane: `output-class-specs.ts` (write the customer's authored output-class specs to `vaults/<slug>/output-classes.json` in R2 - the console's only writer into that bucket, and never `customer.yaml`, which CI publishes from git), `runtime-read.ts` (the read seam), `customer-yaml/` (authoring and validation, one file per `customer.yaml` section), `capabilities/` (typed capability adapters), `mcp/` (the MCP route and audit), `authority.ts`, credential custody and secret transport, the Fly app registry. |
 | `operator-packs/` | Shared vertical-pack helpers (`shared.ts`). |
 | `pdf/` | PDF rendering and the SOW template (`sow-template.tsx`). |
 | `portal/` | Client-portal logic: states, ledger, formatters, product access, the operator-access and customer-config projections. |

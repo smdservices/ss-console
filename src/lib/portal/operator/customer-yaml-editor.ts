@@ -48,6 +48,11 @@ import {
   type ValidationResult,
 } from '../../operator/customer-yaml'
 import type { CustomerConfigRow } from '../customer-config'
+import {
+  projectLockedFromRow,
+  reconstructFromProjection,
+  type ProjectedLockedFields,
+} from './customer-config-reconstruct'
 
 // ============================================================================
 // Locked-field policy
@@ -655,75 +660,45 @@ export function validateEditableChanges(
 // ============================================================================
 
 /**
- * Read the projection from `customer_configs`, validate the
- * reconstructed shape against the shared validator, and project to
- * the editor surface.
+ * The editor surface resolved from a projection row.
  *
- * Returns the editor surface on success, or a `{ error }` discriminator
- * when the projection payload is structurally invalid. Callers render
- * the page's error state per `docs/style/empty-state-pattern.md`.
+ * `locked` is DELIBERATELY not `LockedFieldsView`: that view describes a real
+ * `customer.yaml`, where every identity field has an authored value. A
+ * projection row carries only some of them, so this one is honest about the
+ * gap (see `ProjectedLockedFields`) and the page renders the absent fields as
+ * absent rather than as invented ones.
  */
-export function resolveEditableConfigFromRow(
-  row: CustomerConfigRow
-): ResolvedEditableConfig | { error: 'invalid_projection'; errors: ValidationError[] } {
-  const result = validate(reconstructFromProjection(row))
-  if (!result.ok) return { error: 'invalid_projection', errors: result.errors }
-  return projectEditableConfig(result.value)
+export interface ResolvedEditableConfigFromRow {
+  editable: EditableCustomerConfig
+  locked: ProjectedLockedFields
 }
 
 /**
- * Reassemble the projection columns into the validator's expected root
- * shape. The projection is lossy at the column level (per-section JSON
- * blobs), so identity/runtime/memory fields are inferred from the row's
- * `customer_slug` plus schema-spec convention. Those inferred fields
- * are LOCKED — the editor never writes them, so the inferred value is
- * read-only display material only.
+ * Read the projection from `customer_configs`, validate the reconstructed
+ * shape against the shared validator, and project to the editor surface.
+ *
+ * WHAT IS VALIDATED, and what #1965 got wrong. The reconstruction fills the
+ * un-projected identity/runtime fields with structurally-valid, inert
+ * placeholders (`customer-config-reconstruct.ts`), so the pass that runs here
+ * is effectively a pass over the EDITABLE surface: personas, connectors,
+ * scope, escalation, business hours, voice library. The previous
+ * reconstruction seeded fields that could not validate — an invalid
+ * `hermes_ref` by design, an empty `users`, cron entries missing the
+ * `wake_policy` the projection strips — so this call failed for every
+ * customer and the editor never rendered.
+ *
+ * Returns the editor surface on success, or a `{ error }` discriminator when
+ * the projection payload is structurally invalid. Callers render the page's
+ * error state per `docs/style/empty-state-pattern.md`.
  */
-function reconstructFromProjection(row: CustomerConfigRow): unknown {
-  const escalation = (row.escalation as Partial<EditableEscalation> | null) ?? {
-    red_flag_recipients: [],
-    failure_recipients: [],
-  }
-  const scope = (row.scope as Partial<EditableScope> | null) ?? {}
+export function resolveEditableConfigFromRow(
+  row: CustomerConfigRow
+): ResolvedEditableConfigFromRow | { error: 'invalid_projection'; errors: ValidationError[] } {
+  const result = validate(reconstructFromProjection(row))
+  if (!result.ok) return { error: 'invalid_projection', errors: result.errors }
+  const projected = projectEditableConfig(result.value)
   return {
-    schema_version: Number(row.schema_version),
-    customer_id: row.customer_slug,
-    customer_name: row.customer_slug,
-    vertical: 'mixed',
-    fly_region: 'iad',
-    model: 'unknown',
-    // The reconstructed projection has no real ref to point at (the DB row
-    // doesn't carry hermes_ref yet). v0.0.0@<40 zeros> is the unambiguous
-    // "no upstream pin yet" sentinel: it parses as a string but deliberately
-    // fails checkHermesRef (year is not 4 digits), so it surfaces as a
-    // validation error prompting the operator to set a real pin rather than
-    // silently shipping a fabricated version. Format per ADR 0024.
-    hermes_ref: 'v0.0.0@0000000000000000000000000000000000000000',
-    machine: { size: 'unknown', memory_mb: 256 },
-    users: [],
-    personas: row.personas,
-    connectors: row.connectors ?? {},
-    scope: {
-      email_folders_visible: scope.email_folders_visible ?? [],
-      email_folders_blind: scope.email_folders_blind ?? [],
-      email_keyword_blocks: scope.email_keyword_blocks ?? [],
-      domain_blocks: scope.domain_blocks ?? [],
-      matter_blocks: scope.matter_blocks ?? [],
-      inbound_allow_from: scope.inbound_allow_from ?? [],
-    },
-    escalation: {
-      red_flag_recipients: escalation.red_flag_recipients ?? [],
-      failure_recipients: escalation.failure_recipients ?? [],
-      acknowledgement_window_minutes: escalation.acknowledgement_window_minutes ?? null,
-    },
-    voice_library: row.voice_library ?? null,
-    voice_cohorts: null,
-    business_hours: row.business_hours ?? null,
-    memory: {
-      d1_namespace: row.customer_slug,
-      r2_vault_path: `vaults/${row.customer_slug}/`,
-      vectorize_index: `hermes-${row.customer_slug}-vault`,
-      retention: null,
-    },
+    editable: projected.editable,
+    locked: projectLockedFromRow(row, projected.locked.connector_token_refs),
   }
 }

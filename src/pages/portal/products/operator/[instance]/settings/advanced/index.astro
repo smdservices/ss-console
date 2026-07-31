@@ -13,6 +13,17 @@ import EscalationFields from '../../../../../../../components/portal/operator/cu
 import BusinessHoursFields from '../../../../../../../components/portal/operator/customer-yaml-editor/BusinessHoursFields.astro'
 import ConnectorsFields from '../../../../../../../components/portal/operator/customer-yaml-editor/ConnectorsFields.astro'
 import ScopeFields from '../../../../../../../components/portal/operator/customer-yaml-editor/ScopeFields.astro'
+import OutputClassSpecs from '../../../../../../../components/portal/operator/OutputClassSpecs.astro'
+import SubmitButton from '../../../../../../../components/portal/form/SubmitButton.astro'
+import { checkOutputClasses } from '../../../../../../../lib/operator/customer-yaml/sections-output-classes'
+import type {
+  OutputClasses,
+  ValidationError,
+} from '../../../../../../../lib/operator/customer-yaml/types'
+import {
+  readSpecDocument,
+  type SpecDocument,
+} from '../../../../../../../lib/operator/output-class-specs'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -24,14 +35,20 @@ import { env } from 'cloudflare:workers'
  * required Captain intervention. NOT a raw YAML textarea — every field
  * is a typed input with structured validation.
  *
- * Per ADR 0012 §4, git is the authoritative source of truth for
- * customer.yaml. The portal D1 `customer_configs` table is a read
- * replica. This editor reads from the projection, validates the
- * proposed change via the shared `src/lib/operator/customer-yaml/`
- * validator, and emits an audit event. The git write-back path is
- * out of scope at v1 and lands in a follow-on PR; until then, the
- * audit log + the validation pass are the load-bearing customer-side
- * guarantees.
+ * TWO FORMS, AND ONLY ONE OF THEM WRITES.
+ *
+ *   Output shape (ADR 0083) is the client's own authored voice and format
+ *   specs. It writes to their vault object and reaches their running
+ *   Operator. It is placed FIRST because it is the thing on this page that
+ *   takes effect, and it carries the page's one primary action (UI-PATTERNS
+ *   Rule 3).
+ *
+ *   The customer.yaml editor below it validates and records a change request
+ *   and writes nothing: per ADR 0012 §4 git is the authoritative source for
+ *   customer.yaml, and it is auto-published to the seat on merge, so a portal
+ *   write would be clobbered by the next unrelated merge. It used to redirect
+ *   with `?status=applied` regardless (#2089); it now says `submitted`, which
+ *   is what happened.
  *
  * Access gate (per the issue acceptance criteria):
  *   - Clerk session (middleware enforces)
@@ -41,11 +58,16 @@ import { env } from 'cloudflare:workers'
  * Operators and compliance users are redirected back to the AI
  * Employee landing — the page does not render a half-locked view.
  *
- * Captain-only fields (`connector token_ref`, `safety.sticky_stop.*`,
+ * SMD-only fields (`connector token_ref`, `safety.sticky_stop.*`,
  * `personas` length, schema/identity/runtime/memory fields) display
- * as read-only with a "Captain-managed" badge. The server-side
- * validator rejects any attempt to mutate them even if the form is
- * bypassed.
+ * as read-only. The server-side validator rejects any attempt to
+ * mutate them even if the form is bypassed.
+ *
+ * Identity fields the PROJECTION does not carry (the Hermes pin, the machine
+ * size, the model, the region) are not rendered at all. The resolver used to
+ * invent them — `model: 'unknown'`, `vertical: 'mixed'` for a law firm, a
+ * fabricated version pin — and only avoided showing a client those values by
+ * failing to render entirely (#1965). Absent is the honest display of absent.
  *
  * Mutations are HTML-form POSTs to
  * /api/portal/operator/settings/customer-yaml-update. On
@@ -90,20 +112,55 @@ if (!configRow || configRow.entity_id !== client.id) {
   return Astro.redirect('/portal/products/operator')
 }
 
+// The failing paths go to the Worker log, not to the page: they name internal
+// schema fields, which tell a client nothing and tell an attacker something.
 let resolved: ReturnType<typeof resolveEditableConfigFromRow> | null = null
-let projectionError: string | null = null
+let projectionError = false
 if (configRow !== null) {
   resolved = resolveEditableConfigFromRow(configRow)
   if ('error' in resolved) {
-    projectionError = `Invalid projection: ${resolved.errors.map((e) => e.path).join(', ')}`
+    console.error(
+      'advanced-settings: projection failed validation for',
+      instance,
+      resolved.errors.map((e) => e.path).join(', ')
+    )
+    projectionError = true
     resolved = null
+  }
+}
+
+// Output shape (ADR 0083) — the client's own authored specs, read from their
+// vault object. `absent` is the ordinary state of a client who has authored
+// nothing; `unreadable` is not, and the component says so rather than
+// offering to overwrite prose it could not show.
+const declaredErrors: ValidationError[] = []
+const declaredClasses: OutputClasses =
+  checkOutputClasses({ output_classes: configRow?.output_classes }, declaredErrors) ?? {}
+let specDocument: SpecDocument | null = null
+let specUnreadable = false
+if (configRow !== null) {
+  try {
+    const read = await readSpecDocument(env.CUSTOMER_CONFIG, instance)
+    if (read.kind === 'document') specDocument = read.doc
+    if (read.kind === 'unreadable') specUnreadable = true
+  } catch (err) {
+    // A key-space refusal (a slug outside the charset) or an R2 fault. Either
+    // way we could not read what is there, so the form must not offer to
+    // replace it.
+    console.error('advanced-settings: could not read the spec object for', instance, err)
+    specUnreadable = true
   }
 }
 
 const status = Astro.url.searchParams.get('status')
 type BannerStatus = { text: string; tone: 'success' | 'error' | 'info' }
 const STATUS_BANNERS: Record<string, BannerStatus> = {
-  applied: { text: 'Settings saved.', tone: 'success' },
+  // The customer.yaml form records a request and writes nothing; the banner
+  // says exactly that. It used to say "Settings saved." (#2089).
+  submitted: {
+    text: 'Change request recorded. Your Operator has not changed.',
+    tone: 'info',
+  },
   invalid: {
     text: 'Some fields failed validation. Correct the highlighted errors and resubmit.',
     tone: 'error',
@@ -113,11 +170,30 @@ const STATUS_BANNERS: Record<string, BannerStatus> = {
     tone: 'error',
   },
   no_config: {
-    text: 'No customer configuration is currently projected. Contact Captain.',
+    text: 'No configuration is currently available for this Operator. Contact SMD.',
     tone: 'error',
   },
   internal_error: {
-    text: 'A server error occurred while saving. Try again or contact Captain.',
+    text: 'A server error occurred while saving. Try again or contact SMD.',
+    tone: 'error',
+  },
+  // Output-shape statuses. Only `spec_saved` follows a write that was made and
+  // read back byte-identical.
+  spec_saved: { text: 'Output shape saved to your Operator.', tone: 'success' },
+  spec_invalid: {
+    text: 'The output shape was not saved. Check the lengths of what you wrote and resubmit.',
+    tone: 'error',
+  },
+  spec_no_classes: {
+    text: 'No output classes are set up for this Operator, so there is nothing to save.',
+    tone: 'error',
+  },
+  spec_unreadable: {
+    text: 'Your saved output shape could not be read, so it was not replaced. Contact SMD.',
+    tone: 'error',
+  },
+  spec_write_failed: {
+    text: 'The output shape could not be saved to your Operator. Nothing changed. Try again or contact SMD.',
     tone: 'error',
   },
 }
@@ -168,108 +244,84 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
             No configuration found
           </p>
           <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-            Your customer.yaml has not been projected yet. Contact Captain to provision the editor
-            surface.
+            This Operator's configuration is not available yet. Contact SMD.
           </p>
         </div>
       </section>
-    ) : projectionError !== null ? (
+    ) : projectionError ? (
       <section class="mt-10">
         <div class="border-[3px] border-[color:var(--ss-color-error)] p-8 md:p-12 text-center">
           <p class="font-body text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-error)]">
             Configuration error
           </p>
           <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-            The current configuration projection is invalid. Contact Captain.
-          </p>
-          <p class="mt-2 font-mono text-xs text-[color:var(--ss-color-text-muted)] break-all">
-            {projectionError}
+            The current configuration could not be read. Contact SMD.
           </p>
         </div>
       </section>
     ) : editable !== null && locked !== null ? (
-      <form method="POST" action="/api/portal/operator/settings/customer-yaml-update" class="mt-2">
-        <input type="hidden" name="instance" value={instance} />
-        <section class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
-          <h2 class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
-            Captain-managed identity
-          </h2>
-          <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <div>
-              <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
-                Customer ID
-              </dt>
-              <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
-                {locked.customer_id}
-              </dd>
-            </div>
-            <div>
-              <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
-                Vertical
-              </dt>
-              <dd class="text-[color:var(--ss-color-text-primary)]">{locked.vertical}</dd>
-            </div>
-            <div>
-              <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
-                Fly region
-              </dt>
-              <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
-                {locked.fly_region}
-              </dd>
-            </div>
-            <div>
-              <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
-                Model
-              </dt>
-              <dd class="font-mono text-[color:var(--ss-color-text-primary)]">{locked.model}</dd>
-            </div>
-            <div>
-              <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
-                Hermes ref
-              </dt>
-              <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
-                {locked.hermes_ref}
-              </dd>
-            </div>
-            <div>
-              <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
-                Machine
-              </dt>
-              <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
-                {locked.machine.size} / {locked.machine.memory_mb} MB
-              </dd>
-            </div>
-          </dl>
-          <p class="mt-4 text-xs text-[color:var(--ss-color-text-muted)]">
-            Captain-managed fields change only by Captain through the configs repo.
-          </p>
-        </section>
-
-        <PersonaFields personas={editable.personas} errors={[]} />
-        <EscalationFields escalation={editable.escalation} errors={[]} />
-        <BusinessHoursFields businessHours={editable.businessHours} errors={[]} />
-        <ConnectorsFields
-          connectors={editable.connectors}
-          tokenRefs={locked.connector_token_refs}
-          errors={[]}
+      <Fragment>
+        <OutputClassSpecs
+          instance={instance}
+          declared={declaredClasses}
+          current={specDocument}
+          unreadable={specUnreadable}
         />
-        <ScopeFields scope={editable.scope} errors={[]} />
 
-        <div class="mt-12 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end border-t-[3px] border-[color:var(--ss-color-text-primary)] pt-6">
-          <a
-            href={SETTINGS_LANDING_URL}
-            class="inline-flex items-center justify-center px-5 py-2 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-          >
-            Cancel
-          </a>
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center px-5 py-2 font-mono uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-          >
-            Save changes
-          </button>
-        </div>
-      </form>
+        <form
+          method="POST"
+          action="/api/portal/operator/settings/customer-yaml-update"
+          class="mt-2"
+        >
+          <input type="hidden" name="instance" value={instance} />
+          <section class="mt-10 border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+            <h2 class="font-mono text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              SMD-managed identity
+            </h2>
+            <dl class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div>
+                <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                  Operator ID
+                </dt>
+                <dd class="font-mono text-[color:var(--ss-color-text-primary)]">
+                  {locked.customer_id}
+                </dd>
+              </div>
+              {locked.vertical && (
+                <div>
+                  <dt class="font-mono uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)]">
+                    Vertical
+                  </dt>
+                  <dd class="text-[color:var(--ss-color-text-primary)]">{locked.vertical}</dd>
+                </div>
+              )}
+            </dl>
+            <p class="mt-4 text-xs text-[color:var(--ss-color-text-muted)]">
+              SMD-managed fields change only by SMD, through the configuration repository.
+            </p>
+          </section>
+
+          <PersonaFields personas={editable.personas} errors={[]} />
+          <EscalationFields escalation={editable.escalation} errors={[]} />
+          <BusinessHoursFields businessHours={editable.businessHours} errors={[]} />
+          <ConnectorsFields
+            connectors={editable.connectors}
+            tokenRefs={locked.connector_token_refs}
+            errors={[]}
+          />
+          <ScopeFields scope={editable.scope} errors={[]} />
+
+          <div class="mt-12 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end border-t-[3px] border-[color:var(--ss-color-text-primary)] pt-6">
+            <a
+              href={SETTINGS_LANDING_URL}
+              class="inline-flex h-11 items-center justify-center border-[3px] border-[color:var(--ss-color-text-primary)] px-5 font-body text-body font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]"
+            >
+              Cancel
+            </a>
+            <SubmitButton label="Submit change request" />
+          </div>
+        </form>
+      </Fragment>
     ) : null
   }
 </PortalShell>
