@@ -136,7 +136,34 @@ assert_build_source_is_current() {
   # A stale index reverting merged work is exactly the incident above, and it
   # presents as ordinary dirt. Report the paths — "dirty" alone sends people
   # looking for their own edits rather than at a damaged index.
-  dirty="$(git -C "${REPO_ROOT}" status --porcelain 2>/dev/null | head -20)"
+  #
+  # `.claude/` is excluded, and ONLY `.claude/`. It holds agent session markers
+  # and the worktrees themselves, so it is dirty in essentially every working
+  # checkout; it is in `.dockerignore` and no COPY in the Dockerfile names it,
+  # so it cannot reach the image this guard protects. On the guard's FIRST real
+  # use it refused a rebuild over a lone `parallel-isolation-required-<uuid>`
+  # marker (#2101). That matters more than the nuisance: a guard that trips on
+  # ordinary working conditions teaches people to reach for
+  # SS_ALLOW_DIVERGENT_SOURCE by reflex, and a reflexive bypass is worse than no
+  # guard — it is one everybody believes is protecting them while it is waved
+  # through unread. Reaching for the flag has to stay a decision.
+  #
+  # Narrow ON PURPOSE. The tempting widening is "exclude whatever .dockerignore
+  # excludes", which is wrong: an untracked source file elsewhere in the tree
+  # genuinely can change the image, and .dockerignore also excludes paths whose
+  # presence in git still matters. `.claude/` is the one directory that is
+  # session state by definition — the repo already treats it specially, since
+  # .claude/hooks/worktree-guard.mjs exempts it from the read-only primary rule
+  # for exactly this reason.
+  #
+  # The pattern anchors to porcelain's `XY ` prefix (two status chars plus a
+  # space) so it matches a top-level `.claude/` and not some nested
+  # `src/.claude/` that would be a genuine surprise worth refusing.
+  # `|| true` is load-bearing: grep exits 1 when it emits nothing, which under
+  # `set -euo pipefail` aborts the script on a CLEAN tree — the guard would kill
+  # every well-formed build while letting dirty ones through to the next check.
+  dirty="$(git -C "${REPO_ROOT}" status --porcelain 2>/dev/null | grep -v '^...\.claude/' || true)"
+  dirty="$(printf '%s' "${dirty}" | head -20)"
   if [ -n "${dirty}" ] && [ "${SS_ALLOW_DIVERGENT_SOURCE:-}" != "1" ]; then
     echo "${dirty}" >&2
     die "build source ${REPO_ROOT} has uncommitted changes (above). An image built from a \
