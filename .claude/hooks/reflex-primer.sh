@@ -164,11 +164,20 @@ staleness_block() {
     return 0
   fi
 
-  local lm rm_
-  lm=$(stat -f %m "$lock" 2>/dev/null || stat -c %Y "$lock" 2>/dev/null)
-  rm_=$(stat -f %m "$rec" 2>/dev/null || stat -c %Y "$rec" 2>/dev/null)
-  [ -n "$lm" ] && [ -n "$rm_" ] || return 0
-  [ "$((lm - rm_))" -gt 2 ] 2>/dev/null || return 0
+  # Cheap gate: is the lockfile newer than npm's install record?
+  #
+  # `find -newer` rather than `stat`, because stat's mtime flag is not
+  # portable and fails UNSAFELY. BSD spells it `stat -f %m`; GNU spells it
+  # `stat -c %Y`. Writing `stat -f %m ... || stat -c %Y ...` looks like a
+  # correct fallback and is not: on GNU, `-f` means "display filesystem
+  # status", so it SUCCEEDS with filesystem information instead of failing,
+  # the `||` branch never runs, and the arithmetic silently gives up. Caught
+  # by CI on 2026-07-31 after passing on macOS, which is the same
+  # works-on-my-machine failure this law is about.
+  #
+  # Over-triggering here is harmless: this only gates the content comparison
+  # below, which is what actually decides whether to speak.
+  [ -n "$(find "$lock" -newer "$rec" 2>/dev/null)" ] || return 0
 
   # mtime says stale. Confirm against content before speaking: compare only
   # packages present in BOTH files, and only flag version mismatches. Entries
