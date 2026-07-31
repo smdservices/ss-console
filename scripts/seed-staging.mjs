@@ -37,6 +37,9 @@ const DB_UUID = 'e14b1ad9-9f61-4435-bea9-e094af46a19f'
 
 const SEEDS = {
   1: 'scripts/seeds/staging-portal-access.sql',
+  // Tier 2 additionally requires the customer_configs row to be PROJECTED first
+  // (ADR 0012) — see the header of staging-operator-instance.sql.
+  2: 'scripts/seeds/staging-operator-instance.sql',
 }
 
 function wrangler(args, opts = {}) {
