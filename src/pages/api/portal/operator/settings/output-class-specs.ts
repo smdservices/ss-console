@@ -44,8 +44,15 @@ import {
   collectAuthoredBodies,
   readSpecDocument,
   writeSpecDocument,
+  SPEC_PROPERTIES,
   type SpecDocument,
 } from '../../../../../lib/operator/output-class-specs'
+import {
+  citationKey,
+  collectCitations,
+  promoteCorrection,
+  type CorrectionCitation,
+} from '../../../../../lib/portal/operator/voice-corrections'
 
 const OPERATOR_ROOT = '/portal/products/operator'
 
@@ -114,6 +121,71 @@ async function recordAttempt(
   }
 }
 
+/**
+ * Record each written class property as a promoted correction (#2091).
+ *
+ * PROMOTION IS THIS ACT. ADR 0083 §4 makes a correction an edit to an output
+ * class's property; this endpoint is where that edit is made, so this is where
+ * it is recorded — with the person axis, the priority, and the supersession
+ * chain that makes it restorable.
+ *
+ * THE PROMOTED BYTES ARE THE ADMINISTRATOR'S. `doc` was built from the form and
+ * hashed server-side; the citation contributes provenance only — what was said
+ * and where — and never a byte of the spec. An Operator's captured statement
+ * therefore cannot reach a spec file by any path here, only by a person reading
+ * it and choosing to write something.
+ *
+ * Best-effort, deliberately. The spec is already written and proven at this
+ * point. A failure to record its provenance must not turn a completed write
+ * into a reported failure — the caller would re-submit against a seat that
+ * already has the spec.
+ */
+async function recordPromotions(
+  auth: { userId: string; userEmail: string; entityId: string; customerSlug: string },
+  doc: SpecDocument,
+  addressed: readonly string[],
+  citations: Map<string, CorrectionCitation>,
+  specKey: string
+): Promise<void> {
+  for (const outputClass of addressed) {
+    const entry = doc.classes[outputClass]
+    if (!entry) continue
+    for (const property of SPEC_PROPERTIES) {
+      const written = entry[property]
+      if (!written) continue
+      const cited = citations.get(citationKey(outputClass, property)) ?? null
+      try {
+        await promoteCorrection(env.DB, {
+          entityId: auth.entityId,
+          customerSlug: auth.customerSlug,
+          outputClass,
+          specProperty: property,
+          // Firm-wide. The per-reviewer axis exists in the schema and has no
+          // authoring surface yet; inventing a reviewer here would be a
+          // fabricated scope, so the column stays honestly NULL.
+          reviewerUserId: null,
+          statement: cited?.statement ?? null,
+          statedBy: cited?.statedBy ?? null,
+          sourceRef: cited?.sourceRef ?? null,
+          origin: cited === null ? 'portal' : 'agent_capture',
+          priority: 0,
+          promotedByUserId: auth.userId,
+          promotedByEmail: auth.userEmail,
+          specKey,
+          // The digest computed over the bytes written, never a submitted one.
+          specSha256: written.sha256,
+        })
+      } catch (err) {
+        console.error(
+          'output-class-specs: failed to record correction promotion for',
+          `${auth.customerSlug}/${outputClass}.${property}`,
+          err
+        )
+      }
+    }
+  }
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   const form = await request.formData()
   const rawInstance = form.get('instance')
@@ -161,6 +233,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return redirectWithStatus(auth.customerSlug, 'spec_write_failed')
     }
 
+    await recordPromotions(auth, merged, classes, collectCitations(form, classes), written.key)
     await recordAttempt(auth, 'applied', {
       key: written.key,
       bodies: written.bodies,

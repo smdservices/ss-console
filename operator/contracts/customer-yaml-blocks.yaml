@@ -266,8 +266,10 @@ top_level:
       `config_export?section=relationship` seam (allow-listed — never returns the
       whole config.yaml). Informational only (ADR 0048 §2c): preferences never
       grant capability; entitlements stay in scope/escalation, enforced by
-      trust_ceiling.enforce(). Distinct from voice_corrections (§2d): style
-      corrections, not behavioral preferences.
+      trust_ceiling.enforce(). Distinct from an output class's authored style
+      property (ADR 0083 §2d): style is a class property, not a behavioral
+      preference. (The voice_corrections table this note used to name was
+      retired in #2091.)
   # ---- deliberately not wired (validated authoring affordances) ----
   addons:
     status: inert
