@@ -5,10 +5,13 @@
 -- DESTRUCTIVE. `operator_voice_corrections` is the console-side record of which
 -- corrections a Named Administrator promoted, by whom and when, and the
 -- supersession chain that makes a correction restorable. Dropping it destroys
--- that record. The promoted SPEC CONTENT survives — it lives in
+-- that record. The CURRENT spec content survives — it lives in
 -- `vaults/<slug>/output-classes.json` in R2 and on the seat — so the Operator's
--- behavior is unaffected by this rollback; what is lost is the account of how
--- that content came to be, which is the part a client was told is auditable.
+-- behavior is unaffected by this rollback. What is lost is the account of how
+-- that content came to be, which is the part a client was told is auditable,
+-- AND every SUPERSEDED body: `promoted_body` is the only place a replaced
+-- correction's text is kept, since R2 holds just the live document. After this
+-- drop, a correction can no longer be restored to a previous wording.
 --
 -- The seat-side capture is likewise untouched: `CORRECTION_PROPOSED` rows live
 -- in the per-customer append-only audit ledger, not here.

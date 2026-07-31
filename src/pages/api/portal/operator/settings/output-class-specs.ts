@@ -167,6 +167,11 @@ async function recordPromotions(
           statement: cited?.statement ?? null,
           statedBy: cited?.statedBy ?? null,
           sourceRef: cited?.sourceRef ?? null,
+          // The administrator's authored bytes — the same string the digest
+          // below covers — so a superseded correction can be shown back to a
+          // person and re-submitted. Never `cited.statement`, which is only
+          // ever read by a human and never becomes a spec.
+          promotedBody: written.body,
           origin: cited === null ? 'portal' : 'agent_capture',
           priority: 0,
           promotedByUserId: auth.userId,

@@ -23,6 +23,35 @@
 -- Handing the agent a console-write credential would reopen that, in service of
 -- a feature whose entire point is the opposite.
 --
+-- ============================================================================
+-- THE DECISION: TWO STORES, SPLIT ON THE TRUST BOUNDARY. DO NOT MERGE THEM.
+-- ============================================================================
+--
+-- This is a deliberate architectural choice, not an artifact of how the code
+-- grew. Stated here in full because the next person to read it will see two
+-- stores holding one concept and reach for the obvious simplification.
+--
+--   CAPTURE BELONGS WHERE THE AGENT IS, AND WHERE IT CANNOT ESCALATE.
+--   PROMOTION BELONGS WHERE THE HUMAN IS.
+--
+-- The seat store is not a fallback for a console store we could not reach. It
+-- is the stronger of the two: the capture ledger is owned by the broker uid and
+-- the agent uid cannot open it read-write at all, so "the agent cannot forge a
+-- promotion" is a filesystem fact rather than a property of a credential the
+-- agent holds and might leak. Moving capture into this database would replace
+-- that with a console-write credential in the agent's environment — weaker, and
+-- reopening the tenant-forgery hole ADR 0023 locked-decision #10 closed by
+-- stripping exactly such a key from the agent env in bootstrap.sh.
+--
+-- The console store is not a mirror of the seat store. It holds what the seat
+-- has no business holding: which human decided, when, over which class
+-- property, at what priority, replacing which earlier correction. Those are
+-- facts about a review, and a review happens here.
+--
+-- If a future change puts both halves in one place, the question to answer
+-- first is: can the agent write the store that promotion reads? If yes, the
+-- gap this design exists to hold is gone, and #2091 has been undone.
+--
 -- SO THE LIFECYCLE IS SPLIT ALONG THE TRUST BOUNDARY, WHICH IS WHERE IT WANTED
 -- TO BE ANYWAY:
 --
@@ -30,8 +59,17 @@
 --   row written through the uid-gated `correction_propose` broker verb. The
 --   agent uid cannot open that ledger for write, so the only path in is the
 --   broker — and the row it appends is one the broker built, not one the agent
---   handed it. Capture is already visible to the console over the existing
---   `audit_log` runtime-read kind, so this needed no new transport at all.
+--   handed it.
+--
+--   VISIBILITY IS AN OPEN GAP, NAMED SO IT IS NOT MISTAKEN FOR DONE. A capture
+--   rides the existing `audit_log` runtime-read kind, so it reaches the console
+--   with no new transport — but nothing yet PRESENTS it as a proposal awaiting
+--   a decision. A dedicated runtime-read kind in `hermes-smd-overlay`
+--   (`shared/runtime_read.py`) is a follow-up in that repo, owned by the team
+--   lead. Until it lands, an administrator can author a spec and cite a capture
+--   by hand; they cannot yet be SHOWN the queue of captures. No `(runtime)` row
+--   of #2091 is closed by this migration, and none should be marked met on the
+--   strength of it.
 --
 --   PROMOTION lives here. It is portal-authored: a Named Administrator decides,
 --   and the person axis (`reviewer_user_id`), the priority, and the restorable
@@ -62,19 +100,34 @@ CREATE TABLE IF NOT EXISTS operator_voice_corrections (
   -- firm-wide: a property that holds regardless of who is reviewing.
   reviewer_user_id  TEXT,
 
-  -- What was said, and where it was said. PROVENANCE, NOT CONTENT: `statement`
-  -- is the text the Operator captured from a conversation, kept so the human
-  -- deciding can read what was actually said. It is never the promoted bytes —
-  -- those are identified by `spec_key` + `spec_sha256` and live in R2 — and
-  -- nothing may derive a spec from this column. See the header.
+  -- TWO TEXTS, AND THE DIFFERENCE BETWEEN THEM IS THE SECURITY PROPERTY.
   --
-  -- NULL on a `portal` row: an administrator authoring directly stated nothing
-  -- to capture, and their content is the spec itself. An `agent_capture` row
-  -- without a statement would be a capture of nothing, so the CHECK below
-  -- refuses it rather than storing an empty witness.
+  -- `statement` is what was SAID — text the Operator captured from a
+  -- conversation, present on an `agent_capture` row. It is provenance a human
+  -- reads before deciding, and nothing may derive a spec from it. An
+  -- agent-originated byte never becomes a ceiling.
+  --
+  -- `promoted_body` is what a Named Administrator AUTHORED, and is the exact
+  -- bytes this console wrote to R2 and `spec_sha256` digests. Human-authored,
+  -- and therefore safe to keep and to re-offer for editing: restoring a
+  -- superseded correction means showing these bytes back to a person who
+  -- submits them again through the same reviewed form. It is never an
+  -- automatic rewrite, and nothing reads this column on the write path.
+  --
+  -- Separate columns are what let the guard be a rule rather than a judgement:
+  -- `statement` is never a byte source; `promoted_body` is only ever replayed
+  -- through a human. Merging them — "they are both just the correction text" —
+  -- collapses that distinction, and is the refactor this schema is arranged to
+  -- prevent.
+  --
+  -- `statement` is NULL on a `portal` row: an administrator authoring directly
+  -- stated nothing to capture, and their content is the spec itself. An
+  -- `agent_capture` row without a statement would be a capture of nothing, so
+  -- the CHECK below refuses it rather than storing an empty witness.
   statement         TEXT,
   stated_by         TEXT,
   source_ref        TEXT,
+  promoted_body     TEXT,
 
   -- Where the record came from. 'agent_capture' rows are witnessed statements;
   -- 'portal' rows are an administrator authoring directly, with no capture
@@ -103,7 +156,9 @@ CREATE TABLE IF NOT EXISTS operator_voice_corrections (
 
   -- A correction is an edit, so it must be restorable: the row that overrode
   -- this one. Set only alongside status='superseded' so the two cannot tell
-  -- different stories about the same row.
+  -- different stories about the same row. Restorable in the full sense —
+  -- `promoted_body` above keeps the superseded text, so the chain is a history
+  -- a person can read and re-submit, not just a list of ids.
   superseded_by     TEXT REFERENCES operator_voice_corrections(id),
 
   created_at        TEXT NOT NULL DEFAULT (datetime('now')),
@@ -113,14 +168,32 @@ CREATE TABLE IF NOT EXISTS operator_voice_corrections (
   -- records that something was said without recording what, which is worse than
   -- no row: a reviewer would have nothing to review and might promote anyway.
   CHECK (origin <> 'agent_capture' OR statement IS NOT NULL),
-  -- Promotion is all-or-nothing: a row claiming a promoter must carry the
-  -- evidence of the write, and a row carrying that evidence must be promoted.
-  -- This is the schema-level form of "no success state for a write that did
-  -- not happen".
+  -- Promotion is all-or-nothing: a row that was promoted must carry the whole
+  -- evidence of the write, and a row that was never promoted must carry none of
+  -- it. This is the schema-level form of "no success state for a write that did
+  -- not happen" — a `proposed` or `declined` row cannot borrow a digest and
+  -- look like something that reached a seat.
+  --
+  -- The live set is BOTH sides of the supersession, not just `promoted`. A
+  -- superseded row was promoted once; its promoter, key, digest and body are
+  -- history that stays true, and `promoted_body` in particular is the only copy
+  -- of the replaced text. Writing this as `status = 'promoted'` instead refuses
+  -- every supersession — caught by executing the migration rather than reading
+  -- it, which is the only way this class of error surfaces before production.
+  -- Counted, not ANDed. `(a IS NOT NULL AND b IS NOT NULL AND …)` is false when
+  -- only SOME of the evidence is present, so pairing it with the status leaves a
+  -- `proposed` row free to carry a stray digest — partial evidence, which is
+  -- exactly the shape that lets a row look more complete than it is. Requiring
+  -- the count to be all-six or none-at-all admits no middle.
   CHECK (
-    (status = 'promoted') =
-    (promoted_by_user_id IS NOT NULL AND promoted_at IS NOT NULL
-     AND spec_key IS NOT NULL AND spec_sha256 IS NOT NULL)
+    (
+      (promoted_by_user_id IS NOT NULL)
+      + (promoted_by_email IS NOT NULL)
+      + (promoted_at IS NOT NULL)
+      + (spec_key IS NOT NULL)
+      + (spec_sha256 IS NOT NULL)
+      + (promoted_body IS NOT NULL)
+    ) = (CASE WHEN status IN ('promoted', 'superseded') THEN 6 ELSE 0 END)
   )
 );
 

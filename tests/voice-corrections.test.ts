@@ -20,14 +20,24 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  createTestD1,
+  discoverNumericMigrations,
+  runMigrations,
+} from '@venturecrane/crane-test-harness'
+import type { D1Database } from '@cloudflare/workers-types'
 
 import {
   citationFieldName,
   citationKey,
   collectCitations,
+  promoteCorrection,
   type CorrectionProperty,
+  type PromoteCorrectionInput,
+  type VoiceCorrectionRow,
 } from '../src/lib/portal/operator/voice-corrections'
 import {
   buildSpecDocument,
@@ -38,6 +48,8 @@ import {
 function source(relative: string): string {
   return readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8')
 }
+
+const migrationsDir = resolve(process.cwd(), 'migrations')
 
 const CORRECTIONS_MODULE = source('../src/lib/portal/operator/voice-corrections.ts')
 const BROKER_CORRECTIONS = source('../operator/workspace_broker/corrections.py')
@@ -112,6 +124,37 @@ describe('no path from an agent-originated record to a spec file', () => {
     expect(ENDPOINT).not.toContain("form.get('sha256')")
     expect(ENDPOINT).not.toContain('sha256: form')
   })
+
+  it('promoted_body is the authored bytes and statement is the captured text', () => {
+    // The two texts stay apart at the one call site that writes both.
+    // `written.body` is what the administrator authored and the writer wrote;
+    // `cited.statement` is what the Operator heard. Wiring the latter into
+    // promotedBody would make captured text restorable AS A SPEC — the gap
+    // closing by a different door, and the reason these are separate columns.
+    expect(ENDPOINT).toContain('promotedBody: written.body')
+    expect(ENDPOINT).not.toContain('promotedBody: cited')
+    expect(ENDPOINT).toContain('statement: cited?.statement ?? null')
+  })
+
+  it('the split is written down as a decision, where the next reader will look', () => {
+    // A comment is not a guard, but an unexplained two-store design is the one
+    // most likely to be "simplified" into the single store this issue exists to
+    // avoid. The reasoning has to survive in the files themselves.
+    for (const text of [MIGRATION, CORRECTIONS_MODULE, BROKER_CORRECTIONS]) {
+      expect(text).toMatch(/capture belongs where the agent is/i)
+    }
+    expect(MIGRATION).toContain('DO NOT MERGE THEM')
+  })
+
+  it('the visibility gap is named rather than left looking complete', () => {
+    // The console can receive a capture on the existing audit_log kind, but
+    // nothing presents the queue yet. Saying so in the code is what keeps a
+    // (runtime) row from being ticked on the strength of the promotion half.
+    for (const text of [MIGRATION, CORRECTIONS_MODULE]) {
+      expect(text).toContain('runtime_read')
+    }
+    expect(MIGRATION).toMatch(/No `?\(runtime\)`? row/)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -173,31 +216,135 @@ describe('collectCitations', () => {
 // The store
 // ---------------------------------------------------------------------------
 
-describe('0102 schema', () => {
-  it('carries the four axes the correction lifecycle needs', () => {
+/**
+ * These RUN the migration rather than read it.
+ *
+ * An earlier draft asserted the constraints by string-matching the SQL, and
+ * passed against a CHECK that would have refused every supersession in
+ * production: `(status = 'promoted') = (evidence…)` is a biconditional, so
+ * flipping a row to `superseded` while it legitimately kept its promotion
+ * evidence raised IntegrityError. Reading SQL cannot catch that. Executing it
+ * caught it on the first try (`vfy_01KYWX7A2B65Q20391EEX16C83`).
+ */
+describe('0102 schema, executed', () => {
+  let db: D1Database
+
+  const PROMOTED: PromoteCorrectionInput = {
+    entityId: 'e1',
+    customerSlug: 'smd',
+    outputClass: 'client_email',
+    specProperty: 'voice',
+    reviewerUserId: null,
+    statement: null,
+    statedBy: null,
+    sourceRef: null,
+    promotedBody: 'Warm, brief, no legal jargon.',
+    origin: 'portal',
+    priority: 0,
+    promotedByUserId: 'u1',
+    promotedByEmail: 'admin@example.com',
+    specKey: 'vaults/smd/output-classes.json',
+    specSha256: 'a'.repeat(64),
+  }
+
+  async function rows(): Promise<VoiceCorrectionRow[]> {
+    const res = await db
+      .prepare('SELECT * FROM operator_voice_corrections ORDER BY created_at, id')
+      .all<VoiceCorrectionRow>()
+    return res.results ?? []
+  }
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+  })
+
+  it('carries the axes the correction lifecycle needs', async () => {
+    const columns = await db
+      .prepare(`PRAGMA table_info('operator_voice_corrections')`)
+      .all<{ name: string }>()
+    const names = new Set((columns.results ?? []).map((c) => c.name))
     for (const column of [
       'reviewer_user_id', // the person axis
       'output_class', // the audience axis, in ADR 0083's vocabulary
       'priority',
       'superseded_by', // a correction is an edit, so it is restorable
+      'statement', // what was heard
+      'promoted_body', // what was authored — deliberately not the same column
     ]) {
-      expect(MIGRATION).toContain(column)
+      expect(names).toContain(column)
     }
   })
 
-  it('refuses a promoted row that cannot name the write it claims', () => {
+  it('records a promotion with the digest of the bytes written', async () => {
+    const id = await promoteCorrection(db, PROMOTED)
+    const [row] = await rows()
+    expect(row.id).toBe(id)
+    expect(row.status).toBe('promoted')
+    expect(row.promoted_body).toBe('Warm, brief, no legal jargon.')
+    expect(row.spec_sha256).toBe('a'.repeat(64))
+    expect(row.statement).toBeNull()
+  })
+
+  it('supersedes the previous correction for the same scope, and keeps its text', async () => {
+    const first = await promoteCorrection(db, PROMOTED)
+    const second = await promoteCorrection(db, { ...PROMOTED, promotedBody: 'Warmer still.' })
+
+    const byId = new Map((await rows()).map((r) => [r.id, r]))
+    expect(byId.get(first)?.status).toBe('superseded')
+    expect(byId.get(first)?.superseded_by).toBe(second)
+    expect(byId.get(second)?.status).toBe('promoted')
+    // Restorable in the full sense: the replaced wording survives, because R2
+    // holds only the live document.
+    expect(byId.get(first)?.promoted_body).toBe('Warm, brief, no legal jargon.')
+  })
+
+  it('lets a per-reviewer correction coexist with the firm-wide one', async () => {
+    // SQLite's `=` does not match NULL against NULL, so a firm-wide correction
+    // (reviewer NULL) must be superseded by the longhand IS NULL branch — and a
+    // per-reviewer one must not touch it at all.
+    const firmWide = await promoteCorrection(db, PROMOTED)
+    await promoteCorrection(db, { ...PROMOTED, reviewerUserId: 'christa' })
+
+    const byId = new Map((await rows()).map((r) => [r.id, r]))
+    expect(byId.get(firmWide)?.status).toBe('promoted')
+  })
+
+  it('leaves a different class property alone', async () => {
+    const email = await promoteCorrection(db, PROMOTED)
+    await promoteCorrection(db, { ...PROMOTED, outputClass: 'digest' })
+    await promoteCorrection(db, { ...PROMOTED, specProperty: 'format' })
+
+    const byId = new Map((await rows()).map((r) => [r.id, r]))
+    expect(byId.get(email)?.status).toBe('promoted')
+  })
+
+  it('refuses a row that claims a promotion it cannot evidence', async () => {
     // The schema-level form of "no success state for a write that did not
-    // happen": promotion is all-or-nothing across promoter, time, key, digest.
-    expect(MIGRATION).toContain("(status = 'promoted') =")
-    expect(MIGRATION).toContain('spec_sha256 IS NOT NULL')
+    // happen" — a proposed row cannot borrow a digest and look like something
+    // that reached a seat.
+    await expect(
+      db
+        .prepare(
+          'INSERT INTO operator_voice_corrections ' +
+            '(id, entity_id, customer_slug, output_class, spec_property, origin, status, ' +
+            'spec_sha256, created_at) ' +
+            "VALUES ('x', 'e1', 'smd', 'client_email', 'voice', 'portal', 'proposed', 'abc', 't')"
+        )
+        .run()
+    ).rejects.toThrow()
   })
 
-  it('refuses a capture with no statement to review', () => {
-    expect(MIGRATION).toContain("CHECK (origin <> 'agent_capture' OR statement IS NOT NULL)")
-  })
-
-  it('ties superseded_by to the status that explains it', () => {
-    expect(MIGRATION).toContain("CHECK (superseded_by IS NULL OR status = 'superseded')")
+  it('refuses a capture with no statement to review', async () => {
+    await expect(
+      db
+        .prepare(
+          'INSERT INTO operator_voice_corrections ' +
+            '(id, entity_id, customer_slug, output_class, spec_property, origin, status, created_at) ' +
+            "VALUES ('y', 'e1', 'smd', 'client_email', 'voice', 'agent_capture', 'proposed', 't')"
+        )
+        .run()
+    ).rejects.toThrow()
   })
 
   it('has a manual-only rollback, outside the auto-applied directory', () => {

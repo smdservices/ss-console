@@ -8,12 +8,14 @@
  * owns the record of that edit — who made it, over which class property, and
  * which earlier correction it replaced.
  *
- * THE ONE INVARIANT THIS MODULE EXISTS TO HOLD. **No function here returns spec
- * bytes.** A correction row carries `statement` — text the Operator captured
- * from a conversation — and nothing in this file, or reachable from it, copies
- * that text toward a spec file. The promoted body is the text a Named
- * Administrator submitted on the form; `statement` is provenance a human reads
- * before deciding, never a payload anything acts on.
+ * THE ONE INVARIANT THIS MODULE EXISTS TO HOLD. **Nothing here turns captured
+ * text into spec bytes.** A row carries two texts and the difference between
+ * them is the whole property: `statement` is what the Operator heard a customer
+ * say, and is read by humans only; `promoted_body` is what a Named
+ * Administrator authored and this console already wrote to R2. Restoring a
+ * superseded correction replays `promoted_body` back to a person, who submits
+ * it again through the reviewed form — it is never an automatic rewrite, and
+ * `statement` is never a byte source under any path.
  *
  * That is not defensive habit. #2084 established that `read_file` is READ-class,
  * unfenced, and does not taint, so a spec the agent could write would be a
@@ -24,12 +26,27 @@
  * `tests/voice-corrections.test.ts` asserts the absence rather than trusting
  * this comment.
  *
- * WHERE CAPTURE LIVES. Not here. A captured correction is an append-only
- * `CORRECTION_PROPOSED` row in the seat's own audit ledger, written through the
- * uid-gated `correction_propose` broker verb (`operator/workspace_broker/`), and
- * read by the console over the existing `audit_log` runtime-read seam. The seat
- * has no write path to this database — see the 0102 migration header for why
- * that is deliberate rather than incidental.
+ * WHERE CAPTURE LIVES, AND WHY THAT IS A DECISION RATHER THAN A DETAIL. Not
+ * here. A captured correction is an append-only `CORRECTION_PROPOSED` row in the
+ * seat's own audit ledger, written through the uid-gated `correction_propose`
+ * broker verb (`operator/workspace_broker/corrections.py`).
+ *
+ * **Capture belongs where the agent is and cannot escalate; promotion belongs
+ * where the human is.** The seat ledger is broker-uid-owned and the agent cannot
+ * open it read-write, so "the agent cannot forge a promotion" is a filesystem
+ * fact rather than a property of a credential it holds and might leak. Moving
+ * capture into this database would mean putting a console-write credential in
+ * the agent's environment — strictly weaker, and reopening what ADR 0023
+ * locked-decision #10 closed by stripping exactly such a key in bootstrap.sh.
+ * Two stores is the design; one store is the regression. The full argument is in
+ * the header of `migrations/0102_operator_voice_corrections.sql`.
+ *
+ * OPEN GAP, NAMED SO IT IS NOT READ AS DONE. A capture reaches the console on
+ * the existing `audit_log` runtime-read kind, but nothing yet PRESENTS the queue
+ * of captures awaiting a decision. That needs a dedicated kind in
+ * `hermes-smd-overlay` (`shared/runtime_read.py`) — a follow-up in that repo.
+ * The promotion half below is complete; the visibility half is not, and no
+ * `(runtime)` row of #2091 is closed by this module.
  */
 
 /** The spec properties an output class carries. Mirrors SPEC_PROPERTIES. */
@@ -60,9 +77,12 @@ export interface VoiceCorrectionRow {
   output_class: string
   spec_property: CorrectionProperty
   reviewer_user_id: string | null
-  statement: string
+  /** What was heard. Human-read provenance; never a byte source. */
+  statement: string | null
   stated_by: string | null
   source_ref: string | null
+  /** What was authored and written. Replayed to a person, never applied. */
+  promoted_body: string | null
   origin: CorrectionOrigin
   priority: number
   status: CorrectionStatus
@@ -100,6 +120,13 @@ export interface PromoteCorrectionInput {
   statement: string | null
   statedBy: string | null
   sourceRef: string | null
+  /**
+   * The bytes that were written — the administrator's authored text, the same
+   * string `specSha256` digests. Kept so a superseded correction can be shown
+   * back to a person and re-submitted; the supersession chain is otherwise a
+   * list of ids recording that something changed without recording to what.
+   */
+  promotedBody: string
   origin: CorrectionOrigin
   priority: number
   promotedByUserId: string
@@ -137,9 +164,9 @@ export async function promoteCorrection(
     .prepare(
       'INSERT INTO operator_voice_corrections ' +
         '(id, entity_id, customer_slug, output_class, spec_property, reviewer_user_id, ' +
-        'statement, stated_by, source_ref, origin, priority, status, ' +
+        'statement, stated_by, source_ref, promoted_body, origin, priority, status, ' +
         'promoted_by_user_id, promoted_by_email, promoted_at, spec_key, spec_sha256, created_at) ' +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'promoted', ?, ?, ?, ?, ?, ?)"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'promoted', ?, ?, ?, ?, ?, ?)"
     )
     .bind(
       id,
@@ -151,6 +178,7 @@ export async function promoteCorrection(
       input.statement,
       input.statedBy,
       input.sourceRef,
+      input.promotedBody,
       input.origin,
       input.priority,
       input.promotedByUserId,

@@ -44,7 +44,17 @@ Per the "gone means gone" discipline in `CLAUDE.md`: a removal is complete when 
 | per-customer Cloudflare D1 (`hermes-{slug}-d1`, the migration's stated target) | `wrangler d1 list`                                                                       | **no such database exists** — the fleet was never provisioned (`vfy_01KYWTNX8A3JYPY08H6GSH8MZ8`) |
 | console D1 (`ss-console-db`)                                                   | `SELECT name FROM sqlite_master WHERE name LIKE '%correction%'`                          | empty (`vfy_01KYWTNZVVQY33J4XB1PP02NEZ`)                                                         |
 | seat volumes (`/opt/data`, all four deployed seats)                            | byte-level `grep -ral voice_corrections /opt/data`, with an `audit_log` positive control | no table on any seat (`vfy_01KYWTZGDRYTGZDJRHRNBW72SG`)                                          |
-| R2                                                                             | never a target — the migration addresses D1 only                                         | n/a                                                                                              |
+
+### Layers NOT probed from here
+
+Listed because a probe table that only shows what came back clean reads as a clean bill, and this one is not.
+
+- **R2 object contents.** A D1 migration creates no R2 object, so R2 was never a target of `0010` — but that is an argument, not a probe, and it is not the same as having looked. An attempt to enumerate objects (`wrangler r2 object list <bucket>`) produced a **false negative**: that subcommand does not exist in wrangler 4.107.1, the command errored, and grepping its error output for `correction` naturally found nothing. That non-result is discarded rather than recorded. `wrangler r2 bucket list` does work, and the four SMD buckets are `smd-customer-config`, `ss-operator-smd-skills`, `ss-ai-employee-smd-skills`, `ss-operator-scott-skills`; their keys were not enumerated.
+- **Preserved exports of decommissioned seats.** The `audit_export` / `memory_export` pull-before-destroy path (ss-console#1355) can have written per-customer state to storage outside these buckets. Not reachable from here.
+- **D1 backups / Logpush archives.** Cloudflare-side point-in-time copies of any database are not inspectable with the tooling available in this session.
+- **Local `--local` D1 state on other machines.** Any developer's wrangler local state is out of reach by definition.
+
+None of these is a likely home for a table whose migration never ran anywhere. They are unprobed, and are recorded as unprobed.
 
 One hit needed disposition rather than a clean bill: `hermes-smd` carries the string 21 times in `/opt/data/profiles/crane/state.db` and in ten session JSON files dated 2026-06-17. Enumerating that DB's schema (`grep -ao 'CREATE.TABLE.[a-z_]*'`) returns `compression_locks`, `messages`, `schema_version`, `sessions`, `sqlite_sequence`, `state_meta` — no `voice_corrections`. The occurrences are conversation text in the Hermes message store: an agent discussing the migration a month before it was retired. That is history, not a live artifact, and it is deliberately left alone.
 

@@ -15,6 +15,18 @@ channel surviving restarts, and an agent that could promote its own correction
 into a spec has exactly that one step removed. Promotion is portal-side, by a
 Named Administrator, and the promoted bytes are the ones **they** submit.
 
+WHY THE CAPTURE LIVES HERE AND NOT IN THE CONSOLE — A DECISION, NOT A
+WORKAROUND. **Capture belongs where the agent is and cannot escalate; promotion
+belongs where the human is.** This ledger is owned by the broker uid and the
+agent uid cannot open it read-write at all, so "the agent cannot forge a
+promotion" is a filesystem fact rather than a property of a credential the agent
+holds and might leak. Putting capture in the console database instead would mean
+giving the agent a console-write credential — strictly weaker, and reopening the
+tenant-forgery hole ADR 0023 locked-decision #10 closed by stripping exactly such
+a key from the agent env in ``bootstrap.sh``. The promotion half lives in
+``migrations/0102_operator_voice_corrections.sql``, whose header carries the full
+argument. Two stores is the design; collapsing them into one is the regression.
+
 WHY VALIDATION LIVES HERE AND NOT IN THE CALLER. The caller is the agent. A
 schema the agent enforces is a schema the agent can decline to enforce, so the
 broker re-derives the row from scratch: it reads a bounded set of fields off
