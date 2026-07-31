@@ -480,7 +480,19 @@ describe('Operator customer Machine Dockerfile', () => {
     // got their replies crossed onto the wrong thread), #199 the per-person
     // usage meter + usage_export runtime-read kind. overlayRef-only across
     // 23ff1575..12fea42 — no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="12fea42b68df71962662d05ab6a797d562391efa"')
+    // 7243d3a7 — the ADR 0083 W0′ seam (ss#2079): overlay#201 makes `seat` and
+    // `output_classes` live-writable, and pins `personas.*.tone` as NEVER
+    // live-writable. The tone entry is the load-bearing one and reads backwards
+    // at first glance: a merged persona register currently never reaches a seat
+    // at all, so making it live-writable looks like the fix. It is not. `tone`
+    // is rendered into SOUL.md by translate at BOOT and the config applier does
+    // not re-run translate, so a live apply would update the volume yaml, record
+    // APPLIED, and leave the agent's system prompt carrying the OLD register — a
+    // silent partial apply, worse than an honest rejection. The register instead
+    // lands on the next restart, via the unconditional boot fetch. Range also
+    // carries overlay#200 (reply relay only relays a draft that exists, once per
+    // inbound). overlayRef-only across 12fea42b..7243d3a — no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

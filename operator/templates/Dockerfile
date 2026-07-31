@@ -379,7 +379,14 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # message id (closes overlay#195, the wrong-thread reply race), #199 the
 # per-person usage meter + usage_export runtime-read kind. NONE of the 8
 # tracked twins changed (git-diff-verified 23ff1575..12fea42).
-ARG OVERLAY_REF="12fea42b68df71962662d05ab6a797d562391efa"
+# 2026-07-30: 12fea42b -> 7243d3a7 (ss#2079 W0′ seam, ADR 0083). overlay#201
+# makes `seat` and `output_classes` live-writable and pins `personas.*.tone` as
+# NEVER live-writable — tone is rendered into SOUL.md by translate at BOOT and
+# the applier does not re-run translate, so a live tone apply would report
+# APPLIED while the agent kept the old register. Also carries #200 (reply relay
+# only relays a draft that exists, once per inbound). NONE of the 8 tracked twins
+# changed (git-diff-verified 12fea42b..7243d3a). Superset of 12fea42b.
+ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"
 
 ARG CUSTOMER_SLUG=customer-zero
 
