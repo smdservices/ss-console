@@ -34,25 +34,33 @@
  *   — the attempt is itself a recorded compliance event.
  *
  * Git write-back:
- *   OUT OF SCOPE at v1. The configs-repo write path lands in a
- *   follow-on PR (ADR 0012 §2 + the issue's mention of "Validates
- *   against schema (#790) on save"). Until then, the audit log +
- *   validation pass are the load-bearing customer-side guarantees.
- *   The endpoint redirects with `?status=applied` when the merged
- *   YAML is structurally valid, even though no row was written.
- *   This is the right shape for the follow-on: the merger + the
- *   validator are the pieces that change last; the writer becomes
- *   the body of the conditional that today logs `applied`.
+ *   OUT OF SCOPE, and structurally so. `customer.yaml` is git-authoritative
+ *   (ADR 0012 §2) and auto-published to the seat's R2 object on merge by
+ *   `scripts/ci-publish-customer-configs.sh`; a portal write to that object
+ *   would be clobbered by the next unrelated merge to the same slug. So this
+ *   endpoint validates, records, and stops.
+ *
+ *   IT SAYS SO. It used to redirect with `?status=applied` when the merged
+ *   YAML was structurally valid, while the durable ledger honestly recorded
+ *   `submitted` — a success state for a write that never happened, in the
+ *   one place a client reads. It now redirects with `?status=submitted`, the
+ *   same word the ledger uses. When a writer lands, the writer's success is
+ *   what changes this word, not the validator's.
+ *
+ *   The class of configuration a client CAN change from the portal, and that
+ *   does reach their Machine, is the authored output-class spec: a different
+ *   key space with its own writer at
+ *   `/api/portal/operator/settings/output-class-specs` (ADR 0083).
  */
 
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
-import { getPortalClient } from '../../../../../lib/portal/session'
-import {
-  getOperatorSubscriptionByInstance,
-  listProductRoles,
-} from '../../../../../lib/portal/product-access'
 import { getCustomerConfigBySlug } from '../../../../../lib/portal/customer-config'
+import {
+  authorizeAdvancedSettings,
+  type AdvancedSettingsAuth,
+} from '../../../../../lib/portal/operator/advanced-settings-auth'
+import { reconstructFromProjection } from '../../../../../lib/portal/operator/customer-config-reconstruct'
 import {
   projectEditableConfig,
   resolveEditableConfigFromRow,
@@ -78,7 +86,6 @@ import {
   type ValidationError,
 } from '../../../../../lib/operator/customer-yaml'
 
-const PRODUCT_SLUG = 'operator'
 const OPERATOR_ROOT = '/portal/products/operator'
 
 /** The instance's advanced-config page (multi-operator). A null instance (a
@@ -244,33 +251,12 @@ function parseFormToConfig(
   }
 }
 
-interface AuthCtx {
-  userId: string
-  userEmail: string
-  customerId: string
-  customerSlug: string
-}
+type AuthCtx = AdvancedSettingsAuth
 
 async function authorize(locals: App.Locals, instance: string): Promise<Response | AuthCtx> {
-  const portalData = await getPortalClient(env.DB, locals)
-  if (!portalData) return redirectWithStatus(instance, 'forbidden')
-  if (!portalData.client) return redirectWithStatus(instance, 'forbidden')
-
-  const { user, client } = portalData
-
-  // Ownership guard: the addressed instance's config must belong to this client.
-  const config = await getCustomerConfigBySlug(env.DB, instance)
-  if (!config || config.entity_id !== client.id) return redirectWithStatus(instance, 'forbidden')
-
-  const subscription = await getOperatorSubscriptionByInstance(env.DB, client.id, instance)
-  if (!subscription) return redirectWithStatus(instance, 'forbidden')
-
-  const callerRoles = await listProductRoles(env.DB, user.id, client.id, PRODUCT_SLUG)
-  if (!callerRoles.includes('principal')) return redirectWithStatus(instance, 'forbidden')
-
-  // customerSlug is the real instance slug (not client.id — the pre-fix bug that
-  // stamped an entity id into the audit customer_id field).
-  return { userId: user.id, userEmail: user.email, customerId: client.id, customerSlug: instance }
+  const auth = await authorizeAdvancedSettings(env.DB, locals, instance)
+  if (auth === null) return redirectWithStatus(instance, 'forbidden')
+  return auth
 }
 
 async function resolveCurrentYaml(
@@ -283,57 +269,16 @@ async function resolveCurrentYaml(
 
   // Re-validate to produce a CustomerYaml for the merger (resolved.editable
   // is the editor-projection, not the full YAML the merger needs as
-  // `current`). The reconstruct→validate path is the same one
-  // `resolveEditableConfigFromRow` ran; this second pass surfaces the
-  // typed yaml the merger consumes.
-  const yamlResult = validate(reconstructProjection(row))
+  // `current`). Same reconstruction the resolver ran — one implementation,
+  // imported, not a second copy that drifts from it.
+  const yamlResult = validate(reconstructFromProjection(row))
   if (!yamlResult.ok) return redirectWithStatus(customerSlug, 'internal_error')
 
   return { current: yamlResult.value, editable: resolved.editable }
 }
 
-function reconstructProjection(row: Awaited<ReturnType<typeof getCustomerConfigBySlug>>): unknown {
-  if (row === null) return null
-  return {
-    schema_version: Number(row.schema_version),
-    customer_id: row.customer_slug,
-    customer_name: row.customer_slug,
-    vertical: 'mixed',
-    fly_region: 'iad',
-    model: 'unknown',
-    // The reconstructed projection has no real ref to point at (the DB row
-    // doesn't carry hermes_ref yet). v0.0.0@<40 zeros> is the unambiguous
-    // "no upstream pin yet" sentinel: it parses as a string but deliberately
-    // fails checkHermesRef (year is not 4 digits), so it surfaces as a
-    // validation error prompting the operator to set a real pin rather than
-    // silently shipping a fabricated version. Format per ADR 0024.
-    hermes_ref: 'v0.0.0@0000000000000000000000000000000000000000',
-    machine: { size: 'unknown', memory_mb: 256 },
-    users: [],
-    personas: row.personas,
-    connectors: row.connectors ?? {},
-    scope: row.scope ?? {
-      email_folders_visible: [],
-      email_folders_blind: [],
-      email_keyword_blocks: [],
-      domain_blocks: [],
-      matter_blocks: [],
-    },
-    escalation: row.escalation ?? { red_flag_recipients: [], failure_recipients: [] },
-    voice_library: row.voice_library ?? null,
-    business_hours: row.business_hours ?? null,
-    memory: {
-      d1_namespace: row.customer_slug,
-      r2_vault_path: `vaults/${row.customer_slug}/`,
-      vectorize_index: `hermes-${row.customer_slug}-vault`,
-      retention: null,
-    },
-  }
-}
-
 interface AuditArgs {
-  status: 'applied' | 'rejected'
-  customerId: string
+  status: 'submitted' | 'rejected'
   before: EditableCustomerConfig
   after: EditableCustomerConfig
   auth: AuthCtx
@@ -350,18 +295,18 @@ async function emitAudit(args: AuditArgs): Promise<void> {
   }
   await recordCustomerYamlUpdateAudit({
     status: args.status,
-    customer_id: args.customerId,
+    customer_id: args.auth.customerSlug,
     metadata: fullMetadata,
   })
 
   // Durable ledger (0099) — primary record; the tail-log line above is the
   // secondary sink. STATUS SEMANTICS, deliberately honest: this endpoint
-  // validates and acknowledges but git write-back is out of scope at v1, so
-  // a passing edit is recorded as 'submitted', never 'applied'. Nothing
-  // fabricates an applied state.
+  // validates and acknowledges but writes nothing, so a passing edit is
+  // recorded as 'submitted', never 'applied' — and, since #2089, that is the
+  // word the client is shown too. One vocabulary, one truth.
   try {
     await recordPortalActionEvent(env.DB, {
-      entity_id: args.auth.customerId,
+      entity_id: args.auth.entityId,
       customer_slug: args.auth.customerSlug,
       action_type: 'customer_yaml_update_submitted',
       actor_user_id: args.auth.userId,
@@ -369,7 +314,7 @@ async function emitAudit(args: AuditArgs): Promise<void> {
       actor_role: 'principal',
       source: 'portal',
       target: null,
-      status: args.status === 'applied' ? 'submitted' : 'rejected',
+      status: args.status,
       metadata: fullMetadata,
     })
   } catch (err) {
@@ -400,7 +345,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!result.ok) {
     await emitAudit({
       status: 'rejected',
-      customerId: auth.customerSlug,
       before,
       after: proposed,
       auth,
@@ -411,12 +355,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const after = projectEditableConfig(result.value).editable
   await emitAudit({
-    status: 'applied',
-    customerId: auth.customerSlug,
+    status: 'submitted',
     before,
     after,
     auth,
     errors: null,
   })
-  return redirectWithStatus(auth.customerSlug, 'applied')
+  // `submitted`, not `applied`. Nothing was written; see the Git write-back
+  // note in the header.
+  return redirectWithStatus(auth.customerSlug, 'submitted')
 }

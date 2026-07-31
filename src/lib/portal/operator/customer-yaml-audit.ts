@@ -42,9 +42,13 @@ export function buildAuditMetadata(
  * The audit fires even on validation failure — the attempt is itself
  * a recorded compliance event. Callers decide whether to emit on
  * failure (the route does, with `status: 'rejected'`).
+ *
+ * `submitted`, never `applied`: `customer.yaml` is git-authoritative and this
+ * endpoint writes nothing. The status vocabulary matches the durable ledger's
+ * (migration 0099) rather than describing an outcome that did not occur.
  */
 export async function recordCustomerYamlUpdateAudit(payload: {
-  status: 'applied' | 'rejected'
+  status: 'submitted' | 'rejected'
   customer_id: string
   metadata: CustomerYamlAuditMetadata
 }): Promise<void> {

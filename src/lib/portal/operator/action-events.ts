@@ -17,6 +17,10 @@ export type PortalActionType =
   | 'invite_sent'
   | 'customer_yaml_update_submitted'
   | 'connector_reconsent_requested'
+  /** An authored output-class spec written to the customer's vault (ADR 0083).
+   *  Unlike the customer.yaml submission beside it, this one really writes —
+   *  which is why it is the only console action that may carry 'applied'. */
+  | 'output_class_spec_authored'
 
 export interface RecordPortalActionEventInput {
   entity_id: string
@@ -27,8 +31,13 @@ export interface RecordPortalActionEventInput {
   actor_role: string
   source: 'portal' | 'admin'
   target: string | null
-  /** 'submitted' | 'rejected' for customer.yaml submissions; null otherwise. */
-  status: 'submitted' | 'rejected' | null
+  /**
+   * 'submitted' | 'rejected' for customer.yaml submissions (that endpoint
+   * writes nothing, so it never claims more); 'applied' | 'rejected' for
+   * output-class spec authoring, which does write and proves it; null
+   * otherwise.
+   */
+  status: 'submitted' | 'rejected' | 'applied' | null
   metadata: Record<string, unknown>
 }
 
