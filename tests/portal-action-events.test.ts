@@ -52,6 +52,7 @@ describe('portal_action_events ledger', () => {
     'invite_sent',
     'customer_yaml_update_submitted',
     'connector_reconsent_requested',
+    'output_class_spec_authored',
   ]
 
   it('round-trips every action type with actor attribution', async () => {
@@ -60,7 +61,12 @@ describe('portal_action_events ledger', () => {
         db,
         baseInput(t, {
           target: t === 'invite_sent' ? 'invitee@firm.example' : null,
-          status: t === 'customer_yaml_update_submitted' ? 'submitted' : null,
+          status:
+            t === 'customer_yaml_update_submitted'
+              ? 'submitted'
+              : t === 'output_class_spec_authored'
+                ? 'applied'
+                : null,
           metadata: { marker: t },
         })
       )
@@ -102,18 +108,35 @@ describe('portal_action_events ledger', () => {
     ).rejects.toThrow()
   })
 
-  it('CHECK constraint rejects an applied status (honest-status contract)', async () => {
-    // 'applied' is deliberately not in the vocabulary: the yaml endpoint
-    // applies nothing at v1, so nothing may record an applied state.
+  it('CHECK constraint rejects an unknown status', async () => {
     await expect(
       db
         .prepare(
           `INSERT INTO portal_action_events
              (id, entity_id, action_type, actor_user_id, actor_email, actor_role, source, status, metadata_json, created_at)
-           VALUES ('y', ?, 'customer_yaml_update_submitted', 'u', 'e@x.com', 'principal', 'portal', 'applied', '{}', ?)`
+           VALUES ('y', ?, 'customer_yaml_update_submitted', 'u', 'e@x.com', 'principal', 'portal', 'done', '{}', ?)`
         )
         .bind(ENTITY_ID, new Date().toISOString())
         .run()
     ).rejects.toThrow()
+  })
+
+  it('admits an applied status only because one action really writes (0101)', async () => {
+    // 0099 barred 'applied' outright, because the only writer-shaped endpoint
+    // at the time wrote nothing. The output-class spec writer does write — it
+    // puts the object in the customer's vault and reads it back byte-identical
+    // before claiming anything — so the vocabulary now has a word for that.
+    //
+    // The honest-status contract for customer.yaml did not move; it is now
+    // enforced where it belongs, in the endpoint, and asserted in
+    // tests/advanced-settings-surface.test.ts. A table-wide CHECK could never
+    // have expressed "this action may say applied and that one may not".
+    await recordPortalActionEvent(
+      db,
+      baseInput('output_class_spec_authored', { status: 'applied', metadata: { bodies: 2 } })
+    )
+    const rows = await listPortalActionEvents(db, ENTITY_ID)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('applied')
   })
 })
