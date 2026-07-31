@@ -24,3 +24,17 @@ test-results
 .env.*
 .dev.vars
 operator/.rendered
+
+# Python bytecode (ss-console #2083). Until now nothing under operator/ that
+# gets COPYed was ever executed locally, so no cache existed to leak. Shipping
+# operator/templates/drafting/ changes that: a developer running the gate checker
+# or its pytest suite leaves a __pycache__ in that tree, compiled by whichever
+# Python that machine has, and the COPY would carry it into a customer's image.
+#
+# Harmless in the narrow sense — a magic-number mismatch is ignored, and
+# drafting_gate_check.py is invoked as a script (`python3 <path>`) so its cache is
+# never consulted — but an image should carry what the repo says it carries and
+# nothing a developer left behind. `git ls-files operator/templates/drafting`
+# tracks zero .pyc files; the image should agree.
+**/__pycache__
+**/*.py[cod]

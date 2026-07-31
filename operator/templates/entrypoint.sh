@@ -44,6 +44,43 @@ if [ -f /opt/data/customer.yaml ] && [ ! -f "${LIVE_CUSTOMER_YAML}" ]; then
   mv /opt/data/customer.yaml "${LIVE_CUSTOMER_YAML}"
   log "migrated legacy /opt/data/customer.yaml -> ${LIVE_CUSTOMER_YAML} (keystone relocation)"
 fi
+# Validate a CANDIDATE customer.yaml before it becomes the live one, using the
+# SAME on-box validator the ADR 0044 live applier uses. Until ss #2082 the boot
+# fetch did a bare `cp` then `mv -f` with no check at all, and only the poller
+# validated. That asymmetry was survivable while the R2 object was written by
+# hand at provision time; auto-publish arms it. An object the poller REJECTS
+# stays in R2, and the next restart (a Fly migration, an OOM, an unrelated
+# redeploy) adopted it unvalidated, hours or days after the merge that put it
+# there and with nothing tying the crash to that merge.
+#
+# Structural validation ONLY. The applier's safety layer (config_applier.safety)
+# is deliberately NOT run here: it enforces live-apply transition rules, and the
+# rebuild-class fields it refuses on the live path (persona tone, vertical,
+# model) are precisely the ones a RESTART exists to deliver. Running it here
+# would refuse the changes this path is for.
+#
+# Exit 2 means the validator itself is unimportable. That is treated exactly
+# like an invalid config: a substrate we cannot check is not a substrate we
+# adopt from (the standing fail-closed posture, same as the invariant_7 gate
+# further down, which refuses boot on a missing module rather than skipping).
+validate_candidate_config() {
+  /opt/hermes/.venv/bin/python3 - "$1" <<'PY'
+import sys
+from pathlib import Path
+
+try:
+    from bootstrap.validate import validate_customer_yaml
+except Exception as exc:  # noqa: BLE001 - any import failure is a refusal
+    print(f"candidate config validator unimportable: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+errors = validate_customer_yaml(Path(sys.argv[1]))
+for err in errors:
+    print(f"  {err}", file=sys.stderr)
+raise SystemExit(1 if errors else 0)
+PY
+}
+
 _seed_endpoint="${R2_ENDPOINT_URL:-https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com}"
 if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
      AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:?}" \
@@ -52,13 +89,41 @@ if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
          --only-show-errors \
          "s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml" \
          "${LIVE_CUSTOMER_YAML}.r2.tmp"; then
+  _r2_fetched=1
+else
+  _r2_fetched=0
+fi
+
+_r2_usable=0
+if [ "${_r2_fetched}" -eq 1 ]; then
+  if validate_candidate_config "${LIVE_CUSTOMER_YAML}.r2.tmp"; then
+    _r2_usable=1
+  elif [ $? -eq 2 ]; then
+    log "WARN: cannot validate the R2 customer.yaml (validator unimportable); refusing to adopt it"
+  else
+    log "WARN: R2 customer.yaml REFUSED by the on-box validator (errors above); refusing to adopt it"
+  fi
+fi
+
+if [ "${_r2_usable}" -eq 1 ]; then
   mv -f "${LIVE_CUSTOMER_YAML}.r2.tmp" "${LIVE_CUSTOMER_YAML}"
   log "customer.yaml refreshed from R2 (source of truth) into ${CONFIG_DIR}"
 elif [ -f "${LIVE_CUSTOMER_YAML}" ]; then
+  # Fail-static: the Machine comes up on the config it was already serving. A
+  # bad publish costs the seat its update, never its uptime.
   rm -f "${LIVE_CUSTOMER_YAML}.r2.tmp" 2>/dev/null || true
-  log "WARN: R2 fetch failed; using existing root-owned customer.yaml"
+  if [ "${_r2_fetched}" -eq 1 ]; then
+    log "WARN: keeping the existing root-owned customer.yaml (the R2 object was not adopted)"
+  else
+    log "WARN: R2 fetch failed; using existing root-owned customer.yaml"
+  fi
 else
-  log "FATAL: customer.yaml not present and R2 fetch failed (${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG})"
+  rm -f "${LIVE_CUSTOMER_YAML}.r2.tmp" 2>/dev/null || true
+  if [ "${_r2_fetched}" -eq 1 ]; then
+    log "FATAL: no local customer.yaml and the R2 object was refused (${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}); nothing valid to boot on"
+  else
+    log "FATAL: customer.yaml not present and R2 fetch failed (${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG})"
+  fi
   exit 1
 fi
 # Root owns it; the agent reads (0644) but cannot write or rename it (the parent
