@@ -57,7 +57,7 @@ The Operator plane is described in full at `/admin/playbook/operator-platform`; 
 
 - **One Machine per customer.** Each customer gets a dedicated Fly.io Machine `hermes-{customer-slug}` running Hermes plus the overlay (per ADR 0007). There is no shared runtime. Cross-customer access is architecturally impossible, not merely denied in code.
 - **Per-Machine storage.** Each Machine carries its own D1, R2, and OAuth token volume, namespaced to that one customer. The customer's OAuth tokens live on the Machine's Fly volume, never in the console plane (per ADR 0010).
-- **Config flows console to Machine via R2.** The console authors `customer.yaml` and writes the live copy to the `CUSTOMER_CONFIG` R2 bucket at `vaults/<slug>/customer.yaml` with a byte-snapshot in `customers/<slug>/history/<digest>.yaml` (`src/lib/operator/apply-config.ts`; `wrangler.toml`, `CUSTOMER_CONFIG` block). The on-Machine root applier pulls the live key from R2 - R2 is the source of truth for live reconfiguration.
+- **Config flows to the Machine via R2, from two writers that never share a key.** `customer.yaml` is git-authoritative and published to `vaults/<slug>/customer.yaml` by CI on merge (`scripts/ci-publish-customer-configs.sh`); the console does not write it, because a portal write would be clobbered by the next unrelated merge to that slug. The customer's own authored voice and format specs go the other way, from the portal to `vaults/<slug>/output-classes.json` (`src/lib/operator/output-class-specs.ts`, ADR 0083) - prose a client edits, which no portal actor could put in git. Each writer is structurally barred from the other's key. The on-Machine root appliers pull both from R2 (`wrangler.toml`, `CUSTOMER_CONFIG` block).
 
 ## The seam between the planes
 

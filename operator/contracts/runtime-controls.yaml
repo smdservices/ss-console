@@ -155,6 +155,68 @@ controls:
       removes mechanism B, or the marker it waits on becomes permanently absent
       and every voice-authored seat freezes at draft silently.
 
+  spec_applier:
+    control: spec_applier
+    class: emitter
+    substrate_module: overlay:spec_applier/applier.py
+    # EMPTY BY NECESSITY, not by omission. `wired_via` names a hook in
+    # overlay-hook-surface.json, and this control has none: it is a ROOT process
+    # forked by entrypoint.sh, running outside the agent's dispatch path
+    # entirely — the same shape as config_applier, which for the same reason
+    # appears in no hook surface. Naming the fork site here would invent a hook
+    # that does not exist and break the surface cross-check. What it delivers IS
+    # reachable from a registered control: spec_read_mark, immediately below,
+    # consults the tree this installs.
+    wired_via: ''
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: '#2084'
+    note: >-
+      ss ADR 0083. Pulls the portal-written vaults/<slug>/output-classes.json,
+      verifies each body against its declared sha256, and installs a root-owned
+      spec tree plus a ROOT-COMPUTED manifest at ${SMD_SPEC_DIR}. Fail-static: a
+      malformed or hash-mismatched document installs nothing and the previously
+      installed tree keeps serving, because "refuse the update" and "remove the
+      spec" are different outcomes and only the first is ever right here — the
+      second would silently convert an authored class into an unauthored one.
+      UNPROBED, stated plainly: nothing yet demonstrates on a live seat that a
+      published spec arrives, that a rejected one is refused, or that the tree
+      survives a restart. Those are #2084's three runtime acceptance criteria and
+      they are proven by observation on hermes-ashton-price, not by this entry.
+      The structural half IS enforced at boot — spec_dir_ownership refuses to
+      serve a tree writable by the agent uid — which is a different guarantee
+      from "the poller works", and conflating them is what this registry exists
+      to prevent.
+
+  spec_read_mark:
+    control: spec_read_mark
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-trust/spec_gate.py
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: '#2084'
+    note: >-
+      ss ADR 0083. The enforcement half of the spec loader. Producer is the trust
+      plugin's EXISTING pre_tool_call (plugins/hermes-smd-trust/spec_read.py): a
+      read_file under ${SMD_SPEC_DIR} whose bytes still hash to the ROOT-OWNED
+      manifest marks shared.spec_status for that turn, cleared at every
+      pre_llm_call. Consumer fires at the same site as the voice gate, on an
+      allowed AUTONOMOUS send, and downgrades to draft when the class the send
+      belongs to declares output_classes.<class>.voice_spec: expected and the
+      spec was not read this turn. Verification is against the manifest and NEVER
+      against the SKILL.md stamp: profiles/<slug>/skills is hermes-owned, so an
+      agent could rewrite its own stamp and forge both the pointer and the hash —
+      the stamp is delivery, the manifest is enforcement, and a gate that trusted
+      the stamp would be self-certifying. BOUND NOWHERE TODAY: no customer.yaml
+      authors an output_classes block, so the gate returns None on every seat and
+      its live behaviour is unproven. It becomes probeable the moment a seat
+      declares a class expected, which is #2084's runtime AC.
+
   taint_gate:
     control: taint_gate
     class: dispatch-guard

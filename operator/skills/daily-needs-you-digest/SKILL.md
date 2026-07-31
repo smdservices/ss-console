@@ -186,7 +186,7 @@ Per `references/output-format.md`:
    event within `escalation.refire_days`) renders as a one-line pointer, not a
    full band entry, so the digest and the escalator do not double-hand the reader
    the same item (`references/output-format.md`).
-3. **Attach the training note.** Per `references/_shared-training-output.md` (pack
+3. **Attach the training note.** Per `operator/verticals/law-firm/addons/pi/references/_shared-training-output.md` (pack
    shared): a short note per item on what needs doing, why it matters (the governing
    rule where the owning step has one), which step owns it, and when to bring the
    attorney in. Short; explanatory, not advisory.

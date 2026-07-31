@@ -502,7 +502,27 @@ describe('Operator customer Machine Dockerfile', () => {
     // would claim it landed. The register instead arrives on the next restart,
     // via the unconditional boot fetch. overlayRef-only across 12fea42b..7243d3a
     // — no tracked twin moved; 711310f is 7243d3a's parent.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"')
+    // 151d1340 - the ADR 0083 spec loader (ss#2084): overlay#202 installs the
+    // customer's authored voice/format specs as a ROOT-OWNED tree and adds the
+    // per-turn read mark. The ownership is the load-bearing half: read_file is
+    // READ-class, unfenced, and does not taint the session, so a spec the agent
+    // could write would be a persistent, untainted, self-authored injection
+    // channel surviving restarts - the same self-loopback shape proven live on
+    // hermes-smd-staging 2026-06-15, answered then and now with ownership rather
+    // than policy. overlayRef-only across 7243d3a..151d134 - no tracked twin moved.
+    // d28f3713 - the defect the FIRST live spec install exposed (overlay#204,
+    // vfy_01KYWVR8PBBEP85W3F5SSNC9FD). mkdir(parents=True) creates intermediate
+    // dirs with 0o777 & ~umask and does not apply the caller's mode; the applier
+    // hardened spec_dir and the LEAF but not classes/, which kept root's 0o750.
+    // No world execute, so the agent could not TRAVERSE to a spec whose own mode
+    // was a correct 0644 - and since the gate passes only on a verified read,
+    // every staff autonomous send would have downgraded to draft permanently
+    // against a healthy-looking tree. The pre-existing mode test asserted
+    // classes==0755 and PASSED: the runner's umask is 0o022, under which the
+    // buggy code yields 0755 by accident. It measured the environment, not the
+    // code, which is why the replacement parametrises the umask.
+    // overlayRef-only across 151d134..d28f371 - no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d28f3713e0e00495adf1161f95ff48a8eab27138"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

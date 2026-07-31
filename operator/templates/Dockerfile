@@ -399,7 +399,28 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the unconditional boot fetch. NONE of the 8 tracked twins changed
 # (git-diff-verified 12fea42b..7243d3a; all 8 sha256 recomputed at 7243d3a and
 # identical). Superset of 711310ff — 711310f is 7243d3a's parent.
-ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"
+# 2026-07-31: 7243d3a7 -> 151d1340 (ss#2084 spec loader, ADR 0083). overlay#202
+# installs the customer's authored voice/format specs as a ROOT-OWNED tree and
+# adds the per-turn read mark that makes "the agent read its spec" checkable
+# rather than assumed. Root ownership is the point: read_file is READ-class,
+# unfenced, and does not taint, so an agent-writable spec would be a persistent
+# self-authored prompt-injection channel surviving restarts. NONE of the 8
+# tracked twins changed (git-diff-verified 7243d3a..151d134; all 8 sha256
+# recomputed and identical). Superset of 7243d3a7.
+# 2026-07-31b: 151d1340 -> d28f3713 (overlay#204, the defect the FIRST live
+# install of a spec exposed — vfy_01KYWVR8PBBEP85W3F5SSNC9FD). mkdir(parents=True)
+# creates intermediate dirs with 0o777 & ~umask and does not apply the caller's
+# mode to them; the applier hardened only spec_dir and the LEAF, so classes/ kept
+# root's 0o750 umask default. No world execute => the agent could not TRAVERSE to
+# a spec whose own mode was a correct 0644. Since the gate passes only on a
+# verified read, every staff autonomous send would have downgraded to draft
+# permanently, with a healthy-looking tree and no error anywhere. The pre-existing
+# test asserted classes==0755 and PASSED, because the runner's umask is 0o022 and
+# the buggy code yields 0755 under it — it measured the environment, not the code.
+# Touches spec_applier/applier.py + tests/test_spec_applier.py only — NOT tracked
+# twins (git-diff-verified 151d134..d28f371, zero intersection with pair
+# overlayPaths) — so every overlaySha256 is unchanged, only overlayRef.
+ARG OVERLAY_REF="d28f3713e0e00495adf1161f95ff48a8eab27138"
 
 ARG CUSTOMER_SLUG=customer-zero
 
