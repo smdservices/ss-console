@@ -128,6 +128,33 @@ controls:
       (registered-but-inert-on-live-turns). A negative-fire probe is Component 3
       of the harness, folded into the B3 design review.
 
+  voice_gate:
+    control: voice_gate
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-trust/voice_gate.py
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: '#2079'
+    note: >-
+      ADR 0028's outbound voice gate. Registered here BEFORE it is rewritten,
+      because its absence from this registry was itself an instance of the class
+      this registry exists to expose: a live, fail-closed control on the outbound
+      path that no ledger listed. It is wired (enforce.py invokes it on an
+      autonomous outside external_send) but unprobed — nothing demonstrates it
+      withholds on a live turn.
+      Its current pass condition is bound to mechanism B: it requires the
+      structural-diff transform to have run this turn, and binds only when
+      `voice_library` is non-empty — authored on all eight customer.yaml files.
+      Since no seat carries any transform samples, the gate is presently
+      DOWNGRADING every autonomous outside send to draft on every one of them,
+      fail-closed and correct but for a reason nobody chose. ADR 0083 repoints it
+      at output-class conformance; that rewrite MUST land in the same change that
+      removes mechanism B, or the marker it waits on becomes permanently absent
+      and every voice-authored seat freezes at draft silently.
+
   taint_gate:
     control: taint_gate
     class: dispatch-guard

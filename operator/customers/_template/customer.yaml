@@ -15,6 +15,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: '[FIRM-SLUG]'
 customer_name: '[LEGAL NAME]'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# Templates default to the MOST cautious kind: a seat nobody has relabelled is treated as if it holds a real client's data.
+seat:
+  kind: customer
+  product: operator
+
 # ADR 0022 Stream 1: vertical accepts either bare (legacy back-compat) or
 # pinned form (<vertical>@<semver>). Pin once the vertical pack ships at a
 # stable version. Bare form is fine for pre-launch customer-zero.

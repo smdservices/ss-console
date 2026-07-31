@@ -133,6 +133,40 @@ top_level:
       Governs ONLY the hermes-smd-reply relay; the autonomous/confirm send
       lane never consults it. Whole-block fail-closed on-box: any malformed
       field resolves the entire block to platform defaults.
+  seat:
+    status: inert
+    materializer: >-
+      console-side only — checkSeat (src/lib/operator/customer-yaml/sections-seat.ts)
+      validates kind/product, and customer-yaml-editor preserves the block verbatim
+      so a portal save cannot relabel a production seat.
+    note: >-
+      Authored NOW and wired later, deliberately. The descriptor answers "what is
+      this Operator" — a question nothing in the tree could answer, which produced
+      a live mislabel of hermes-ashton-price as a serving client seat when it was
+      provisioned, connected to nothing, and serving nobody. It carries kind and
+      product only; lifecycle state is DERIVED from probes and must never become a
+      field here (a state field is a claim an agent can write, and a claim an agent
+      can write is one that rots — see the persona `status: active` that reads the
+      same on all eight seats including _template). Consumers land in two follow-ons:
+      the git→R2 config publisher, where "does this seat carry a real firm's data"
+      decides blast radius, and the fleet roster's derived lifecycle state.
+  output_classes:
+    status: inert
+    materializer: >-
+      console-side only — checkOutputClasses
+      (src/lib/operator/customer-yaml/sections-output-classes.ts) validates the
+      per-class spec dispositions; operator/bin/tests/test_output_class_conformance.py
+      proves the class vocabulary agrees with operator/contracts/output-classes.yaml.
+    note: >-
+      ADR 0083. Declares, per output class, whether an authored voice/format spec is
+      EXPECTED. That one bit is what separates "the customer chose not to author here,
+      so persona judgment governs" from "a spec was promised and the sync is broken" —
+      states that are otherwise indistinguishable, where the second would silently
+      degrade to the first on an output the customer believes they shaped. The spec
+      CONTENT lives in the customer's own vault object, not here: it is prose they
+      edit through the portal, and a portal edit cannot reach git. Runtime consumer is
+      the spec loader in Contract A; until it lands, this block is authored and unread,
+      and saying so here is the point of this registry.
   voice_library:
     status: implemented
     materializer: bootstrap Step 2a (R2 voice-vault sync) + translate _persona_config (config.yaml)

@@ -66,6 +66,8 @@ import { checkGmailPush } from './sections-gmail-push'
 import { checkTelegram } from './sections-telegram'
 import { checkObservability } from './sections-observability'
 import { checkVoiceCohorts } from './sections-voice'
+import { checkSeat } from './sections-seat'
+import { checkOutputClasses } from './sections-output-classes'
 import { checkWebhookTriggers } from './sections-webhook-triggers'
 import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
 import { checkAddons } from './sections-addons'
@@ -244,6 +246,8 @@ interface ParsedSections {
   memory: Memory | null
   voiceLibrary: ReturnType<typeof checkVoiceLibrary>
   voiceCohorts: ReturnType<typeof checkVoiceCohorts>
+  seat: ReturnType<typeof checkSeat>
+  outputClasses: ReturnType<typeof checkOutputClasses>
   businessHours: ReturnType<typeof checkBusinessHours>
   digest: ReturnType<typeof checkDigest>
   logging: ReturnType<typeof checkLogging>
@@ -308,6 +312,8 @@ function validateSections(
     memory,
     voiceLibrary: checkVoiceLibrary(root, errors),
     voiceCohorts: checkVoiceCohorts(root, errors),
+    seat: checkSeat(root, errors),
+    outputClasses: checkOutputClasses(root, errors),
     businessHours: checkBusinessHours(root, errors),
     digest: checkDigest(root, errors),
     logging: checkLogging(root, errors),
@@ -348,6 +354,8 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     send_policy: p.sendPolicy,
     voice_library: p.voiceLibrary,
     voice_cohorts: p.voiceCohorts,
+    seat: p.seat,
+    output_classes: p.outputClasses,
     business_hours: p.businessHours,
     digest: p.digest,
     memory: p.memory as Memory,

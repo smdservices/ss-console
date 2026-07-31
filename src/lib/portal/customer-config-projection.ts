@@ -100,6 +100,10 @@ export function projectCustomerYamlToConfigRow(
     personas_json: JSON.stringify(personas),
     // Nullable opaque columns: serialize when present, else explicit null.
     voice_library_json: yaml.voice_library ? JSON.stringify(yaml.voice_library) : null,
+    // ADR 0083 seam blocks. NULL means unauthored — which for output_classes is a
+    // MEANINGFUL state (the customer declared nothing), not merely an absent one.
+    seat_json: yaml.seat ? JSON.stringify(yaml.seat) : null,
+    output_classes_json: yaml.output_classes ? JSON.stringify(yaml.output_classes) : null,
     escalation_json: yaml.escalation ? JSON.stringify(yaml.escalation) : null,
     business_hours_json: yaml.business_hours ? JSON.stringify(yaml.business_hours) : null,
     connectors_json: yaml.connectors ? JSON.stringify(yaml.connectors) : null,
@@ -141,6 +145,8 @@ const CONFIG_COLUMNS = [
   'schema_version',
   'personas_json',
   'voice_library_json',
+  'seat_json',
+  'output_classes_json',
   'escalation_json',
   'business_hours_json',
   'connectors_json',
@@ -178,6 +184,8 @@ export function buildProjectionSql(
     e(row.schema_version),
     e(row.personas_json),
     e(row.voice_library_json),
+    e(row.seat_json),
+    e(row.output_classes_json),
     e(row.escalation_json),
     e(row.business_hours_json),
     e(row.connectors_json),
