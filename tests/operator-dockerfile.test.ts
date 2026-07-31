@@ -522,7 +522,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // buggy code yields 0755 by accident. It measured the environment, not the
     // code, which is why the replacement parametrises the umask.
     // overlayRef-only across 151d134..d28f371 - no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d28f3713e0e00495adf1161f95ff48a8eab27138"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9cbc7ecf37f65ae77f3ce06a5791438100741468"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
