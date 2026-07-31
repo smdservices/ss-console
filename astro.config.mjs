@@ -33,6 +33,16 @@ export default defineConfig({
   vite: {
     ssr: { optimizeDeps: { exclude: ['@clerk/astro/components'] } },
     optimizeDeps: { exclude: ['@clerk/astro/components'] },
+    // Astro 7 / Vite 8 replaced esbuild's transform with Oxc. Oxc honors
+    // tsconfig's `jsx: "preserve"` (set by astro/tsconfigs/base) and so leaves
+    // JSX untransformed, which Rolldown then fails to parse. esbuild used to
+    // transform `.tsx` by extension regardless. src/lib/pdf/sow-template.tsx is
+    // our only JSX file (server-side SOW PDF rendering via @formepdf/react); it
+    // imports React and uses the classic runtime, so pin that here. Note the
+    // object form is required: `vite.oxc` extends Oxc's TransformOptions, whose
+    // `jsx` accepts only `'preserve' | JsxOptions` — the bare `'react'` string
+    // is valid on rolldown's InputOptions but rejected here.
+    oxc: { jsx: { runtime: 'classic' } },
     plugins: [tailwindcss()],
   },
 })
