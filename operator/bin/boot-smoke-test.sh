@@ -48,6 +48,32 @@ ssh_exec() {
   fi
 }
 
+ssh_exec_script() {
+  # As ssh_exec, but for a check that CONTAINS SINGLE QUOTES.
+  #
+  # ssh_exec wraps its command in `sh -c '...'`, so a check carrying a single
+  # quote closes the wrapper early and the remainder is mangled — silently, and
+  # presenting as a failed check rather than a broken one. The note above has
+  # kept every existing check quote-free, which works right up until a check
+  # genuinely needs a quoted string (an inline python program, say), at which
+  # point the constraint costs more than it saves.
+  #
+  # Base64 carries the program through both shell layers untouched: the encoded
+  # text contains no quotes at all, so nothing can collide. Decoded and run ON
+  # THE MACHINE, exactly as written here.
+  local step="$1"
+  shift
+  local cmd="$*"
+  local encoded
+  encoded="$(printf '%s' "${cmd}" | base64 | tr -d '\n')"
+  if fly ssh console -a "${APP_NAME}" \
+    --command "sh -c 'echo ${encoded} | base64 -d | sh'" >/dev/null 2>&1; then
+    pass "${step}"
+  else
+    fail "${step} — command failed: ${cmd}"
+  fi
+}
+
 # ---------- Step 1: wait for Machine state=started ----------
 log "Waiting for Machine state=started (up to 60s)..."
 ATTEMPT=0
@@ -156,6 +182,35 @@ ssh_exec "agent-state-owner-is-hermes" "[ \"\$(stat -c %U /opt/data/agent-state.
 # wraps this whole string in `sh -c '...'`, so a single-quoted `awk '{print $4}'`
 # would collide with the outer quote and mangle the command.
 ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | head -1); [ -n \"\$pid\" ] && ppid=\$(grep -m1 PPid /proc/\$pid/status | tr -dc 0-9) && [ \"\$(stat -c %U /proc/\$ppid)\" = root ]"
+
+# The check above proves the broker can be RESTARTED. It never opens the socket,
+# so it cannot tell a working broker from one whose socket is gone, whose parent
+# directory lost its setgid bit, or which is refusing every connection. A seat in
+# that state has no document surface at all and reports healthy on every signal
+# we watch — the same shape as the 2026-07-16 scheduler outage, which ran eight
+# days green because the check confirmed a process EXISTED rather than that it
+# WORKED.
+#
+# `health` is the right call to make: it sits ABOVE the broker's gateway-PID gate
+# (workspace_broker/server.py:282 vs :291), so any process may issue it, and it
+# reports whether the credential, customer, jobs and audit stores actually
+# loaded. Run as the AGENT uid, because "hermes can reach this socket" is the
+# property that matters — root reaching it proves nothing about the caller that
+# needs it.
+#
+# SCOPE IT HONESTLY: this proves the socket answers and the stores loaded. It
+# CANNOT prove the gateway can authorize a privileged verb, because only the
+# gateway process may make that call and this is not it. Claiming otherwise
+# would rebuild the blind spot one layer up.
+# The socket path is taken from the canonical default rather than the env, and
+# that is not laziness: a fresh `fly ssh console` session inherits NONE of the
+# app's environment (verified — SMD_WORKSPACE_BROKER_SOCKET is unset there),
+# while the entrypoint sets both the env var and this path from the same
+# constant. Reading the env here would make the check fail on every seat for a
+# reason that has nothing to do with the broker, which is worse than a path that
+# can drift. Same idiom as every other absolute path in this file. If the
+# entrypoint's SOCKET_PATH ever moves, this line moves with it.
+ssh_exec_script "broker-socket-answers-health" "setpriv --reuid=hermes --regid=hermes --init-groups /opt/hermes/.venv/bin/python3 -c \"import socket,os,json,sys; p=os.environ.get('SMD_WORKSPACE_BROKER_SOCKET') or '/run/smd-workspace-broker/broker.sock'; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(5); s.connect(p); s.sendall(b'{\\\"action\\\":\\\"health\\\"}'+bytes([10])); r=json.loads(s.recv(65536).decode()); sys.exit(0 if r.get('ok') and r.get('credential_ready') and r.get('customer_ready') else 1)\""
 
 # ---------- Step 12: /app governance artifacts are root-owned, not agent-writable (SEC-31) ----------
 # The activation-gate source the gateway:startup hook force-loads
