@@ -480,7 +480,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // got their replies crossed onto the wrong thread), #199 the per-person
     // usage meter + usage_export runtime-read kind. overlayRef-only across
     // 23ff1575..12fea42 — no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="12fea42b68df71962662d05ab6a797d562391efa"')
+    // 711310ff — overlay#200, the two defects the Phase-1 rehearsal exposed
+    // (vfy_01KYTG0B88R3B5K0D7FKPACRZT). A create_draft that FAILED still put
+    // mail in the client's inbox because the relay decided on the tool name
+    // alone, and the agent's retry sent the same answer again; the relay now
+    // requires a draft the tool confirmed plus one reply per inbound message
+    // id. And the relay's fabrication re-check ran without the provenance
+    // caption allowlist the drafting path passes, so a reply naming matters
+    // the agent had just read from Smokeball was blocked as
+    // fabrication:tier2_citation and dropped silently. overlayRef-only across
+    // 12fea42..711310f — no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="711310ff8fda36bcf7e824eac2e4173a7182109e"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
