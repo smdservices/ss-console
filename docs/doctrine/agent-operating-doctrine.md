@@ -222,6 +222,30 @@ The failure is scope, not honesty. A PR that defines done as the artifact it add
 
 The gate is deliberately narrow. The `/wired` skill tags each acceptance criterion with its layer, and `runtime-ac-proof` blocks a PR that marks a `(runtime)` criterion met without a `crane_verify` ID; repo-layer criteria still take a file:line, because that is the right evidence for code. It exists because the acceptance-criteria machinery otherwise certifies the author's own definition: `tick-acs-on-merge` parses the merging PR's own status table to tick the linked issue, and `unmet-ac-on-close` skips PR-driven closes, so a slice that declares itself met is what closes the epic (`vfy_01KYNVJ4VG90G26SZSYPXF05KY`).
 
+### Law 10: Your snapshot is not the system
+
+```yaml
+id: snapshot-not-system
+primer_line: 'Your snapshot is not the system. Tree state, branch lists, merged PRs, and installed dependencies decay within minutes of the briefing that reported them. Re-probe before acting on any of them.'
+cost: high
+tier: radar
+enforcement:
+  - .claude/hooks/reflex-primer.sh
+  - tests/staleness-detection.test.ts
+incidents:
+  - date: 2026-07-31
+    ref: concurrent-session churn (five sessions, 22 merges in 36 hours, each session repeatedly reporting it had been mistaken; a mid-day major-version migration left six of seven checkouts running a stale toolchain against new source, and the session investigating it watched a pid it had verified alive die, a lock count go from four to two, and a worktree change branch twice while the fix was being written)
+  - date: 2026-07-31
+    ref: 'provision-source-guard incident (#2095: the primary checkout sat behind carrying thirty staged entries that reverted a merged programme, and a reprovision from it exited zero, making every observation afterwards a true statement about the wrong artifact)'
+escalation: none pending
+```
+
+Law 5 requires that an observation exist. This one requires that it still be current. They are different failures: an agent can source a claim correctly, reason from it carefully, and still be wrong, because the thing it observed moved. That is why more diligence does not reach this and a deterministic surface does.
+
+Everything a session is briefed with is captured once, at session start: the tree snapshot in its context, the branch and worktree list, what had merged, what was installed. Under concurrency none of it survives contact. The mechanism that invalidates it is often another session's hook, acting on the shared tree on behalf of a session that started later. So the checks that matter cannot live at session start, which is exactly when every answer is still right; they run every turn, and they state the decay rather than the value.
+
+The enforcement is scoped to what is deterministically detectable: whether main has moved, whether the working tree changed against a per-session baseline, and whether installed dependencies content-differ from the lockfile. It is `radar` rather than `gate` because it detects and advises; nothing here can block a tool call, since the staleness is a property of the world, not of the change. The cost that keeps it honest is false positives. A line that is sometimes wrong and always loud teaches agents to skim past every law above it, so the dependency check gates on mtime and speaks only on content, and `session-peers.sh` reports peers as information without claiming detection.
+
 ---
 
 ## Mechanisms under review
@@ -230,7 +254,7 @@ The gate is deliberately narrow. The `/wired` skill tags each acceptance criteri
 mechanisms:
   - id: reflex-primer
     file: .claude/hooks/reflex-primer.sh
-    hypothesis: 'Always-on injection of the nine primer lines reduces judgment-class incidents (Laws 1, 3, 4, 8) that no deterministic gate can reach.'
+    hypothesis: 'Always-on injection of the ten primer lines reduces judgment-class incidents (Laws 1, 3, 4, 8) that no deterministic gate can reach.'
     success_criterion: 'Corrections attributable to Laws 1/3/4/8 captured at session close trend toward zero across the sessions between now and the review date.'
     review: 2026-09-30
     on_failure: 'Demote or redesign. A mechanism that cannot be demoted is ceremony.'
