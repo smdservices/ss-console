@@ -5,16 +5,18 @@ description: >
   action `direction: inbound|outbound`. INBOUND (discovery served on us): presents the
   response deadline for one-click responsible-attorney confirm, branch-aware to the firm's
   setup. If the court-rules engine (LawToolBox / Smokeball-InfoTrack) is active, it READS the
-  engine's date and surfaces it to confirm; if the firm computes by hand, it computes from
-  the capture-spec's grounded windows (30-day base plus service-method extension) and surfaces
-  that to confirm. Either way the date is never final without attorney confirmation and never
+  engine's date and surfaces it to confirm; if no engine is active it does NOT compute one -
+  it reports the inputs it read (service date, service method, discovery type, set, party),
+  states that no response deadline exists on the record, and names the governing sections
+  without applying them. A date is never final without attorney confirmation and never
   calendared silently. OUTBOUND (discovery we propound): records the opposing response deadline,
   watches it across open matters, and when the other side runs past due or answers thinly it
   surfaces which track applies (no/late-or-unverified response vs. a thin but verified response)
   and brings the decision to the attorney, coupled with a check that no extension is on file.
-  Never computes a deadline as final, never asserts "late" over a possible extension, never
-  asserts the compel statute or day-count, never invents a tool or a statute section, never
-  sends to another party, and never drafts or sends the meet-and-confer letter itself.
+  Never computes a deadline at all - not as final, not as a proposal - never asserts what day
+  of the week a date falls on, never asserts "late" over a possible extension, never asserts
+  the compel statute or day-count, never invents a tool or a statute section, never sends to
+  another party, and never drafts or sends the meet-and-confer letter itself.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -67,9 +69,22 @@ discovery deadline computation. Two things follow and the skill must hold both:
    date and surfaces it for confirmation. Recomputing it in parallel is a source of a
    second, possibly conflicting, number, and it is exactly the re-performance the lane
    forbids.
-2. **Where the firm computes by hand, the skill may compute from the grounded windows
-   in the capture-spec, but only as a proposal for attorney confirm** - calibrated on the
-   firm's real matters, always attorney-confirmed, and never calendared silently.
+2. **Where no engine is active, the skill does not compute either.** It captures and
+   surfaces the INPUTS a deadline is computed from - the service date and the service
+   method, read off the proof of service - states plainly that no response deadline
+   exists on the record, and names the governing sections so a person can set one. It
+   does not produce a date.
+
+   _Changed 2026-07-31, and this is the substantive reversal._ This branch previously
+   read "the skill may compute from the grounded windows... as a proposal for attorney
+   confirm." That proposal path produced every deadline defect found in the
+   2026-07-31 audit: two contradictory live events for one RFP set (2026-07-25 and
+   2026-07-27), a written assertion that "July 25 is a Friday" when it is a Saturday,
+   and duplicate pairs accumulating because each run recomputed rather than reading back
+   what it had already written. A "proposal" that is wrong about what day of the week a
+   date falls on is not a proposal; it is a guess wearing a hedge. The arithmetic is not
+   the hard part - the inputs and the liability are - and a certified engine that has
+   done nothing else since 1978 still declines to warrant its own output.
 
 Whether the engine is active is a **firm-configuration fact** settled at connect (the
 proposal's open question: "do you already use Smokeball's court-rules calendaring, the
@@ -114,30 +129,35 @@ number of the skill's own making. **If more than one event could be the discover
 deadline, or none can be identified with confidence, the skill does not guess - it fails
 closed to Shape D** and surfaces the ambiguity for a person.
 
-**Branch 2 - firm computes by hand.** Compute the deadline from the capture-spec's
-grounded windows and present it flagged "proposed, confirm":
+**Branch 2 - no engine active.** There is no computed date to read, and the skill does
+**not** make one. It surfaces the inputs and the gap:
 
-- **Base response window: 30 calendar days** from service, for interrogatories
-  (**CCP §2030.260**), requests for production (**CCP §2031.260**), and requests for
-  admission (**CCP §2033.250**).
-- **Service-method extension**, added to the base per the proof of service:
-  mail to a California address **+5 calendar days** (**CCP §1013(a)**); mail elsewhere in
-  the U.S. +10; mail outside the U.S. +20; overnight/express **+2 court days**
-  (**CCP §1013(c)**); electronic service **+2 court days** (**CCP §1010.6(a)(3)(B)**).
-- The skill does **not** implement the court-day calendar (weekend/holiday exclusion for
-  the +2-court-day methods); where court-day counting is required it shows the base date
-  and the extension and marks the court-day roll as **for the attorney/engine to
-  confirm**, rather than asserting a day it cannot count reliably.
-- **Final-day roll (CCP §2016.060) applies to EVERY discovery deadline, not only the
-  +2-court-day methods.** When the final computed date lands on a Saturday, Sunday, or
-  court holiday, it rolls to the next court day. Because the skill does not implement the
-  court/holiday calendar, it marks the final day **"confirm - rolls to the next court day
-  if on a weekend/holiday (§2016.060)"** on **both** the calendar-day mail methods
-  (+5 / +10 / +20) **and** the +2-court-day methods. A calendar-day mail extension is
-  **not** exempt from this roll; the skill flags the roll, it never computes the rolled day.
-- Local / department rules that shorten or add to the timeline are **not** applied until
-  A&P's venues are configured; where one might govern, it is surfaced as a flag, not
-  computed around.
+- **Report the inputs as read**, each traced to where it was read from: the **service
+  date** and the **service method** off the proof of service, the discovery type, the set
+  number, and the party served. Where the proof of service is blank or its method boxes
+  are unchecked, say exactly that - an unreadable proof of service is the finding, and it
+  is more useful than any date computed from a guess at it.
+- **State the gap plainly**: "no response deadline on the record for this set." That
+  sentence is the deliverable. A missing deadline the firm has not calendared is the
+  thing that actually hurts them, and surfacing it is worth more than supplying a number
+  they would have to check anyway.
+- **Name the governing sections without applying them** - 30 days from service for
+  interrogatories (**CCP §2030.260**), requests for production (**CCP §2031.260**), and
+  requests for admission (**CCP §2033.250**); service-method extensions under
+  **CCP §1013** and **CCP §1010.6(a)(3)(B)**; final-day roll under **CCP §2016.060**.
+  Pointing at the rule is not applying it. A person or the engine does the arithmetic.
+- **Never state or imply a resulting date**, and never assert what day of the week a date
+  falls on. Those are computations, whether or not the word "proposed" is attached.
+- Local / department rules are named as possibly governing, never applied.
+
+**Why this is not a capability regression.** The firm told us in writing they run no
+court-rules engine, so this branch is not an edge case here - it is every discovery
+deadline. Computing them was the largest liability the Operator carried and the source of
+its only provably wrong output. The gap-report is honest, is checkable in seconds, and
+points at the fix the firm actually asked for: activating the certified engine that turns
+this branch off (`REDUNDANCY-AUDIT.md`, and letter 04's "InfoTrak service confirmations
+should automatically trigger responsive pleading deadlines... this should not be a manual
+step").
 
 **Either branch, the invariants hold:** the date is presented for the responsible
 attorney to confirm; it is **never final without that confirm**; it is **never written to
@@ -355,10 +375,13 @@ refusal is a stalled deliverable and a full-context redraft — write it right
 the first time):
 
 - No em dashes anywhere, in any channel. Use commas, colons, or periods.
-- In email and task text, refer to the matter by its NUMBER (e.g.
-  2026-PI-101), never by its case caption. The matter's own caption is
-  acceptable inside matter memos; cited case law is never acceptable
-  anywhere.
+- In email and task text, refer to the matter by its NUMBER, taken ONLY from
+  the `matterNumber` field of a record you read this turn. Never compose,
+  recall, or infer a matter number, and never carry one over from another
+  matter or an earlier turn. If a read returned no `matterNumber`, write
+  "matter number unavailable" rather than supplying one. Never refer to the
+  matter by its case caption. The matter's own caption is acceptable inside
+  matter memos; cited case law is never acceptable anywhere.
 - State a specific dollar figure only when it exists in an authored source
   on the matter, and name that source in the same sentence ("per the MedFin
   payoff letter dated..."). Never total, estimate, or round figures into
