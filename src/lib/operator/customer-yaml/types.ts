@@ -1028,16 +1028,18 @@ export interface MachineSpec {
  *     (`trust_ceiling.enforce()`). A `prefers:` line that reads like an
  *     entitlement grant ("auto-send routine confirmations") changes nothing the
  *     agent is permitted to do — `enforce()` remains the only gate.
- *   - **Not the style lane (ADR 0048 §2d).** Greeting/sign-off/honorific/lexical
- *     STYLE corrections live in `voice_corrections` (migration 0010), read at
- *     transform time. This block must NOT duplicate them — keep it to behavioral
- *     working preferences (how someone likes to receive information, what they
- *     care about), not how a draft is phrased.
+ *   - **Not the style lane (ADR 0048 §2d).** STYLE is a property of an OUTPUT
+ *     CLASS (ADR 0083 §2-4), authored in `vaults/<slug>/output-classes.json`
+ *     and installed on the seat by the spec applier. This block must NOT
+ *     duplicate it — keep it to behavioral working preferences (how someone
+ *     likes to receive information, what they care about), not how a draft is
+ *     phrased. The `voice_corrections` table this note used to name was retired
+ *     in #2091.
  */
 export interface RelationshipPerson {
   /** Stable per-person key (kebab-case). Ideally matches the person's
-   * `voice_corrections.reviewer_user_id` so the style and authored lanes compose
-   * per-person on the relationship surface. */
+   * `operator_voice_corrections.reviewer_user_id` so the style and authored
+   * lanes compose per-person on the relationship surface. */
   id: string
   /** Display name shown to the Operator and on the relationship surface. */
   name: string
