@@ -107,10 +107,40 @@ interface Fixture {
 const fixtures: string[] = []
 
 function git(root: string, args: string[]): string {
-  return execFileSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', ...args], {
-    cwd: root,
-    encoding: 'utf8',
-  })
+  return execFileSync(
+    'git',
+    [
+      '-c',
+      'user.email=t@example.com',
+      '-c',
+      'user.name=t',
+      // Fixture repos must not inherit this repo's hooks: husky points
+      // core.hooksPath at .husky/, and it is inherited, so a fixture commit
+      // would run the real pre-commit hook against a temp dir with none of its
+      // tooling installed.
+      '-c',
+      'core.hooksPath=/dev/null',
+      ...args,
+    ],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      // The load-bearing half. `cwd` does NOT make a git invocation
+      // self-contained: GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE win over it,
+      // and git EXPORTS them to every hook it runs. So under `git push` these
+      // fixtures were committing into the parent repository's git dir rather
+      // than their own, and all eight assertions failed on a truncated
+      // "Command failed: git commit" that named neither the cause nor the repo.
+      //
+      // The tell was that they passed standalone and failed only inside a hook.
+      // A test whose result depends on who invoked it is measuring its
+      // environment rather than its subject; stripping GIT_* is what makes the
+      // fixture actually throwaway.
+      env: Object.fromEntries(
+        Object.entries({ ...process.env, HUSKY: '0' }).filter(([k]) => !k.startsWith('GIT_'))
+      ),
+    }
+  )
 }
 
 /**
@@ -182,8 +212,17 @@ interface RunResult {
 }
 
 function runPublisher(fx: Fixture, env: Record<string, string> = {}): RunResult {
+  // Strip GIT_* for the same reason the `git` helper above does, and it matters
+  // more here: the publisher's first act is a `git diff` of the push range, so
+  // an inherited GIT_DIR points it at the parent repository and it reports the
+  // real repo's changed files instead of the fixture's. `cwd` does not override
+  // those variables, and git exports them to every hook, which is why this only
+  // failed under `git push`.
+  const inherited = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))
+  ) as Record<string, string>
   const childEnv = {
-    ...process.env,
+    ...inherited,
     PATH: `${fx.binDir}:${process.env.PATH ?? ''}`,
     BEFORE_SHA: fx.before,
     AFTER_SHA: fx.after,
