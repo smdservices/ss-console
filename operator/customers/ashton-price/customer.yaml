@@ -617,6 +617,38 @@ scope:
   # not a fixed floor (ADR 0035). Recipient-locked replies to rostered senders are
   # governed by the roster above, not by this ceiling (ADR 0055 §3).
 
+# ---- REPLY-CHANNEL SEND POLICY (ss#2070) ----
+# Chris asked for something he can talk to. The platform default — 3 replies to
+# one sender per 10 minutes, hardcoded until #2070 — cuts a conversation off at
+# the fourth exchange and, before the auto-release landed, never resumed: the
+# Operator simply went quiet mid-thread with no notice to either side. On this
+# engagement that is the "one mistake" failure mode, not a missing feature.
+#
+# The roster above is domain-wide (`@ashtonandprice.com`), so everyone at the
+# firm classifies INTERNAL and is exempt from the per-sender window. What still
+# bounds the channel is the reply backstop: 60 replies an hour, every class
+# counted. Two people in a working conversation are nowhere near it; a stuck
+# loop trips it inside the hour instead of mailing the firm all day. Senders NOT
+# on the roster keep the tight platform caps, unchanged.
+#
+# Values are the settled platform decision (Captain, 2026-07-30), authored
+# identically on pilot-smokeball (#2076) and proven there before landing here:
+# leg 1 ran ten exchanges on one thread with zero rate holds
+# (vfy_01KYV9QEEEVB1H9G3YPMFYZJ5E). Held replies release automatically within
+# the TTL rather than being dropped.
+send_policy:
+  reply:
+    internal_exempt: true # the whole firm is rostered INTERNAL
+    per_sender_max: 3 # non-roster senders: platform default, unchanged
+    per_sender_window_seconds: 600
+    global_max: 20 # non-roster aggregate: platform default, unchanged
+    global_window_seconds: 3600
+    backstop_max: 60 # the runaway bound, all classes
+    backstop_window_seconds: 3600
+  held_release:
+    enabled: true
+    ttl_seconds: 86400
+
 # ---- ESCALATION ----
 
 # ---- BUSINESS HOURS ----
