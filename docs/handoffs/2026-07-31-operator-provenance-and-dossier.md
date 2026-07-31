@@ -4,20 +4,19 @@ Two workstreams ran today. One is finished and shipped. One is three-quarters do
 
 ---
 
-## FIRST: three things need your attention immediately
+## Where everything sits (resolved at /eos, 2026-07-31)
 
-**1. The overlay commit is on `main`.** `~/dev/hermes-smd-overlay`, commit `b02a26f`, 1 ahead of `origin/main`, **unpushed**. This violates the enterprise never-commit-to-main rule. It is recoverable exactly because it was not pushed. Move it to a branch before anything else:
+|                         |                                                                          |
+| ----------------------- | ------------------------------------------------------------------------ |
+| **engagements PR #13**  | **MERGED.** The source-of-truth work is on `main`.                       |
+| **ss-console PR #2115** | Open, CI running. The three Operator commits + this handoff + the audit. |
+| **overlay PR #208**     | Open, CI running. The identifier-filter fix.                             |
 
-```
-cd ~/dev/hermes-smd-overlay
-git branch fix/identifier-filter-matter-numbers
-git reset --hard origin/main
-git checkout fix/identifier-filter-matter-numbers
-```
+All three repos clean, nothing unpushed, nothing local-only.
 
-**2. `origin/main` in ss-console is 13 commits ahead of this worktree.** Anything you were briefed on predates them. Fetch and rebase before building.
+**One thing to know:** the overlay commit was briefly made on `main` — a rule violation. It was moved to `fix/identifier-filter-matter-numbers` and `main` was reset to `origin/main` before any push, so nothing reached the remote's main. Recorded because it happened, not because it needs action.
 
-**3. Nothing in ss-console or the overlay is pushed.** Only the engagements work is.
+**Before you build:** `origin/main` in ss-console was 13 commits ahead of this worktree at session end. Fetch and rebase; anything you were briefed on predates those.
 
 ---
 
@@ -44,19 +43,19 @@ git checkout fix/identifier-filter-matter-numbers
 
 ---
 
-## Workstream B — Operator emits only what it read. 3 of 4 done, UNPUSHED.
+## Workstream B — Operator emits only what it read. 3 of 4 done, in PR #2115 + #208.
 
 **The product defect, concretely.** On 2026-07-30 the Operator emailed the firm: _"matter 2026-PI-107 — RFP and SROG confirm tasks."_ Those tasks belong to **2026-PI-106** (Bell v. R&J Construction). 2026-PI-107 is a different case with a different client. A lawyer reading that goes to the wrong file.
 
 **Full audit:** `docs/audits/operator-output-provenance-2026-07-31.md` (committed in this worktree). Headline: **0 of 204 catalogued output fields are projected from a record; 204 are composed by the model.** No renderer exists anywhere.
 
-### Done (ss-console worktree `worktree-sos-2026-07-31`, 3 commits, unpushed)
+### Done (ss-console PR #2115)
 
 - **`0a933688`** — the Operator no longer computes discovery deadlines. `discovery-response-tracker` Branch 2 now reports the inputs and the gap instead of producing a date. **Two fixtures that taught the defect were inverted with it** — one required the model to assert "2026-08-15 is a Saturday", and in production it made exactly that kind of assertion and got it wrong.
 - **`614e88ac`** — the matter number comes from the record. Connector attaches `matterNumber`/`matterCaption` to tasks and events; 37 skills cite the field instead of composing. **These two halves must ship together**: skills reach a seat via git→R2→volume, the connector only via image rebuild (`Dockerfile:623`). Wrong order prints "matter number unavailable" on every line.
 - **`61eaf39b`** — a write may not name a matter other than the one it lands on. `create_memo` / `create_task` / `create_event` refuse it. Also stamps `[Operator]` into content, because Smokeball records every write under the OAuth-consenting human and content is the only channel that reaches a human reading the matter.
 
-### Done (overlay, commit `b02a26f`, ON MAIN — move it)
+### Done (overlay PR #208)
 
 - The identifier gate could not see a matter number **at all**. `2026-PI-107` → no hit. Every `IDENTIFIER_UNVERIFIED` row showed only date shapes, reading as "no problems" when it meant "blind to this firm's identifiers." Now visible. **Still report-only** per the documented tune-on-traffic discipline in `plugins/hermes-smd-trust/outbound.py` — do not flip that without measuring false positives.
 
