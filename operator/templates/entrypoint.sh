@@ -298,6 +298,59 @@ export HOME=/opt/data
 export SMD_APPLIER_VOLUME_PATH="${LIVE_CUSTOMER_YAML}"
 export SMD_CUSTOMER_YAML_PATH="${LIVE_CUSTOMER_YAML}"
 
+# Authored-spec tree (ss ADR 0083, #2084). The customer's per-output-class voice
+# and format specifications, installed ROOT-OWNED under the same root-owned
+# ${CONFIG_DIR} as customer.yaml, for the same reason and by the same argument.
+#
+# WHY ROOT, restated because it is the item this change exists for: `read_file`
+# is a READ-class tool — unfenced, and it does not taint the session. A spec the
+# agent could WRITE would therefore be a persistent, untainted, self-authored
+# prompt-injection channel that survives restarts: strictly worse than a tainted
+# inbound email, which at least fences the turn. That is the same self-loopback
+# this file's keystone comment above records being proven live on
+# hermes-smd-staging 2026-06-15, where one `sed` against an agent-writable config
+# flipped external_send from draft_for_review to autonomous. The fix then was
+# root ownership rather than policy, and it is root ownership here.
+#
+# 0755 dir / 0644 files: the agent MUST read these (an unread spec fails its
+# send gate) and must never write them. The boot invariant below refuses to
+# serve if that asymmetry does not hold on disk.
+SPEC_DIR="${CONFIG_DIR}/specs"
+export SMD_SPEC_DIR="${SPEC_DIR}"
+mkdir -p "${SPEC_DIR}"
+chown root:root "${SPEC_DIR}"
+chmod 0755 "${SPEC_DIR}"
+
+# Boot fetch, synchronous and BEFORE the privilege drop. The poller further down
+# would install the same tree seconds later, which is too late: bootstrap.sh runs
+# translate.py right after the drop, and translate renders each profile's
+# SKILL.md spec POINTER from the installed manifest. Fetch-then-stamp, or the
+# first boot stamps nothing and the agent cannot find the spec it is gated on.
+#
+# Never fatal. A missing vault object is the ordinary state of a seat whose
+# customer has authored nothing; a refused document leaves the previously
+# installed tree standing (fail-static). An un-adoptable spec must not cost the
+# seat its uptime — the runtime gate, not the boot, decides whether an output
+# whose declared spec never arrived may be produced.
+if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
+   && /opt/hermes/.venv/bin/python -c "import spec_applier" 2>/dev/null; then
+  if /opt/hermes/.venv/bin/python -m spec_applier --once; then
+    log "authored-spec boot fetch complete (${SPEC_DIR})"
+  else
+    log "WARN: authored-spec boot fetch exited non-zero; keeping the installed spec tree"
+  fi
+else
+  log "Authored-spec boot fetch NOT run (R2 config creds absent, or spec_applier not in this overlay)"
+fi
+
+# Re-assert ownership after the fetch. The applier hardens each file it writes,
+# but asserting here too means a tree left behind by an OLDER overlay build — one
+# whose applier predates the hardening — is corrected on this boot rather than
+# tripping the invariant below and refusing an otherwise healthy Machine.
+chown -R root:root "${SPEC_DIR}"
+find "${SPEC_DIR}" -type d -exec chmod 0755 {} +
+find "${SPEC_DIR}" -type f -exec chmod 0644 {} +
+
 log "Workspace broker started as uid $(id -u workspace-broker); dropping gateway to hermes"
 
 # Root-side config applier (ADR 0044 live reconfiguration). Forked here as a
@@ -333,6 +386,31 @@ if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
   log "Root config applier launched (uid 0; polls R2 for live customer.yaml changes)"
 else
   log "Root config applier NOT launched (R2 config creds absent, or config_applier not in this overlay)"
+fi
+
+# Root-side authored-spec applier (ss ADR 0083 #2084). Same shape, same
+# principal, same respawn discipline as the config applier above, and forked at
+# the same point for the same reason: it must survive the exec-drop below and
+# keep uid 0, because root is the only principal that may write ${SPEC_DIR}.
+# It polls the portal-written vault object and installs a verified, root-owned
+# spec tree, so a customer's correction reaches the running Machine without a
+# reboot — the runtime read of a spec is a plain file read, so a replaced body
+# takes effect on the next read with nothing baked into a running process.
+#
+# Two writers, two key spaces, never the same object: the git->R2 publisher owns
+# vaults/<slug>/customer.yaml, the portal owns vaults/<slug>/output-classes.json.
+# A dead applier never blocks the gateway — fail-static, not fail-open: spec
+# updates simply stop arriving and the installed tree keeps serving.
+if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
+   && /opt/hermes/.venv/bin/python -c "import spec_applier" 2>/dev/null; then
+  ( while true; do
+      /opt/hermes/.venv/bin/python -m spec_applier || true
+      log "spec applier exited; restarting in 5s"
+      sleep 5
+    done ) &
+  log "Root authored-spec applier launched (uid 0; polls R2 for live spec changes)"
+else
+  log "Root authored-spec applier NOT launched (R2 config creds absent, or spec_applier not in this overlay)"
 fi
 
 # MCP channel cross-process result/thread store (shared/mcp_result_store.py +
@@ -395,6 +473,38 @@ if /opt/hermes/.venv/bin/python3 "${INVARIANT7_BOOT_CHECK}"; then
   log "Cross-machine isolation boot check PASSED (ADR 0009 / SEC-22)"
 else
   log "FATAL: INVARIANT_BOOT_CHECK_FAILED — cross-machine isolation boot check refused boot (ADR 0009 / SEC-22); see stderr for the offending binding or a module import error (both fail closed)"
+  exit 3
+fi
+
+# ============================================================================
+# ss ADR 0083 / #2084 — authored-spec tree ownership boot check (fail-closed)
+# ============================================================================
+# The second root gate before the privilege drop. Verify that ${SMD_SPEC_DIR}
+# and everything under it is NOT writable by the hermes uid, and that nothing in
+# it symlinks out of the tree.
+#
+# WHY IT REFUSES BOOT rather than warning. An authored spec enters the drafting
+# context by being READ, and `read_file` is READ-class: unfenced, always allowed,
+# and it does not taint the session. A spec the agent can WRITE is therefore a
+# persistent, untainted, self-authored instruction channel surviving restarts —
+# worse than a tainted inbound email, which at least fences its turn. This is the
+# same self-loopback shape the keystone comment at the top of this file records
+# from hermes-smd-staging 2026-06-15, and it got the same answer: root ownership,
+# structurally enforced, not a policy anyone has to remember.
+#
+# An ABSENT spec dir PASSES — no spec installed means nothing to author and
+# nothing any consumer reads. Same fail-closed posture as the invariant_7 gate
+# above: a missing or unimportable module is itself a refusal (exit 3), never a
+# silent skip.
+SPEC_OWNERSHIP_CHECK="/app/safety-substrate/invariants/spec_dir_ownership.py"
+if [ ! -f "${SPEC_OWNERSHIP_CHECK}" ]; then
+  log "FATAL: authored-spec ownership boot check module missing (${SPEC_OWNERSHIP_CHECK}); refusing to boot (ss ADR 0083)"
+  exit 3
+fi
+if /opt/hermes/.venv/bin/python3 "${SPEC_OWNERSHIP_CHECK}"; then
+  log "Authored-spec tree ownership check PASSED (ss ADR 0083)"
+else
+  log "FATAL: SPEC_DIR_OWNERSHIP_CHECK_FAILED — the authored-spec tree is writable by the agent uid, or reaches outside itself; refusing to boot (ss ADR 0083); see stderr for the offending paths"
   exit 3
 fi
 

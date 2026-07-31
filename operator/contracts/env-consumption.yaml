@@ -103,6 +103,25 @@ vars:
     agent_env: held
     custody: infra
     note: local voice-vault dir set by bootstrap Step 2a; the voice plugin reads samples from here so the agent holds NO R2 credential (OP-P0-2)
+  SMD_SPEC_DIR:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      ss ADR 0083 / #2084. Root-owned directory holding the customer's authored
+      per-output-class specs plus root's manifest of them, set by entrypoint.sh to
+      ${CONFIG_DIR}/specs and installed by the spec_applier before the privilege
+      drop. Held (not stripped) because the agent MUST read it: the trust plugin
+      marks a verified spec read from it and the read-mark is what an expected-spec
+      send gate consults. Reading is the ONLY access the agent has — the dir is
+      root:root 0755 / files 0644 and the spec_dir_ownership boot check refuses to
+      serve if that ever stops being true, because read_file is unfenced and does
+      not taint, so an agent-WRITABLE spec would be a persistent, untainted,
+      self-authored prompt-injection channel surviving restarts. custody: infra —
+      the value is a path this operator chooses, not customer material; the
+      customer's authored prose lives at the path, delivered through the R2 vault
+      object under the operator's own credential.
   R2_SKILL_BODIES_ACCESS_KEY_ID:
     stage: agent
     requirement: optional
