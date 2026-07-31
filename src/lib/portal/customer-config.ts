@@ -109,6 +109,19 @@ export interface CustomerConfigRow {
   schema_version: string
   personas: PersonaConfig[]
   voice_library: unknown
+  /**
+   * What the seat IS — `{kind, product}` — or null when unauthored (ADR 0083).
+   * Carries no lifecycle state by construction: whether a seat is connected or
+   * serving is answered by probing the running system, never by this row.
+   */
+  seat: unknown
+  /**
+   * Per-output-class declaration of whether an authored spec is EXPECTED.
+   * `null` means the customer declared nothing here — NOT that no spec is
+   * expected. A class declaring `expected` whose spec is missing fails closed;
+   * collapsing the two would let a broken sync read as a deliberate choice.
+   */
+  output_classes: unknown
   escalation: unknown
   business_hours: unknown
   connectors: unknown
@@ -179,6 +192,8 @@ export interface CustomerConfigDbRow {
   schema_version: string
   personas_json: string
   voice_library_json: string | null
+  seat_json: string | null
+  output_classes_json: string | null
   escalation_json: string | null
   business_hours_json: string | null
   connectors_json: string | null
@@ -364,6 +379,8 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     schema_version: row.schema_version,
     personas: parseJsonRequired<PersonaConfig[]>(row.personas_json, 'personas_json', row.entity_id),
     voice_library: parseJsonNullable(row.voice_library_json),
+    seat: parseJsonNullable(row.seat_json),
+    output_classes: parseJsonNullable(row.output_classes_json),
     escalation: parseJsonNullable(row.escalation_json),
     business_hours: parseJsonNullable(row.business_hours_json),
     connectors: parseJsonNullable(row.connectors_json),
