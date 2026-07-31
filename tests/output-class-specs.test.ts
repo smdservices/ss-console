@@ -14,6 +14,10 @@
  *     to be written.
  *  3. NO SUCCESS FOR A WRITE THAT DID NOT HAPPEN. `writeSpecDocument` reports
  *     ok only after reading the object back byte-identical.
+ *  4. THE STORED BYTES ARE LF-ONLY. A browser textarea submits CRLF. Nothing
+ *     would fail loudly if it survived — the digest matches its own CRLF body,
+ *     so the applier verifies and installs it — and the seat would hold a file
+ *     whose every line carries a trailing `\r`.
  *
  * No live R2. `FakeBucket` implements the two methods the module uses and can
  * be told to drop or corrupt a write, so the read-back proof is exercised
@@ -31,6 +35,7 @@ import {
   buildSpecDocument,
   collectAuthoredBodies,
   countBodies,
+  normalizeLineEndings,
   parseSpecDocument,
   readSpecDocument,
   serializeSpecDocument,
@@ -43,6 +48,30 @@ import {
 
 const MODULE_SOURCE = readFileSync(
   fileURLToPath(new URL('../src/lib/operator/output-class-specs.ts', import.meta.url)),
+  'utf8'
+)
+
+const FORM_SOURCE = readFileSync(
+  fileURLToPath(
+    new URL('../src/components/portal/operator/OutputClassSpecs.astro', import.meta.url)
+  ),
+  'utf8'
+)
+
+const ENDPOINT_SOURCE = readFileSync(
+  fileURLToPath(
+    new URL('../src/pages/api/portal/operator/settings/output-class-specs.ts', import.meta.url)
+  ),
+  'utf8'
+)
+
+const ADVANCED_PAGE_SOURCE = readFileSync(
+  fileURLToPath(
+    new URL(
+      '../src/pages/portal/products/operator/[instance]/settings/advanced/index.astro',
+      import.meta.url
+    )
+  ),
   'utf8'
 )
 
@@ -201,6 +230,116 @@ describe('output-class specs: what the builder refuses', () => {
     for (const slug of ['../escape', 'a/b', 'Upper']) {
       const built = await buildSpecDocument([{ outputClass: slug, property: 'voice', body: 'x' }])
       expect(built.ok, slug).toBe(false)
+    }
+  })
+})
+
+describe('output-class specs: the stored bytes are LF-only', () => {
+  // A browser textarea submits CRLF. Nothing downstream converts it and nothing
+  // fails loudly if it survives, because the digest matches its own CRLF body:
+  // the applier verifies it and installs a file whose every line carries a
+  // trailing `\r`. That is different bytes from the LF file every existing
+  // proof was taken against, and a trailing character any line-oriented format
+  // check would silently inherit.
+  const CRLF = 'Open with the case name.\r\nClose with a single line beginning Next:.\r\n'
+  const LF = 'Open with the case name.\nClose with a single line beginning Next:.\n'
+
+  it('collapses CRLF and lone CR to LF', () => {
+    expect(normalizeLineEndings(CRLF)).toBe(LF)
+    expect(normalizeLineEndings('a\rb')).toBe('a\nb')
+    expect(normalizeLineEndings('a\r\r\nb')).toBe('a\n\nb')
+    expect(normalizeLineEndings(LF)).toBe(LF)
+  })
+
+  it('writes a document with no carriage return anywhere in it', async () => {
+    const built = await buildSpecDocument([
+      { outputClass: 'staff', property: 'format', body: CRLF },
+    ])
+    expect(built.ok).toBe(true)
+    if (!built.ok) return
+    expect(serializeSpecDocument(built.doc)).not.toContain('\r')
+    expect(built.doc.classes['staff']?.format?.body).not.toContain('\r')
+  })
+
+  it('hashes the LF body it is about to write, not the CRLF body that arrived', async () => {
+    const built = await buildSpecDocument([
+      { outputClass: 'staff', property: 'format', body: CRLF },
+    ])
+    expect(built.ok).toBe(true)
+    if (!built.ok) return
+    const written = built.doc.classes['staff']?.format
+    expect(written?.sha256).toBe(await sha256Hex(LF.trim()))
+    // And the digest still describes the bytes beside it, which is the property
+    // the applier checks before installing.
+    expect(written?.sha256).toBe(await sha256Hex(written?.body ?? ''))
+  })
+
+  it('produces byte-identical documents from a CRLF body and its LF equivalent', async () => {
+    const fromCrlf = await buildSpecDocument([
+      { outputClass: 'staff', property: 'format', body: CRLF },
+    ])
+    const fromLf = await buildSpecDocument([{ outputClass: 'staff', property: 'format', body: LF }])
+    expect(fromCrlf.ok && fromLf.ok).toBe(true)
+    if (!fromCrlf.ok || !fromLf.ok) return
+    expect(serializeSpecDocument(fromCrlf.doc)).toBe(serializeSpecDocument(fromLf.doc))
+  })
+
+  it('measures the ceiling against the normalised bytes, not the submitted ones', async () => {
+    // LF: 262,144 bytes, one under the ceiling after trim. CRLF: 393,216, well
+    // over it. Checking before normalising would refuse a body that fits.
+    const lines = MAX_SPEC_BODY_BYTES / 2
+    const built = await buildSpecDocument([
+      { outputClass: 'staff', property: 'format', body: 'a\r\n'.repeat(lines) },
+    ])
+    expect(built.ok).toBe(true)
+  })
+})
+
+describe('output-class specs: the server holds the ceiling, and every refusal is named', () => {
+  it('derives the maxlength attribute from the server constant rather than picking one', () => {
+    // The attribute counts UTF-16 code units and the ceiling counts UTF-8
+    // bytes, and a string is never fewer bytes than code units — so deriving it
+    // this way can only refuse text the server would also refuse. A picked
+    // number below the ceiling (it was 20,000) makes a longer body authored
+    // elsewhere render into a field the browser treats as over-limit, and
+    // constraint validation can then make the whole form unsubmittable with
+    // nothing on screen saying why.
+    expect(FORM_SOURCE).toContain('maxlength={MAX_SPEC_BODY_BYTES}')
+    expect(FORM_SOURCE).not.toMatch(/maxlength=\{\d/)
+  })
+
+  it('reports why a build was refused as a value, not a string to match on', async () => {
+    const tooLong = await buildSpecDocument([
+      { outputClass: 'staff', property: 'voice', body: 'x'.repeat(MAX_SPEC_BODY_BYTES + 1) },
+    ])
+    expect(tooLong.ok).toBe(false)
+    if (tooLong.ok) return
+    expect(tooLong.reason).toBe('body_too_long')
+
+    const empty = await buildSpecDocument([
+      { outputClass: 'staff', property: 'voice', body: '   ' },
+    ])
+    expect(empty.ok).toBe(false)
+    if (empty.ok) return
+    expect(empty.reason).toBe('no_bodies')
+
+    const bad = await buildSpecDocument([{ outputClass: 'Upper', property: 'voice', body: 'x' }])
+    expect(bad.ok).toBe(false)
+    if (bad.ok) return
+    expect(bad.reason).toBe('invalid_class')
+  })
+
+  it('gives every refusal status a banner on the page it redirects to', () => {
+    // A status with no banner renders as no message at all: the person is
+    // returned to the form, nothing saved, nothing said.
+    const block = ENDPOINT_SOURCE.match(
+      /const BUILD_FAILURE_STATUS: Record<SpecBuildFailure, string> = \{([\s\S]*?)\n\}/
+    )
+    expect(block).not.toBeNull()
+    const statuses = [...(block?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+    expect(statuses).toEqual(['spec_too_long', 'spec_empty', 'spec_invalid'])
+    for (const status of statuses) {
+      expect(ADVANCED_PAGE_SOURCE, status).toMatch(new RegExp(`^\\s*${status}: \\{`, 'm'))
     }
   })
 })

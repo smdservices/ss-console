@@ -45,6 +45,7 @@ import {
   readSpecDocument,
   writeSpecDocument,
   SPEC_PROPERTIES,
+  type SpecBuildFailure,
   type SpecDocument,
 } from '../../../../../lib/operator/output-class-specs'
 import {
@@ -55,6 +56,25 @@ import {
 } from '../../../../../lib/portal/operator/voice-corrections'
 
 const OPERATOR_ROOT = '/portal/products/operator'
+
+/**
+ * One refusal, one sentence the person can act on.
+ *
+ * THE SERVER IS WHERE THE CEILING IS HELD. The form carries a `maxlength`, but
+ * that attribute is absent from a hand-crafted POST and it counts characters
+ * while the ceiling is in bytes, so it can only ever be a courtesy. When a body
+ * really is over the ceiling the client is told to shorten it — not shown the
+ * catch-all, which would leave them resubmitting the same text.
+ *
+ * Every value here has a matching banner in the Advanced page's
+ * `STATUS_BANNERS`; `tests/output-class-specs.test.ts` pins that parity, because
+ * a status with no banner renders as no message at all.
+ */
+const BUILD_FAILURE_STATUS: Record<SpecBuildFailure, string> = {
+  body_too_long: 'spec_too_long',
+  no_bodies: 'spec_empty',
+  invalid_class: 'spec_invalid',
+}
 
 function redirectWithStatus(instance: string | null, status: string): Response {
   const base = instance ? `${OPERATOR_ROOT}/${instance}/settings/advanced` : OPERATOR_ROOT
@@ -210,8 +230,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const built = await buildSpecDocument(collectAuthoredBodies(form, classes))
   if (!built.ok) {
-    await recordAttempt(auth, 'rejected', { errors: built.errors })
-    return redirectWithStatus(auth.customerSlug, 'spec_invalid')
+    await recordAttempt(auth, 'rejected', { reason: built.reason, errors: built.errors })
+    return redirectWithStatus(auth.customerSlug, BUILD_FAILURE_STATUS[built.reason])
   }
 
   // Read before write. An unparseable existing document must not be

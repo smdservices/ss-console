@@ -29,6 +29,17 @@
  * body/hash pair that verifies against itself while disagreeing with what they
  * typed.
  *
+ * THE STORED BYTES ARE LF-ONLY. A browser textarea submits its value with CRLF
+ * line endings, per the HTML form-submission spec. Nothing downstream converts
+ * them, and nothing would fail loudly if they survived: the digest computed here
+ * would match its own CRLF body and the applier would verify and install it. The
+ * seat would then hold a markdown file whose every line carries a trailing `\r` —
+ * different bytes from the LF file every existing proof was taken against, and
+ * a trailing character that any line-oriented format check would silently
+ * inherit. So `buildSpecDocument` normalises CRLF and lone CR to LF BEFORE
+ * trimming, hashing, and length-checking. The document, the digest, and the
+ * installed file therefore agree, and agree on LF.
+ *
  * FAIL-CLOSED ON THE EMPTY DOCUMENT. The applier refuses a document declaring
  * no bodies (`output-classes.json declares no spec bodies`) and, refusing it,
  * keeps the previously installed tree standing. So writing an empty document
@@ -116,6 +127,20 @@ export function assertSpecKey(key: string): void {
   if (!SPEC_KEY_PATTERN.test(key)) {
     throw new SpecKeyError(`refusing an R2 key outside the output-classes key space: ${key}`)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Normalisation
+// ---------------------------------------------------------------------------
+
+/**
+ * Collapse CRLF and lone CR to LF.
+ *
+ * Called before trimming, hashing, and the byte-length check, so all three see
+ * the bytes that will actually be stored and installed. See the header note.
+ */
+export function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -249,11 +274,29 @@ export interface AuthoredBody {
   body: string
 }
 
+/**
+ * Why a build was refused, as a value rather than a string to match on.
+ *
+ * The caller turns this into what a client reads, and the three reasons need
+ * three different sentences: one is "shorten it", one is "this surface cannot
+ * do that", and one is a defect they cannot act on. A caller that had to
+ * pattern-match `errors` to tell them apart would show the wrong one the first
+ * time an error string was reworded.
+ */
+export type SpecBuildFailure = 'body_too_long' | 'invalid_class' | 'no_bodies'
+
 export type SpecBuildResult =
-  { ok: true; doc: SpecDocument } | { ok: false; errors: readonly string[] }
+  | { ok: true; doc: SpecDocument }
+  | { ok: false; reason: SpecBuildFailure; errors: readonly string[] }
 
 /**
  * Build the document to write, hashing every body server-side.
+ *
+ * THE SERVER HOLDS THE CEILING. The authoring form carries a `maxlength`, but a
+ * browser attribute is a convenience, not an invariant — it is absent from a
+ * hand-crafted POST and it counts LF-normalised characters while the wire
+ * carries CRLF. The check that matters is this one, over the exact bytes about
+ * to be written, after line endings are normalised and the body trimmed.
  *
  * Bodies are trimmed and an empty one means "no spec for this property" — that
  * is how a class property is cleared, and the applier prunes the installed
@@ -262,6 +305,8 @@ export type SpecBuildResult =
  */
 export async function buildSpecDocument(bodies: readonly AuthoredBody[]): Promise<SpecBuildResult> {
   const errors: string[] = []
+  let invalidClass = false
+  let tooLong = false
   const classes: SpecDocument['classes'] = {}
   const encoder = new TextEncoder()
 
@@ -269,15 +314,17 @@ export async function buildSpecDocument(bodies: readonly AuthoredBody[]): Promis
     const slug = authored.outputClass
     if (!CLASS_SLUG_PATTERN.test(slug) || slug.length > 64) {
       errors.push(`${slug}: class slug must match [a-z0-9_-] and be at most 64 characters`)
+      invalidClass = true
       continue
     }
-    const body = authored.body.trim()
+    const body = normalizeLineEndings(authored.body).trim()
     if (body.length === 0) continue
     const byteLength = encoder.encode(body).length
     if (byteLength > MAX_SPEC_BODY_BYTES) {
       errors.push(
         `${slug}.${authored.property}: ${byteLength} bytes exceeds the ${MAX_SPEC_BODY_BYTES}-byte ceiling`
       )
+      tooLong = true
       continue
     }
     const entry = classes[slug] ?? {}
@@ -285,10 +332,14 @@ export async function buildSpecDocument(bodies: readonly AuthoredBody[]): Promis
     classes[slug] = entry
   }
 
-  if (errors.length > 0) return { ok: false, errors }
+  // A bad class slug outranks an over-long body: the first is a defect the
+  // client cannot act on and must not be told to shorten something for.
+  if (invalidClass) return { ok: false, reason: 'invalid_class', errors }
+  if (tooLong) return { ok: false, reason: 'body_too_long', errors }
   if (countBodies(classes) === 0) {
     return {
       ok: false,
+      reason: 'no_bodies',
       errors: [
         'the document would declare no spec bodies. A seat refuses an empty document and keeps ' +
           'the specs it already installed, so writing one would leave the portal and the ' +

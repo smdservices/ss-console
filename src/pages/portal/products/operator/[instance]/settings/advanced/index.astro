@@ -180,8 +180,19 @@ const STATUS_BANNERS: Record<string, BannerStatus> = {
   // Output-shape statuses. Only `spec_saved` follows a write that was made and
   // read back byte-identical.
   spec_saved: { text: 'Output shape saved to your Operator.', tone: 'success' },
+  // One refusal, one sentence. The endpoint maps each build failure to its own
+  // status precisely so that a person who wrote too much is told to shorten it
+  // rather than being handed a catch-all and left to resubmit the same text.
+  spec_too_long: {
+    text: 'The output shape was not saved. One of your descriptions is longer than your Operator accepts. Shorten it and resubmit.',
+    tone: 'error',
+  },
+  spec_empty: {
+    text: 'The output shape was not saved, because every description was empty. Removing the last one is not something this page can do. Contact SMD.',
+    tone: 'error',
+  },
   spec_invalid: {
-    text: 'The output shape was not saved. Check the lengths of what you wrote and resubmit.',
+    text: 'The output shape was not saved and nothing changed on your Operator. Contact SMD.',
     tone: 'error',
   },
   spec_no_classes: {
