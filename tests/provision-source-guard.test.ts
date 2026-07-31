@@ -149,6 +149,31 @@ describe('provision refuses a build source that is not what you think it is', ()
     expect(out).not.toContain('behind origin/main')
   })
 
+  it('a .claude/ session marker alone does NOT trip the dirty check', () => {
+    // The guard's first real use refused a rebuild over a lone
+    // `parallel-isolation-required-<uuid>` marker (#2101). `.claude/` is in
+    // .dockerignore and no COPY names it, so it cannot reach the image — and a
+    // guard that trips on ordinary working conditions trains people to reach
+    // for the bypass by reflex, which is worse than no guard at all.
+    const { root, script } = checkout()
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    writeFileSync(join(root, '.claude', 'parallel-isolation-required-abc123'), '')
+    const { out } = run(script)
+    expect(out).not.toContain('uncommitted changes')
+    expect(out).toContain('R2_ENDPOINT_URL not set') // reached the next step
+  })
+
+  it('still refuses an untracked file OUTSIDE .claude/', () => {
+    // The exclusion must stay narrow. An untracked source file genuinely can
+    // change the image, so only `.claude/` is forgiven.
+    const { root, script } = checkout()
+    writeFileSync(join(root, 'operator', 'templates', 'stowaway.sh'), 'echo hi\n')
+    const { out, ok } = run(script)
+    expect(ok).toBe(false)
+    expect(out).toContain('uncommitted changes')
+    expect(out).toContain('stowaway.sh')
+  })
+
   it('refuses a dirty checkout, naming the files', () => {
     const { root, script } = checkout()
     writeFileSync(join(root, 'operator', 'templates', 'entrypoint.sh'), 'echo drift\n')

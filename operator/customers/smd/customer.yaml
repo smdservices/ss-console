@@ -284,8 +284,8 @@ memory:
 # How each person here likes Crane to work with them. INFORMATIONAL ONLY: these
 # shape how Crane drafts and helps and NEVER grant capability — entitlements live
 # in scope/escalation and are enforced by trust_ceiling regardless of this text.
-# Distinct from the style lane (voice_corrections): behavioral working
-# preferences, not draft phrasing.
+# Distinct from the style lane (an output class's authored voice/format
+# property, ADR 0083): behavioral working preferences, not draft phrasing.
 #
 # Seeded from Scott's standing working preferences (documented working feedback);
 # authored content, human-reviewed — not inferred or fabricated. Refine as the
