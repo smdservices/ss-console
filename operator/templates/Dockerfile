@@ -399,7 +399,15 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the unconditional boot fetch. NONE of the 8 tracked twins changed
 # (git-diff-verified 12fea42b..7243d3a; all 8 sha256 recomputed at 7243d3a and
 # identical). Superset of 711310ff — 711310f is 7243d3a's parent.
-ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"
+# 2026-07-31: 7243d3a7 -> 151d1340 (ss#2084 spec loader, ADR 0083). overlay#202
+# installs the customer's authored voice/format specs as a ROOT-OWNED tree and
+# adds the per-turn read mark that makes "the agent read its spec" checkable
+# rather than assumed. Root ownership is the point: read_file is READ-class,
+# unfenced, and does not taint, so an agent-writable spec would be a persistent
+# self-authored prompt-injection channel surviving restarts. NONE of the 8
+# tracked twins changed (git-diff-verified 7243d3a..151d134; all 8 sha256
+# recomputed and identical). Superset of 7243d3a7.
+ARG OVERLAY_REF="151d13402754cc954f41e19f15d967526a7142c9"
 
 ARG CUSTOMER_SLUG=customer-zero
 

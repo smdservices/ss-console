@@ -386,12 +386,21 @@ describe('shipped skills cite only runtime paths the image carries', () => {
   })
 
   it('has no stale entry in the frozen missing-reference list', () => {
-    // The other half of the ratchet. Authoring one of these files must delete
-    // its line, so the list can only ever shrink and always reads as true.
+    // The other half of the ratchet, so the list can only ever shrink and always
+    // reads as true.
+    //
+    // Note the two ways an entry goes stale, because the remedy is the same but
+    // the cause is not: the reference was AUTHORED, or the CITATION was fixed to
+    // point where the file actually lives. The first three entries retired here
+    // were the second kind — three skills spelled the pack's
+    // _shared-training-output.md as `references/...`, as if it had been copied
+    // down into their own dir. Nothing was written; a path was corrected.
     const stillMissing = missingSkillReferences()
     expect(
       KNOWN_MISSING_SKILL_REFERENCES.filter((p) => !stillMissing.has(p)),
-      'These files now exist. Remove them from KNOWN_MISSING_SKILL_REFERENCES.'
+      'These entries no longer describe an unresolved citation - either the file was ' +
+        'authored or the citation was corrected. Remove them from ' +
+        'KNOWN_MISSING_SKILL_REFERENCES.'
     ).toEqual([])
   })
 })
@@ -423,11 +432,6 @@ const KNOWN_MISSING_SKILL_REFERENCES: readonly string[] = [
   'operator/skills/client-matter-digest/references/voice.md',
   'operator/skills/conflict-intake-router/references/output-format.md',
   'operator/skills/conflict-intake-router/references/test-cases.md',
-  // The three _shared-training-output.md entries are a different mistake from
-  // the rest: that file exists, but in the verticals pack. These SKILL.md bodies
-  // spell it as if it had been copied down into their own references/ dir.
-  'operator/skills/daily-needs-you-digest/references/_shared-training-output.md',
-  'operator/skills/demand-letter-drafter/references/_shared-training-output.md',
   'operator/skills/document-receipt-logger/references/output-format.md',
   'operator/skills/document-receipt-logger/references/test-cases.md',
   'operator/skills/intake-to-system-sync/references/output-format.md',
@@ -436,7 +440,6 @@ const KNOWN_MISSING_SKILL_REFERENCES: readonly string[] = [
   'operator/skills/matter-inbox-router/references/test-cases.md',
   'operator/skills/matter-status-digest/references/output-format.md',
   'operator/skills/matter-status-digest/references/test-cases.md',
-  'operator/skills/meet-and-confer-drafter/references/_shared-training-output.md',
   'operator/skills/paid-media-anomaly-watcher/references/categorization-rubric.md',
   'operator/skills/paid-media-anomaly-watcher/references/output-format.md',
   'operator/skills/paid-media-anomaly-watcher/references/test-cases.md',

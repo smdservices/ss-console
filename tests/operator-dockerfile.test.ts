@@ -502,7 +502,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // would claim it landed. The register instead arrives on the next restart,
     // via the unconditional boot fetch. overlayRef-only across 12fea42b..7243d3a
     // — no tracked twin moved; 711310f is 7243d3a's parent.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7243d3a7466264542d71aaeb9a0a4d1a535186fd"')
+    // 151d1340 - the ADR 0083 spec loader (ss#2084): overlay#202 installs the
+    // customer's authored voice/format specs as a ROOT-OWNED tree and adds the
+    // per-turn read mark. The ownership is the load-bearing half: read_file is
+    // READ-class, unfenced, and does not taint the session, so a spec the agent
+    // could write would be a persistent, untainted, self-authored injection
+    // channel surviving restarts - the same self-loopback shape proven live on
+    // hermes-smd-staging 2026-06-15, answered then and now with ownership rather
+    // than policy. overlayRef-only across 7243d3a..151d134 - no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="151d13402754cc954f41e19f15d967526a7142c9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
