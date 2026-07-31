@@ -594,6 +594,31 @@ COPY operator/adapter/ /app/adapter/
 # Canonical skill library (markdown + references)
 COPY operator/skills/ /app/skills/
 
+# Drafting discipline + the mechanical gate checker (ss-console #2083).
+#
+# The destination mirrors the repo path on purpose. Four work-product skills
+# (demand-letter-drafter, discovery-response-drafter, follow-up-discovery-drafter,
+# mediation-brief-drafter) load `operator/templates/drafting/drafting-discipline.md`
+# verbatim into every drafting run, and their SKILL.md bodies invoke
+# `python3 operator/templates/drafting/drafting_gate_check.py` by that literal
+# relative path. The final WORKDIR below is /app, so ONLY this destination makes
+# the cited path resolve. A tidier /app/drafting/ would put both files in the
+# image and still leave every citation dangling, which is the same defect wearing
+# a better filename.
+#
+# Absent from this COPY set until 2026-07-30: a whole-filesystem `find` on the
+# live seat hermes-pilot-smokeball returned neither drafting-discipline.md nor
+# drafting_gate_check.py (vfy_01KYTXF76E1QHWQ2FQ9CYRGQBV), so the drafting lane
+# ran on every seat with neither its discipline nor its gates while four SKILL.md
+# files asserted both were loaded. The checker is stdlib-only, so the apt
+# `python3` above is the whole runtime dependency.
+#
+# Presence is the instance. The class is guarded by
+# tests/shipped-runtime-paths.test.ts, which derives the shipped set from the
+# COPY lines in this file and fails on any runtime path a shipped SKILL.md cites
+# but the image does not carry.
+COPY operator/templates/drafting/ /app/operator/templates/drafting/
+
 # Tier-1 custom MCP wrappers (one subdir per connector)
 COPY operator/connectors/ /app/connectors/
 
@@ -698,11 +723,20 @@ RUN chmod -R a+rX /opt/hermes /app \
 # above). NOTE: /app/safety-substrate is intentionally NOT re-owned — its
 # run_invariants.py writes a boot log under that tree, so it must stay
 # hermes-writable (a smaller, separately-tracked residual).
+#
+# /app/operator/templates/drafting is in this set for the same reason (#2083):
+# drafting_gate_check.py is the mechanical gate a draft must pass before it
+# reaches the attorney, and drafting-discipline.md is the rule it enforces. An
+# agent that owns its own gate checker can rewrite the check it is graded by.
+# Nothing writes under that tree at runtime: the checker is INVOKED as a script
+# (`python3 <path>`), never imported, so no __pycache__ write depends on the
+# agent owning it, and a+rX below keeps it readable and traversable.
 RUN chown -R root:root \
       /app/overlay-pack \
+      /app/operator/templates/drafting \
       /app/_env-arrays.generated.sh \
  && chown root:root /app/*.sh /app/*.py \
- && chmod -R a+rX /app/overlay-pack
+ && chmod -R a+rX /app/overlay-pack /app/operator/templates/drafting
 
 ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 
