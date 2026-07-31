@@ -8,28 +8,28 @@ Method note: every claim below is cited to a file path. Where a documented decis
 
 ## 0. ADR index, with status and reversals
 
-| ADR | Title | Status in file | One line |
-|---|---|---|---|
-| 001 | Editor Library Selection | **Accepted** 2025-02-10, **Reaffirmed** 2026-02-24 | Tiptap (ProseMirror) over Lexical and Slate/Plate, decided on iPad Safari reliability. |
-| 002 | — | **Does not exist** | Listed as a planned ADR in `docs/pm/prd.md:770` ("Google Drive Sync Strategy"), never written. No file in `docs/adr/`. |
-| 003 | AI Provider | **Accepted** 2026-02-16 | Swap Anthropic → OpenAI GPT-4o; keep standalone app, reject shipping as a ChatGPT App; abstract behind `AIProvider`. |
-| 004 | PDF/EPUB Generation | **Proposed** 2026-02-16 (never moved to Accepted, but **fully implemented**) | Cloudflare Browser Rendering REST `/pdf` for PDF + custom in-Worker JSZip EPUB. PDF is the priority. |
-| 005 | Content Storage Architecture | **Accepted** 2026-02-16 | Four tiers; Google Drive canonical, R2 write-through cache, D1 metadata only, IndexedDB keystroke buffer. |
-| 006 | Multi-Tier AI (Edge + Frontier) | **Accepted** 2026-02-17 | Workers AI Mistral Small 3.1 as edge tier, GPT-4o as frontier, `AI_DEFAULT_TIER` env flag, "Go Deeper" escalation. |
-| 006-quality-gate-results | Spike results for the above | Results doc | **The gate FAILED for edge.** Verdict: "Keep `AI_DEFAULT_TIER=frontier`." |
-| 007 | Research Query Prompt Engineering | **Proposed — Pending review** | Recommends Strategy A (schema-in-system-prompt) + GPT-4o; proposes adding `jsonCompletion()` to `AIProvider`. |
-| 008 | Document Parsing | **Accepted** 2026-02-19 | `unpdf` for PDF, `mammoth.js` for DOCX, both in Workers; store as sanitized HTML. |
-| 008-spike-results | Spike data | Results doc | 18/18 checks pass; per-format perf tables. |
-| 009 | Content Chunking + Context Window | **Accepted** 2026-02-20 | Strategy C hybrid: FTS5-first, Vectorize semantic fallback. 300/400/50-word chunks, 2-sentence overlap. |
-| 009-spike-results | Spike data | Results doc | FTS5 **P@3 = 0.00 on paraphrase queries**; Vectorize never provisioned (API token scope). |
-| 010 | LLM Prompt Engineering for Structured Snippet Output | **Accepted** 2026-02-19 | GPT-4o + `response_format: {type:"json_object"}`. Strict json_schema mode *reduced* quality. |
+| ADR                      | Title                                                | Status in file                                                               | One line                                                                                                               |
+| ------------------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 001                      | Editor Library Selection                             | **Accepted** 2025-02-10, **Reaffirmed** 2026-02-24                           | Tiptap (ProseMirror) over Lexical and Slate/Plate, decided on iPad Safari reliability.                                 |
+| 002                      | —                                                    | **Does not exist**                                                           | Listed as a planned ADR in `docs/pm/prd.md:770` ("Google Drive Sync Strategy"), never written. No file in `docs/adr/`. |
+| 003                      | AI Provider                                          | **Accepted** 2026-02-16                                                      | Swap Anthropic → OpenAI GPT-4o; keep standalone app, reject shipping as a ChatGPT App; abstract behind `AIProvider`.   |
+| 004                      | PDF/EPUB Generation                                  | **Proposed** 2026-02-16 (never moved to Accepted, but **fully implemented**) | Cloudflare Browser Rendering REST `/pdf` for PDF + custom in-Worker JSZip EPUB. PDF is the priority.                   |
+| 005                      | Content Storage Architecture                         | **Accepted** 2026-02-16                                                      | Four tiers; Google Drive canonical, R2 write-through cache, D1 metadata only, IndexedDB keystroke buffer.              |
+| 006                      | Multi-Tier AI (Edge + Frontier)                      | **Accepted** 2026-02-17                                                      | Workers AI Mistral Small 3.1 as edge tier, GPT-4o as frontier, `AI_DEFAULT_TIER` env flag, "Go Deeper" escalation.     |
+| 006-quality-gate-results | Spike results for the above                          | Results doc                                                                  | **The gate FAILED for edge.** Verdict: "Keep `AI_DEFAULT_TIER=frontier`."                                              |
+| 007                      | Research Query Prompt Engineering                    | **Proposed — Pending review**                                                | Recommends Strategy A (schema-in-system-prompt) + GPT-4o; proposes adding `jsonCompletion()` to `AIProvider`.          |
+| 008                      | Document Parsing                                     | **Accepted** 2026-02-19                                                      | `unpdf` for PDF, `mammoth.js` for DOCX, both in Workers; store as sanitized HTML.                                      |
+| 008-spike-results        | Spike data                                           | Results doc                                                                  | 18/18 checks pass; per-format perf tables.                                                                             |
+| 009                      | Content Chunking + Context Window                    | **Accepted** 2026-02-20                                                      | Strategy C hybrid: FTS5-first, Vectorize semantic fallback. 300/400/50-word chunks, 2-sentence overlap.                |
+| 009-spike-results        | Spike data                                           | Results doc                                                                  | FTS5 **P@3 = 0.00 on paraphrase queries**; Vectorize never provisioned (API token scope).                              |
+| 010                      | LLM Prompt Engineering for Structured Snippet Output | **Accepted** 2026-02-19                                                      | GPT-4o + `response_format: {type:"json_object"}`. Strict json_schema mode _reduced_ quality.                           |
 
 ### Reversals and supersessions
 
 1. **ADR-010 de-facto supersedes ADR-007.** Both are dated 2026-02-19 and answer the same question (how to get structured, source-attributed snippets out of an LLM). ADR-007 is still marked "Proposed — Pending review"; ADR-010 is "Accepted." Neither file references the other as superseded. Worse, the strategy letters collide and mean different things: in ADR-007, "Strategy B" = few-shot prompting (`docs/adr/ADR-007-research-query-prompts.md:19`); in ADR-010, "Strategy B" = `response_format: json_object` (`docs/adr/ADR-010-snippet-prompt-engineering.md:31-33`). Reading them together without noticing this produces a wrong conclusion. **ADR-010 is the one that shipped** — its prompt text is verbatim in `workers/dc-api/src/services/research-query.ts:92-138`.
 2. **ADR-006's central premise was disproven by its own quality gate.** ADR-006 justifies the edge tier on latency: "Expected TTFT < 1 second vs 2-5+ seconds" (`ADR-006-multi-tier-ai.md:26`). The gate measured the opposite: "Edge mean 2,626ms vs Frontier mean 2,077ms. Frontier is actually faster, which eliminates the usual latency argument for the edge model" (`ADR-006-quality-gate-results.md`, Latency section). The ADR body was never amended. `wrangler.toml:47` still reads `AI_DEFAULT_TIER = "frontier"`.
 3. **ADR-006 reversed its own model choice mid-day.** Model Change History (`ADR-006-multi-tier-ai.md:73-77`): `@cf/zai-org/glm-4.7-flash` selected and rejected the same day (2026-02-17) — "only 3B active params, Chinese-origin with CCP censorship patterns, poor English nonfiction quality."
-4. **ADR-003 reverses the PRD.** PRD Section 17 recommended "Direct Anthropic API" (`docs/pm/prd.md:784`). ADR-003 swapped to OpenAI on a *market* argument, not a technical one: the target user knows "ChatGPT" as a brand (`ADR-003-ai-provider.md:15`).
+4. **ADR-003 reverses the PRD.** PRD Section 17 recommended "Direct Anthropic API" (`docs/pm/prd.md:784`). ADR-003 swapped to OpenAI on a _market_ argument, not a technical one: the target user knows "ChatGPT" as a brand (`ADR-003-ai-provider.md:15`).
 5. **ADR-009's retrieval decision was never implemented.** See §4 below. This is the largest documentation/reality gap in the repo.
 6. **The Design Charter reverses the Design Brief's own tab names.** `docs/design/source-review/design-spec.md` (2026-02-19) specifies tabs Sources / Ask / Clips. `docs/design/library-desk-spec.md:137` logs "2026-02-24: Renamed 'Sources'/'Ask' tabs to 'Library'/'Desk'." The older spec still says "Authoritative design document" at line 3.
 
@@ -64,11 +64,13 @@ Degraded mode when Drive is not connected (lines 57-65): R2 holds content, plus 
 
 ```ts
 if (input.version !== chapter.version) {
-  conflict(`Version mismatch: expected ${chapter.version}, got ${input.version}. Another save may have occurred.`)
+  conflict(
+    `Version mismatch: expected ${chapter.version}, got ${input.version}. Another save may have occurred.`
+  )
 }
 ```
 
-There is **no merge, no three-way diff, no operational transform, and no CRDT.** The PRD is explicit that this is deliberate: `docs/pm/prd.md:774-776` rejects real-time OT as "overkill for Phase 0. Phase 0 is single-user." Crash recovery is a *prompt*, not a merge — "Crash recovery via IndexedDB comparison on editor mount" (`prd.md:305`).
+There is **no merge, no three-way diff, no operational transform, and no CRDT.** The PRD is explicit that this is deliberate: `docs/pm/prd.md:774-776` rejects real-time OT as "overkill for Phase 0. Phase 0 is single-user." Crash recovery is a _prompt_, not a merge — "Crash recovery via IndexedDB comparison on editor mount" (`prd.md:305`).
 
 **Offline.** Offline is explicitly **not supported**. `prd.md:168` competitive table lists Offline: DraftCrane "No" vs Atticus "Yes (PWA)". `prd.md:845` lists offline mode under "Explicitly NOT in Phase 0." IndexedDB is a crash buffer, not an offline mode — `prd.md:440` says IndexedDB "Does NOT Do: Long-term storage, cross-device sync."
 
@@ -78,9 +80,9 @@ Shipped detail the ADR does not mention: Drive write-through is **coalesced at 3
 
 **(d) Transfer assessment: SURVIVES WITH MODIFICATION — and the invariant transfers verbatim.**
 
-The tier *names* are DraftCrane's; the *shape* is the reusable thing, and it is a shape an agent architecture needs more than DraftCrane did. Stated generically: **one store is canonical and customer-owned; every other copy is declared disposable and reconstructible from it; the disposable copies are where you get to be fast.** That is directly the answer to "where does agent-produced state live so the customer keeps it if we disappear," and it is a cleaner answer than "the agent's volume." The ss-console CLAUDE.md "gone means gone" discipline is the same idea in the negative direction — this is its positive twin, and it names the *ordering* rule ("Drive wins") that makes convergence decidable.
+The tier _names_ are DraftCrane's; the _shape_ is the reusable thing, and it is a shape an agent architecture needs more than DraftCrane did. Stated generically: **one store is canonical and customer-owned; every other copy is declared disposable and reconstructible from it; the disposable copies are where you get to be fast.** That is directly the answer to "where does agent-produced state live so the customer keeps it if we disappear," and it is a cleaner answer than "the agent's volume." The ss-console CLAUDE.md "gone means gone" discipline is the same idea in the negative direction — this is its positive twin, and it names the _ordering_ rule ("Drive wins") that makes convergence decidable.
 
-What dies: the specific 2-second debounce, the IndexedDB keystroke log, and the entire dual-write save path are artifacts of a keystroke-level rich-text editor. An agent-composed UI has no keystroke stream to buffer. What survives: the tier table, the invariant sentence, the "cache miss backfills from canonical" read path, optimistic-version 409 as the only concurrency primitive, and the non-dismissible degraded-state banner as a *pattern* (an unconfigured or disconnected canonical store must be loudly visible, not silently tolerated).
+What dies: the specific 2-second debounce, the IndexedDB keystroke log, and the entire dual-write save path are artifacts of a keystroke-level rich-text editor. An agent-composed UI has no keystroke stream to buffer. What survives: the tier table, the invariant sentence, the "cache miss backfills from canonical" read path, optimistic-version 409 as the only concurrency primitive, and the non-dismissible degraded-state banner as a _pattern_ (an unconfigured or disconnected canonical store must be loudly visible, not silently tolerated).
 
 One caution: their conflict story is only adequate because Phase 0 is single-user and single-device-at-a-time. An always-on agent writing concurrently with a human is a genuinely multi-writer system. Version-mismatch-409 will fire constantly and there is no merge behind it. **Do not port the conflict model without deciding what happens on the 409.**
 
@@ -125,7 +127,7 @@ Anti-inspiration is named explicitly (`brief.md:462-470`): Jasper ("AI as the pr
 7. `attempt_number` is computed server-side by counting the retry chain — `ai-rewrite.ts:147-156` counts rows where `id = parentId OR parent_interaction_id = parentId`.
 8. Accept/reject sets `accepted = 1|0` — `workers/dc-api/src/services/ai-interaction.ts:53-105`. Acceptance is undoable with Cmd+Z; the highlight flash respects `prefers-reduced-motion` (`prd.md:315`).
 
-**The telemetry schema is the load-bearing part.** `ai_interactions` (`prd.md:486`, migrations 0005/0007/0008): `id, user_id, chapter_id, action, instruction, input_chars, output_chars, model, latency_ms, accepted, attempt_number, parent_interaction_id, tier, created_at`. The file header states the rule twice: "Logs interaction metadata to D1 ai_interactions table (**NO user content stored**)" (`ai-rewrite.ts:11`) and "Stores metadata only (no content)" (`ai-interaction.ts:8`). The *instruction* is stored (truncated to 500 chars); the text and the rewrite are not. `accepted` is nullable and tri-state — NULL means the author never decided, which is a different and useful signal from an explicit reject.
+**The telemetry schema is the load-bearing part.** `ai_interactions` (`prd.md:486`, migrations 0005/0007/0008): `id, user_id, chapter_id, action, instruction, input_chars, output_chars, model, latency_ms, accepted, attempt_number, parent_interaction_id, tier, created_at`. The file header states the rule twice: "Logs interaction metadata to D1 ai_interactions table (**NO user content stored**)" (`ai-rewrite.ts:11`) and "Stores metadata only (no content)" (`ai-interaction.ts:8`). The _instruction_ is stored (truncated to 500 chars); the text and the rewrite are not. `accepted` is nullable and tri-state — NULL means the author never decided, which is a different and useful signal from an explicit reject.
 
 The target metric this feeds: "AI rewrite usage/acceptance — 50%+ try AI; **40%+ acceptance rate** — Data source: D1 ai_interactions" (`prd.md:708`).
 
@@ -133,12 +135,12 @@ The target metric this feeds: "AI rewrite usage/acceptance — 50%+ try AI; **40
 
 Four things port with essentially no modification:
 
-- **The propose/accept/reject/retry loop as the atomic unit of AI action**, with a durable row created *before* the model call and closed by an explicit human verdict. This is exactly the shape ss-console already reaches for (draft-for-review, entitlement ceilings, `crane_verify`) but DraftCrane wrote down the *schema*, including `parent_interaction_id` retry chains and tri-state `accepted`.
-- **Metadata-only telemetry.** Log the decision, never the content. This is a privacy posture *and* a storage posture, and it lets acceptance rate be a first-class product metric without a content store.
+- **The propose/accept/reject/retry loop as the atomic unit of AI action**, with a durable row created _before_ the model call and closed by an explicit human verdict. This is exactly the shape ss-console already reaches for (draft-for-review, entitlement ceilings, `crane_verify`) but DraftCrane wrote down the _schema_, including `parent_interaction_id` retry chains and tri-state `accepted`.
+- **Metadata-only telemetry.** Log the decision, never the content. This is a privacy posture _and_ a storage posture, and it lets acceptance rate be a first-class product metric without a content store.
 - **The role metaphor as architecture rather than branding.** "This is not branding on top of technology. This is the actual product architecture." An agent-composed product will be tempted to name the agent and give it a persona; DraftCrane deliberately refused, and wrote down why (`brief.md:36-40`), and then wrote down the risk of refusing badly (`brief.md:105`).
 - **`attempt_number` / retry chain.** Retry is a first-class modeled relationship, not a new unrelated request. Any agent that revises its own output needs this to answer "how many tries did that take."
 
-One deliberate anti-pattern to *inherit*: **no chat.** `brief.md:466` rejects conversation as the paradigm for editorial work. For an architecture whose premise is "the user interacts largely through natural language," this is the most useful dissent in the repo — it is a documented argument that NL-in does not imply chat-transcript-out. DraftCrane's answer was: NL instruction in, structured artifact out, human verdict required. That is a shape worth stealing wholesale.
+One deliberate anti-pattern to _inherit_: **no chat.** `brief.md:466` rejects conversation as the paradigm for editorial work. For an architecture whose premise is "the user interacts largely through natural language," this is the most useful dissent in the repo — it is a documented argument that NL-in does not imply chat-transcript-out. DraftCrane's answer was: NL instruction in, structured artifact out, human verdict required. That is a shape worth stealing wholesale.
 
 What is genuinely unresolved and left as an open question: **Decision 2, "Should Rewrite Results Include Explanations?"** (`brief.md:539-551`). Target user's framing: "The feature is the rewrite. The metaphor is the explanation. Without the explanation, 'Editor' is just a label. With it, 'Editor' is an experience." Never resolved, never built. For an agent architecture, this is the "why did you do that" question and it is still open here.
 
@@ -162,7 +164,7 @@ Sanitization: mammoth output must pass `sanitize-html` before R2 storage, with a
 
 Six known limitations are stated plainly (lines 186-198). The two that matter most: **PDF text extraction is structurally flat** ("it stores rendering instructions, not document structure"), and image-only PDFs silently produce zero text — the spike verified this "Confirms no silent hallucination" (`ADR-008-spike-results.md:60`).
 
-**(d) Transfer: SURVIVES WITH MODIFICATION.** The library choices are Workers-specific and time-stamped, so re-verify before adopting. Three things transfer regardless of runtime: (1) **the acceptance-threshold table** — every check has a numeric threshold declared before the run (`ADR-008-spike-results.md:208-219`), which is how you make "we evaluated a library" falsifiable; (2) **deriving the sanitizer allowlist from an observed element census**; (3) **the negative test** — feed it an image-only PDF and assert *zero* output, because the failure you fear is silent fabrication, not a crash. That third one is the same instinct as ss-console's kill-testing.
+**(d) Transfer: SURVIVES WITH MODIFICATION.** The library choices are Workers-specific and time-stamped, so re-verify before adopting. Three things transfer regardless of runtime: (1) **the acceptance-threshold table** — every check has a numeric threshold declared before the run (`ADR-008-spike-results.md:208-219`), which is how you make "we evaluated a library" falsifiable; (2) **deriving the sanitizer allowlist from an observed element census**; (3) **the negative test** — feed it an image-only PDF and assert _zero_ output, because the failure you fear is silent fabrication, not a crash. That third one is the same instinct as ss-console's kill-testing.
 
 ### Chunking
 
@@ -172,13 +174,13 @@ Six known limitations are stated plainly (lines 186-198). The two that matter mo
 
 **Chunking parameters** (lines 51-60), each with a stated rationale:
 
-| Parameter | Value | Rationale (verbatim) |
-|---|---|---|
-| Target words | 300 | Conservative for bge-small-en-v1.5 512-token limit |
-| Max words | 400 | Hard cap — zero chunks exceeded this in evaluation |
-| Min words | 50 | Avoids tiny fragments, merges into previous chunk |
-| Overlap | 2 sentences | ~50 words continuity between adjacent chunks |
-| Sentence boundary | Always | 100% compliance across all fixture types |
+| Parameter         | Value       | Rationale (verbatim)                               |
+| ----------------- | ----------- | -------------------------------------------------- |
+| Target words      | 300         | Conservative for bge-small-en-v1.5 512-token limit |
+| Max words         | 400         | Hard cap — zero chunks exceeded this in evaluation |
+| Min words         | 50          | Avoids tiny fragments, merges into previous chunk  |
+| Overlap           | 2 sentences | ~50 words continuity between adjacent chunks       |
+| Sentence boundary | Always      | 100% compliance across all fixture types           |
 
 **Two chunking modes** (lines 62-74), keyed off source structure, which is the genuinely clever part:
 
@@ -189,11 +191,11 @@ Six known limitations are stated plainly (lines 186-198). The two that matter mo
 
 ```ts
 interface Chunk {
-  id: string            // sourceId:chunkIndex
+  id: string // sourceId:chunkIndex
   sourceId: string
   sourceTitle: string
-  headingChain: string[]   // ["Chapter 3","Methodology"] or ["Section 2 of 8"]
-  text: string             // plain text, HTML stripped
+  headingChain: string[] // ["Chapter 3","Methodology"] or ["Section 2 of 8"]
+  text: string // plain text, HTML stripped
   html: string
   wordCount: number
   startOffset: number
@@ -211,7 +213,7 @@ The shipped implementation matches the spec closely (`chunking.ts`), including a
 
 **(d) Transfer: TRANSFERS.** The parameter set is empirically justified, the two-mode structure/flat split generalizes to any corpus where some inputs carry structure and some do not, and `headingChain` is the reusable idea — **carry provenance in the chunk, not alongside it**, so that a citation is reconstructible from the chunk alone. `content_hash` + `indexed_at` invalidation is the standard correct answer and they wrote it down.
 
-Caveat, and it is a real one: the 300-word target is tuned to a **512-token embedding model** (`bge-small-en-v1.5`). ADR-009's own Known Limitation #3 admits "No token-level validation. The 300-word target is a conservative proxy." If the new architecture uses a modern long-context embedding model or skips embeddings, this number is not yours — the *method* is, the number is not.
+Caveat, and it is a real one: the 300-word target is tuned to a **512-token embedding model** (`bge-small-en-v1.5`). ADR-009's own Known Limitation #3 admits "No token-level validation. The 300-word target is a conservative proxy." If the new architecture uses a modern long-context embedding model or skips embeddings, this number is not yours — the _method_ is, the number is not.
 
 ---
 
@@ -234,7 +236,7 @@ ADR-009 §"Retrieval Architecture" (lines 92-186) specifies: a `source_chunks` t
 - `deduplicateChunks()` (lines 160-171) — by chunk `id` only. The header comment claims it "detects high-overlap pairs"; **it does not.** It is a `Set` of IDs. ADR-009 Known Limitation #5 admits the 2-sentence overlap means retrieved neighbours share sentences and "The context assembler deduplicates by chunk ID but not by content overlap."
 - `sortChunksByDocumentOrder()` (lines 177-186) — group by `sourceId`, then ascending `startOffset`.
 
-`prompt-builder.ts:178-205` composes these in a stated four-step order — **dedupe → select-by-relevance-under-budget → re-sort into document order → format**. That ordering is the design insight: *select on relevance, present in reading order.*
+`prompt-builder.ts:178-205` composes these in a stated four-step order — **dedupe → select-by-relevance-under-budget → re-sort into document order → format**. That ordering is the design insight: _select on relevance, present in reading order._
 
 ### What actually runs in production
 
@@ -264,11 +266,12 @@ The pass/fail table records the failure honestly (`ADR-009-spike-results.md:155`
 **(d) Transfer assessment: the ALGORITHM transfers; the SHIPPED SYSTEM is a trap.**
 
 Transfers, and is worth lifting almost verbatim:
+
 - Charging attribution overhead against the token budget (`estimateChunkTokens`).
 - The four-step order: dedupe → relevance-select under budget → **re-sort into document order** → format. Presenting retrieved fragments in reading order rather than relevance order is a small, real, cheap insight.
 - Word×1.33 as a deliberately conservative tokenizer-free estimate, with the reasoning written down.
 - `BudgetResult` returning `excludedCount` and `budgetExhausted` — the assembler tells you what it dropped. An agent needs exactly this to say "I only looked at part of your corpus."
-- Round-robin fair-share across sources (`distributeChunksAcrossSources`) is genuinely useful *as a diversity floor layered on top of relevance ranking* — it prevents one large document from monopolizing the budget. It is only pathological as a *substitute* for ranking.
+- Round-robin fair-share across sources (`distributeChunksAcrossSources`) is genuinely useful _as a diversity floor layered on top of relevance ranking_ — it prevents one large document from monopolizing the budget. It is only pathological as a _substitute_ for ranking.
 
 Dies: the FTS5-first/BM25-2.0-threshold routing. It was never validated end-to-end, one half was measured at zero precision on the query type that matters, and the other half was never provisioned.
 
@@ -396,10 +399,10 @@ ADR-007's competing schema (`ADR-007:359-373`) is richer — it adds `verbatim: 
 Five layers, of which four shipped:
 
 1. **Prompt-level, stated three times with escalating emphasis.** "Extract verbatim passages from relevant chunks — NEVER paraphrase or reword" (task step 2); "VERBATIM ONLY: [...] must contain text that appears EXACTLY in the source chunk" (extraction rules); "Do not rephrase, summarize, or combine text from different chunks into a single snippet." The redundancy is deliberate.
-2. **Attribution must be copied, not generated.** `sourceId`/`sourceTitle` "must exactly match the values from the source chunk header." The model is never asked to *know* a source, only to *copy* an identifier that was placed in its context.
+2. **Attribution must be copied, not generated.** `sourceId`/`sourceTitle` "must exactly match the values from the source chunk header." The model is never asked to _know_ a source, only to _copy_ an identifier that was placed in its context.
 3. **An explicit no-results branch with a dedicated boolean.** `noResults: true` + empty array + an explanatory summary. This is the anti-fabrication mechanism that matters most: the model is given a first-class, structurally-rewarded way to say "not in here." Measured at **100% negative-query handling** across every model and strategy tested (`ADR-010:194`).
 4. **Backend post-validation as a safety net** (`ADR-010:299-306`) — for each returned snippet, find its source chunk and assert `sourceChunk.text.includes(snippet.content)`; log a warning on failure. `ADR-010:336` specifies the normalization: "whitespace collapse + lowercasing. [...] Minor whitespace differences between chunk text and model output should not count as paraphrasing."
-   **This shipped only as a `console.warn` in the ADR's example code, and I found no substring check in the production path at all.** `research-query.ts` parses via `parseSnippetResponse()` and returns; `snippet-parser.ts` validates *types and presence*, never *containment*. The one concrete anti-fabrication check they designed is not running.
+   **This shipped only as a `console.warn` in the ADR's example code, and I found no substring check in the production path at all.** `research-query.ts` parses via `parseSnippetResponse()` and returns; `snippet-parser.ts` validates _types and presence_, never _containment_. The one concrete anti-fabrication check they designed is not running.
 5. **Defensive parsing.** `snippet-parser.ts` strips markdown fences, tolerates `snake_case` variants, accepts a bare unwrapped snippet object, caps at `MAX_SNIPPETS = 8` and `MAX_CONTENT_LENGTH = 10_000`, and returns a discriminated `{ok:true,data} | {ok:false,error,partial}` so a partial result can still be surfaced. `parseResearchResponse()` in `prompt-builder.ts:294-319` is a second, simpler implementation of the same thing — duplicated logic.
 
 ### The measured findings worth carrying
@@ -415,6 +418,7 @@ Five layers, of which four shipped:
 The extraction contract generalizes far past book research. Any agent asked to answer from customer-supplied material needs exactly this shape: **copy don't compose; attribute from metadata you were handed; have a structured way to say "not here"; validate containment server-side.** Rules 1-4 port verbatim with `snippet` renamed.
 
 Three findings are the kind you only get by running the experiment, and they are worth more than the prompt text:
+
 - Over-constraining output structure can degrade content fidelity. Anyone reaching for strict schema/tool-calling because it feels safer should read `ADR-010:216-220` first.
 - Smaller models silently drop fields they judge semantically unnecessary, and a dropped boolean can zero out an entire response.
 - Non-contiguous "greatest hits" assembly is the fabrication mode that survives casual inspection.
@@ -455,8 +459,8 @@ Elsewhere in the codebase the routing is effectively hard-coded rather than tier
 
 The tier taxonomy is obsolete (specific 2026-02 Workers AI models, GPT-4o pricing). But three things carry, and they are worth more than the decision would have been:
 
-1. **The gate design is a reusable artifact.** Blind A/B with randomized labels, a sealed reveal key, both arms run on *production* prompts imported from the shipped module, and explicit pass criteria written *before* the run. That is a template — and the outcome proves it works, because it caught a failure the authoring ADR did not anticipate.
-2. **The cheap tier was slower, not faster.** The entire premise was latency and the measurement inverted it. Any "cheap model for the easy cases" plan should be required to *measure* the latency claim before the architecture depends on it.
+1. **The gate design is a reusable artifact.** Blind A/B with randomized labels, a sealed reveal key, both arms run on _production_ prompts imported from the shipped module, and explicit pass criteria written _before_ the run. That is a template — and the outcome proves it works, because it caught a failure the authoring ADR did not anticipate.
+2. **The cheap tier was slower, not faster.** The entire premise was latency and the measurement inverted it. Any "cheap model for the easy cases" plan should be required to _measure_ the latency claim before the architecture depends on it.
 3. **Route by task type, not by a global default.** This is the surviving design idea (`quality-gate-results`, Conditions for PASS #2): the small model was fine at mechanical transformation and dangerous at creative/emotional transformation. That maps directly onto an agent architecture where some acts are mechanical and some are voiced.
 
 And the failure mode is precisely the one ss-console already treats as P0: a model inventing plausible content in a user-facing artifact. DraftCrane found it in a 10-case sample. This is corroborating evidence for keeping high-fabrication-risk output classes pinned to the strongest model.
@@ -492,13 +496,14 @@ The protocol, run on a physical iPad Air 5th gen+ / iPadOS 17+ before shipping, 
 
 Two concrete mitigations came out of it (lines 63-66): virtual-keyboard toolbar positioning solved with the `visualViewport` API plus `interactive-widget=resizes-content` in the viewport meta (working code at lines 98-110); and Google Docs paste, which "wraps content in `<b id="docs-internal-guid-...">` with inline styles," requiring a custom handler that transforms to semantic marks.
 
-The 2026 re-review is the more valuable half. Re-checked one year on: **"Safari issue #5683: STILL OPEN."** and **"iOS backspace bug #5711: STILL OPEN."** — "The original disqualifying issues in both alternatives remain unfixed a year later." It also notes the ecosystem consolidating — BlockNote and Novel are both built *on* Tiptap — and flags a platform-level confound: "iPadOS 26 Safari has reported platform-level bugs [...] These affect all editors equally and are not a reason to switch."
+The 2026 re-review is the more valuable half. Re-checked one year on: **"Safari issue #5683: STILL OPEN."** and **"iOS backspace bug #5711: STILL OPEN."** — "The original disqualifying issues in both alternatives remain unfixed a year later." It also notes the ecosystem consolidating — BlockNote and Novel are both built _on_ Tiptap — and flags a platform-level confound: "iPadOS 26 Safari has reported platform-level bugs [...] These affect all editors equally and are not a reason to switch."
 
 **(d) Transfer assessment: THE DECISION MOSTLY DIES. THE METHOD TRANSFERS.**
 
 If the new architecture composes UI from authored view classes and the user works primarily in natural language, a 150KB rich-text editing kernel may not be in the build at all — and if it is, it is one view class among several, not the product. ADR-001's Principle 1 counterpart in the charter ("Writing Comes First. The editor is the product," `charter.md:11`) is exactly the premise an agent-composed architecture abandons.
 
 What transfers:
+
 - **Decide on a named open upstream bug, not a feature comparison.** "GitHub #5711, still open 15 months later" is a falsifiable, re-checkable criterion. Feature tables are not.
 - **The re-review as a practice.** An ADR that gets revisited and either reaffirmed or reversed, with the evidence re-checked, is the thing most ADRs never do. This one names the date and the version numbers.
 - **A numbered device test protocol with a scoring bar.** Portable to any "does this actually work on the surface the customer uses" question.
@@ -524,11 +529,26 @@ Priority question resolved (lines 135-149): "**PDF is the priority. Both ship, b
 Determinism comes from pushing every layout decision into declarative CSS rather than imperative layout code — `book-template.ts:30-33` and `108-126`:
 
 ```css
-@page { size: 5.5in 8.5in; margin: 0.875in 0.75in 1in 0.75in; }
-@page :first { margin-top: 2.5in; }
-h1.chapter-title { page-break-before: always; page-break-after: avoid; }
-h1.chapter-title:first-of-type { page-break-before: avoid; }
-.chapter-content p { text-indent: 0.25in; margin: 0; orphans: 3; widows: 3; }
+@page {
+  size: 5.5in 8.5in;
+  margin: 0.875in 0.75in 1in 0.75in;
+}
+@page :first {
+  margin-top: 2.5in;
+}
+h1.chapter-title {
+  page-break-before: always;
+  page-break-after: avoid;
+}
+h1.chapter-title:first-of-type {
+  page-break-before: avoid;
+}
+.chapter-content p {
+  text-indent: 0.25in;
+  margin: 0;
+  orphans: 3;
+  widows: 3;
+}
 ```
 
 PDF rendering is one stateless POST — `workers/dc-api/src/services/pdf-generator.ts:35-88` — with `preferCSSPageSize: true` (so the `@page` rule governs, not the API's page size), explicit margins, `printBackground: false`, `gotoOptions: {waitUntil:'load'}`, and page numbers injected via `footerTemplate` with `<span class="pageNumber">`. The ADR explains why the footer template rather than CSS margin boxes (line 54): Chromium has "No CSS `page-margin-box` support for running headers/chapter titles per page."
@@ -550,7 +570,7 @@ The Browser Rendering dependency is Cloudflare-specific and was still "Proposed"
 3. **Determinism by declarative layout.** Every pagination decision lives in `@page` / `page-break-*` / `orphans` / `widows` rules, not in code. The renderer is stateless and takes the whole document in one call.
 4. **EPUB-by-assembly beats EPUB-by-library.** ~200-300 lines of JSZip, "fully under our control, zero dependency risk," instead of pulling in `epub-gen-memory` with `htmlparser2` and image-download logic they did not need (`ADR-004:128-133`). Correct call for a spec-defined container format.
 
-Also worth carrying: the priority argument itself. PDF over EPUB was decided by asking what the user would *do with the file*, and that overrode both the engineering-difficulty ordering and the PM's stated fallback.
+Also worth carrying: the priority argument itself. PDF over EPUB was decided by asking what the user would _do with the file_, and that overrode both the engineering-difficulty ordering and the PM's stated fallback.
 
 ---
 
@@ -576,7 +596,7 @@ CREATE INDEX idx_ai_instructions_user_id_type ON ai_instructions(user_id, type);
 
 0020 also **seeds four defaults for every existing user** via `INSERT ... SELECT ... FROM users` — two `rewrite`, two `analysis`.
 
-`migrations/0027_standardize_instruction_types.sql` rewrites the taxonomy from *what the AI does* to *where the user is standing*: `analysis → desk`, `rewrite → chapter`, and adds a third value `book` with no migration source (new surface). It also adds `last_used_at` and an index `(user_id, last_used_at DESC)` for a recents list. Because SQLite cannot alter a CHECK constraint, it uses the create-new / copy / drop / rename / recreate-indexes dance.
+`migrations/0027_standardize_instruction_types.sql` rewrites the taxonomy from _what the AI does_ to _where the user is standing_: `analysis → desk`, `rewrite → chapter`, and adds a third value `book` with no migration source (new surface). It also adds `last_used_at` and an index `(user_id, last_used_at DESC)` for a recents list. Because SQLite cannot alter a CHECK constraint, it uses the create-new / copy / drop / rename / recreate-indexes dance.
 
 There is **no `project_id` column** in either migration.
 
@@ -596,7 +616,7 @@ Note the type-scoped verbs: `chapter` instructions transform prose; `desk` instr
 
 The selected row's `instruction_text` is dropped into the same freeform instruction field the user could have typed by hand, and travels as `RewriteInput.instruction`. Server-side, `buildSystemPrompt()` (`ai-rewrite.ts:49-72`) never reads the instructions table. It composes a fixed system prompt plus, at most, `projectDescription` and `chapterTitle`.
 
-**So what *is* the per-project style context?** It is essentially nothing, and this was a known, deliberate gap. `prd.md:124`: "Phase 0 AI has no knowledge of the author's voice beyond selected text plus 500 characters of surrounding context, chapter title, and project description." The intended answer — the **Book Blueprint**, "a structured document defining the author's voice rules, terminology, key claims, and target reader. Used by AI to maintain consistency" (`prd.md:886`) — is Phase 1 and was never built. `prd.md:860` calls it the point "where differentiation truly begins."
+**So what _is_ the per-project style context?** It is essentially nothing, and this was a known, deliberate gap. `prd.md:124`: "Phase 0 AI has no knowledge of the author's voice beyond selected text plus 500 characters of surrounding context, chapter title, and project description." The intended answer — the **Book Blueprint**, "a structured document defining the author's voice rules, terminology, key claims, and target reader. Used by AI to maintain consistency" (`prd.md:886`) — is Phase 1 and was never built. `prd.md:860` calls it the point "where differentiation truly begins."
 
 The nearest thing that shipped is `buildSystemPrompt`'s anti-drift rules (`ai-rewrite.ts:49-61`):
 
@@ -621,7 +641,7 @@ Transfers: (1) **A user-owned library of named, editable instructions, typed by 
 
 Does not transfer as-is: user-scoping. In a per-customer agent architecture the natural scope is the engagement, and the CHECK-constraint migration in 0027 shows how expensive it is to change a taxonomy later in SQLite.
 
-**The gap is the lesson.** DraftCrane shipped instruction *selection* and never shipped instruction *context*. The result — noted in the PRD's own risk register as Risk 6, "AI quality poor without Book Blueprint [...] No voice context. Output feels generic" (`prd.md:745`) — is that the AI could be told *what to do* but never *whose voice to do it in*. The design brief's target user names the consequence in the language of the metaphor: an Editor with no memory of the book "would feel dramatically more like a collaborator" if it had even "a small awareness" of the rest of the manuscript (`brief.md:109`). That is a direct argument for putting authored voice/context configuration in the substrate from day one rather than treating it as a later phase — which is what ss-console already does with output classes.
+**The gap is the lesson.** DraftCrane shipped instruction _selection_ and never shipped instruction _context_. The result — noted in the PRD's own risk register as Risk 6, "AI quality poor without Book Blueprint [...] No voice context. Output feels generic" (`prd.md:745`) — is that the AI could be told _what to do_ but never _whose voice to do it in_. The design brief's target user names the consequence in the language of the metaphor: an Editor with no memory of the book "would feel dramatically more like a collaborator" if it had even "a small awareness" of the rest of the manuscript (`brief.md:109`). That is a direct argument for putting authored voice/context configuration in the substrate from day one rather than treating it as a later phase — which is what ss-console already does with output classes.
 
 Also worth carrying: `ai-rewrite.ts`'s XML fencing plus "surrounding context is for reference ONLY, NEVER include it" is a compact, working solution to the general problem of **giving a model context it must read but must not emit.**
 
@@ -630,7 +650,7 @@ Also worth carrying: `ai-rewrite.ts`'s XML fencing plus "surrounding context is 
 ## 10. Other hard-won answers worth keeping
 
 **A. Deep Analysis: map-reduce over a corpus that exceeds context, as a first-class async job.**
-`docs/design/library-desk-spec.md:82-112` designs it, `workers/dc-api/src/services/deep-analysis.ts` ships it. Route by an *estimate* computed from D1 `word_count` metadata with **no R2 reads** (`deep-analysis.ts:76-108`) — cheap enough to run on every request; over `DEEP_ANALYSIS_TOKEN_THRESHOLD` (default 40K) it creates a job and returns a `jobId`, processing via `waitUntil()`. Greedy bin-packing into ~80K-token batches (line 319), max 3 concurrent (line 26), 3 retries per batch with linear backoff (line 363), progress written to D1 after each group so the client can poll `completed_batches / total_batches`, then a reduce pass at `maxTokens: 8192`. Expired jobs are lazily deleted on read (lines 280, 300).
+`docs/design/library-desk-spec.md:82-112` designs it, `workers/dc-api/src/services/deep-analysis.ts` ships it. Route by an _estimate_ computed from D1 `word_count` metadata with **no R2 reads** (`deep-analysis.ts:76-108`) — cheap enough to run on every request; over `DEEP_ANALYSIS_TOKEN_THRESHOLD` (default 40K) it creates a job and returns a `jobId`, processing via `waitUntil()`. Greedy bin-packing into ~80K-token batches (line 319), max 3 concurrent (line 26), 3 retries per batch with linear backoff (line 363), progress written to D1 after each group so the client can poll `completed_batches / total_batches`, then a reduce pass at `maxTokens: 8192`. Expired jobs are lazily deleted on read (lines 280, 300).
 
 Two details worth stealing: **`hasUnknown` forces the async path** — a source with `word_count = 0` means "we cannot estimate," and the system treats unknown as large rather than small (`deep-analysis.ts:118`). That is fail-safe routing. And the design doc frames the whole thing as an imitation of human method (`library-desk-spec.md:100-101`): "This mirrors how humans actually do research synthesis — read a stack, take notes, read another stack, take notes, then synthesize notes into structure." It also calls it "a natural premium feature. It does real work over real time, and the perceived value is clear."
 
@@ -645,7 +665,7 @@ This is the correct shape for any agent artifact that cites something: **denorma
 Decision 5 (`design-spec.md:1678-1684`). "DraftCrane reads your files to help you search and reference them. Your originals are never changed." — shown in the Source Add Flow **every time, not only on first use**, because "the trust barrier is at the connection point." Costed as "zero-cost to implement with outsized trust impact." The removal dialog carries the same idea: "The original file in Google Drive is not affected. Related clips will keep their text but lose the source link" (`design-spec.md:525`) — the dialog states what survives, not just what is destroyed.
 
 **E. A UX simplification that is really an architecture simplification.**
-Decision 2 (`design-spec.md:1654-1660`) removed chapter-source linking entirely: "the action had invisible outcomes, the term 'link' was overloaded and confusing, and neither persona used the feature as intended. Diane would 'tap it, see nothing changed, tap again to unlink, give up.'" The replacement (Decision 3) puts the association on the *artifact the user actually cares about* — an optional `chapter_id` on the clip — rather than on an abstract relation. **The invisible-outcome test is the reusable diagnostic: if performing an action produces no observable change, users cannot learn it, and it should not exist.**
+Decision 2 (`design-spec.md:1654-1660`) removed chapter-source linking entirely: "the action had invisible outcomes, the term 'link' was overloaded and confusing, and neither persona used the feature as intended. Diane would 'tap it, see nothing changed, tap again to unlink, give up.'" The replacement (Decision 3) puts the association on the _artifact the user actually cares about_ — an optional `chapter_id` on the clip — rather than on an abstract relation. **The invisible-outcome test is the reusable diagnostic: if performing an action produces no observable change, users cannot learn it, and it should not exist.**
 
 **F. Sheet stacking → inline view replacement, with a props-count ship criterion.**
 `design-spec.md:40` replaced a 4-layer sheet stack with inline replacement in one panel, max depth 2. Principle 1: "No surface ever stacks on top of another." The measurable win: a 133-line props interface and ~50 source-related props collapsed into one context provider, with **"EditorDialogsProps reduced to <= 5 research-related props"** as a literal ship criterion (`design-spec.md:1554`). Turning an architectural smell into a checkable number is the transferable move.
@@ -672,54 +692,54 @@ This is the shelving explained in advance, in the PRD, by the authors.
 
 ## 11. Consolidated transfer table
 
-| # | Asset | Verdict | Primary citation |
-|---|---|---|---|
-| 1 | Canonical/cache/metadata tier split + "Drive wins" invariant | Transfers (invariant verbatim) | `ADR-005:32,80-89` |
-| 2 | Optimistic `version` → 409, no merge | Survives with modification — insufficient for multi-writer | `content.ts:77-84`; `prd.md:774` |
-| 3 | Offline | N/A — never supported, deliberately | `prd.md:168,440,845` |
-| 4 | Author/Editor metaphor as architecture; never a chatbot, never a character | **Transfers** | `brief.md:27-40` |
-| 5 | Propose → accept/reject/retry loop with pre-created durable row | **Transfers** | `ai-rewrite.ts:161-198`; `ai-interaction.ts:53-105` |
-| 6 | `ai_interactions` metadata-only schema, tri-state `accepted`, `parent_interaction_id` | **Transfers** | `prd.md:486`; migrations 0005/0007/0008 |
-| 7 | `unpdf` / `mammoth.js` selection | Survives with modification — re-verify | `ADR-008:34` |
-| 8 | Threshold-first evaluation tables + census-derived sanitizer allowlist | **Transfers (method)** | `ADR-008-spike-results.md:144-219` |
-| 9 | 300/400/50-word chunks, 2-sentence overlap, never split mid-sentence | Transfers (retune for tokenizer) | `ADR-009:51-60`; `chunking.ts:55-60` |
-| 10 | Structured vs flat chunking modes; `headingChain` provenance in-chunk | **Transfers** | `ADR-009:62-89`; `chunking.ts:27-46` |
-| 11 | `content_hash` + `indexed_at` chunk invalidation | Transfers | `ADR-009:216-248` |
-| 12 | FTS5-first / Vectorize-fallback hybrid retrieval | **DIES — never built, never validated** | `ADR-009:25`; no `source_chunks` migration; no Vectorize binding |
-| 13 | Token budget: 1.33 words→tokens, 8192 budget, 8 chunks, header counted | **Transfers** | `context-window.ts:29-72` |
-| 14 | dedupe → relevance-select → re-sort to document order → format | **Transfers** | `prompt-builder.ts:178-205` |
-| 15 | `prompt-builder.ts` / `context-window.ts` as a working system | **DEAD CODE — test-only importers** | grep: only `test/prompt-builder.test.ts` |
-| 16 | Production retrieval = round-robin first-N-chunks, zero ranking | **TRAP — do not inherit** | `research-query.ts:169-202, 337` |
-| 17 | Research system prompt + verbatim/attribution/no-results rules | **Transfers** | `ADR-010:102-150` = `research-query.ts:92-138` |
-| 18 | Strict json_schema degrades extraction fidelity | **Transfers (finding)** | `ADR-010:57,216-220` |
-| 19 | Non-contiguous "greatest hits" fabrication mode | **Transfers (finding)** | `ADR-010:224-226` |
-| 20 | Small models silently drop fields they deem unnecessary | Transfers (finding) | `ADR-010:63,230-232` |
-| 21 | Backend substring containment check on snippets | **Specified, NOT shipped — build it** | `ADR-010:299-306`; absent from `research-query.ts` |
-| 22 | Non-streaming JSON + server-side SSE re-emission | Transfers | `ADR-010:21,350-352`; `research-query.ts:450-483` |
-| 23 | Edge/frontier tier split | **DIES** — gate failed, edge slower | `ADR-006-quality-gate-results.md`; `wrangler.toml:47` |
-| 24 | Blind A/B gate with reveal key on production prompts | **Transfers (method)** | `ADR-006:42-51` |
-| 25 | Route by task type, not global default | Transfers (design idea) | `ADR-006-quality-gate-results.md`, Conditions #2 |
-| 26 | Tiptap | Mostly dies — premise abandoned | `ADR-001:28` |
-| 27 | Decide on named open upstream bugs; re-review a year later | **Transfers (method)** | `ADR-001:34-42,142-184` |
-| 28 | 8-point device test protocol with scoring bar | Transfers (method) | `ADR-001:127-140` |
-| 29 | One HTML+CSS template → PDF and EPUB | **Transfers** | `ADR-004:188-196`; `book-template.ts` |
-| 30 | `PdfGenerator` interface seam + named DocRaptor fallback | **Transfers** | `ADR-004:120`; `pdf-generator.ts` |
-| 31 | Determinism via declarative `@page`/`page-break`/`orphans`/`widows` | Transfers | `book-template.ts:30-126` |
-| 32 | EPUB by JSZip assembly, not by library | Transfers | `ADR-004:128-133`; `epub-generator.ts` |
-| 33 | EPUB `Date.now()` book id → non-reproducible bytes | Caution | `epub-generator.ts:256,186` |
-| 34 | User-scoped named instruction library, typed by surface, seeded, recents-indexed | Transfers (rescope to engagement) | migrations 0020/0027; `ai-instructions.ts` |
-| 35 | Per-project voice/style context (Book Blueprint) | **NEVER BUILT** — the acknowledged gap | `prd.md:124,860,886`; Risk 6 at `prd.md:745` |
-| 36 | XML-fenced context the model must read but not emit | Transfers | `ai-rewrite.ts:49-101` |
-| 37 | Map-reduce deep analysis; estimate from metadata; unknown ⇒ async | **Transfers** | `deep-analysis.ts:76-120,319-347` |
-| 38 | Denormalized provenance surviving source deletion | **Transfers** | `design-spec.md:1193-1199` |
-| 39 | AI output ephemeral; only the human-kept artifact persists | **Transfers** | `design-spec.md:1220` |
-| 40 | Always-on trust messaging at the anxiety moment | Transfers | `design-spec.md:1678-1684` |
-| 41 | Invisible-outcome test; put association on the artifact | **Transfers (diagnostic)** | `design-spec.md:1654-1666` |
-| 42 | No stacking; props-count as a ship criterion | Transfers | `design-spec.md:1554` |
-| 43 | Settled lexicon + banned words + per-surface length ceilings | **Transfers** | `brief.md:42-55`; `voice-tone-help.md` |
-| 44 | Fixed spatial + chromatic contract; 400px center floor | **Transfers** | `charter.md:17,289`; `brief.md:126-139` |
-| 45 | Versioned backup manifest + decompression guards | Transfers | `backup.ts:20-27,158` |
-| 46 | Falsifiable kill criteria + qualitative caveat | Transfers (method) | `dc-project-instructions.md:46-52`; `prd.md:942-946` |
+| #   | Asset                                                                                 | Verdict                                                    | Primary citation                                                 |
+| --- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| 1   | Canonical/cache/metadata tier split + "Drive wins" invariant                          | Transfers (invariant verbatim)                             | `ADR-005:32,80-89`                                               |
+| 2   | Optimistic `version` → 409, no merge                                                  | Survives with modification — insufficient for multi-writer | `content.ts:77-84`; `prd.md:774`                                 |
+| 3   | Offline                                                                               | N/A — never supported, deliberately                        | `prd.md:168,440,845`                                             |
+| 4   | Author/Editor metaphor as architecture; never a chatbot, never a character            | **Transfers**                                              | `brief.md:27-40`                                                 |
+| 5   | Propose → accept/reject/retry loop with pre-created durable row                       | **Transfers**                                              | `ai-rewrite.ts:161-198`; `ai-interaction.ts:53-105`              |
+| 6   | `ai_interactions` metadata-only schema, tri-state `accepted`, `parent_interaction_id` | **Transfers**                                              | `prd.md:486`; migrations 0005/0007/0008                          |
+| 7   | `unpdf` / `mammoth.js` selection                                                      | Survives with modification — re-verify                     | `ADR-008:34`                                                     |
+| 8   | Threshold-first evaluation tables + census-derived sanitizer allowlist                | **Transfers (method)**                                     | `ADR-008-spike-results.md:144-219`                               |
+| 9   | 300/400/50-word chunks, 2-sentence overlap, never split mid-sentence                  | Transfers (retune for tokenizer)                           | `ADR-009:51-60`; `chunking.ts:55-60`                             |
+| 10  | Structured vs flat chunking modes; `headingChain` provenance in-chunk                 | **Transfers**                                              | `ADR-009:62-89`; `chunking.ts:27-46`                             |
+| 11  | `content_hash` + `indexed_at` chunk invalidation                                      | Transfers                                                  | `ADR-009:216-248`                                                |
+| 12  | FTS5-first / Vectorize-fallback hybrid retrieval                                      | **DIES — never built, never validated**                    | `ADR-009:25`; no `source_chunks` migration; no Vectorize binding |
+| 13  | Token budget: 1.33 words→tokens, 8192 budget, 8 chunks, header counted                | **Transfers**                                              | `context-window.ts:29-72`                                        |
+| 14  | dedupe → relevance-select → re-sort to document order → format                        | **Transfers**                                              | `prompt-builder.ts:178-205`                                      |
+| 15  | `prompt-builder.ts` / `context-window.ts` as a working system                         | **DEAD CODE — test-only importers**                        | grep: only `test/prompt-builder.test.ts`                         |
+| 16  | Production retrieval = round-robin first-N-chunks, zero ranking                       | **TRAP — do not inherit**                                  | `research-query.ts:169-202, 337`                                 |
+| 17  | Research system prompt + verbatim/attribution/no-results rules                        | **Transfers**                                              | `ADR-010:102-150` = `research-query.ts:92-138`                   |
+| 18  | Strict json_schema degrades extraction fidelity                                       | **Transfers (finding)**                                    | `ADR-010:57,216-220`                                             |
+| 19  | Non-contiguous "greatest hits" fabrication mode                                       | **Transfers (finding)**                                    | `ADR-010:224-226`                                                |
+| 20  | Small models silently drop fields they deem unnecessary                               | Transfers (finding)                                        | `ADR-010:63,230-232`                                             |
+| 21  | Backend substring containment check on snippets                                       | **Specified, NOT shipped — build it**                      | `ADR-010:299-306`; absent from `research-query.ts`               |
+| 22  | Non-streaming JSON + server-side SSE re-emission                                      | Transfers                                                  | `ADR-010:21,350-352`; `research-query.ts:450-483`                |
+| 23  | Edge/frontier tier split                                                              | **DIES** — gate failed, edge slower                        | `ADR-006-quality-gate-results.md`; `wrangler.toml:47`            |
+| 24  | Blind A/B gate with reveal key on production prompts                                  | **Transfers (method)**                                     | `ADR-006:42-51`                                                  |
+| 25  | Route by task type, not global default                                                | Transfers (design idea)                                    | `ADR-006-quality-gate-results.md`, Conditions #2                 |
+| 26  | Tiptap                                                                                | Mostly dies — premise abandoned                            | `ADR-001:28`                                                     |
+| 27  | Decide on named open upstream bugs; re-review a year later                            | **Transfers (method)**                                     | `ADR-001:34-42,142-184`                                          |
+| 28  | 8-point device test protocol with scoring bar                                         | Transfers (method)                                         | `ADR-001:127-140`                                                |
+| 29  | One HTML+CSS template → PDF and EPUB                                                  | **Transfers**                                              | `ADR-004:188-196`; `book-template.ts`                            |
+| 30  | `PdfGenerator` interface seam + named DocRaptor fallback                              | **Transfers**                                              | `ADR-004:120`; `pdf-generator.ts`                                |
+| 31  | Determinism via declarative `@page`/`page-break`/`orphans`/`widows`                   | Transfers                                                  | `book-template.ts:30-126`                                        |
+| 32  | EPUB by JSZip assembly, not by library                                                | Transfers                                                  | `ADR-004:128-133`; `epub-generator.ts`                           |
+| 33  | EPUB `Date.now()` book id → non-reproducible bytes                                    | Caution                                                    | `epub-generator.ts:256,186`                                      |
+| 34  | User-scoped named instruction library, typed by surface, seeded, recents-indexed      | Transfers (rescope to engagement)                          | migrations 0020/0027; `ai-instructions.ts`                       |
+| 35  | Per-project voice/style context (Book Blueprint)                                      | **NEVER BUILT** — the acknowledged gap                     | `prd.md:124,860,886`; Risk 6 at `prd.md:745`                     |
+| 36  | XML-fenced context the model must read but not emit                                   | Transfers                                                  | `ai-rewrite.ts:49-101`                                           |
+| 37  | Map-reduce deep analysis; estimate from metadata; unknown ⇒ async                     | **Transfers**                                              | `deep-analysis.ts:76-120,319-347`                                |
+| 38  | Denormalized provenance surviving source deletion                                     | **Transfers**                                              | `design-spec.md:1193-1199`                                       |
+| 39  | AI output ephemeral; only the human-kept artifact persists                            | **Transfers**                                              | `design-spec.md:1220`                                            |
+| 40  | Always-on trust messaging at the anxiety moment                                       | Transfers                                                  | `design-spec.md:1678-1684`                                       |
+| 41  | Invisible-outcome test; put association on the artifact                               | **Transfers (diagnostic)**                                 | `design-spec.md:1654-1666`                                       |
+| 42  | No stacking; props-count as a ship criterion                                          | Transfers                                                  | `design-spec.md:1554`                                            |
+| 43  | Settled lexicon + banned words + per-surface length ceilings                          | **Transfers**                                              | `brief.md:42-55`; `voice-tone-help.md`                           |
+| 44  | Fixed spatial + chromatic contract; 400px center floor                                | **Transfers**                                              | `charter.md:17,289`; `brief.md:126-139`                          |
+| 45  | Versioned backup manifest + decompression guards                                      | Transfers                                                  | `backup.ts:20-27,158`                                            |
+| 46  | Falsifiable kill criteria + qualitative caveat                                        | Transfers (method)                                         | `dc-project-instructions.md:46-52`; `prd.md:942-946`             |
 
 ---
 
