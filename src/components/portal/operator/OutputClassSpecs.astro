@@ -3,6 +3,7 @@ import Field from '../form/Field.astro'
 import TextArea from '../form/TextArea.astro'
 import SubmitButton from '../form/SubmitButton.astro'
 import {
+  MAX_SPEC_BODY_BYTES,
   SPEC_PROPERTIES,
   specFieldName,
   type SpecDocument,
@@ -29,6 +30,18 @@ import type { OutputClasses } from '../../../lib/operator/customer-yaml/types'
  * docs/style/empty-state-pattern.md. It is a real and ordinary condition (a
  * seat whose engagement has not reached the point of declaring output classes)
  * and it must not be papered over with a specimen class list.
+ *
+ * THE LENGTH CAP IS THE SERVER'S, MIRRORED. `maxlength` is derived from
+ * `MAX_SPEC_BODY_BYTES` rather than picked, and the derivation is safe in one
+ * direction only: the attribute counts UTF-16 code units and the ceiling counts
+ * UTF-8 bytes, and a string is never fewer bytes than code units, so this
+ * attribute can only ever refuse text the server would also refuse. It cannot
+ * block a body the server would accept, which is the failure it used to have at
+ * 20,000: a longer body authored elsewhere would render into a field the browser
+ * then treated as over-limit, and constraint validation would make the whole
+ * form unsubmittable with nothing on screen saying why. The attribute is a
+ * courtesy either way. The ceiling that decides is in `buildSpecDocument`, over
+ * the bytes about to be written, and its refusal comes back as a banner.
  */
 
 interface Props {
@@ -111,7 +124,12 @@ const rows = Object.entries(declared)
               {row.properties.map((prop) => (
                 <div class="mt-5">
                   <Field label={prop.label}>
-                    <TextArea name={prop.field} rows={5} maxlength={20000} value={prop.body} />
+                    <TextArea
+                      name={prop.field}
+                      rows={5}
+                      maxlength={MAX_SPEC_BODY_BYTES}
+                      value={prop.body}
+                    />
                   </Field>
                   <p class="mt-1 mb-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
                     {prop.expected ? 'Spec expected' : 'No spec expected'}
