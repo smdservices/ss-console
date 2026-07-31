@@ -942,6 +942,48 @@ export interface VoiceCohorts {
   min_samples_per_cohort: number | null
 }
 
+/**
+ * What a seat IS — the two facts that do not change over its life.
+ *
+ * `customer`  a real customer's real data on a seat they are served by
+ * `proving`   real connectors against OUR tenant, fictional matters
+ * `sandbox`   disposable, real-fidelity, no real data
+ * `internal`  works ON the venture rather than in a customer's business
+ * `preprod`   the permanent pre-production gate
+ *
+ * Deliberately carries NO lifecycle state. See sections-seat.ts for why.
+ */
+export const SEAT_KINDS = ['customer', 'proving', 'sandbox', 'internal', 'preprod'] as const
+export type SeatKind = (typeof SEAT_KINDS)[number]
+
+/** Which SKU this seat is. Implied today only by which template it was copied from. */
+export const SEAT_PRODUCTS = ['operator', 'hosted-agent'] as const
+export type SeatProduct = (typeof SEAT_PRODUCTS)[number]
+
+export interface Seat {
+  kind: SeatKind
+  product: SeatProduct
+}
+
+/**
+ * Whether an authored spec is expected for an output-class property (ADR 0083).
+ *
+ * `none` is a CHOICE, not an absence — the persona's own judgment governs.
+ * `expected` with the spec missing or hash-mismatched fails closed. Without
+ * this bit the two are indistinguishable, and a broken sync would read as a
+ * deliberate decision not to author. See sections-output-classes.ts.
+ */
+export const SPEC_DISPOSITIONS = ['expected', 'none'] as const
+export type SpecDisposition = (typeof SPEC_DISPOSITIONS)[number]
+
+export interface OutputClassDeclaration {
+  voice_spec: SpecDisposition
+  format_spec: SpecDisposition
+}
+
+/** Keyed by class slug from operator/contracts/output-classes.yaml. */
+export type OutputClasses = Record<string, OutputClassDeclaration>
+
 export interface Logging {
   level: LogLevel
   ship_to: LogShip[]
@@ -1130,6 +1172,10 @@ export interface CustomerYaml {
   send_policy: SendPolicy | null
   voice_library: VoiceLibrary | null
   voice_cohorts: VoiceCohorts | null
+  /** What this seat IS. Kind and product only — state is derived, never authored. */
+  seat: Seat | null
+  /** Per-output-class declaration of whether an authored spec is expected (ADR 0083). */
+  output_classes: OutputClasses | null
   business_hours: BusinessHours | null
   digest: Digest | null
   memory: Memory

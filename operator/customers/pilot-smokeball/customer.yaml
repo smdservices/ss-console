@@ -16,6 +16,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: pilot-smokeball
 customer_name: 'Pilot Law (Smokeball Staging)'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# OUR OWN Smokeball staging tenant, fictional matters. The seat A&P work rehearses on.
+seat:
+  kind: proving
+  product: operator
+
 vertical: law-firm
 addons:
   - law-firm/pi@0.3.0 # the CA PI-litigation lifecycle pack (19 routine skills + the 4-skill work-product drafting lane, v0.3.0 2026-07-28)

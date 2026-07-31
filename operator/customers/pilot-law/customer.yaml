@@ -21,6 +21,16 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: pilot-law
 customer_name: 'Pilot Law (Clio Sandbox)'
+
+# ---- SEAT DESCRIPTOR ----
+# What this seat IS. Kind and product only; lifecycle state is DERIVED from
+# probes of the running system and is deliberately absent here — a state field
+# is a claim an agent can write, and a claim an agent can write is one that rots.
+# Clio sandbox. Disposable, real-fidelity, no real data.
+seat:
+  kind: sandbox
+  product: operator
+
 vertical: law-firm
 # Matches the two synthetic matters the pack ships (vertical.yaml fixtures:
 # synthetic-intake-immigration, synthetic-matter-estate-simple).
