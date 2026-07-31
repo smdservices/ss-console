@@ -2,7 +2,7 @@
 #
 # Reflex Primer Hook (UserPromptSubmit) -- the always-on doctrine surface.
 #
-# Emits the nine operating-law primer lines into context on every user
+# Emits the ten operating-law primer lines into context on every user
 # prompt. Ported from crane-console's redirect-reflex-hook.sh (v2 always-on:
 # pattern-matching redirect language proved too brittle to build a forcing
 # function on; the laws are universal, so the primer fires universally).
@@ -49,6 +49,7 @@ cat <<'PRIMER'
 7. Blast radius before action: on live systems, shared state, and secrets, use the safe tool, never the convenient one.
 8. Finish or say why: no stopping-point offers, no hedging finished work as draft, no relitigating settled calls.
 9. The deliverable is the client's act, not your artifact: name the terminal seam, enumerate every gate between the client and the effect, and escalate an unclosable gate before building the closable ones.
+10. Your snapshot is not the system. Tree state, branch lists, merged PRs, and installed dependencies decay within minutes of the briefing that reported them. Re-probe before acting on any of them.
 PRIMER
 
 # Law 2 escape-hatch visibility.
