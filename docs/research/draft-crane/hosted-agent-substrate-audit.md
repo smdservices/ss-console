@@ -10,6 +10,7 @@ from our contracts/classification tables, not read from Hermes source. Flagged w
 ## 1. THE CONSOLE-TO-MACHINE SEAM (`/mcp/turn`)
 
 ### Topology
+
 Two hops. Claude (or any MCP client) → **console** `smd.services/api/operator/<slug>/mcp`
 → **Machine** `https://hermes-<slug>.fly.dev/mcp/turn` → Hermes gateway loopback
 `/webhooks/mcp` → agent turn → result file → gate long-poll → reply.
@@ -19,6 +20,7 @@ The Machine's direct public `/mcp` door is **retired**, returns `410 Gone`
 because the old Machine door never read the grant table so the kill switch didn't hold.
 
 ### Hop 1 — console (`src/lib/operator/mcp/`)
+
 - Transport: JSON-RPC 2.0 over HTTP POST. `dispatchMcpRequest` handles
   `initialize` / `notifications/initialized` / `ping` / `tools/list` / `tools/call`
   (`mcp-handler.ts:65-95`).
@@ -34,7 +36,9 @@ because the old Machine door never read the grant table so the kill switch didn'
   no `ReadableStream` anywhere in the route.
 
 ### Hop 2 — Machine (`webhook_gate.py`)
+
 Request (`webhook-transport.ts:93-99`, `webhook_gate.py:796-820`):
+
 ```
 POST {base}/mcp/turn
 Authorization: Bearer <WEBHOOK_SECRET_MCP>          # = HMAC-SHA256(master, slug)
@@ -42,7 +46,9 @@ X-Tenant-Slug: <slug>
 { message: string, thread_id?: string, principal_subject: string,
   from_email: string, from_profile: string }
 ```
+
 Response:
+
 ```
 200 { reply: string, thread_id?: string }
 400 { error: "message (non-empty string) required" | "principal_subject required" | ... }
@@ -52,10 +58,12 @@ Response:
 503 { error: "operator paused", detail: "cost breaker hard stop (sticky_stop)" }
 504 { error: "turn_timeout" }
 ```
+
 The Machine **trusts the console's asserted `principal_subject`** and never re-derives
 identity (`webhook_gate.py:1155-1172`). The console is the party that authenticated.
 
 ### The turn spine (`_drive_agent_turn`, `webhook_gate.py:675-747`) — the critical mechanics
+
 1. Mint `correlation_id = uuid4().hex`. It doubles as `X-Request-ID` (Hermes' dedup key),
    so it **must** be unique per call — which is why it cannot also be the conversation key.
 2. Sign body with `HMAC-SHA256(body, WEBHOOK_SECRET_MCP)`, POST to the Hermes gateway's
@@ -71,6 +79,7 @@ identity (`webhook_gate.py:1155-1172`). The console is the party that authentica
    `time.sleep`. Timeout → `None` → 504.
 
 ### Continuity
+
 `mcp_thread_store` (`shared/mcp_thread_store.py`) — the gate renders the recent transcript
 into the next turn's prompt. Thread key = `hash(clerk_subject):thread_id`, so one principal
 can never read another's thread. **This is a prompt-injection workaround, not native session
@@ -79,6 +88,7 @@ memory**: the Hermes webhook adapter sets `chat_id = webhook:{route}:{delivery_i
 session by design. Fixing that is a core change, forbidden by ADR 0015.
 
 ### VERDICT: can a browser drive a live conversation through this?
+
 **A turn-based conversation, yes. A streaming one, no — not without new work.**
 
 - It is a **single synchronous request/response**. No token streaming exists at any of the
@@ -97,6 +107,7 @@ session by design. Fixing that is a core change, forbidden by ADR 0015.
 ## 2. WHAT TOOLS DOES A SEAT HAVE
 
 ### The authoritative surface is a fail-closed allowlist
+
 `hermes-smd-overlay/shared/action_classes.py` maps **176 tool names** to an `ActionClass`.
 `classify_tool` returns `REFUSED` for any name not in the map — "**Unknown / unmapped tool
 — fail-closed terminal class, never executes**" (`action_classes.py:73`, and the OP-P0-1
@@ -105,23 +116,25 @@ The `hermes-smd-trust` plugin enforces it at `pre_tool_call`
 (`plugins/hermes-smd-trust/__init__.py:504`).
 
 ### Categories in the map
-| Category | Count (approx) | Examples |
-|---|---|---|
-| Hermes-native orientation reads | 5 | `read_file`, `search_files`, `skills_list`, `skill_view`, `session_search` |
-| Hermes-native high-capability (CODE_EXECUTION) | 7 | `execute_code`, `terminal`, `process`, `delegate_task`, `computer_use`, `cronjob`, `skill_manage` |
-| Hermes-native misc | ~8 | `web_search`, `vision_analyze`, `todo`, `clarify`, `write_file`, `patch` |
-| Memory | 3 | `memory_search`, `memory_get_rule`, `memory_list_rules` |
-| Generic capability-adapter tools | ~25 | `email_*`, `calendar_*`, `sms_*`, `practice_management_*` |
-| AgentMail MCP | 24 | `mcp_agentmail_*` |
-| Smokeball MCP | 40 | `mcp_smokeball_*` |
-| Clio MCP | 22 | `mcp_clio_oktopeak_*` |
-| MS Graph MCP | 6 | `mcp_msgraph_*` |
-| Google Workspace (broker-mediated) | 18 | `workspace_gmail_*`, `workspace_drive_*`, `workspace_docs_*`, `workspace_sheets_*`, `workspace_calendar_*` |
-| Overlay plugin tools | 8 | `start_background_job`, `job_status`, `job_cancel`, `job_record_sideeffect`, `escalation_append`, `escalation_state`, `record_peer_preference`, plus voice-gate reads |
-| Reference/self-test | 2 | `mcp_reference_echo`, `mcp_reference_record` |
+
+| Category                                       | Count (approx) | Examples                                                                                                                                                              |
+| ---------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hermes-native orientation reads                | 5              | `read_file`, `search_files`, `skills_list`, `skill_view`, `session_search`                                                                                            |
+| Hermes-native high-capability (CODE_EXECUTION) | 7              | `execute_code`, `terminal`, `process`, `delegate_task`, `computer_use`, `cronjob`, `skill_manage`                                                                     |
+| Hermes-native misc                             | ~8             | `web_search`, `vision_analyze`, `todo`, `clarify`, `write_file`, `patch`                                                                                              |
+| Memory                                         | 3              | `memory_search`, `memory_get_rule`, `memory_list_rules`                                                                                                               |
+| Generic capability-adapter tools               | ~25            | `email_*`, `calendar_*`, `sms_*`, `practice_management_*`                                                                                                             |
+| AgentMail MCP                                  | 24             | `mcp_agentmail_*`                                                                                                                                                     |
+| Smokeball MCP                                  | 40             | `mcp_smokeball_*`                                                                                                                                                     |
+| Clio MCP                                       | 22             | `mcp_clio_oktopeak_*`                                                                                                                                                 |
+| MS Graph MCP                                   | 6              | `mcp_msgraph_*`                                                                                                                                                       |
+| Google Workspace (broker-mediated)             | 18             | `workspace_gmail_*`, `workspace_drive_*`, `workspace_docs_*`, `workspace_sheets_*`, `workspace_calendar_*`                                                            |
+| Overlay plugin tools                           | 8              | `start_background_job`, `job_status`, `job_cancel`, `job_record_sideeffect`, `escalation_append`, `escalation_state`, `record_peer_preference`, plus voice-gate reads |
+| Reference/self-test                            | 2              | `mcp_reference_echo`, `mcp_reference_record`                                                                                                                          |
 
 **Crucial caveat: the map is a classification table, not an availability manifest.** A tool
 is present on a seat only if something registers it. Registration paths:
+
 - Hermes-native tools: always (assumed — cannot verify without Hermes source).
 - MCP connector tools: only when the connector is authored in `customer.yaml.connectors{}`
   with an `mcp:` backend and the credential is staged.
@@ -129,8 +142,10 @@ is present on a seat only if something registers it. Registration paths:
   (`shared/tool_registration.py:27-60`) — Hermes gates on the env var.
 
 ### What the Hosted Agent actually gets
+
 Traced from `operator/customers/scott/customer.yaml` — the **real** founding Hosted Agent
 seat (`seat.product: hosted-agent`, ADR 0067), not just the template:
+
 - `connectors.Email: { backend: 'mcp:agentmail' }` → the 24 `mcp_agentmail_*` tools.
 - The `_hosted-template` also authors `connectors.WebSearch: { backend: 'native:brave-free' }`
   → `web_search`. **`scott/customer.yaml` has no WebSearch connector** (lines 95-104) —
@@ -146,12 +161,14 @@ The 62 legal-vertical MCP tools (Smokeball/Clio) are Operator-only, connector-ga
 ## 3. FILE AND DOCUMENT HANDLING
 
 ### Generic files
+
 `read_file` (READ), `write_file` (INTERNAL_WRITE), `patch` (INTERNAL_WRITE),
 `search_files` (READ) — `action_classes.py:469-470, 536-537`. These are Hermes-native
 and operate on the Machine's filesystem (the Fly volume). A seat **can** hold a document as
 a file on `/opt/data` and re-read it across turns.
 
 ### Google Docs / Drive — the workspace broker
+
 `operator/workspace_broker/` runs as a **separate uid** (`workspace-broker`) launched
 root-side by `operator/templates/entrypoint.sh:232-250` via `setpriv --no-new-privs` with
 `env -i`. The agent talks to it over a unix socket (`SMD_WORKSPACE_BROKER_SOCKET`). The
@@ -160,24 +177,25 @@ agent process **never holds a Google credential** — that is the whole design (
 18 operations (`operator/workspace_broker/operations.py:52-71`), with trust classes from
 `shared/action_classes.py:483-506`:
 
-| Operation | ActionClass |
-|---|---|
-| `workspace_gmail_search`, `workspace_gmail_get` | READ |
-| `workspace_gmail_create_draft` | INTERNAL_WRITE |
-| `workspace_gmail_modify`, `workspace_gmail_archive` | **DESTRUCTIVE** |
-| `workspace_calendar_list`, `workspace_calendar_get` | READ |
-| `workspace_calendar_create_draft`, `workspace_calendar_update_draft` | INTERNAL_WRITE |
-| `workspace_drive_list`, `workspace_drive_get`, `workspace_drive_export` | READ |
-| `workspace_docs_get` | READ |
-| `workspace_docs_create`, `workspace_docs_append` | INTERNAL_WRITE |
-| `workspace_sheets_get_values` | READ |
-| `workspace_sheets_create`, `workspace_sheets_update_values` | INTERNAL_WRITE |
+| Operation                                                               | ActionClass     |
+| ----------------------------------------------------------------------- | --------------- |
+| `workspace_gmail_search`, `workspace_gmail_get`                         | READ            |
+| `workspace_gmail_create_draft`                                          | INTERNAL_WRITE  |
+| `workspace_gmail_modify`, `workspace_gmail_archive`                     | **DESTRUCTIVE** |
+| `workspace_calendar_list`, `workspace_calendar_get`                     | READ            |
+| `workspace_calendar_create_draft`, `workspace_calendar_update_draft`    | INTERNAL_WRITE  |
+| `workspace_drive_list`, `workspace_drive_get`, `workspace_drive_export` | READ            |
+| `workspace_docs_get`                                                    | READ            |
+| `workspace_docs_create`, `workspace_docs_append`                        | INTERNAL_WRITE  |
+| `workspace_sheets_get_values`                                           | READ            |
+| `workspace_sheets_create`, `workspace_sheets_update_values`             | INTERNAL_WRITE  |
 
 Notes: no `docs_replace`/`docs_delete`, no `drive_delete`, no upload — append-only Docs.
 Calendar draft tools force tentative status, no attendees, no notifications
 (`operator/skills/workspace/SKILL.md:41-42`).
 
 ### **CONFIG-DECLARES-BUT-NOT-WIRED, #1 (Hosted Agent)**
+
 `scott/customer.yaml` enables the `workspace` skill (lines 75-81) but authors **no
 `google_auth` block**. Only `smd`, `smd-staging`, `pilot-law` author one.
 
@@ -206,6 +224,7 @@ Machine — I did not touch Fly.
 ## 4. STORAGE REALITY
 
 ### CONFIRMED — no per-customer D1, no Vectorize
+
 - **`wrangler.toml` has exactly one D1 binding**: `DB` → `ss-console-db`
   (`wrangler.toml:55-59`). That is the **console's** database (clients, quotes,
   `customer_configs`, `mcp_issued_grants`). There is no per-customer D1.
@@ -230,20 +249,22 @@ Machine — I did not touch Fly.
   Postgres and Redis are in the image but **not started**.
 
 ### What storage a seat DOES have
+
 **Fly volume `hermes_state`, 10 GB, mounted at `/opt/data`** (`templates/README.md`):
-| Path | Contents |
-|---|---|
-| `/opt/data/customer.yaml` | live config, R2-mirrored |
-| `/opt/data/audit.db` | per-customer audit SQLite (`hermes-smd-audit`) |
-| `/opt/data/profiles/<slug>/` | Hermes per-persona profiles + `MEMORY.md`/`USER.md` |
-| `/opt/data/oauth/` | per-provider OAuth token files (ADR 0010) |
-| `/opt/data/voice/` | voice-sample warm cache |
-| `/opt/data/smd/sticky_stop.db` | cost-breaker state |
-| `/opt/data/smd/exposure_override.db` | entitlement dial |
-| `/opt/data/held_replies.db` | held-reply queue (#2070) |
-| `/opt/data/msgraph/delta-state.json` | Graph delta cursor |
-| `/opt/data/observations.db` | Phase 2, unused |
-| `/opt/data/honcho/pg/`, `/redis/` | Phase 2, unused |
+
+| Path                                 | Contents                                            |
+| ------------------------------------ | --------------------------------------------------- |
+| `/opt/data/customer.yaml`            | live config, R2-mirrored                            |
+| `/opt/data/audit.db`                 | per-customer audit SQLite (`hermes-smd-audit`)      |
+| `/opt/data/profiles/<slug>/`         | Hermes per-persona profiles + `MEMORY.md`/`USER.md` |
+| `/opt/data/oauth/`                   | per-provider OAuth token files (ADR 0010)           |
+| `/opt/data/voice/`                   | voice-sample warm cache                             |
+| `/opt/data/smd/sticky_stop.db`       | cost-breaker state                                  |
+| `/opt/data/smd/exposure_override.db` | entitlement dial                                    |
+| `/opt/data/held_replies.db`          | held-reply queue (#2070)                            |
+| `/opt/data/msgraph/delta-state.json` | Graph delta cursor                                  |
+| `/opt/data/observations.db`          | Phase 2, unused                                     |
+| `/opt/data/honcho/pg/`, `/redis/`    | Phase 2, unused                                     |
 
 **tmpfs (`/run`, wiped on restart by design):** `/run/smd-mcp/` (MCP result + thread
 stores), `/run/smd-connector-health/ledger.json`.
@@ -257,12 +278,13 @@ R2 is the source of truth for live reconfig; the Machine pulls, root-side.
 `operator_mcp_grant_audit`, plus the whole admin/portal schema.
 
 ### Where could a new application's structured data live TODAY?
+
 1. **`/opt/data/*.db` — SQLite on the Fly volume.** The established pattern (six such
    files already). Survives restart and reprovision by design. Zero new infrastructure.
    Reachable from the agent only via a tool; there is no generic `sql_query` tool in the
    allowlist, so it needs either a broker verb or a new overlay plugin tool.
 2. **The console's `ss-console-db` D1.** Already bound, already has an authenticated
-   route layer. Right home for anything the *browser* reads.
+   route layer. Right home for anything the _browser_ reads.
 3. **R2 `smd-customer-config`.** Root-side pull only; not agent-writable by design.
 4. **Files on `/opt/data` via `write_file`/`read_file`.** Agent-writable today, no new
    code at all. Crude but real.
@@ -277,6 +299,7 @@ reachable from the edge, any KV the Machine can write.
 **Plainly: there is no semantic retrieval on a seat. None. Not built, not bound, not stubbed.**
 
 What exists:
+
 - `search_files` (READ, `action_classes.py:470`) — Hermes-native local file search.
   Lexical. I cannot read its implementation (Hermes not checked out), so I cannot say
   whether it is glob, substring, or regex.
@@ -305,12 +328,15 @@ explicitly reads via `read_file`/`search_files`, and connector-side search
 `inbox-triage`, `workspace`, `status-report-assembler`.
 
 ### Shape
+
 A skill is a directory: `SKILL.md` + `references/` + `tests/`. `SKILL.md` is markdown
 with YAML frontmatter:
+
 ```yaml
-name, description, version, author, license, platforms, prerequisites: {skills, commands}
+name, description, version, author, license, platforms, prerequisites: { skills, commands }
 metadata: { hermes: { tags: [...] }, smd: { customer: <slug> } }
 ```
+
 Body sections: **When to Use / Mode / Prerequisites / How to Run / Procedure**.
 
 It is a **prompt-and-procedure document, not code.** It names the tools it is allowed to
@@ -320,12 +346,15 @@ Do not use `execute_code`, `terminal`, or connector CLIs. The gateway has no Goo
 credential." Enforcement is the trust gate + the absence of credentials, not the prose.
 
 ### Invocation — all three modes, authored per skill per persona
+
 `customer.yaml.personas[].skills[].initiation` is a three-boolean map
 (`scott/customer.yaml:67-88`):
+
 ```yaml
 - name: inbox-triage
   initiation: { manual: true, scheduled: true, webhook: true }
 ```
+
 - **manual** — `hermes run <skill>` (`inbox-triage/SKILL.md`, "How to Run"), and args are
   supported (`--window`, `--max`, `--mailbox`).
 - **scheduled** — `personas[].cron[]` entries: `{ skill, schedule, wake_policy }`.
@@ -334,12 +363,14 @@ credential." Enforcement is the trust gate + the absence of credentials, not the
   dispatched by `hermes-smd-webhook-router` on the `pre_gateway_dispatch` hook.
 
 ### Could a skill be "a capability the router dispatches to"?
+
 **Yes — that is literally what `webhook_triggers[]` already is.** An inbound event is
 matched on `(source, event_type)` and routed to a named skill on a named persona. The
 gaps for a UI-driven router:
+
 - The dispatch key is `(source, event_type)` — a webhook envelope, not an intent label.
 - **`/mcp/turn` does not accept a skill name.** Its body is `{message, thread_id,
-  principal_subject}` (`webhook_gate.py:796-812`); the agent picks its own skill from
+principal_subject}` (`webhook_gate.py:796-812`); the agent picks its own skill from
   `skills_list` / `skill_view`. Routing to a specific skill from a UI would need either a
   new field on the turn contract or a new webhook trigger source.
 - Skills carry no machine-readable capability declaration beyond `description` and
@@ -354,15 +385,15 @@ overlay must register for governance to be real, plus 5 `functionalPlugins` whos
 activation IS the guarantee. Parity is CI-enforced against the runtime activation gate
 (`operator/safety-substrate/tests/test_guard_hook_parity.py`).
 
-| Hook | Plugin | Safety-critical | Purpose |
-|---|---|---|---|
-| `pre_tool_call` | hermes-smd-trust | **yes** | trust-ceiling gate; refuses a disallowed tool before it executes |
-| `post_tool_call` | hermes-smd-audit | **yes** | per-tool audit row + trust accounting |
-| `post_llm_call` | hermes-smd-audit | no | audit + voice gate on generated output |
-| `pre_llm_call` | hermes-smd-voice | no | voice transform / sample-driven rewrite |
-| `subagent_stop` | hermes-smd-audit | no | one row per child subagent completion |
-| `on_session_end` | hermes-smd-memory-mirror | no | mirror to D1 (inert in Phase 1) |
-| `pre_gateway_dispatch` | hermes-smd-webhook-router | **yes** | route inbound to skills + inbound trust boundary |
+| Hook                   | Plugin                    | Safety-critical | Purpose                                                          |
+| ---------------------- | ------------------------- | --------------- | ---------------------------------------------------------------- |
+| `pre_tool_call`        | hermes-smd-trust          | **yes**         | trust-ceiling gate; refuses a disallowed tool before it executes |
+| `post_tool_call`       | hermes-smd-audit          | **yes**         | per-tool audit row + trust accounting                            |
+| `post_llm_call`        | hermes-smd-audit          | no              | audit + voice gate on generated output                           |
+| `pre_llm_call`         | hermes-smd-voice          | no              | voice transform / sample-driven rewrite                          |
+| `subagent_stop`        | hermes-smd-audit          | no              | one row per child subagent completion                            |
+| `on_session_end`       | hermes-smd-memory-mirror  | no              | mirror to D1 (inert in Phase 1)                                  |
+| `pre_gateway_dispatch` | hermes-smd-webhook-router | **yes**         | route inbound to skills + inbound trust boundary                 |
 
 15 plugin dirs exist in the overlay; hooks actually registered across all of them
 (`grep register_hook`): the seven above plus **`transform_tool_result`**
@@ -370,6 +401,7 @@ activation IS the guarantee. Parity is CI-enforced against the runtime activatio
 (hermes-smd-voice:402), and **`post_api_request`** (hermes-smd-usage:132).
 
 ### Can a hook intercept or shape a response destined for a UI? — **Yes, two of them, today.**
+
 1. **`transform_llm_output`** — `plugins/hermes-smd-voice/__init__.py:275-298`.
    "Structurally reshape the model's response to match the customer's voice." Returns the
    reshaped string, or `None` to leave it unchanged. It runs on every generated response.
@@ -393,12 +425,14 @@ none of them enables streaming.
 ## 8. STREAMING AND LATENCY
 
 ### Streaming
+
 **None, anywhere.** No SSE, no chunked transfer, no `ReadableStream`, no
 `text/event-stream` in `src/lib/operator/mcp/*` or `webhook_gate.py`. The MCP
 `initialize` response advertises only `{ tools: { listChanged: false } }`. The Machine
 long-polls a **file** for a completed answer. Every layer is whole-response.
 
 ### Measured latency — real numbers exist
+
 From `~/dev/engagements/operator/customers/ashton-price/SUSTAINED-DIALOGUE-CHANNEL-2026-07-30.md`
 (07-30 burst rehearsal, both carrying verify-ledger IDs):
 
@@ -409,9 +443,11 @@ From `~/dev/engagements/operator/customers/ashton-price/SUSTAINED-DIALOGUE-CHANN
   That same design is exactly why there is no cross-turn session continuity.
 
 ### Realistic wall-clock for a simple turn through `/mcp/turn`
+
 The email figure includes mail-provider hops the MCP path does not have, but adds nothing
 the MCP path does. **Expect roughly 10-20 s for a simple turn**, dominated by the model.
 Bounds:
+
 - Poll granularity adds up to **250 ms** of dead time (`_MCP_POLL_INTERVAL_S`).
 - Hard ceiling **55 s** (`_MCP_POLL_TIMEOUT_S`) → 504 `turn_timeout`.
 - Loopback connect timeout 30 s.
@@ -440,6 +476,7 @@ waits ~10-20 s staring at nothing. That is the single biggest UX gap.
    `external_send: confirm` (`_hosted-template:93`, `scott:66`) and ADR 0071 makes
    confirm-on-send the product's whole "it acts, safely" pitch. But
    `operator/adapter/trust_ceiling.py:292-310`:
+
    > "The approval-capture round-trip is **#1806**; until it lands, confirm resolves to
    > `await_approval` (fail-safe: nothing sends)."
 
@@ -447,7 +484,8 @@ waits ~10-20 s staring at nothing. That is the single biggest UX gap.
    owner's "yes" over channel is **not landed**. So today a Hosted Agent seat authored at
    `confirm` **withholds every external send** — `allowed=False`,
    `audit_action="await_approval"`. Fail-safe, correct, and not the shipped product.
-8. **Send sub-classes are not inherited.** Exposure is a *sparse* map read with
+
+8. **Send sub-classes are not inherited.** Exposure is a _sparse_ map read with
    `exposure.get(action)`; unauthored non-READ classes resolve to `REFUSED`
    (`trust_ceiling.py:95-119`; overlay `enforce.py:12-23, 263`). `scott` authors only
    `internal_write` and `external_send` — so `external_send_internal`,
@@ -467,7 +505,7 @@ workspace broker's uid separation, the console-sole MCP door + grant kill switch
 `personas[].entitlements.exposure` (hosted authors only two knobs), `connectors{}`
 (hosted: AgentMail + optional native Brave; Operator: Smokeball/Clio/Graph),
 `scope.inbound_allow_from` (hosted: exact addresses only, no domain wildcards, ADR 0067),
-`safety.sticky_stop` (hosted: `cost_cap_daily_cents: 1000` on the *customer's own*
+`safety.sticky_stop` (hosted: `cost_cap_daily_cents: 1000` on the _customer's own_
 Anthropic key), `vertical` (hosted: `mixed` → no pack floors; `VERTICAL_FLOORS` is
 currently `{}` anyway — the law-firm external-send floor was removed 2026-07).
 
