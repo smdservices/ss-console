@@ -420,7 +420,16 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # Touches spec_applier/applier.py + tests/test_spec_applier.py only — NOT tracked
 # twins (git-diff-verified 151d134..d28f371, zero intersection with pair
 # overlayPaths) — so every overlaySha256 is unchanged, only overlayRef.
-ARG OVERLAY_REF="d28f3713e0e00495adf1161f95ff48a8eab27138"
+# 2026-07-31c: d28f3713 -> 9cbc7ecf (overlay#205/#206/#207). #205: a client's FIRST
+# authored spec no longer needs a reboot - the pointer refresh moved hermes-side
+# into pre_llm_call, because the profile tree is hermes-owned and a root re-stamp
+# would recreate the 2026-07-16 root-owned cron store. #206: the fail-closed
+# message names the real exception instead of blaming the trust ceiling for any
+# fault in ~100 lines. #207: authored FORMAT is now CHECKED and non-conforming
+# output is refused (ADR 0083 criteria 7/8) - format was declared, delivered and
+# manifested but read by no code. NOT tracked twins (git-diff-verified
+# d28f371..9cbc7ec) - every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="9cbc7ecf37f65ae77f3ce06a5791438100741468"
 
 ARG CUSTOMER_SLUG=customer-zero
 
