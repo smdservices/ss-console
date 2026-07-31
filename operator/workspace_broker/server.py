@@ -18,6 +18,7 @@ from typing import Any
 
 from . import escalation_ledger
 from .audit_ledger import LedgerWriter
+from .corrections import PROPOSED_STATUS, build_correction_row
 from .google_auth import materialize_credential
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
 from .operations import WorkspaceOperations
@@ -225,6 +226,34 @@ class Broker:
                 stamped = escalation_ledger.stamp_event(event)
                 escalation_ledger.append_line(self.escalation_ledger_path, stamped)
             return {"ok": True, "id": stamped["id"]}
+        # ss-console #2091 (ADR 0083 §4): the Operator CAPTURES a correction a
+        # customer stated, and never applies one. Same caller shape as the
+        # heartbeat verbs above (agent uid, non-gateway PID — an execute_code
+        # turn), same one-pinned-action_type discipline, and the same reason:
+        # this verb must not be able to forge any other row.
+        #
+        # THE ROW IS REBUILT, NOT FORWARDED. `build_correction_row` reads a
+        # bounded field set off the request and constructs the row itself, so a
+        # field the caller invents is dropped rather than stored, and `status`
+        # is a broker-side constant that never appears on the wire. Validation
+        # lives broker-side because the caller is the agent, and a schema the
+        # agent enforces is a schema the agent can decline to enforce.
+        #
+        # NOTHING HERE REACHES A SPEC. This appends to the append-only audit
+        # ledger the agent uid cannot open for write. Promotion into
+        # `vaults/<slug>/output-classes.json` is portal-side, performed by a
+        # Named Administrator, and the promoted bytes are the ones they submit.
+        if action == "correction_propose":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "correction_propose requires a caller running as the agent uid"
+                )
+            row = build_correction_row(request.get("proposal"))
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id, "status": PROPOSED_STATUS}
         # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
         # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the
         # agent uid on a NON-gateway PID — the same shape as the cron pre_run
