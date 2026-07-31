@@ -282,6 +282,72 @@ def _attach_matter_ref(
         return
 
 
+# ---- Write-side verification and provenance -------------------------------
+# Every write below carries the true matter as an ARGUMENT and the composed text
+# as another. Nothing compared them, so a memo could name matter A while being
+# filed on matter B — and on 2026-07-14 one did, merging a matter whose service
+# date was known with one whose date was not.
+#
+# The comparison is available for free at exactly this point, and nowhere else:
+# a pre_tool_call hook can only block, not read the resolved number, and a skill
+# instruction is prose. This is the chokepoint.
+#
+# It is also where machine provenance gets stamped. Smokeball records every
+# Operator write under the OAuth-consenting human, so the client's own system
+# shows a person as the author of everything the machine did. The grant cannot
+# express a service identity, so the only channel that reaches a human reading
+# the matter is the content itself.
+
+_MATTER_NUMBER_RE = re.compile(r"\b(?:\d{4}-[A-Z]{2}-\d{3,4}|[A-Z]{2}-\d{4}-\d{4})\b")
+
+_PROVENANCE_MARK = "[Operator]"
+
+
+class MatterReferenceMismatch(RuntimeError):
+    """Raised when composed text names a matter other than the one written to."""
+
+
+def _verify_matter_reference(client: Any, matter_id: str, *fields: str | None) -> None:
+    """Refuse a write whose text names a matter number other than its own.
+
+    Fail-OPEN on an unresolvable matter (a read failure must not block the
+    firm's work) but fail-CLOSED on a resolved mismatch: if we know the number
+    and the text says a different one, that write is wrong and the wrongness is
+    the only thing we are certain of.
+    """
+    if not matter_id:
+        return
+    cited_numbers = {
+        n for f in fields if isinstance(f, str) for n in _MATTER_NUMBER_RE.findall(f)
+    }
+    if not cited_numbers:
+        return  # nothing claims a matter; nothing to verify, and no read to spend
+    ref = _resolve_matter_ref(client, matter_id, {}, None)
+    true_number = (ref or {}).get("number")
+    if not true_number:
+        return  # cannot verify; do not obstruct
+    for cited in sorted(cited_numbers):
+        if cited != true_number:
+                raise MatterReferenceMismatch(
+                    f"refusing write to {true_number}: text cites matter {cited}. "
+                    f"A memo, task, or event naming a matter other than the one it is "
+                    f"filed on is how one matter's facts reach another matter's record. "
+                    f"Re-read the matter and cite the matterNumber the read returned."
+                )
+
+
+def _stamp(text: str | None) -> str | None:
+    """Mark machine-authored content so a human reading the matter can tell.
+
+    Smokeball's createdBy is the consenting human for every Operator write, so
+    without this the client cannot distinguish a person's entry from a machine's.
+    Idempotent: re-stamping already-stamped text is a no-op.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+    return text if text.lstrip().startswith(_PROVENANCE_MARK) else f"{_PROVENANCE_MARK} {text}"
+
+
 def _attach_matter_refs_to_list(client: Any, resp: Any) -> None:
     """Best-effort matter-ref enrichment over a ``list_tasks`` / ``list_events``
     HATEOAS envelope, bounded to ``_MATTER_REF_MAX_LOOKUPS`` distinct matter
@@ -491,13 +557,19 @@ def create_task(
     owning staff member (Smokeball requires it); ``due_date`` is a date-only string
     (YYYY-MM-DD) mapped to the API's ``dueDateOnly`` (the non-deprecated field).
     Classified INTERNAL_WRITE: the Operator writing a tracked item into the firm's
-    own record, never an external send."""
-    return _get_client().request(
+    own record, never an external send.
+
+    Refuses if ``subject`` or ``note`` cites a matter number other than
+    ``matter_id``'s own, and stamps the subject so a human reading the matter's
+    task list can tell machine from person."""
+    client = _get_client()
+    _verify_matter_reference(client, matter_id or "", subject, note)
+    return client.request(
         "POST",
         "/tasks",
         json=_body(
             staffId=staff_id,
-            subject=subject,
+            subject=_stamp(subject),
             matterId=matter_id,
             note=note,
             dueDateOnly=due_date,
@@ -615,11 +687,13 @@ def create_event(
         if end_date <= start_date:
             end_date = _next_day(start_date)
         end_time = f"{end_date}T00:00:00Z"
-    return _get_client().request(
+    client = _get_client()
+    _verify_matter_reference(client, matter_id or "", subject, description)
+    return client.request(
         "POST",
         "/events",
         json=_body(
-            subject=subject,
+            subject=_stamp(subject),
             startTime=start_time,
             endTime=end_time,
             matterId=matter_id,
@@ -916,9 +990,15 @@ def create_memo(matter_id: str, text: str) -> Any:
     """Create an internal-log memo on a matter (the Clio create_note analogue —
     the one autonomous internal write the wedge uses). The exact body field is
     ASSUMED ``text`` and confirmed at the connect step against the live memo
-    schema; classified INTERNAL_WRITE at the overlay (never external send)."""
-    return _get_client().request(
-        "POST", f"/matters/{matter_id}/memos", json={"text": text}
+    schema; classified INTERNAL_WRITE at the overlay (never external send).
+
+    Refuses if ``text`` cites a matter number other than ``matter_id``'s own, and
+    stamps the body so a human reading the matter can tell machine from person.
+    See the write-side verification block."""
+    client = _get_client()
+    _verify_matter_reference(client, matter_id, text)
+    return client.request(
+        "POST", f"/matters/{matter_id}/memos", json={"text": _stamp(text)}
     )
 
 
