@@ -75,10 +75,24 @@ bucket_name = "smd-consultant-photos"
 # Per-customer Operator config + voice vaults. This is the same bucket the
 # provisioning scripts use (R2_BUCKET_CONFIG, default `smd-customer-config` —
 # see operator/bin/provision-customer.sh and docs/runbooks/operator/first-boot.md).
-# The console apply path (src/lib/operator/apply-config.ts) writes the live
-# config at `vaults/<slug>/customer.yaml` and a byte-snapshot at
-# `customers/<slug>/history/<digest>.yaml`. The on-Machine root applier pulls
-# the live key from R2 — R2 is the source of truth for live reconfig.
+# TWO WRITERS, TWO KEY SPACES, NEVER THE SAME OBJECT.
+#
+#   vaults/<slug>/customer.yaml     — written by CI on merge
+#     (scripts/ci-publish-customer-configs.sh), from the git source of truth.
+#     The console does NOT write this key: a portal write would be clobbered by
+#     the next unrelated merge to that slug, and #1898 forbids R2 diverging
+#     from git out of band. The former console apply path
+#     (src/lib/operator/apply-config.ts, with its
+#     `customers/<slug>/history/<digest>.yaml` snapshots) was deleted in
+#     09690c5d when the R2 reconciler was ripped, and is not coming back.
+#
+#   vaults/<slug>/output-classes.json — written by the PORTAL
+#     (src/lib/operator/output-class-specs.ts, ADR 0083), holding the
+#     customer's own authored voice and format specs. This is the console's
+#     only writer into this bucket, and it is structurally incapable of
+#     addressing the customer.yaml key.
+#
+# The on-Machine root appliers pull both keys from R2.
 [[r2_buckets]]
 binding = "CUSTOMER_CONFIG"
 bucket_name = "smd-customer-config"
