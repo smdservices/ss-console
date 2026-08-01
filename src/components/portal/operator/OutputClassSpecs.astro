@@ -2,12 +2,14 @@
 import Field from '../form/Field.astro'
 import TextArea from '../form/TextArea.astro'
 import SubmitButton from '../form/SubmitButton.astro'
+import OutputClassRules from './OutputClassRules.astro'
 import {
   MAX_SPEC_BODY_BYTES,
   SPEC_PROPERTIES,
   specFieldName,
   type SpecDocument,
 } from '../../../lib/operator/output-class-specs'
+import type { Assertions } from '../../../lib/operator/format-assertions'
 import type { OutputClasses } from '../../../lib/operator/customer-yaml/types'
 
 /**
@@ -71,19 +73,38 @@ const PROPERTY_LABEL: Record<(typeof SPEC_PROPERTIES)[number], string> = {
   format: 'How it should be shaped',
 }
 
+/**
+ * The rules currently stored for a class's format property, if any.
+ *
+ * SHOWN ONLY WHERE THEY BIND. The seat's gate reads shape rules only for a
+ * class declaring `format_spec: expected`; under any other declaration an
+ * authored rule would sit in the vault unchecked. Offering the controls there
+ * would let a client author something they believe is enforced while nothing
+ * checks it — the failure this whole surface exists to remove — so the controls
+ * are withheld and the reason is said out loud instead.
+ */
+function storedRules(slug: string): Assertions | null {
+  return current?.classes?.[slug]?.format?.assertions ?? null
+}
+
 const rows = Object.entries(declared)
   .sort(([a], [b]) => a.localeCompare(b))
-  .map(([slug, entry]) => ({
-    slug,
-    label: classLabel(slug),
-    properties: SPEC_PROPERTIES.map((property) => ({
-      property,
-      field: specFieldName(slug, property),
-      label: PROPERTY_LABEL[property],
-      expected: entry[`${property}_spec`] === 'expected',
-      body: current?.classes?.[slug]?.[property]?.body ?? '',
-    })),
-  }))
+  .map(([slug, entry]) => {
+    const rules = storedRules(slug)
+    return {
+      slug,
+      label: classLabel(slug),
+      rulesBind: entry.format_spec === 'expected',
+      rules,
+      properties: SPEC_PROPERTIES.map((property) => ({
+        property,
+        field: specFieldName(slug, property),
+        label: PROPERTY_LABEL[property],
+        expected: entry[`${property}_spec`] === 'expected',
+        body: current?.classes?.[slug]?.[property]?.body ?? '',
+      })),
+    }
+  })
 ---
 
 <section class="mt-10" aria-labelledby="output-shape-heading">
@@ -136,6 +157,8 @@ const rows = Object.entries(declared)
                   </p>
                 </div>
               ))}
+
+              <OutputClassRules outputClass={row.slug} binds={row.rulesBind} rules={row.rules} />
             </div>
           ))}
 

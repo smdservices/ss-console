@@ -54,6 +54,7 @@ import {
   promoteCorrection,
   type CorrectionCitation,
 } from '../../../../../lib/portal/operator/voice-corrections'
+import { buildAssertions, type Assertions } from '../../../../../lib/operator/format-assertions'
 
 const OPERATOR_ROOT = '/portal/products/operator'
 
@@ -116,6 +117,32 @@ function mergeUnaddressed(
     classes[slug] = entry
   }
   return { schema_version: built.schema_version, classes }
+}
+
+/**
+ * Every declared class's machine-checkable rules, or the first refusal.
+ *
+ * ALL CLASSES ARE VALIDATED BEFORE ANY IS ACCEPTED. Errors accumulate across
+ * classes so one save reports everything wrong with it. A form that refused one
+ * rule at a time would read as the surface moving the goalposts — the same
+ * reasoning the seat's checker gives for returning all violations at once.
+ */
+function collectAssertions(
+  form: FormData,
+  classes: readonly string[]
+): { ok: true; byClass: Map<string, Assertions> } | { ok: false; errors: readonly string[] } {
+  const byClass = new Map<string, Assertions>()
+  const errors: string[] = []
+  for (const outputClass of classes) {
+    const built = buildAssertions(form, outputClass)
+    if (!built.ok) {
+      errors.push(...built.errors.map((e) => `${outputClass}: ${e}`))
+      continue
+    }
+    if (Object.keys(built.assertions).length > 0) byClass.set(outputClass, built.assertions)
+  }
+  if (errors.length > 0) return { ok: false, errors }
+  return { ok: true, byClass }
 }
 
 async function recordAttempt(
@@ -228,7 +255,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const classes = declaredClasses(row.output_classes)
   if (classes.length === 0) return redirectWithStatus(auth.customerSlug, 'spec_no_classes')
 
-  const built = await buildSpecDocument(collectAuthoredBodies(form, classes))
+  // Rules before prose. A refused rule must not be reported as a saved spec,
+  // and the two halves come from one submission, so neither is written unless
+  // both are acceptable.
+  const rules = collectAssertions(form, classes)
+  if (!rules.ok) {
+    await recordAttempt(auth, 'rejected', { reason: 'invalid_rule', errors: rules.errors })
+    return redirectWithStatus(auth.customerSlug, 'spec_invalid_rule')
+  }
+
+  const built = await buildSpecDocument(collectAuthoredBodies(form, classes), rules.byClass)
   if (!built.ok) {
     await recordAttempt(auth, 'rejected', { reason: built.reason, errors: built.errors })
     return redirectWithStatus(auth.customerSlug, BUILD_FAILURE_STATUS[built.reason])
