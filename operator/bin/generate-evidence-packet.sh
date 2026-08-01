@@ -15,16 +15,28 @@
 #     --to <ISO> \
 #     --output <path> \
 #     --actor <name> \
-#     [--actor-role captain|compliance]
+#     [--actor-role captain|compliance] \
+#     [--acknowledge-unattributed-gap]
 #
 # Captain CLI integration (when bin/smd-cli lands):
 #   smd-cli evidence <slug> --matter <m> --from <a> --to <b>
 # delegates to this script with --actor=$USER and --actor-role=captain.
 #
+# Matter scoping and coverage:
+#   matter_ref was added to the audit schema after seats had begun writing
+#   rows, so rows written before that fix carry matter_ref = NULL forever.
+#   A --matter <id> export that matches zero rows while such rows exist in
+#   the period HALTS (exit 3) rather than ship an empty audit section that
+#   an auditor would read as "nothing happened on this matter". Re-run with
+#   --matter all, narrow the period, or pass --acknowledge-unattributed-gap
+#   to emit the packet with the gap stated on its face. Every packet carries
+#   its coverage boundary in 00-README.md, 01-summary.pdf, and manifest.json.
+#
 # Exit codes (forwarded from bin/lib/evidence.py):
 #   0  packet generated
 #   2  preflight failed (missing customer.yaml, bad arg)
-#   3  build halted (EvidencePacketError; e.g. secret leak, role gate fail)
+#   3  build halted (EvidencePacketError; e.g. secret leak, role gate fail,
+#      unanswerable matter-scoped empty)
 #   4  unexpected error
 
 set -euo pipefail
@@ -39,7 +51,8 @@ if [ "$#" -lt 1 ]; then
 Usage: generate-evidence-packet.sh --customer <slug> --matter <id|all> \
                                    --from <ISO> --to <ISO> \
                                    --output <path> --actor <name> \
-                                   [--actor-role captain|compliance]
+                                   [--actor-role captain|compliance] \
+                                   [--acknowledge-unattributed-gap]
 USAGE
   exit 2
 fi

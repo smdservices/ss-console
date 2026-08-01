@@ -37,6 +37,11 @@ from typing import Mapping, Optional
 PACKET_VERSION = "1.0"
 SIGNATURE_STUB = "unsigned-stub"
 
+#: Recorded in ``captain_signature.algorithm`` when no key is configured. The
+#: historical literal was ``"stub-noop"``; it is kept for byte-compatibility
+#: with packets generated before ss-console #2122 wired real signing.
+SIGNATURE_ALGORITHM_UNSIGNED = "stub-noop"
+
 
 def _iso_utc(now: Optional[datetime] = None) -> str:
     dt = now if now is not None else datetime.now(timezone.utc)
@@ -66,6 +71,7 @@ class EvidenceManifest:
     matter: str
     packet_version: str = PACKET_VERSION
     signature: str = SIGNATURE_STUB
+    signature_algorithm: str = SIGNATURE_ALGORITHM_UNSIGNED
     extra: Mapping[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -84,7 +90,7 @@ class EvidenceManifest:
                 "email": self.captain_email,
                 "key_id": self.captain_key_id,
                 "signature": self.signature,
-                "algorithm": "stub-noop",
+                "algorithm": self.signature_algorithm,
             },
             "file_hashes": {k: self.file_hashes[k] for k in sorted(self.file_hashes)},
             "packet_version": self.packet_version,
@@ -127,6 +133,8 @@ def build_manifest(
     captain_key_id: Optional[str] = None,
     generated_at: Optional[str] = None,
     extra: Optional[Mapping[str, object]] = None,
+    signature: Optional[str] = None,
+    signature_algorithm: Optional[str] = None,
 ) -> EvidenceManifest:
     """Construct an :class:`EvidenceManifest` from packet inputs.
 
@@ -151,6 +159,8 @@ def build_manifest(
         file_hashes=dict(file_hashes),
         actor=actor,
         actor_role=actor_role,
+        signature=signature or SIGNATURE_STUB,
+        signature_algorithm=signature_algorithm or SIGNATURE_ALGORITHM_UNSIGNED,
         extra=dict(extra or {}),
     )
 

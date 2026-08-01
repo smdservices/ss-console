@@ -14,7 +14,10 @@ Coverage:
 * empty audit table produces a packet whose summary reports 0 events
   (truthful zero, not a placeholder);
 * deterministic mtimes: re-running with the same inputs produces a
-  bit-identical tar.gz.
+  bit-identical tar.gz;
+* audit coverage: a matter-scoped export that matches zero rows while
+  unattributed rows exist in the period refuses to build, and every
+  packet states its coverage boundary on its face (issue #2122).
 
 The tests use the same SqliteExecutor + AuditLogWriter pattern as
 adapter/tests/test_audit_log.py and bin/tests/test_decommission.py.
@@ -181,6 +184,40 @@ def _build_pair(tmp_path: Path):
         reader=reader, audit_writer=audit, yaml_loader=json.loads
     )
     return builder, conn
+
+
+def _build_pair_without_audit_table(tmp_path: Path):
+    """Builder whose READ source has no audit_log table.
+
+    The CLI's --read-db and --audit-db are separate paths, so this is a
+    real production shape: the export snapshot can be missing the table
+    the chain-of-custody row still writes to.
+    """
+    read_conn = sqlite3.connect(str(tmp_path / "read.sqlite"))
+    read_conn.executescript(
+        "CREATE TABLE invariant_boot_checks ("
+        "  id TEXT PRIMARY KEY, ts TEXT NOT NULL, invariant_num INTEGER NOT NULL,"
+        "  passed INTEGER NOT NULL, failure_detail TEXT);"
+    )
+    audit_conn = sqlite3.connect(str(tmp_path / "audit.sqlite"))
+    audit_conn.executescript(_FULL_SCHEMA)
+    builder = EvidencePacketBuilder(
+        reader=SqliteReadExecutor(read_conn),
+        audit_writer=AuditLogWriter(SqliteExecutor(audit_conn)),
+        yaml_loader=json.loads,
+    )
+    return builder, read_conn, audit_conn
+
+
+def _member_bytes(archive: Path, name: str) -> bytes:
+    with tarfile.open(archive, "r:gz") as tar:
+        member = tar.extractfile(name)
+        assert member is not None, f"{name} missing from packet"
+        return member.read()
+
+
+def _manifest_of(archive: Path) -> dict:
+    return json.loads(_member_bytes(archive, "manifest.json"))
 
 
 # ---------------------------------------------------------------------------
@@ -516,3 +553,387 @@ def test_build_is_byte_deterministic_for_same_inputs(tmp_path):
             }
 
     assert _hashes(out_a) == _hashes(out_b)
+
+
+# ---------------------------------------------------------------------------
+# Audit coverage (#2122): an empty section is itself a claim
+#
+# matter_ref was added to the audit schema after seats had begun writing
+# rows; those rows carry NULL forever and cannot be backfilled. A packet
+# whose audit section is empty for THAT reason must not be mistakable for
+# one whose audit section is empty because nothing happened.
+# ---------------------------------------------------------------------------
+
+
+def _seed_unattributed(conn: sqlite3.Connection, *, id_: str, ts: str) -> None:
+    """A pre-fix audit row: real activity, no matter attribution."""
+    _seed_audit_row(
+        conn,
+        id=id_,
+        ts=ts,
+        action_type="DRAFT_CREATED",
+        skill_name="inbox-triage",
+        matter_ref=None,
+    )
+
+
+def test_matter_scoped_zero_matches_with_unattributed_rows_refuses_to_build(tmp_path):
+    """The headline defect: --matter <id> matched nothing, but the period
+    holds rows that carry no attribution and may belong to that matter.
+
+    Shipping an empty audit section here asserts "nothing happened on
+    this matter" to an auditor. The system cannot support that claim, so
+    the build halts instead.
+    """
+    builder, conn = _build_pair(tmp_path)
+    _seed_unattributed(conn, id_="01HZZ00000000000000000C1", ts="2026-04-10T09:00:00.000Z")
+    _seed_unattributed(conn, id_="01HZZ00000000000000000C2", ts="2026-04-20T09:00:00.000Z")
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, matter="m-9")))
+
+    message = str(exc.value)
+    assert "matched 0 audit rows" in message
+    assert "2 rows in this period carry no matter attribution" in message
+    assert (
+        "from 2026-04-10T09:00:00.000Z to 2026-04-20T09:00:00.000Z" in message
+    )
+    assert "--matter all" in message
+    assert "--acknowledge-unattributed-gap" in message
+    # No partial artifact left behind.
+    assert not (tmp_path / "out" / "evidence.tar.gz").exists()
+
+
+def test_matter_scoped_zero_matches_with_full_attribution_builds_a_complete_zero(
+    tmp_path,
+):
+    """The other zero: every row in the period IS attributed, just not to
+    this matter. That zero is complete and the packet says so."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000D1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="m-9")))
+
+    assert result.counts["audit_events"] == 0
+    assert result.coverage.zero_is_complete is True
+    assert result.coverage.is_unanswerable_empty is False
+
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "## What this package covers, and what it cannot" in readme
+    assert "This zero is complete" in readme
+    assert "nothing was recorded against this matter during this period" in readme
+
+    manifest = _manifest_of(result.output_path)
+    coverage = manifest["extra"]["coverage"]
+    assert coverage["rows_matching_matter"] == 0
+    assert coverage["rows_unattributed"] == 0
+    assert coverage["zero_is_complete"] is True
+
+
+def test_matter_scoped_zero_matches_builds_when_gap_is_acknowledged(tmp_path):
+    """The acknowledgement lifts the refusal. It does NOT soften the
+    packet: the gap is on the face of the README and the PDF, and the
+    acknowledgement is itself recorded."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_unattributed(conn, id_="01HZZ00000000000000000E1", ts="2026-04-10T09:00:00.000Z")
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(
+        builder.build(
+            _request(
+                tmp_path,
+                customer_yaml,
+                matter="m-9",
+                acknowledge_unattributed_gap=True,
+            )
+        )
+    )
+
+    assert result.coverage.is_unanswerable_empty is True
+    assert result.coverage.gap_acknowledged is True
+
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "its audit section is EMPTY" in readme
+    assert 'Read that as "this system cannot answer the question"' in readme
+    assert 'NOT as "nothing happened on this matter"' in readme
+    assert "1 row in this period carries no matter attribution" in readme
+    assert (
+        "acknowledged this gap before it was written: captain@example.com"
+        in readme
+    )
+
+    pdf = _member_bytes(result.output_path, "01-summary.pdf")
+    assert b"What this package covers, and what it cannot" in pdf
+    assert b"EMPTY" in pdf
+
+    manifest = _manifest_of(result.output_path)
+    coverage = manifest["extra"]["coverage"]
+    assert coverage["unanswerable_empty"] is True
+    assert coverage["gap_acknowledged"] is True
+    assert coverage["acknowledged_by"] == "captain@example.com"
+
+
+def test_matter_scoped_with_matches_discloses_the_unattributed_remainder(tmp_path):
+    """Partial coverage: the matter has activity AND the period holds
+    rows nobody can scope. The packet states the remainder rather than
+    presenting its counts as a complete tally."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000F1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    _seed_unattributed(conn, id_="01HZZ00000000000000000F2", ts="2026-04-11T09:00:00.000Z")
+    _seed_unattributed(conn, id_="01HZZ00000000000000000F3", ts="2026-04-12T09:00:00.000Z")
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="m-1")))
+
+    assert result.counts["audit_events"] == 1
+    assert result.coverage.rows_unattributed == 2
+    assert result.coverage.unattributed_first_ts == "2026-04-11T09:00:00.000Z"
+    assert result.coverage.unattributed_last_ts == "2026-04-12T09:00:00.000Z"
+
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "1 row in the period carries that attribution" in readme
+    assert "A further 2 rows in this period carry no matter attribution" in readme
+    assert "from 2026-04-11T09:00:00.000Z to 2026-04-12T09:00:00.000Z" in readme
+    assert "floor for this matter" in readme
+
+    # The unattributed rows' CONTENTS stay out: they may concern other
+    # clients. Only their count and time span are disclosed.
+    audit_csv = _member_bytes(result.output_path, "03-audit-log.csv").decode("utf-8")
+    assert "01HZZ00000000000000000F1" in audit_csv
+    assert "01HZZ00000000000000000F2" not in audit_csv
+    assert "01HZZ00000000000000000F3" not in audit_csv
+
+    pdf = _member_bytes(result.output_path, "01-summary.pdf")
+    assert b"FLOOR" in pdf
+    assert b"truthful zeros" not in pdf
+
+
+def test_customer_wide_export_never_refuses_and_states_its_scope(tmp_path):
+    """--matter all includes every row regardless of attribution, so it
+    has no unanswerable case. It still reports how many rows cannot be
+    scoped to a matter, because that is the per-matter capability
+    boundary an auditor needs to know about."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000G1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    _seed_unattributed(conn, id_="01HZZ00000000000000000G2", ts="2026-04-11T09:00:00.000Z")
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="all")))
+
+    assert result.coverage.is_unanswerable_empty is False
+    assert result.counts["audit_events"] == 2
+
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "This export is customer wide" in readme
+    assert "Of those, 1 carries no matter attribution" in readme
+
+    audit_csv = _member_bytes(result.output_path, "03-audit-log.csv").decode("utf-8")
+    assert "01HZZ00000000000000000G1" in audit_csv
+    assert "01HZZ00000000000000000G2" in audit_csv
+
+
+def test_customer_wide_export_with_no_rows_at_all_is_a_truthful_zero(tmp_path):
+    """An empty period with an intact audit table keeps the original
+    truthful-zero wording; the new coverage machinery must not turn every
+    quiet packet into a warning."""
+    builder, _ = _build_pair(tmp_path)
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="all")))
+
+    assert result.coverage.has_unattributed_rows is False
+    pdf = _member_bytes(result.output_path, "01-summary.pdf")
+    assert b"truthful zeros" in pdf
+    assert b"FLOOR" not in pdf
+
+
+def test_missing_audit_table_is_not_reported_as_zero_activity(tmp_path):
+    """"No such table" is not "nothing happened". A matter-scoped export
+    against a source with no audit_log refuses outright."""
+    builder, read_conn, audit_conn = _build_pair_without_audit_table(tmp_path)
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, matter="m-1")))
+    assert "no audit_log table" in str(exc.value)
+
+    read_conn.close()
+    audit_conn.close()
+
+
+def test_missing_audit_table_customer_wide_says_it_cannot_report(tmp_path):
+    """The customer-wide export still builds (the other evidence files
+    are real), but it must not let its empty audit section stand as
+    evidence of quiet."""
+    builder, read_conn, audit_conn = _build_pair_without_audit_table(tmp_path)
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="all")))
+
+    assert result.coverage.table_present is False
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "audit_log table was not present" in readme
+    assert "evidence that nothing happened" in readme
+
+    read_conn.close()
+    audit_conn.close()
+
+
+def test_unattributed_rows_outside_the_period_do_not_trip_the_refusal(tmp_path):
+    """The coverage boundary is the requested period, not all of history.
+    Narrowing --from/--to to a window after attribution began is one of
+    the remedies the refusal offers, so it has to actually work."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_unattributed(conn, id_="01HZZ00000000000000000H1", ts="2026-01-01T09:00:00.000Z")
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000H2",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(
+        builder.build(
+            _request(
+                tmp_path,
+                customer_yaml,
+                matter="m-9",
+                period_start="2026-04-01T00:00:00Z",
+                period_end="2026-04-30T23:59:59Z",
+            )
+        )
+    )
+    assert result.coverage.zero_is_complete is True
+
+
+def test_prior_export_rows_do_not_count_against_coverage(tmp_path):
+    """A COMPLIANCE_PACKET_EXPORTED row for --matter all writes
+    matter_ref = NULL. Without excluding those, the first customer-wide
+    export would make every later per-matter export look unanswerable."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000J1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    # First: a customer-wide export, which leaves a NULL-matter row behind.
+    _run(
+        builder.build(
+            _request(
+                tmp_path,
+                customer_yaml,
+                matter="all",
+                output_path=tmp_path / "out" / "wide.tar.gz",
+            )
+        )
+    )
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) AS n FROM audit_log "
+        "WHERE action_type = 'COMPLIANCE_PACKET_EXPORTED' AND matter_ref IS NULL"
+    )
+    row = cur.fetchone()
+    assert (row["n"] if isinstance(row, dict) else row[0]) == 1
+
+    # Then: a per-matter export for a quiet matter still reads as a
+    # complete zero rather than tripping on the export's own row.
+    result = _run(
+        builder.build(
+            _request(
+                tmp_path,
+                customer_yaml,
+                matter="m-9",
+                output_path=tmp_path / "out" / "narrow.tar.gz",
+            )
+        )
+    )
+    assert result.coverage.rows_unattributed == 0
+    assert result.coverage.zero_is_complete is True
+
+
+def test_coverage_is_recorded_on_the_chain_of_custody_row(tmp_path):
+    """The export's own audit row carries the coverage block, so the
+    boundary is reconstructible from the log even without the packet."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000K1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    _seed_unattributed(conn, id_="01HZZ00000000000000000K2", ts="2026-04-11T09:00:00.000Z")
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    _run(builder.build(_request(tmp_path, customer_yaml, matter="m-1")))
+
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT metadata FROM audit_log "
+        "WHERE action_type = 'COMPLIANCE_PACKET_EXPORTED'"
+    )
+    row = cur.fetchone()
+    metadata_text = row["metadata"] if isinstance(row, dict) else row[0]
+    coverage = json.loads(metadata_text)["coverage"]
+    assert coverage["rows_matching_matter"] == 1
+    assert coverage["rows_unattributed"] == 1
+    assert coverage["unattributed_first_ts"] == "2026-04-11T09:00:00.000Z"
+
+
+def test_readme_and_pdf_state_the_same_coverage_wording(tmp_path):
+    """Two surfaces, one wording. A compliance artifact that describes
+    its limits differently in two places invites the question of which
+    one is the real one."""
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000L1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    _seed_unattributed(conn, id_="01HZZ00000000000000000L2", ts="2026-04-11T09:00:00.000Z")
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="m-1")))
+
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    pdf = _member_bytes(result.output_path, "01-summary.pdf").decode(
+        "latin-1", "replace"
+    )
+    heading = "What this package covers, and what it cannot"
+    assert heading in readme
+    assert heading in pdf
+    # A distinctive token from the shared narrative reaches both surfaces.
+    assert "01HZZ" not in readme  # row ids are never disclosed in the prose
+    for token in ("no matter attribution", "customer-wide export"):
+        assert token in readme
+        # The PDF wraps at 88 chars, so check the token's first word
+        # survives rather than the whole phrase.
+        assert token.split()[0] in pdf

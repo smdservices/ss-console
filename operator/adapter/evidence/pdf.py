@@ -263,6 +263,8 @@ def render_summary_pdf(
     captain_id: str,
     manifest_sha256: str,
     counts: dict,
+    coverage_lines: Optional[Sequence[str]] = None,
+    counts_are_partial: bool = False,
     extra_sections: Optional[Sequence[tuple[str, Sequence[str]]]] = None,
 ) -> bytes:
     """Render the Susan-readable summary PDF and return its bytes.
@@ -270,6 +272,13 @@ def render_summary_pdf(
     The PDF includes the plain-language first page (per spec §00-README)
     and a per-section narrative summarizing what is in the packet. The
     first page is intentionally readable by a non-technical attorney.
+
+    ``coverage_lines`` is the packet's statement of what its audit
+    section can and cannot answer, rendered ahead of the counts so a
+    reader meets the boundary before the numbers. ``counts_are_partial``
+    qualifies the counts preamble when rows in the period could not be
+    attributed to a matter either way; without it, "zero values are
+    truthful zeros" would be an overclaim.
 
     The last page always carries:
 
@@ -303,6 +312,13 @@ def render_summary_pdf(
         )
     )
 
+    if coverage_lines:
+        body: List[str] = []
+        for line in coverage_lines:
+            body.append(line)
+            body.append("")
+        sections.append(("What this package covers, and what it cannot", body))
+
     sections.append(
         (
             "What this package proves",
@@ -324,13 +340,27 @@ def render_summary_pdf(
         )
     )
 
+    if counts_are_partial:
+        counts_preamble = (
+            "The exact numbers come from the audit log dump in this packet. "
+            "Counts below are inclusive of the period. Read them as a FLOOR, "
+            "not a complete tally: as stated above, some rows in this period "
+            "carry no matter attribution and are outside this packet's scope. "
+            "A zero below means nothing was recorded under this label, not "
+            "that nothing happened."
+        )
+    else:
+        counts_preamble = (
+            "The exact numbers come from the audit log dump in this packet. "
+            "Counts below are inclusive of the period; zero values are "
+            "truthful zeros (no data ingested), not placeholders."
+        )
+
     sections.append(
         (
             "What the agent did (counts)",
             [
-                "The exact numbers come from the audit log dump in this packet. "
-                "Counts below are inclusive of the period; zero values are "
-                "truthful zeros (no data ingested), not placeholders.",
+                counts_preamble,
                 "",
                 f"- Audit events recorded: {counts.get('audit_events', 0)}",
                 f"- Drafts created: {counts.get('drafts_created', 0)}",
