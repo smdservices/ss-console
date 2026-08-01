@@ -522,7 +522,26 @@ describe('Operator customer Machine Dockerfile', () => {
     // buggy code yields 0755 by accident. It measured the environment, not the
     // code, which is why the replacement parametrises the umask.
     // overlayRef-only across 151d134..d28f371 - no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9cbc7ecf37f65ae77f3ce06a5791438100741468"')
+    // a8bffaf6 - the ledger records what AUTHORIZED the call (overlay#210,
+    // ss#2122). The trust gate computed the whole authorization trail on
+    // pre_tool_call and the audit plugin wrote the row on post_tool_call with
+    // nothing joining them, so ceiling_level was null on 100% of 4130 live pilot
+    // rows and matter_ref on all of them: a per-matter compliance export filters
+    // on matter_ref and therefore returned an empty audit section for every
+    // matter, silently (vfy_01KYZADQ8H). shared/trust_decision.py carries the
+    // decision across, and its fallback slot is THREAD-LOCAL: delegate_task runs
+    // worker threads with their own event loops (/opt/hermes/model_tools.py:66-80,
+    // vfy_01KYZC1WWG), so a process-global slot would hand one thread's ceiling to
+    // another thread's row. A mis-attributed ceiling is worse than a null one - it
+    // asserts that something authorized a call it did not. Every row also stamps
+    // HOW it matched, because a compliance ledger may not present an inferred join
+    // as a keyed one. UNLIKE every bump above, this one DOES move a tracked twin:
+    // plugins/hermes-smd-audit/emit.py is a pair, overlaySha256 re-recorded
+    // 0bbc831f -> b34e7440; the adapter twin operator/adapter/audit_log.py is
+    // unchanged (new fields ride the existing metadata JSON, matter_ref column
+    // already existed) so its sha256 holds. verify-overlay-pairs.py against the
+    // real overlay at a8bffaf: all 8 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a8bffaf6803786c268706b45badbfaf8d6453849"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
