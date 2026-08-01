@@ -26,6 +26,51 @@ seat:
   kind: proving
   product: operator
 
+# ---- OUTPUT CLASSES (ADR 0083) ----
+# Which classes expect an authored spec. The specs themselves live in this
+# customer's vault object, never here (sections-output-classes.ts explains the
+# split); what is declared here is the commitment-shaped bit, and it is what
+# separates `the customer chose not to author` from `a control is broken`.
+#
+# TWO CLASSES, DELIBERATELY, so a failed observation names its own half.
+#
+#   staff       — persona provenance. Needs no corpus, so it is authorable on
+#                 day one, and it is the same shape already proven on
+#                 smd-staging. If the chain is broken, this breaks too, and the
+#                 fault is delivery rather than distillation.
+#   work_product — firm provenance, and the actual target. This is the SAFEST
+#                 possible first firm-voice declaration: the class is
+#                 `external_send: forbidden` (operator/contracts/
+#                 output-classes.yaml), so declaring `expected` before a spec
+#                 exists cannot downgrade any autonomous send. There is no send
+#                 to downgrade. Every other firm-voice class is outbound, where
+#                 the same declaration would freeze real traffic.
+#
+# `format_spec: none` on both is an authored choice, not an omission — the
+# drafting lane's skeletons and the ten mechanical gates already own the shape
+# of work product, and restating it here would create a second authority over
+# one behaviour.
+#
+# ORDERING CONSEQUENCE, stated because it is invisible otherwise (#2094). This
+# seat authors `external_send_internal: autonomous`, so declaring `staff` as
+# `expected` binds spec_gate on internal sends immediately: until a staff spec
+# exists in the vault, every autonomous internal send downgrades to draft. That
+# is the declaration working correctly — `expected` with no spec is a BROKEN
+# CONTROL and refusing is the entire point — but it means the declaration and
+# the spec must land close together. Acceptable here and nowhere else: this is
+# `seat.kind: proving` with no live traffic, and observing the downgrade is part
+# of what the seat exists to prove. On a customer seat, author the spec first.
+#
+# `work_product` carries no such window. It is `external_send: forbidden`, so
+# there is no send for a missing spec to downgrade.
+output_classes:
+  staff:
+    voice_spec: expected
+    format_spec: none
+  work_product:
+    voice_spec: expected
+    format_spec: none
+
 vertical: law-firm
 addons:
   - law-firm/pi@0.3.0 # the CA PI-litigation lifecycle pack (19 routine skills + the 4-skill work-product drafting lane, v0.3.0 2026-07-28)
