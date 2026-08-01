@@ -212,10 +212,54 @@ controls:
       against the SKILL.md stamp: profiles/<slug>/skills is hermes-owned, so an
       agent could rewrite its own stamp and forge both the pointer and the hash —
       the stamp is delivery, the manifest is enforcement, and a gate that trusted
-      the stamp would be self-certifying. BOUND NOWHERE TODAY: no customer.yaml
-      authors an output_classes block, so the gate returns None on every seat and
-      its live behaviour is unproven. It becomes probeable the moment a seat
-      declares a class expected, which is #2084's runtime AC.
+      the stamp would be self-certifying. NOW BOUND, and the "bound nowhere"
+      note this entry carried until 2026-08-01 is retired: pilot-smokeball
+      declares staff AND work_product at voice_spec: expected, live in the
+      projection at vfy_01KYZK1WCKAT6RV57VJB8W29QF. Still `unprobed` because a
+      declaration is not an observation — the seat has not yet been rebuilt onto
+      the pin that carries the delivery tool, so no turn has exercised the gate.
+
+  draft_delivery_gate:
+    control: draft_delivery_gate
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-drafting/__init__.py
+    # EMPTY BY NECESSITY, not by omission — the same shape as spec_applier above.
+    # `wired_via` names a hook in overlay-hook-surface.json, and this control has
+    # none: it is a TOOL the agent calls (registered through
+    # shared/tool_registration.py), not a hook fired around one. Naming a hook
+    # here would invent one and break the surface cross-check. What makes it
+    # reachable is the drafting discipline instructing delivery through it, and
+    # what makes it enforceable is that the gate it runs is the same
+    # shared.spec_gate the hook-wired sibling uses.
+    wired_via: ''
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: '#2094'
+    note: >-
+      ss ADR 0083. The spec gate for the two classes nothing can derive. Its
+      sibling spec_read_mark binds on external_send*, where the recipient is in
+      the tool call and the trust decision already resolved it; work_product and
+      record have no recipient, and probing settled that the runtime cannot
+      infer one — pre_tool_call carries only tool_name/args/task_id/session_id/
+      tool_call_id, content_ceiling has no runtime counterpart at all, and the
+      one skill-name resolver is dead code documented "never an entitlement
+      input" (vfy_01KYZF6CYFRQ9SJDWQF0FDNX7W). So the lane DECLARES its class by
+      calling a tool that means it, rather than being guessed at from a generic
+      write that create_memo also serves for chronology rows. Runs the same
+      shared.spec_gate.check_spec_gate as its sibling, with output_class passed
+      explicitly; an explicit class only selects WHICH authored declaration is
+      consulted and can never manufacture one, which is what makes accepting it
+      from a tool handler safe. ACCEPTED LIMIT, registered here rather than left
+      to be discovered: a drafter that calls mcp_smokeball_create_memo directly
+      delivers ungated. That is visible in the audit log and not prevented —
+      the failure this catches is a model that forgot to read its spec, not an
+      adversary routing around a control, and the adversary case (an
+      agent-writable spec as a persistent injection channel) is closed by root
+      ownership in #2084. UNPROBED: the tool exists on the pinned overlay
+      (1594f687) but no seat has been rebuilt onto that pin, so no live refusal
+      or authorization has been observed.
 
   taint_gate:
     control: taint_gate
