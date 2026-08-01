@@ -47,6 +47,39 @@ literal count (``0``), not a soft phrase that implies the agent did
 something it did not. ``customer.yaml`` missing on disk is an error,
 not a placeholder: callers must point at a real file.
 
+An empty section is itself a claim
+----------------------------------
+
+A zero has two meanings and an auditor cannot tell them apart from the
+zero alone: "nothing happened" and "this system cannot answer that
+question". ``matter_ref`` was added to the audit schema after seats had
+already begun writing rows, and the emitter did not populate it at
+first, so rows written before that fix carry ``matter_ref = NULL``
+permanently. There is no key to backfill them from.
+
+A matter-scoped export therefore has a coverage boundary, and
+:class:`AuditCoverage` computes it on every build. Three outcomes:
+
+* **Answerable zero.** No row matches the matter and no row in the
+  period lacks attribution. The packet states that the zero is
+  complete.
+* **Unanswerable zero.** No row matches the matter and one or more rows
+  in the period carry no attribution at all. The build REFUSES
+  (:class:`EvidencePacketError`) rather than ship an empty audit
+  section that reads as "nothing happened". This follows the
+  empty-state discipline in ``docs/style/empty-state-pattern.md``,
+  whose legal-document precedent is to block generation rather than
+  render a plausible-looking gap. ``--acknowledge-unattributed-gap``
+  overrides the refusal; it does NOT suppress the disclosure, and the
+  acknowledgement is recorded in the manifest and the audit row.
+* **Partial coverage.** Rows match the matter AND other rows in the
+  period lack attribution. The packet builds and states, on its face,
+  how many rows it could not scope either way.
+
+Unattributed rows are never included in a matter-scoped packet: they
+may concern other clients. The packet discloses their count and their
+time span, not their contents.
+
 The secret-redaction pass walks the parsed YAML and replaces every
 ``token_ref``, ``oauth_scopes``, and ``failure_recipients`` /
 ``red_flag_recipients`` value. A pre-export validator scans the
@@ -80,6 +113,11 @@ from typing import (
 )
 
 from .manifest import EvidenceManifest, build_manifest, manifest_sha256_hex
+from .signing import (
+    DETACHED_SIGNATURE_FILENAME,
+    SIGNATURE_DETACHED_MARKER,
+    load_signer,
+)
 from .pdf import render_summary_pdf
 
 log = logging.getLogger("aie.evidence.packet")
@@ -133,6 +171,13 @@ class PacketRequest:
     spec lets the caller scope the export by matter or by period).
     ``customer_yaml_path`` is the on-disk yaml for the customer; the
     builder reads it once and includes the redacted form in the packet.
+
+    ``acknowledge_unattributed_gap`` overrides the refusal a matter-scoped
+    export raises when it matches zero rows while unattributed rows exist
+    in the period (see :class:`AuditCoverage`). It does not change what
+    the packet says: the gap is disclosed either way, and the
+    acknowledgement itself is recorded in the manifest and the
+    ``COMPLIANCE_PACKET_EXPORTED`` audit row.
     """
 
     customer_slug: str
@@ -143,6 +188,7 @@ class PacketRequest:
     customer_yaml_path: Path
     actor: str
     actor_role: PacketActor
+    acknowledge_unattributed_gap: bool = False
 
     def validate(self) -> None:
         if not self.customer_slug:
@@ -178,6 +224,202 @@ class EvidencePacketResult:
     bytes_written: int
     counts: Mapping[str, int]
     manifest: EvidenceManifest
+    coverage: "AuditCoverage"
+
+
+# ---------------------------------------------------------------------------
+# Audit coverage: what the audit log can and cannot say about this scope
+# ---------------------------------------------------------------------------
+
+
+# The export's own chain-of-custody rows are excluded from the coverage
+# tally. A COMPLIANCE_PACKET_EXPORTED row records an act performed on a
+# packet, not agent work performed on a matter, and it carries its own
+# scope in metadata. Counting it would make every repeat export of a
+# quiet matter look like an unresolvable gap.
+_COVERAGE_EXCLUDED_ACTION_TYPE = "COMPLIANCE_PACKET_EXPORTED"
+
+
+def _rows_phrase(count: int) -> str:
+    """"1 row" / "4130 rows". The packet is read by lawyers; "1 rows"
+    in a compliance artifact undercuts everything around it."""
+    return "1 row" if count == 1 else f"{count} rows"
+
+
+def _rows_verb(count: int) -> str:
+    return "carries" if count == 1 else "carry"
+
+
+@dataclass(frozen=True)
+class AuditCoverage:
+    """The coverage boundary of one packet's audit section.
+
+    Answers the question an auditor actually has when a section is
+    empty: is this "nothing happened", or "the system cannot say"?
+
+    ``table_present`` is False when the export source has no
+    ``audit_log`` table at all. That is not a zero; it is a packet that
+    cannot report on activity, and it says so.
+    """
+
+    matter: str
+    table_present: bool
+    rows_in_period: int
+    rows_matching_matter: int
+    rows_unattributed: int
+    unattributed_first_ts: Optional[str] = None
+    unattributed_last_ts: Optional[str] = None
+    gap_acknowledged: bool = False
+    acknowledged_by: Optional[str] = None
+
+    @property
+    def is_customer_wide(self) -> bool:
+        return self.matter == "all"
+
+    @property
+    def has_unattributed_rows(self) -> bool:
+        return self.rows_unattributed > 0
+
+    @property
+    def is_unanswerable_empty(self) -> bool:
+        """True when this packet's audit section would be empty for a
+        reason the auditor could mistake for "no activity".
+
+        A customer-wide export is never unanswerable: it includes every
+        row regardless of attribution. A matter-scoped export is
+        unanswerable when it matched nothing AND either the source had
+        no audit table or the period holds rows that carry no
+        attribution and so may belong to this matter.
+        """
+        if self.is_customer_wide:
+            return False
+        if self.rows_matching_matter > 0:
+            return False
+        return (not self.table_present) or self.has_unattributed_rows
+
+    @property
+    def zero_is_complete(self) -> bool:
+        """True when an empty audit section is a truthful, complete zero."""
+        return (
+            not self.is_customer_wide
+            and self.table_present
+            and self.rows_matching_matter == 0
+            and not self.has_unattributed_rows
+        )
+
+    def _span(self) -> str:
+        first = self.unattributed_first_ts
+        last = self.unattributed_last_ts
+        if first and last and first == last:
+            return f"at {first}"
+        return f"from {first or 'unknown'} to {last or 'unknown'}"
+
+    def narrative_lines(self) -> List[str]:
+        """Plain-language coverage statement shared by README and PDF.
+
+        One wording, two surfaces: a compliance artifact that describes
+        its own limits differently in two places invites the question of
+        which one is the real one.
+        """
+        if not self.table_present:
+            return [
+                "The audit_log table was not present in the export source read "
+                "for this packet. This packet therefore cannot report on agent "
+                "activity at all. Do NOT read its empty audit section as "
+                "evidence that nothing happened.",
+            ]
+
+        if self.is_customer_wide:
+            lines = [
+                "This export is customer wide. Every audit row in the period is "
+                "included regardless of matter attribution: "
+                f"{_rows_phrase(self.rows_in_period)}.",
+            ]
+            if self.has_unattributed_rows:
+                lines.append(
+                    f"Of those, {self.rows_unattributed} "
+                    f"{_rows_verb(self.rows_unattributed)} no matter "
+                    f"attribution ({self._span()}). They are included here "
+                    "because this export is not scoped to a matter, but they "
+                    "cannot be assigned to any single matter."
+                )
+            return lines
+
+        if self.rows_matching_matter > 0:
+            lines = [
+                f"This export is scoped to matter {self.matter}. "
+                f"{_rows_phrase(self.rows_matching_matter)} in the period "
+                f"{_rows_verb(self.rows_matching_matter)} that attribution and "
+                f"{'is' if self.rows_matching_matter == 1 else 'are'} included "
+                "in 03-audit-log.csv.",
+            ]
+            if self.has_unattributed_rows:
+                lines.append(
+                    f"A further {_rows_phrase(self.rows_unattributed)} in this "
+                    f"period {_rows_verb(self.rows_unattributed)} no matter "
+                    f"attribution at all ({self._span()}). They are NOT in this "
+                    "packet. They may belong to this matter, to another matter, "
+                    "or to no matter, and this system cannot tell which. Their "
+                    "contents are withheld from a matter-scoped export because "
+                    "they may concern other clients. Request the customer-wide "
+                    "export if they need to be enumerated."
+                )
+                lines.append(
+                    "Read the counts in this packet as a floor for this matter, "
+                    "not as a complete tally."
+                )
+            else:
+                lines.append(
+                    "Every audit row in this period carries a matter "
+                    "attribution, so nothing in the period is unaccounted for."
+                )
+            return lines
+
+        if self.zero_is_complete:
+            return [
+                f"This export is scoped to matter {self.matter}. No audit rows "
+                "in this period carry that attribution, and no rows in this "
+                "period lack attribution. This zero is complete: nothing was "
+                "recorded against this matter during this period.",
+            ]
+
+        lines = [
+            f"This export is scoped to matter {self.matter} and its audit "
+            'section is EMPTY. Read that as "this system cannot answer the '
+            'question", NOT as "nothing happened on this matter".',
+            f"No audit row in this period carries an attribution to matter "
+            f"{self.matter}. At the same time, "
+            f"{_rows_phrase(self.rows_unattributed)} in this period "
+            f"{_rows_verb(self.rows_unattributed)} no matter attribution at all "
+            f"({self._span()}). Matter attribution was added to the audit "
+            "schema after those rows were written and cannot be reconstructed "
+            "for them. Any of them may concern this matter.",
+            "This packet cannot show that nothing happened on this matter. It "
+            "can only show that nothing was recorded under that label.",
+        ]
+        if self.acknowledged_by:
+            lines.append(
+                "The operator who generated this packet acknowledged this gap "
+                f"before it was written: {self.acknowledged_by}."
+            )
+        return lines
+
+    def to_dict(self) -> dict:
+        """Structured form for manifest.json and the audit row metadata."""
+        return {
+            "matter": self.matter,
+            "audit_table_present": self.table_present,
+            "rows_in_period": self.rows_in_period,
+            "rows_matching_matter": self.rows_matching_matter,
+            "rows_unattributed": self.rows_unattributed,
+            "unattributed_first_ts": self.unattributed_first_ts,
+            "unattributed_last_ts": self.unattributed_last_ts,
+            "zero_is_complete": self.zero_is_complete,
+            "unanswerable_empty": self.is_unanswerable_empty,
+            "gap_acknowledged": self.gap_acknowledged,
+            "acknowledged_by": self.acknowledged_by,
+            "excludes_action_type": _COVERAGE_EXCLUDED_ACTION_TYPE,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -342,6 +584,98 @@ async def _fetch_audit_log(
     return await _fetch_safe(reader, sql, params)
 
 
+async def _fetch_audit_coverage(
+    reader: ReadExecutor,
+    *,
+    period_start: str,
+    period_end: str,
+    matter: str,
+    gap_acknowledged: bool,
+    actor: str,
+) -> AuditCoverage:
+    """Tally what the audit log can and cannot attribute for this scope.
+
+    One aggregate query rather than a second full row fetch: the packet
+    needs counts and a time span, not the unattributed rows themselves
+    (which it must not disclose in a matter-scoped export).
+    """
+    sql = (
+        "SELECT "
+        "COUNT(*) AS rows_in_period, "
+        "SUM(CASE WHEN matter_ref IS NULL OR TRIM(matter_ref) = '' "
+        "         THEN 1 ELSE 0 END) AS rows_unattributed, "
+        "SUM(CASE WHEN matter_ref = ? THEN 1 ELSE 0 END) AS rows_matching_matter, "
+        "MIN(CASE WHEN matter_ref IS NULL OR TRIM(matter_ref) = '' "
+        "         THEN ts END) AS unattributed_first_ts, "
+        "MAX(CASE WHEN matter_ref IS NULL OR TRIM(matter_ref) = '' "
+        "         THEN ts END) AS unattributed_last_ts "
+        "FROM audit_log "
+        "WHERE ts >= ? AND ts <= ? AND action_type <> ?"
+    )
+    params = [
+        matter,
+        period_start,
+        period_end,
+        _COVERAGE_EXCLUDED_ACTION_TYPE,
+    ]
+    rows = await _fetch_optional(reader, sql, params)
+
+    if rows is None:
+        return AuditCoverage(
+            matter=matter,
+            table_present=False,
+            rows_in_period=0,
+            rows_matching_matter=0,
+            rows_unattributed=0,
+            gap_acknowledged=gap_acknowledged,
+            acknowledged_by=actor if gap_acknowledged else None,
+        )
+
+    row = rows[0] if rows else {}
+    total = int(row.get("rows_in_period") or 0)
+    unattributed = int(row.get("rows_unattributed") or 0)
+    matching = total if matter == "all" else int(row.get("rows_matching_matter") or 0)
+
+    return AuditCoverage(
+        matter=matter,
+        table_present=True,
+        rows_in_period=total,
+        rows_matching_matter=matching,
+        rows_unattributed=unattributed,
+        unattributed_first_ts=row.get("unattributed_first_ts") or None,
+        unattributed_last_ts=row.get("unattributed_last_ts") or None,
+        gap_acknowledged=gap_acknowledged,
+        acknowledged_by=actor if gap_acknowledged else None,
+    )
+
+
+def _coverage_refusal_message(coverage: AuditCoverage) -> str:
+    """The error an operator sees instead of a silently empty packet."""
+    if not coverage.table_present:
+        cause = (
+            "the export source read for this packet has no audit_log table, so "
+            "no activity can be reported at all."
+        )
+    else:
+        cause = (
+            f"{_rows_phrase(coverage.rows_unattributed)} in this period "
+            f"{_rows_verb(coverage.rows_unattributed)} no matter attribution "
+            f"({coverage._span()}). Any of them may concern this matter."
+        )
+    return (
+        f"matter-scoped export for matter {coverage.matter!r} matched 0 audit "
+        f"rows, but {cause} An empty audit section here would read as "
+        '"nothing happened on this matter" when the truth is "this system '
+        'cannot attribute those rows either way". Refusing to write a packet '
+        "that makes that claim. Choose one: (a) re-run with --matter all for "
+        "the customer-wide export; (b) narrow --from/--to to a period after "
+        "matter attribution began; or (c) re-run with "
+        "--acknowledge-unattributed-gap to emit the packet with the gap stated "
+        "on its face, which is recorded in manifest.json and in the "
+        "COMPLIANCE_PACKET_EXPORTED audit row."
+    )
+
+
 async def _fetch_boot_checks(
     reader: ReadExecutor, *, period_start: str, period_end: str
 ) -> List[dict]:
@@ -432,13 +766,27 @@ async def _fetch_safe(
     only the tables they exercise. Treating "table absent" as "no data"
     matches the no-fabrication contract.
     """
+    rows = await _fetch_optional(reader, sql, params)
+    return [] if rows is None else rows
+
+
+async def _fetch_optional(
+    reader: ReadExecutor, sql: str, params: Optional[Sequence[Any]] = None
+) -> Optional[List[dict]]:
+    """Run a SELECT; return ``None`` when the table does not exist.
+
+    :func:`_fetch_safe` flattens "table absent" into "no data", which is
+    right for the dump files. The coverage tally needs the distinction:
+    a missing table is not a zero, and a packet must not present it as
+    one.
+    """
     try:
         return await reader.fetch_all(sql, list(params or []))
     except Exception as exc:  # noqa: BLE001
         msg = str(exc).lower()
         if "no such table" in msg or "does not exist" in msg:
             log.warning("evidence read skipped (table absent): %s", exc)
-            return []
+            return None
         raise
 
 
@@ -484,13 +832,21 @@ def _readme_text(
     captain_name: str,
     captain_email: str,
     manifest_sha256: str,
+    coverage: AuditCoverage,
+    signed: bool = False,
+    key_id: str = "",
 ) -> bytes:
     """Render the plain-language README first page.
 
     No em dashes (style rule). No fabricated promises about behavior
     the customer did not contract: the README describes only what the
     packet itself contains.
+
+    The coverage statement sits above the contents list on purpose. A
+    reader who stops after the first screen must still learn what this
+    packet cannot answer.
     """
+    coverage_body = "\n\n".join(coverage.narrative_lines())
     body = (
         f"# Compliance Evidence -- {customer_name}\n\n"
         f"**Customer slug:** {customer_slug}\n"
@@ -504,6 +860,8 @@ def _readme_text(
         "by an attorney, an outside auditor, or the customer itself. You "
         "do not need a technical background to read this README or the "
         "summary PDF.\n\n"
+        "## What this package covers, and what it cannot\n\n"
+        f"{coverage_body}\n\n"
         "## What is in the package\n\n"
         "- `00-README.md` -- this document\n"
         "- `01-summary.pdf` -- the Susan-readable narrative\n"
@@ -514,7 +872,14 @@ def _readme_text(
         "person mappings, and voice metadata\n"
         "- `07-skill-catalog.json` -- the skills active during the period\n"
         "- `09-boot-checks.csv` -- the substrate's invariant boot-check log\n"
-        "- `manifest.json` -- file hashes plus the Captain signature\n\n"
+        "- `manifest.json` -- file hashes plus the signature block\n"
+        + (
+            "- `manifest.sig` -- detached Ed25519 signature over "
+            "`manifest.json`\n\n"
+            if signed
+            else "\n"
+        )
+        +
         "## What this package does NOT contain\n\n"
         "Substantive content of drafts, sent messages, or memory payloads "
         "is not in this packet. Those bodies live in per-customer R2 "
@@ -526,19 +891,53 @@ def _readme_text(
         "(`operator/bin/export-voice-samples.sh`) when full bodies are "
         "required.\n\n"
         "## Verification\n\n"
-        "**This packet is UNSIGNED. Its integrity is not yet "
-        "cryptographically verifiable.** The `manifest.json` signature is a "
-        "stub (a real detached Captain signature is a planned addition). The "
-        "SHA-256 values quoted inside this packet (this README and the "
-        "summary PDF) prove only that the packet is internally self-"
-        "consistent. They are stored in the same archive they describe, so on "
-        "their own they cannot detect deliberate tampering.\n\n"
-        "To check integrity, compare the manifest SHA-256 above against the "
-        "value recorded OUT OF BAND when the packet was generated: the "
-        "`COMPLIANCE_PACKET_EXPORTED` audit-log row's `manifest_sha256`, "
-        "obtained directly from the firm or SMD rather than from this "
-        "archive. Once the manifest hash matches that external record, hash "
-        "any individual file and compare it to its entry in `manifest.json`.\n\n"
+        + (
+            (
+                "**This packet is SIGNED.** `manifest.sig` is a detached "
+                "Ed25519 signature over the exact bytes of `manifest.json`, "
+                "which in turn carries the SHA-256 of every other file. "
+                "Verification needs no credential and no contact with SMD.\n\n"
+                "Fetch the public key from "
+                "https://smd.services/keys/evidence-packet-signing-key.pem "
+                f"and confirm it is key `{key_id}`, the key named in "
+                "`manifest.json`. Then:\n\n"
+                "```\n"
+                "openssl pkeyutl -verify -pubin "
+                "-inkey evidence-packet-signing-key.pem \\\n"
+                "  -rawin -in manifest.json -sigfile manifest.sig\n"
+                "```\n\n"
+                "A successful verification proves the manifest was produced "
+                "by SMD and has not been altered since export. Once it "
+                "passes, hash any individual file and compare it to its entry "
+                "in `manifest.json`.\n\n"
+                "The signature covers origin and integrity after export. It "
+                "says nothing about whether the underlying audit log is "
+                "correct. Tamper evidence within the log itself is a separate "
+                "mechanism: the ledger is hash chained, so a deleted, "
+                "reordered, or inserted row breaks the chain at a verifiable "
+                "point.\n\n"
+            )
+            if signed
+            else (
+                "**This packet is UNSIGNED. Its integrity is not "
+                "cryptographically verifiable.** No signing key was "
+                "configured when it was generated, so `manifest.json` carries "
+                "no signature and there is no `manifest.sig`. The SHA-256 "
+                "values quoted inside this packet (this README and the "
+                "summary PDF) prove only that the packet is internally self-"
+                "consistent. They are stored in the same archive they "
+                "describe, so on their own they cannot detect deliberate "
+                "tampering.\n\n"
+                "To check integrity, compare the manifest SHA-256 above "
+                "against the value recorded OUT OF BAND when the packet was "
+                "generated: the `COMPLIANCE_PACKET_EXPORTED` audit-log row's "
+                "`manifest_sha256`, obtained directly from the firm or SMD "
+                "rather than from this archive. Once the manifest hash "
+                "matches that external record, hash any individual file and "
+                "compare it to its entry in `manifest.json`.\n\n"
+            )
+        )
+        +
         "## Questions\n\n"
         f"Contact: {captain_email}\n"
     )
@@ -634,6 +1033,17 @@ class EvidencePacketBuilder:
 
         customer_name = self._extract_customer_name(parsed_yaml, request.customer_slug)
 
+        coverage = await _fetch_audit_coverage(
+            self.reader,
+            period_start=request.period_start,
+            period_end=request.period_end,
+            matter=request.matter,
+            gap_acknowledged=request.acknowledge_unattributed_gap,
+            actor=request.actor,
+        )
+        if coverage.is_unanswerable_empty and not coverage.gap_acknowledged:
+            raise EvidencePacketError(_coverage_refusal_message(coverage))
+
         audit_rows = await _fetch_audit_log(
             self.reader,
             period_start=request.period_start,
@@ -684,7 +1094,11 @@ class EvidencePacketBuilder:
             file_hashes=placeholder_hashes,
             actor=request.actor,
             actor_role=request.actor_role.value,
-            extra={"counts": counts, "stage": "provisional"},
+            extra={
+                "counts": counts,
+                "coverage": coverage.to_dict(),
+                "stage": "provisional",
+            },
         )
         provisional_sha = manifest_sha256_hex(provisional_manifest)
 
@@ -697,7 +1111,19 @@ class EvidencePacketBuilder:
             captain_id=provisional_manifest.captain_key_id,
             manifest_sha256=provisional_sha,
             counts=counts,
+            coverage_lines=coverage.narrative_lines(),
+            counts_are_partial=coverage.has_unattributed_rows,
         )
+
+        # Resolve the signing key BEFORE anything is rendered. Three artifacts
+        # depend on knowing whether this packet will be signed: the README's
+        # verification section, and the algorithm + key id recorded inside
+        # manifest.json. The signature itself is taken later, over the
+        # serialized manifest, and shipped detached (adapter/evidence/signing.py
+        # explains why it cannot be embedded). load_signer raises rather than
+        # degrading when a key is configured but unusable: an unsigned packet is
+        # an honest artifact, a falsely-signed one is a lie in a legal record.
+        signer = load_signer()
 
         readme_bytes = _readme_text(
             customer_slug=request.customer_slug,
@@ -708,6 +1134,9 @@ class EvidencePacketBuilder:
             captain_name=provisional_manifest.captain_name,
             captain_email=provisional_manifest.captain_email,
             manifest_sha256=provisional_sha,
+            coverage=coverage,
+            signed=signer is not None,
+            key_id=signer.key_id if signer else "",
         )
 
         # Final manifest with real file hashes (PDF + README included).
@@ -728,8 +1157,12 @@ class EvidencePacketBuilder:
             file_hashes=file_hashes,
             actor=request.actor,
             actor_role=request.actor_role.value,
+            captain_key_id=signer.key_id if signer else None,
+            signature=SIGNATURE_DETACHED_MARKER if signer else None,
+            signature_algorithm=signer.algorithm if signer else None,
             extra={
                 "counts": counts,
+                "coverage": coverage.to_dict(),
                 "provisional_manifest_sha256": provisional_sha,
             },
         )
@@ -747,6 +1180,14 @@ class EvidencePacketBuilder:
             ("manifest.json", manifest_bytes),
         ]
 
+        # The detached signature covers manifest.json, which covers every other
+        # artifact. It is deliberately NOT in file_hashes: it cannot hash
+        # itself. Trust order: manifest.sig -> manifest.json -> everything else.
+        if signer is not None:
+            entries.append(
+                (DETACHED_SIGNATURE_FILENAME, signer.sign(manifest_bytes))
+            )
+
         bytes_written = self._write_targz(request.output_path, entries)
 
         await self._emit_audit_row(
@@ -755,6 +1196,7 @@ class EvidencePacketBuilder:
             counts=counts,
             file_count=len(entries),
             bytes_written=bytes_written,
+            coverage=coverage,
         )
 
         return EvidencePacketResult(
@@ -764,6 +1206,7 @@ class EvidencePacketBuilder:
             bytes_written=bytes_written,
             counts=counts,
             manifest=manifest,
+            coverage=coverage,
         )
 
     # ------------------------------------------------------------------
@@ -834,6 +1277,7 @@ class EvidencePacketBuilder:
         counts: Mapping[str, int],
         file_count: int,
         bytes_written: int,
+        coverage: AuditCoverage,
     ) -> None:
         # Import locally to mirror the bin/lib/decommission.py pattern
         # (avoids hard adapter import at module load time).
@@ -859,6 +1303,7 @@ class EvidencePacketBuilder:
                 "bytes_written": bytes_written,
                 "output_path": str(request.output_path),
                 "counts": dict(counts),
+                "coverage": coverage.to_dict(),
             },
         )
         try:
@@ -877,6 +1322,7 @@ class EvidencePacketBuilder:
 
 
 __all__ = [
+    "AuditCoverage",
     "EvidencePacketBuilder",
     "EvidencePacketError",
     "EvidencePacketResult",
