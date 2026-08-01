@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from .manifest import EvidenceManifest, build_manifest, manifest_sha256_hex
 from .packet import (
+    AuditCoverage,
     EvidencePacketBuilder,
     EvidencePacketError,
     EvidencePacketResult,
@@ -30,6 +31,7 @@ from .packet import (
 from .pdf import render_summary_pdf
 
 __all__ = [
+    "AuditCoverage",
     "EvidenceManifest",
     "EvidencePacketBuilder",
     "EvidencePacketError",

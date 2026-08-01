@@ -24,7 +24,9 @@ Exit codes
 * ``0`` -- packet generated successfully.
 * ``2`` -- preflight failed (bad arg, missing customer.yaml).
 * ``3`` -- build halted with :class:`EvidencePacketError` (e.g. secret
-  leak detected, role gate failed, audit row could not be persisted).
+  leak detected, role gate failed, audit row could not be persisted,
+  or a matter-scoped export whose empty audit section would misread as
+  "nothing happened"; see ``--acknowledge-unattributed-gap``).
 * ``4`` -- unexpected non-build exception.
 """
 
@@ -165,6 +167,18 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="Role of the actor (captain or compliance); default: captain",
     )
     p.add_argument(
+        "--acknowledge-unattributed-gap",
+        action="store_true",
+        help=(
+            "Emit a matter-scoped packet even when it matches zero audit rows "
+            "while unattributed rows exist in the period. The packet still "
+            "states the gap on its face; the acknowledgement is recorded in "
+            "manifest.json and in the COMPLIANCE_PACKET_EXPORTED audit row. "
+            "Without this flag such a build halts (exit 3) rather than ship an "
+            "empty audit section that reads as 'nothing happened'."
+        ),
+    )
+    p.add_argument(
         "--customer-yaml",
         type=Path,
         default=None,
@@ -261,6 +275,7 @@ async def _run(args: argparse.Namespace) -> int:
         customer_yaml_path=customer_yaml,
         actor=args.actor,
         actor_role=PacketActor(args.actor_role),
+        acknowledge_unattributed_gap=args.acknowledge_unattributed_gap,
     )
 
     try:
@@ -290,8 +305,16 @@ async def _run(args: argparse.Namespace) -> int:
         "file_count": result.file_count,
         "bytes_written": result.bytes_written,
         "counts": dict(result.counts),
+        "coverage": result.coverage.to_dict(),
     }
     print(json.dumps(summary, sort_keys=True, indent=2))
+
+    # Surface the coverage boundary on stderr too. The JSON above is
+    # machine-readable; an operator scanning the terminal needs to see
+    # that this packet's audit section is partial before they forward it.
+    if result.coverage.has_unattributed_rows or not result.coverage.table_present:
+        for line in result.coverage.narrative_lines():
+            print(f"[coverage] {line}", file=sys.stderr)
     return 0
 
 
