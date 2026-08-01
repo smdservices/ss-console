@@ -118,9 +118,26 @@ _A_NUMBER_RE = re.compile(r"\bA#?[-\s]?(?:\d[-\s]?){8,9}\b")
 _RECEIPT_RE = re.compile(r"\b[A-Z]{3}\d{10}\b")
 # SSN.
 _SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
-# Case / docket numbers: federal-style "1:24-cv-01234", or "No. 24-12345".
+# Case / docket numbers: federal-style "1:24-cv-01234", or "No. 24-12345", or a
+# practice-management MATTER number ("2026-PI-101", "PI-2026-0001").
+#
+# The matter-number alternation was added 2026-07-31. Before it, this pattern
+# could not see a matter number at all: probed live, "2026-PI-107" -> no hit,
+# "PI-2026-0001" -> no hit. Every IDENTIFIER_UNVERIFIED row on the pilot seat
+# showed only date shapes, which read as "no identifier problems found" when the
+# truth was "this filter is blind to the identifiers this firm uses." A gate that
+# cannot see a class of value is not reporting on it, and silence from it meant
+# nothing.
+#
+# Still REPORT-ONLY, deliberately. See the posture note in the overlay's
+# plugins/hermes-smd-trust/outbound.py: enforcement flips only after the
+# false-positive rate is measured on real traffic, and that discipline is not
+# overridden here. What changes is that the signal now exists to measure.
 _CASE_RE = re.compile(
-    r"\b(?:\d{1,2}:\d{2}-[a-z]{2}-\d{3,6}|No\.?\s?\d{2,4}-\d{2,6})\b",
+    r"\b(?:\d{1,2}:\d{2}-[a-z]{2}-\d{3,6}"
+    r"|No\.?\s?\d{2,4}-\d{2,6}"
+    r"|\d{4}-[A-Z]{2}-\d{3,4}"
+    r"|[A-Z]{2}-\d{4}-\d{4})\b",
     re.IGNORECASE,
 )
 
@@ -128,7 +145,15 @@ _CASE_RE = re.compile(
 _DATE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b"),
     re.compile(r"\b\d{1,2}-\d{1,2}-\d{2,4}\b"),
-    re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),
+    # ISO date, and the date half of an ISO *datetime*. The trailing \b this
+    # replaced could not match "2026-08-12T09:00:00Z": between the final "2" and
+    # the "T" there is no word boundary, both being word chars. Smokeball events
+    # carry ISO datetimes (create_event start_time/end_time), so a digest that
+    # correctly read a hearing and wrote its date was flagged unverified — a
+    # false positive at daily volume, and one that would have been measured as
+    # the model's fabrication rate. The negative lookahead also declines
+    # "2026-08-12-99", which the old \b form wrongly matched as a date.
+    re.compile(r"\b\d{4}-\d{2}-\d{2}(?![\d-])"),
     re.compile(
         r"\b(?:January|February|March|April|May|June|July|August|September|"
         r"October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|"
