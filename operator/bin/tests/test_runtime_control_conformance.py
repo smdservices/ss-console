@@ -76,6 +76,31 @@ def _hook_of(wired_via: str) -> str:
     return (wired_via or "").split("/", 1)[0].strip()
 
 
+#: `wired_via` prefix for a control the agent reaches by CALLING A TOOL rather
+#: than by a hook firing around one.
+#:
+#: The schema assumed every control was hook-wired, which was true until a
+#: control existed that the agent invokes directly. A tool IS a wiring — it is
+#: registered, classified in TOOL_ACTION_CLASS_MAP, and refusable — it is simply
+#: not in the hook surface, and forcing it to name a hook would invent one.
+#:
+#: This is NOT an escape hatch from the hook cross-check. A hook-form value is
+#: still validated against overlay-hook-surface.json, and a tool-form value gets
+#: its own cross-check below: the named tool must actually be instructed
+#: somewhere a shipped skill will read it. A control nothing tells the agent to
+#: call is inert in exactly the way this registry exists to expose, and writing
+#: `tool / anything` must not buy an exemption from proving otherwise.
+_TOOL_PREFIX = "tool"
+
+
+def _tool_of(wired_via: str) -> str:
+    """`"tool / <tool_name>"` -> `<tool_name>`, else `""`."""
+    parts = (wired_via or "").split("/", 1)
+    if len(parts) != 2 or parts[0].strip() != _TOOL_PREFIX:
+        return ""
+    return parts[1].strip()
+
+
 # --------------------------------------------------------------------------- #
 # structure                                                                    #
 # --------------------------------------------------------------------------- #
@@ -160,11 +185,37 @@ def test_wired_via_hooks_exist_in_surface() -> None:
     required = set(_hook_surface().get("requiredHooks") or {})
     for key, spec in _controls().items():
         wired = spec.get("wired_via")
-        if not wired:
+        if not wired or _tool_of(wired):
             continue
         hook = _hook_of(wired)
         assert hook in required, (
             f"{key}: wired_via names hook {hook!r} which is not in overlay-hook-surface.json"
+        )
+
+
+def test_tool_wired_controls_are_actually_instructed() -> None:
+    """A tool-wired control must be something a shipped skill tells the agent to call.
+
+    The counterpart of the hook cross-check, and the reason `tool /` is not an
+    exemption. A hook fires whether or not anyone asked; a tool runs only if
+    something in the agent's context says to run it. So a tool-wired control
+    whose name appears in no shipped skill or discipline is inert by
+    construction — exactly the state this registry exists to expose — and it
+    would otherwise be indistinguishable from a wired one.
+    """
+    searched = [
+        *(_OP / "skills").rglob("*.md"),
+        *(_OP / "templates" / "drafting").rglob("*.md"),
+    ]
+    for key, spec in _controls().items():
+        tool = _tool_of(spec.get("wired_via") or "")
+        if not tool:
+            continue
+        instructed = any(tool in path.read_text() for path in searched)
+        assert instructed, (
+            f"{key}: wired_via names tool {tool!r}, but no shipped skill or drafting "
+            "discipline instructs the agent to call it. A control nothing invokes is "
+            "inert; either wire it or mark the entry inert."
         )
 
 

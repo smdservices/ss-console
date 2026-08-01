@@ -42,8 +42,14 @@
 #
 # STATUS VOCABULARY:
 #   enforced  — wired into the live dispatch path AND has a named live_probe that
-#               proves it fires. (Today: only the two checks already proven by the
-#               overlay gateway:startup activation handler.)
+#               proves it fires. Two flavours today, and the difference matters
+#               when reading an entry: AUTOMATED (the overlay gateway:startup
+#               activation handler, which os._exit(1)s at boot if the control does
+#               not fire) and MANUAL-OBSERVED (a named seat probe someone ran, with
+#               a crane_verify id in the note). Manual-observed is a weaker claim —
+#               it proves the control fired ONCE, not that a regression would be
+#               caught — and an entry carrying it must say so rather than let a
+#               reader assume the boot gate is watching.
 #   unprobed  — wired into dispatch, but no negative-fire probe proves it fires on
 #               a live turn. The #1285 risk surface (a hook can be registered yet
 #               inert on live turns). Requires owner + tracking + note.
@@ -58,8 +64,19 @@
 #                      (path is in venturecrane/hermes-smd-overlay, not checked
 #                      out here — the same cross-repo limit overlay-pairs.json and
 #                      overlay-hook-surface.json document).
-#   wired_via        — "<hook> / <overlay-plugin>" that invokes the control.
-#                      Must reference a hook in overlay-hook-surface.json.
+#   wired_via        — how the control is REACHED, in one of two forms:
+#                        "<hook> / <overlay-plugin>"  — cross-checked against
+#                          overlay-hook-surface.json.
+#                        "tool / <tool_name>"  — for a control the agent reaches by
+#                          CALLING a tool rather than by a hook firing around one.
+#                          Cross-checked differently and not more weakly: a shipped
+#                          skill or the drafting discipline must instruct the agent
+#                          to call it. A hook fires whether or not anyone asked; a
+#                          tool runs only if something in the agent's context says
+#                          to, so a tool nobody instructs is inert in exactly the
+#                          way this registry exists to expose.
+#                      Empty ONLY for a root-side process outside dispatch entirely
+#                      (see spec_applier), which has neither.
 #   live_probe       — name of the negative-fire probe that proves it fires.
 #                      Recorded for the B3 review; the probe itself is not built
 #                      here. Empty for unprobed/inert.
@@ -223,18 +240,17 @@ controls:
     control: draft_delivery_gate
     class: dispatch-guard
     substrate_module: overlay:plugins/hermes-smd-drafting/__init__.py
-    # EMPTY BY NECESSITY, not by omission — the same shape as spec_applier above.
-    # `wired_via` names a hook in overlay-hook-surface.json, and this control has
-    # none: it is a TOOL the agent calls (registered through
-    # shared/tool_registration.py), not a hook fired around one. Naming a hook
-    # here would invent one and break the surface cross-check. What makes it
-    # reachable is the drafting discipline instructing delivery through it, and
-    # what makes it enforceable is that the gate it runs is the same
-    # shared.spec_gate the hook-wired sibling uses.
-    wired_via: ''
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    # A TOOL the agent calls, not a hook fired around one — so `wired_via` takes
+    # the `tool /` form rather than naming a hook that does not exist. That form
+    # is not an exemption from the surface cross-check: it swaps one check for
+    # another, because a hook fires whether or not anyone asked while a tool runs
+    # only if something in the agent's context says to. test_tool_wired_controls_
+    # are_actually_instructed asserts a shipped skill or the drafting discipline
+    # names it; a control nothing invokes is inert however good its code is.
+    wired_via: 'tool / smd_deliver_draft'
+    live_probe: seat_probe_refuses_unread_work_product
+    probe_surface: staging
+    status: enforced
     owner: SMDurgan
     tracking: '#2094'
     note: >-
@@ -257,9 +273,24 @@ controls:
       the failure this catches is a model that forgot to read its spec, not an
       adversary routing around a control, and the adversary case (an
       agent-writable spec as a persistent injection channel) is closed by root
-      ownership in #2084. UNPROBED: the tool exists on the pinned overlay
-      (1594f687) but no seat has been rebuilt onto that pin, so no live refusal
-      or authorization has been observed.
+      ownership in #2084. ENFORCED, manual-observed 2026-08-01 on
+      hermes-pilot-smokeball at SMD_OVERLAY_REF=1594f687
+      (vfy_01KYZNTJAEST5HEVJATYFY9ED3): with work_product declared
+      voice_spec: expected and SMD_SPEC_DIR root-owned and EMPTY, a work_product
+      delivery on a turn with no read was REFUSED, carrying the
+      internal-artifact wording rather than the send wording; the same call for
+      an undeclared class was ALLOWED, which is the trust property observed live
+      — an explicit output_class selects which declaration is consulted and
+      cannot manufacture one. READ THE PROBE'S LIMITS BEFORE TRUSTING THE
+      STATUS. It is MANUAL: someone ran seat-probe against the gateway's env, so
+      it proves the control fired once, NOT that a regression would be caught.
+      There is no boot gate on this one. It also ran outside a full agent turn,
+      so the audit row did not emit — the broker refused the append because the
+      caller was not the gateway process, and the gate logged exactly that while
+      stating the downgrade still stands, which is the fail-closed-on-audit-
+      failure path behaving correctly. A real turn emits the row. The other half
+      of the feature, a draft delivered IN the declared voice, is still
+      unobserved: it needs a spec in the vault, authored through the portal.
 
   taint_gate:
     control: taint_gate
