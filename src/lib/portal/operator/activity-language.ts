@@ -70,6 +70,8 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'SCOPE_CHANGED',
       'CONFIG_CHANGE_SUBMITTED',
       'CONFIG_CHANGE_REJECTED',
+      'OUTPUT_SPEC_AUTHORED',
+      'OUTPUT_SPEC_REJECTED',
     ],
   },
   {
@@ -190,6 +192,8 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   CONFIG_CHANGE_SUBMITTED: () => 'An advanced configuration change was submitted',
   CONFIG_CHANGE_REJECTED: () => 'An advanced configuration change was not accepted',
   CONNECTOR_RECONSENT_REQUESTED: () => 'A connection re-authorization was requested',
+  OUTPUT_SPEC_AUTHORED: () => 'An output spec was saved to the Operator',
+  OUTPUT_SPEC_REJECTED: () => 'An output spec was not saved',
 }
 
 /** Raw action strings with authored client copy. */

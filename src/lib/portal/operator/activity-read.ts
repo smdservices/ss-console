@@ -188,6 +188,15 @@ const ACTION_EVENT_FEED_MAP: Record<PortalActionEventRow['action_type'], string>
   invite_sent: 'TEAM_INVITE_SENT',
   customer_yaml_update_submitted: 'CONFIG_CHANGE_SUBMITTED',
   connector_reconsent_requested: 'CONNECTOR_RECONSENT_REQUESTED',
+  output_class_spec_authored: 'OUTPUT_SPEC_AUTHORED',
+}
+
+/** The two action types whose rejected attempts have their own client copy —
+ *  a refused change reads differently from an accepted one, and both are
+ *  recorded. Types absent here fall back to their accepted label. */
+const REJECTED_FEED_MAP: Partial<Record<PortalActionEventRow['action_type'], string>> = {
+  customer_yaml_update_submitted: 'CONFIG_CHANGE_REJECTED',
+  output_class_spec_authored: 'OUTPUT_SPEC_REJECTED',
 }
 
 /**
@@ -200,9 +209,8 @@ async function loadActionEventEntries(db: D1Database, entityId: string): Promise
     const events = await listPortalActionEvents(db, entityId)
     return events.map((e) => {
       const action =
-        e.action_type === 'customer_yaml_update_submitted' && e.status === 'rejected'
-          ? 'CONFIG_CHANGE_REJECTED'
-          : ACTION_EVENT_FEED_MAP[e.action_type]
+        (e.status === 'rejected' ? REJECTED_FEED_MAP[e.action_type] : undefined) ??
+        ACTION_EVENT_FEED_MAP[e.action_type]
       return {
         id: `action:${e.id}`,
         ts: e.created_at,

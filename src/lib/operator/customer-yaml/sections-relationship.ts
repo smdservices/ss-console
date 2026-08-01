@@ -17,11 +17,14 @@
  *     police preference *content* for entitlement-shaped phrasing — `enforce()`
  *     is the real and only gate, and a heuristic content filter here would be
  *     both brittle and security-theatre. Validation stays structural.
- *   - **§2d Not the style lane.** Greeting/sign-off/honorific/lexical STYLE
- *     corrections live in `voice_corrections` (migration 0010). This block must
- *     not duplicate them; it carries behavioral working preferences, not draft
- *     phrasing. (Not machine-enforceable without content heuristics — documented
- *     here and in the schema doc as authoring guidance.)
+ *   - **§2d Not the style lane.** STYLE is a property of an OUTPUT CLASS
+ *     (ADR 0083 §2-4), authored in `vaults/<slug>/output-classes.json` and
+ *     promoted through the portal. This block must not duplicate it; it carries
+ *     behavioral working preferences, not draft phrasing. (Not machine-
+ *     enforceable without content heuristics — documented here and in the
+ *     schema doc as authoring guidance.) The `voice_corrections` table this
+ *     note used to name was retired in #2091; see
+ *     `migrations/0102_operator_voice_corrections.sql`.
  *
  * Validation is therefore structural + bounded only: shape, required fields,
  * unique ids, and size caps that keep the rendered `SOUL.md` section bounded.
@@ -38,8 +41,8 @@ const MAX_PEOPLE = 50
 const MAX_ITEMS_PER_LIST = 25
 const MAX_STRING_LEN = 400
 
-/** Stable per-person id: kebab-case, so it can align with a
- * `voice_corrections.reviewer_user_id`. */
+/** Stable per-person id: kebab-case, so it can align with an
+ * `operator_voice_corrections.reviewer_user_id`. */
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/
 
 export function checkRelationship(

@@ -39,6 +39,34 @@ seat:
   kind: preprod
   product: operator
 
+# ---- AUTHORED OUTPUT SPECS (ADR 0083) ----
+# The first seat in the fleet to declare anything here, and deliberately the
+# preprod one: declaring `expected` BINDS the spec gate, and a bound class whose
+# spec is not yet installed fails closed to draft. That is the correct behavior
+# and the entire point of the declaration existing — but it is behavior to
+# observe on a seat that serves nobody before it reaches one that serves a firm.
+#
+# `staff` first because persona voice needs no customer corpus, so it is
+# provable from day one; because it is the highest-volume class by a wide
+# margin; and because its recipients are the firm's own people, so the cost of
+# a fail-closed draft is a human reading it a moment later rather than a client
+# waiting. `format_spec: none` is an authored choice, not an omission — the
+# convention in the skill's own output-format reference governs the shape.
+#
+# Every other class stays undeclared until someone authors its spec. An absent
+# class is not `none`; it is a class nobody has decided about yet, and the
+# registry is built so those cannot be confused (sections-output-classes.ts).
+output_classes:
+  staff:
+    voice_spec: expected
+    # Raised from `none` 2026-07-31 to prove ADR 0083 criteria 7/8: an authored
+    # format is BINDING and deterministic, and an output that breaks it does not
+    # go out. Format is the binary half of the model (§3) — a machine can decide
+    # whether a required line is present, where it can only grade whether a
+    # register sounds right — so this is the property that can be honoured every
+    # time rather than usually.
+    format_spec: expected
+
 vertical: mixed
 fly_region: lax
 

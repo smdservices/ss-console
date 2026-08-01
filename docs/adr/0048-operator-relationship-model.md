@@ -60,7 +60,15 @@ is built on:
    relationship lane.** _(2026-06-16: it was briefly modeled as the relationship
    "style" lane; that is retracted. The read/apply + live-edit primitives were
    removed; the table remains dormant — forward-only migration — and out of scope
-   for this model.)_
+   for this model.)_ **(2026-07-31, #2091: the table is now retired outright.**
+   Its named runtime consumer, `adapter/voice/corrections.py::select_active`,
+   never existed, and ADR 0083 §4 makes a correction an edit to an output
+   class's property rather than a glossary substitution. Migration 0010 is
+   deleted; the correction lifecycle lives in
+   `migrations/0102_operator_voice_corrections.sql` console-side, with capture
+   as an append-only seat audit row. Every runtime layer was probed clear —
+   `vfy_01KYWTNX8A3JYPY08H6GSH8MZ8`, `vfy_01KYWTNZVVQY33J4XB1PP02NEZ`,
+   `vfy_01KYWTZGDRYTGZDJRHRNBW72SG`.**
 
 4. **Sent-capture is not pursued.** _(2026-06-16: the live-edit correction writer
    depended on a sent-folder watcher that was never built; with the style lane
@@ -106,7 +114,8 @@ correctable. That is delight, trust, and governance in one surface.
   KIND of per-person working preference (one composed model, two sources); we do
   not fork parallel stores. (Repo rule: shared flows stay shared once
   canonicalized.) _(2026-06-16: `voice_corrections` is a separate voice-glossary
-  concern, not a relationship lane.)_
+  concern, not a relationship lane. 2026-07-31, #2091: that table is retired;
+  style is now a property of an output class — see item 3 above.)_
 - **e. Runtime-read discipline preserved.** `persona_observations` stays
   non-runtime-read (the Honcho-hallucination defense). The relationship model
   never reads `persona_observations` at agent runtime.

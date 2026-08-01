@@ -221,7 +221,7 @@ noticed within 45 days of the verified response or the right is waived — §203
 §2031.310 / §2033.290), _what comes next_ (the attorney decides send-now vs.
 informal-first; if sent, opposing counsel is asked to cure by a date), and _when to
 bring the attorney in_ (always, before anything goes out; and immediately if the
-compel window is near). See `references/_shared-training-output.md`.
+compel window is near). See `operator/verticals/law-firm/addons/pi/references/_shared-training-output.md`.
 
 ## How to Run
 

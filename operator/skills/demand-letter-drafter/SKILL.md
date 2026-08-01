@@ -422,7 +422,7 @@ authority; a time-limited demand under Code of Civil Procedure sections 999 thro
 method), _what comes next_ (the attorney resolves each reserved marker and each gap,
 then transmits under the firm's identity), and _when to bring the attorney in_ (always,
 before anything goes out, and immediately where the record and the skeleton conflict).
-See `references/_shared-training-output.md` in the pack references.
+See `operator/verticals/law-firm/addons/pi/references/_shared-training-output.md` in the pack references.
 
 ## How to Run
 

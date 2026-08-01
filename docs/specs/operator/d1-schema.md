@@ -251,7 +251,7 @@ Boot-check failure → exit 3, writes `INVARIANT_7_VIOLATION` to stdout, refuses
 
 ## Implementation notes
 
-- Migrations at `operator/migrations/{NNNN}_{name}.sql`. Migration runner: `operator/adapter/run_migrations.py` (called by `provision-customer.sh` step 3).
+- Migrations at `operator/migrations/{NNNN}_{name}.sql`. Migration runner: `operator/adapter/run_migrations.py` (called by `provision-customer.sh` step 3). **Neither the runner nor the step exists — verified 2026-07-31 (#2091); no `hermes-*-d1` database is provisioned. Per ADR 0062 this set is historical. See `operator/migrations/README.md`.**
 - D1 bindings declared per-Machine in `config/fly/hermes-template.toml`; substituted by `provision-customer.sh` with `customer-slug`.
 - Audit-log INSERT-only role configured at the Cloudflare Worker binding level (not in D1 itself — D1 doesn't have per-role permissions yet). Worker enforces.
 - ULIDs generated via `operator/adapter/ulid.py`; lexicographically sortable, suitable as PK with timestamp prefix.

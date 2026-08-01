@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:staging": "CLOUDFLARE_ENV=staging astro build",
+    "deploy:staging": "npm run build:staging && wrangler deploy",
     "preview": "wrangler dev",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -23,26 +25,26 @@
     "prepare": "node -e \"if(process.env.CI)process.exit(0)\" && husky"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^13.1.10",
+    "@astrojs/cloudflare": "^14.1.4",
     "@astrojs/sitemap": "^3.7.3",
-    "@clerk/astro": "^3.4.13",
+    "@clerk/astro": "^4.0.1",
     "@elevenlabs/client": "^1.14.1",
     "@formepdf/core": "^0.10.5",
     "@formepdf/react": "^0.10.4",
     "@sentry/cloudflare": "^10.64.0",
     "@venturecrane/tokens": "0.0.2-alpha.0",
-    "astro": "^6.4.8",
+    "astro": "^7.1.3",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "ics": "^3.12.0",
     "jose": "^6.2.3",
     "react": "^19.2.7",
-    "wrangler": "^4.107.1",
+    "wrangler": "^4.114.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
-    "@cloudflare/workers-types": "^4.20260417.1",
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.2",
     "@types/react": "^19.2.17",
@@ -61,6 +63,10 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
+    "@cloudflare/workers-types": "$@cloudflare/workers-types",
+    "@cloudflare/vite-plugin": "1.47.0",
+    "fast-uri": "3.1.4",
+    "svgo": "4.0.2",
     "defu": "^6.1.7",
     "undici": "^7.24.4",
     "js-cookie": "^3.0.7",

@@ -1,0 +1,149 @@
+---
+import Field from '../form/Field.astro'
+import TextArea from '../form/TextArea.astro'
+import SubmitButton from '../form/SubmitButton.astro'
+import {
+  MAX_SPEC_BODY_BYTES,
+  SPEC_PROPERTIES,
+  specFieldName,
+  type SpecDocument,
+} from '../../../lib/operator/output-class-specs'
+import type { OutputClasses } from '../../../lib/operator/customer-yaml/types'
+
+/**
+ * Output-shape authoring — the one control on the Advanced page that reaches
+ * the client's running Operator (ADR 0083, #2089).
+ *
+ * WHAT IS AUTHORED HERE. Per output class, per property, one plain-speech
+ * statement. It is stored in the client's own vault object and installed on
+ * their seat; it is not `customer.yaml`, which is git-authoritative and moves
+ * through a pull request.
+ *
+ * WHAT IS NOT AUTHORED HERE. Which classes exist, and whether each EXPECTS a
+ * spec. That declaration is a commitment, so it lives in `customer.yaml` and
+ * this form renders it read-only. A firm cannot raise its own expectation from
+ * a text box, and this component never invents a class the seat did not
+ * declare — an undeclared class simply has no field, and the endpoint drops
+ * any that arrive anyway.
+ *
+ * NO CLASSES DECLARED is an explicit empty state, per
+ * docs/style/empty-state-pattern.md. It is a real and ordinary condition (a
+ * seat whose engagement has not reached the point of declaring output classes)
+ * and it must not be papered over with a specimen class list.
+ *
+ * THE LENGTH CAP IS THE SERVER'S, MIRRORED. `maxlength` is derived from
+ * `MAX_SPEC_BODY_BYTES` rather than picked, and the derivation is safe in one
+ * direction only: the attribute counts UTF-16 code units and the ceiling counts
+ * UTF-8 bytes, and a string is never fewer bytes than code units, so this
+ * attribute can only ever refuse text the server would also refuse. It cannot
+ * block a body the server would accept, which is the failure it used to have at
+ * 20,000: a longer body authored elsewhere would render into a field the browser
+ * then treated as over-limit, and constraint validation would make the whole
+ * form unsubmittable with nothing on screen saying why. The attribute is a
+ * courtesy either way. The ceiling that decides is in `buildSpecDocument`, over
+ * the bytes about to be written, and its refusal comes back as a banner.
+ */
+
+interface Props {
+  instance: string
+  /** The `output_classes:` block from the client's own config. */
+  declared: OutputClasses
+  /** What is currently in the vault, or null when nothing is authored yet. */
+  current: SpecDocument | null
+  /** True when the vault object exists but could not be parsed. */
+  unreadable: boolean
+}
+
+const { instance, declared, current, unreadable } = Astro.props
+
+const cardClass = 'border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8'
+const eyebrowClass =
+  'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]'
+
+/** `work_product` → `Work product`. Mechanical, so no label is invented. */
+function classLabel(slug: string): string {
+  const spaced = slug.replace(/[_-]+/g, ' ')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+const PROPERTY_LABEL: Record<(typeof SPEC_PROPERTIES)[number], string> = {
+  voice: 'How it should sound',
+  format: 'How it should be shaped',
+}
+
+const rows = Object.entries(declared)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([slug, entry]) => ({
+    slug,
+    label: classLabel(slug),
+    properties: SPEC_PROPERTIES.map((property) => ({
+      property,
+      field: specFieldName(slug, property),
+      label: PROPERTY_LABEL[property],
+      expected: entry[`${property}_spec`] === 'expected',
+      body: current?.classes?.[slug]?.[property]?.body ?? '',
+    })),
+  }))
+---
+
+<section class="mt-10" aria-labelledby="output-shape-heading">
+  <h2 id="output-shape-heading" class={`${eyebrowClass} mb-4`}>Output shape</h2>
+
+  {
+    unreadable ? (
+      <div class="border-[3px] border-[color:var(--ss-color-error)] p-6 md:p-8">
+        <p class="m-0 font-body text-body text-[color:var(--ss-color-error)]">
+          Your saved output shape could not be read, so it is not shown and cannot be replaced from
+          here. Nothing has changed on your Operator.
+        </p>
+        <p class="mt-3 mb-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          Contact SMD
+        </p>
+      </div>
+    ) : rows.length === 0 ? (
+      <div class={cardClass}>
+        <p class="m-0 font-body text-body text-[color:var(--ss-color-text-secondary)]">
+          No output classes are set up for this Operator yet. When they are, each one appears here
+          for you to describe.
+        </p>
+      </div>
+    ) : (
+      <form method="POST" action="/api/portal/operator/settings/output-class-specs">
+        <input type="hidden" name="instance" value={instance} />
+        <div class={cardClass}>
+          <p class="m-0 font-body text-body text-[color:var(--ss-color-text-secondary)]">
+            Describe, in your own words, what your Operator should do when it produces each kind of
+            work. What you write here is saved to your Operator.
+          </p>
+
+          {rows.map((row) => (
+            <div class="mt-8 border-t-[3px] border-[color:var(--ss-color-text-primary)] pt-6 first-of-type:mt-6">
+              <h3 class="m-0 font-body text-section-h font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                {row.label}
+              </h3>
+              {row.properties.map((prop) => (
+                <div class="mt-5">
+                  <Field label={prop.label}>
+                    <TextArea
+                      name={prop.field}
+                      rows={5}
+                      maxlength={MAX_SPEC_BODY_BYTES}
+                      value={prop.body}
+                    />
+                  </Field>
+                  <p class="mt-1 mb-0 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+                    {prop.expected ? 'Spec expected' : 'No spec expected'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          <div class="mt-8 flex justify-end">
+            <SubmitButton label="Save output shape" tone="primary" />
+          </div>
+        </div>
+      </form>
+    )
+  }
+</section>
