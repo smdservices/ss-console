@@ -50,6 +50,8 @@
  * document no longer declares).
  */
 
+import { assertionsApplyTo, parseAssertions, type Assertions } from './format-assertions'
+
 /** Schema version of the vault document. Must match the applier's constant. */
 export const SPEC_SCHEMA_VERSION = 1
 
@@ -89,10 +91,20 @@ export function specFieldName(outputClass: string, property: SpecProperty): stri
   return `specs[${outputClass}].${property}`
 }
 
-/** One authored body, with the digest this module computed over it. */
+/**
+ * One authored body, with the digest this module computed over it, and — for
+ * the `format` property only — the machine-checkable rules that ride beside it.
+ *
+ * TWO HALVES OF ONE SUBMISSION, NEITHER DERIVED FROM THE OTHER. `body` is the
+ * prose that goes in front of the model; `assertions` is what goes in front of
+ * the seat's checker. The seat's `shared/format_check.py` says it first:
+ * nothing parses English into rules, and nothing infers prose from rules. They
+ * are authored together and stored together. See `./format-assertions`.
+ */
 export interface SpecBody {
   body: string
   sha256: string
+  assertions?: Assertions
 }
 
 /** The vault document: per class, per property, an authored body. */
@@ -232,7 +244,17 @@ function parseClassEntry(
       errors.push(`classes.${slug}.${prop}.sha256: must be a hex sha256 string`)
       continue
     }
-    parsed[prop] = { body, sha256: declared.trim().toLowerCase() }
+    const stored: SpecBody = { body, sha256: declared.trim().toLowerCase() }
+    // Assertions on a non-format property are refused rather than dropped: a
+    // stored rule this surface will not render is a rule the client cannot see
+    // and cannot have chosen. See `assertionsApplyTo`.
+    if (value['assertions'] !== undefined && !assertionsApplyTo(prop)) {
+      errors.push(`classes.${slug}.${prop}.assertions: only the format property carries rules`)
+      continue
+    }
+    const rules = parseAssertions(value['assertions'], `classes.${slug}.${prop}.assertions`, errors)
+    if (rules !== null) stored.assertions = rules
+    parsed[prop] = stored
   }
   return parsed
 }
@@ -303,7 +325,10 @@ export type SpecBuildResult =
  * file on the next cycle. A document that ends up with no bodies at all is
  * refused here; see the fail-closed note in the header.
  */
-export async function buildSpecDocument(bodies: readonly AuthoredBody[]): Promise<SpecBuildResult> {
+export async function buildSpecDocument(
+  bodies: readonly AuthoredBody[],
+  assertionsByClass: ReadonlyMap<string, Assertions> = new Map()
+): Promise<SpecBuildResult> {
   const errors: string[] = []
   let invalidClass = false
   let tooLong = false
@@ -328,7 +353,17 @@ export async function buildSpecDocument(bodies: readonly AuthoredBody[]): Promis
       continue
     }
     const entry = classes[slug] ?? {}
-    entry[authored.property] = { body, sha256: await sha256Hex(body) }
+    const stored: SpecBody = { body, sha256: await sha256Hex(body) }
+    // Rules attach to the format body and to nothing else. A class whose format
+    // prose is blank stores no rules either: the seat would install no format
+    // file, so the manifest would carry no entry for the checker to read them
+    // from, and a rule stored with nowhere to live is one the client believes
+    // is enforced while nothing checks it.
+    if (assertionsApplyTo(authored.property)) {
+      const rules = assertionsByClass.get(slug)
+      if (rules !== undefined && Object.keys(rules).length > 0) stored.assertions = rules
+    }
+    entry[authored.property] = stored
     classes[slug] = entry
   }
 

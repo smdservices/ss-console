@@ -195,6 +195,12 @@ const STATUS_BANNERS: Record<string, BannerStatus> = {
     text: 'The output shape was not saved and nothing changed on your Operator. Contact SMD.',
     tone: 'error',
   },
+  // A rule the client CAN fix, so it gets its own sentence rather than the
+  // catch-all: the specific problem is listed under the rule on the form.
+  spec_invalid_rule: {
+    text: 'The output shape was not saved. One of your shape rules cannot be applied as written. Check the rules below and resubmit.',
+    tone: 'error',
+  },
   spec_no_classes: {
     text: 'No output classes are set up for this Operator, so there is nothing to save.',
     tone: 'error',
