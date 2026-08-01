@@ -238,6 +238,11 @@ class Report:
     corpus_tokens: int
     findings: list[Finding] = field(default_factory=list)
     sweep: dict[int, int] = field(default_factory=dict)
+    #: How much verbatim survived, and it is on the artifact's face on purpose.
+    #: An attestation that names its exemption budget is checkable; one that
+    #: does not is a promise.
+    approved_used: int = 0
+    approved_tokens: int = 0
 
     def to_json(self) -> str:
         payload = asdict(self)
@@ -410,10 +415,53 @@ def sweep(spec: str, corpus: dict[str, str], lo: int = 4, hi: int = 12) -> dict[
     return {n: len(containment_findings(spec, corpus, n)) for n in range(lo, hi + 1)}
 
 
-def check(spec: str, corpus: dict[str, str], proper_nouns: Iterable[str] = ()) -> Report:
+def apply_approved(spec: str, approved: Sequence[str]) -> tuple[str, int, int]:
+    """Mask HUMAN-approved fixed strings out of the spec before checking.
+
+    The fixed-string layer (`spec_fixed_strings.py`) exists because a firm's
+    boilerplate — its signature close, its section labels — is institutional
+    form, and paraphrasing it is the one thing that must not happen to it. Those
+    strings are verbatim BY DESIGN, so the containment check must not refuse
+    them.
+
+    THE EXEMPTION IS SAFE ONLY BECAUSE OF WHERE IT COMES FROM. Nothing in the
+    derivation can put a string in this list. The detector PROPOSES candidates
+    and a person writes the approved file; recurrence is how boilerplate is
+    FOUND, not why it is permitted. An exemption a distiller could grant itself
+    would not be an exemption, it would be the bypass that voids the guarantee.
+
+    The counts are returned and land in the attestation, so "how much of their
+    prose did we keep, and with whose permission" is a number on the artifact's
+    face rather than a judgment nobody recorded.
+    """
+    masked = spec
+    used = 0
+    tokens_exempt = 0
+    for item in approved:
+        text = item.strip()
+        if not text or text not in masked:
+            continue
+        used += 1
+        tokens_exempt += len(tokens(text))
+        masked = masked.replace(text, " ")
+    return masked, used, tokens_exempt
+
+
+def check(
+    spec: str,
+    corpus: dict[str, str],
+    proper_nouns: Iterable[str] = (),
+    approved: Sequence[str] = (),
+) -> Report:
+    checked, used, tokens_exempt = apply_approved(spec, approved)
     findings = (
-        containment_findings(spec, corpus, NGRAM)
-        + jaccard_findings(spec, corpus, JACCARD_MAX)
+        containment_findings(checked, corpus, NGRAM)
+        + jaccard_findings(checked, corpus, JACCARD_MAX)
+        # The identifier scan runs on the ORIGINAL spec, never the masked one.
+        # An approved string is exempt from CONTAINMENT — the firm said keep it —
+        # and that says nothing about whether someone approved a string with a
+        # claimant's name in it. Exempting it from both checks at once would let
+        # one approval carry two very different permissions.
         + identifier_findings(spec, proper_nouns)
     )
     import hashlib
@@ -426,7 +474,9 @@ def check(spec: str, corpus: dict[str, str], proper_nouns: Iterable[str] = ()) -
         corpus_docs=len(corpus),
         corpus_tokens=sum(len(tokens(d)) for d in corpus.values()),
         findings=findings,
-        sweep=sweep(spec, corpus),
+        sweep=sweep(checked, corpus),
+        approved_used=used,
+        approved_tokens=tokens_exempt,
     )
 
 
@@ -455,6 +505,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--spec", required=True, type=Path)
     ap.add_argument("--corpus", required=True, nargs="+", type=Path)
     ap.add_argument("--provenance", type=Path, help="provenance JSON from voice-fetch-corpus.py")
+    ap.add_argument(
+        "--approved-strings",
+        type=Path,
+        help="HUMAN-approved fixed strings, exempt from containment (never from the identifier scan)",
+    )
     ap.add_argument("--attestation", type=Path, help="write the content-free attestation here")
     args = ap.parse_args(argv)
 
@@ -472,15 +527,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 value = str(doc.get(key) or "")
                 nouns.extend(_CAP_TOKEN.findall(value))
 
-    report = check(spec, corpus, nouns)
+    approved: list[str] = []
+    if args.approved_strings and args.approved_strings.exists():
+        data = json.loads(args.approved_strings.read_text())
+        approved = [str(s) for s in (data.get("approved") if isinstance(data, dict) else data) or []]
+
+    report = check(spec, corpus, nouns, approved)
     if args.attestation:
         args.attestation.write_text(report.to_json() + "\n")
 
     if report.clean:
+        exempt = (
+            f" {report.approved_used} approved fixed string(s) exempt,"
+            f" {report.approved_tokens} token(s)."
+            if report.approved_used
+            else ""
+        )
         print(
             f"CLEAN: {args.spec.name} shares no {NGRAM}-token run with "
             f"{report.corpus_docs} corpus document(s); no near-duplicate sentence; "
-            "no identifier match."
+            f"no identifier match.{exempt}"
         )
         return 0
 
