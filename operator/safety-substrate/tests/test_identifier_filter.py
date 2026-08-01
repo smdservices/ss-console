@@ -18,9 +18,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from identifier_filter import (  # noqa: E402
+    _CASE_RE,
     IdKind,
     Mode,
     ProvenanceRegister,
@@ -200,6 +203,83 @@ def test_annotations_include_value_for_human_reviewer() -> None:
     notes = " ".join(result.annotations())
     assert "A999999999" in notes
     assert "A999999999" in refusal_message(result)
+
+
+# ---------------------------------------------------------------------------
+# Matter numbers (added 2026-07-31)
+#
+# Before this, _CASE_RE could not see a practice-management matter number at
+# all. Every IDENTIFIER_UNVERIFIED row on the pilot seat carried only date
+# shapes, which reads as "no identifier problems" when the truth was "this
+# filter is blind to the identifiers this firm uses." Silence from a gate that
+# cannot see a class of value means nothing.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("value", ["2026-PI-101", "2026-PI-107", "PI-2026-0001"])
+def test_case_re_sees_matter_numbers(value: str) -> None:
+    assert _CASE_RE.search(value), f"{value} must be visible to the identifier gate"
+
+
+@pytest.mark.parametrize("value", ["1:24-cv-01234", "No. 24-12345"])
+def test_case_re_still_sees_federal_dockets(value: str) -> None:
+    """The matter alternation is additive; the original shapes must not regress."""
+    assert _CASE_RE.search(value)
+
+
+@pytest.mark.parametrize("value", ["2026-08-12", "2026-08-12T09:00:00Z"])
+def test_case_re_does_not_claim_dates_are_case_numbers(value: str) -> None:
+    assert not _CASE_RE.search(value)
+
+
+# ---------------------------------------------------------------------------
+# ISO datetimes (added 2026-08-01)
+#
+# `\b\d{4}-\d{2}-\d{2}\b` could not match the date inside an ISO *datetime*:
+# between the final "2" and the "T" there is no word boundary. Smokeball events
+# carry ISO datetimes, so a digest that correctly read a hearing and wrote its
+# date was flagged unverified — a false positive at daily volume, and one that
+# would have been measured as the model's fabrication rate.
+# ---------------------------------------------------------------------------
+
+
+def test_iso_datetime_read_verifies_a_correctly_written_date() -> None:
+    """The regression this fix exists for: the agent reads an event whose start
+    time is an ISO datetime and writes the date in prose. That is correct
+    behaviour and must not be flagged."""
+    reg = ProvenanceRegister()
+    reg.add_read_text('{"subject": "Deposition", "start_time": "2026-08-06T10:00:00Z"}')
+    result = check("The deposition is set for August 6, 2026.", reg)
+    assert not result.has_unverified, result.annotations()
+
+
+def test_iso_datetime_with_offset_also_verifies() -> None:
+    reg = ProvenanceRegister()
+    reg.add_read_text('{"start_time": "2026-07-25T14:00:00-07:00"}')
+    assert not check("Response was due 2026-07-25.", reg).has_unverified
+
+
+def test_unread_date_is_still_flagged_after_the_iso_fix() -> None:
+    """Widening extraction must not widen *verification* — a date the agent
+    never read stays flagged."""
+    reg = ProvenanceRegister()
+    reg.add_read_text('{"start_time": "2026-08-06T10:00:00Z"}')
+    result = check("The hearing is October 13, 2026.", reg)
+    assert result.has_unverified
+    assert result.unverified[0].kind is IdKind.DATE
+
+
+def test_iso_pattern_declines_a_longer_digit_run() -> None:
+    """The ISO branch must not read "2026-08-12" out of "2026-08-12-99".
+
+    Narrowly about the ISO branch: a separate `\\d{1,2}-\\d{1,2}-\\d{2,4}` pattern
+    still reads "08-12-99" here as 1999-08-12, which is its own business. What
+    this pins is that the ISO branch stops claiming a date the run does not
+    carry — the old trailing \\b matched it.
+    """
+    reg = ProvenanceRegister()
+    canonicals = {h.canonical for h in check("ref 2026-08-12-99 attached.", reg).unverified}
+    assert "2026-08-12" not in canonicals
 
 
 # ---------------------------------------------------------------------------
