@@ -588,7 +588,26 @@ describe('Operator customer Machine Dockerfile', () => {
     // check_spec_gate to shared/spec_gate.py because hyphenated plugin dirs are
     // not dotted module paths, and neither path is twinned.
     // verify-overlay-pairs.py against the real overlay at 1594f687: all 9 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1594f6876fef26809e6c794964a5958011bddf0b"')
+    //
+    // #214 (ss #2091, ADR 0083 §4) gives the Operator a way to RECORD a
+    // correction it was told. The broker's `correction_propose` verb has been
+    // complete since it shipped — uid-gated, validated broker-side, status
+    // stamped as a constant — and nothing called it: the verb's own comment
+    // names an `execute_code` turn as the caller shape, which is the path WP-D
+    // found dead for the escalation ledger (ss #1915), because `code_execution`
+    // has no authored exposure on any Operator seat. The new
+    // hermes-smd-corrections plugin is the same mediated-tool fix that worked
+    // there, mapped INTERNAL_WRITE so it needs nothing widened. The taint
+    // refusal sits in `pre_tool_call` rather than the handler because Hermes
+    // hands a tool handler only task_id/user_task, never session_id.
+    //
+    // NONE of the 9 tracked twins moved (git-diff-verified 1594f687..11eca2c0:
+    // the five changed files are the new plugin dir, root plugin.yaml,
+    // shared/action_classes.py, and its test — zero intersection with the pair
+    // overlayPaths), so every overlaySha256 is unchanged and only overlayRef
+    // moves. verify-overlay-pairs.py against the real overlay at 11eca2c0: all
+    // 9 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="11eca2c0036d806571d45bb4ee09d2465a7eaae6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
