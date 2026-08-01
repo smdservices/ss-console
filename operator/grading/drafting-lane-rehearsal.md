@@ -18,10 +18,29 @@ no Smokeball round-trip, no send gates in the loop).
    tenant as matter documents (source:
    `operator/fixtures/law-firm/pi/_alvarez-matter/` — the drafter-safe set,
    NEVER `_alvarez-grader/`).
-2. Seed the demo voice to the seat vault:
-   `operator/customers/pilot-smokeball/seed/voice/` →
-   `r2://vaults/pilot-smokeball/voice/samples/`.
-3. Confirm the four drafting skills are on the seat (skills_list) at the
+2. Author the demo voice as a `work_product` spec in the seat's own vault
+   object, `vaults/pilot-smokeball/output-classes.json`, through the console
+   writer (`src/lib/operator/output-class-specs.ts`). The applier pulls that
+   key at boot, verifies each declared hash, and installs the body root-owned
+   at `${SMD_SPEC_DIR}/classes/work_product/voice.md`.
+
+   > **This step changed, and the old form is not merely stale — it fed a
+   > retired mechanism.** It used to read "seed
+   > `operator/customers/pilot-smokeball/seed/voice/` →
+   > `r2://vaults/pilot-smokeball/voice/samples/`", which is mechanism B's
+   > sample prefix: content-free structural fingerprints consumed by the
+   > post-hoc transform ADR 0083 retired. Seeding there today primes nothing —
+   > the spec loader globs the manifest, not that prefix — so the battery would
+   > run its "voiced" arm with no voice and score it as though it had one.
+   > Mechanism B's own removal is ss-console #2086, deliberately serial; this
+   > step moves ahead of it because a rehearsal that measures the wrong arm is
+   > worse than one that has not run.
+
+3. Confirm the seat declares `output_classes.work_product.voice_spec: expected`
+   in `customer.yaml`. Without the declaration the spec gate binds to nothing
+   and `smd_deliver_draft` authorizes every draft, so the voiced arm and the
+   control arm would be the same run under two names.
+4. Confirm the four drafting skills are on the seat (skills_list) at the
    versions under test, manual-initiation only.
 
 ## The battery (each run is attorney-initiated by the operator of the battery)
