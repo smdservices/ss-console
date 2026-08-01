@@ -4,8 +4,11 @@ Two artifacts, two registers. Neither leaves the firm by the Operator's hand: th
 is drafted for the attorney to transmit, and the pointer goes to the requesting attorney
 (internal).
 
-**Precedence.** Where the seat carries an authored firm voice profile, apply it per its
-own precedence rules. Where it does not, write in a neutral professional register. In
+**Precedence.** Where your authored-spec pointer block names a `work_product` voice
+spec, READ that file and compose against it; the read is verified against the root-owned
+manifest and `smd_deliver_draft` refuses the delivery without it. Where there is no
+pointer block, no spec is installed for this class: write in a neutral professional
+register and say so in the delivery note. In
 both cases the discipline outranks the voice: rules 1 through 6 of the drafting
 discipline (zero invention, cite the record, judgment reserved, privilege hold-out,
 follow the skeleton, quotation integrity) are never bent to sound like anyone. A voice

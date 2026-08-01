@@ -6,8 +6,11 @@ attorney.
 
 ## Precedence (not negotiable)
 
-If the seat carries an authored firm voice profile, apply it per that profile's own
-precedence rules. If it does not, draft in a neutral professional register.
+If your authored-spec pointer block names a `work_product` voice spec, READ that file
+and compose against it. The read is verified against the root-owned manifest and
+`smd_deliver_draft` refuses the delivery without it, so this is a step rather than a
+suggestion. If there is no pointer block, no spec is installed for this class: draft in
+a neutral professional register and say so in the delivery note.
 
 Voice never overrides discipline rules 1 through 6. Where a voice trait and a rule
 disagree, the rule wins and the trait is dropped silently, with no note in the draft
