@@ -1,9 +1,51 @@
 # ADR 0081: Repository visibility — consoles private, overlay public
 
-- **Status:** Accepted
+- **Status:** Superseded in part (Decision §1 reversed 2026-08-01)
 - **Date:** 2026-07-27
-- **Issue:** [#1960](https://github.com/venturecrane/ss-console/issues/1960)
+- **Revised:** 2026-08-01
+- **Issue:** [#1960](https://github.com/venturecrane/ss-console/issues/1960), [#2116](https://github.com/venturecrane/ss-console/issues/2116)
 - **Builds on:** ADR 0015 (Hermes fork posture — the overlay's open-source decision)
+
+## Revision 2026-08-01 — §1 is reversed: `ss-console` is PUBLIC
+
+**`ss-console` is public.** Read Decision §1 below as history, not as standing
+policy. Decision §2 (overlay public) and §3 (crane-console public) are
+unchanged.
+
+Going private on 2026-07-27 was **containment, not a decision.** This ADR
+recorded the containment step as though it were the end state, and that framing
+is the error being corrected here. The operation always had three steps: (1)
+contain by flipping private, (2) move client material to a private repo, (3)
+uncontain by returning to public. Step 2 completed 2026-07-27 (#2034,
+`venturecrane/engagements`). Step 3 completed 2026-08-01.
+
+The Captain's standing posture, recorded twice in the original Context above
+and restated on 2026-07-31 and 2026-08-01: the exposed material is ordinary
+engagement correspondence, nothing in it is catastrophic if read, and the
+repo should be public so the venture does not pay Actions overage for content
+that is not proprietary. Sensitive material lives in
+`venturecrane/engagements`, which is private and stays private.
+
+**The `refs/pull/*` finding is not a blocker, and must stop being raised as
+one.** GitHub retains pull-request refs permanently and independently of
+`main`, so ~1400 of them still serve pre-split snapshots of
+`operator/customers/ashton-price/` (103 of them include `correspondence/`).
+A history rewrite of `main` does not reach them; only GitHub Support can. This
+is a true technical fact and it has now been converted into a work-stopping
+gate **three separate times** by agents applying their own risk verdict over
+the Captain's — 2026-07-31 (twice, once re-privatizing the repo after it had
+been correctly flipped) and 2026-08-01. The risk verdict is the Captain's and
+he has made it. State the fact if it is relevant; do not gate on it.
+
+**Verification of the 2026-08-01 flip**, unauthenticated (no token):
+`api.github.com/repos/venturecrane/ss-console` → HTTP 200 with
+`"private": false`; `github.com/venturecrane/ss-console` → HTTP 200; anonymous
+`git ls-remote` returns `008a5731`. Control: anonymous
+`api.github.com/repos/venturecrane/engagements` → HTTP 404, confirming the
+private repo is genuinely closed.
+
+**Cost note.** The ~$10/month Actions overage recorded under "Accepted costs"
+below was a cost of the containment step and no longer applies.
 
 ## Context
 
@@ -38,7 +80,12 @@ only; here there was nothing live to retract.
 
 ## Decision
 
-### 1. Venture console repos are PRIVATE
+### 1. Venture console repos are PRIVATE — REVERSED 2026-08-01, see revision above
+
+> **Superseded.** `ss-console` is public. This section is retained as the
+> record of the containment step. The reasoning below was written when client
+> material still lived in `ss-console`; that material moved to
+> `venturecrane/engagements` on 2026-07-27, which removed the premise.
 
 `ss-console` is private as of 2026-07-27. This restores what the golden-path
 standard already prescribed. The console repos hold client engagement
@@ -114,3 +161,7 @@ window was real and is closed rather than undone.
 **Documentation now true.** `hermes-smd-overlay`'s `README.md:63` and
 `AGENTS.md:60` describe `ss-console` as private. They were wrong when written;
 they are correct now.
+
+> **2026-08-01:** and wrong again, now that §1 is reversed. Those two lines
+> live in the `hermes-smd-overlay` repo and are not fixed by this PR. Tracked
+> in [#2116](https://github.com/venturecrane/ss-console/issues/2116).
