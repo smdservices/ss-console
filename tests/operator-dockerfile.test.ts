@@ -541,7 +541,28 @@ describe('Operator customer Machine Dockerfile', () => {
     // unchanged (new fields ride the existing metadata JSON, matter_ref column
     // already existed) so its sha256 holds. verify-overlay-pairs.py against the
     // real overlay at a8bffaf: all 8 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a8bffaf6803786c268706b45badbfaf8d6453849"')
+    // 46de5c90 - pair-keyed provenance (overlay#211, ss#2127/#2128; supersedes
+    // overlay#208). Atom provenance asks "was this value read?", which cannot see
+    // a MISPAIRING - and a mispairing is what reached the firm: on 2026-08-01 the
+    // Operator wrote "matter 2026-PI-105, deposition of plaintiff Alvarez, August
+    // 6, 2026" when the event carried matterNumber=2026-PI-101. Both values had
+    // been read that session, so every atom verified and the line passed clean
+    // (vfy_01KYZBTMFRM72S7VF2W4ADJMVP). record_read now seeds (matter, date)
+    // associations ONE RECORD AT A TIME - never per blob, because a tool result is
+    // a collection and pairing everything in it registers the cross-product,
+    // verifying precisely the defect this catches.
+    // This bump ALSO adds a 9th pair: operator/safety-substrate/identifier_filter.py
+    // <-> shared/identifier_filter.py. It should always have been one - its sibling
+    // citation_filter.py is - and because it was not, the copies diverged in BOTH
+    // directions unseen: ss-console ahead on _CASE_RE matter numbers, the
+    // ISO-datetime fix and pair support; the overlay ahead on caption support
+    // (#1758) that ss-console still lacks. The overlay's own "CONTRACT TEST"
+    // cannot catch this: it imports shared.identifier_filter, its own copy, and
+    // asserts the file agrees with itself. The caption gap is tracked in #2125.
+    // No pre-existing tracked twin moved (a8bffaf..46de5c90 touches only
+    // identifier_filter.py, provenance.py and their tests).
+    // verify-overlay-pairs.py against the real overlay at 46de5c90: all 9 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="46de5c907976c72cbe34db3616d86b631851ba31"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
