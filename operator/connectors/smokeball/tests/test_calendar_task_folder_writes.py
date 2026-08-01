@@ -41,7 +41,7 @@ def test_create_task_minimal_drops_none(rec: _Recorder) -> None:
         {
             "method": "POST",
             "path": "/tasks",
-            "json": {"staffId": "s-1", "subject": "File responsive pleading"},
+            "json": {"staffId": "s-1", "subject": "[Operator] File responsive pleading"},
         }
     ]
 
@@ -56,7 +56,7 @@ def test_create_task_maps_due_date_to_due_date_only(rec: _Recorder) -> None:
     )
     assert rec.calls[0]["json"] == {
         "staffId": "s-1",
-        "subject": "Serve discovery responses",
+        "subject": "[Operator] Serve discovery responses",
         "matterId": "m-9",
         "dueDateOnly": "2026-07-15",
         "assigneeIds": ["s-2", "s-3"],
@@ -88,7 +88,7 @@ def test_create_event_forces_normal_type(rec: _Recorder) -> None:
         "method": "POST",
         "path": "/events",
         "json": {
-            "subject": "Discovery responses due",
+            "subject": "[Operator] Discovery responses due",
             "startTime": "2026-07-15T09:00:00",
             "endTime": "2026-07-15T09:30:00",
             "matterId": "m-9",

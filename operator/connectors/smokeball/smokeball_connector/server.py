@@ -81,6 +81,11 @@ def _body(**fields: Any) -> dict[str, Any]:
 # matter) always resolves fully.
 _CAPTION_MAX_LOOKUPS = 40
 
+# Max distinct MATTER lookups per ``list_tasks`` / ``list_events`` call. Shared
+# per-call cache means a single-matter listing costs one GET regardless of how
+# many rows it returns; the bound only bites on a cross-matter sweep.
+_MATTER_REF_MAX_LOOKUPS = 40
+
 
 def _party_surname(contact: Any) -> str | None:
     """Resolve a contact object to a single plain party label (person surname or
@@ -194,6 +199,168 @@ def _attach_captions_to_list(client: Any, resp: Any) -> None:
     budget = [_CAPTION_MAX_LOOKUPS]
     for item in items:
         _attach_caption(client, item, cache=cache, budget=budget)
+
+
+# ---- Matter-ref enrichment (tasks, events) --------------------------------
+# A task or event carries its matter as ``matter: {href, id, rel}`` — a GUID and
+# nothing else. The human-readable number lives on the matter record. Rendering
+# "2026-PI-101" beside a task therefore requires a matter.id -> matter.number
+# JOIN, and until this block existed nothing performed that join in code: the
+# model performed it in context on every run and re-derived it differently on
+# different days (2026-07-31 provenance audit — one file GUID carried two
+# different matter numbers across two days, and a third matter's discovery was
+# attributed to a lookalike matter that holds none of it).
+#
+# Fail-safe direction, deliberately: an unresolved ref attaches NOTHING. A task
+# with no ``matterNumber`` gives the model nothing to copy, which is the safe
+# failure — it can only fail to supply a number, never supply a wrong one.
+
+
+def _resolve_matter_ref(
+    client: Any,
+    matter_id: str,
+    cache: dict[str, dict[str, str] | None],
+    budget: list[int] | None,
+) -> dict[str, str] | None:
+    """get_matter -> ``{"number", "caption"}``, memoized in ``cache``; ``budget``
+    (a 1-elem list) caps live lookups on a list path. Best-effort: a failed fetch
+    yields None and the caller attaches nothing."""
+    if matter_id in cache:
+        return cache[matter_id]
+    if budget is not None:
+        if budget[0] <= 0:
+            return None
+        budget[0] -= 1
+    ref: dict[str, str] | None = None
+    try:
+        matter = client.get(f"/matters/{matter_id}")
+        if isinstance(matter, dict):
+            _attach_caption(client, matter)
+            resolved: dict[str, str] = {}
+            number = matter.get("number")
+            if isinstance(number, str) and number:
+                resolved["number"] = number
+            caption = matter.get("caption")
+            if isinstance(caption, str) and caption:
+                resolved["caption"] = caption
+            ref = resolved or None
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        ref = None
+    cache[matter_id] = ref
+    return ref
+
+
+def _attach_matter_ref(
+    client: Any,
+    item: Any,
+    *,
+    cache: dict[str, dict[str, str] | None] | None = None,
+    budget: list[int] | None = None,
+) -> None:
+    """Mutate a matter-bound item (task, event) in place, adding ``matterNumber``
+    and ``matterCaption`` resolved from its own ``matter.id``. No-op when the item
+    carries no matter ref or the matter cannot be resolved."""
+    if not isinstance(item, dict):
+        return
+    try:
+        matter = item.get("matter")
+        if not isinstance(matter, dict):
+            return
+        matter_id = matter.get("id")
+        if not isinstance(matter_id, str) or not matter_id:
+            return
+        if cache is None:
+            cache = {}
+        ref = _resolve_matter_ref(client, matter_id, cache, budget)
+        if not ref:
+            return
+        if "number" in ref:
+            item["matterNumber"] = ref["number"]
+        if "caption" in ref:
+            item["matterCaption"] = ref["caption"]
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        return
+
+
+# ---- Write-side verification and provenance -------------------------------
+# Every write below carries the true matter as an ARGUMENT and the composed text
+# as another. Nothing compared them, so a memo could name matter A while being
+# filed on matter B — and on 2026-07-14 one did, merging a matter whose service
+# date was known with one whose date was not.
+#
+# The comparison is available for free at exactly this point, and nowhere else:
+# a pre_tool_call hook can only block, not read the resolved number, and a skill
+# instruction is prose. This is the chokepoint.
+#
+# It is also where machine provenance gets stamped. Smokeball records every
+# Operator write under the OAuth-consenting human, so the client's own system
+# shows a person as the author of everything the machine did. The grant cannot
+# express a service identity, so the only channel that reaches a human reading
+# the matter is the content itself.
+
+_MATTER_NUMBER_RE = re.compile(r"\b(?:\d{4}-[A-Z]{2}-\d{3,4}|[A-Z]{2}-\d{4}-\d{4})\b")
+
+_PROVENANCE_MARK = "[Operator]"
+
+
+class MatterReferenceMismatch(RuntimeError):
+    """Raised when composed text names a matter other than the one written to."""
+
+
+def _verify_matter_reference(client: Any, matter_id: str, *fields: str | None) -> None:
+    """Refuse a write whose text names a matter number other than its own.
+
+    Fail-OPEN on an unresolvable matter (a read failure must not block the
+    firm's work) but fail-CLOSED on a resolved mismatch: if we know the number
+    and the text says a different one, that write is wrong and the wrongness is
+    the only thing we are certain of.
+    """
+    if not matter_id:
+        return
+    cited_numbers = {
+        n for f in fields if isinstance(f, str) for n in _MATTER_NUMBER_RE.findall(f)
+    }
+    if not cited_numbers:
+        return  # nothing claims a matter; nothing to verify, and no read to spend
+    ref = _resolve_matter_ref(client, matter_id, {}, None)
+    true_number = (ref or {}).get("number")
+    if not true_number:
+        return  # cannot verify; do not obstruct
+    for cited in sorted(cited_numbers):
+        if cited != true_number:
+                raise MatterReferenceMismatch(
+                    f"refusing write to {true_number}: text cites matter {cited}. "
+                    f"A memo, task, or event naming a matter other than the one it is "
+                    f"filed on is how one matter's facts reach another matter's record. "
+                    f"Re-read the matter and cite the matterNumber the read returned."
+                )
+
+
+def _stamp(text: str | None) -> str | None:
+    """Mark machine-authored content so a human reading the matter can tell.
+
+    Smokeball's createdBy is the consenting human for every Operator write, so
+    without this the client cannot distinguish a person's entry from a machine's.
+    Idempotent: re-stamping already-stamped text is a no-op.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+    return text if text.lstrip().startswith(_PROVENANCE_MARK) else f"{_PROVENANCE_MARK} {text}"
+
+
+def _attach_matter_refs_to_list(client: Any, resp: Any) -> None:
+    """Best-effort matter-ref enrichment over a ``list_tasks`` / ``list_events``
+    HATEOAS envelope, bounded to ``_MATTER_REF_MAX_LOOKUPS`` distinct matter
+    lookups (shared cache, so a single-matter listing costs one GET)."""
+    if not isinstance(resp, dict):
+        return
+    items = resp.get("value")
+    if not isinstance(items, list):
+        return
+    cache: dict[str, dict[str, str] | None] = {}
+    budget = [_MATTER_REF_MAX_LOOKUPS]
+    for item in items:
+        _attach_matter_ref(client, item, cache=cache, budget=budget)
 
 
 # ---- Auth -----------------------------------------------------------------
@@ -346,8 +513,14 @@ def list_tasks(
     offset: int = 0,
 ) -> Any:
     """List tasks (authored court/filing deadlines carry a due date). Filter by
-    matter and completion state."""
-    return _get_client().get(
+    matter and completion state.
+
+    Each item is enriched with ``matterNumber`` and ``matterCaption`` resolved
+    from its own ``matter.id`` (best-effort, bounded). Cite those fields — never
+    compose a matter number from context; an item without them has no number to
+    cite. See the matter-ref enrichment block."""
+    client = _get_client()
+    resp = client.get(
         "/tasks",
         MatterId=matter_id,
         IsCompleted=is_completed,
@@ -355,12 +528,20 @@ def list_tasks(
         Limit=limit,
         Offset=offset,
     )
+    _attach_matter_refs_to_list(client, resp)
+    return resp
 
 
 @server.tool()
 def get_task(task_id: str) -> Any:
-    """Get one task by id."""
-    return _get_client().get(f"/tasks/{task_id}")
+    """Get one task by id.
+
+    Enriched with ``matterNumber`` and ``matterCaption`` resolved from the task's
+    own ``matter.id`` (best-effort; absent if the matter cannot be resolved)."""
+    client = _get_client()
+    task = client.get(f"/tasks/{task_id}")
+    _attach_matter_ref(client, task)
+    return task
 
 
 @server.tool()
@@ -376,13 +557,19 @@ def create_task(
     owning staff member (Smokeball requires it); ``due_date`` is a date-only string
     (YYYY-MM-DD) mapped to the API's ``dueDateOnly`` (the non-deprecated field).
     Classified INTERNAL_WRITE: the Operator writing a tracked item into the firm's
-    own record, never an external send."""
-    return _get_client().request(
+    own record, never an external send.
+
+    Refuses if ``subject`` or ``note`` cites a matter number other than
+    ``matter_id``'s own, and stamps the subject so a human reading the matter's
+    task list can tell machine from person."""
+    client = _get_client()
+    _verify_matter_reference(client, matter_id or "", subject, note)
+    return client.request(
         "POST",
         "/tasks",
         json=_body(
             staffId=staff_id,
-            subject=subject,
+            subject=_stamp(subject),
             matterId=matter_id,
             note=note,
             dueDateOnly=due_date,
@@ -429,8 +616,13 @@ def list_events(
 ) -> Any:
     """List calendar events. ``from_`` / ``to`` bound the window (ISO 8601);
     ``matter_id`` filters to one matter. Used to read back / dedupe the deadlines
-    the Operator calendars before writing a new one."""
-    return _get_client().get(
+    the Operator calendars before writing a new one.
+
+    Each item is enriched with ``matterNumber`` and ``matterCaption`` resolved
+    from its own ``matter.id`` (best-effort, bounded) — so a dedupe read compares
+    against a resolved number rather than a recomposed one."""
+    client = _get_client()
+    resp = client.get(
         "/events",
         MatterId=matter_id,
         From=from_,
@@ -440,6 +632,8 @@ def list_events(
         Limit=limit,
         Offset=offset,
     )
+    _attach_matter_refs_to_list(client, resp)
+    return resp
 
 
 def _next_day(date_str: str) -> str:
@@ -493,11 +687,13 @@ def create_event(
         if end_date <= start_date:
             end_date = _next_day(start_date)
         end_time = f"{end_date}T00:00:00Z"
-    return _get_client().request(
+    client = _get_client()
+    _verify_matter_reference(client, matter_id or "", subject, description)
+    return client.request(
         "POST",
         "/events",
         json=_body(
-            subject=subject,
+            subject=_stamp(subject),
             startTime=start_time,
             endTime=end_time,
             matterId=matter_id,
@@ -794,9 +990,15 @@ def create_memo(matter_id: str, text: str) -> Any:
     """Create an internal-log memo on a matter (the Clio create_note analogue —
     the one autonomous internal write the wedge uses). The exact body field is
     ASSUMED ``text`` and confirmed at the connect step against the live memo
-    schema; classified INTERNAL_WRITE at the overlay (never external send)."""
-    return _get_client().request(
-        "POST", f"/matters/{matter_id}/memos", json={"text": text}
+    schema; classified INTERNAL_WRITE at the overlay (never external send).
+
+    Refuses if ``text`` cites a matter number other than ``matter_id``'s own, and
+    stamps the body so a human reading the matter can tell machine from person.
+    See the write-side verification block."""
+    client = _get_client()
+    _verify_matter_reference(client, matter_id, text)
+    return client.request(
+        "POST", f"/matters/{matter_id}/memos", json={"text": _stamp(text)}
     )
 
 
