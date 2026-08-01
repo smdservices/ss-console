@@ -283,6 +283,118 @@ def test_iso_pattern_declines_a_longer_digit_run() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Pair-keyed provenance (added 2026-08-01)
+#
+# These cases are a transcript, not a hypothetical. On 2026-08-01, after the
+# matter-number join shipped (#2115), the Operator's delivered escalation mail
+# still carried two wrong references out of seven. Atom-level provenance would
+# have caught one of them and missed the other, because both of its values had
+# been legitimately read — just never together.
+# ---------------------------------------------------------------------------
+
+
+def _seeded_from_the_2026_08_01_tenant() -> ProvenanceRegister:
+    """The records the Operator actually read on the run that produced the
+    mispairing: the Alvarez deposition event and the Okafor trial-binder tasks."""
+    reg = ProvenanceRegister()
+    reg.add_record("2026-PI-101", ["2026-08-06T10:00:00Z"])  # Alvarez deposition
+    reg.add_record("2026-PI-105", ["2026-07-15"])  # Okafor exhibit list
+    reg.add_record("PI-2026-0001", ["2026-06-30"])  # Johnson / Sutter records
+    return reg
+
+
+def test_the_live_mispairing_is_caught() -> None:
+    """THE regression. Delivered 2026-08-01T19:08:57Z:
+
+        "matter 2026-PI-105, deposition of plaintiff Alvarez, August 6, 2026"
+
+    The deposition event carried matterNumber=2026-PI-101. Both 2026-PI-105 and
+    2026-08-06 were read that session, so every atom verifies and the line passed
+    clean. The pair never existed on any record.
+    """
+    reg = _seeded_from_the_2026_08_01_tenant()
+    body = "- matter 2026-PI-105, deposition of plaintiff Alvarez, August 6, 2026 (due in 5 days)"
+
+    atoms = [h for h in check(body, reg).unverified if h.kind is not IdKind.PAIR]
+    assert not atoms, f"atom-level check should pass — that is the whole problem: {atoms}"
+
+    pairs = [h for h in check(body, reg).unverified if h.kind is IdKind.PAIR]
+    assert pairs, "the mispairing must be caught"
+    assert pairs[0].canonical == "2026PI105|2026-08-06"
+
+
+def test_the_correctly_paired_line_is_not_flagged() -> None:
+    """From the same delivered mail, and the control for the test above: this row
+    WAS right, and must stay quiet."""
+    reg = _seeded_from_the_2026_08_01_tenant()
+    body = "- matter 2026-PI-105, trial binder exhibit list missing (authored due 2026-07-15)"
+    assert not check(body, reg).has_unverified
+
+
+def test_the_mangled_matter_number_is_caught_as_an_atom() -> None:
+    """The other live error: the record says PI-2026-0001, the mail said
+    2026-PI-001 — a number belonging to no matter in the tenant. This one atom
+    provenance does catch."""
+    reg = _seeded_from_the_2026_08_01_tenant()
+    result = check("- matter 2026-PI-001, Sutter Roseville records overdue", reg)
+    assert any(h.kind is IdKind.CASE_NUMBER for h in result.unverified)
+
+
+def test_pairs_are_line_scoped_not_document_scoped() -> None:
+    """Two correct rows must not cross-verify each other's values."""
+    reg = _seeded_from_the_2026_08_01_tenant()
+    good = "- matter 2026-PI-101, deposition 2026-08-06\n- matter 2026-PI-105, exhibit list 2026-07-15"
+    assert not check(good, reg).has_unverified
+
+    swapped = "- matter 2026-PI-101, exhibit list 2026-07-15\n- matter 2026-PI-105, deposition 2026-08-06"
+    assert [h for h in check(swapped, reg).unverified if h.kind is IdKind.PAIR]
+
+
+def test_unseeded_register_reports_no_pairs_at_all() -> None:
+    """A register with no associations cannot judge one. Reporting pairs here
+    would flag every line of every deadline digest — marking everything is how a
+    reader learns to ignore the mark."""
+    reg = ProvenanceRegister()
+    reg.add_read_text("matter 2026-PI-105 and a date 2026-08-06 appear in this read")
+    assert not reg.has_pairs
+    result = check("- matter 2026-PI-105, something on 2026-08-06", reg)
+    assert not [h for h in result.unverified if h.kind is IdKind.PAIR]
+
+
+def test_add_read_text_never_registers_the_cross_product() -> None:
+    """A tool result is a collection of records. Pairing everything in the blob
+    would verify precisely the mispairings this exists to catch."""
+    reg = ProvenanceRegister()
+    reg.add_read_text('[{"m":"2026-PI-101","d":"2026-08-06"},{"m":"2026-PI-105","d":"2026-07-15"}]')
+    assert not reg.has_pairs
+
+
+def test_add_record_canonicalizes_so_seeder_and_checker_agree() -> None:
+    """The seeder passes raw values; a key shaped differently from the one check()
+    looks up would silently verify nothing."""
+    reg = ProvenanceRegister()
+    reg.add_record("2026-PI-101", ["2026-08-06T10:00:00Z"])
+    assert not check("- matter 2026-PI-101, deposition August 6, 2026", reg).has_unverified
+
+
+def test_pair_audit_metadata_redacts_the_values() -> None:
+    reg = _seeded_from_the_2026_08_01_tenant()
+    body = "- matter 2026-PI-105, deposition of plaintiff Alvarez, August 6, 2026"
+    blob = repr(check(body, reg).audit_metadata())
+    assert "2026-PI-105" not in blob
+    assert "August 6, 2026" not in blob
+
+
+def test_pair_annotation_explains_the_distinction() -> None:
+    """A reviewer must not read "unverified" as "fabricated" here — both values
+    are real, the association is not."""
+    reg = _seeded_from_the_2026_08_01_tenant()
+    body = "- matter 2026-PI-105, deposition of plaintiff Alvarez, August 6, 2026"
+    notes = " ".join(check(body, reg, mode=Mode.FLAG).annotations())
+    assert "never together" in notes
+
+
+# ---------------------------------------------------------------------------
 # Boot self-check
 # ---------------------------------------------------------------------------
 
