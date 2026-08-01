@@ -562,7 +562,33 @@ describe('Operator customer Machine Dockerfile', () => {
     // No pre-existing tracked twin moved (a8bffaf..46de5c90 touches only
     // identifier_filter.py, provenance.py and their tests).
     // verify-overlay-pairs.py against the real overlay at 46de5c90: all 9 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="46de5c907976c72cbe34db3616d86b631851ba31"')
+    //
+    // 2026-08-01, 46de5c90 -> 1594f687 (ss #2094 / ADR 0083). Two commits, both
+    // this work: overlay#212 gives the drafting lane a declared exit
+    // (`smd_deliver_draft`), and overlay#213 fixes what the spec pointer told a
+    // drafter about the consequence of not reading.
+    //
+    // #212 exists because the spec gate could not SEE a work_product draft.
+    // `pre_tool_call` carries tool_name/args/task_id/session_id/tool_call_id and
+    // nothing about what is being produced; `content_ceiling` — which
+    // output-classes.yaml names as work_product's `declared_by` — has no runtime
+    // counterpart at all; and the one skill-name resolver is dead code documented
+    // "never an entitlement input" (vfy_01KYZF6CYFRQ9SJDWQF0FDNX7W). So
+    // create_memo carrying a demand letter is indistinguishable from the same
+    // call carrying a chronology row. The lane now names its class instead.
+    //
+    // #213 is the defect that surfaced from exercising the pointer against a
+    // firm-voice class for the first time: it asserted "an unread spec means the
+    // send is refused and routed to a draft", which is false for work_product
+    // (external_send: forbidden, and the artifact already IS a draft) — a
+    // drafter would read the consequence as benign.
+    //
+    // NONE of the 8 pre-existing tracked twins moved (git-diff-verified
+    // 46de5c90..1594f687; the range is exactly those two commits). #212 relocates
+    // check_spec_gate to shared/spec_gate.py because hyphenated plugin dirs are
+    // not dotted module paths, and neither path is twinned.
+    // verify-overlay-pairs.py against the real overlay at 1594f687: all 9 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1594f6876fef26809e6c794964a5958011bddf0b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

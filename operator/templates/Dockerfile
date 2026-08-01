@@ -446,7 +446,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # overlaySha256 is re-recorded 0bbc831f -> b34e7440. The adapter side
 # (operator/adapter/audit_log.py) is unchanged - the new fields ride the existing
 # metadata JSON and the matter_ref column already existed - so its sha256 holds.
-ARG OVERLAY_REF="46de5c907976c72cbe34db3616d86b631851ba31"
+ARG OVERLAY_REF="1594f6876fef26809e6c794964a5958011bddf0b"
 
 ARG CUSTOMER_SLUG=customer-zero
 
