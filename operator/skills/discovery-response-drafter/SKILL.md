@@ -268,8 +268,10 @@ Those are checkable. A completeness sentence is not.
 
 ## Voice
 
-If the seat carries an authored firm voice profile, apply it per that profile's own
-precedence rules. If it does not, draft in a neutral professional register.
+If your authored-spec pointer block names a `work_product` voice spec, READ that file
+and compose against it — `smd_deliver_draft` refuses the delivery if this turn did not.
+If there is no pointer block, no spec is installed for this class: draft in a neutral
+professional register and say so in the delivery note.
 
 Voice never overrides discipline rules 1 through 6. The graded voice arms showed the
 failure mode is under-reproduction rather than contamination, and that voice never leaked
