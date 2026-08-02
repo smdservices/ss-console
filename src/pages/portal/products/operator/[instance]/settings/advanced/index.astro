@@ -35,20 +35,22 @@ import { env } from 'cloudflare:workers'
  * required Captain intervention. NOT a raw YAML textarea — every field
  * is a typed input with structured validation.
  *
- * TWO FORMS, AND ONLY ONE OF THEM WRITES.
+ * ONE WINDOW AND ONE FORM, AND NEITHER OF THEM WRITES FROM HERE.
  *
- *   Output shape (ADR 0083) is the client's own authored voice and format
- *   specs. It writes to their vault object and reaches their running
- *   Operator. It is placed FIRST because it is the thing on this page that
- *   takes effect, and it carries the page's one primary action (UI-PATTERNS
- *   Rule 3).
+ *   Output shape (ADR 0083) is the client's established voice and format
+ *   specs, read from their vault object. It is READ-ONLY as of ADR 0085 §7:
+ *   establishment is a conversational act performed against the Operator
+ *   itself, and the portal's role is visibility and audit. It is placed FIRST
+ *   because it is the part of this page a client actually came to see.
  *
  *   The customer.yaml editor below it validates and records a change request
  *   and writes nothing: per ADR 0012 §4 git is the authoritative source for
  *   customer.yaml, and it is auto-published to the seat on merge, so a portal
  *   write would be clobbered by the next unrelated merge. It used to redirect
  *   with `?status=applied` regardless (#2089); it now says `submitted`, which
- *   is what happened.
+ *   is what happened. Its button stays the bordered secondary treatment for
+ *   that reason: a filled primary would promise an effect the submission does
+ *   not have.
  *
  * Access gate (per the issue acceptance criteria):
  *   - Clerk session (middleware enforces)
@@ -129,10 +131,10 @@ if (configRow !== null) {
   }
 }
 
-// Output shape (ADR 0083) — the client's own authored specs, read from their
-// vault object. `absent` is the ordinary state of a client who has authored
+// Output shape (ADR 0083) — the client's established specs, read from their
+// vault object. `absent` is the ordinary state of a client who has established
 // nothing; `unreadable` is not, and the component says so rather than
-// offering to overwrite prose it could not show.
+// rendering prose it could not read as a firm that established nothing.
 const declaredErrors: ValidationError[] = []
 const declaredClasses: OutputClasses =
   checkOutputClasses({ output_classes: configRow?.output_classes }, declaredErrors) ?? {}
@@ -145,8 +147,8 @@ if (configRow !== null) {
     if (read.kind === 'unreadable') specUnreadable = true
   } catch (err) {
     // A key-space refusal (a slug outside the charset) or an R2 fault. Either
-    // way we could not read what is there, so the form must not offer to
-    // replace it.
+    // way we could not read what is there, so the page must not show an
+    // absence in its place.
     console.error('advanced-settings: could not read the spec object for', instance, err)
     specUnreadable = true
   }
@@ -179,6 +181,14 @@ const STATUS_BANNERS: Record<string, BannerStatus> = {
   },
   // Output-shape statuses. Only `spec_saved` follows a write that was made and
   // read back byte-identical.
+  //
+  // THEY STAY, THOUGH NO FORM ON THIS PAGE POSTS ANY MORE. ADR 0085 §7 demoted
+  // the authoring form, not the endpoint: `output-class-specs.ts` still writes
+  // the vault object and still redirects here with each of these statuses, and
+  // it is the seam the mediated establishment path lands on. A status whose
+  // banner had been deleted would render as no message at all — the person
+  // returned to the page, nothing said. `tests/output-class-specs.test.ts`
+  // pins the parity in both directions.
   spec_saved: { text: 'Output shape saved to your Operator.', tone: 'success' },
   // One refusal, one sentence. The endpoint maps each build failure to its own
   // status precisely so that a person who wrote too much is told to shorten it
@@ -279,7 +289,6 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
     ) : editable !== null && locked !== null ? (
       <Fragment>
         <OutputClassSpecs
-          instance={instance}
           declared={declaredClasses}
           current={specDocument}
           unreadable={specUnreadable}

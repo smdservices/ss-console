@@ -1,11 +1,22 @@
 /**
  * POST /api/portal/operator/settings/output-class-specs
  *
- * The write half of the authoring surface (ADR 0083, #2089). A Named
- * Administrator says, in plain speech, how an output of a given class should
- * sound or be shaped; this endpoint stores that statement as a class property
- * in the customer's own vault object, where the seat's spec applier picks it up
- * and installs it root-owned.
+ * The write half of the authoring surface (ADR 0083, #2089). An Operator admin
+ * says, in plain speech, how an output of a given class should sound or be
+ * shaped; this endpoint stores that statement as a class property in the
+ * customer's own vault object, where the seat's spec applier picks it up and
+ * installs it root-owned.
+ *
+ * THE PORTAL NO LONGER POSTS HERE (ADR 0085 §7, #2163). The Advanced page's
+ * spec-authoring form was demoted to a read-only window: establishment is a
+ * conversational act performed against the Operator itself, and the portal's
+ * role contracted to visibility and audit. What that ADR demoted was the FORM,
+ * not this route. Everything below it — server-side hashing, merge-preserve,
+ * the read-back proof, the promotion record — is the write seam the mediated
+ * establishment path lands on, and `readSpecDocument` beside it is what the
+ * demoted view reads. The remaining writer is that establishment intake; the
+ * status redirects still point at the Advanced page, which still carries a
+ * banner for each of them.
  *
  * WHAT MAKES THIS DIFFERENT FROM ITS NEIGHBOUR. `customer-yaml-update` in the
  * same directory validates and records and writes nothing, because
