@@ -1,46 +1,38 @@
 ---
-import Field from '../form/Field.astro'
-import TextArea from '../form/TextArea.astro'
-import TextInput from '../form/TextInput.astro'
-import CheckboxOption from '../form/CheckboxOption.astro'
-import {
-  assertionFieldName,
-  describeAssertions,
-  MAX_FORBIDDEN_ENTRIES,
-  MAX_PREFIX_CHARS,
-  RULE_LABEL,
-  type Assertions,
-} from '../../../lib/operator/format-assertions'
+import { describeAssertions, type Assertions } from '../../../lib/operator/format-assertions'
 
 /**
- * The checked half of one output class's shape (ADR 0083 §3).
+ * The checked half of one output class's shape, shown back (ADR 0083 §3).
  *
- * THE DIVISION THIS RENDERS. Its sibling `OutputClassSpecs` collects prose — the
- * guidance the model writes with, graded and never enforced. This collects
- * RULES, which the seat's checker decides against and refuses on. Format is
- * binary where voice is probabilistic, and the form has to make that legible or
- * a client reasonably assumes their typed paragraph is enforced.
+ * THE DIVISION THIS RENDERS. Its sibling `OutputClassSpecs` shows prose — the
+ * guidance the model writes with, graded and never enforced. This shows RULES,
+ * which the seat's checker decides against and refuses on. Format is binary
+ * where voice is probabilistic, and the page has to make that legible or a
+ * client reasonably assumes the established paragraph is enforced.
  *
- * WHAT IS ENFORCED IS SHOWN BACK IN PLAIN ENGLISH. `describeAssertions` renders
- * the stored rules as sentences above the controls. Rules → sentence is
- * inspectable; the reverse direction, deriving rules from a typed sentence,
- * would turn a misreading into a hard block on something nobody wrote.
+ * READ-ONLY, PER ADR 0085 §7. This used to collect the rules as form controls.
+ * Establishment is now a conversational act performed against the Operator
+ * itself, so what survives here is the half that was always the point:
+ * `describeAssertions` rendering the stored rules as sentences a client can
+ * check against their intent. Rules → sentence is inspectable; the reverse
+ * direction, deriving rules from a typed sentence, is refused by design and is
+ * why the display half is the durable half.
  *
  * WITHHELD WHERE IT WOULD NOT BIND. Under any declaration but
- * `format_spec: expected` the gate never reads shape rules, so authoring one
- * would leave a client believing something is enforced while nothing checks it.
- * The controls are withheld and the reason is stated.
+ * `format_spec: expected` the gate never reads shape rules, so a stored rule
+ * sits unchecked. Presenting it as enforced would leave a client believing
+ * something is checked while nothing checks it. It is withheld and the reason
+ * is stated.
  */
 
 interface Props {
-  outputClass: string
   /** True when the seat declares `format_spec: expected` for this class. */
   binds: boolean
   /** What is stored in the vault today, or null. */
   rules: Assertions | null
 }
 
-const { outputClass, binds, rules } = Astro.props
+const { binds, rules } = Astro.props
 
 const eyebrowClass =
   'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]'
@@ -48,15 +40,6 @@ const mutedNoteClass =
   'font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]'
 
 const enforced = describeAssertions(rules)
-
-const field = {
-  opening: assertionFieldName(outputClass, 'opening_line_prefix'),
-  closing: assertionFieldName(outputClass, 'closing_line_prefix'),
-  single: assertionFieldName(outputClass, 'single_closing_line'),
-  bullets: assertionFieldName(outputClass, 'forbid_bullets'),
-  forbidden: assertionFieldName(outputClass, 'forbid_substrings'),
-  ceiling: assertionFieldName(outputClass, 'max_chars'),
-}
 ---
 
 <div class="mt-6 border-t-[3px] border-[color:var(--ss-color-text-primary)] pt-5">
@@ -83,66 +66,11 @@ const field = {
             No rules set. Nothing is checked for this kind of work.
           </p>
         )}
-
-        <div class="mt-5 grid gap-5 md:grid-cols-2">
-          <Field label={RULE_LABEL.opening_line_prefix}>
-            <TextInput
-              name={field.opening}
-              maxlength={MAX_PREFIX_CHARS}
-              value={rules?.opening_line_prefix ?? ''}
-              placeholder="e.g. Summary:"
-              mono
-            />
-          </Field>
-          <Field label={RULE_LABEL.closing_line_prefix}>
-            <TextInput
-              name={field.closing}
-              maxlength={MAX_PREFIX_CHARS}
-              value={rules?.closing_line_prefix ?? ''}
-              placeholder="e.g. Next:"
-              mono
-            />
-          </Field>
-          <Field label={RULE_LABEL.forbid_substrings}>
-            <TextArea
-              name={field.forbidden}
-              rows={3}
-              value={(rules?.forbid_substrings ?? []).join('\n')}
-              placeholder="One per line"
-              mono
-            />
-          </Field>
-          <Field label={RULE_LABEL.max_chars}>
-            <TextInput
-              name={field.ceiling}
-              value={rules?.max_chars ? String(rules.max_chars) : ''}
-              placeholder="Characters"
-              mono
-            />
-          </Field>
-        </div>
-
-        <div class="mt-5 flex flex-col gap-2">
-          <CheckboxOption
-            name={field.single}
-            value="true"
-            label={`${RULE_LABEL.single_closing_line} (needs a required closing line)`}
-            checked={rules?.single_closing_line === true}
-          />
-          <CheckboxOption
-            name={field.bullets}
-            value="true"
-            label={RULE_LABEL.forbid_bullets}
-            checked={rules?.forbid_bullets === true}
-          />
-        </div>
-
-        <p class={`mt-4 mb-0 ${mutedNoteClass}`}>At most {MAX_FORBIDDEN_ENTRIES} words to avoid</p>
       </Fragment>
     ) : (
       <p class="mt-2 mb-0 font-body text-caption text-[color:var(--ss-color-text-secondary)]">
-        Checked rules are not switched on for this kind of work, so none can be set here. The
-        description above still guides how your Operator shapes it. Contact SMD to switch them on.
+        Checked rules are not switched on for this kind of work. The description above still guides
+        how your Operator shapes it. Contact SMD to switch them on.
       </p>
     )
   }
