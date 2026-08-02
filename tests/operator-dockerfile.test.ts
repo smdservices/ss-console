@@ -652,7 +652,16 @@ describe('Operator customer Machine Dockerfile', () => {
     // The range moves ONE tracked pair: shared/identifier_filter.py, whose
     // overlaySha256 is re-recorded in overlay-pairs.json; the ss-console side
     // deliberately does not move until the PR 2 substrate sync.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="64918213b2ef240a52108d3499610866edd11375"')
+    // 64918213 -> fad5431b (2026-08-02, ADR 0085 Deploy-1 pin): overlay#223
+    // per-person preferences (ss #2067 / ADR 0085 §6) — the person predicate +
+    // person possession ceremony in the establishment plugin, the
+    // spec_applier/preferences.py root-owned materializer, and
+    // shared/person_prefs.py. Completes the establishment bundle on the seat
+    // (with #219 intake, #220 additive gate repoint, #221 results-dir fix,
+    // #222 admin possession). The range is exactly the one squash commit —
+    // git-diff-verified zero intersection with pair overlayPaths — so every
+    // overlaySha256 is unchanged and only overlayRef moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fad5431bdf8f0d1f05519d8d544ec4e247b5a79b"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

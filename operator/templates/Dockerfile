@@ -452,7 +452,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # consumes.yaml DSN note reconciled. The range is exactly that one squash
 # commit; it touches shared/sentry_init.py, tests, contracts/consumes.yaml —
 # NO tracked twin moves, every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="64918213b2ef240a52108d3499610866edd11375"
+ARG OVERLAY_REF="fad5431bdf8f0d1f05519d8d544ec4e247b5a79b"
 
 ARG CUSTOMER_SLUG=customer-zero
 
