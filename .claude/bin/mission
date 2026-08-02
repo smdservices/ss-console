@@ -26,7 +26,11 @@ case "${1:-}" in
     TEXT="${1:-}"
     [ -n "$TEXT" ] || { echo "usage: mission set \"one-line mission\" [--focus slug]" >&2; exit 1; }
     shift
-    node "$BOARD" set "$ROOT" --mission "$TEXT" --pid "$PPID" "$@"
+    # No --pid here: this helper runs in a TRANSIENT shell, and recording its
+    # pid gets the record pruned as dead within minutes (found live 2026-08-01).
+    # The SessionStart hook records the long-lived claude pid; liveness
+    # otherwise rides the primer's per-turn `updated` refresh.
+    node "$BOARD" set "$ROOT" --mission "$TEXT" "$@"
     echo "mission set for $(basename "$ROOT"): $TEXT"
     ;;
   show)

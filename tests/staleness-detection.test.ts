@@ -157,7 +157,15 @@ function runHook(
     const out = execFileSync('bash', [HOOK], {
       input: body,
       cwd: opts.cwd ?? REPO_ROOT,
-      env: cleanEnv({ TMPDIR: mkdtempSync(join(tmpdir(), 'staleness-tmp-')), ...(opts.env ?? {}) }),
+      env: cleanEnv({
+        TMPDIR: mkdtempSync(join(tmpdir(), 'staleness-tmp-')),
+        // Hermetic board: the primer's board_block would otherwise read AND
+        // PRUNE the real ~/.claude/ss-board from inside fixture repos --
+        // found live 2026-08-01 when a verify run pruned the running
+        // session's own record.
+        SS_BOARD_DIR: mkdtempSync(join(tmpdir(), 'staleness-board-')),
+        ...(opts.env ?? {}),
+      }),
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     })
