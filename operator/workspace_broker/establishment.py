@@ -236,6 +236,8 @@ def build_result_row(run_id: str, result: dict[str, Any]) -> dict[str, Any]:
         "run_id": run_id,
         "verdict": _bounded_str(result.get("status")),
         "phase": _bounded_str(result.get("phase")),
+        "scope": _bounded_str(result.get("scope")),
+        "person": _bounded_str(result.get("person")),
         "output_class": _bounded_str(result.get("output_class")),
         "property": _bounded_str(result.get("property")),
         "demotions": demotions,
@@ -467,7 +469,20 @@ class EstablishmentStore:
         run the root intake can see without a ledger row would be an unaudited
         install path, which is the worse failure than a row for a run that
         never materialized.
+
+        Two scopes (ADR 0085 §2/§6). ``firm`` (the default) is the staged-
+        corpus path below — Operator admins only, gated seat-side. ``person``
+        records the SPEAKER's own preferences: no staging, no corpus, no
+        compiler gates; the seat-side predicate pins the subject to the
+        attributed sender, and the intake re-validates shape + roster.
         """
+        scope = request.get("scope") or "firm"
+        if scope not in ("firm", "person"):
+            raise EstablishmentValidationError(
+                f"scope must be 'firm' or 'person'; got {scope!r}"
+            )
+        if scope == "person":
+            return self._submit_person(request, secrets.token_hex(16))
         staging_id, staging_path = self._require_staging(request.get("staging_id"))
         phase = _require_text(request.get("phase"), "phase", _MAX_SHORT_TEXT)
         if phase not in SUBMIT_PHASES:
@@ -507,6 +522,7 @@ class EstablishmentStore:
         # staging_id, phase, created_at. The doc files in docs/ carry the rest.
         submission = {
             "phase": "analyze",
+            "scope": "firm",
             "run_id": run_id,
             "staging_id": staging_id,
             "created_at": time.time(),
@@ -610,6 +626,7 @@ class EstablishmentStore:
         # that it maps 1:1 onto the run's docs with matching hashes.
         submission = {
             "phase": "install",
+            "scope": "firm",
             "run_id": run_id,
             "staging_id": staging_id,
             "output_class": output_class,
@@ -656,6 +673,85 @@ class EstablishmentStore:
         # and the intake purges the whole set (analysis included, as root)
         # after the run completes — pass or fail.
         self._materialize_run(run_id, submission, selected, move=True)
+        return {"ok": True, "run_id": run_id, "phase": "install", "status": "queued"}
+
+    def _submit_person(self, request: dict[str, Any], run_id: str) -> dict[str, Any]:
+        """A person-scoped install: the speaker's own preferences, docs-less.
+
+        Refuses every firm-path field a person submit must not carry —
+        "present" means NON-NULL (the overlay sends ``staging_id: null``, key
+        present). The subject was already pinned to the attributed sender by
+        the seat-side predicate; the broker re-validates SHAPE only, and the
+        intake re-validates shape + roster (defense in depth, same split as
+        the firm path).
+        """
+        for forbidden in ("staging_id", "corpus_manifest", "output_class", "property"):
+            if request.get(forbidden) is not None:
+                raise EstablishmentValidationError(
+                    f"{forbidden} must not be supplied on a person-scoped submit"
+                )
+        person_raw = _require_text(request.get("person"), "person", _MAX_SHORT_TEXT)
+        person = person_raw.strip().lower()
+        local, sep, domain = person.partition("@")
+        if not local or sep != "@" or "@" in domain or "." not in domain:
+            raise EstablishmentValidationError(
+                "person must be a single person email address (local@domain)"
+            )
+
+        body_raw = request.get("spec_body")
+        if not isinstance(body_raw, str):
+            raise EstablishmentValidationError("spec_body must be a string")
+        body = normalize_lf(body_raw).strip()
+        if not body:
+            raise EstablishmentValidationError("spec_body must not be empty")
+        body_bytes = body.encode("utf-8")
+        if len(body_bytes) > MAX_SPEC_BODY_BYTES:
+            raise EstablishmentValidationError(
+                f"spec_body is {len(body_bytes)} bytes after LF normalization; the ceiling is {MAX_SPEC_BODY_BYTES}"
+            )
+        spec_digest = sha256(body_bytes).hexdigest()
+
+        assertions = self._validate_assertions(request.get("assertions"))
+        instructed_by = _require_text(
+            request.get("instructed_by"), "instructed_by", _MAX_SHORT_TEXT
+        )
+        source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
+
+        submission = {
+            "phase": "install",
+            "scope": "person",
+            "run_id": run_id,
+            "person": person,
+            "spec_body": body,
+            "spec_sha256": spec_digest,
+            "assertions": assertions,
+            # Provenance for the audit trail, never authorization (firm-path
+            # posture; the authorization gate is the seat-side predicate).
+            "instructed_by": instructed_by,
+            "source_ref": source_ref,
+            "created_at": time.time(),
+        }
+        row = {
+            "action_type": ESTABLISHMENT_SUBMITTED_ACTION_TYPE,
+            "actor": "operator",
+            "actor_role": "agent",
+            "metadata": json.dumps(
+                {
+                    "phase": "install",
+                    "scope": "person",
+                    "run_id": run_id,
+                    "person": person,
+                    "spec_sha256": spec_digest,
+                    "assertion_count": len((assertions or {}).get("rules") or []),
+                    "instructed_by": instructed_by,
+                    "source_ref": source_ref,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        }
+        self._ledger.append(row)
+        self._materialize_run(run_id, submission, [], move=False)
         return {"ok": True, "run_id": run_id, "phase": "install", "status": "queued"}
 
     def _validate_assertions(self, value: Any) -> dict[str, Any] | None:
