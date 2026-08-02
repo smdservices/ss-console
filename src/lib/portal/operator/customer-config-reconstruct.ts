@@ -90,6 +90,7 @@ interface ProjectedScope {
   domain_blocks?: string[]
   matter_blocks?: string[]
   inbound_allow_from?: string[]
+  admins?: string[]
 }
 
 interface ProjectedEscalation {
@@ -142,6 +143,7 @@ function reconstructScope(raw: unknown): Required<ProjectedScope> {
     domain_blocks: scope.domain_blocks ?? [],
     matter_blocks: scope.matter_blocks ?? [],
     inbound_allow_from: scope.inbound_allow_from ?? [],
+    admins: scope.admins ?? [],
   }
 }
 

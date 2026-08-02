@@ -82,6 +82,24 @@ const rowValue = 'mt-1 font-body text-sm leading-snug text-[color:var(--color-te
           </div>
 
           <div>
+            <p class={groupLabel}>Who sets its standards</p>
+            {scope.setsStandards.length > 0 ? (
+              <>
+                <p class={rowValue}>{scope.setsStandards.join(', ')}</p>
+                <p class="mt-2 font-body text-sm leading-snug text-[color:var(--color-text-secondary)]">
+                  These people can tell your operator how the firm's work should read, and it takes
+                  effect right away. Changing this list is a request to us.
+                </p>
+              </>
+            ) : (
+              <p class={rowValue}>
+                No one yet. Until someone is named here, your operator holds the standards it was
+                given and changes none of them on request.
+              </p>
+            )}
+          </div>
+
+          <div>
             <p class={groupLabel}>Who it writes to for the firm</p>
             {scope.writesTo.length > 0 ? (
               <>

@@ -701,6 +701,21 @@ scope:
     # programmatically (the CLI channel is PID-gated out of the audit broker).
     # Never copy to a client seat.
     - ss-probe-runner@agentmail.to
+  # The Operator-admin allow list (ADR 0085 §2) — who may establish the firm's
+  # voice and output shapes by instructing the Operator, and who may promote a
+  # captured correction. Mirrors the shape authored on ashton-price (where the
+  # list is the two Named Administrators of letter 18), with the rehearsal
+  # admin standing in for them so the establishment path can be driven here
+  # before it touches the client seat.
+  #
+  # Deliberately NARROWER than the roster above: smdurgan@smdurgan.com and the
+  # probe runner are rostered (they get real replies) but are NOT admins, which
+  # is what makes the "a rostered non-admin is refused" leg testable on this
+  # seat. Person addresses only; a whole-@domain grant is refused.
+  #
+  # Empty = fail-closed. Changed only through a PR.
+  admins:
+    - scott@smd.services
   # Typed outbound roster (ADR 0075) — the firm's own client / records-vendor
   # addresses, which resolve to the external_send_client / external_send_vendor
   # action classes instead of the outside external_send ceiling. These two are

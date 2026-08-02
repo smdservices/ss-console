@@ -66,7 +66,76 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     matter_blocks: optionalStringList(raw, 'matter_blocks', 'scope.matter_blocks', errors),
     inbound_allow_from: inboundAllowFrom,
     outbound_roster: checkOutboundRoster(raw['outbound_roster'], inboundAllowFrom, errors),
+    admins: checkAdmins(raw['admins'], errors),
   }
+}
+
+/**
+ * Validate `scope.admins` (ADR 0085 §2): the Operator-admin allow list, a flat
+ * list of PERSON email addresses. Canonicalized through the same
+ * {@link canonRosterAddress} the classifier uses, so "same address" means the
+ * same thing here as it does at runtime.
+ *
+ * Two rules beyond shape, both deliberate:
+ *   - an `@domain` grant is refused outright. Establishment authority attaches
+ *     to a person; a whole-domain admin grant would silently make every future
+ *     hire at the firm able to rewrite the firm's voice.
+ *   - a duplicate canonical address is refused, so the authored list reads as
+ *     the authoritative count of who holds the authority.
+ *
+ * Absent/null yields `[]` — fail-closed, per the ADR: no list, no admins.
+ */
+function checkAdmins(raw: unknown, errors: ValidationError[]): string[] {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'scope.admins',
+      message: 'scope.admins must be a list',
+    })
+    return []
+  }
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const canon = adminEntry(raw[i], `scope.admins[${i}]`, seen, errors)
+    if (canon === null) continue
+    seen.add(canon)
+    out.push(canon)
+  }
+  return out
+}
+
+/** One admin entry: a person-shaped, non-duplicate address, or null on any violation. */
+function adminEntry(
+  raw: unknown,
+  path: string,
+  seen: Set<string>,
+  errors: ValidationError[]
+): string | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    errors.push({ code: 'MissingField', path, message: 'admin entries must be non-empty strings' })
+    return null
+  }
+  const canon = canonRosterAddress(raw)
+  if (canon === null || canon.startsWith('@')) {
+    errors.push({
+      code: 'InvalidAdminList',
+      path,
+      message:
+        'admins must be exact person addresses (local@domain); a whole-@domain grant is not an admin',
+    })
+    return null
+  }
+  if (seen.has(canon)) {
+    errors.push({
+      code: 'InvalidAdminList',
+      path,
+      message: `${canon} appears more than once in scope.admins`,
+    })
+    return null
+  }
+  return canon
 }
 
 /**
@@ -223,5 +292,6 @@ function emptyScope(): Scope {
     matter_blocks: [],
     inbound_allow_from: [],
     outbound_roster: [],
+    admins: [],
   }
 }

@@ -74,6 +74,15 @@ function commitments(): {
   return JSON.parse(readFileSync(COMMITMENTS_PATH, 'utf-8'))
 }
 
+/** Parse + validate any seat's customer.yaml by path, throwing if it no longer validates. */
+function validatedSeat(path: string): CustomerYaml {
+  const result = validate(parseYaml(readFileSync(path, 'utf-8')))
+  if (!result.ok) {
+    throw new Error(`${path} no longer validates:\n${JSON.stringify(result.errors, null, 2)}`)
+  }
+  return result.value
+}
+
 /** Recursively list every file under `dir`. */
 function walkFiles(dir: string): string[] {
   const out: string[] = []
@@ -370,6 +379,50 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
   // authored value follows. This also catches the failure this gate was written
   // after: both seats carried three generic adjectives copied from each other,
   // describing no firm, no vertical, and no role.
+  it('(j) both seats author an Operator-admin list, narrower than the roster (ADR 0085 §2)', () => {
+    // Asserted structurally, never by literal address: client identities stay in
+    // the authored config and out of tests (tests/client-identity-gate.test.ts).
+    //
+    // The client seat's admins are the two Named Administrators of letter 18;
+    // the proving seat authors the rehearsal admin in the same shape. Three
+    // invariants hold on both, and each is the property the ADR actually needs:
+    //   - non-empty, or the seat is fail-closed and no establishment leg runs;
+    //   - every admin is a person the seat already knows (a `users[]` entry),
+    //     never a bare address the config mentions nowhere else;
+    //   - strictly narrower than the roster, which is the whole point. The A&P
+    //     roster is a domain-wide grant, so "rostered" cannot imply "admin"
+    //     without the restriction being paper-only.
+    const seats: Array<readonly [string, CustomerYaml]> = [
+      ['ashton-price', validatedSeat(join(AP_DIR, 'customer.yaml'))],
+      ['pilot-smokeball', seatValue()],
+    ]
+
+    for (const [label, cfg] of seats) {
+      const admins = cfg.scope.admins
+      expect(admins.length, `${label}: an unauthored admin list is fail-closed`).toBeGreaterThan(0)
+
+      const knownPeople = new Set(cfg.users.map((u) => u.email.toLowerCase()))
+      for (const admin of admins) {
+        expect(admin.startsWith('@'), `${label}: an admin is a person, never a domain`).toBe(false)
+        expect(knownPeople.has(admin), `${label}: admin ${admin} is not a authored user`).toBe(true)
+      }
+
+      // At least one rostered identity that is NOT an admin, or the refusal leg
+      // (a rostered non-admin's identical instruction is declined) has no sender.
+      const rosteredNonAdmins = cfg.scope.inbound_allow_from.filter((a) => !admins.includes(a))
+      expect(
+        rosteredNonAdmins.length,
+        `${label}: admin authority must be narrower than the roster`
+      ).toBeGreaterThan(0)
+    }
+
+    // The client seat's roster is a domain-wide grant; its admin list is not.
+    // That contrast is the reason this key exists.
+    const [, ap] = seats[0]
+    expect(ap.scope.inbound_allow_from.some((e) => e.startsWith('@'))).toBe(true)
+    expect(ap.scope.admins.length).toBe(2)
+  })
+
   it('(i) the authored persona register is real and identical across the client and proving seats', () => {
     const seats = [AP_DIR, resolve('operator/customers/pilot-smokeball')]
     const tones = seats.map((dir) => {

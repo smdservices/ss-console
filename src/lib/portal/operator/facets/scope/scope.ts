@@ -14,6 +14,11 @@
  *                              the operator drafts but never responds on its
  *                              own — and the viewer says so plainly, never as
  *                              an error.
+ *   - who sets its standards — admins (ADR 0085 §2), the Operator-admin allow
+ *                              list. Distinct from the roster above: everyone
+ *                              rostered gets answered, but only these people
+ *                              may establish how the firm's work reads. Shown
+ *                              read-only; the list is changed through a PR.
  *   - who it writes to       — outbound_roster (ADR 0075), the human-authored
  *                              standing outbound recipients with their class
  *                              rendered through the closed label map. Coverage
@@ -69,6 +74,14 @@ export interface OperatorScopeModel {
     /** The ADR 0055 roster: who gets real replies and action (inbound_allow_from). */
     respondsTo: string[]
     /**
+     * The ADR 0085 §2 Operator-admin allow list (scope.admins): the people who
+     * may set the firm's standards. Narrower than `respondsTo`, which is
+     * everyone who gets answered. Read-only here by design — the list is
+     * changed through a PR, never from the portal. Empty is the fail-closed
+     * posture and the viewer says so plainly.
+     */
+    setsStandards: string[]
+    /**
      * The ADR 0075 outbound roster: the standing recipients a person authored
      * for outbound work, each with its plain-language class. Empty means no
      * standing outside recipients are configured.
@@ -103,6 +116,7 @@ export function resolveOperatorScope(config: CustomerConfigRow | null): Operator
       sees: scope.email_folders_visible,
       neverSees: scope.email_folders_blind,
       respondsTo: scope.inbound_allow_from,
+      setsStandards: scope.admins,
       writesTo: scope.outbound_roster.map((e) => ({
         address: e.address,
         classLabel: OUTBOUND_CLASS_LABEL[e.class],

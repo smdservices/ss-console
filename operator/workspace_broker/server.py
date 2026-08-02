@@ -19,6 +19,7 @@ from typing import Any
 from . import escalation_ledger
 from .audit_ledger import LedgerWriter
 from .corrections import PROPOSED_STATUS, build_correction_row
+from .establishment import EstablishmentStore
 from .google_auth import materialize_credential
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
 from .operations import WorkspaceOperations
@@ -101,6 +102,13 @@ class Broker:
     # verb. None (the ``__new__``/pre-heartbeat default) keeps the verb
     # fail-closed until __init__ resolves it from the gateway process.
     agent_uid: int | None = None
+    # ADR 0085 establishment spool. Same default-disabled posture as the
+    # ledgers: instances built via ``__new__`` (tests) and pre-0085 images have
+    # a defined, establishment-disabled store. The class-level lock is shared
+    # by design — one broker per process, and it only serializes the three
+    # establish_* verbs (their sweep + read-modify-write of a staging set).
+    establishment: EstablishmentStore | None = None
+    _establish_lock = threading.Lock()
 
     def __init__(self) -> None:
         self.socket_path = Path(os.environ["SMD_WORKSPACE_BROKER_SOCKET"])
@@ -147,6 +155,15 @@ class Broker:
         else:
             self.escalation_ledger_path = None
         self._escalation_lock = threading.Lock()
+        # ADR 0085 (ss#2161/#2162): the establishment spool, when the
+        # entrypoint created it and exported its path. Requires the audit
+        # ledger — an establishment that cannot be audited must not run, so an
+        # audit-disabled broker keeps the verbs fail-closed.
+        establish_spool = os.environ.get("SMD_ESTABLISH_SPOOL_DIR")
+        if establish_spool and self.ledger is not None:
+            self.establishment = EstablishmentStore(establish_spool, self.ledger)
+        else:
+            self.establishment = None
 
     def _resolve_agent_uid(self) -> int | None:
         """Resolve (and cache) the agent uid for the heartbeat verb.
@@ -254,6 +271,43 @@ class Broker:
             row = build_correction_row(request.get("proposal"))
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id, "status": PROPOSED_STATUS}
+        # ADR 0085 (ss#2161/#2162): conversational establishment. Three narrow
+        # verbs by which an admin-instructed voice/shape submission crosses the
+        # agent -> broker trust boundary into the root intake's spool. Same
+        # caller shape as correction_propose (agent uid, non-gateway PID — an
+        # execute_code turn), same fail-closed uid gate, and the same
+        # one-pinned-action_type discipline per writing verb (SUBMITTED on
+        # submit, RESULT on status) so neither can forge any other row.
+        #
+        # EVERYTHING STORED IS REBUILT. establishment.py reads a bounded field
+        # set off each request, computes every hash server-side, and refuses —
+        # never sanitizes — a malformed field. The agent's uid has no access to
+        # the spool at any level; these verbs are the only door, and the root
+        # intake independently re-verifies uid and hashes on the other side.
+        if action in (
+            "establish_stage_document",
+            "establish_submit",
+            "establish_status",
+        ):
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            if self.establishment is None:
+                raise ValueError("establishment spool not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    f"{action} requires a caller running as the agent uid"
+                )
+            with self._establish_lock:
+                # Opportunistic TTL sweep on every establishment call: the
+                # broker is the only principal that can expire staging sets
+                # and unread results (the intake owns only run dirs).
+                self.establishment.sweep()
+                if action == "establish_stage_document":
+                    return self.establishment.stage_document(request)
+                if action == "establish_submit":
+                    return self.establishment.submit(request)
+                return self.establishment.status(request)
         # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
         # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the
         # agent uid on a NON-gateway PID — the same shape as the cron pre_run

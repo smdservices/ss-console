@@ -209,6 +209,31 @@ chmod 0700 "${BROKER_DIR}"
 chown workspace-broker:workspace-connectors "$(dirname "${BROKER_SOCKET}")"
 chmod 2750 "$(dirname "${BROKER_SOCKET}")"
 
+# Establishment spool (ADR 0085, ss#2161/#2162). The tree an admin-instructed
+# voice/shape submission crosses on its way from the agent to the root
+# establish_intake daemon: the broker uid writes staging/ and runs/, root
+# writes results/. hermes gets NO access at any level — the client corpus and
+# the submitted spec transit this tree, and the agent uid must not be able to
+# rewrite a submission after broker validation (the intake stat-verifies the
+# writer uid on the other side).
+#
+# EVERY directory is explicitly owned and moded, converged on every boot —
+# never mkdir -p defaults. A default-moded ancestor silently widens the whole
+# tree (the spec_applier _harden_ancestors incident); the tree's guarantee is
+# only as strong as its loosest dir. The root dir denies hermes (0750, group
+# workspace-broker); the children add group-write because the broker creates
+# staging sets and run dirs there and unlinks a result after its one-shot
+# read. Root writes results/ files 0640 root:workspace-broker.
+ESTABLISH_SPOOL_DIR="/opt/data/establish-spool"
+export SMD_ESTABLISH_SPOOL_DIR="${ESTABLISH_SPOOL_DIR}"
+# The intake's poll cadence (root child inherits this env; default matches the
+# intake's own built-in default, stated here so it is tunable per seat).
+export SMD_ESTABLISH_POLL_SECONDS="${SMD_ESTABLISH_POLL_SECONDS:-5}"
+install -d -o root -g workspace-broker -m 0750 "${ESTABLISH_SPOOL_DIR}"
+install -d -o root -g workspace-broker -m 0770 "${ESTABLISH_SPOOL_DIR}/staging"
+install -d -o root -g workspace-broker -m 0770 "${ESTABLISH_SPOOL_DIR}/runs"
+install -d -o root -g workspace-broker -m 0770 "${ESTABLISH_SPOOL_DIR}/results"
+
 export SMD_WORKSPACE_BROKER_SOCKET="${BROKER_SOCKET}"
 export SMD_WORKSPACE_CREDENTIAL_PATH="${BROKER_DIR}/google.json"
 export SMD_CUSTOMER_YAML="${BROKER_CUSTOMER_PATH}"
@@ -247,6 +272,7 @@ launch_broker() {
     SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
     SMD_AGENT_UID="$(id -u hermes)" \
     SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
+    SMD_ESTABLISH_SPOOL_DIR="${SMD_ESTABLISH_SPOOL_DIR}" \
     /opt/workspace-broker/.venv/bin/python \
     -m workspace_broker.server
 }
@@ -411,6 +437,31 @@ if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
   log "Root authored-spec applier launched (uid 0; polls R2 for live spec changes)"
 else
   log "Root authored-spec applier NOT launched (R2 config creds absent, or spec_applier not in this overlay)"
+fi
+
+# Root-side establishment intake (ADR 0085, ss#2161/#2162). Same shape, same
+# principal, same respawn discipline as the appliers above, forked at the same
+# point for the same reason: it must survive the exec-drop below and keep
+# uid 0, because it holds the R2 write credential and runs the distillation
+# compiler gates over broker-authored submissions in ${ESTABLISH_SPOOL_DIR}/runs,
+# installing a gated result into the vault object the spec applier polls.
+#
+# Gated on `import establish_intake` so a lagging overlay pin degrades to a
+# LOUD "not launched" line, never a broken boot — establish_submit runs then
+# queue unprocessed until the overlay catches up (fail-static: the installed
+# spec tree keeps serving). The intake emits its own boot line on launch; the
+# rehearsal pre-flight asserts one of these two lines, so a silent
+# not-launched cannot read as healthy.
+if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
+   && /opt/hermes/.venv/bin/python -c "import establish_intake" 2>/dev/null; then
+  ( while true; do
+      /opt/hermes/.venv/bin/python -m establish_intake || true
+      log "establishment intake exited; restarting in 5s"
+      sleep 5
+    done ) &
+  log "Root establishment intake launched (uid 0; polls ${ESTABLISH_SPOOL_DIR}/runs for admin-instructed voice/shape submissions)"
+else
+  log "Root establishment intake NOT launched (R2 config creds absent, or establish_intake not in this overlay); establish_submit runs will queue unprocessed"
 fi
 
 # MCP channel cross-process result/thread store (shared/mcp_result_store.py +

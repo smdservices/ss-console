@@ -406,9 +406,15 @@ export function applyEditableChanges(
     ...lockedFromCurrent(current),
     personas: mergedPersonas,
     connectors: mergeConnectors(current.connectors, changes.connectors),
-    // outbound_roster (ADR 0075) is governance-sensitive and NOT portal-editable;
-    // preserve the current value verbatim (same posture as voice_cohorts below).
-    scope: { ...changes.scope, outbound_roster: current.scope.outbound_roster },
+    // outbound_roster (ADR 0075) and admins (ADR 0085 §2) are governance-sensitive
+    // and NOT portal-editable; preserve the current values verbatim (same posture
+    // as voice_cohorts below). admins in particular decides who may establish the
+    // firm's voice, so a portal save must never be able to widen or clear it.
+    scope: {
+      ...changes.scope,
+      outbound_roster: current.scope.outbound_roster,
+      admins: current.scope.admins,
+    },
     // case_alert_routing (#2004) is governance-sensitive (it decides who at
     // the firm receives case alerts) and NOT portal-editable; preserve the
     // current value verbatim (same posture as outbound_roster above).

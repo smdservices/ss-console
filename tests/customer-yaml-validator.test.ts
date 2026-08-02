@@ -3193,6 +3193,72 @@ describe('validate — scope.outbound_roster (ADR 0075)', () => {
   })
 })
 
+describe('validate — scope.admins (ADR 0085 §2)', () => {
+  function withAdmins(admins: unknown): Record<string, unknown> {
+    const f = validFixture()
+    const scope = f['scope'] as Record<string, unknown>
+    scope['admins'] = admins
+    return f
+  }
+
+  it('accepts a person list and carries it through canonicalized', () => {
+    const r = validate(withAdmins(['Dana@Example-Firm.com', 'lee@example-firm.com']))
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.admins).toEqual(['dana@example-firm.com', 'lee@example-firm.com'])
+    }
+  })
+
+  it('rejects an @domain grant — an admin is a person, never a domain', () => {
+    const r = validate(withAdmins(['@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidAdminList')
+  })
+
+  it('rejects a display-name form', () => {
+    const r = validate(withAdmins(['Dana Reed <dana@example-firm.com>']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidAdminList')
+  })
+
+  it('rejects a duplicate address', () => {
+    const r = validate(withAdmins(['dana@example-firm.com', 'DANA@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidAdminList')
+  })
+
+  it('rejects a malformed address', () => {
+    const r = validate(withAdmins(['not-an-email']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidAdminList')
+  })
+
+  it('rejects a non-string entry', () => {
+    const r = validate(withAdmins([{ email: 'dana@example-firm.com' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('MissingField')
+  })
+
+  it('rejects a non-list admins', () => {
+    const r = validate(withAdmins('dana@example-firm.com'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('defaults to [] when unauthored (fail-closed: no admins exist)', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.admins).toEqual([])
+  })
+
+  it('does not require an admin to be on the inbound roster', () => {
+    const f = withAdmins(['dana@example-firm.com'])
+    const scope = f['scope'] as Record<string, unknown>
+    scope['inbound_allow_from'] = []
+    expect(validate(f).ok).toBe(true)
+  })
+})
+
 describe('validate — send exposure classes (ADR 0075)', () => {
   function withExposure(exposure: Record<string, unknown>): Record<string, unknown> {
     const f = validFixture()

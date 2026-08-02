@@ -4,6 +4,7 @@ import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-acc
 import {
   defaultAuditDateRange,
   distinctAuditSkills,
+  formatAuditTimestamp,
   parseAuditListParams,
 } from '../../../../../../lib/portal/operator/audit'
 import { loadActivityPage } from '../../../../../../lib/portal/operator/activity-read'
@@ -148,6 +149,21 @@ const complianceView =
       sort={resolvedParams.sort}
       availableSkills={availableSkills}
     />
+
+    {
+      /* Coverage floor (#2179): the windowed ledger walk hit its page budget
+         before reaching the window start. State the floor — a truncated walk
+         must never read as "nothing happened before this". */
+      activityPage.machineCoverageFloor && (
+        <p
+          aria-label="Coverage note"
+          class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Operator events shown back to {formatAuditTimestamp(activityPage.machineCoverageFloor)}.
+          For earlier events in this range, narrow the date filter or request an evidence packet.
+        </p>
+      )
+    }
 
     {
       activityPage.totalCount === 0 ? (
