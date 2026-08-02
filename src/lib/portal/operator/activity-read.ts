@@ -80,20 +80,110 @@ export async function loadActivityPage(
   if (!isRuntimeReadConfigured(deps.env)) {
     return buildAuditListPage(consoleRows, params)
   }
-  const result = await readMachineRuntime(
+  // Walk the Machine ledger across the requested window rather than taking one
+  // slice of it (#2179). The single unpaginated fetch starved the client feed:
+  // the newest page of a working seat is dominated by suppressed telemetry
+  // (tool calls, turns), so the slice could contain zero client-visible events
+  // while dozens sat just behind it — live-proven 2026-08-02 (56 mapped events
+  // in-window, page rendered none, seam ok; vfy_01KZ204YY88HD2VJ2ZXNW85JDV).
+  const machine = await collectMachineWindow(deps, customerSlug, actor, params.from ?? null)
+  // Curated client language only (Captain decision 7): entries without
+  // authored client copy never reach the page, regardless of filters.
+  const clientRows = machine.rows.filter((r) => isClientVisibleAction(r.action))
+  const page = buildAuditListPage([...clientRows, ...consoleRows], params)
+  return { ...page, machineCoverageFloor: machine.coverageFloor }
+}
+
+/** Overlay `shared/runtime_read.py` clamps `limit` to this (MAX_LIMIT). */
+const MACHINE_PAGE_LIMIT = 200
+/** Pages walked per view before declaring a coverage floor: 15 × 200 = 3,000
+ * ledger rows, ~2.5 weeks of the pilot's current volume for a 7-day window.
+ * A budget (not a loop-until-done) bounds page latency against a runaway
+ * seat; exhausting it is surfaced honestly, never silently. */
+const MACHINE_PAGE_BUDGET = 15
+
+/**
+ * Collect Machine-ledger entries newest-first until the window's `from` bound
+ * is passed, the ledger is exhausted, or the page budget runs out.
+ *
+ * The seam (overlay `_read_audit_log`) keyset-paginates `ORDER BY id DESC`
+ * with `WHERE id < cursor`, advertising a next cursor only on a full page —
+ * ULIDs sort by time, so once a page's oldest `ts` precedes `from`, every
+ * later page is older still and the walk stops.
+ *
+ * One LOGICAL read, one read-audit row: the first segment is audited per
+ * ADR 0043 (attempt + outcome); continuation segments of the same walk reuse
+ * a no-op sink rather than writing N rows per page view. A first-segment
+ * failure is already recorded before the fail-closed empty return.
+ *
+ * `coverageFloor` is the oldest ts actually scanned when the budget ran out
+ * with in-window ledger still unread — the page states the floor rather than
+ * letting a truncated walk read as "nothing happened before this".
+ */
+async function collectMachineWindow(
+  deps: ActivityReadDeps,
+  customerSlug: string,
+  actor: RuntimeReadActor,
+  from: string | null
+): Promise<MachineWindow> {
+  return walkMachineWindow(
     {
       transport: createMachineRuntimeTransport(deps.env),
       audit: createRuntimeReadAudit(deps.db, { actorUserId: deps.actorUserId }),
     },
     customerSlug,
-    { kind: 'audit_log' },
-    actor
+    actor,
+    from
   )
-  const rows = result.ok ? parseAuditEntries(result.data) : []
-  // Curated client language only (Captain decision 7): entries without
-  // authored client copy never reach the page, regardless of filters.
-  const clientRows = rows.filter((r) => isClientVisibleAction(r.action))
-  return buildAuditListPage([...clientRows, ...consoleRows], params)
+}
+
+export interface MachineWindow {
+  rows: AuditEntry[]
+  coverageFloor: string | null
+}
+
+/** The injectable core of the windowed walk. Exported for unit testing at the
+ * same transport boundary the runtime-read tests use. */
+export async function walkMachineWindow(
+  deps: Parameters<typeof readMachineRuntime>[0],
+  customerSlug: string,
+  actor: RuntimeReadActor,
+  from: string | null
+): Promise<MachineWindow> {
+  const noopAudit = { record: async () => {} }
+
+  const rows: AuditEntry[] = []
+  let cursor: string | null = null
+  for (let segment = 0; segment < MACHINE_PAGE_BUDGET; segment++) {
+    const result = await readMachineRuntime(
+      { transport: deps.transport, audit: segment === 0 ? deps.audit : noopAudit },
+      customerSlug,
+      { kind: 'audit_log', limit: MACHINE_PAGE_LIMIT, ...(cursor !== null ? { cursor } : {}) },
+      actor
+    )
+    if (!result.ok) return { rows, coverageFloor: null }
+    const parsed = parseAuditEntries(result.data)
+    if (parsed.length === 0) return { rows, coverageFloor: null }
+    rows.push(...parsed)
+
+    const oldest = parsed[parsed.length - 1].ts
+    // ISO timestamps compare lexicographically; a date-only `from` sorts
+    // before any same-day timestamp, so entries ON the from-date survive.
+    if (from !== null && oldest < from) return { rows, coverageFloor: null }
+
+    cursor = nextCursorOf(result.data)
+    if (cursor === null) return { rows, coverageFloor: null }
+  }
+  // Budget exhausted with ledger (and possibly window) still unread.
+  return { rows, coverageFloor: rows.length > 0 ? rows[rows.length - 1].ts : null }
+}
+
+/** The seam envelope's next-page cursor, defensively. Absent/malformed → null
+ * (treated as exhausted — fail toward a shorter honest feed, never a loop). */
+function nextCursorOf(data: unknown): string | null {
+  if (!isRecord(data)) return null
+  const cursor = data['cursor']
+  return typeof cursor === 'string' && cursor.length > 0 ? cursor : null
 }
 
 /**
