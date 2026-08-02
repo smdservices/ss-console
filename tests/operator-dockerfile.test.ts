@@ -607,7 +607,20 @@ describe('Operator customer Machine Dockerfile', () => {
     // overlayPaths), so every overlaySha256 is unchanged and only overlayRef
     // moves. verify-overlay-pairs.py against the real overlay at 11eca2c0: all
     // 9 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="11eca2c0036d806571d45bb4ee09d2465a7eaae6"')
+    //
+    // #216 + #217 (ss #2122, 2026-08-02) close the audit-ledger attribution and
+    // vocabulary halves: #216 resolves a cron session's embedded job id against
+    // the persona cron store's stable managed name AT EMISSION TIME, so
+    // skill_name lands on the row while the id → name mapping is alive (job ids
+    // rotate on re-materialization); #217 declares the eight action types the
+    // unvalidated writer path was already persisting (plus broker-side
+    // CORRECTION_PROPOSED) and adds the AST completeness guard that scans the
+    // writer surfaces. ONE tracked twin moved (plugins/hermes-smd-audit/emit.py,
+    // git-diff-verified 11eca2c0..3af998c3) — its overlaySha256 re-recorded; the
+    // console twin audit_log.py moved separately in ss#2156 (sha re-recorded
+    // there). Deliberately excludes overlay#215 (Sentry scrub, unmerged at pin
+    // time) — that lands as its own bump + rebuild.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3af998c373b1c5299ab3d89b5b78a2bc553cbe53"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
