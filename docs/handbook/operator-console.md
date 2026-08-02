@@ -14,6 +14,8 @@ sources:
     href: https://github.com/venturecrane/ss-console/blob/main/migrations/0038_portal_clerk_subscriptions_substrate.sql
   - label: docs/design/operator/ (portal-management design)
     href: https://github.com/venturecrane/ss-console/tree/main/docs/design/operator
+  - label: ADR 0085 - voice and output shape are established conversationally
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0085-conversational-establishment-voice-output-shape.md
 ---
 
 ## What the Operator console is
@@ -87,6 +89,14 @@ Per ADR 0052 §4, there is no work queue, no drafts queue, no matters view, and 
 - **Users** (`settings/users`) - the principal-only management surface: every member with a non-revoked role, with per-row grant and revoke for each of the three roles, and invitations through Clerk Organizations (`invitations`). A principal cannot revoke their own last principal role, which would lock the firm out.
 - **Advanced** (`settings/advanced`) - the typed `customer.yaml` editor: form-based (not a raw YAML textarea) editing of persona, escalation, business-hours, connector, and scope fields, validated through the shared `src/lib/operator/customer-yaml/` validator. Captain-managed fields (connector `token_ref`, sticky-stop safety, persona count, schema and runtime fields) render read-only with a badge, and the server-side validator rejects mutations to them even if the form is bypassed.
 - **Compliance** (`compliance/`) - principal and compliance only, and itself opt-in: when the compliance view is not enabled it says so plainly; when enabled it shows the separation-of-duties surface - audit entry, evidence-packet generation entry, and the retention posture. Evidence packets are the single carved exception to the no-content rule (ADR 0052 §7): materialized transiently on explicit human request, delivered, not retained.
+
+### Voice and output shape are established by talking to the Operator, not on this console
+
+[ADR 0085](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0085-conversational-establishment-voice-output-shape.md) (2026-08-02) moved firm-level authoring off the console and into the Operator itself. An Operator admin - the role the signed agreements call a Named Administrator - instructs the Operator through a channel they already use with it: *review the letters on these matters and use them to establish the firm's voice*, or *review these examples and establish this document's shape*. The Operator reads the named documents in place, derives the specification, and submits it through a mediated path that verifies the instruction's provenance server-side and runs the distillation compilers as write gates before anything is installed. Effect is immediate on completion; the admin allow list, the server-side provenance check, and those gates are the safety, and a second approval beat is not. The Operator's reply names every rule the firm's own writing auto-demoted and which of their documents broke it.
+
+The correction says why this matters more than it looks: an AI employee whose firm-level standards can only be shaped through an administrative web form is not the remote worker the client was sold. The first implementation wave shipped the storage, the gates, and a portal form, and the form quietly became the front door.
+
+So the console's role here contracts to **visibility and audit**: which output classes exist, what has been established for each, by whom and when, the queue of corrections proposed by non-admins awaiting an admin's promotion, and the provenance trail. The Advanced page's spec-authoring form is superseded as the primary experience. Nothing else about the model moved: class declarations still live in `customer.yaml` behind PRs, spec content still lives in the customer's vault object, and the root-owned applier, the manifest trust split, and the runtime gates are unchanged. Personal preference is a separate layer open to every user, needing no admin, since a person's own rostered identity is authority over their own work.
 
 ## Administer: connections, team, account, onboarding
 

@@ -514,3 +514,18 @@ skill_bindings:
   workspace:
     internal: []
     outbound: none
+
+  # ---- conversational establishment (ADR 0085) ----
+  # These two do not produce an output OF a class; they establish a PROPERTY of
+  # one. The derived spec is not bound here on purpose: binding it would make
+  # the specification an artifact of some class, which inverts the relationship
+  # it has to every class. The only artifact either skill emits is its report
+  # back to the instructing admin, in that admin's own turn.
+  voice-establishment:
+    internal:
+      - { artifact: establishment_report, seam: session_output, class: staff }
+    outbound: none # the submission goes through the broker; the reply is the admin's own turn
+  shape-establishment:
+    internal:
+      - { artifact: establishment_report, seam: session_output, class: staff }
+    outbound: none # same
