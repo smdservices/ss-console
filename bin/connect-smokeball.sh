@@ -15,10 +15,9 @@
 # (only the callback exchanges the code).
 #
 # This is the INITIATE half only — it prints a URL and never sends email and
-# never touches a secret value. Before minting anything it runs a mechanical
-# gate (#2149/#2171): the target seat must be running the overlay ref pinned on
-# origin/main AND origin/main's runtime-control registry must record the
-# identifier gate as `enforced`. Requires `fly` auth for the seat probe.
+# never touches a secret value. Before minting anything it verifies the target
+# seat is running the overlay ref pinned on origin/main (#2149 — a token must
+# not land on a stale build). Requires `fly` auth for the seat probe.
 # Run under the operator env so the signing key + client id are present:
 #
 #   infisical run --env=prod --path=/ss -- bin/connect-smokeball.sh ashton-price
@@ -55,14 +54,19 @@ CUSTOMER_YAML="$REPO_ROOT/operator/customers/$CUSTOMER_SLUG/customer.yaml"
 [ -f "$CUSTOMER_YAML" ] || { echo "FATAL: no customer.yaml at $CUSTOMER_YAML" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
-# MECHANICAL GATE (#2149 / #2171). A refresh token is the highest-trust artifact
-# this venture handles; it must never land on a seat that (a) is not running the
-# pinned overlay, or (b) is running a pin whose identifier gate has not been
-# PROVEN to refuse fabricated identifiers on a live seat. Both refusals read
-# origin/main, never the local checkout — a stale checkout must not vouch for
-# itself (the 2026-07-31 wrong-image incident). There is deliberately NO escape
-# hatch: the fix for a refusal is to rebuild the seat or land the enforcement
-# proof (#2171 PR 3), not to bypass the gate.
+# SEAT-CURRENCY GATE (#2149, Captain-directed hard gate 2026-08-02). A refresh
+# token must never land on a seat that is not running the pinned overlay —
+# stale builds are a PLAUSIBLE accident (two seats were rebuilt onto
+# already-stale pins on 2026-08-02 alone). The check reads origin/main, never
+# the local checkout — a stale checkout must not vouch for itself (the
+# 2026-07-31 wrong-image incident). No escape hatch: the fix for a refusal is
+# `yes s | operator/bin/reprovision.sh <slug>`.
+#
+# Scope note (Captain, 2026-08-02): this gate guards against the accident class
+# only. It does NOT gate on readiness/enforcement state — connecting a client's
+# Smokeball is a deliberate, Captain-only, multi-step act that cannot happen by
+# accident, and readiness for it is the Captain's call, informed by evidence,
+# not enforced by scripts.
 git -C "${REPO_ROOT}" fetch origin --quiet \
   || echo "WARN: git fetch failed; comparing against the last-known origin/main" >&2
 
@@ -96,22 +100,7 @@ if [ "${RUNNING_REF}" != "${EXPECTED_REF}" ]; then
   exit 3
 fi
 
-# (b) Enforcement: origin/main's runtime-control registry must record the
-# identifier gate as `enforced` (live-proven refuse mode, #2171). A seat can be
-# CURRENT and still non-enforcing — currency alone is not enough.
-GATE_STATUS="$(git -C "${REPO_ROOT}" show origin/main:operator/contracts/runtime-controls.yaml \
-  | uv run --quiet --with pyyaml python3 -c "
-import sys, yaml
-d = yaml.safe_load(sys.stdin) or {}
-print(str(((d.get('controls') or {}).get('identifier_gate') or {}).get('status', 'absent')))
-")"
-if [ "${GATE_STATUS}" != "enforced" ]; then
-  echo "REFUSED: identifier_gate status on origin/main is '${GATE_STATUS}', not 'enforced'." >&2
-  echo "         The report->refuse flip (#2171) has not been proven live; no token" >&2
-  echo "         lands before enforcement (Captain directive 2026-08-02)." >&2
-  exit 3
-fi
-echo "gate: ${APP_NAME} on pinned overlay ${EXPECTED_REF:0:12}; identifier_gate enforced — proceeding" >&2
+echo "gate: ${APP_NAME} is on the pinned overlay ${EXPECTED_REF:0:12} — proceeding" >&2
 
 # Read environment + region from the smokeball connector block (defaults staging/us).
 SB_FIELDS=()
