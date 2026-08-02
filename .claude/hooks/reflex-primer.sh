@@ -51,6 +51,7 @@ cat <<'PRIMER'
 9. The deliverable is the client's act, not your artifact: name the terminal seam, enumerate every gate between the client and the effect, and escalate an unclosable gate before building the closable ones.
 10. Your snapshot is not the system. Tree state, branch lists, merged PRs, and installed dependencies decay within minutes of the briefing that reported them. Re-probe before acting on any of them.
 11. The Captain's attention is the scarcest resource on the venture: default to three lines (shipped / next / blocked), put detail in the PR or issue and link it, and escalate only what costs money, touches a client, or changes a promise. An escalation is one sentence of stakes, two options, your pick, and you proceed on your pick unless told otherwise.
+12. A check that cannot fail has measured nothing. Before reporting an observation, name what would have made it false and confirm your instrument would have shown it.
 PRIMER
 
 # Law 2 escape-hatch visibility.

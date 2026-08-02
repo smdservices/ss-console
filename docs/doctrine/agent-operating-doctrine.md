@@ -280,6 +280,33 @@ The cost that keeps this honest is under-reporting. An agent that hides a real g
 
 ---
 
+### Law 12: A check that cannot fail has measured nothing
+
+```yaml
+id: check-must-be-able-to-fail
+primer_line: 'A check that cannot fail has measured nothing. Before reporting an observation, name what would have made it false and confirm your instrument would have shown it.'
+cost: low
+tier: primer
+enforcement:
+  - .claude/hooks/reflex-primer.sh
+incidents:
+  - date: 2026-08-01
+    ref: "evidence-packet tamper test (#2122: the check ran `sed 's/Acme/Acmf/'` against a manifest whose slug is lowercase `acme`, so it altered nothing; openssl then verified the unmodified bytes and the session reported a passing tamper test. The signature was in fact sound, which is worse -- a real regression would have been reported green by the same command)"
+  - date: 2026-08-01
+    ref: 'memory-corpus audit (asked for a wrongness rate, the session built six checks and three failed on the instrument rather than the claim: guessed ADR filenames produced five false FAILs against memories that were correct, an issue number was checked as a PR, and an absence assertion was written inverted so the correct result was labelled a failure. Measured memory error rate 2/147; measured first-attempt instrument error rate 3/6)'
+escalation: none pending
+```
+
+Law 5 asks whether an observation exists. Law 10 asks whether it is still current. This one asks the question underneath both: whether the instrument that produced it was capable of returning the other answer. A reading from a check that could only ever come back green is not weak evidence, it is no evidence, and it is more dangerous than an admitted gap because it is reported with the confidence of a measurement.
+
+The failure does not look like carelessness from inside. Each of the incidents above was a deliberate verification step, run on purpose, by a session that believed it was being rigorous. What was skipped in every case was the cheapest part: stating, before reading the output, what a failure would have looked like. When that step is taken the broken instrument announces itself immediately -- in the memory audit the deliberately-false control failed on the first run and exposed three bad checks in minutes.
+
+This venture already enforces exactly this discipline on its code and not on its reasoning. `operator/contracts/runtime-controls.yaml` exists because a control can be registered yet inert, and refuses the status `enforced` without a named negative-fire probe. The Dockerfile's own note on a mode assertion records that it "measured the environment, not the code" and passed for months under a permissive umask. The gap this law closes is that the same standard was never applied to the checks an agent runs on its own work.
+
+It is `primer` rather than `gate` because the failure is a missing thought, not a detectable state: no hook can see that a passing command was incapable of failing. The cost is `low` -- naming the falsifier takes one sentence and usually one extra command, and unlike a radar line it produces no false positives to teach agents to skim.
+
+---
+
 ## Mechanisms under review
 
 ```yaml
