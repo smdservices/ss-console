@@ -896,22 +896,46 @@ def create_folder(
 def add_file(
     matter_id: str,
     file_name: str,
-    content_base64: str,
+    *,
+    content_text: str | None = None,
+    content_base64: str | None = None,
     folder_id: str | None = None,
 ) -> Any:
-    """Upload a document to a matter. ``content_base64`` is the file's raw bytes
-    base64-encoded (any file type); ``folder_id`` is optional (root if omitted).
-    Runs Smokeball's two-stage upload (metadata POST -> presigned S3 PUT);
-    materialization is asynchronous, so the file may take a moment to appear in
+    """Upload a document to a matter. Supply the content EXACTLY ONE of two ways:
+
+    - ``content_text`` — **use this for every textual document** (letters,
+      briefs, memos, discovery responses, indexes, .txt/.md/.csv). Pass the
+      document's text verbatim; the connector encodes it UTF-8 server-side.
+    - ``content_base64`` — for genuinely binary files (PDF, DOCX, images) whose
+      base64 came from a tool, never from your own composition.
+
+    **Never hand-encode text to base64.** Model-written base64 fails outright or,
+    worse, decodes to subtly corrupted text — a rehearsal filed a brief reading
+    "REVIEU" with a replacement character where "REVIEW" belonged, and no
+    validity check can catch that class (#2055). ``content_text`` removes the
+    encoding step entirely.
+
+    ``folder_id`` is optional (matter root if omitted). Runs Smokeball's
+    two-stage upload (metadata POST -> presigned S3 PUT); materialization is
+    asynchronous, so the file may take a moment to appear in
     ``get_files_on_matter``. Returns the new ``fileId``.
 
     Classified INTERNAL_WRITE at the overlay: this is the agent saving its own
     work product into the firm's record — the save-back half of the read ->
     work -> save document round-trip — never an external send."""
-    try:
-        data = base64.b64decode(content_base64, validate=True)
-    except (ValueError, TypeError) as exc:
-        raise ValueError(f"content_base64 is not valid base64: {exc}") from exc
+    if (content_text is None) == (content_base64 is None):
+        supplied = "both" if content_text is not None else "neither"
+        raise ValueError(
+            "add_file: supply exactly one of content_text (plain text, encoded "
+            f"server-side) or content_base64 (binary) — got {supplied}"
+        )
+    if content_text is not None:
+        data = content_text.encode("utf-8")
+    else:
+        try:
+            data = base64.b64decode(content_base64, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"content_base64 is not valid base64: {exc}") from exc
     return _get_client().add_file(matter_id, file_name, data, folder_id=folder_id)
 
 
