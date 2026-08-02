@@ -766,6 +766,22 @@ export interface Scope {
   /** Senders allowed to trigger autonomous reply from crane's own inbox. */
   inbound_allow_from: string[]
   /**
+   * The Operator-admin allow list (ADR 0085 §2) — the people who may establish
+   * firm-level voice and output shape by instructing the Operator, and who may
+   * promote a captured correction. The role the signed agreements call Named
+   * Administrator.
+   *
+   * PERSON identities only: exact `local@domain` addresses, never an `@domain`
+   * grant. An admin is a person, and "everyone at the firm speaks for the firm"
+   * is precisely the distinction this list exists to draw (the roster above is
+   * domain-wide on A&P). Empty array when unauthored, which is fail-closed: no
+   * instruction anywhere resolves admin-classed, so nothing widens.
+   *
+   * Changed through a PR, because who speaks for the firm is commitment-shaped.
+   * Not portal-editable.
+   */
+  admins: string[]
+  /**
    * Typed outbound roster (ADR 0075) — the firm's own clients / records vendors,
    * each resolving to the `external_send_client` / `external_send_vendor` action
    * class. Empty array when unauthored (fail-closed: every outside send stays on
@@ -1292,6 +1308,7 @@ export type ValidationErrorCode =
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
   | 'InvalidOutboundRoster'
+  | 'InvalidAdminList'
   | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'
