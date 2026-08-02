@@ -33,9 +33,20 @@
  * @see operator/templates/drafting/drafting-discipline.md
  */
 
-import { describe, it, expect } from 'vitest'
-import { readFileSync, existsSync, readdirSync, statSync } from 'fs'
-import { resolve, join, basename } from 'path'
+import { describe, it, expect, afterAll } from 'vitest'
+import {
+  readFileSync,
+  existsSync,
+  readdirSync,
+  statSync,
+  mkdtempSync,
+  mkdirSync,
+  copyFileSync,
+  rmSync,
+} from 'fs'
+import { resolve, join, basename, dirname } from 'path'
+import { tmpdir } from 'os'
+import { execFileSync } from 'child_process'
 
 const DOCKERFILE_PATH = 'operator/templates/Dockerfile'
 const DOCKERFILE = readFileSync(resolve(DOCKERFILE_PATH), 'utf8')
@@ -456,3 +467,287 @@ const KNOWN_MISSING_SKILL_REFERENCES: readonly string[] = [
   'operator/skills/scope-creep-flagger/references/test-cases.md',
   'operator/skills/scope-creep-flagger/references/voice.md',
 ]
+
+// ===========================================================================
+// The distillation compilers (ADR 0085 §4).
+// ===========================================================================
+
+/**
+ * The compilers are shipped for a consumer the guard above cannot see. Every
+ * assertion up to here starts from a SKILL.md citation — the agent is the
+ * reader, WORKDIR is the frame. These five files have no skill citation and
+ * never will: the reader is the overlay's establishment-intake daemon, running
+ * as root, invoking them by ABSOLUTE path.
+ *
+ * That makes the failure mode different in kind, and worse. A skill citing a
+ * missing path produces an agent that cannot find its instructions, which is
+ * loud. A missing compiler produces a gate that did not run — and the intake's
+ * own docstring is explicit about why that is the dangerous one: "a gate that
+ * silently did not run reads exactly like a gate that passed" (Law 12). The
+ * daemon's `missing_compilers` probe is the runtime half of that defence and
+ * refuses the run; this is the build-time half, so the refusal is something we
+ * never have to see.
+ *
+ * Three properties, in the order they can fail:
+ *
+ *   1. PIN. The container paths equal the constants in the overlay's
+ *      establish_intake/gates.py. Hardcoded HERE on purpose — this is one side
+ *      of a cross-repo contract, and deriving it from the Dockerfile would make
+ *      the test agree with whatever the Dockerfile said, which is a check that
+ *      cannot fail (Law 12).
+ *   2. EXHAUSTIVE. The mirror carries exactly those five and nothing else, so a
+ *      sixth compiler cannot land here without the overlay learning about it.
+ *   3. FAITHFUL. The three import relationships actually resolve, proven by
+ *      EXECUTING the loaders in a tree built to the Dockerfile's destinations —
+ *      not by reading the COPY lines, which is how a layout gets asserted into
+ *      correctness. Two false controls below prove this property can fail.
+ *
+ * @see operator/templates/Dockerfile (the COPY block and its rationale)
+ * @see hermes-smd-overlay establish_intake/gates.py (REQUIRED_COMPILERS)
+ */
+
+const MIRROR_ROOT = '/opt/smd'
+
+interface ShippedCompiler {
+  /** Repo source. */
+  readonly repo: string
+  /** The constant the overlay's establish_intake/gates.py names. */
+  readonly container: string
+  /** Why the intake needs it, in one line. */
+  readonly role: string
+}
+
+const INTAKE_COMPILER_CONSTANTS: readonly ShippedCompiler[] = [
+  {
+    repo: 'operator/bin/voice_profile.py',
+    container: '/opt/smd/operator/bin/voice_profile.py',
+    role: 'VOICE_PROFILE - the profile card; the digit invariant refuses asserted numbers.',
+  },
+  {
+    repo: 'operator/bin/spec_fixed_strings.py',
+    container: '/opt/smd/operator/bin/spec_fixed_strings.py',
+    role: 'SPEC_FIXED_STRINGS - the approved fixed-string layer. Loads voice_profile as a sibling.',
+  },
+  {
+    repo: 'operator/bin/spec_leak_check.py',
+    container: '/opt/smd/operator/bin/spec_leak_check.py',
+    role: 'SPEC_LEAK_CHECK - refuses client prose beyond the fixed strings. Loads the drafting gate check via parents[2].',
+  },
+  {
+    repo: 'operator/bin/spec_selftest.py',
+    container: '/opt/smd/operator/bin/spec_selftest.py',
+    role: "SPEC_SELFTEST - demotes any block rule the firm's own writing violates. Loads voice_profile as a sibling.",
+  },
+  {
+    repo: 'operator/templates/drafting/drafting_gate_check.py',
+    container: '/opt/smd/operator/templates/drafting/drafting_gate_check.py',
+    role: 'DRAFTING_GATE_CHECK - imported by spec_leak_check for _HELD_OUT_NGRAM, so one constant answers both containment questions.',
+  },
+]
+
+/** The four the intake invokes directly; the fifth is a library for them. */
+const COMPILER_ENTRYPOINTS = INTAKE_COMPILER_CONSTANTS.filter((c) =>
+  c.repo.startsWith('operator/bin/')
+)
+
+const PY_IMPORT_DRIVER = [
+  'import importlib.util, sys',
+  'spec = importlib.util.spec_from_file_location("_probe", sys.argv[1])',
+  'mod = importlib.util.module_from_spec(spec)',
+  'sys.modules["_probe"] = mod',
+  'spec.loader.exec_module(mod)',
+].join('\n')
+
+interface ImportResult {
+  readonly ok: boolean
+  readonly detail: string
+}
+
+/** Execute a module top-to-bottom in its own process. Every loader in this set
+ *  runs at MODULE level, so a plain import is the whole probe. */
+function importsCleanly(modulePath: string): ImportResult {
+  try {
+    execFileSync('python3', ['-c', PY_IMPORT_DRIVER, modulePath], {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })
+    return { ok: true, detail: '' }
+  } catch (err) {
+    const e = err as { stderr?: string; message?: string }
+    return { ok: false, detail: (e.stderr || e.message || 'unknown failure').trim().slice(-400) }
+  }
+}
+
+/** Materialize `layout` (container path -> repo source) under a fresh temp root. */
+function materialize(layout: ReadonlyMap<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), 'smd-compiler-layout-'))
+  for (const [containerPath, repoSource] of layout) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- containerPath comes from this repo's Dockerfile COPY set, repoSource from the checked-in constant list; neither is user input.
+    const dest = join(root, containerPath)
+    mkdirSync(dirname(dest), { recursive: true })
+    copyFileSync(resolve(repoSource), dest)
+  }
+  return root
+}
+
+/** Destinations as the DOCKERFILE states them, so the tree under test is the
+ *  image's layout rather than the one this test would have preferred. */
+function mirrorLayoutFromDockerfile(): Map<string, string> {
+  const layout = new Map<string, string>()
+  for (const c of INTAKE_COMPILER_CONSTANTS) {
+    for (const landing of containerPaths(c.repo)) {
+      if (landing.startsWith(MIRROR_ROOT + '/')) layout.set(landing, c.repo)
+    }
+  }
+  return layout
+}
+
+const TEMP_ROOTS: string[] = []
+const trackTemp = (root: string): string => {
+  TEMP_ROOTS.push(root)
+  return root
+}
+
+afterAll(() => {
+  for (const root of TEMP_ROOTS) rmSync(root, { recursive: true, force: true })
+})
+
+describe('the establishment intake finds its compilers where it looks for them', () => {
+  it('has python3 available to run the layout probes', () => {
+    // Stated as an assertion rather than a skip. A layout suite that quietly
+    // skips itself on a runner without python3 is the same defect it exists to
+    // catch: silence indistinguishable from success.
+    let available: boolean
+    try {
+      execFileSync('python3', ['-c', 'pass'], { stdio: 'pipe' })
+      available = true
+    } catch {
+      available = false
+    }
+    expect(
+      available,
+      'python3 is required to prove the compiler layout resolves; the image installs it via apt ' +
+        'and ubuntu-latest carries it. Do not weaken this to a skip.'
+    ).toBe(true)
+  })
+
+  it('ships every compiler at the exact path the overlay names as a constant', () => {
+    const failures: string[] = []
+    for (const c of INTAKE_COMPILER_CONSTANTS) {
+      if (!existsSync(resolve(c.repo))) {
+        failures.push(`${c.repo} - no such file in this repo (${c.role})`)
+        continue
+      }
+      const landings = containerPaths(c.repo)
+      if (!landings.includes(c.container)) {
+        failures.push(
+          `${c.repo} - lands at [${landings.join(', ') || 'nowhere'}] but establish_intake/` +
+            `gates.py resolves it at ${c.container}. ${c.role}`
+        )
+      }
+    }
+    expect(
+      failures,
+      'The overlay probes these paths before every establishment run and REFUSES the run when one ' +
+        'is absent. Add or repoint the COPY in operator/templates/Dockerfile.'
+    ).toEqual([])
+  })
+
+  it('ships nothing into the mirror that the overlay does not know about', () => {
+    // The other direction of the same contract. A compiler added here but never
+    // declared in REQUIRED_COMPILERS would ship, never be probed, and never run
+    // — present on the seat and absent from the control.
+    const mirrored = COPIES.filter((c) => c.dest.startsWith(MIRROR_ROOT + '/'))
+      .map((c) => c.src)
+      .sort()
+    expect(
+      mirrored,
+      `Every file under ${MIRROR_ROOT} is part of the cross-repo compiler contract. Adding one ` +
+        'means adding it to REQUIRED_COMPILERS in the overlay and to ' +
+        'INTAKE_COMPILER_CONSTANTS here, in the same change.'
+    ).toEqual(INTAKE_COMPILER_CONSTANTS.map((c) => c.repo).sort())
+  })
+
+  it('keeps the drafting gate check at BOTH paths, because two readers resolve it differently', () => {
+    // The reconciliation. #2083 put drafting_gate_check.py under WORKDIR because
+    // four SKILL.md bodies invoke it by a literal relative path; the intake
+    // resolves the same file through spec_leak_check's parents[2]. Satisfying
+    // the intake by MOVING the /app copy would silently un-fix #2083.
+    const gateCheck = 'operator/templates/drafting/drafting_gate_check.py'
+    const landings = containerPaths(gateCheck)
+    expect(landings, 'the skill-facing copy under WORKDIR must survive (#2083)').toContain(
+      posixJoin(WORKDIR, gateCheck)
+    )
+    expect(landings, 'the intake-facing copy under the mirror root must exist').toContain(
+      `${MIRROR_ROOT}/${gateCheck}`
+    )
+  })
+
+  it('resolves every loader when the shipped layout is materialized', () => {
+    const layout = mirrorLayoutFromDockerfile()
+    expect(layout.size, 'the Dockerfile must place all five files under the mirror root').toBe(
+      INTAKE_COMPILER_CONSTANTS.length
+    )
+
+    const root = trackTemp(materialize(layout))
+    const failures: string[] = []
+    for (const c of COMPILER_ENTRYPOINTS) {
+      const result = importsCleanly(join(root, c.container))
+      if (!result.ok) failures.push(`${c.repo} failed to import: ${result.detail}`)
+    }
+    expect(
+      failures,
+      'Each of these resolves a sibling or an ancestor-relative path at MODULE level, so an ' +
+        'import is the whole test. A COPY that lands the files in a flat or re-rooted layout ' +
+        'passes every string assertion above and fails here.'
+    ).toEqual([])
+  })
+
+  // --- False controls. --------------------------------------------------
+  // Law 12: a check that cannot fail has measured nothing. The two tests below
+  // deliberately break the layout the test above asserts, and would themselves
+  // fail if the probe were vacuous (a python3 that no-ops, a driver that never
+  // executes the module, an import with no path dependency at all).
+
+  it('FALSE CONTROL: a flattened layout breaks the ancestor-relative gate-check import', () => {
+    const flat = new Map<string, string>()
+    for (const c of INTAKE_COMPILER_CONSTANTS) flat.set(`flat/${basename(c.repo)}`, c.repo)
+    const root = trackTemp(materialize(flat))
+
+    const leak = INTAKE_COMPILER_CONSTANTS.find((c) => c.repo.endsWith('spec_leak_check.py'))!
+    const result = importsCleanly(join(root, `flat/${basename(leak.repo)}`))
+    expect(
+      result.ok,
+      'spec_leak_check resolves the drafting gate check at parents[2]/operator/templates/' +
+        'drafting/. If it imports from a flat dir, the probe is not exercising the path ' +
+        'dependency and the positive test above proves nothing.'
+    ).toBe(false)
+  })
+
+  it('FALSE CONTROL: removing the sibling voice_profile breaks the sibling loaders', () => {
+    const layout = mirrorLayoutFromDockerfile()
+    const withoutProfile = new Map(
+      [...layout].filter(([, repoSource]) => !repoSource.endsWith('voice_profile.py'))
+    )
+    const root = trackTemp(materialize(withoutProfile))
+
+    const siblingLoaders = COMPILER_ENTRYPOINTS.filter(
+      (c) => c.repo.endsWith('spec_selftest.py') || c.repo.endsWith('spec_fixed_strings.py')
+    )
+    expect(siblingLoaders).toHaveLength(2)
+
+    const stillImported = siblingLoaders
+      .filter(
+        (c) =>
+          // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- root is mkdtempSync output; c.container is a checked-in constant in this file, not user input.
+          importsCleanly(join(root, c.container)).ok
+      )
+      .map((c) => c.repo)
+    expect(
+      stillImported,
+      'Both load voice_profile.py from Path(__file__).resolve().parent at module level. If ' +
+        'either imports without it, it found the module some other way (an installed copy, a ' +
+        'stale sys.path entry) and the sibling relationship is not what the probe measured.'
+    ).toEqual([])
+  })
+})

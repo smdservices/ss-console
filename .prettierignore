@@ -37,3 +37,12 @@ docs/handbook/
 # work. The branch that owns the source is responsible for formatting it,
 # not whichever branch happens to have a worktree on disk right now.
 .worktrees/
+# Generated cross-repo fixture. Its bytes are COPIED verbatim into
+# hermes-smd-overlay tests/contract/seat_gate_binding_snapshot.json, so the
+# emitter (tests/gate-coverage-snapshot.test.ts, JSON.stringify with 2-space
+# indent) owns the formatting, not prettier. Prettier collapses the short
+# excluded_template_dirs array onto one line; the overlay's merged fixture has
+# it expanded, and a formatter rewriting a generated file makes the drift test
+# permanently red. The sibling gate-coverage-snapshot.json is NOT exempt — it
+# has no short arrays, so the two formatters already agree on it.
+operator/contracts/gate-coverage-snapshot.overlay.json
