@@ -122,8 +122,30 @@ def test_list_events_maps_window_params(rec: _Recorder) -> None:
     assert rec.calls[0] == {
         "method": "GET",
         "path": "/events",
-        "params": {"MatterId": "m-9", "From": "2026-07-01", "To": "2026-07-31", "Limit": 500, "Offset": 0},
+        "params": {
+            "MatterId": "m-9",
+            "From": "2026-07-01",
+            "To": "2026-07-31",
+            "ExcludeDeletedEvents": True,
+            "Limit": 500,
+            "Offset": 0,
+        },
     }
+
+
+def test_list_events_excludes_deleted_by_default(rec: _Recorder) -> None:
+    # The VENDOR default is false (spec: "default: false"), which returns
+    # soft-deleted tombstones alongside live events — proven live 2026-08-02
+    # when 11 deleted PROPOSED events were still listed (#2155). The connector
+    # must invert that default so a routine never reads a deleted deadline as
+    # live; tombstones are an explicit opt-in.
+    server.list_events()
+    assert rec.calls[0]["params"]["ExcludeDeletedEvents"] is True
+
+
+def test_list_events_tombstone_read_is_explicit_opt_in(rec: _Recorder) -> None:
+    server.list_events(exclude_deleted=False)
+    assert rec.calls[0]["params"]["ExcludeDeletedEvents"] is False
 
 
 # ---- folders --------------------------------------------------------------
