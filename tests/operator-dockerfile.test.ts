@@ -645,7 +645,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // consumes.yaml + tests, NOT tracked twins (git-diff-verified
     // ea752ab5..3e40f0c0) — so every overlaySha256 is unchanged and only
     // overlayRef moves. verify-overlay-pairs.py at 3e40f0c0: all 9 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3e40f0c0c4c04b8d0165a4d2f1bdebc9caaf980d"')
+    //
+    // 3e40f0c0 -> 64918213 (2026-08-02, ss#2171 PR 1a / ss#2132): overlay#224
+    // structured write args reach the identifier scan (REPORT mode — the soak
+    // that authorizes the refuse-mode flip) + ordinal-date extraction/folding.
+    // The range moves ONE tracked pair: shared/identifier_filter.py, whose
+    // overlaySha256 is re-recorded in overlay-pairs.json; the ss-console side
+    // deliberately does not move until the PR 2 substrate sync.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="64918213b2ef240a52108d3499610866edd11375"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
