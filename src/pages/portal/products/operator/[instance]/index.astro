@@ -308,9 +308,24 @@ const empty = surfaceState !== 'active' ? EMPTY[surfaceState] : null
   {
     surfaceState === 'active' && (
       <>
-        {/* Header row: status label left, the single Settings entry right —
-            Settings is the act surface and never appears in the reading flow. */}
-        <div class="mt-8 flex items-center justify-end gap-4">
+        {/* Header row: status label left, the two standing entries right —
+            Activity (the read surface: every action the operator took, the
+            audit record §4.5 promises is viewable here) and Settings (the act
+            surface). Neither appears in the reading flow below. Activity was
+            orphaned from all navigation until #2176 — the 2026-08-02 dress
+            rehearsal found the principal role could not reach the audit
+            record by clicking; tests/portal-operator-nav.test.ts now guards
+            both links. */}
+        <div class="mt-8 flex items-center justify-end gap-6">
+          <a
+            href={`${operatorBase}/activity`}
+            class="inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+          >
+            Activity & Audit
+            <span aria-hidden="true" class="font-body font-black text-[color:var(--color-primary)]">
+              →
+            </span>
+          </a>
           <a
             href={`${operatorBase}/settings`}
             class="inline-flex min-h-11 items-center gap-2 px-1 font-mono text-label font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
