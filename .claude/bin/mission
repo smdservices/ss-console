@@ -1,0 +1,40 @@
+#!/bin/bash
+#
+# mission -- set this session's mission line on the shared board.
+#
+#   .claude/bin/mission set "one-line mission" [--focus <issue#|branch|slug>]
+#   .claude/bin/mission show
+#
+# The board record is keyed by the worktree, so the agent-side helper and the
+# hook-side primer address the same record with no session-id discovery. The
+# reflex-primer re-injects the mission every turn (survives /compact) and
+# shows every peer's mission line to every other session.
+#
+# Convention (CLAUDE.md, Session start): set the mission right after the
+# Captain states the session's focus. Prefer an issue number or branch as
+# --focus when one exists -- canonical identifiers beat prose for overlap
+# spotting.
+set -u
+DIR=$(cd "$(dirname "$0")/.." && pwd)   # .claude/
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "mission: not in a git tree" >&2; exit 1; }
+BOARD="$DIR/hooks/lib/board.mjs"
+[ -f "$BOARD" ] || BOARD="$ROOT/.claude/hooks/lib/board.mjs"
+
+case "${1:-}" in
+  set)
+    shift
+    TEXT="${1:-}"
+    [ -n "$TEXT" ] || { echo "usage: mission set \"one-line mission\" [--focus slug]" >&2; exit 1; }
+    shift
+    node "$BOARD" set "$ROOT" --mission "$TEXT" --pid "$PPID" "$@"
+    echo "mission set for $(basename "$ROOT"): $TEXT"
+    ;;
+  show)
+    node "$BOARD" refresh "$ROOT"
+    node "$BOARD" peers "$ROOT"
+    ;;
+  *)
+    echo "usage: mission set \"...\" [--focus slug] | mission show" >&2
+    exit 1
+    ;;
+esac

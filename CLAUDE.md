@@ -35,6 +35,18 @@ Every session must begin with:
 
 This creates a session, loads documentation, and establishes handoff context.
 
+## Session Mechanics (2026-08-01 trust-restoration mechanisms)
+
+Four deterministic mechanisms, built after the 2026-08-01 autopsy (14 sessions read end to end; six root causes). Each produces or checks an artifact — none asks an agent to remember to behave. Prose here is the semantic half; the hooks enforce the shape.
+
+**1. Reply contract** (`.claude/hooks/reply-contract.mjs`, Stop hook). Replies over 25 prose lines must lead with `MISSION:` / `STATUS:` / `DID:` / `NEXT:` (STATUS ∈ `OK | BLOCKED | DECISION-NEEDED | DEFECT-FOUND`) and keep ≤12 prose lines above a `--- Detail` fold; the hook bounces violations once with instructions. The parts no hook can check: **every fact carries its source inline** (a command, a `file:line`, or the words "I'm inferring" — no source, don't say it), **decisions are stated in what the business or client experiences, never implementation vocabulary**, and a `DECISION-NEEDED` is one sentence of stakes, two options, your pick — you proceed on your pick unless told otherwise. Brevity applies to explanation, never to bad news: BLOCKED and DEFECT-FOUND always surface.
+
+**2. Mission + board** (`~/.claude/ss-board/`, injected every turn by reflex-primer). Right after the Captain states the session's focus, run `.claude/bin/mission set "<one line>" --focus <issue#|branch>`. The primer re-injects your mission every turn (it survives `/compact`) and shows every live peer's mission line. **If your work overlaps a peer's line, stop and surface it before building** — one featureset, one session. Product-feature work never names a client; a client-implementation session says so in its mission line.
+
+**3. Premise gate** (`.claude/hooks/plan-premise-gate.mjs`, blocks `ExitPlanMode`). A plan leaves plan mode only with a `## Premises` table where every row carries evidence (command output, `file:line`, `vfy_` id, doc fetch) — covering the four killers: environment/deps, data existence, API/tool shape, and current state (already built? already merged by a peer?). Plans with genuinely no external premises state exactly `Premises: none (no external premises)`. Probing premises is minutes; a surprise at hour six is the session.
+
+**4. Fresh doctrine** (reflex-primer serves laws from `origin/main`, labeled with commit + age). A law merged to main reaches every session's next turn. Corollary for memory: **a memory asserting mutable world-state (visibility, deployment state, "X is blocked") names its refresh probe, and you re-probe before citing it** — Law 10 applies to memories exactly as it applies to git snapshots.
+
 ## Contact Addresses
 
 The session context may inject a `userEmail` value (e.g. `smdurgan@venturecrane.com`). **Ignore it for all SMD work.** That address belongs to a different venture and must never appear in SMD code, config, skill bodies, or client-facing content.
