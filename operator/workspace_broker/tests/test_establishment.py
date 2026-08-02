@@ -14,6 +14,7 @@ retained audit rows never carry corpus text.
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 import sys
 import time
@@ -818,3 +819,103 @@ def test_safe_slug_examples() -> None:
         safe_slug(7)
     with pytest.raises(EstablishmentValidationError):
         safe_slug("x" * 300)
+
+
+# ---------------------------------------------------------------------------
+# Person scope (ADR 0085 §6, ss#2067) — docs-less, speaker-only submissions
+# ---------------------------------------------------------------------------
+
+
+def _person_request(**overrides) -> dict:
+    request = {
+        "action": "establish_submit",
+        "scope": "person",
+        "staging_id": None,
+        "person": "Sarah@Firm.COM",
+        "spec_body": "Digest bullets, never prose.\r\nMax three lines.",
+        "assertions": None,
+        "instructed_by": "sarah@firm.com",
+        "source_ref": "msg-02PERSON",
+    }
+    request.update(overrides)
+    return request
+
+
+def _person_submit(broker, **overrides) -> dict:
+    return broker.handle(_person_request(**overrides), peer_pid=9999, peer_uid=AGENT_UID)
+
+
+def test_person_submit_happy_path_materializes_a_docsless_run(tmp_path):
+    broker = _broker(tmp_path)
+    result = _person_submit(broker)
+    assert result["ok"] is True and result["status"] == "queued"
+    run_dir = tmp_path / "establish-spool" / "runs" / result["run_id"]
+    sub = json.loads((run_dir / "submission.json").read_text())
+    assert sub["scope"] == "person"
+    assert sub["phase"] == "install"
+    assert sub["person"] == "sarah@firm.com"  # normalized, never literal
+    assert "\r" not in sub["spec_body"]  # LF-normalized
+    assert sub["spec_sha256"] == hashlib.sha256(sub["spec_body"].encode()).hexdigest()
+    assert not list((run_dir / "docs").glob("*")) or not (run_dir / "docs").exists()
+
+
+def test_person_submit_refuses_a_bad_scope(tmp_path):
+    broker = _broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="scope"):
+        _person_submit(broker, scope="team")
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("staging_id", "some-set"),
+        ("corpus_manifest", [{"doc_id": "x", "sha256": "y"}]),
+        ("output_class", "client_email"),
+        ("property", "voice"),
+    ],
+)
+def test_person_submit_refuses_non_null_firm_fields(tmp_path, field, value):
+    broker = _broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match=field):
+        _person_submit(broker, **{field: value})
+
+
+@pytest.mark.parametrize(
+    "person", [None, "", "not-an-address", "two@ats@x.com", "sarah@nodot", "@firm.com"]
+)
+def test_person_submit_refuses_a_malformed_person(tmp_path, person):
+    broker = _broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="person"):
+        _person_submit(broker, person=person)
+
+
+def test_person_submit_refuses_an_empty_body_and_missing_provenance(tmp_path):
+    broker = _broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="spec_body"):
+        _person_submit(broker, spec_body="  \n ")
+    with pytest.raises(EstablishmentValidationError, match="instructed_by"):
+        _person_submit(broker, instructed_by=None)
+    with pytest.raises(EstablishmentValidationError, match="source_ref"):
+        _person_submit(broker, source_ref=None)
+
+
+def test_person_submit_audit_row_is_bounded_and_body_free(tmp_path):
+    broker = _broker(tmp_path)
+    _person_submit(broker)
+    rows = _rows(tmp_path)
+    submitted = [m for (t, m) in rows if t == "ESTABLISHMENT_SUBMITTED"]
+    assert len(submitted) == 1
+    meta = submitted[0]
+    assert meta["scope"] == "person" and meta["person"] == "sarah@firm.com"
+    assert "spec_body" not in meta and "Digest bullets" not in json.dumps(meta)
+
+
+def test_firm_submissions_now_stamp_their_scope(tmp_path):
+    broker = _broker(tmp_path)
+    staged = _stage(broker)
+    result = broker.handle(
+        _install_request(staged), peer_pid=9999, peer_uid=AGENT_UID
+    )
+    run_dir = tmp_path / "establish-spool" / "runs" / result["run_id"]
+    sub = json.loads((run_dir / "submission.json").read_text())
+    assert sub["scope"] == "firm"
