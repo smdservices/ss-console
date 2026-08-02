@@ -207,6 +207,39 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "REPLY_SENT",
         "REPLY_HELD",
         "REPLY_FAILED",
+        # ------------------------------------------------------------------
+        # 2026-08-02 vocabulary reconciliation (#2122). Every type below has a
+        # LIVE producer and live rows on both seats' ledgers, yet was absent
+        # from this vocabulary — so ?action= filters silently no-opped and the
+        # compliance roll-up could not name the bulk of the ledger (TOOL_CALL_
+        # COMPLETED alone is ~69% of pilot rows). Producers named per type;
+        # the TS mirror (src/lib/portal/operator/audit.ts) and the producers
+        # manifest extend in lockstep — the parity test enforces it.
+        #
+        # Per-tool + per-turn audit (overlay hermes-smd-audit, ss#842/#981):
+        "TOOL_CALL_COMPLETED",
+        "LLM_TURN_COMPLETED",
+        # Webhook routing + suppression (overlay hermes-smd-webhook-router /
+        # webhook_gate.py, ADR 0021 Stream E):
+        "WEBHOOK_ROUTED",
+        "WEBHOOK_SUPPRESSED",
+        # Mediated connector broker rows (overlay shared/broker_audit.py):
+        "BROKER_DECISION_ALLOWED",
+        "BROKER_EXECUTED",
+        # Live config apply (overlay config_applier, ADR 0044 WS3):
+        "CONFIG_WRITE",
+        # Confirm-send seam (overlay hermes-smd-trust):
+        "CONFIRM_SEND_DISPATCHED",
+        "CONFIRM_SEND_FAILED",
+        # Authored-format spec gate (overlay shared/spec_gate.py, overlay#207):
+        "SPEC_GATE_TRIGGERED",
+        # Report-only voice gate (overlay hermes-smd-trust/voice_gate.py) —
+        # distinct from the VOICE_GATE_PASSED/NEAR_PASS/FAILED triple above,
+        # which nothing currently emits:
+        "VOICE_GATE_TRIGGERED",
+        # Client-correction capture appended broker-side (ss#2091,
+        # operator/workspace_broker/corrections.py):
+        "CORRECTION_PROPOSED",
     }
 )
 

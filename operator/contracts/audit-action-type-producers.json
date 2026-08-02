@@ -8,7 +8,7 @@
     "evidence packet CONSUME these values (audit viewer filters, compliance.ts roll-ups,",
     "evidence/packet.py _count(...) buckets). But nothing asserted that each consumed",
     "value has a RUNTIME PRODUCER. An action_type can sit in the enum, be mirrored to TS,",
-    "be counted by the compliance packet, and be emitted by NOBODY — a dashboard column or",
+    "be counted by the compliance packet, and be emitted by NOBODY \u2014 a dashboard column or",
     "compliance metric that is structurally always-zero. That is the inert-control class:",
     "a consumer with no producer reads as 'feature present, value 0' indistinguishable from",
     "'genuinely zero events'.",
@@ -19,17 +19,17 @@
     "                 named producerFile exists and contains the token in code).",
     "  'overlay'    = it is emitted by the venturecrane/hermes-smd-overlay runtime that ships",
     "                 on customer Machines (a separate, pinned repo not checked out in this",
-    "                 CI; we record overlayProducer + reason — the same cross-repo",
+    "                 CI; we record overlayProducer + reason \u2014 the same cross-repo",
     "                 human-decision shape operator/contracts/overlay-pairs.json uses).",
     "  'deferred'   = in the closed vocabulary and CONSUMED (viewer filter / compliance),",
-    "                 but NO producer writes the literal row yet — persistence is gated on a",
+    "                 but NO producer writes the literal row yet \u2014 persistence is gated on a",
     "                 tracked issue. This is the live inert-control instance the guard found;",
     "                 it carries producerIntent + reason naming the gap and the unblocking",
     "                 work, so the always-zero metric is documented loudly, not hidden.",
     "",
     "ENFORCEMENT (tests/operator-audit-producers.test.ts):",
     "  1. COVERAGE: manifest keys == ACCEPTED_ACTION_TYPES exactly. A new action_type with",
-    "     no manifest entry fails CI, forcing a conscious producer classification — the gate",
+    "     no manifest entry fails CI, forcing a conscious producer classification \u2014 the gate",
     "     that would have caught a consumed-but-never-produced type.",
     "  2. ss-console PRODUCERS ARE REAL: each 'ss-console' entry's producerFile exists and",
     "     contains the token in code. Deleting the only producer of a still-consumed type",
@@ -159,7 +159,7 @@
     "RBAC_EVENT": {
       "side": "deferred",
       "producerIntent": "src/lib/portal/operator/rbac-audit.ts",
-      "reason": "rbac-audit.ts builds structured audit:rbac_event events for user-management actions, but the audit_log PERSISTENCE path (the writer that stamps action='RBAC_EVENT' onto a row) is gated on #821/#891 and not yet wired. The value is in the closed vocabulary and the viewer can filter on it, so it is currently consumed-but-never-produced — surfaced here deliberately rather than hidden. Flip to side=ss-console with producerFile once #821 lands the persistence path that writes the literal RBAC_EVENT row."
+      "reason": "rbac-audit.ts builds structured audit:rbac_event events for user-management actions, but the audit_log PERSISTENCE path (the writer that stamps action='RBAC_EVENT' onto a row) is gated on #821/#891 and not yet wired. The value is in the closed vocabulary and the viewer can filter on it, so it is currently consumed-but-never-produced \u2014 surfaced here deliberately rather than hidden. Flip to side=ss-console with producerFile once #821 lands the persistence path that writes the literal RBAC_EVENT row."
     },
     "COMPLIANCE_PACKET_EXPORTED": {
       "side": "ss-console",
@@ -285,6 +285,66 @@
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",
       "reason": "emitted on the customer Machine when the AgentMail reply send is attempted but errors (HTTP / unreachable / timeout)."
+    },
+    "TOOL_CALL_COMPLETED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (post_tool_call hook, emit_tool_event)",
+      "reason": "one row per tool invocation on the customer Machine; the highest-volume type on both seats (~69% of pilot rows, live-probed 2026-08-02)."
+    },
+    "LLM_TURN_COMPLETED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (post_llm_call hook, emit_llm_event)",
+      "reason": "one row per completed agent turn; does not fire on interrupted turns (documented in the overlay's docs/hook-surface.md)."
+    },
+    "WEBHOOK_ROUTED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-webhook-router (ADR 0021 Stream E)",
+      "reason": "one row per inbound webhook successfully routed to a skill; payload source + event_type in metadata."
+    },
+    "WEBHOOK_SUPPRESSED": {
+      "side": "overlay",
+      "overlayProducer": "webhook_gate.py (suppression audit)",
+      "reason": "one row per suppressed inbound; the suppression stands whether or not the audit write succeeds (gate comment webhook_gate.py:440-443)."
+    },
+    "BROKER_DECISION_ALLOWED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-trust (workspace broker decision seam)",
+      "reason": "decision row written before mediated-connector grant redemption."
+    },
+    "BROKER_EXECUTED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-workspace (broker execution seam)",
+      "reason": "execution row paired with broker-signed receipt evidence."
+    },
+    "CONFIG_WRITE": {
+      "side": "overlay",
+      "overlayProducer": "config_applier/applier.py (ADR 0044 WS3)",
+      "reason": "one row per live customer.yaml apply; digests carry old/new config provenance, never content."
+    },
+    "CONFIRM_SEND_DISPATCHED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-trust (confirm-send seam)",
+      "reason": "emitted when a confirmed external send dispatches."
+    },
+    "CONFIRM_SEND_FAILED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-trust (confirm-send seam)",
+      "reason": "emitted when a confirmed external send errors."
+    },
+    "SPEC_GATE_TRIGGERED": {
+      "side": "overlay",
+      "overlayProducer": "shared/spec_gate.py (authored-format gate, overlay#207)",
+      "reason": "emitted when output fails the client-authored format spec."
+    },
+    "VOICE_GATE_TRIGGERED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-trust/voice_gate.py",
+      "reason": "report-only voice-gate signal; distinct from VOICE_GATE_PASSED/NEAR_PASS/FAILED which have no emitter."
+    },
+    "CORRECTION_PROPOSED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/corrections.py",
+      "reason": "the workspace broker appends the client-correction capture row directly to the Machine ledger (ss#2091); declared in both vocabularies 2026-08-02 (#2122) so ledger contents are never outside the closed set."
     }
   }
 }
