@@ -184,6 +184,28 @@ personas:
           scheduled: false
           webhook: false
         enabled: true
+      # establishment (ADR 0085) — product skills, not pack skills: an Operator
+      # admin points the seat at the firm's own documents and the firm's voice
+      # or an output's shape is established from them. Conversational only:
+      # never scheduled, never webhook-fired, because establishment is an
+      # instructed act and an unattributed turn may not establish anything.
+      # Bound HERE, on the proving seat, because readiness means we perform the
+      # client's act in the client's role on the identical path; activation on a
+      # client seat is a Captain act.
+      - name: voice-establishment
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: shape-establishment
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
       # intake / conflict
       - name: new-matter-intake
         version: pending
