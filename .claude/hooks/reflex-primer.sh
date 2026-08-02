@@ -38,21 +38,105 @@ PAYLOAD=$(cat 2>/dev/null) || exit 0
 PROMPT=$(printf '%s' "$PAYLOAD" | jq -r '.prompt // .prompt_text // empty' 2>/dev/null) || exit 0
 [ -z "$PROMPT" ] && exit 0
 
-cat <<'PRIMER'
+# The session's real tree, computed once and shared by the doctrine, board,
+# and freshener blocks below. Payload .cwd first for the same reason as
+# everywhere else in this file: CLAUDE_PROJECT_DIR is pinned at launch and
+# does not follow EnterWorktree.
+TREE_EARLY=$(printf '%s' "$PAYLOAD" | jq -r '.cwd // empty' 2>/dev/null)
+[ -n "$TREE_EARLY" ] && [ -d "$TREE_EARLY" ] || TREE_EARLY="$PWD"
+ROOT_EARLY=$(git -C "$TREE_EARLY" rev-parse --show-toplevel 2>/dev/null || true)
+HOOK_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)
+
+# --- Doctrine emission: fresh from origin/main, heredoc as fallback ---------
+#
+# Incident 2026-08-01: Law 11 merged to main at 18:37 and was absent from a
+# session started that same evening -- both the primary checkout and every
+# worktree predate any given merge, so a law could ship and never reach the
+# sessions having the problem it named. The shared origin/main REF does not
+# have that problem: any session's fetch refreshes it for all of them. So the
+# laws are served from `git show origin/main:` when that parses sanely,
+# labeled with their commit and age (stale-but-labeled is acceptable;
+# stale-and-silent is not), and the heredoc below is the fallback -- kept
+# verbatim in sync with the doctrine by tests/doctrine-integrity.test.ts and
+# the maintenance contract, exercised whenever extraction fails.
+emit_laws() {
+  set +e
+  local extractor fresh meta
+  extractor="$HOOK_DIR/lib/extract-primer-lines.mjs"
+  [ -f "$extractor" ] || extractor="$ROOT_EARLY/.claude/hooks/lib/extract-primer-lines.mjs"
+  if [ -n "$ROOT_EARLY" ] && [ -f "$extractor" ] && command -v node >/dev/null 2>&1; then
+    fresh=$(git -C "$ROOT_EARLY" show origin/main:docs/doctrine/agent-operating-doctrine.md 2>/dev/null \
+      | node "$extractor" 2>/dev/null)
+    if [ -n "$fresh" ]; then
+      meta=$(git -C "$ROOT_EARLY" log -1 --format='%h, %cr' origin/main -- docs/doctrine/agent-operating-doctrine.md 2>/dev/null)
+      echo "[doctrine] Operating laws (origin/main${meta:+ @ ${meta}}):"
+      printf '%s\n' "$fresh"
+      return 0
+    fi
+  fi
+  # Fallback: the judgment laws (tier primer/radar) verbatim, gate-tier laws
+  # compressed to the pointer line -- the same rendering the extractor
+  # produces, pinned to the doctrine by tests/doctrine-integrity.test.ts.
+  cat <<'PRIMER'
 [doctrine] Operating laws (docs/doctrine/agent-operating-doctrine.md):
 1. Resolve whose call it is before acting: agents execute, the Captain owns strategy, commitments, and spend, clients author their own posture. Never default-claim or default-defer.
-2. Engagement work starts by reading that engagement dossier. An index line is a pointer, not knowledge.
 3. The verb is the scope: "review X" or "let's review X" delivers exactly the text of X plus "what would you like to discuss", nothing volunteered; verdicts only under an evaluating ask, edits only under an editing verb. Never edit Captain-authored client documents unasked.
 4. A gap in your context is a question, not a finding. Never report your own ignorance as a defect; never fill it with plausible content.
-5. Client-facing numbers and terms trace to an ADR, a letter, or the Captain, with the source named. Runtime claims trace to an observation. Config is not runtime.
-6. Founder and client register comes from the Captain; agents edit, never generate from nothing. Never indict the counterparty.
-7. Blast radius before action: on live systems, shared state, and secrets, use the safe tool, never the convenient one.
 8. Finish or say why: no stopping-point offers, no hedging finished work as draft, no relitigating settled calls.
-9. The deliverable is the client's act, not your artifact: name the terminal seam, enumerate every gate between the client and the effect, and escalate an unclosable gate before building the closable ones.
 10. Your snapshot is not the system. Tree state, branch lists, merged PRs, and installed dependencies decay within minutes of the briefing that reported them. Re-probe before acting on any of them.
-11. The Captain's attention is the scarcest resource on the venture: default to three lines (shipped / next / blocked), put detail in the PR or issue and link it, and escalate only what costs money, touches a client, or changes a promise. An escalation is one sentence of stakes, two options, your pick, and you proceed on your pick unless told otherwise.
 12. A check that cannot fail has measured nothing. Before reporting an observation, name what would have made it false and confirm your instrument would have shown it.
+Gate-enforced laws (mechanisms, not memory -- registry has the prose): 2 load-before-touch, 5 claims-trace, 6 authored-voice, 7 blast-radius, 9 deliverable-is-the-act, 11 signal-not-volume.
 PRIMER
+}
+emit_laws || true
+
+# --- Ref freshener ----------------------------------------------------------
+#
+# The doctrine block above (and Law 10's behind-count) are only as fresh as
+# the last fetch. Per-turn fetching is not affordable across 4-8 sessions, so
+# this fires a BACKGROUND fetch at most every 30 minutes, gated on
+# FETCH_HEAD's mtime. All three fds are detached: a background child that
+# inherits this hook's stdout keeps the pipe open and hangs the harness's
+# read of the primer.
+freshen_refs() {
+  set +e
+  [ -n "$ROOT_EARLY" ] || return 0
+  local gitdir fh
+  gitdir=$(git -C "$ROOT_EARLY" rev-parse --git-common-dir 2>/dev/null)
+  [ -n "$gitdir" ] || return 0
+  case "$gitdir" in /*) ;; *) gitdir="$ROOT_EARLY/$gitdir" ;; esac
+  fh="$gitdir/FETCH_HEAD"
+  if [ ! -f "$fh" ] || [ -n "$(find "$fh" -mmin +30 2>/dev/null)" ]; then
+    # Touch first so concurrent sessions and fetch-failure loops (fixture
+    # repos with no origin) cannot spawn a fetch per turn.
+    touch "$fh" 2>/dev/null
+    ( git -C "$ROOT_EARLY" fetch origin main --quiet </dev/null >/dev/null 2>&1 & )
+  fi
+}
+freshen_refs || true
+
+# --- Mission + board --------------------------------------------------------
+#
+# The session's mission line, re-injected every turn so it survives /compact
+# and 8-hour drift (2026-08-01 autopsy: "state the mission, accomplishments,
+# and next steps" asked 8+ times across sessions is the Captain doing this
+# job by hand). Then every live peer's mission line: 4-8 concurrent sessions
+# were mutually blind past session start, which is how two of them built the
+# same featureset in parallel. No collision matcher -- the model reads the
+# lines and judges overlap, which is exactly the judgment call it can make
+# when the evidence is in front of it every turn.
+board_block() {
+  set +e
+  [ -n "$ROOT_EARLY" ] || return 0
+  command -v node >/dev/null 2>&1 || return 0
+  local lib
+  lib="$HOOK_DIR/lib/board.mjs"
+  [ -f "$lib" ] || lib="$ROOT_EARLY/.claude/hooks/lib/board.mjs"
+  [ -f "$lib" ] || return 0
+  node "$lib" refresh "$ROOT_EARLY" 2>/dev/null
+  node "$lib" peers "$ROOT_EARLY" 2>/dev/null
+}
+board_block || true
 
 # Law 2 escape-hatch visibility.
 #

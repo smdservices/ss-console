@@ -204,6 +204,8 @@ tier: gate
 enforcement:
   - .github/workflows/runtime-ac-proof.yml
   - scripts/runtime-ac-proof.mjs
+  - .claude/hooks/plan-premise-gate.mjs
+  - tests/plan-premise-gate.test.ts
   - tests/runtime-ac-proof.test.ts
   - docs/doctrine/wired-contract.md
 incidents:
@@ -232,6 +234,8 @@ tier: radar
 enforcement:
   - .claude/hooks/reflex-primer.sh
   - tests/staleness-detection.test.ts
+  - .claude/hooks/lib/board.mjs
+  - tests/board-and-freshness.test.ts
 incidents:
   - date: 2026-07-31
     ref: concurrent-session churn (five sessions, 22 merges in 36 hours, each session repeatedly reporting it had been mistaken; a mid-day major-version migration left six of seven checkouts running a stale toolchain against new source, and the session investigating it watched a pid it had verified alive die, a lock count go from four to two, and a worktree change branch twice while the fix was being written)
@@ -254,16 +258,17 @@ The enforcement is scoped to what is deterministically detectable: whether main 
 id: signal-not-volume
 primer_line: "The Captain's attention is the scarcest resource on the venture: default to three lines (shipped / next / blocked), put detail in the PR or issue and link it, and escalate only what costs money, touches a client, or changes a promise. An escalation is one sentence of stakes, two options, your pick, and you proceed on your pick unless told otherwise."
 cost: high
-tier: primer
+tier: gate
 enforcement:
-  - .claude/hooks/reflex-primer.sh
+  - .claude/hooks/reply-contract.mjs
+  - tests/reply-contract.test.ts
   - tests/doctrine-integrity.test.ts
 incidents:
   - date: 2026-08-01
     ref: 'four concurrent sessions, each ending every turn with a wall of text; the Captain reported he could not find the reviewable items buried inside them, and that most escalations were overstated and should never have been asked'
   - date: 2026-08-01
     ref: 'a session closed with "two decisions still yours" written entirely in its own implementation vocabulary (bind specs to authored routines vs outbound-only blocking plus detect-and-audit); the Captain could not tell what either meant, and one of the two was withdrawn on inspection as a problem the agent owned'
-escalation: none pending
+escalation: 'Promoted primer -> gate 2026-08-01 per the escalation rule: both incidents recurred the same day the law shipped, and the trust-collapse autopsy showed the primer line alone did not deploy (a stale checkout served ten laws to a session that needed this one). The mechanized half is shape: reply-contract.mjs bounces a reply over 25 prose lines that lacks the MISSION/STATUS/DID/NEXT header and a Detail fold, once, fail-open. The judgment half (source-or-silence, business vocabulary, brevity never applying to bad news) stays prose in CLAUDE.md Session Mechanics, because a hook cannot inspect meaning.'
 ```
 
 Every other law makes an agent's work correct. This one makes it **usable**. They fail differently: an agent can be right about everything and still cost the venture more than it returns, because the only channel to the person who decides is saturated. The fleet's throughput is not bounded by how fast agents work. It is bounded by how fast one human can read.
@@ -313,10 +318,28 @@ It is `primer` rather than `gate` because the failure is a missing thought, not 
 mechanisms:
   - id: reflex-primer
     file: .claude/hooks/reflex-primer.sh
-    hypothesis: 'Always-on injection of the ten primer lines reduces judgment-class incidents (Laws 1, 3, 4, 8) that no deterministic gate can reach.'
+    hypothesis: 'Always-on injection of the judgment-law primer lines reduces judgment-class incidents (Laws 1, 3, 4, 8) that no deterministic gate can reach.'
     success_criterion: 'Corrections attributable to Laws 1/3/4/8 captured at session close trend toward zero across the sessions between now and the review date.'
     review: 2026-09-30
     on_failure: 'Demote or redesign. A mechanism that cannot be demoted is ceremony.'
+  - id: reply-contract
+    file: .claude/hooks/reply-contract.mjs
+    hypothesis: 'A Stop hook that bounces long unstructured replies once forces the header+fold shape, so the Captain finds the reviewable item without reading the wall (Law 11 mechanized).'
+    success_criterion: 'Wall-of-text corrections from the Captain trend to zero, AND the observed false-positive bounce rate in ~/.claude/ss-board/reply-contract.log stays under 5 percent; the log-only rules are promoted or deleted based on the same log.'
+    review: 2026-09-30
+    on_failure: 'Loosen the threshold, or demote to log-only. A shape gate that cries wolf teaches agents to satisfy its letter and bury the defect below the fold.'
+  - id: plan-premise-gate
+    file: .claude/hooks/plan-premise-gate.mjs
+    hypothesis: 'Blocking plan-mode exit without an evidenced Premises table converts mid-build surprises into plan-time probes (Law 9 extended to plan time).'
+    success_criterion: 'Sessions reporting a mid-build surprise attributable to an unprobed premise (environment, data, API shape, current state) trend to zero; the warn-only path (plan text unavailable) stays rare in ~/.claude/ss-board/premise-gate.log.'
+    review: 2026-09-30
+    on_failure: 'Demote to warn-only. A premise table filled with ceremonial evidence is Law 12 failing at the row level and means the check needs redesign, not more force.'
+  - id: session-board
+    file: .claude/hooks/lib/board.mjs
+    hypothesis: 'Per-turn injection of every live peer mission line ends mutually-blind concurrent sessions (Law 10 extended to peers) without a brittle collision matcher.'
+    success_criterion: 'Zero duplicate-featureset builds across concurrent sessions between now and the review date; board records stay accurate (no ghost peers older than 24h observed in the primer output).'
+    review: 2026-09-30
+    on_failure: 'If ghosts or noise teach agents to skim the board block, tighten pruning or remove the block. A peer listing that is sometimes wrong is worse than the blindness it replaced.'
 ```
 
 ## Closure loop

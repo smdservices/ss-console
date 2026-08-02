@@ -85,6 +85,26 @@ if [ -n "$PEERS" ]; then
   printf '[peers] Other worktrees on this repo. They cannot see you and you cannot see their work in progress:\n%s' "$PEERS"
 fi
 
+# --- Board stub --------------------------------------------------------------
+#
+# Register this session on the shared board (~/.claude/ss-board) at startup,
+# before it has a mission: pid + worktree + session id. The reflex-primer
+# refreshes `updated` every turn (liveness) and prints every peer's mission
+# line; `.claude/bin/mission set` fills in the mission once the Captain
+# states the session's focus. This hook's own pid parent IS the claude
+# process, which is the one pid signal worth recording.
+BOARD_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/lib/board.mjs"
+[ -f "$BOARD_LIB" ] || BOARD_LIB="$SELF/.claude/hooks/lib/board.mjs"
+if command -v node >/dev/null 2>&1 && [ -f "$BOARD_LIB" ]; then
+  SID=$(printf '%s' "$PAYLOAD" | jq -r '.session_id // empty' 2>/dev/null)
+  if [ -n "$SID" ]; then
+    node "$BOARD_LIB" set "$SELF" --pid "$PPID" --session "$SID" 2>/dev/null || true
+  else
+    node "$BOARD_LIB" set "$SELF" --pid "$PPID" 2>/dev/null || true
+  fi
+  echo "[board] Registered on the session board. After the Captain states this session's focus, run: .claude/bin/mission set \"<one line>\" --focus <issue#|branch>"
+fi
+
 # --- What landed on main ahead of you ---------------------------------------
 #
 # Reads the local origin/main ref rather than fetching: this runs at startup
