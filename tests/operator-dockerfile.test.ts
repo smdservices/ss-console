@@ -661,7 +661,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // #222 admin possession). The range is exactly the one squash commit —
     // git-diff-verified zero intersection with pair overlayPaths — so every
     // overlaySha256 is unchanged and only overlayRef moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fad5431bdf8f0d1f05519d8d544ec4e247b5a79b"')
+    // fad5431b -> 62da0504 (2026-08-02): overlay#225 moves the establishment
+    // spool out of /opt/data. The gateway chmods its home to 0700 mid-boot
+    // (the audit ledger works around the same behavior with a bind mount), so
+    // the broker uid could not traverse to a spool whose own dirs were a
+    // correct 0770 — live-caught at the first establishment call on the pilot.
+    // One squash commit, no tracked twin moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="62da0504c50068224bf4d017f81700af6bcc2a26"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
