@@ -610,13 +610,20 @@ def list_events(
     from_: str | None = None,
     to: str | None = None,
     updated_since: str | None = None,
-    exclude_deleted: bool | None = None,
+    exclude_deleted: bool = True,
     limit: int = 500,
     offset: int = 0,
 ) -> Any:
     """List calendar events. ``from_`` / ``to`` bound the window (ISO 8601);
     ``matter_id`` filters to one matter. Used to read back / dedupe the deadlines
     the Operator calendars before writing a new one.
+
+    ``exclude_deleted`` defaults to True because the VENDOR default is false:
+    Smokeball deletion is soft, and an unflagged ``GET /events`` returns
+    tombstones alongside live events (proven live 2026-08-02 — 11 deleted events
+    still listed, vfy_01KZ1PM9AZQFBJCNVVFXS80VNA). A routine reading deleted
+    deadlines as live re-feeds the laundering loop (#2155); pass
+    ``exclude_deleted=False`` only for an audit-style read that wants tombstones.
 
     Each item is enriched with ``matterNumber`` and ``matterCaption`` resolved
     from its own ``matter.id`` (best-effort, bounded) — so a dedupe read compares
