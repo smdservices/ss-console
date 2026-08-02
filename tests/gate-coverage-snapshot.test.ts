@@ -29,11 +29,26 @@
  * compilers' business at establishment time (spec_leak_check and voice_profile
  * both exit nonzero on an empty corpus), not a thing this repo can see.
  *
- * REGENERATE:
+ * TWO ARTIFACTS, ONE GENERATOR. `gate-coverage-snapshot.json` is the full record
+ * (voice AND format, with absence distinguished from `none`).
+ * `gate-coverage-snapshot.overlay.json` is the same data projected onto the
+ * voice axis, in the overlay fixture's exact merged shape, ready to be copied
+ * verbatim into hermes-smd-overlay `tests/contract/seat_gate_binding_snapshot.json`.
+ * That fixture's own header says "REGENERATION IS CONSOLE-SIDE" and nothing
+ * console-side regenerated it, so it would have gone stale on the next seat
+ * edit with both repos green. Emitting it here is what makes the sentence true.
+ *
+ * REGENERATE (writes both files):
  *
  *   UPDATE_GATE_COVERAGE_SNAPSHOT=1 npx vitest run tests/gate-coverage-snapshot.test.ts
  *
+ * When the drift test fires: regenerate, then COPY
+ * `operator/contracts/gate-coverage-snapshot.overlay.json` over the overlay's
+ * fixture in the SAME change that edits the seat configs. The overlay has no
+ * way to pull it.
+ *
  * @see operator/contracts/gate-coverage-snapshot.json (the artifact)
+ * @see operator/contracts/gate-coverage-snapshot.overlay.json (the copy-me twin)
  * @see operator/contracts/output-classes.yaml (what the classes MEAN)
  * @see tests/customer-yaml-parity-contract.test.ts (the pinned-hash precedent)
  */
@@ -42,6 +57,7 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { parse as parseYaml } from 'yaml'
 
 const CUSTOMERS_DIR = 'operator/customers'
@@ -149,13 +165,125 @@ const SNAPSHOT_NOTE =
   'and consumed by the overlay additive-gate assertion. voice_library_nonempty describes the ' +
   'customer.yaml BLOCK, not the R2 vault contents. A null voice_spec/format_spec means the ' +
   'class does not declare that property; the string "none" means it declares that no spec is ' +
-  'expected. Do not hand-edit: regenerate with UPDATE_GATE_COVERAGE_SNAPSHOT=1.'
+  'expected. Do not hand-edit: regenerate with UPDATE_GATE_COVERAGE_SNAPSHOT=1. The sibling ' +
+  'gate-coverage-snapshot.overlay.json is the SAME data in the overlay fixture format; when this ' +
+  'file changes, copy that one into hermes-smd-overlay tests/contract/' +
+  'seat_gate_binding_snapshot.json in the same change as the seat config edit.'
 
 function renderSnapshot(seats: Record<string, SeatCoverage>): string {
   return JSON.stringify({ note: SNAPSHOT_NOTE, seats }, null, 2) + '\n'
 }
 
+// ---------------------------------------------------------------------------
+// The overlay's own fixture, emitted by the SAME generator.
+// ---------------------------------------------------------------------------
+
+/**
+ * The overlay's merged fixture (tests/contract/seat_gate_binding_snapshot.json)
+ * says "REGENERATION IS CONSOLE-SIDE" — and until now nothing console-side
+ * regenerated it, so it would have gone stale on the next seat-config change
+ * with both repos' tests still green. Emitting it from this generator is what
+ * makes that sentence true.
+ *
+ * IT IS A DIFFERENT SHAPE, NOT A RENAMED ONE, and the difference is narrower
+ * than it looks: the overlay fixture is VOICE-gate-specific. It carries
+ * `voice_spec` and nothing else — the merged file omits `format_spec` even for
+ * smd-staging, which declares `format_spec: expected`. Its consumer
+ * (test_voice_gate_binding_coverage.py) reads exactly `voice_library_authored`
+ * and `output_classes.<cls>.voice_spec`. So this is a projection of our snapshot
+ * onto the voice axis, not a reformatting of it, and the two files are both kept
+ * because ours is the full record and theirs is the consumed slice.
+ */
+const OVERLAY_SNAPSHOT_PATH = 'operator/contracts/gate-coverage-snapshot.overlay.json'
+const OVERLAY_FIXTURE_PATH = 'tests/contract/seat_gate_binding_snapshot.json'
+
+/** Byte-identical to the merged overlay fixture's `_comment`, plus the one
+ *  sentence that tells the next person how the file gets there. */
+const OVERLAY_COMMENT =
+  "Snapshot of every REAL seat's voice-gate-relevant config fields, generated from ss-console " +
+  'operator/customers/*/customer.yaml (underscore-prefixed template dirs excluded). Consumed by ' +
+  'tests/test_voice_gate_binding_coverage.py to assert the ss#2086 per-class gate repoint is ' +
+  'ADDITIVE: no (seat x class) loses its downgrade relative to the pre-repoint voice_library ' +
+  "binding. REGENERATION IS CONSOLE-SIDE: ss-console's drift test (ss#2086 plan C3, following " +
+  'the validator_parity_fixtures precedent) regenerates this file when seat configs change; do ' +
+  'not hand-edit. The generator emits it at ss-console ' +
+  "operator/contracts/gate-coverage-snapshot.overlay.json; when ss-console's drift test fires, " +
+  'copy that file over this one in the same change that edits the seat configs.'
+
+/**
+ * Provenance only, and deliberately NOT part of the drift comparison — see the
+ * drift test for why a commit-stamped field cannot be.
+ *
+ * `origin/main` rather than `HEAD`, because this string is read in the OTHER
+ * repo: this venture squash-merges, so a feature-branch sha is a dead reference
+ * the moment the PR lands, and someone dating a stale fixture would find
+ * nothing. origin/main names a commit that still exists. (It is also what the
+ * merged overlay fixture already carries.) HEAD is the fallback for a checkout
+ * with no origin/main ref.
+ */
+function consoleSha(): string {
+  for (const rev of ['origin/main', 'HEAD']) {
+    try {
+      return execFileSync('git', ['rev-parse', rev], { encoding: 'utf8', stdio: 'pipe' }).trim()
+    } catch {
+      continue
+    }
+  }
+  return 'unknown'
+}
+
+const GENERATED_FROM_KEY = 'generated_from'
+const GENERATED_FROM_PATTERN = /^venturecrane\/ss-console@[0-9a-f]{40}$/
+
+function renderOverlaySnapshot(
+  seats: Record<string, SeatCoverage>,
+  excluded: string[],
+  generatedFrom: string
+): string {
+  const overlaySeats: Record<string, unknown> = {}
+  for (const slug of Object.keys(seats).sort()) {
+    const seat = seats[slug]
+    const classes: Record<string, Record<string, string>> = {}
+    for (const className of Object.keys(seat.output_classes).sort()) {
+      const declared: Record<string, string> = {}
+      const voiceSpec = seat.output_classes[className].voice_spec
+      // Omitted, not nulled: the consumer does decl.get("voice_spec", ""), and
+      // an explicit null would read as a declaration of nothing rather than as
+      // the absence of one.
+      if (voiceSpec !== null) declared.voice_spec = voiceSpec
+      classes[className] = declared
+    }
+    overlaySeats[slug] = {
+      voice_library_authored: seat.voice_library_nonempty,
+      output_classes: classes,
+    }
+  }
+  // Key order is load-bearing: the emitted file is copied verbatim into the
+  // overlay, and a reordered object would show up as a whole-file diff there.
+  return (
+    JSON.stringify(
+      {
+        _comment: OVERLAY_COMMENT,
+        [GENERATED_FROM_KEY]: generatedFrom,
+        excluded_template_dirs: excluded,
+        seats: overlaySeats,
+      },
+      null,
+      2
+    ) + '\n'
+  )
+}
+
+/** Replace the provenance line so two renderings compare on CONTENT. */
+function normalizeGeneratedFrom(json: string): string {
+  return json.replace(
+    new RegExp(`("${GENERATED_FROM_KEY}": )"[^"]*"`),
+    '$1"<provenance-normalized>"'
+  )
+}
+
 const LIVE_SEATS = regenerateSeats()
+const EXCLUDED_DIRS = seatDirs().filter(isScaffold)
 
 describe('gate-coverage snapshot', () => {
   it('excludes scaffold directories, and there are some to exclude', () => {
@@ -213,6 +341,83 @@ describe('gate-coverage snapshot', () => {
         'then update PINNED_SEATS_SHA256 below AND the matching constant in the overlay, so the ' +
         'additive-gate assertion is re-decided rather than silently re-based.'
     ).toBe(rendered)
+  })
+
+  it('matches the checked-in overlay fixture, ignoring provenance', () => {
+    // ONE generator, two artifacts. The comparison normalizes `generated_from`
+    // because a HEAD-stamped field compared byte-for-byte fails on the very next
+    // commit, and a gate everyone learns to regenerate past has stopped gating.
+    // Its well-formedness is asserted separately below; the overlay's consumer
+    // never reads it.
+    const rendered = renderOverlaySnapshot(
+      LIVE_SEATS,
+      EXCLUDED_DIRS,
+      `venturecrane/ss-console@${consoleSha()}`
+    )
+    const overlayFile = resolve(OVERLAY_SNAPSHOT_PATH)
+
+    if (process.env.UPDATE_GATE_COVERAGE_SNAPSHOT === '1') {
+      writeFileSync(overlayFile, rendered, 'utf8')
+      console.warn(
+        `[gate-coverage] rewrote ${OVERLAY_SNAPSHOT_PATH}. Copy it over hermes-smd-overlay ` +
+          `${OVERLAY_FIXTURE_PATH} in the same change as the seat config edit.`
+      )
+      return
+    }
+
+    expect(existsSync(overlayFile), `${OVERLAY_SNAPSHOT_PATH} is missing`).toBe(true)
+    expect(
+      normalizeGeneratedFrom(readFileSync(overlayFile, 'utf8')),
+      `${OVERLAY_SNAPSHOT_PATH} is stale. Regenerate with ` +
+        '`UPDATE_GATE_COVERAGE_SNAPSHOT=1 npx vitest run tests/gate-coverage-snapshot.test.ts`, ' +
+        `then COPY it over hermes-smd-overlay ${OVERLAY_FIXTURE_PATH} in the same change that ` +
+        'edits the seat configs. The overlay cannot regenerate it — its own header says ' +
+        'regeneration is console-side, and this generator is what makes that true.'
+    ).toBe(normalizeGeneratedFrom(rendered))
+  })
+
+  it('emits the overlay fixture in the shape its consumer reads', () => {
+    // Structural, not textual, so a future field addition on our side cannot
+    // silently reach the overlay in a shape test_voice_gate_binding_coverage.py
+    // does not parse. It reads exactly voice_library_authored and
+    // output_classes.<cls>.voice_spec.
+    const parsed = JSON.parse(readFileSync(resolve(OVERLAY_SNAPSHOT_PATH), 'utf8')) as {
+      _comment: string
+      generated_from: string
+      excluded_template_dirs: string[]
+      seats: Record<string, { voice_library_authored: boolean; output_classes: object }>
+    }
+
+    expect(Object.keys(parsed)).toEqual([
+      '_comment',
+      'generated_from',
+      'excluded_template_dirs',
+      'seats',
+    ])
+    expect(
+      parsed.generated_from,
+      'provenance must name a real console commit, so a stale fixture can be dated'
+    ).toMatch(GENERATED_FROM_PATTERN)
+    expect(parsed.excluded_template_dirs).toEqual(EXCLUDED_DIRS)
+    expect(parsed.excluded_template_dirs.length).toBeGreaterThan(0)
+
+    for (const [slug, seat] of Object.entries(parsed.seats)) {
+      expect(Object.keys(seat), `${slug} keys`).toEqual([
+        'voice_library_authored',
+        'output_classes',
+      ])
+      expect(typeof seat.voice_library_authored, `${slug} voice_library_authored`).toBe('boolean')
+      for (const [cls, decl] of Object.entries(seat.output_classes)) {
+        // The merged overlay fixture carries NO format_spec anywhere, including
+        // for smd-staging, which declares `format_spec: expected`. That file is
+        // the voice axis only. Leaking format_spec into it would be a shape the
+        // consumer never asked for and a diff nobody authored.
+        expect(
+          Object.keys(decl as object),
+          `${slug}.${cls} declares only voice_spec`
+        ).not.toContain('format_spec')
+      }
+    }
   })
 
   it('pins the seats hash the overlay mirrors', () => {
