@@ -185,6 +185,13 @@ scope:
   inbound_allow_from:
     - scott@smd.services
     - '@[ORG EMAIL DOMAIN]'
+  # Operator-admin allow list (ADR 0085 §2) — who may establish or update the
+  # FIRM's voice and output shapes by instructing the Operator. Specific
+  # people's email addresses, never domains: who speaks for the firm is
+  # commitment-shaped, so changing this list is a PR. Empty = fail-closed
+  # (nobody can establish firm-level voice/shape; per-person preferences are
+  # unaffected — a person's own rostered identity governs their own layer).
+  admins: []
 
 # ---- ESCALATION ----
 escalation:
