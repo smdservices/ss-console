@@ -22,6 +22,11 @@
  * No live R2. `FakeBucket` implements the two methods the module uses and can
  * be told to drop or corrupt a write, so the read-back proof is exercised
  * rather than assumed.
+ *
+ * The last block pins the READING half: ADR 0085 §7 demoted the portal's
+ * authoring form to a read-only window, and the writer above it stayed exactly
+ * where it was. A form returning to that view would reinstate the experience
+ * the ADR removed and put a second writer beside the conversational one.
  */
 
 import { readFileSync } from 'node:fs'
@@ -51,9 +56,16 @@ const MODULE_SOURCE = readFileSync(
   'utf8'
 )
 
-const FORM_SOURCE = readFileSync(
+const SPECS_VIEW_SOURCE = readFileSync(
   fileURLToPath(
     new URL('../src/components/portal/operator/OutputClassSpecs.astro', import.meta.url)
+  ),
+  'utf8'
+)
+
+const RULES_VIEW_SOURCE = readFileSync(
+  fileURLToPath(
+    new URL('../src/components/portal/operator/OutputClassRules.astro', import.meta.url)
   ),
   'utf8'
 )
@@ -296,18 +308,6 @@ describe('output-class specs: the stored bytes are LF-only', () => {
 })
 
 describe('output-class specs: the server holds the ceiling, and every refusal is named', () => {
-  it('derives the maxlength attribute from the server constant rather than picking one', () => {
-    // The attribute counts UTF-16 code units and the ceiling counts UTF-8
-    // bytes, and a string is never fewer bytes than code units — so deriving it
-    // this way can only refuse text the server would also refuse. A picked
-    // number below the ceiling (it was 20,000) makes a longer body authored
-    // elsewhere render into a field the browser treats as over-limit, and
-    // constraint validation can then make the whole form unsubmittable with
-    // nothing on screen saying why.
-    expect(FORM_SOURCE).toContain('maxlength={MAX_SPEC_BODY_BYTES}')
-    expect(FORM_SOURCE).not.toMatch(/maxlength=\{\d/)
-  })
-
   it('reports why a build was refused as a value, not a string to match on', async () => {
     const tooLong = await buildSpecDocument([
       { outputClass: 'staff', property: 'voice', body: 'x'.repeat(MAX_SPEC_BODY_BYTES + 1) },
@@ -331,7 +331,10 @@ describe('output-class specs: the server holds the ceiling, and every refusal is
 
   it('gives every refusal status a banner on the page it redirects to', () => {
     // A status with no banner renders as no message at all: the person is
-    // returned to the form, nothing saved, nothing said.
+    // returned to the page, nothing saved, nothing said. Still load-bearing
+    // after ADR 0085 §7 demoted the form — the endpoint remains the mediated
+    // establishment path's landing and still redirects to this page, so
+    // deleting the banners as "unreachable" would silence a real refusal.
     const block = ENDPOINT_SOURCE.match(
       /const BUILD_FAILURE_STATUS: Record<SpecBuildFailure, string> = \{([\s\S]*?)\n\}/
     )
@@ -340,6 +343,98 @@ describe('output-class specs: the server holds the ceiling, and every refusal is
     expect(statuses).toEqual(['spec_too_long', 'spec_empty', 'spec_invalid'])
     for (const status of statuses) {
       expect(ADVANCED_PAGE_SOURCE, status).toMatch(new RegExp(`^\\s*${status}: \\{`, 'm'))
+    }
+  })
+})
+
+/**
+ * Code and markup with the prose stripped out.
+ *
+ * The window assertions below are about what the component DOES, and a doc
+ * comment explaining why the form was removed necessarily names the form and
+ * the route it used to post to. Asserting against the raw file would make those
+ * explanations unwritable, which is the wrong pressure to put on the one place
+ * the reasoning lives.
+ */
+function withoutComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+}
+
+describe('output-class specs: the portal is a window, not a door (ADR 0085 §7)', () => {
+  // The Advanced page used to be the authoring ENTRY: a form of textareas
+  // POSTing to the endpoint above. ADR 0085 found that inverted ADR 0083's own
+  // model — a property is authored by SAYING it — and demoted the form to a
+  // read-only view. A form reappearing here is not a cosmetic regression: it
+  // reinstates the administrative-web-form experience the ADR removed, beside a
+  // conversational path that would then be a second writer of the same object.
+
+  it('renders no form and no write control', () => {
+    for (const [name, raw] of [
+      ['OutputClassSpecs', SPECS_VIEW_SOURCE],
+      ['OutputClassRules', RULES_VIEW_SOURCE],
+    ] as const) {
+      const source = withoutComments(raw)
+      expect(source, name).not.toMatch(/<form\b/)
+      expect(source, name).not.toMatch(/method="POST"/)
+      for (const control of ['TextArea', 'TextInput', 'CheckboxOption', 'SubmitButton']) {
+        expect(source, `${name} imports ${control}`).not.toMatch(
+          new RegExp(`import ${control} from`)
+        )
+      }
+    }
+  })
+
+  it('aims no submission at the endpoint it used to post to', () => {
+    // The route survives as the mediated path's landing; what must not survive
+    // is this view submitting to it.
+    const source = withoutComments(SPECS_VIEW_SOURCE)
+    expect(source).not.toContain('/api/portal/operator/settings/output-class-specs')
+    expect(source).not.toMatch(/action=/)
+  })
+
+  it('names no form field, because it collects nothing', () => {
+    expect(withoutComments(SPECS_VIEW_SOURCE)).not.toContain('specFieldName')
+    expect(withoutComments(RULES_VIEW_SOURCE)).not.toContain('assertionFieldName')
+  })
+
+  it('shows the established body as authored, line breaks intact', () => {
+    // The prose was written conversationally, so its line breaks are the
+    // author's. Reflowing it would show a client something other than what
+    // their Operator was told.
+    expect(SPECS_VIEW_SOURCE).toContain('whitespace-pre-wrap')
+  })
+
+  it('shows the stored shape rules through the one plain-English renderer', () => {
+    // Rules → sentence is inspectable. Rendering the raw stored shape, or
+    // describing it a second way here, is how the rule and the client's
+    // understanding of the rule drift apart.
+    expect(RULES_VIEW_SOURCE).toContain('describeAssertions')
+  })
+
+  it('keeps the empty state, the unreadable state, and the expectation lines', () => {
+    // Each says something a blank region would not. `absent` is the ordinary
+    // state of a firm that has established nothing; `unreadable` is prose
+    // somebody wrote that we could not display, and must never render as the
+    // former. The expectation line is the class DECLARATION, which lives in
+    // customer.yaml and is not what this view demoted.
+    expect(SPECS_VIEW_SOURCE).toContain('No output classes are set up for this Operator yet')
+    expect(SPECS_VIEW_SOURCE).toContain('could not be read')
+    expect(SPECS_VIEW_SOURCE).toContain("{prop.expected ? 'Spec expected' : 'No spec expected'}")
+  })
+
+  it('shows no provenance, because the vault document carries none', () => {
+    // A stored SpecBody is a body, a digest, and (for format) rules. There is
+    // no by-whom and no when in it. Deriving either for display would be a
+    // client-facing fact read off a field never authored as one — the Pattern B
+    // fabrication this repo treats as P0. The provenance trail is in D1 and
+    // gets its own surface with the corrections queue.
+    const source = withoutComments(SPECS_VIEW_SOURCE)
+    expect(source).not.toContain('sha256')
+    for (const invented of ['Established by', 'Last updated', 'Updated by', 'Set by']) {
+      expect(source, invented).not.toContain(invented)
     }
   })
 })
