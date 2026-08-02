@@ -109,6 +109,8 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Watches for the proof of service to sync in, reads the served date, and surfaces the responsive-pleading deadline for confirmation. Never computes it.',
   'settlement-statement-feeder':
     'Assembles the settlement-statement and disbursement figures when a case settles, for a person to execute in Smokeball. Never moves trust money.',
+  'shape-establishment':
+    'Establishes how a kind of output is shaped, from examples you point it at. Admin only. Installs only rules it can show you in plain words.',
   'stalled-matter-nudge':
     'Surfaces matters with no recent activity and drafts a neutral follow-up. Flags inactivity, never decides what a matter needs.',
   'status-report-assembler':
@@ -117,5 +119,7 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Assembles the trial binder from authored components and tracks pre-trial deadlines. Organizes and stages, never authors or argues.',
   'trust-balance-nudge':
     'Watches your IOLTA trust balance and drafts a top-up request. Read-only on funds, never moves money.',
+  'voice-establishment':
+    "Establishes your firm's writing voice from documents you point it at, and names which of your own documents break the rules it derived. Admin only. Keeps none of your prose.",
   workspace: 'Reads and writes Google Workspace through trust-classified tools.',
 }
