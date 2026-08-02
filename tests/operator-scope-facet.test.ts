@@ -30,11 +30,26 @@ describe('resolveOperatorScope', () => {
       sees: ['Inbox', 'Sent'],
       neverSees: ['Legal'],
       respondsTo: ['scott@smd.services', '@smd.services'],
+      setsStandards: [],
       writesTo: [],
       blockedTopics: ['payroll'],
       blockedSenders: ['competitor.com'],
       blockedWork: ['Smith v. Jones'],
     })
+  })
+
+  it('surfaces the Operator-admin list separately from the roster (ADR 0085 §2)', () => {
+    const model = resolveOperatorScope(
+      config({
+        ...FULL_SCOPE,
+        inbound_allow_from: ['@example-firm.com'],
+        admins: ['dana@example-firm.com'],
+      })
+    )
+    // The roster is domain-wide; the admin list is one person. The two groups
+    // must not collapse into each other on the page.
+    expect(model.scope?.setsStandards).toEqual(['dana@example-firm.com'])
+    expect(model.scope?.respondsTo).toEqual(['@example-firm.com'])
   })
 
   it('keeps the three block kinds separate — never mashed into one list', () => {
@@ -114,6 +129,7 @@ describe('resolveOperatorScope', () => {
       sees: ['Inbox'],
       neverSees: [],
       respondsTo: [],
+      setsStandards: [],
       writesTo: [],
       blockedTopics: [],
       blockedSenders: [],

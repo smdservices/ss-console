@@ -108,6 +108,20 @@ scope: # email / folder visibility envelope
   email_keyword_blocks: <list<string>>
   domain_blocks: <list<string>>
   matter_blocks: <list<string>> # OPTIONAL; external PM matter refs
+  inbound_allow_from: <list<string>> # OPTIONAL; the ADR 0055 organization roster —
+  # exact addresses or `@domain` grants whose mail the Operator may RESPOND to
+  # (not merely draft). Empty/absent is fail-closed: drafts only.
+  admins: <list<email>> # OPTIONAL; the Operator-admin allow list (ADR 0085 §2) — the
+  # people who may establish the firm's voice and output shape by instructing the
+  # Operator, and who may promote a captured correction. The role the signed
+  # agreements call Named Administrator.
+  #   - PERSON addresses only (`local@domain`). An `@domain` grant is REJECTED:
+  #     an admin is a person, and a domain grant would hand establishment
+  #     authority to every future hire. Duplicates are REJECTED.
+  #   - Empty/absent is fail-closed — no instruction on any channel resolves
+  #     admin-classed, so nothing widens.
+  #   - Changed through a PR (who speaks for the firm is commitment-shaped).
+  #     NOT portal-editable; the portal shows the list read-only.
 
 escalation: # default; per-persona override allowed via personas[].escalation_overrides
   red_flag_recipients: <list<email>> # at least one

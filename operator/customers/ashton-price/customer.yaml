@@ -610,6 +610,23 @@ scope:
   inbound_allow_from:
     - '@ashtonandprice.com'
     - scott@smd.services
+  # The Operator-admin allow list (ADR 0085 §2) — who may establish the firm's
+  # voice and output shapes by instructing the Operator, and who may promote a
+  # captured correction. This is the role letter 18 named to the firm as its two
+  # Named Administrators; the config key is ours, the people are the paper's.
+  #
+  # Why this list is NOT the roster above: the roster is domain-wide, so every
+  # person at the firm gets real answers. Establishment is narrower on purpose —
+  # an associate asking for a different tone is captured as a proposed
+  # correction, and Chris or Christa decides whether it becomes how the firm
+  # writes. Person addresses only; a whole-@domain grant is refused by the
+  # validator precisely because it would erase that distinction.
+  #
+  # Empty = fail-closed: no admin-classed instruction exists on any channel.
+  # Changed only through a PR.
+  admins:
+    - chris@ashtonandprice.com
+    - christa@ashtonandprice.com
   # External send to non-roster recipients is drafted, never autonomous — client-
   # and tribunal-bound mail ships under a human reviewer. The draft_for_review
   # posture is authored on the persona's entitlements.exposure (ADR 0056), the
