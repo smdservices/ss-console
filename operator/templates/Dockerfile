@@ -452,7 +452,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # consumes.yaml DSN note reconciled. The range is exactly that one squash
 # commit; it touches shared/sentry_init.py, tests, contracts/consumes.yaml —
 # NO tracked twin moves, every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="3e40f0c0c4c04b8d0165a4d2f1bdebc9caaf980d"
+ARG OVERLAY_REF="64918213b2ef240a52108d3499610866edd11375"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -671,6 +671,68 @@ COPY operator/skills/ /app/skills/
 # COPY lines in this file and fails on any runtime path a shipped SKILL.md cites
 # but the image does not carry.
 COPY operator/templates/drafting/ /app/operator/templates/drafting/
+
+# ---------- The distillation compilers: the establishment control (ADR 0085 §4) ----------
+#
+# ADR 0085 §4 moves the witness-never-author line for admin-instructed
+# establishment, and what replaces the blanket prohibition is provenance +
+# mediation + THESE FIVE FILES. The leak check refuses client prose beyond the
+# approved fixed strings, the digit invariant refuses asserted numbers, and the
+# self-test demotes any block rule the firm's own writing violates. They are the
+# mechanism that makes an agent-derived spec trustworthy enough to install.
+#
+# THE DESTINATION IS A REPO MIRROR, AND THAT IS LOAD-BEARING, NOT TIDINESS.
+# Three import relationships resolve off the files' OWN locations, so a flattened
+# layout breaks them at import time:
+#
+#   * spec_leak_check.py:  Path(__file__).resolve().parents[2] / "operator" /
+#     "templates" / "drafting" / "drafting_gate_check.py". From
+#     /opt/smd/operator/bin/, parents[2] is /opt/smd — which is precisely why the
+#     mirror root exists and why the gate check must ALSO sit under it. It
+#     imports the checker rather than reimplementing it so the containment
+#     threshold (_HELD_OUT_NGRAM) cannot drift between the check that stops a
+#     draft reproducing held-out record text and the check that stops a spec
+#     reproducing the corpus.
+#   * spec_selftest.py and spec_fixed_strings.py: Path(__file__).resolve().parent
+#     / "voice_profile.py" — a SIBLING load, executed at MODULE level (`_VP =
+#     _load_profile_module()`), so a misplaced voice_profile.py is an immediate
+#     ImportError, not a latent one.
+#
+# WHY /opt/smd RATHER THAN /app. The overlay's establishment intake names these
+# five paths as CONSTANTS (establish_intake/gates.py: COMPILER_BIN_DIR,
+# DRAFTING_GATE_CHECK, REQUIRED_COMPILERS) and probes for them before every run:
+# an absent compiler REFUSES the run rather than skipping the gate, because a
+# gate that silently did not run reads exactly like a gate that passed (Law 12).
+# /app is swept to the agent uid by the blanket chown below; /opt/smd is not, and
+# must not be — the SEC-31 argument that keeps drafting_gate_check.py root-owned
+# is the same argument here, only stronger. An agent that owns the compilers owns
+# the control that decides whether its own authored spec is installable.
+#
+# WHY drafting_gate_check.py SHIPS TWICE. /app/operator/templates/drafting/ is
+# where four SKILL.md bodies invoke it by literal relative path against WORKDIR
+# (#2083); /opt/smd/operator/templates/drafting/ is where spec_leak_check
+# resolves it. Both COPY the SAME repo file, so the two cannot drift. Moving the
+# /app copy to satisfy the intake would break every drafting skill instead.
+#
+# Only the one file is mirrored, not the whole drafting tree: the checker takes
+# every path it reads from argv and loads no siblings, so a fuller mirror would
+# ship bytes nothing resolves. tests/shipped-runtime-paths.test.ts pins the
+# shipped set against the intake's constants and executes the loaders inside a
+# layout-faithful temp tree, so a partial mirror that stops being sufficient
+# fails there rather than on a live seat.
+COPY operator/bin/voice_profile.py /opt/smd/operator/bin/voice_profile.py
+COPY operator/bin/spec_fixed_strings.py /opt/smd/operator/bin/spec_fixed_strings.py
+COPY operator/bin/spec_leak_check.py /opt/smd/operator/bin/spec_leak_check.py
+COPY operator/bin/spec_selftest.py /opt/smd/operator/bin/spec_selftest.py
+COPY operator/templates/drafting/drafting_gate_check.py /opt/smd/operator/templates/drafting/drafting_gate_check.py
+
+# Root-owned, world-readable, agent-unwritable. COPY already lands root:root, so
+# this is belt-and-braces against a future --chown creeping in, and it makes the
+# posture greppable next to the files it protects rather than inferable from the
+# absence of a chown 90 lines below. a+rX (not a+rx) so directories are
+# traversable without marking the .py files executable — the root daemon invokes
+# them as `python3 <path>`, never as programs.
+RUN chown -R root:root /opt/smd && chmod -R a+rX /opt/smd
 
 # Tier-1 custom MCP wrappers (one subdir per connector)
 COPY operator/connectors/ /app/connectors/
