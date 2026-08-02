@@ -78,6 +78,66 @@ describe('Operator customer Machine entrypoint — broker respawn supervisor', (
 })
 
 /**
+ * Regression guard: the ADR 0085 establishment spool and root intake launch
+ * (ss#2161/#2162).
+ *
+ * The spool is the trust boundary an admin-instructed voice/shape submission
+ * crosses: broker-written staging/runs, root-written results, hermes denied at
+ * every level. Every directory must be EXPLICITLY owned and moded — a
+ * default-moded ancestor silently widens the whole tree (the spec_applier
+ * _harden_ancestors incident). The intake launch must be import-gated so a
+ * lagging overlay pin degrades to a loud "not launched" line, never a broken
+ * boot.
+ */
+describe('Operator customer Machine entrypoint — ADR 0085 establishment spool + intake', () => {
+  it('creates every spool directory with an explicit owner and mode (no mkdir -p defaults)', () => {
+    expect(ENTRYPOINT_CODE).toMatch(
+      /install -d -o root -g workspace-broker -m 0750 "\$\{ESTABLISH_SPOOL_DIR\}"/
+    )
+    for (const child of ['staging', 'runs', 'results']) {
+      expect(ENTRYPOINT_CODE).toMatch(
+        new RegExp(
+          `install -d -o root -g workspace-broker -m 0770 "\\$\\{ESTABLISH_SPOOL_DIR\\}/${child}"`
+        )
+      )
+    }
+    // The spool must never be created by a bare mkdir, whose mode is umask luck.
+    expect(/mkdir[^\n]*establish-spool/.test(ENTRYPOINT_CODE)).toBe(false)
+  })
+
+  it('exports the spool path and carries it into the broker env allowlist', () => {
+    expect(ENTRYPOINT_CODE).toMatch(/export SMD_ESTABLISH_SPOOL_DIR="\$\{ESTABLISH_SPOOL_DIR\}"/)
+    // launch_broker runs env -i with a fixed allowlist; the spool var must be
+    // named there or the broker boots establishment-disabled forever.
+    const launchFn = ENTRYPOINT_CODE.slice(
+      ENTRYPOINT_CODE.indexOf('launch_broker()'),
+      ENTRYPOINT_CODE.indexOf('-m workspace_broker.server')
+    )
+    expect(launchFn).toMatch(/SMD_ESTABLISH_SPOOL_DIR="\$\{SMD_ESTABLISH_SPOOL_DIR\}"/)
+  })
+
+  it('launches the root intake under an import-gated respawn loop, before the exec-drop', () => {
+    // Gated: a lagging overlay (no establish_intake module) must degrade to
+    // "not launched", never a broken boot.
+    expect(ENTRYPOINT_CODE).toMatch(/python -c "import establish_intake"/)
+    expect(ENTRYPOINT_CODE).toMatch(
+      /while\s+true;?\s*do[\s\S]*?-m establish_intake[\s\S]*?done\s*\)\s*&/
+    )
+    const launchIdx = ENTRYPOINT_CODE.indexOf('-m establish_intake')
+    const hermesExec = ENTRYPOINT_CODE.search(/exec\s+setpriv[\s\S]*?--reuid=hermes/)
+    expect(launchIdx).toBeGreaterThan(-1)
+    expect(
+      launchIdx < hermesExec,
+      'the intake must be forked while still root (it holds the R2 write credential)'
+    ).toBe(true)
+  })
+
+  it('says so loudly when the intake is NOT launched', () => {
+    expect(ENTRYPOINT_CODE).toMatch(/Root establishment intake NOT launched/)
+  })
+})
+
+/**
  * Regression guard: the entrypoint must run the ADR 0009 cross-machine
  * isolation boot check (invariant_7 `verify_at_boot`) before it hands off to
  * the agent runtime, and must fail closed — including when the invariant module
