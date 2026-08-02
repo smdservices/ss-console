@@ -630,7 +630,22 @@ describe('Operator customer Machine Dockerfile', () => {
     // (GitHub compare 3af998c3...ea752ab5) — so every overlaySha256 is
     // unchanged and only overlayRef moves. verify-overlay-pairs.py against
     // the real overlay at ea752ab5: all 9 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ea752ab5b57e220169071cb3b3d1ac0e01f6f2a7"')
+    //
+    // ea752ab5 -> 3e40f0c0 (2026-08-02, ADR 0085 plan Deploy-0): overlay#218
+    // read_file on webhook turns via a read-only custom toolset (ss #2145).
+    // The spec read-mark is set only by a read_file call, and the webhook
+    // platform's safe toolset deliberately carries no file tools — so every
+    // voice-gated delivery on an inbound-email turn refused forever. Fix is
+    // two-process (translate.py platform_toolsets emission + plugin-load
+    // create_custom_toolset with exactly ["read_file"]) plus a FATAL-loud
+    // boot assertion, because the config half alone fails SILENTLY
+    // (quiet_mode suppresses the unknown-toolset warning). The range is
+    // exactly the one squash commit — translate.py + webhook-router plugin +
+    // activation handler + shared/webhook_read_surface.py (new) +
+    // consumes.yaml + tests, NOT tracked twins (git-diff-verified
+    // ea752ab5..3e40f0c0) — so every overlaySha256 is unchanged and only
+    // overlayRef moves. verify-overlay-pairs.py at 3e40f0c0: all 9 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3e40f0c0c4c04b8d0165a4d2f1bdebc9caaf980d"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
