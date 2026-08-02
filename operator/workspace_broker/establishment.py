@@ -96,9 +96,12 @@ _MAX_SHORT_TEXT = 200
 _MAX_NAME_INPUT = 200
 _MAX_NAME_SLUG = 64
 
-# Broker-minted identifiers (token_urlsafe) and the charset a caller-echoed one
-# must match. Excludes ``/`` and ``.`` so an identifier can never traverse.
-_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+# Identifier charset — mirrors the intake's ``_SAFE_SEGMENT`` exactly
+# (overlay establish_intake/intake.py): lowercase first char, [a-z0-9_-]
+# after, ≤64. The broker mints ids as lowercase hex (token_hex) so they
+# always match; a caller-echoed id outside the charset is refused. Excludes
+# ``/`` and ``.`` so an identifier can never traverse.
+_ID_PATTERN = re.compile(r"\A[a-z0-9][a-z0-9_-]{7,63}\Z")
 
 _NAME_SLUG_KEEP = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
 
@@ -148,7 +151,7 @@ def _require_id(value: Any, field: str) -> str:
     ident = _require_text(value, field, 64)
     if not _ID_PATTERN.match(ident):
         raise EstablishmentValidationError(
-            f"{field} must match [A-Za-z0-9_-]{{8,64}}; refusing to rewrite it"
+            f"{field} must match [a-z0-9][a-z0-9_-]{{7,63}}; refusing to rewrite it"
         )
     return ident
 
@@ -209,7 +212,10 @@ def build_result_row(run_id: str, result: dict[str, Any]) -> dict[str, Any]:
     The retained record carries the verdict, the demoted rules with the
     documents that violated them (names, never text), and the recovery key.
     The corpus and any leak excerpts stay in the one-shot result payload,
-    which is deleted after this row is appended.
+    which is deleted after this row is appended. Demotion entries arrive as
+    ``{rule_id, documents, detail}`` (the intake's selftest gate); ``detail``
+    is deliberately NOT retained — it is compiler prose that may quote, and
+    retained records carry names, ids, and counts only.
     """
     demotions: list[dict[str, Any]] = []
     raw_demotions = result.get("demotions")
@@ -217,14 +223,14 @@ def build_result_row(run_id: str, result: dict[str, Any]) -> dict[str, Any]:
         for entry in raw_demotions[:50]:
             if not isinstance(entry, dict):
                 continue
-            rule = _bounded_str(entry.get("rule"))
+            rule_id = _bounded_str(entry.get("rule_id"))
             raw_docs = entry.get("documents")
             documents = []
             if isinstance(raw_docs, list):
                 documents = [
                     d[:_MAX_SHORT_TEXT] for d in raw_docs[:MAX_DOCS_PER_SET] if isinstance(d, str)
                 ]
-            demotions.append({"rule": rule, "documents": documents})
+            demotions.append({"rule_id": rule_id, "documents": documents})
 
     metadata = {
         "run_id": run_id,
@@ -251,13 +257,23 @@ class EstablishmentStore:
 
         <root>/staging/<staging_id>/meta.json      broker-written
         <root>/staging/<staging_id>/docs/<id>.json broker-written (holds text)
+        <root>/staging/<staging_id>/analysis/      ROOT-written (intake), 0700
         <root>/runs/<run_id>/submission.json       broker-written
         <root>/runs/<run_id>/docs/<id>.json        broker-moved from staging
-        <root>/results/<run_id>.json               ROOT-written, one-shot read
+        <root>/results/<run_id>.json               ROOT-written 0640, one-shot
 
-    Runs are assembled in a dot-prefixed temp dir and atomically renamed into
-    place, so the root intake never observes a half-written submission. The
-    intake ignores dot-prefixed entries by contract (design §2).
+    Runs are assembled complete (INCLUDING submission.json) in a dot-prefixed
+    temp dir and atomically renamed into place; the intake skips dot-prefixed
+    entries and run dirs without a submission.json, so it never observes a
+    half-written submission (overlay establish_intake/intake.py, the other
+    half of this contract).
+
+    Lifecycle split with the root intake: the intake purges each RUN dir after
+    writing its result, purges the whole staging set after an install run, and
+    backstop-sweeps staging at its own longer TTL — because the broker cannot
+    remove the root-owned ``analysis/`` subdir the analyze phase leaves in a
+    staging set. The broker's sweep therefore only removes staging sets it
+    fully owns, and enforces expiry on the rest by refusal.
     """
 
     def __init__(self, spool_root: str | Path, ledger: Any) -> None:
@@ -282,6 +298,13 @@ class EstablishmentStore:
         if self.staging_dir.is_dir():
             for entry in self.staging_dir.iterdir():
                 if not entry.is_dir():
+                    continue
+                if (entry / "analysis").is_dir():
+                    # Root-owned analyze artifacts the broker cannot remove.
+                    # Don't try — a partial rmtree leaves a zombie set. The
+                    # intake's backstop sweep purges these as root; expiry is
+                    # still ENFORCED broker-side by _require_staging's age
+                    # check, so the lingering dir grants nothing.
                     continue
                 created = self._staging_created_at(entry)
                 if now - created > STAGING_TTL_SECONDS:
@@ -353,19 +376,15 @@ class EstablishmentStore:
 
         staging_id_raw = request.get("staging_id")
         if staging_id_raw is None:
-            staging_id = secrets.token_urlsafe(16)
+            # Lowercase hex so the id always matches the intake's _SAFE_SEGMENT.
+            staging_id = secrets.token_hex(12)
             staging_path = self.staging_dir / staging_id
             (staging_path / "docs").mkdir(parents=True)
             (staging_path / "meta.json").write_text(
                 json.dumps({"created_at": time.time()}), "utf-8"
             )
         else:
-            staging_id = _require_id(staging_id_raw, "staging_id")
-            staging_path = self.staging_dir / staging_id
-            if not staging_path.is_dir():
-                raise EstablishmentValidationError(
-                    "unknown or expired staging_id; stage the documents again"
-                )
+            staging_id, staging_path = self._require_staging(staging_id_raw)
 
         existing = self._load_staged_docs(staging_path)
         if len(existing) + 1 > MAX_DOCS_PER_SET:
@@ -380,7 +399,7 @@ class EstablishmentStore:
 
         doc_id = f"doc-{len(existing) + 1:03d}"
         while (staging_path / "docs" / f"{doc_id}.json").exists():
-            doc_id = f"doc-{secrets.token_urlsafe(6)}"
+            doc_id = f"doc-{secrets.token_hex(4)}"
         digest = _hash_text(text)
         record = {
             "doc_id": doc_id,
@@ -410,6 +429,14 @@ class EstablishmentStore:
         if not staging_path.is_dir():
             raise EstablishmentValidationError(
                 "unknown or expired staging_id; stage the documents again"
+            )
+        # Expiry is enforced here by refusal, not only by the sweep: a set the
+        # broker cannot remove (root-owned analysis/ inside) lingers until the
+        # intake's backstop purge, and lingering must not extend its life.
+        if time.time() - self._staging_created_at(staging_path) > STAGING_TTL_SECONDS:
+            raise EstablishmentValidationError(
+                "staging set expired "
+                f"({STAGING_TTL_SECONDS // 60}-minute TTL); stage the documents again"
             )
         return staging_id, staging_path
 
@@ -462,7 +489,8 @@ class EstablishmentStore:
                     f"staged document {doc.get('doc_id')} failed its integrity re-hash; stage the documents again"
                 )
 
-        run_id = secrets.token_urlsafe(16)
+        # Lowercase hex so the id always matches the intake's _SAFE_SEGMENT.
+        run_id = secrets.token_hex(16)
         if phase == "analyze":
             return self._submit_analyze(staging_id, staging_path, staged, run_id)
         return self._submit_install(request, staging_id, staging_path, staged, run_id)
@@ -475,20 +503,13 @@ class EstablishmentStore:
         run_id: str,
     ) -> dict[str, Any]:
         doc_summaries = [{"name": d["name"], "sha256": d["sha256"]} for d in staged]
+        # The intake's submission contract (its module docstring): run_id,
+        # staging_id, phase, created_at. The doc files in docs/ carry the rest.
         submission = {
             "phase": "analyze",
             "run_id": run_id,
             "staging_id": staging_id,
-            "docs": [
-                {
-                    "doc_id": d["doc_id"],
-                    "name": d["name"],
-                    "sha256": d["sha256"],
-                    "size_bytes": d["size_bytes"],
-                }
-                for d in staged
-            ],
-            "submitted_at": time.time(),
+            "created_at": time.time(),
         }
         row = {
             "action_type": ESTABLISHMENT_SUBMITTED_ACTION_TYPE,
@@ -584,6 +605,9 @@ class EstablishmentStore:
         source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
 
         doc_summaries = [{"name": d["name"], "sha256": d["sha256"]} for d in selected]
+        # The intake's submission contract (its module docstring). The manifest
+        # is REBUILT from the broker-verified selection — the intake re-checks
+        # that it maps 1:1 onto the run's docs with matching hashes.
         submission = {
             "phase": "install",
             "run_id": run_id,
@@ -593,21 +617,15 @@ class EstablishmentStore:
             "spec_body": body,
             "spec_sha256": spec_digest,
             "assertions": assertions,
-            "docs": [
-                {
-                    "doc_id": d["doc_id"],
-                    "name": d["name"],
-                    "sha256": d["sha256"],
-                    "size_bytes": d["size_bytes"],
-                }
-                for d in selected
+            "corpus_manifest": [
+                {"doc_id": d["doc_id"], "sha256": d["sha256"]} for d in selected
             ],
             # Provenance for the audit trail, never authorization — the broker
             # cannot verify a claimed instructor (same posture as corrections
             # ``stated_by``); the authorization gate is the admin hook seat-side.
             "instructed_by": instructed_by,
             "source_ref": source_ref,
-            "submitted_at": time.time(),
+            "created_at": time.time(),
         }
         row = {
             "action_type": ESTABLISHMENT_SUBMITTED_ACTION_TYPE,
@@ -623,7 +641,7 @@ class EstablishmentStore:
                     "spec_sha256": spec_digest,
                     "docs": doc_summaries,
                     "doc_count": len(selected),
-                    "assertion_count": len(assertions) if assertions else 0,
+                    "assertion_count": len((assertions or {}).get("rules") or []),
                     "instructed_by": instructed_by,
                     "source_ref": source_ref,
                 },
@@ -632,33 +650,43 @@ class EstablishmentStore:
             ),
         }
         self._ledger.append(row)
-        # Install MOVES the corpus into the run and consumes the staging set —
-        # the submission is final; a re-establishment starts with a fresh stage.
+        # Install MOVES the manifest docs into the run. The staging set itself
+        # is deliberately NOT removed here: the intake's leak check reads the
+        # root-owned analysis/approved_strings.json out of it DURING the run,
+        # and the intake purges the whole set (analysis included, as root)
+        # after the run completes — pass or fail.
         self._materialize_run(run_id, submission, selected, move=True)
-        shutil.rmtree(staging_path, ignore_errors=True)
         return {"ok": True, "run_id": run_id, "phase": "install", "status": "queued"}
 
-    def _validate_assertions(self, value: Any) -> list[dict[str, Any]] | None:
+    def _validate_assertions(self, value: Any) -> dict[str, Any] | None:
         """Shape-and-bound check for assertions.
 
-        Full rule-schema validation is deliberately NOT here: the selftest
-        compiler owns the rule schema and refuses malformed rules (exit 1,
-        design §5). The broker guarantees the payload is a bounded list of
-        JSON objects and nothing else.
+        The wire shape is an OBJECT carrying a ``rules`` list (the intake reads
+        ``assertions.get("rules")`` and forwards the rules to the selftest
+        compiler). Full rule-schema validation is deliberately NOT here: the
+        selftest owns the rule schema and refuses malformed rules (exit 1,
+        design §5). The broker guarantees the payload is a bounded JSON object
+        whose rules are objects, and nothing else.
         """
         if value is None:
             return None
-        if not isinstance(value, list):
-            raise EstablishmentValidationError("assertions must be a list of rule objects")
-        if len(value) > _MAX_ASSERTIONS:
+        if not isinstance(value, dict):
             raise EstablishmentValidationError(
-                f"assertions holds {len(value)} rules; the ceiling is {_MAX_ASSERTIONS}"
+                "assertions must be an object (with an optional 'rules' list)"
             )
-        for index, entry in enumerate(value):
-            if not isinstance(entry, dict):
+        rules = value.get("rules")
+        if rules is not None:
+            if not isinstance(rules, list):
+                raise EstablishmentValidationError("assertions.rules must be a list")
+            if len(rules) > _MAX_ASSERTIONS:
                 raise EstablishmentValidationError(
-                    f"assertions[{index}] must be an object"
+                    f"assertions.rules holds {len(rules)} rules; the ceiling is {_MAX_ASSERTIONS}"
                 )
+            for index, entry in enumerate(rules):
+                if not isinstance(entry, dict):
+                    raise EstablishmentValidationError(
+                        f"assertions.rules[{index}] must be an object"
+                    )
         serialized = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(serialized.encode("utf-8")) > _MAX_ASSERTIONS_BYTES:
             raise EstablishmentValidationError(
@@ -720,7 +748,16 @@ class EstablishmentStore:
                     f"result for run {run_id} is not an object; the TTL sweep will clear it"
                 )
             self._ledger.append(build_result_row(run_id, result))
-            result_path.unlink(missing_ok=True)
+            # One-shot delete. The results dir is 0770 root:workspace-broker
+            # (entrypoint-authored; the intake re-hardens to the same, its
+            # overlay#221 fix), so this unlink succeeds in production. The
+            # guard is resilience only: against a mis-hardened dir the read
+            # must still succeed (the agent is owed the result it was
+            # promised) and the intake's 30-min TTL sweep becomes the remover.
+            try:
+                result_path.unlink(missing_ok=True)
+            except OSError:
+                pass
             return {"ok": True, "run_id": run_id, "status": "complete", "result": result}
         if (self.runs_dir / run_id).is_dir():
             return {"ok": True, "run_id": run_id, "status": "pending"}

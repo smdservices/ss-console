@@ -226,6 +226,9 @@ chmod 2750 "$(dirname "${BROKER_SOCKET}")"
 # read. Root writes results/ files 0640 root:workspace-broker.
 ESTABLISH_SPOOL_DIR="/opt/data/establish-spool"
 export SMD_ESTABLISH_SPOOL_DIR="${ESTABLISH_SPOOL_DIR}"
+# The intake's poll cadence (root child inherits this env; default matches the
+# intake's own built-in default, stated here so it is tunable per seat).
+export SMD_ESTABLISH_POLL_SECONDS="${SMD_ESTABLISH_POLL_SECONDS:-5}"
 install -d -o root -g workspace-broker -m 0750 "${ESTABLISH_SPOOL_DIR}"
 install -d -o root -g workspace-broker -m 0770 "${ESTABLISH_SPOOL_DIR}/staging"
 install -d -o root -g workspace-broker -m 0770 "${ESTABLISH_SPOOL_DIR}/runs"

@@ -86,7 +86,7 @@ def _install_request(staged: dict, **overrides) -> dict:
         "output_class": "client_email",
         "property": "voice",
         "spec_body": "Warm but precise.\r\nNever open with an apology.",
-        "assertions": [{"kind": "forbid", "pattern": "per our conversation"}],
+        "assertions": {"rules": [{"kind": "forbid", "pattern": "per our conversation"}]},
         "corpus_manifest": [{"doc_id": staged["doc_id"], "sha256": staged["sha256"]}],
         "instructed_by": "admin@example-firm.com",
         "source_ref": "msg-01JXYZ",
@@ -337,8 +337,12 @@ def test_analyze_copies_corpus_and_keeps_staging(tmp_path: Path) -> None:
     store = broker.establishment
     run_dir = store.runs_dir / resp["run_id"]
     submission = json.loads((run_dir / "submission.json").read_text())
+    # The intake's submission contract: run_id/staging_id/phase/created_at.
     assert submission["phase"] == "analyze"
-    assert [d["sha256"] for d in submission["docs"]] == [staged["sha256"]]
+    assert submission["staging_id"] == staged["staging_id"]
+    assert "created_at" in submission and "submitted_at" not in submission
+    copied = json.loads((run_dir / "docs" / f"{staged['doc_id']}.json").read_text())
+    assert copied["sha256"] == staged["sha256"]
     # Copied, not moved: the staging set survives for the later install.
     assert (store.staging_dir / staged["staging_id"] / "docs" / f"{staged['doc_id']}.json").exists()
     # No half-written temp dir left behind.
@@ -366,7 +370,7 @@ def test_analyze_appends_submitted_row_without_corpus_text(tmp_path: Path) -> No
 # ---------------------------------------------------------------------------
 
 
-def test_install_materializes_run_and_consumes_staging(tmp_path: Path) -> None:
+def test_install_materializes_run_and_moves_docs(tmp_path: Path) -> None:
     broker = _broker(tmp_path)
     staged = _stage(broker)
     resp = broker.handle(_install_request(staged), peer_pid=9999, peer_uid=AGENT_UID)
@@ -377,9 +381,18 @@ def test_install_materializes_run_and_consumes_staging(tmp_path: Path) -> None:
     assert submission["output_class"] == "client_email"
     assert submission["property"] == "voice"
     assert submission["instructed_by"] == "admin@example-firm.com"
-    # The corpus MOVED into the run; the staging set is consumed.
+    assert "created_at" in submission and "submitted_at" not in submission
+    # The manifest the intake re-verifies 1:1 against the run's docs.
+    assert submission["corpus_manifest"] == [
+        {"doc_id": staged["doc_id"], "sha256": staged["sha256"]}
+    ]
+    # The corpus MOVED into the run (docs gone from staging), but the staging
+    # set itself is retained — the intake reads its analysis/ artifacts during
+    # the run and purges the whole set afterwards, as root.
     assert (run_dir / "docs" / f"{staged['doc_id']}.json").exists()
-    assert not (store.staging_dir / staged["staging_id"]).exists()
+    staging_path = store.staging_dir / staged["staging_id"]
+    assert staging_path.is_dir()
+    assert not (staging_path / "docs" / f"{staged['doc_id']}.json").exists()
 
 
 def test_install_body_is_lf_normalized_before_hash_and_ceiling(tmp_path: Path) -> None:
@@ -474,24 +487,27 @@ def test_install_manifest_unknown_doc_and_duplicate_are_refused(tmp_path: Path) 
 
 
 def test_install_assertions_shape_and_ceilings(tmp_path: Path, monkeypatch) -> None:
+    """Wire shape is an OBJECT with an optional rules list (the intake reads
+    assertions.get('rules')); a bare list, a non-list rules, or a non-object
+    rule entry is a refusal."""
     broker = _broker(tmp_path)
     staged = _stage(broker)
-    with pytest.raises(EstablishmentValidationError):
-        broker.handle(
-            _install_request(staged, assertions={"kind": "forbid"}),
-            peer_pid=9999,
-            peer_uid=AGENT_UID,
-        )
-    with pytest.raises(EstablishmentValidationError):
-        broker.handle(
-            _install_request(staged, assertions=["forbid x"]),
-            peer_pid=9999,
-            peer_uid=AGENT_UID,
-        )
+    for bad in (
+        [{"kind": "forbid"}],  # bare list — the pre-O2 shape
+        {"rules": "forbid x"},
+        {"rules": ["forbid x"]},
+        "forbid x",
+    ):
+        with pytest.raises(EstablishmentValidationError):
+            broker.handle(
+                _install_request(staged, assertions=bad),
+                peer_pid=9999,
+                peer_uid=AGENT_UID,
+            )
     monkeypatch.setattr(establishment, "_MAX_ASSERTIONS", 1)
     with pytest.raises(EstablishmentValidationError):
         broker.handle(
-            _install_request(staged, assertions=[{"a": 1}, {"b": 2}]),
+            _install_request(staged, assertions={"rules": [{"a": 1}, {"b": 2}]}),
             peer_pid=9999,
             peer_uid=AGENT_UID,
         )
@@ -582,11 +598,18 @@ def _complete_run(broker: Broker, staged: dict) -> str:
 
     shutil.rmtree(store.runs_dir / run_id)
     result = {
+        "schema_version": 1,
         "status": "installed",
         "phase": "install",
         "output_class": "client_email",
         "property": "voice",
-        "demotions": [{"rule": "no-exclamation-points", "documents": ["demand-letter-chen.docx"]}],
+        "demotions": [
+            {
+                "rule_id": "no-exclamation-points",
+                "documents": ["demand-letter-chen.docx"],
+                "detail": "3 of 1 exemplary docs violate this rule",
+            }
+        ],
         "previous_key": "vaults/smd/output-classes.previous.json",
         "warnings": ["output class client_email is not declared yet (spec-before-declare)"],
     }
@@ -631,7 +654,7 @@ def test_status_returns_result_verbatim_and_deletes_it(tmp_path: Path) -> None:
     )
     assert resp["status"] == "complete"
     assert resp["result"]["status"] == "installed"
-    assert resp["result"]["demotions"][0]["rule"] == "no-exclamation-points"
+    assert resp["result"]["demotions"][0]["rule_id"] == "no-exclamation-points"
     assert resp["result"]["warnings"]  # the one-shot payload IS verbatim
     # One-shot: the file is gone and a second read is an unknown-run refusal.
     assert not (broker.establishment.results_dir / f"{run_id}.json").exists()
@@ -655,11 +678,13 @@ def test_status_appends_bounded_result_row(tmp_path: Path) -> None:
     ]
     metadata = rows[1][1]
     assert metadata["verdict"] == "installed"
+    # detail (compiler prose that may quote) is NOT retained — rule ids + names.
     assert metadata["demotions"] == [
-        {"rule": "no-exclamation-points", "documents": ["demand-letter-chen.docx"]}
+        {"rule_id": "no-exclamation-points", "documents": ["demand-letter-chen.docx"]}
     ]
     assert metadata["previous_key"] == "vaults/smd/output-classes.previous.json"
     assert "Dear Ms. Chen" not in json.dumps(metadata)
+    assert "detail" not in json.dumps(metadata)
     assert "warnings" not in metadata  # bounded field set, not a forwarded result
 
 
@@ -671,8 +696,8 @@ def test_result_row_builder_bounds_hostile_shapes() -> None:
             "status": "x" * 5000,
             "demotions": [
                 "not-a-dict",
-                {"rule": 7, "documents": "all"},
-                {"rule": "ok", "documents": ["d1", 2, "d3"]},
+                {"rule_id": 7, "documents": "all"},
+                {"rule_id": "ok", "documents": ["d1", 2, "d3"], "detail": "quoted prose"},
             ],
             "previous_key": 42,
         },
@@ -681,9 +706,10 @@ def test_result_row_builder_bounds_hostile_shapes() -> None:
     assert len(metadata["verdict"]) == 200
     assert metadata["previous_key"] is None
     assert metadata["demotions"] == [
-        {"rule": None, "documents": []},
-        {"rule": "ok", "documents": ["d1", "d3"]},
+        {"rule_id": None, "documents": []},
+        {"rule_id": "ok", "documents": ["d1", "d3"]},
     ]
+    assert "quoted prose" not in row["metadata"]
 
 
 def test_result_ttl_sweep_clears_unread_results(tmp_path: Path) -> None:
@@ -710,6 +736,68 @@ def test_unparseable_result_is_an_error_not_a_delete(tmp_path: Path) -> None:
             {"action": "establish_status", "run_id": run_id}, peer_pid=9999, peer_uid=AGENT_UID
         )
     assert result_path.exists()  # left for the TTL sweep, not silently eaten
+
+
+# ---------------------------------------------------------------------------
+# Contract with the root intake (overlay establish_intake)
+# ---------------------------------------------------------------------------
+
+
+def test_minted_ids_match_the_intake_safe_segment(tmp_path: Path) -> None:
+    """The intake refuses any id outside \\A[a-z0-9][a-z0-9_-]{0,63}\\Z — a
+    broker-minted id that the intake would reject is a run that can never
+    complete, so the charsets must agree at the mint."""
+    import re
+
+    safe = re.compile(r"\A[a-z0-9][a-z0-9_-]{0,63}\Z")
+    broker = _broker(tmp_path)
+    staged = _stage(broker)
+    resp = broker.handle(_install_request(staged), peer_pid=9999, peer_uid=AGENT_UID)
+    assert safe.match(staged["staging_id"])
+    assert safe.match(staged["doc_id"])
+    assert safe.match(resp["run_id"])
+
+
+def test_sweep_leaves_analysis_bearing_sets_to_the_root_backstop(tmp_path: Path) -> None:
+    """The broker cannot remove the root-owned analysis/ subdir; a partial
+    rmtree would leave a zombie set, so it must not try — but expiry is still
+    enforced by refusal."""
+    broker = _broker(tmp_path)
+    staged = _stage(broker)
+    staging_path = broker.establishment.staging_dir / staged["staging_id"]
+    (staging_path / "analysis").mkdir()
+    expired = time.time() - establishment.STAGING_TTL_SECONDS - 60
+    (staging_path / "meta.json").write_text(json.dumps({"created_at": expired}))
+    broker.establishment.sweep()
+    assert staging_path.is_dir()  # not touched — root's job
+    assert (staging_path / "docs" / f"{staged['doc_id']}.json").exists()
+    # ...but the lingering dir grants nothing: every verb refuses it.
+    with pytest.raises(EstablishmentValidationError):
+        _stage(broker, staging_id=staged["staging_id"])
+    with pytest.raises(EstablishmentValidationError):
+        broker.handle(_install_request(staged), peer_pid=9999, peer_uid=AGENT_UID)
+
+
+def test_status_survives_an_undeletable_result(tmp_path: Path) -> None:
+    """Resilience only: in production the one-shot delete WORKS (results/ is
+    0770 root:workspace-broker on both halves — entrypoint here, the intake's
+    overlay#221 hardening there; test_status_returns_result_verbatim_and_deletes_it
+    asserts the deletion). Against a mis-hardened dir, the read must still
+    succeed (the agent is owed its result) and the intake's TTL sweep becomes
+    the remover."""
+    broker = _broker(tmp_path)
+    staged = _stage(broker)
+    run_id = _complete_run(broker, staged)
+    results_dir = broker.establishment.results_dir
+    results_dir.chmod(0o500)
+    try:
+        resp = broker.handle(
+            {"action": "establish_status", "run_id": run_id}, peer_pid=9999, peer_uid=AGENT_UID
+        )
+    finally:
+        results_dir.chmod(0o700)
+    assert resp["status"] == "complete"
+    assert (results_dir / f"{run_id}.json").exists()  # delete failed, tolerated
 
 
 # ---------------------------------------------------------------------------
