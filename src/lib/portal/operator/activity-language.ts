@@ -128,6 +128,25 @@ export const SUPPRESSED_ACTIONS: ReadonlySet<string> = new Set([
   'DECOMMISSION_STEP_COMPLETE',
   'DECOMMISSION_STEP_FAILED',
   'DECOMMISSION_FINAL',
+  // 2026-08-02 vocabulary reconciliation (#2122). All twelve start
+  // suppressed: they were invisible before (unknown types render nothing),
+  // and promoting any to a client-visible category requires authored client
+  // copy + a Captain call — a product decision, not a vocabulary side
+  // effect. Candidates for promotion when that call is made:
+  // CONFIRM_SEND_DISPATCHED (a send, sibling of mapped REPLY_SENT) and
+  // CORRECTION_PROPOSED (the client's own correction being recorded).
+  'TOOL_CALL_COMPLETED',
+  'LLM_TURN_COMPLETED',
+  'WEBHOOK_ROUTED',
+  'WEBHOOK_SUPPRESSED',
+  'BROKER_DECISION_ALLOWED',
+  'BROKER_EXECUTED',
+  'CONFIG_WRITE',
+  'CONFIRM_SEND_DISPATCHED',
+  'CONFIRM_SEND_FAILED',
+  'SPEC_GATE_TRIGGERED',
+  'VOICE_GATE_TRIGGERED',
+  'CORRECTION_PROPOSED',
 ])
 
 type SummaryBuilder = (entry: AuditEntry) => string

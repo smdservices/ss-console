@@ -126,6 +126,25 @@ export const AUDIT_ACTION_TYPES = [
   'DECOMMISSION_STEP_COMPLETE',
   'DECOMMISSION_STEP_FAILED',
   'DECOMMISSION_FINAL',
+  // 2026-08-02 vocabulary reconciliation (#2122): live-producer types that
+  // were being written to both seats' ledgers while absent here, so the
+  // ?action= filter silently no-opped on them and the roll-ups could not
+  // name the bulk of the ledger. All start SUPPRESSED in activity-language
+  // (they were already invisible; surfacing any to clients is a product
+  // call with authored copy, not a vocabulary side effect). Mirrors
+  // operator/adapter/audit_log.py — extend both together (parity test).
+  'TOOL_CALL_COMPLETED',
+  'LLM_TURN_COMPLETED',
+  'WEBHOOK_ROUTED',
+  'WEBHOOK_SUPPRESSED',
+  'BROKER_DECISION_ALLOWED',
+  'BROKER_EXECUTED',
+  'CONFIG_WRITE',
+  'CONFIRM_SEND_DISPATCHED',
+  'CONFIRM_SEND_FAILED',
+  'SPEC_GATE_TRIGGERED',
+  'VOICE_GATE_TRIGGERED',
+  'CORRECTION_PROPOSED',
 ] as const
 
 export type AuditActionType = (typeof AUDIT_ACTION_TYPES)[number]
@@ -148,6 +167,11 @@ export const CONSOLE_ACTION_TYPES = [
   'CONNECTOR_RECONSENT_REQUESTED',
   'OUTPUT_SPEC_AUTHORED',
   'OUTPUT_SPEC_REJECTED',
+  // Synthesized by activity-read from operator_entitlement_changes (0097).
+  // Was rendered and categorized but absent from BOTH validation lists, so
+  // ?action=ENTITLEMENT_CHANGED silently no-opped to "show everything"
+  // (#2122 read-side survey, defect 1). Console-plane: no Machine producer.
+  'ENTITLEMENT_CHANGED',
 ] as const
 
 const AUDIT_ACTION_TYPE_SET: ReadonlySet<string> = new Set([
