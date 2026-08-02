@@ -58,14 +58,7 @@ const rangeEnd = Math.min(page * pageSize, totalCount)
 
 <section aria-label="Audit log">
   <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
-    {
-      rows.map((entry, index) => (
-        <AuditEntryRow
-          entry={entry}
-          serial={String(index + 1 + (page - 1) * pageSize).padStart(2, '0')}
-        />
-      ))
-    }
+    {rows.map((entry) => <AuditEntryRow entry={entry} />)}
   </div>
 
   {

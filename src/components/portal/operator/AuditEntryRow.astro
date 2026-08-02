@@ -37,15 +37,9 @@ import { clientSummaryFor } from '../../../lib/portal/operator/activity-language
 
 interface Props {
   entry: AuditEntry
-  /**
-   * Short serial shown in the № cell. The table passes the row index
-   * for stable visual rhythm even when ids change underneath.
-   */
-  serial?: string
 }
 
-const { entry, serial } = Astro.props
-const resolvedSerial = serial ?? entry.id.slice(0, 2).toUpperCase()
+const { entry } = Astro.props
 
 const decisionLabel = formatAuditDecision(entry.decision)
 const decisionToneValue = decisionTone(entry.decision)
@@ -73,17 +67,15 @@ const hasExpandableContent = Boolean(entry.reason)
   <summary
     class="cursor-pointer list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
   >
+    {
+      /* Ordinal № cells removed (Captain, 2026-08-02, twice): a per-page row
+        number carries no audit meaning — the timestamp orders the record and
+        the event id identifies it — and the black cells read as noise on a
+        long log. */
+    }
     <div
-      class="md:grid md:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_48px] md:items-stretch"
+      class="md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_48px] md:items-stretch"
     >
-      {/* № cell */}
-      <div
-        class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-body font-black text-num-cell"
-        aria-hidden="true"
-      >
-        № {resolvedSerial}
-      </div>
-
       {/* Timestamp */}
       <div
         class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
@@ -192,7 +184,7 @@ const hasExpandableContent = Boolean(entry.reason)
     }
     {
       entry.reason && (
-        <div class="px-5 pb-3 md:pl-[calc(56px+1.25rem)] md:pr-5 -mt-1 md:-mt-3">
+        <div class="px-5 pb-3 md:pl-5 md:pr-5 -mt-1 md:-mt-3">
           <p class="font-body text-sm text-[color:var(--ss-color-text-secondary)]">
             {reasonTruncated}
           </p>
@@ -203,7 +195,7 @@ const hasExpandableContent = Boolean(entry.reason)
 
   {
     hasExpandableContent && (
-      <div class="px-5 pb-5 md:pl-[calc(56px+1.25rem)] md:pr-5 flex flex-col gap-3 border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-4 mt-2">
+      <div class="px-5 pb-5 md:pl-5 md:pr-5 flex flex-col gap-3 border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-4 mt-2">
         {entry.reason && entry.reason.length > 120 && (
           <div>
             <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
