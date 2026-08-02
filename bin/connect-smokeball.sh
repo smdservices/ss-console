@@ -15,8 +15,11 @@
 # (only the callback exchanges the code).
 #
 # This is the INITIATE half only — it prints a URL and never sends email and
-# never touches a secret value. Run under the operator env so the signing key +
-# client id are present:
+# never touches a secret value. Before minting anything it runs a mechanical
+# gate (#2149/#2171): the target seat must be running the overlay ref pinned on
+# origin/main AND origin/main's runtime-control registry must record the
+# identifier gate as `enforced`. Requires `fly` auth for the seat probe.
+# Run under the operator env so the signing key + client id are present:
 #
 #   infisical run --env=prod --path=/ss -- bin/connect-smokeball.sh ashton-price
 #
@@ -40,11 +43,75 @@ usage() {
 
 [ "$#" -eq 1 ] || usage
 CUSTOMER_SLUG="$1"
+if [[ ! "${CUSTOMER_SLUG}" =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]]; then
+  echo "FATAL: invalid slug '${CUSTOMER_SLUG}' (must match ^[a-z0-9][a-z0-9-]{0,31}$)" >&2
+  exit 1
+fi
+APP_NAME="hermes-${CUSTOMER_SLUG}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CUSTOMER_YAML="$REPO_ROOT/operator/customers/$CUSTOMER_SLUG/customer.yaml"
 [ -f "$CUSTOMER_YAML" ] || { echo "FATAL: no customer.yaml at $CUSTOMER_YAML" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# MECHANICAL GATE (#2149 / #2171). A refresh token is the highest-trust artifact
+# this venture handles; it must never land on a seat that (a) is not running the
+# pinned overlay, or (b) is running a pin whose identifier gate has not been
+# PROVEN to refuse fabricated identifiers on a live seat. Both refusals read
+# origin/main, never the local checkout — a stale checkout must not vouch for
+# itself (the 2026-07-31 wrong-image incident). There is deliberately NO escape
+# hatch: the fix for a refusal is to rebuild the seat or land the enforcement
+# proof (#2171 PR 3), not to bypass the gate.
+git -C "${REPO_ROOT}" fetch origin --quiet \
+  || echo "WARN: git fetch failed; comparing against the last-known origin/main" >&2
+
+# (a) Seat currency: the running seat's SMD_OVERLAY_REF (container ENV, baked by
+# operator/templates/Dockerfile) must equal origin/main's pinned overlayRef.
+EXPECTED_REF="$(git -C "${REPO_ROOT}" show origin/main:operator/contracts/overlay-pairs.json \
+  | sed -n 's/.*"overlayRef"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' | head -1)"
+if [[ ! "${EXPECTED_REF}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "FATAL: could not read overlayRef from origin/main overlay-pairs.json" >&2
+  exit 1
+fi
+# Resolve the gateway pid INLINE on the seat (seat-probe.sh pattern — Fly's
+# PID 1 is their init and does not carry image ENV). No running gateway means
+# the seat cannot be verified, and a seat whose gateway is down should not be
+# receiving a token anyway — refuse.
+RUNNING_REF="$(fly ssh console -a "${APP_NAME}" -C "sh -c '
+GPID=\$(pgrep -f \"hermes.*gateway run\" | head -1)
+[ -n \"\${GPID}\" ] || exit 1
+tr \"\\0\" \"\\n\" < /proc/\${GPID}/environ | grep ^SMD_OVERLAY_REF= | cut -d= -f2
+'" 2>/dev/null | tr -cd '0-9a-f')"
+if [[ ! "${RUNNING_REF}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "FATAL: could not read SMD_OVERLAY_REF from ${APP_NAME}'s gateway process —" >&2
+  echo "       cannot verify the seat is current, so refusing (fail closed)." >&2
+  echo "       Is the Machine running with a live gateway?" >&2
+  exit 3
+fi
+if [ "${RUNNING_REF}" != "${EXPECTED_REF}" ]; then
+  echo "REFUSED: ${APP_NAME} runs overlay ${RUNNING_REF:0:12} but origin/main pins ${EXPECTED_REF:0:12}." >&2
+  echo "         A token must not land on a stale seat (#2149). Rebuild first:" >&2
+  echo "           yes s | operator/bin/reprovision.sh ${CUSTOMER_SLUG}" >&2
+  exit 3
+fi
+
+# (b) Enforcement: origin/main's runtime-control registry must record the
+# identifier gate as `enforced` (live-proven refuse mode, #2171). A seat can be
+# CURRENT and still non-enforcing — currency alone is not enough.
+GATE_STATUS="$(git -C "${REPO_ROOT}" show origin/main:operator/contracts/runtime-controls.yaml \
+  | uv run --quiet --with pyyaml python3 -c "
+import sys, yaml
+d = yaml.safe_load(sys.stdin) or {}
+print(str(((d.get('controls') or {}).get('identifier_gate') or {}).get('status', 'absent')))
+")"
+if [ "${GATE_STATUS}" != "enforced" ]; then
+  echo "REFUSED: identifier_gate status on origin/main is '${GATE_STATUS}', not 'enforced'." >&2
+  echo "         The report->refuse flip (#2171) has not been proven live; no token" >&2
+  echo "         lands before enforcement (Captain directive 2026-08-02)." >&2
+  exit 3
+fi
+echo "gate: ${APP_NAME} on pinned overlay ${EXPECTED_REF:0:12}; identifier_gate enforced — proceeding" >&2
 
 # Read environment + region from the smokeball connector block (defaults staging/us).
 SB_FIELDS=()
@@ -105,7 +172,7 @@ STATE_KEY="$(printf '%s' "${CUSTOMER_SLUG}" | openssl dgst -sha256 -hmac "${OPER
 # The callback lives on the customer's OWN Machine (ADR 0054) — not a shared
 # Worker — so the firm's Smokeball OAuth never touches shared SMD infrastructure.
 # The firm's app registers exactly this redirect URI.
-REDIRECT_URI="https://hermes-${CUSTOMER_SLUG}.fly.dev/oauth/smokeball/callback"
+REDIRECT_URI="https://${APP_NAME}.fly.dev/oauth/smokeball/callback"
 PROVIDER="smokeball:${SB_REGION}:${SB_ENV}"
 REVIEWER_ID="${SMOKEBALL_CONNECT_REVIEWER_ID:-connect-script}"
 
