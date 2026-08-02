@@ -496,7 +496,13 @@ export function applyAuditSort(rows: readonly AuditEntry[], sort: AuditSort): Au
 }
 
 /** Pagination return value. See {@link Page} (pagination.ts). */
-export type AuditListPage = Page<AuditEntry>
+export type AuditListPage = Page<AuditEntry> & {
+  /** Oldest Machine-ledger ts actually scanned when the windowed walk hit its
+   * page budget with in-window ledger still unread (#2179). Absent/null when
+   * the window was fully covered. The page renders a coverage note from it —
+   * a truncated walk must never read as "nothing happened before this". */
+  machineCoverageFloor?: string | null
+}
 
 /**
  * Apply offset-based pagination to a sorted+filtered list. Thin wrapper over

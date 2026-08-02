@@ -214,3 +214,151 @@ describe('console-plane unions: logins + portal actions', () => {
     expect(page.rows[0].reason).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// #2179 — the windowed walk. The starvation reproduction is the centerpiece:
+// a seam whose first page is ALL suppressed telemetry with the client-visible
+// events behind it. The pre-fix single-fetch code fails this by construction
+// (live-proven 2026-08-02: 56 mapped events in-window, page rendered zero,
+// seam ok — vfy_01KZ204YY88HD2VJ2ZXNW85JDV).
+// ---------------------------------------------------------------------------
+
+import { walkMachineWindow } from '../src/lib/portal/operator/activity-read'
+
+/** Build a 200-row full page of suppressed telemetry (TOOL_CALL_COMPLETED). */
+function telemetryPage(idPrefix: string, day: string, cursor: string | null) {
+  const entries = Array.from({ length: 200 }, (_, i) => ({
+    id: `${idPrefix}-${String(i).padStart(3, '0')}`,
+    ts: `${day}T12:00:${String(i % 60).padStart(2, '0')}.000Z`,
+    actor: 'agent',
+    action: 'TOOL_CALL_COMPLETED',
+  }))
+  return { entries, cursor }
+}
+
+/** A transport serving a scripted sequence of audit_log pages. */
+function scriptedTransport(pages: Array<{ entries: unknown[]; cursor: string | null }>) {
+  const calls: Array<{ cursor?: string | null; limit?: number | null }> = []
+  const transport: import('../src/lib/operator/runtime-read').MachineRuntimeTransport = {
+    read: async (_slug, query) => {
+      calls.push({ cursor: query.cursor, limit: query.limit })
+      const page = pages[calls.length - 1]
+      if (!page) return { data: { entries: [], cursor: null } }
+      return { data: page }
+    },
+  }
+  return { calls, transport }
+}
+
+function recordingAudit() {
+  const records: unknown[] = []
+  return { records, audit: { record: async (row: unknown) => void records.push(row) } }
+}
+
+describe('walkMachineWindow (#2179): starvation reproduction', () => {
+  it('reaches client-visible events buried behind a full page of suppressed telemetry', async () => {
+    const buried = {
+      entries: [
+        { id: 'r-1', ts: '2026-07-29T09:00:00.000Z', actor: 'agent', action: 'REPLY_SENT' },
+        { id: 'r-0', ts: '2026-07-29T08:00:00.000Z', actor: 'agent', action: 'REPLY_HELD' },
+      ],
+      cursor: null,
+    }
+    const { transport, calls } = scriptedTransport([
+      telemetryPage('t', '2026-07-30', 't-199'),
+      buried,
+    ])
+    const { audit } = recordingAudit()
+
+    const win = await walkMachineWindow(
+      { transport, audit },
+      'smith-pi',
+      { actor: 'partner@firm.com', actorRole: 'principal' },
+      '2026-07-26'
+    )
+
+    // The buried replies were reached — the single-fetch code never made call 2.
+    expect(calls.length).toBe(2)
+    expect(calls[1].cursor).toBe('t-199')
+    const actions = win.rows.map((r) => r.action)
+    expect(actions).toContain('REPLY_SENT')
+    expect(actions).toContain('REPLY_HELD')
+    expect(win.coverageFloor).toBeNull()
+  })
+
+  it('stops walking once a page passes the window start (no full-history scan)', async () => {
+    const oldPage = {
+      entries: [
+        { id: 'o-1', ts: '2026-07-01T09:00:00.000Z', actor: 'agent', action: 'REPLY_SENT' },
+      ],
+      cursor: 'o-1',
+    }
+    const { transport, calls } = scriptedTransport([
+      telemetryPage('t', '2026-07-30', 't-199'),
+      oldPage,
+      telemetryPage('never', '2026-06-01', null),
+    ])
+    const { audit } = recordingAudit()
+
+    await walkMachineWindow(
+      { transport, audit },
+      'smith-pi',
+      { actor: 'a', actorRole: 'principal' },
+      '2026-07-26'
+    )
+    // Page 2's oldest ts (Jul 1) precedes from (Jul 26) → page 3 never fetched.
+    expect(calls.length).toBe(2)
+  })
+
+  it('declares an honest coverage floor when the page budget exhausts in-window', async () => {
+    // 15-page budget, every page full, all newer than `from`, cursor always present.
+    const pages = Array.from({ length: 16 }, (_, i) =>
+      telemetryPage(
+        `p${String(i).padStart(2, '0')}`,
+        '2026-07-30',
+        `p${String(i).padStart(2, '0')}-199`
+      )
+    )
+    const { transport, calls } = scriptedTransport(pages)
+    const { audit } = recordingAudit()
+
+    const win = await walkMachineWindow(
+      { transport, audit },
+      'smith-pi',
+      { actor: 'a', actorRole: 'principal' },
+      '2026-07-01'
+    )
+    expect(calls.length).toBe(15) // budget, not the 16th page
+    expect(win.coverageFloor).not.toBeNull()
+  })
+
+  it('one logical read = one read-audit row, regardless of segments walked', async () => {
+    const { transport } = scriptedTransport([
+      telemetryPage('t', '2026-07-30', 't-199'),
+      telemetryPage('u', '2026-07-29', 'u-199'),
+      { entries: [], cursor: null },
+    ])
+    const { audit, records } = recordingAudit()
+
+    await walkMachineWindow(
+      { transport, audit },
+      'smith-pi',
+      { actor: 'a', actorRole: 'principal' },
+      '2026-07-01'
+    )
+    expect(records.length).toBe(1)
+  })
+
+  it('FALSE CONTROL: a window whose ledger truly has no visible events stays empty without a floor', async () => {
+    const { transport } = scriptedTransport([telemetryPage('t', '2026-07-30', null)])
+    const { audit } = recordingAudit()
+    const win = await walkMachineWindow(
+      { transport, audit },
+      'smith-pi',
+      { actor: 'a', actorRole: 'principal' },
+      '2026-07-26'
+    )
+    expect(win.rows.every((r) => r.action === 'TOOL_CALL_COMPLETED')).toBe(true)
+    expect(win.coverageFloor).toBeNull()
+  })
+})
