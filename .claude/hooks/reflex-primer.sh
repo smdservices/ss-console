@@ -74,20 +74,18 @@ emit_laws() {
       return 0
     fi
   fi
+  # Fallback: the judgment laws (tier primer/radar) verbatim, gate-tier laws
+  # compressed to the pointer line -- the same rendering the extractor
+  # produces, pinned to the doctrine by tests/doctrine-integrity.test.ts.
   cat <<'PRIMER'
 [doctrine] Operating laws (docs/doctrine/agent-operating-doctrine.md):
 1. Resolve whose call it is before acting: agents execute, the Captain owns strategy, commitments, and spend, clients author their own posture. Never default-claim or default-defer.
-2. Engagement work starts by reading that engagement dossier. An index line is a pointer, not knowledge.
 3. The verb is the scope: "review X" or "let's review X" delivers exactly the text of X plus "what would you like to discuss", nothing volunteered; verdicts only under an evaluating ask, edits only under an editing verb. Never edit Captain-authored client documents unasked.
 4. A gap in your context is a question, not a finding. Never report your own ignorance as a defect; never fill it with plausible content.
-5. Client-facing numbers and terms trace to an ADR, a letter, or the Captain, with the source named. Runtime claims trace to an observation. Config is not runtime.
-6. Founder and client register comes from the Captain; agents edit, never generate from nothing. Never indict the counterparty.
-7. Blast radius before action: on live systems, shared state, and secrets, use the safe tool, never the convenient one.
 8. Finish or say why: no stopping-point offers, no hedging finished work as draft, no relitigating settled calls.
-9. The deliverable is the client's act, not your artifact: name the terminal seam, enumerate every gate between the client and the effect, and escalate an unclosable gate before building the closable ones.
 10. Your snapshot is not the system. Tree state, branch lists, merged PRs, and installed dependencies decay within minutes of the briefing that reported them. Re-probe before acting on any of them.
-11. The Captain's attention is the scarcest resource on the venture: default to three lines (shipped / next / blocked), put detail in the PR or issue and link it, and escalate only what costs money, touches a client, or changes a promise. An escalation is one sentence of stakes, two options, your pick, and you proceed on your pick unless told otherwise.
 12. A check that cannot fail has measured nothing. Before reporting an observation, name what would have made it false and confirm your instrument would have shown it.
+Gate-enforced laws (mechanisms, not memory -- registry has the prose): 2 load-before-touch, 5 claims-trace, 6 authored-voice, 7 blast-radius, 9 deliverable-is-the-act, 11 signal-not-volume.
 PRIMER
 }
 emit_laws || true

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Extract the numbered primer lines from a doctrine file supplied on stdin.
+ * Extract the injected primer lines from a doctrine file supplied on stdin.
  *
  * Used by reflex-primer.sh to serve the laws from origin/main's doctrine
  * (`git show origin/main:docs/doctrine/...`) instead of the checkout's
@@ -9,28 +9,51 @@
  * the worktrees predate any given merge, while the shared origin/main ref
  * does not.
  *
- * Output: the numbered law lines, one per line, in registry order -- exactly
- * the shape the heredoc fallback prints. Prints NOTHING on any parse doubt
- * (fewer than MIN_LAWS lines extracted), so the primer's fallback heredoc
- * takes over; serving a truncated law set would be worse than serving a
- * stale one.
+ * Tier-aware (2026-08-01 consolidation): laws at `primer` or `radar` tier
+ * are the judgment laws and are emitted in full, keeping their registry
+ * ordinals. Gate-tier laws have real mechanisms doing their enforcing; they
+ * are compressed into one pointer line so the injected block stays short
+ * enough to be read rather than skimmed -- the primer's own design law.
+ *
+ * Prints NOTHING on any parse doubt (fewer than MIN_LAWS judgment lines), so
+ * the primer's heredoc fallback takes over; a truncated law set would be
+ * worse than a stale one.
  */
 import { readFileSync } from 'node:fs'
 
-const MIN_LAWS = 8 // the registry's own sanity floor (doctrine-integrity.test.ts)
+const MIN_LAWS = 5
+
+function unquote(v) {
+  const s = v.trim()
+  if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1).replace(/''/g, "'")
+  if (s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1).replace(/\\"/g, '"')
+  return s
+}
 
 try {
   const doctrine = readFileSync(0, 'utf8')
-  const lines = []
-  // primer_line values are YAML scalars in single quotes ('' escapes),
-  // double quotes, or bare. Match all three.
-  const re = /^\s*primer_line:\s*(?:'((?:[^']|'')*)'|"((?:[^"\\]|\\.)*)"|(.+))\s*$/gm
-  for (const m of doctrine.matchAll(re)) {
-    const raw = m[1] !== undefined ? m[1].replace(/''/g, "'") : m[2] !== undefined ? m[2].replace(/\\"/g, '"') : m[3].trim()
-    if (raw) lines.push(raw)
+  const injected = []
+  const gated = []
+  let ordinal = 0
+  for (const m of doctrine.matchAll(/```yaml\n([\s\S]*?)```/g)) {
+    const fence = m[1]
+    const id = fence.match(/^\s*id:\s*(.+)$/m)?.[1]?.trim()
+    const line = fence.match(/^\s*primer_line:\s*(.+)$/m)?.[1]
+    if (!id || !line) continue // the mechanisms block, not a law
+    ordinal++
+    const tier = fence.match(/^\s*tier:\s*(\w+)/m)?.[1] ?? 'prose'
+    if (tier === 'primer' || tier === 'radar') {
+      injected.push(`${ordinal}. ${unquote(line)}`)
+    } else {
+      gated.push(`${ordinal} ${id}`)
+    }
   }
-  if (lines.length >= MIN_LAWS) {
-    process.stdout.write(lines.map((l, i) => `${i + 1}. ${l}`).join('\n') + '\n')
+  if (injected.length >= MIN_LAWS) {
+    let out = injected.join('\n') + '\n'
+    if (gated.length > 0) {
+      out += `Gate-enforced laws (mechanisms, not memory -- registry has the prose): ${gated.join(', ')}.\n`
+    }
+    process.stdout.write(out)
   }
 } catch {
   /* print nothing; the heredoc fallback serves */

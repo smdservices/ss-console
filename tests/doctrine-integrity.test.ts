@@ -181,10 +181,24 @@ describe('doctrine registry: incident provenance', () => {
 })
 
 describe('doctrine <-> primer parity (the anti-drift pin)', () => {
-  it('every primer_line appears verbatim in reflex-primer.sh', () => {
+  // 2026-08-01 consolidation: only judgment-tier laws (primer/radar) are
+  // injected in full -- gate-tier laws have real mechanisms enforcing them
+  // and are compressed to a pointer line carrying their id, so the injected
+  // block stays short enough to be read rather than skimmed. The pin holds
+  // in both directions: judgment lines verbatim, gate-tier ids present.
+  it('every injected-tier primer_line appears verbatim in reflex-primer.sh', () => {
     const missing = laws
+      .filter((law) => law.tier === 'primer' || law.tier === 'radar')
       .filter((law) => !primerRaw.includes(law.primer_line))
       .map((law) => `${law.id}: primer_line not found verbatim in ${PRIMER_PATH}`)
+    expect(missing).toEqual([])
+  })
+
+  it('every gate-tier law id appears in the primer pointer line', () => {
+    const missing = laws
+      .filter((law) => law.tier === 'gate' || law.tier === 'prose')
+      .filter((law) => !primerRaw.includes(law.id))
+      .map((law) => `${law.id}: id not found in ${PRIMER_PATH} pointer line`)
     expect(missing).toEqual([])
   })
 

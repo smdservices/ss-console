@@ -42,13 +42,18 @@ const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const HOOK = join(REPO_ROOT, '.claude', 'hooks', 'reflex-primer.sh')
 const DOCTRINE = join(REPO_ROOT, 'docs', 'doctrine', 'agent-operating-doctrine.md')
 
-/** Every canonical primer_line, parsed from the doctrine the same way
- *  doctrine-integrity.test.ts parses it. */
+/** Every INJECTED primer_line (tier primer/radar), parsed from the doctrine
+ *  the same way doctrine-integrity.test.ts parses it. Gate-tier laws are
+ *  compressed to a pointer line since the 2026-08-01 consolidation and are
+ *  pinned by id in doctrine-integrity, not asserted line-by-line here. */
 const PRIMER_LINES: string[] = [
   ...readFileSync(DOCTRINE, 'utf8').matchAll(/```yaml\n([\s\S]*?)```/g),
 ]
   .map((m) => parseYaml(m[1]) as Record<string, unknown>)
-  .filter((d): d is { primer_line: string } => typeof d?.primer_line === 'string')
+  .filter(
+    (d): d is { primer_line: string; tier: string } =>
+      typeof d?.primer_line === 'string' && (d?.tier === 'primer' || d?.tier === 'radar')
+  )
   .map((d) => d.primer_line)
 
 const scratch: string[] = []
@@ -185,7 +190,7 @@ function expectLawsIntact(res: { out: string; code: number }): void {
 
 describe('the primer survives everything the staleness block can hit', () => {
   it('sanity: the doctrine actually yielded primer lines to check', () => {
-    expect(PRIMER_LINES.length).toBeGreaterThanOrEqual(9)
+    expect(PRIMER_LINES.length).toBeGreaterThanOrEqual(5)
   })
 
   it('emits every law when the tree is entirely healthy', () => {
