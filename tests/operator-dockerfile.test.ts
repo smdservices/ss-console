@@ -620,7 +620,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // console twin audit_log.py moved separately in ss#2156 (sha re-recorded
     // there). Deliberately excludes overlay#215 (Sentry scrub, unmerged at pin
     // time) — that lands as its own bump + rebuild.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3af998c373b1c5299ab3d89b5b78a2bc553cbe53"')
+    //
+    // 3af998c3 -> ea752ab5 (2026-08-02, the bump the line above announced):
+    // overlay#215 Sentry identifier scrub (ss #2150 P0, DPA Exhibit B-1 —
+    // matter-number + GUID shapes in redact_text, extra/contexts/
+    // logentry.params walked, breadcrumb data recursive, consumes.yaml DSN
+    // note reconciled). The range is exactly the one squash commit —
+    // sentry_init.py + its test suite + consumes.yaml, NOT tracked twins
+    // (GitHub compare 3af998c3...ea752ab5) — so every overlaySha256 is
+    // unchanged and only overlayRef moves. verify-overlay-pairs.py against
+    // the real overlay at ea752ab5: all 9 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ea752ab5b57e220169071cb3b3d1ac0e01f6f2a7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

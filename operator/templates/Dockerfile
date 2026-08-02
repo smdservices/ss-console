@@ -446,7 +446,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # overlaySha256 is re-recorded 0bbc831f -> b34e7440. The adapter side
 # (operator/adapter/audit_log.py) is unchanged - the new fields ride the existing
 # metadata JSON and the matter_ref column already existed - so its sha256 holds.
-ARG OVERLAY_REF="3af998c373b1c5299ab3d89b5b78a2bc553cbe53"
+# 2026-08-02: 3af998c3 -> ea752ab5 (overlay#215 Sentry identifier scrub,
+# ss#2150 P0 / DPA Exhibit B-1): matter-number + GUID shapes in redact_text,
+# extra/contexts/logentry.params walked, breadcrumb data recursive,
+# consumes.yaml DSN note reconciled. The range is exactly that one squash
+# commit; it touches shared/sentry_init.py, tests, contracts/consumes.yaml —
+# NO tracked twin moves, every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="ea752ab5b57e220169071cb3b3d1ac0e01f6f2a7"
 
 ARG CUSTOMER_SLUG=customer-zero
 
