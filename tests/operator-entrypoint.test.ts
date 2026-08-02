@@ -105,6 +105,21 @@ describe('Operator customer Machine entrypoint — ADR 0085 establishment spool 
     expect(/mkdir[^\n]*establish-spool/.test(ENTRYPOINT_CODE)).toBe(false)
   })
 
+  it('places the spool OUTSIDE the agent home, which goes 0700 mid-boot', () => {
+    // The Hermes gateway chmods /opt/data to 0700 after the entrypoint has
+    // granted its group-traverse, so a spool under that tree is reachable by
+    // root (every health signal looks fine) and unreachable by the
+    // workspace-broker uid that must create staging sets and run dirs. The
+    // spool's own dirs are correct at 0770; the ANCESTOR severs them.
+    // Live-caught on hermes-pilot-smokeball 2026-08-02, first establishment
+    // call: PermissionError on .../establish-spool/staging. Falsifier: this
+    // test fails on the pre-fix /opt/data path.
+    const m = ENTRYPOINT_CODE.match(/ESTABLISH_SPOOL_DIR="([^"]+)"/)
+    expect(m, 'ESTABLISH_SPOOL_DIR must be set').not.toBeNull()
+    expect(m![1].startsWith('/opt/data')).toBe(false)
+    expect(m![1]).toBe('/var/lib/smd-establish-spool')
+  })
+
   it('exports the spool path and carries it into the broker env allowlist', () => {
     expect(ENTRYPOINT_CODE).toMatch(/export SMD_ESTABLISH_SPOOL_DIR="\$\{ESTABLISH_SPOOL_DIR\}"/)
     // launch_broker runs env -i with a fixed allowlist; the spool var must be

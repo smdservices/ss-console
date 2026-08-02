@@ -224,7 +224,19 @@ chmod 2750 "$(dirname "${BROKER_SOCKET}")"
 # workspace-broker); the children add group-write because the broker creates
 # staging sets and run dirs there and unlinks a result after its one-shot
 # read. Root writes results/ files 0640 root:workspace-broker.
-ESTABLISH_SPOOL_DIR="/opt/data/establish-spool"
+# NOT under /opt/data. The Hermes gateway chmods its home (/opt/data) to 0700
+# mid-boot — the same behavior the audit-ledger note above documents, which is
+# why the ledger reaches the broker through a bind mount. A spool under that
+# tree is reachable by root (which ignores modes, so the intake daemon, its
+# heartbeat, and every boot smoke check look healthy) and UNREACHABLE by the
+# workspace-broker uid, the principal that creates staging sets and run dirs.
+# The failure is invisible from the spool's own permissions: its dirs read a
+# correct 0770 root:workspace-broker; the ANCESTOR severs them. Live-caught on
+# hermes-pilot-smokeball 2026-08-02, the first establishment call:
+# PermissionError on .../establish-spool/staging. The spool is transient by
+# design (30-minute TTL, short-lived runs), so it lives beside the broker's
+# other state rather than on the volume.
+ESTABLISH_SPOOL_DIR="/var/lib/smd-establish-spool"
 export SMD_ESTABLISH_SPOOL_DIR="${ESTABLISH_SPOOL_DIR}"
 # The intake's poll cadence (root child inherits this env; default matches the
 # intake's own built-in default, stated here so it is tunable per seat).
