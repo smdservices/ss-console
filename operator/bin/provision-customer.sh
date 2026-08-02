@@ -40,9 +40,11 @@
 #                            CF_API_TOKEN is set; ignored otherwise.
 #
 # Observability (ADR 0023 Wave 1) prerequisites:
-#   SENTRY_DSN                  — staged to Fly as a secret so the Machine's
-#                                 Python sentry-sdk init can pick it up
-#                                 (overlay PR O1). Pulled from operator env.
+#   SENTRY_DSN_OPERATOR         — smd-operator project DSN, staged to Fly under
+#                                 the Machine name SENTRY_DSN so the Python
+#                                 sentry-sdk init picks it up (overlay PR O1).
+#                                 Pulled from operator env. Deliberately NOT
+#                                 sourced from SENTRY_DSN (that key is ss-web's).
 #   MACHINE_HEARTBEAT_KEY       — shared bearer for POST /api/internal/heartbeat
 #                                 (Wave 1 single-key model per ADR 0023 §10).
 #                                 SAME value as the Cloudflare Worker secret on
@@ -523,9 +525,19 @@ fi
 # pbpaste — there's nothing user-specific about them and they should not
 # require manual paste per customer.
 #
-#   SENTRY_DSN              — single value shared across all Machines (one
-#                             SMD-owned Sentry project; tenant tag scopes
-#                             events per customer at SDK init).
+#   SENTRY_DSN_OPERATOR     — single value shared across all Machines: the
+#                             smd-operator project's DSN; tenant tag scopes
+#                             events per customer at SDK init. Staged onto the
+#                             Machine under the name SENTRY_DSN (what
+#                             shared/sentry_init.py reads). NEVER source this
+#                             from plain SENTRY_DSN: that /ss key is the
+#                             ss-web console Worker's DSN (wrangler secret
+#                             bulk ships it), and sourcing it here silently
+#                             routed every seat's events into the ss-web
+#                             project — found 2026-08-02 by the #2150 runtime
+#                             kill-test (vfy_01KZ1T07TGPKZ61M6KV97KMXQ6). One
+#                             key with two consumers in different projects is
+#                             the bug; the split name is the fix.
 #   MACHINE_HEARTBEAT_KEY   — single value shared across the fleet for
 #                             Wave 1. SAME key the Cloudflare Worker
 #                             receives; Wave 1's auth is "you know the
@@ -537,7 +549,7 @@ fi
 # Sentry init silently no-ops and heartbeat POSTs will 401 — both visible
 # as "no signal yet" on the admin dashboard, which is the empty-state we
 # want anyway.
-stage_secret_from_env SENTRY_DSN            "${SENTRY_DSN:-}"            "Sentry DSN for the shared smd-operator project"
+stage_secret_from_env SENTRY_DSN            "${SENTRY_DSN_OPERATOR:-}"   "smd-operator project DSN (from SENTRY_DSN_OPERATOR; never the console's SENTRY_DSN)"
 stage_secret_from_env MACHINE_HEARTBEAT_KEY "${MACHINE_HEARTBEAT_KEY:-}" "shared bearer for POST /api/internal/heartbeat"
 
 # OPERATOR_RUNTIME_READ_KEY — PER-CUSTOMER bearer for the console→Machine runtime
