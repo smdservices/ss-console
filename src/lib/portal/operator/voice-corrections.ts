@@ -233,6 +233,9 @@ async function supersedePriorPromotions(
  * Read-only, and deliberately returns whole rows rather than a body: a caller
  * that wants to display what was promoted reads `statement` and shows it as
  * captured text. Nothing downstream may feed it back into a spec.
+ *
+ * @public Authored read surface; the portal view that consumes it has not
+ * shipped yet.
  */
 export async function listPromotedCorrections(
   db: D1Database,
@@ -336,7 +339,12 @@ export function collectCitations(
   return citations
 }
 
-/** Every correction for one entity, newest first — the review and audit walk. */
+/**
+ * Every correction for one entity, newest first — the review and audit walk.
+ *
+ * @public Authored read surface; the portal view that consumes it has not
+ * shipped yet.
+ */
 export async function listCorrectionsForEntity(
   db: D1Database,
   entityId: string,

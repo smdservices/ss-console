@@ -54,8 +54,17 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      # `npm run lint` carries `--max-warnings 13`, the 2026-08-09 baseline.
+      # The type-aware no-unsafe-* rules are warn-tier pending the Zod boundary
+      # rollout; the ceiling stops that tier from growing while it waits. The
+      # count depends on the Typecheck step above having run `astro sync`;
+      # do not move Lint before it. See eslint.config.js.
       - name: Lint
         run: npm run lint
+
+      # Dead-export gate (knip). Config + triage rationale in knip.jsonc.
+      - name: Dead code
+        run: npm run deadcode
 
       - name: Build
         run: npm run build

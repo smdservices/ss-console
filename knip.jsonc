@@ -1,0 +1,121 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+
+  // Dead-export gate. Recommended by docs/reviews/code-review-2026-08-09.md
+  // (Code Quality #3): the 2026-07-29 review found 55 dead exports by hand,
+  // they were cleaned, and nothing stopped the next 55 from accumulating.
+  // `npm run deadcode` is that stop, and it runs in .github/workflows/verify.yml.
+  //
+  // Scope is deliberately narrow: ONE rule blocks (`exports` / `nsExports`).
+  // Everything else knip can report is printed but non-blocking, because this
+  // repo has three shapes knip cannot fully trace (.astro islands, the Python
+  // operator tree, and wrangler-side worker config) and a gate that fails on
+  // false positives gets disabled within a month.
+
+  // An export referenced only inside its own file is not dead code; it is an
+  // over-broad `export` keyword. This repo has ~300 of those (module-local
+  // const tables consumed by a factory in the same file). Style question, not
+  // a maintenance hazard. The gate targets exports nothing anywhere references.
+  "ignoreExportsUsedInFile": true,
+
+  "workspaces": {
+    ".": {
+      // The astro plugin contributes src/pages/**, src/middleware.ts and
+      // src/content.config.ts automatically. Listed below are the doors it
+      // cannot see.
+      "entry": [
+        // Client bundles loaded via <script src="/js/..."> from .astro
+        // components (MetaPixel.astro, GA4.astro). No import edge exists.
+        "public/js/*.js",
+
+        // Standalone maintenance/migration scripts. Invoked by hand or by a
+        // workflow, never imported.
+        "scripts/*.{ts,mjs}",
+        "src/lib/seo/sitemap-filter.mjs",
+
+        // Claude Code harness hooks: wired by .claude/settings.json and run by
+        // the harness as subprocesses.
+        ".claude/hooks/*.mjs",
+
+        // Node-side operator tooling. `cli.ts` is the runtime door; `index.ts`
+        // is the documented public surface of each module (see the file header
+        // in src/lib/operator/customer-yaml/index.ts). Knip does not report
+        // unused exports in entry files, which is the correct treatment for a
+        // published surface whose consumers live outside this repo.
+        "operator/*/cli.ts",
+        "operator/*/index.ts",
+
+        // Same reasoning: the customer.yaml module's two public doors. Their
+        // re-export blocks are the contract other repos import against (ADR
+        // 0012 §5 names the configs-repo CI as a consumer).
+        "src/lib/operator/customer-yaml/index.ts",
+        "src/lib/operator/customer-yaml/validator.ts",
+
+        // Vitest stubs and fixtures reached through vite `resolve.alias` or a
+        // script, not a static import from a test.
+        "tests/_stubs/*.ts",
+        "tests/fixtures/*.ts",
+      ],
+      "project": [
+        "src/**/*.{ts,tsx,astro,mjs,css}",
+        "scripts/**/*.{ts,mjs}",
+        "tests/**/*.ts",
+        "operator/*/**/*.ts",
+        "public/js/*.js",
+        ".claude/hooks/**/*.mjs",
+      ],
+      "ignoreDependencies": [
+        // `cloudflare:workers` is a Workers runtime built-in (the adapter v13
+        // env-access pattern). Knip reads the `cloudflare` prefix as a package.
+        "cloudflare",
+      ],
+    },
+
+    // The three sub-workers are not npm workspaces of the root, so knip needs
+    // them named. Entry (src/index.ts) and tests are auto-detected from each
+    // package.json + wrangler.toml + vitest.config.ts.
+    "workers/*": {},
+  },
+
+  "ignore": [
+    // Worktrees are checkouts of other branches. Never in scope.
+    ".claude/worktrees/**",
+    ".worktrees/**",
+    "dist/**",
+    ".astro/**",
+    "coverage/**",
+  ],
+
+  "rules": {
+    // The ratchet: an exported value that nothing in the repo imports.
+    // An export that must survive without an importer carries an explicit
+    // `@public` JSDoc tag at its definition, with the reason next to it.
+    "exports": "error",
+    "nsExports": "error",
+
+    // Exported *types* number ~450 on the current tree. Most are the public
+    // shape of a module whose consumers destructure the value and never name
+    // the type. Enabling this today would force either a mass un-export or a
+    // mass ignore, and neither is a quality gain. Off deliberately; a separate
+    // pass can decide.
+    "types": "off",
+    "nsTypes": "off",
+    "enumMembers": "off",
+    "namespaceMembers": "off",
+
+    // Reported by `npm run deadcode`, but non-blocking: .astro islands,
+    // wrangler config and the Python operator tree all create edges knip
+    // cannot follow, so these categories carry false positives.
+    "files": "off",
+    "dependencies": "off",
+    "devDependencies": "off",
+    "optionalPeerDependencies": "off",
+    "unlisted": "off",
+    "binaries": "off",
+    "unresolved": "off",
+    "duplicates": "off",
+    "cycles": "off",
+    "catalog": "off",
+    "catalogReferences": "off",
+  },
+}

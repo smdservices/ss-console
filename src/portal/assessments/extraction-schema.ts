@@ -54,6 +54,10 @@ export const LEGACY_PROBLEM_IDS = [
 
 export type LegacyProblemId = (typeof LEGACY_PROBLEM_IDS)[number]
 
+/**
+ * @public Label map for the pre-ADR-0001 problem taxonomy. Kept alongside
+ * LEGACY_PROBLEM_IDS so historical extraction rows stay renderable.
+ */
 export const LEGACY_PROBLEM_LABELS: Record<LegacyProblemId, string> = {
   owner_bottleneck: 'Owner bottleneck',
   lead_leakage: 'Lead leakage',

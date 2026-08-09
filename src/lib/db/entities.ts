@@ -522,18 +522,6 @@ export async function transitionStage(
   return getEntity(db, orgId, entityId)
 }
 
-/**
- * Returns the latest captured Lost reason code per entity, keyed by
- * entity_id. Reads from `stage_change` context entries where
- * `metadata.to = 'lost'`. Entities with no structured reason (e.g.
- * legacy Lost rows captured before #477) are absent from the map.
- *
- * This is the one place that rolls up structured Lost metadata for
- * list-rendering. Keep the query tight — it runs on every Lost-tab
- * page render.
- */
-// Re-export slug utility for convenience
-export { computeSlug } from '../entities/slug.js'
 // Extended entity queries live in entities-extra.ts (extracted to stay within
 // file-line ceiling). Import them directly from there — re-exporting through
 // this module creates an entities ↔ entities-extra cycle that Vite warns

@@ -37,6 +37,10 @@ export type InvoiceType = 'deposit' | 'completion' | 'milestone' | 'assessment' 
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
 
+/**
+ * @public Status-label table for admin selects, sibling of
+ * ASSESSMENT_STATUSES and MILESTONE_STATUSES. Kept as one family.
+ */
 export const INVOICE_STATUSES: { value: InvoiceStatus; label: string }[] = [
   { value: 'draft', label: 'Draft' },
   { value: 'sent', label: 'Sent' },

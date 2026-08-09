@@ -21,6 +21,10 @@ export interface TimeEntry {
 export type TimeEntryCategory =
   'solution_design' | 'implementation' | 'training' | 'admin' | 'other'
 
+/**
+ * @public Category-label table for admin selects. Pinned as a contract by
+ * tests/time-entries.test.ts.
+ */
 export const TIME_ENTRY_CATEGORIES: { value: TimeEntryCategory; label: string }[] = [
   { value: 'solution_design', label: 'Solution Design' },
   { value: 'implementation', label: 'Implementation' },

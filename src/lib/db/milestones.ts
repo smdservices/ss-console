@@ -26,6 +26,10 @@ export interface Milestone {
 
 export type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
 
+/**
+ * @public Status-label table for admin selects. Pinned as a contract by
+ * tests/milestones.test.ts.
+ */
 export const MILESTONE_STATUSES: { value: MilestoneStatus; label: string }[] = [
   { value: 'pending', label: 'Pending' },
   { value: 'in_progress', label: 'In Progress' },
@@ -461,6 +465,9 @@ function formatAmount(amount: number): string {
 /**
  * Bulk create milestones for an engagement (e.g. from a template).
  * Returns the array of created milestones.
+ *
+ * @public Template-seeding entry point, pinned as a contract by
+ * tests/milestones.test.ts.
  */
 export async function bulkCreateMilestones(
   db: D1Database,

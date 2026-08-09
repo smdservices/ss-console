@@ -28,6 +28,10 @@ export function formatShortDate(iso: string | null | undefined): string {
  * Due caption: "Due Monday, April 20" for a future date; "Overdue — was
  * Monday, April 20" for past. Used on invoice list rows + the detail
  * action card.
+ *
+ * @public The shared composer. Kept as the canonical form while
+ * src/pages/portal/billing/invoices/[id].astro wraps its own local variant;
+ * that comment names this function as the alternative.
  */
 export function formatRelativeDueCaption(iso: string | null | undefined): string | null {
   if (!iso) return null

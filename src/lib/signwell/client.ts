@@ -48,6 +48,8 @@ export async function createSignatureRequest(
  * @param apiKey - SignWell API key
  * @param docId - SignWell document ID
  * @returns The SignWell document details
+ * @public Part of the SignWell client surface, pinned as a contract by
+ * tests/signwell.test.ts.
  */
 export async function getDocument(apiKey: string, docId: string): Promise<SignWellDocument> {
   const response = await fetch(`${SIGNWELL_API_BASE}/documents/${docId}`, {
