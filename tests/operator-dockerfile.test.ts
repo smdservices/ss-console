@@ -667,7 +667,21 @@ describe('Operator customer Machine Dockerfile', () => {
     // the broker uid could not traverse to a spool whose own dirs were a
     // correct 0770 — live-caught at the first establishment call on the pilot.
     // One squash commit, no tracked twin moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="62da0504c50068224bf4d017f81700af6bcc2a26"')
+    // 62da0504 -> 73007247 (2026-08-09, ss#2171): overlay#226 — the identifier
+    // gate REFUSES. Report-only becomes blocking at all three call-site paths;
+    // block set = every kind except NAME; ambient dates (utc today/yesterday)
+    // verify against the clock; the empty-register carve applies to the DRAFT
+    // gate only (the send gate blocks — autonomous send + nothing read =
+    // "cannot verify"); SMD_IDENTIFIER_GATE_MODE=report is the operator-only
+    // rollback lever, unset/garbage = block (fail-closed parse). Audit rows
+    // keep action_type IDENTIFIER_UNVERIFIED and gain mode/blocked/
+    // block_bypass/date_distance. The range moves ONE tracked pair:
+    // shared/identifier_filter.py (posture docstring only — no code change),
+    // overlaySha256 re-recorded d8c57385 -> d03192e8; the ss-console substrate
+    // copy gets the identical docstring in this PR, sha256 re-recorded
+    // 798dbc26 -> a573139f. verify-overlay-pairs.py at 73007247: all 9 pass
+    // (run recorded in the PR body).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="730072475f8c91ee7d3451d6927ed6061ec20c40"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
