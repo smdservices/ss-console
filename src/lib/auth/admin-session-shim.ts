@@ -1,6 +1,11 @@
 /**
  * Admin session shim — Clerk identity → legacy SessionData shape.
  *
+ * Sibling modules (all three say "session"; only this one is the live
+ * admin path): `admin-session.ts` is the requireAdminSession guard that
+ * reads the locals.session this shim populates; `session.ts` is the
+ * legacy magic-link D1 + KV store, now a portal-only fallback.
+ *
  * Background. Admin auth used to be custom PBKDF2 + a D1 `sessions` table.
  * 73 call sites across src/ read `locals.session.{userId, orgId, role, email}`
  * — entity queries, OAuth callback CSRF checks, follow-up tenant scoping,

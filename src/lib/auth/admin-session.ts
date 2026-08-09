@@ -1,3 +1,15 @@
+/**
+ * Admin route guard: asserts `locals.session` carries role='admin'.
+ *
+ * Three modules share the word "session" and are easy to confuse:
+ *   - admin-session.ts (this file): the guard. Reads what middleware put
+ *     in locals.session. Mints nothing, touches no store.
+ *   - admin-session-shim.ts: populates locals.session on admin paths by
+ *     adapting Clerk identity into the legacy SessionData shape. This is
+ *     the live admin path.
+ *   - session.ts: the legacy magic-link D1 + KV session store, retained
+ *     only as a portal fallback for in-flight client invitations.
+ */
 export interface AdminSession {
   userId: string
   orgId: string
