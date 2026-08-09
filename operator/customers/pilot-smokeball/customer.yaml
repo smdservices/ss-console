@@ -594,15 +594,20 @@ mcp_connector:
         - user_3E1RPGrTMxkSqciXMTyybUNSJWu
 
 # ---- AUTHORITY (ADR 0041 dual-mode portal surfaces) ----
-# The entitlement dial (ss#2003 Q7) rehearses here before the client seat
-# enables it: trust is client-operable so the live probes exercise the same
-# portal path a Named Administrator uses. runtime deliberately NOT flipped —
-# this seat's pause stays SMD-managed (the A&P seat is the one that authors
-# runtime: client).
+# Both #2003 controls rehearse here before the client seat relies on them:
+# trust is client-operable so the entitlement-dial probes (Q7) exercise the
+# same portal path a Named Administrator uses, and runtime is client-operable
+# so the kill-switch probes (Q6: portal pause -> Machine gate -> governance
+# row) exercise the same path a firm principal uses. Neither flip cedes SMD
+# control: ADR 0041 authority switches grant client self-serve OVER SMD's
+# always-present full control. (runtime was managed until the 2026-08-09
+# portal-chain proof required the real route; the prior scoping note said the
+# A&P seat is the one that authors runtime: client — it still does.)
 authority:
   default: managed
   overrides:
     trust: client
+    runtime: client
 
 # ---- CONNECTORS ----
 connectors:
