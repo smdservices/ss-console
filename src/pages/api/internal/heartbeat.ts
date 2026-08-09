@@ -58,6 +58,7 @@ interface HeartbeatBody {
   scheduler_max_overdue_seconds?: unknown
   connector_check_ok?: unknown
   connectors?: unknown
+  connector_token_age?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
@@ -135,6 +136,23 @@ function parseConnectorsJson(value: unknown): string | null {
   return JSON.stringify(parsed)
 }
 
+// server → token-file age seconds (ss#2148). A SEPARATE map from connectors:
+// token age must never synthesize a health entry. Structurally-invalid → NULL
+// ("trust nothing this beat" — the token-expiry condition holds on NULL).
+function parseConnectorTokenAgeJson(value: unknown): string | null {
+  if (value === undefined) return null
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > CONNECTORS_MAX_SERVERS) return null
+  const parsed: Record<string, number> = {}
+  for (const [server, raw] of entries) {
+    if (!CONNECTOR_SERVER_NAME_RE.test(server)) continue
+    const age = parseNonNegInt(raw)
+    if (age !== null) parsed[server] = age
+  }
+  return JSON.stringify(parsed)
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const auth = await verifyMachineRequest(request, env.MACHINE_HEARTBEAT_KEY, env.DB)
   if (!auth.ok) {
@@ -182,6 +200,10 @@ export const POST: APIRoute = async ({ request }) => {
   // silently dark).
   const connectorCheckOk = parseSchedulerOk(body.connector_check_ok)
   const connectorsJson = parseConnectorsJson(body.connectors)
+  // Token-file ages (ss#2148) — same overwrite-including-NULL contract: a seat
+  // that stops reporting ages must not leave a stale age pinned (the expiry
+  // condition holds on NULL rather than evaluating a frozen value).
+  const connectorTokenAgeJson = parseConnectorTokenAgeJson(body.connector_token_age)
 
   // Re-keyed on customer_slug (migration 0093): several seats share one entity,
   // so ON CONFLICT(entity_id) would collide them into one row. entity_id is now
@@ -191,8 +213,8 @@ export const POST: APIRoute = async ({ request }) => {
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
-       connectors_json, connector_check_ok, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       connectors_json, connector_check_ok, connector_token_age_json, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -207,6 +229,7 @@ export const POST: APIRoute = async ({ request }) => {
        scheduler_max_overdue_seconds = excluded.scheduler_max_overdue_seconds,
        connectors_json         = excluded.connectors_json,
        connector_check_ok      = excluded.connector_check_ok,
+       connector_token_age_json = excluded.connector_token_age_json,
        updated_at              = datetime('now')`
   )
     .bind(
@@ -223,7 +246,8 @@ export const POST: APIRoute = async ({ request }) => {
       schedulerJobCount,
       schedulerMaxOverdueSeconds,
       connectorsJson,
-      connectorCheckOk
+      connectorCheckOk,
+      connectorTokenAgeJson
     )
     .run()
 

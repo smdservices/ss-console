@@ -515,10 +515,37 @@ class SmokeballClient:
             return sorted(str(s) for s in raw)
         return sorted(str(raw).split())
 
+    def _refresh_token_persisted(self) -> bool | None:
+        """Does the durable token file hold the CURRENT refresh token?
+
+        The persist path is best-effort by design (a write failure must not
+        break minting), which makes its failure silent: the in-memory token
+        works until restart, then the process falls back to a dead prior file
+        and the connector bricks. This check turns that silent state into an
+        observable one (ss#2148) — the scheduled auth probe treats False as a
+        failure so the persist race pages the same day, not at the restart.
+
+        Compares content, never exposes it. None = not applicable
+        (client_credentials mode, or no file configured).
+        """
+        if self.auth_mode != "authorization_code" or not self._refresh_token_file:
+            return None
+        try:
+            on_disk = open(self._refresh_token_file, encoding="utf-8").read().strip()
+        except OSError:
+            return False
+        return bool(self._refresh_token) and on_disk == self._refresh_token
+
     def auth_status(self) -> dict[str, Any]:
         """Mint a token and report connectivity — never the token/refresh value.
         ``granted_scopes`` is the decoded JWT scope claim (the live grant), so an
-        operator can see exactly what the firm-delegated token is authorized for."""
+        operator can see exactly what the firm-delegated token is authorized for.
+
+        NOTE (ss#2148, ADR 0080 amendment): this call performs a REAL refresh
+        grant. If the vendor rotates refresh tokens on refresh, a scheduled
+        auth_status probe is a KEEPALIVE — it renews the credential rather than
+        watching it approach expiry. The console's token-age horizon alert is
+        the backstop for the probe itself dying."""
         expires_in = self._mint_token()
         return {
             "authenticated": True,
@@ -529,6 +556,7 @@ class SmokeballClient:
             "environment": self.environment,
             "api_host": self.api_host,
             "token_expires_in": expires_in,
+            "refresh_token_persisted": self._refresh_token_persisted(),
         }
 
 

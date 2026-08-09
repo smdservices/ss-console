@@ -40,6 +40,12 @@ WORK_OVERDUE_RED_SECONDS = "900"
 # path fires (ADR 0080). MUST match src/lib/admin/fleet-status.ts
 # CONNECTOR_DOWN_RUN_AGE_SECONDS (same documented-contract shape as above).
 CONNECTOR_DOWN_RUN_AGE_SECONDS = "300"
+# ss#2148 pre-expiry alerting: the Smokeball refresh token lives 30 days
+# (vendor-confirmed, Smokeball auth docs — recorded in ADR 0080's 2026-08-09
+# amendment). connector_token_expiring:smokeball opens when the seat-reported
+# token-file age reaches (lifetime - warn) days; auto-resolves on rotation.
+SMOKEBALL_REFRESH_TOKEN_LIFETIME_DAYS = "30"
+TOKEN_EXPIRY_WARN_DAYS = "5"
 ADMIN_BASE_URL = "https://admin.smd.services"
 
 # Secret (optional), staged via `wrangler secret put ALERTER_HEALTHCHECKS_PING_URL`:

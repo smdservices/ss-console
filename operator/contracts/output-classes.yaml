@@ -529,3 +529,13 @@ skill_bindings:
     internal:
       - { artifact: establishment_report, seam: session_output, class: staff }
     outbound: none # same
+
+  # ---- ops (ss#2148) ----
+  # The auth probe produces NO artifact of any class: its entire output is the
+  # tool-call outcome itself, which the connector-health ledger observes and
+  # the fleet alerter pages on. An empty internal list is the honest binding —
+  # inventing a "report" artifact here would misdescribe a skill whose contract
+  # is "call auth_status, retry twice on failure, write nothing".
+  connector-auth-check:
+    internal: []
+    outbound: none # never sends; action_class is read-only

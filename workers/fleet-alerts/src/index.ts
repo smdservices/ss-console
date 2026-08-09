@@ -62,6 +62,7 @@
 
 import { escapeHtml } from './html'
 import { notifySinkAlerts, type SinkNotification } from './sink-notify'
+import { tokenExpiryConditions } from './token-expiry'
 
 export type { SinkNotification }
 
@@ -86,6 +87,16 @@ export interface Env {
    * packages, documented contract, not an import.
    */
   CONNECTOR_DOWN_RUN_AGE_SECONDS?: string
+  /**
+   * Vendor-confirmed refresh-token lifetime for the Smokeball connector, in
+   * days (ss#2148; Smokeball auth docs: 30). The connector_token_expiring
+   * condition opens when the seat-reported token-file age reaches
+   * (lifetime - TOKEN_EXPIRY_WARN_DAYS). Unset/invalid disables the condition
+   * for smokeball rather than guessing a lifetime.
+   */
+  SMOKEBALL_REFRESH_TOKEN_LIFETIME_DAYS?: string
+  /** Days of warning before the recorded lifetime. Default 5. */
+  TOKEN_EXPIRY_WARN_DAYS?: string
   FLEET_ALERTS_BEARER?: string
   ADMIN_BASE_URL?: string
   /**
@@ -104,6 +115,7 @@ export type FleetCondition =
   | 'work_overdue'
   | 'connector_check_error'
   | `connector_down:${string}`
+  | `connector_token_expiring:${string}`
 
 export interface FleetStatusRow {
   customer_slug: string
@@ -113,6 +125,7 @@ export interface FleetStatusRow {
   scheduler_max_overdue_seconds: number | null
   connectors_json: string | null
   connector_check_ok: number | null
+  connector_token_age_json: string | null
 }
 
 /** One per-server entry from the seat's connectors map (writer-side ages). */
@@ -174,6 +187,8 @@ const DEFAULT_CONNECTOR_RUN_AGE_SECONDS = 300
 const CONNECTOR_DOWN_MIN_FAILURES = 3
 const CONNECTOR_BACKSTOP_MIN_FAILURES = 10
 const CONNECTOR_BACKSTOP_RUN_AGE_SECONDS = 900
+// ss#2148 pre-expiry warning window (days before the recorded lifetime).
+const DEFAULT_TOKEN_EXPIRY_WARN_DAYS = 5
 
 function redSeconds(env: Env): number {
   const n = Number(env.HEARTBEAT_RED_SECONDS)
@@ -188,6 +203,22 @@ function workOverdueSeconds(env: Env): number {
 function connectorRunAgeSeconds(env: Env): number {
   const n = Number(env.CONNECTOR_DOWN_RUN_AGE_SECONDS)
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_CONNECTOR_RUN_AGE_SECONDS
+}
+
+/**
+ * Recorded credential lifetimes per server (ss#2148). Only servers with a
+ * valid recorded lifetime are evaluated — no entry, no guess, no page.
+ */
+function tokenLifetimesDays(env: Env): Record<string, number> {
+  const out: Record<string, number> = {}
+  const sb = Number(env.SMOKEBALL_REFRESH_TOKEN_LIFETIME_DAYS)
+  if (Number.isFinite(sb) && sb > 0) out.smokeball = Math.floor(sb)
+  return out
+}
+
+function tokenWarnDays(env: Env): number {
+  const n = Number(env.TOKEN_EXPIRY_WARN_DAYS)
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_TOKEN_EXPIRY_WARN_DAYS
 }
 
 /**
@@ -240,6 +271,10 @@ export function parseConnectorsMap(json: string | null): Record<string, Connecto
   return out
 }
 
+// connector_token_expiring machinery lives in ./token-expiry (ss#2148) —
+// extracted whole so this file stays under the line ceiling and the condition
+// keeps a single home.
+
 /**
  * Pure condition evaluation over fleet_status rows. Exported for tests.
  *
@@ -250,13 +285,25 @@ export function parseConnectorsMap(json: string | null): Record<string, Connecto
  * resolve an open one. A false RECOVERED email to an ops inbox cancels human
  * urgency; never emit one from an unreported signal.
  */
+export interface EvaluateOptions {
+  overdueThresholdSeconds?: number
+  connectorRunAgeThresholdSeconds?: number
+  tokenLifetimesDays?: Record<string, number>
+  tokenWarnDays?: number
+}
+
 export function evaluateConditions(
   rows: FleetStatusRow[],
   nowMs: number,
   redThresholdSeconds: number,
-  overdueThresholdSeconds: number = DEFAULT_WORK_OVERDUE_SECONDS,
-  connectorRunAgeThresholdSeconds: number = DEFAULT_CONNECTOR_RUN_AGE_SECONDS
+  options: EvaluateOptions = {}
 ): ConditionState[] {
+  const {
+    overdueThresholdSeconds = DEFAULT_WORK_OVERDUE_SECONDS,
+    connectorRunAgeThresholdSeconds = DEFAULT_CONNECTOR_RUN_AGE_SECONDS,
+    tokenLifetimesDays = {},
+    tokenWarnDays = DEFAULT_TOKEN_EXPIRY_WARN_DAYS,
+  } = options
   const out: ConditionState[] = []
   for (const row of rows) {
     let hbActive = false
@@ -307,6 +354,7 @@ export function evaluateConditions(
       })
     }
     out.push(...connectorConditions(row, connectorRunAgeThresholdSeconds))
+    out.push(...tokenExpiryConditions(row, tokenLifetimesDays, tokenWarnDays))
   }
   return out
 }
@@ -379,7 +427,7 @@ async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
     .prepare(
       `SELECT customer_slug, last_heartbeat_ts, sticky_stop_level,
               scheduler_ok, scheduler_max_overdue_seconds,
-              connectors_json, connector_check_ok
+              connectors_json, connector_check_ok, connector_token_age_json
          FROM fleet_status`
     )
     .all<FleetStatusRow>()
@@ -447,6 +495,13 @@ async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
                 OR json_extract(f.connectors_json, '$."' || substr(s.condition, 16) || '"') IS NULL
               )
             )
+            OR (
+              s.condition LIKE 'connector_token_expiring:%'
+              AND (
+                f.connector_token_age_json IS NULL
+                OR json_extract(f.connector_token_age_json, '$."' || substr(s.condition, 26) || '"') IS NULL
+              )
+            )
           )
         ORDER BY s.customer_slug ASC, s.condition ASC`
     )
@@ -466,6 +521,9 @@ const CONDITION_LABEL: Record<string, string> = {
 export function conditionLabel(condition: FleetCondition): string {
   if (condition.startsWith('connector_down:')) {
     return `Connector failing: ${condition.slice('connector_down:'.length)}`
+  }
+  if (condition.startsWith('connector_token_expiring:')) {
+    return `Connector credential expiring: ${condition.slice('connector_token_expiring:'.length)}`
   }
   return CONDITION_LABEL[condition] ?? condition
 }
@@ -575,13 +633,12 @@ async function processTransition(env: Env, s: ConditionState): Promise<Transitio
 /** One evaluation pass: read fleet, compute conditions, fire edge transitions. */
 export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<RunSummary> {
   const rows = await listFleetStatus(env.DB)
-  const conditions = evaluateConditions(
-    rows,
-    nowMs,
-    redSeconds(env),
-    workOverdueSeconds(env),
-    connectorRunAgeSeconds(env)
-  )
+  const conditions = evaluateConditions(rows, nowMs, redSeconds(env), {
+    overdueThresholdSeconds: workOverdueSeconds(env),
+    connectorRunAgeThresholdSeconds: connectorRunAgeSeconds(env),
+    tokenLifetimesDays: tokenLifetimesDays(env),
+    tokenWarnDays: tokenWarnDays(env),
+  })
   const transitions: Transition[] = []
 
   // Group by seat so one bad row (a throwing DB op, a malformed value) can't

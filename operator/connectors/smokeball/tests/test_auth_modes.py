@@ -250,6 +250,45 @@ def test_no_rotation_does_not_touch_file(tmp_path) -> None:
     assert not token_file.exists()  # nothing rotated → nothing written
 
 
+# ---- ss#2148: auth_status reports whether the durable file holds the
+# ---- CURRENT refresh token (the silent-persist-failure race, observable) ----
+def test_auth_status_reports_persisted_true_after_rotation(tmp_path) -> None:
+    token_file = tmp_path / "refresh_token"
+    token_file.write_text("rt-OLD")
+    captured: list[httpx.Request] = []
+    client = _mock_client(
+        _token_handler(captured, rotate="rt-ROTATED"),
+        auth_mode="authorization_code",
+        refresh_token="rt-OLD",
+        refresh_token_file=str(token_file),
+    )
+    status = client.auth_status()
+    assert status["refresh_token_persisted"] is True  # rotated AND rewritten
+
+
+def test_auth_status_reports_persisted_false_when_write_failed(tmp_path) -> None:
+    # Point the durable file into a directory that does not exist: the
+    # best-effort persist swallows the OSError, so without this flag the dead
+    # state is invisible until the next restart bricks the connector.
+    token_file = tmp_path / "no-such-dir" / "refresh_token"
+    captured: list[httpx.Request] = []
+    client = _mock_client(
+        _token_handler(captured, rotate="rt-ROTATED"),
+        auth_mode="authorization_code",
+        refresh_token="rt-OLD",
+        refresh_token_file=str(token_file),
+    )
+    status = client.auth_status()
+    assert status["refresh_token_persisted"] is False
+
+
+def test_auth_status_persisted_not_applicable_for_client_credentials() -> None:
+    captured: list[httpx.Request] = []
+    client = _mock_client(_token_handler(captured))
+    status = client.auth_status()
+    assert status["refresh_token_persisted"] is None
+
+
 def test_read_refresh_token_file_then_env(tmp_path, monkeypatch) -> None:
     # Construction moved to client.build_client_from_env (single source of truth
     # shared with the egress reconciler); the token reader lives there now.

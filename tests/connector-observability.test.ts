@@ -375,3 +375,172 @@ describe('worker runOnce — connector_down lifecycle', () => {
     ])
   })
 })
+
+// ===========================================================================
+// 4. Migration 0103 + token-age ingest + connector_token_expiring lifecycle
+//    (ss#2148, ADR 0080 amendment 2026-08-09)
+// ===========================================================================
+
+describe('migration 0103 — token-age column + CHECK widening', () => {
+  it('preserves a pre-existing open alert row across the rebuild and accepts the new prefix', async () => {
+    const db = createTestD1()
+    await runMigrations(db, { files: allMigrations() })
+    const insert = (condition: string) =>
+      db
+        .prepare(
+          `INSERT INTO fleet_alert_state (customer_slug, condition, status, opened_at)
+           VALUES ('seat', ?, 'open', datetime('now'))`
+        )
+        .bind(condition)
+        .run()
+    await expect(insert('connector_token_expiring:smokeball')).resolves.toBeTruthy()
+    await expect(insert('connector_down:smokeball')).resolves.toBeTruthy()
+    await expect(insert('junk_condition')).rejects.toThrow()
+    await expect(insert('connector_token_expiring')).rejects.toThrow() // prefix needs a colon
+  })
+
+  it('fleet_status gains the nullable connector_token_age_json column', async () => {
+    const db = createTestD1()
+    await runMigrations(db, { files: allMigrations() })
+    await seedOrgEntityConfig(db, 'tokcol')
+    await db
+      .prepare(
+        `INSERT INTO fleet_status (entity_id, customer_slug, heartbeat_status, connector_token_age_json)
+         VALUES (?, 'tokcol', 'green', '{"smokeball":86400}')`
+      )
+      .bind(ENTITY_A)
+      .run()
+    const row = await db
+      .prepare(`SELECT connector_token_age_json FROM fleet_status WHERE customer_slug = 'tokcol'`)
+      .first<Record<string, unknown>>()
+    expect(row?.connector_token_age_json).toBe('{"smokeball":86400}')
+  })
+})
+
+describe('POST /api/internal/heartbeat — connector_token_age (ss#2148)', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: allMigrations() })
+    await seedOrgEntityConfig(db, 'alpha')
+    ;(testEnv as unknown as Record<string, unknown>).DB = db
+    ;(testEnv as unknown as Record<string, unknown>).MACHINE_HEARTBEAT_KEY = MACHINE_KEY
+  })
+
+  async function readTokenAge(slug: string): Promise<unknown> {
+    const row = await db
+      .prepare('SELECT connector_token_age_json FROM fleet_status WHERE customer_slug = ?')
+      .bind(slug)
+      .first<Record<string, unknown>>()
+    return row?.connector_token_age_json
+  }
+
+  it('stores a valid token-age map, dropping junk entries', async () => {
+    const res = await POST(
+      heartbeatRequest('alpha', {
+        heartbeat_ts: new Date().toISOString(),
+        connector_token_age: {
+          smokeball: 2160000,
+          'bad name!': 5,
+          negative: -1,
+          stringy: 'old',
+        },
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(JSON.parse(String(await readTokenAge('alpha')))).toEqual({ smokeball: 2160000 })
+  })
+
+  it('structurally-invalid map stores NULL and absence overwrites back to NULL', async () => {
+    await POST(
+      heartbeatRequest('alpha', {
+        heartbeat_ts: new Date().toISOString(),
+        connector_token_age: { smokeball: 100 },
+      })
+    )
+    expect(await readTokenAge('alpha')).not.toBeNull()
+    await POST(heartbeatRequest('alpha', { heartbeat_ts: new Date().toISOString() }))
+    expect(await readTokenAge('alpha')).toBeNull()
+    await POST(
+      heartbeatRequest('alpha', {
+        heartbeat_ts: new Date().toISOString(),
+        connector_token_age: 'junk',
+      })
+    )
+    expect(await readTokenAge('alpha')).toBeNull()
+  })
+})
+
+describe('worker runOnce — connector_token_expiring lifecycle', () => {
+  const FRESH = '2026-07-25T12:00:00.000Z'
+  const NOW = Date.parse('2026-07-25T12:00:30.000Z')
+
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: allMigrations() })
+    await seedOrgEntityConfig(db, 'seat')
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(new Response(JSON.stringify({ id: 'rk-1' }), { status: 200 }))
+        )
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function workerEnv(): WorkerEnv {
+    return {
+      DB: db,
+      RESEND_API_KEY: 'rk_test',
+      SMOKEBALL_REFRESH_TOKEN_LIFETIME_DAYS: '30',
+      TOKEN_EXPIRY_WARN_DAYS: '5',
+    }
+  }
+
+  async function setTokenAge(json: string | null): Promise<void> {
+    await db
+      .prepare(
+        `INSERT INTO fleet_status (entity_id, customer_slug, last_heartbeat_ts, heartbeat_status, connector_token_age_json)
+         VALUES (?, 'seat', ?, 'green', ?)
+         ON CONFLICT(customer_slug) DO UPDATE SET connector_token_age_json = excluded.connector_token_age_json`
+      )
+      .bind(ENTITY_A, FRESH, json)
+      .run()
+  }
+
+  it('opens at the warn horizon and resolves when the token file is rewritten', async () => {
+    await setTokenAge(JSON.stringify({ smokeball: 26 * 86400 }))
+    const opened = await runOnce(workerEnv(), NOW)
+    expect(opened.transitions).toEqual([
+      expect.objectContaining({ condition: 'connector_token_expiring:smokeball', kind: 'opened' }),
+    ])
+    // Rotation resets the file mtime → a small age → the condition resolves.
+    await setTokenAge(JSON.stringify({ smokeball: 60 }))
+    const resolved = await runOnce(workerEnv(), NOW)
+    expect(resolved.transitions).toEqual([
+      expect.objectContaining({
+        condition: 'connector_token_expiring:smokeball',
+        kind: 'resolved',
+      }),
+    ])
+  })
+
+  it('a seat that stops reporting ages HOLDS the open alert (stale hold, never a false resolve)', async () => {
+    await setTokenAge(JSON.stringify({ smokeball: 26 * 86400 }))
+    await runOnce(workerEnv(), NOW)
+    await setTokenAge(null)
+    const held = await runOnce(workerEnv(), NOW)
+    expect(held.transitions).toEqual([])
+    expect(held.stale_holds).toEqual([
+      expect.objectContaining({ condition: 'connector_token_expiring:smokeball' }),
+    ])
+  })
+})

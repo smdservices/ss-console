@@ -10,7 +10,14 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { evaluateConditions, runOnce, type Env, type FleetStatusRow, type StaleHold } from './index'
+import {
+  conditionLabel,
+  evaluateConditions,
+  runOnce,
+  type Env,
+  type FleetStatusRow,
+  type StaleHold,
+} from './index'
 
 const NOW = Date.parse('2026-07-04T12:00:00.000Z')
 const RED = 300
@@ -25,13 +32,14 @@ function row(overrides: Partial<FleetStatusRow>): FleetStatusRow {
     scheduler_max_overdue_seconds: null,
     connectors_json: null,
     connector_check_ok: null,
+    connector_token_age_json: null,
     ...overrides,
   }
 }
 
 describe('evaluateConditions', () => {
   it('fresh heartbeat + OK breaker: both base conditions inactive', () => {
-    const out = evaluateConditions([row({})], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({})], NOW, RED, { overdueThresholdSeconds: OVERDUE })
     expect(out.find((c) => c.condition === 'heartbeat_red')?.active).toBe(false)
     expect(out.find((c) => c.condition === 'hard_stop')?.active).toBe(false)
   })
@@ -41,18 +49,22 @@ describe('evaluateConditions', () => {
       [row({ last_heartbeat_ts: '2026-07-04T11:50:00.000Z' })], // 600s ago
       NOW,
       RED,
-      OVERDUE
+      { overdueThresholdSeconds: OVERDUE }
     )
     expect(out.find((c) => c.condition === 'heartbeat_red')?.active).toBe(true)
   })
 
   it('NULL heartbeat is provisioning-gray, never red (no false pages)', () => {
-    const out = evaluateConditions([row({ last_heartbeat_ts: null })], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({ last_heartbeat_ts: null })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(out.find((c) => c.condition === 'heartbeat_red')?.active).toBe(false)
   })
 
   it('unparseable heartbeat timestamp IS a fault (red)', () => {
-    const out = evaluateConditions([row({ last_heartbeat_ts: 'garbage' })], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({ last_heartbeat_ts: 'garbage' })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(out.find((c) => c.condition === 'heartbeat_red')?.active).toBe(true)
   })
 
@@ -63,7 +75,9 @@ describe('evaluateConditions', () => {
       ['SOFT_STOP', false],
       [null, false],
     ] as const) {
-      const out = evaluateConditions([row({ sticky_stop_level: level })], NOW, RED, OVERDUE)
+      const out = evaluateConditions([row({ sticky_stop_level: level })], NOW, RED, {
+        overdueThresholdSeconds: OVERDUE,
+      })
       expect(out.find((c) => c.condition === 'hard_stop')?.active).toBe(want)
     }
   })
@@ -71,34 +85,34 @@ describe('evaluateConditions', () => {
   // --- scheduler conditions + per-field NULL-hold ---------------------------
 
   it('scheduler_ok=0 makes scheduler_error active', () => {
-    const out = evaluateConditions([row({ scheduler_ok: 0 })], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({ scheduler_ok: 0 })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(out.find((c) => c.condition === 'scheduler_error')?.active).toBe(true)
   })
 
   it('scheduler_ok=1 makes scheduler_error inactive', () => {
-    const out = evaluateConditions([row({ scheduler_ok: 1 })], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({ scheduler_ok: 1 })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(out.find((c) => c.condition === 'scheduler_error')?.active).toBe(false)
   })
 
   it('scheduler_ok=NULL pushes NO scheduler_error ConditionState (hold, never resolve)', () => {
-    const out = evaluateConditions([row({ scheduler_ok: null })], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({ scheduler_ok: null })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(out.find((c) => c.condition === 'scheduler_error')).toBeUndefined()
   })
 
   it('overdue 901 > threshold 900 opens work_overdue; 899 does not', () => {
-    const overdue = evaluateConditions(
-      [row({ scheduler_max_overdue_seconds: 901 })],
-      NOW,
-      RED,
-      OVERDUE
-    )
+    const overdue = evaluateConditions([row({ scheduler_max_overdue_seconds: 901 })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(overdue.find((c) => c.condition === 'work_overdue')?.active).toBe(true)
-    const notOverdue = evaluateConditions(
-      [row({ scheduler_max_overdue_seconds: 899 })],
-      NOW,
-      RED,
-      OVERDUE
-    )
+    const notOverdue = evaluateConditions([row({ scheduler_max_overdue_seconds: 899 })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(notOverdue.find((c) => c.condition === 'work_overdue')?.active).toBe(false)
   })
 
@@ -107,7 +121,7 @@ describe('evaluateConditions', () => {
       [row({ scheduler_ok: 1, scheduler_max_overdue_seconds: null })],
       NOW,
       RED,
-      OVERDUE
+      { overdueThresholdSeconds: OVERDUE }
     )
     expect(out.find((c) => c.condition === 'scheduler_error')?.active).toBe(false)
     expect(out.find((c) => c.condition === 'work_overdue')).toBeUndefined()
@@ -538,12 +552,15 @@ describe('connector conditions (ADR 0080)', () => {
     })
 
   it('NULL connectors_json pushes no connector_down state at all (whole-map hold)', () => {
-    const out = evaluateConditions([row({})], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({})], NOW, RED, { overdueThresholdSeconds: OVERDUE })
     expect(out.some((c) => c.condition.startsWith('connector_down:'))).toBe(false)
   })
 
   it('conn-class path opens: >=3 consecutive with evidence and run age >= threshold', () => {
-    const out = evaluateConditions([row({ connectors_json: entry() })], NOW, RED, OVERDUE, 300)
+    const out = evaluateConditions([row({ connectors_json: entry() })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      connectorRunAgeThresholdSeconds: 300,
+    })
     const c = out.find((x) => x.condition === 'connector_down:smokeball')
     expect(c?.active).toBe(true)
     expect(c?.detail).toContain('connection-class evidence')
@@ -555,31 +572,24 @@ describe('connector conditions (ADR 0080)', () => {
       [row({ connectors_json: entry({ run_age_seconds: 120 }) })],
       NOW,
       RED,
-      OVERDUE,
-      300
+      { overdueThresholdSeconds: OVERDUE, connectorRunAgeThresholdSeconds: 300 }
     )
     expect(out.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
   })
 
   it('business-only run never opens via the conn path, opens via the backstop at 10/900', () => {
     const noEvidence = { conn_evidence: false, consecutive_failures: 9, run_age_seconds: 5000 }
-    const held = evaluateConditions(
-      [row({ connectors_json: entry(noEvidence) })],
-      NOW,
-      RED,
-      OVERDUE,
-      300
-    )
+    const held = evaluateConditions([row({ connectors_json: entry(noEvidence) })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      connectorRunAgeThresholdSeconds: 300,
+    })
     expect(held.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
 
     const backstop = { conn_evidence: false, consecutive_failures: 10, run_age_seconds: 900 }
-    const paged = evaluateConditions(
-      [row({ connectors_json: entry(backstop) })],
-      NOW,
-      RED,
-      OVERDUE,
-      300
-    )
+    const paged = evaluateConditions([row({ connectors_json: entry(backstop) })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      connectorRunAgeThresholdSeconds: 300,
+    })
     const c = paged.find((x) => x.condition === 'connector_down:smokeball')
     expect(c?.active).toBe(true)
     expect(c?.detail).toContain('signature-free backstop')
@@ -590,7 +600,7 @@ describe('connector conditions (ADR 0080)', () => {
       [row({ connectors_json: JSON.stringify({ smokeball: { consecutive_failures: 0 } }) })],
       NOW,
       RED,
-      OVERDUE
+      { overdueThresholdSeconds: OVERDUE }
     )
     expect(resolved.find((x) => x.condition === 'connector_down:smokeball')?.active).toBe(false)
 
@@ -604,7 +614,7 @@ describe('connector conditions (ADR 0080)', () => {
       ],
       NOW,
       RED,
-      OVERDUE
+      { overdueThresholdSeconds: OVERDUE }
     )
     expect(ambiguous.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
   })
@@ -614,13 +624,15 @@ describe('connector conditions (ADR 0080)', () => {
       [row({ connectors_json: JSON.stringify({ smokeball: { consecutive_failures: 7 } }) })],
       NOW,
       RED,
-      OVERDUE
+      { overdueThresholdSeconds: OVERDUE }
     )
     expect(out.some((x) => x.condition === 'connector_down:smokeball')).toBe(false)
   })
 
   it('corrupt connectors_json degrades to a hold, never throws', () => {
-    const out = evaluateConditions([row({ connectors_json: '{nope' })], NOW, RED, OVERDUE)
+    const out = evaluateConditions([row({ connectors_json: '{nope' })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(out.some((x) => x.condition.startsWith('connector_down:'))).toBe(false)
   })
 
@@ -629,19 +641,26 @@ describe('connector conditions (ADR 0080)', () => {
       smokeball: { consecutive_failures: 4, run_age_seconds: 400, conn_evidence: true },
       agentmail: { consecutive_failures: 0 },
     })
-    const out = evaluateConditions([row({ connectors_json: map })], NOW, RED, OVERDUE, 300)
+    const out = evaluateConditions([row({ connectors_json: map })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      connectorRunAgeThresholdSeconds: 300,
+    })
     expect(out.find((x) => x.condition === 'connector_down:smokeball')?.active).toBe(true)
     expect(out.find((x) => x.condition === 'connector_down:agentmail')?.active).toBe(false)
   })
 
   it('connector_check_error follows scheduler_ok semantics with NULL-hold', () => {
-    const held = evaluateConditions([row({})], NOW, RED, OVERDUE)
+    const held = evaluateConditions([row({})], NOW, RED, { overdueThresholdSeconds: OVERDUE })
     expect(held.some((x) => x.condition === 'connector_check_error')).toBe(false)
 
-    const broken = evaluateConditions([row({ connector_check_ok: 0 })], NOW, RED, OVERDUE)
+    const broken = evaluateConditions([row({ connector_check_ok: 0 })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(broken.find((x) => x.condition === 'connector_check_error')?.active).toBe(true)
 
-    const healthy = evaluateConditions([row({ connector_check_ok: 1 })], NOW, RED, OVERDUE)
+    const healthy = evaluateConditions([row({ connector_check_ok: 1 })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
     expect(healthy.find((x) => x.condition === 'connector_check_error')?.active).toBe(false)
   })
 })
@@ -793,4 +812,64 @@ it('escapes HTML in transition details (connector errors are Machine-controlled)
   expect(connectorEmail).toBeDefined()
   expect(connectorEmail).not.toContain('<script>')
   expect(connectorEmail).toContain('&lt;script&gt;')
+})
+
+describe('connector_token_expiring (ss#2148)', () => {
+  const LIFETIMES = { smokeball: 30 }
+  const WARN = 5
+  const ageJson = (days: number) => JSON.stringify({ smokeball: days * 86400 })
+  const tokenStates = (r: FleetStatusRow) =>
+    evaluateConditions([r], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      tokenLifetimesDays: LIFETIMES,
+      tokenWarnDays: WARN,
+    }).filter((c) => c.condition.startsWith('connector_token_expiring:'))
+
+  it('NULL token-age json pushes nothing (hold)', () => {
+    expect(tokenStates(row({}))).toHaveLength(0)
+  })
+
+  it('corrupt token-age json pushes nothing (hold, never a page from junk)', () => {
+    expect(tokenStates(row({ connector_token_age_json: '{nope' }))).toHaveLength(0)
+  })
+
+  it('age below the warn threshold pushes inactive (rotation resolves an open alert)', () => {
+    const out = tokenStates(row({ connector_token_age_json: ageJson(3) }))
+    expect(out).toHaveLength(1)
+    expect(out[0].condition).toBe('connector_token_expiring:smokeball')
+    expect(out[0].active).toBe(false)
+  })
+
+  it('age at lifetime - warn opens the condition', () => {
+    const out = tokenStates(row({ connector_token_age_json: ageJson(25) }))
+    expect(out).toHaveLength(1)
+    expect(out[0].active).toBe(true)
+    expect(out[0].detail).toContain('25d old')
+  })
+
+  it('age past the lifetime stays open', () => {
+    const out = tokenStates(row({ connector_token_age_json: ageJson(31) }))
+    expect(out[0].active).toBe(true)
+  })
+
+  it('a server with no recorded lifetime is never evaluated (no guessed pages)', () => {
+    const out = tokenStates(
+      row({ connector_token_age_json: JSON.stringify({ agentmail: 999 * 86400 }) })
+    )
+    expect(out).toHaveLength(0)
+  })
+
+  it('no lifetimes configured disables the condition class entirely', () => {
+    const out = evaluateConditions([row({ connector_token_age_json: ageJson(29) })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      tokenWarnDays: WARN,
+    }).filter((c) => c.condition.startsWith('connector_token_expiring:'))
+    expect(out).toHaveLength(0)
+  })
+
+  it('labels the condition with the server name', () => {
+    expect(conditionLabel('connector_token_expiring:smokeball')).toBe(
+      'Connector credential expiring: smokeball'
+    )
+  })
 })

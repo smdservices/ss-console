@@ -34,6 +34,8 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Tracks discovery-response verifications and chases the signer until signed. Never signs or sends without attorney approval.',
   'conflict-intake-router':
     'Captures conflict checks and routes them to the person who must clear them. Surfaces conflicts, never clears them.',
+  'connector-auth-check':
+    'Verifies daily that the connection to your practice management system is alive, so a broken connection is caught before it interrupts work. Checks the connection only; reads and writes no matter data.',
   'consult-scheduler':
     'Offers consult times within your rules and drafts the confirmation for a human to send.',
   'daily-needs-you-digest':

@@ -100,15 +100,54 @@ kept entry never individually nulled (entries are atomic). The
 condition LIKE 'connector_down:%'` — the composite `(customer_slug,
 condition)` PK gives one alert row per failing server.
 
+## Amendment 2026-08-09 — auth-plane probes + credential-age horizon (ss#2148)
+
+The idle-connector blind spot below stopped being acceptable on 2026-08-02:
+the pilot's Smokeball refresh token expired unrotated at its 30-day lifetime
+(vendor-confirmed in Smokeball's auth documentation) and every liveness
+surface stayed green until the 14:00 UTC scheduled run failed client-facing
+work. Detection-on-use means the page arrives after the damage. Two additions,
+both keeping this ADR's deterministic-predicate discipline:
+
+1. **Auth-plane probes are carved out of the synthetic-probe rejection.** The
+   rejection's rationale — "a probe is a write path into vendor APIs" —
+   targeted vendor _data_ APIs, and it stands for them. `auth_status` exercises
+   the OAuth token mint at the vendor's _auth host_ and touches no data
+   endpoint. The `connector-auth-check` skill (authored per seat in
+   `customer.yaml` cron — visible, never ambient) calls it daily and retries
+   twice on failure, so a dead credential crosses the 3-consecutive threshold
+   and pages the same day it dies. **Named honestly: this probe is a
+   keepalive, not just a detector.** `auth_status` performs a real refresh
+   grant; where the vendor rotates refresh tokens on refresh (Smokeball
+   does), the daily probe renews the credential and the idle-expiry death
+   stops happening at all. The probe also surfaces the rotation-persist race:
+   `auth_status` now reports `refresh_token_persisted`, and the skill treats
+   `false` as a failure — a rotated token that failed its best-effort write to
+   the durable file (silent today, bricks at next restart) pages the same day.
+2. **Credential-age horizon, as the backstop for the probe itself.** The seat
+   ships `connector_token_age` (the durable token file's mtime age; overlay
+   `connector_check.token_ages()`) as a heartbeat field SEPARATE from the
+   health map — synthesizing a `consecutive_failures: 0` entry would falsely
+   resolve an open `connector_down` alert. The worker's
+   `connector_token_expiring:<server>` condition opens at
+   `lifetime − warn_days` (Smokeball: 30 − 5) and resolves when the file is
+   rewritten. In normal operation the keepalive rotates the file daily and
+   this condition never fires; it fires when the probe infrastructure itself
+   has been dead for ~25 days — the watcher's watcher, same role
+   healthchecks.io plays for the alerter. Lifetimes are recorded per server in
+   the worker's vars (`SMOKEBALL_REFRESH_TOKEN_LIFETIME_DAYS = 30`); a server
+   with no recorded lifetime is never evaluated.
+
 ## Accepted gaps (named, not hidden)
 
-- **Idle-connector blind spot.** Passive call-site observation cannot see the
-  outage of a connector with zero traffic; detection latency equals natural
-  call cadence. Mitigation is structural — seats exist to run scheduled work,
-  which is what calls connectors — plus the informational last-ok/last-error
-  ages in the map. Synthetic probes were rejected outright: a probe is a write
-  path into vendor APIs, the incident class this monitoring family exists to
-  prevent.
+- **Idle-connector blind spot.** ~~Passive call-site observation cannot see
+  the outage of a connector with zero traffic~~ — closed for
+  durable-credential connectors by the 2026-08-09 amendment above (probe +
+  horizon). Still true for connectors with neither a probe cron nor a
+  recorded lifetime; detection latency there equals natural call cadence.
+  The original rejection of synthetic _data-plane_ probes stands: a probe is
+  a write path into vendor APIs, the incident class this monitoring family
+  exists to prevent.
 - **Restart mid-outage** wipes the tmpfs ledger and re-counts from zero (the
   open alert HOLDS throughout; bounded re-detection latency). Tmpfs is chosen
   deliberately: stale pre-restart counts must not survive a boot.
