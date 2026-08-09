@@ -1,6 +1,11 @@
 /**
  * Session management for the legacy magic-link client portal path.
  *
+ * Sibling modules (this one is NOT the live admin path):
+ * `admin-session-shim.ts` adapts Clerk identity into the SessionData
+ * shape defined here and is what populates locals.session on admin
+ * routes; `admin-session.ts` is the requireAdminSession guard over it.
+ *
  * As of the 2026-05-25 Clerk-unified auth migration, Clerk owns both
  * admin and primary portal sessions. This module is retained ONLY for
  * the magic-link client invitation flow: /auth/verify consumes a

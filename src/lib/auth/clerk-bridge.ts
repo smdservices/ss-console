@@ -58,8 +58,13 @@ export interface PortalContext {
  * the JIT path — typically fetched from `clerkClient.users.getUser()`
  * inside the page or API handler.
  *
- * role is hardcoded to 'client' for portal users. Admin role is governed
- * by a separate path (magic-link auth on admin.smd.services).
+ * role is hardcoded to 'client' for portal users. Admin role is never
+ * granted here: since the 2026-05-25 auth unification Clerk is primary
+ * for admin too, and `resolveAdminSessionFromClerk` (admin-session-shim.ts)
+ * maps a Clerk user_id to an existing local users row gated on
+ * role='admin'. That path never JIT-creates a row, so admin cannot be
+ * self-provisioned through this bridge. Magic-link auth survives only as
+ * a legacy portal fallback for in-flight client invitations.
  */
 export async function ensureLocalUser(
   db: D1Database,
