@@ -462,7 +462,15 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # rollback lever (unset/garbage = block). The range moves ONE tracked pair:
 # shared/identifier_filter.py (posture docstring only), overlaySha256
 # re-recorded; the substrate copy gets the same docstring in this PR.
-ARG OVERLAY_REF="730072475f8c91ee7d3451d6927ed6061ec20c40"
+# 2026-08-09: 73007247 -> ba6d116a (overlay#227, ss#2148): durable-credential
+# age rides the heartbeat. connector_check.token_ages() reports the Smokeball
+# refresh-token file's mtime age; the heartbeat ships it as
+# connector_token_age — a SEPARATE field from the health map (synthesizing a
+# consecutive_failures=0 entry would falsely RESOLVE an open connector_down
+# alert). Feeds the console's connector_token_expiring pre-expiry condition
+# (this PR). Touches shared/connector_check.py + shared/heartbeat.py — NOT
+# tracked pairs; every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="ba6d116a1adf2c84331e53a2dfbdd24c970aa531"
 
 ARG CUSTOMER_SLUG=customer-zero
 

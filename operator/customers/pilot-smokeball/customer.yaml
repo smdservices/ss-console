@@ -184,6 +184,16 @@ personas:
           scheduled: false
           webhook: false
         enabled: true
+      # ops (ss#2148) — auth-plane liveness/keepalive probe. Calls auth_status
+      # only (no data endpoint); its failures are the connector-health ledger's
+      # signal, so a dead credential pages the same day. Vertical-neutral.
+      - name: connector-auth-check
+        version: pending
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
+        enabled: true
       # establishment (ADR 0085) — product skills, not pack skills: an Operator
       # admin points the seat at the firm's own documents and the firm's voice
       # or an output's shape is established from them. Conversational only:
@@ -569,6 +579,9 @@ personas:
         schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
         pre_run: pre_run.py
         wake_policy: pre_run_decides
+      - skill: connector-auth-check
+        schedule: '47 5 * * *' # daily 0547 seat-local — before the morning routines, so the auth keepalive fires before the day's Smokeball work (ss#2148)
+        wake_policy: always # never suppressed: a skipped probe is a dead keepalive AND a silent detector
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
       - google-workspace

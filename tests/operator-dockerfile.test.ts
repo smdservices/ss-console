@@ -681,7 +681,18 @@ describe('Operator customer Machine Dockerfile', () => {
     // copy gets the identical docstring in this PR, sha256 re-recorded
     // 798dbc26 -> a573139f. verify-overlay-pairs.py at 73007247: all 9 pass
     // (run recorded in the PR body).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="730072475f8c91ee7d3451d6927ed6061ec20c40"')
+    // 73007247 -> ba6d116a (2026-08-09, ss#2148): overlay#227 — durable-
+    // credential age rides the heartbeat. connector_check.token_ages() reads
+    // the Smokeball refresh-token file's mtime age; the heartbeat ships it as
+    // connector_token_age, a SEPARATE field from the health map (a synthesized
+    // consecutive_failures=0 entry would falsely RESOLVE an open
+    // connector_down alert — pinned by the overlay's
+    // test_token_ages_never_synthesizes_health_entries). Feeds the console's
+    // connector_token_expiring pre-expiry condition (migration 0103 + worker
+    // branch, same PR). Touches shared/connector_check.py + shared/heartbeat.py
+    // — NOT tracked pairs; every overlaySha256 unchanged, only overlayRef.
+    // verify-overlay-pairs.py at ba6d116a: all 9 pass.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ba6d116a1adf2c84331e53a2dfbdd24c970aa531"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
