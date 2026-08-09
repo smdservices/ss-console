@@ -10,7 +10,7 @@ See `CLAUDE.md` for full context on the business model, enterprise rules, and ar
 
 ## Stack
 
-- Astro 6 SSR (with React 19 islands)
+- Astro 7 SSR (with React 19 islands)
 - Cloudflare Workers + Static Assets (single Worker `ss-web`)
 - D1 (SQLite) for primary structured data
 - R2 for object storage
@@ -77,7 +77,7 @@ ss-console/
 │   ├── lib/          # DAL, services, integrations
 │   ├── components/   # Astro components
 │   └── middleware.ts # Subdomain routing
-├── workers/          # Standalone Cloudflare Workers (lead-gen pipelines)
+├── workers/          # Standalone cron Workers: fleet-alerts, cost-telemetry, cost-anomaly
 ├── migrations/       # D1 SQL migrations
 ├── tests/            # Vitest suites
 ├── docs/             # Internal documentation
@@ -85,6 +85,12 @@ ss-console/
 ├── wrangler.toml     # Cloudflare Worker config
 └── CLAUDE.md         # Agent context (full reference)
 ```
+
+The `workers/` Workers are cron-triggered and deploy separately from `ss-web`, each with its own `wrangler.toml` and a D1 binding to `ss-console-db`:
+
+- `fleet-alerts`: every 2 minutes, evaluates `fleet_status` and emails `team@smd.services` on heartbeat-red / work-overdue / connector-down transitions. Also the sink for CI/CD and fleet alerts.
+- `cost-telemetry`: nightly at 02:00 UTC, pulls Anthropic org usage and UPSERTs per-seat cost rows into `cost_telemetry` (ADR 0062).
+- `cost-anomaly`: nightly at 03:00 UTC, runs spike detection over the trailing series and sends a digest of new `cost_anomaly_alerts`.
 
 ## Where to learn more
 
