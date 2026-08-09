@@ -452,7 +452,17 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # consumes.yaml DSN note reconciled. The range is exactly that one squash
 # commit; it touches shared/sentry_init.py, tests, contracts/consumes.yaml —
 # NO tracked twin moves, every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="62da0504c50068224bf4d017f81700af6bcc2a26"
+# 2026-08-09: 62da0504 -> 73007247 (overlay#226, ss#2171): the identifier gate
+# REFUSES — report-only becomes blocking at all three call-site paths (draft
+# prose, draft structured-only, external send). Caller-side refusal (the
+# filter's Mode enum untouched); block set = every kind except NAME by
+# exclusion; ambient dates (utc today/yesterday) verify against the clock;
+# empty-register carve on the DRAFT gate only — the send gate blocks with an
+# empty register; SMD_IDENTIFIER_GATE_MODE=report is the operator-only
+# rollback lever (unset/garbage = block). The range moves ONE tracked pair:
+# shared/identifier_filter.py (posture docstring only), overlaySha256
+# re-recorded; the substrate copy gets the same docstring in this PR.
+ARG OVERLAY_REF="730072475f8c91ee7d3451d6927ed6061ec20c40"
 
 ARG CUSTOMER_SLUG=customer-zero
 
