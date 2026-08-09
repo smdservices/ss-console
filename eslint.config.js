@@ -54,6 +54,14 @@ const TYPE_AWARE_ERROR_RULES = {
 }
 
 // Sequenced at warn until Zod boundary validation rolls out portfolio-wide.
+// Warn-tier is capped: `npm run lint` runs with `--max-warnings 13`, the
+// 2026-08-09 baseline. That number only ever ratchets DOWN. Raising it to
+// admit new warnings defeats the cap; fix the boundary instead.
+//
+// The count assumes `.astro/types.d.ts` exists. Without it the Clerk-derived
+// types go unresolved and the same tree reports 75. `npm run verify` and
+// verify.yml both run `astro check` (which syncs those types) before lint, so
+// 13 is the number both see. On a fresh clone, run `npx astro sync` first.
 const TYPE_AWARE_WARN_RULES = {
   '@typescript-eslint/no-unsafe-assignment': 'warn',
   '@typescript-eslint/no-unsafe-member-access': 'warn',

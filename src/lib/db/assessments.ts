@@ -22,6 +22,10 @@ export interface Assessment {
 export type AssessmentStatus =
   'scheduled' | 'completed' | 'disqualified' | 'converted' | 'cancelled'
 
+/**
+ * @public Status-label table for admin selects. Pinned as a contract by
+ * tests/assessments.test.ts.
+ */
 export const ASSESSMENT_STATUSES: { value: AssessmentStatus; label: string }[] = [
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'completed', label: 'Completed' },

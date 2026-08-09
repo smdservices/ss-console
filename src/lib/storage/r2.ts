@@ -49,6 +49,8 @@ export async function uploadTranscript(
  *
  * @param key - The R2 key of the stored transcript
  * @returns The key (or presigned URL in future phases)
+ * @public Part of the transcript-storage surface, pinned as a contract by
+ * tests/assessments.test.ts.
  */
 export function getTranscriptUrl(key: string): string {
   return key

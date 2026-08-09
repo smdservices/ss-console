@@ -581,6 +581,8 @@ export const MSGRAPH_SECRET_REF_PATTERN = /^fly-secret:[A-Za-z_][A-Za-z0-9_]*$/
 /**
  * Delta-poll cadence default (seconds) for the msgraph inbound poller
  * (spec D1/D5). Applied by the overlay poller when `poll_seconds` is unauthored.
+ *
+ * @public Consumed by the hermes-smd-overlay poller, not by this repo.
  */
 export const DEFAULT_MSGRAPH_POLL_SECONDS = 45
 

@@ -100,6 +100,9 @@ function checkEnumField(
  * and must never let an unauthored seat CLAIM customer status it has not been
  * granted. Callers needing the stricter posture check for `kind === 'customer'`
  * explicitly rather than relying on this helper's fallback.
+ *
+ * @public Seat-kind predicate on the customer.yaml public surface; callers
+ * live in the overlay and in provisioning tooling, not in this repo.
  */
 export function isCustomerSeat(seat: Seat | null): boolean {
   return seat?.kind === 'customer'

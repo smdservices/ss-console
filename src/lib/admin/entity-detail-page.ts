@@ -45,31 +45,12 @@ export const ENTITY_DETAIL_TRANSITIONS: Record<EntityStage, EntityDetailTransiti
   lost: [{ label: 'Re-engage', stage: 'prospect', variant: 'primary' }],
 }
 
-export function contextTypeBadge(_type?: string): string {
-  return 'bg-border-subtle text-text-secondary'
-}
-
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   })
-}
-
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
-export function isOverdue(iso: string | null): boolean {
-  if (!iso) return false
-  return new Date(iso).getTime() < Date.now()
 }
 
 export function parseMetadata(json: string | null): Record<string, unknown> | null {

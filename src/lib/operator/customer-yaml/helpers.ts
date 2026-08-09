@@ -89,28 +89,6 @@ export function checkHermesRef(root: Record<string, unknown>, errors: Validation
   }
 }
 
-export function checkEnum<T extends string>(
-  root: Record<string, unknown>,
-  field: string,
-  accepted: readonly T[],
-  errors: ValidationError[]
-): T | null {
-  const v = root[field]
-  if (v === undefined || v === null) {
-    errors.push({ code: 'MissingField', path: field, message: `${field} is required` })
-    return null
-  }
-  if (typeof v !== 'string' || !(accepted as readonly string[]).includes(v)) {
-    errors.push({
-      code: 'EnumViolation',
-      path: field,
-      message: `${field} must be one of: ${accepted.join(', ')}`,
-    })
-    return null
-  }
-  return v as T
-}
-
 export function optionalString(
   rec: Record<string, unknown>,
   key: string,

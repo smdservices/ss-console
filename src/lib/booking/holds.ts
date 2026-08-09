@@ -102,6 +102,9 @@ export async function releaseHold(db: D1Database, holdId: string): Promise<void>
  * Delete all expired hold rows. Called by the daily cleanup cron at
  * `workers/booking-cleanup/`. Returns the number of rows removed for
  * logging.
+ *
+ * @public Consumer is a cron worker outside this module graph; pinned as a
+ * contract by tests/booking/holds.test.ts.
  */
 export async function cleanupExpiredHolds(db: D1Database): Promise<number> {
   const result = await db

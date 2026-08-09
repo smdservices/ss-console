@@ -16,6 +16,11 @@ This test pins the contract so the gap cannot silently reopen:
      workflow's ``on.pull_request.paths`` filter — otherwise a change to that
      area does not even trigger the job that runs its tests.
   3. The workflow must keep triggering on itself.
+  4. ``operator/pytest.ini``'s ``testpaths`` must equal the workflow's pytest
+     arguments, so a bare local ``pytest`` runs exactly what CI runs. Drift
+     here (found 2026-08-09: testpaths listed 3 of the 10 CI directories)
+     means the local suite is quietly a subset and the gap surfaces on a red
+     PR instead of on the developer's machine.
 
 Stdlib + PyYAML only (the workflow's bare env installs exactly pytest+pyyaml,
 and this file runs inside that env).
@@ -23,6 +28,7 @@ and this file runs inside that env).
 
 from __future__ import annotations
 
+import configparser
 import re
 from pathlib import Path
 
@@ -31,6 +37,7 @@ import yaml
 OPERATOR_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = OPERATOR_DIR.parent
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "operator-substrate.yml"
+PYTEST_INI_PATH = OPERATOR_DIR / "pytest.ini"
 
 # Directories whose tests are deliberately NOT part of the bare pytest step.
 # connectors/ runs in the workflow's per-connector uv-venv conformance step
@@ -99,6 +106,18 @@ def test_every_test_file_is_invoked_by_the_pytest_step() -> None:
     assert not uncovered, (
         "test files not reachable by the CI pytest step (add their dir to the "
         f"pytest invocation in {WORKFLOW_PATH.name}): {uncovered}"
+    )
+
+
+def test_pytest_ini_testpaths_match_the_ci_invocation() -> None:
+    cfg = configparser.ConfigParser()
+    cfg.read(PYTEST_INI_PATH)
+    testpaths = cfg["pytest"]["testpaths"].split()
+    invoked = _pytest_dirs(_load_workflow())
+    assert sorted(testpaths) == sorted(invoked), (
+        "operator/pytest.ini testpaths and the workflow's pytest arguments have "
+        f"drifted. testpaths-only: {sorted(set(testpaths) - set(invoked))}; "
+        f"workflow-only: {sorted(set(invoked) - set(testpaths))}"
     )
 
 
