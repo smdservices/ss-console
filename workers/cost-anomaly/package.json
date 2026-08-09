@@ -14,9 +14,12 @@
     "@cloudflare/workers-types": "^4.20260702.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",
-    "wrangler": "^4.107.1"
+    "wrangler": "4.118.0"
   },
   "overrides": {
-    "postcss": "8.5.19"
+    "postcss": "8.5.23",
+    "undici": "^7.29.0",
+    "nanoid@^3": "^3.3.16",
+    "@cloudflare/workers-types": "$@cloudflare/workers-types"
   }
 }
