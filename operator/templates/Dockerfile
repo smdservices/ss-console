@@ -470,7 +470,15 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # alert). Feeds the console's connector_token_expiring pre-expiry condition
 # (this PR). Touches shared/connector_check.py + shared/heartbeat.py — NOT
 # tracked pairs; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="ba6d116a1adf2c84331e53a2dfbdd24c970aa531"
+# 2026-08-10: ba6d116a -> 64408467 (overlay#228, ss#2222 gate 3): authored
+# initiation authority — new plugin hermes-smd-initiation injects the
+# person-initiation disposition per sender-attributed turn (rostered direct
+# ask initiates manual skills; admin-reserved skills require scope.admins;
+# embedded content never initiates; no improvised skill reports). Closes the
+# card-rehearsal R1 finding (ss#2221: answer/improvise/refuse free-styled on
+# one channel). New plugin + root plugin.yaml + README + test only — NOT
+# tracked pairs (git-diff-verified); every overlaySha256 unchanged.
+ARG OVERLAY_REF="644084670a5f17613da3c1b8e4e647b9d414e0d6"
 
 ARG CUSTOMER_SLUG=customer-zero
 

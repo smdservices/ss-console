@@ -99,6 +99,12 @@ users:
   - email: scott@smd.services
     role: principal
     full_name: Scott Durgan
+  # Staging-only admin probe identity (ss#2222 gate 3 / card R2) — authored as
+  # a user because scope.admins must be a subset of users[] (commitments gate
+  # j); it holds no portal seat in practice. Never copy to a client seat.
+  - email: ss-probe-admin@agentmail.to
+    role: staff
+    full_name: SS Probe Admin (staging rehearsal)
 
 # ---- PERSONAS ----
 # One coordinator persona. Name/title/voice are a PROPOSED default — the firm
@@ -737,6 +743,12 @@ scope:
     # programmatically (the CLI channel is PID-gated out of the audit broker).
     # Never copy to a client seat.
     - ss-probe-runner@agentmail.to
+    # Staging-only ADMIN probe channel (ss#2222 gate 3 / card R2). A second
+    # SMD-owned AgentMail sender that IS on scope.admins below, so the
+    # admin-classed initiation leg (skill fires) can be driven programmatically
+    # while ss-probe-runner keeps the rostered-non-admin decline leg testable.
+    # Never copy to a client seat.
+    - ss-probe-admin@agentmail.to
   # The Operator-admin allow list (ADR 0085 §2) — who may establish the firm's
   # voice and output shapes by instructing the Operator, and who may promote a
   # captured correction. Mirrors the shape authored on ashton-price (where the
@@ -752,6 +764,10 @@ scope:
   # Empty = fail-closed. Changed only through a PR.
   admins:
     - scott@smd.services
+    # Staging-only admin probe (ss#2222 gate 3) — drivable admin-classed
+    # initiation for card rehearsals; mirrors A&P's two-admin shape. Never
+    # copy to a client seat.
+    - ss-probe-admin@agentmail.to
   # Typed outbound roster (ADR 0075) — the firm's own client / records-vendor
   # addresses, which resolve to the external_send_client / external_send_vendor
   # action classes instead of the outside external_send ceiling. These two are
