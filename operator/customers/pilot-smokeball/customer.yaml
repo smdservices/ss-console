@@ -747,7 +747,9 @@ scope:
     # SMD-owned AgentMail sender that IS on scope.admins below, so the
     # admin-classed initiation leg (skill fires) can be driven programmatically
     # while ss-probe-runner keeps the rostered-non-admin decline leg testable.
-    # Never copy to a client seat.
+    # Establishment is email-only by authored design (the MCP door carries no
+    # sender identity), so admin-gated establishment proofs ride this channel
+    # too. Never copy to a client seat.
     - ss-probe-admin@agentmail.to
   # The Operator-admin allow list (ADR 0085 §2) — who may establish the firm's
   # voice and output shapes by instructing the Operator, and who may promote a
@@ -765,7 +767,8 @@ scope:
   admins:
     - scott@smd.services
     # Staging-only admin probe (ss#2222 gate 3) — drivable admin-classed
-    # initiation for card rehearsals; mirrors A&P's two-admin shape. Never
+    # initiation for card rehearsals and establishment proofs (stage/analyze/
+    # install + the possession ceremony); mirrors A&P's two-admin shape. Never
     # copy to a client seat.
     - ss-probe-admin@agentmail.to
   # Typed outbound roster (ADR 0075) — the firm's own client / records-vendor
@@ -872,6 +875,35 @@ escalation:
     fallback_recipients:
       - scott@smd.services
 
+# ---- ROUTINE NAMES (firm-legible; #2222) ----
+# Skill slug -> the routine's name in the FIRM'S language, exactly as the
+# routine-grid row (and the letter behind it) states it. Read at runtime by
+# operator-introduce from the seat's own config so an admin can ask "what are
+# your routines?" and hear the names the firm was actually promised — no
+# portal required. Drift-gated against routine-grid.yaml rows (verbatim) by
+# tests/routine-names-drift.test.ts. Materialization: none (no translate step);
+# a skill reads it off /var/lib/smd-config/customer.yaml directly.
+routine_names:
+  discovery-served-watch: 'Served discovery caught'
+  discovery-response-tracker: 'Response deadlines'
+  client-verification-tracker: 'Client verification'
+  separate-statement-assembler: 'Separate statement'
+  opposing-response-deficiency-review: 'Opposing responses reviewed'
+  meet-and-confer-drafter: 'Meet-and-confer letter'
+  discovery-response-staging: 'Response inputs staged'
+  matter-initiation-setup: 'New matter setup'
+  service-confirmation-watcher: 'Service confirmation'
+  medical-records-chaser: 'Records chase'
+  medical-chronology-maintainer: 'Medical chronology'
+  motion-calendar-tracker: 'Motion calendar'
+  motion-package-assembler: 'Motion package'
+  minors-compromise-packet: "Minor's compromise packet"
+  trial-binder-assembler: 'Trial binder'
+  mediation-settlement-tracker: 'Mediation and settlement'
+  lien-ledger-tracker: 'Lien ledger'
+  settlement-statement-feeder: 'Settlement statement'
+  daily-needs-you-digest: 'Daily "what needs you"'
+
 # ---- VOICE COHORTS ----
 # The audience classes this seat's voice profiles are partitioned by. An
 # authored list REPLACES the base vocabulary (client / opposing-counsel /
@@ -906,6 +938,10 @@ voice_cohorts:
     - client
     - adjuster
     - opposing-counsel
+    # court authored 2026-08-10 (Captain: court is an intended audience — the
+    # mediation/tribunal register). Below the profile floor until its sample
+    # count grows; inert, not deleted.
+    - court
   min_samples_per_cohort: 5
 
 # ---- VOICE LIBRARY ----

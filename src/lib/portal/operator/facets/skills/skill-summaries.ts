@@ -98,7 +98,7 @@ export const SKILL_SUMMARIES: Record<string, string> = {
   'new-matter-intake':
     'Turns a new-client inquiry into a structured matter draft and a non-committal acknowledgment, after a read-only conflict check.',
   'operator-introduce':
-    'Introduces itself on request: what it is connected to, how many matters it can see, and its working rules. States only what it observed or what is configured.',
+    'Introduces itself on request: connections, matter count, voice-establishment status per kind of writing, and every routine with its schedule and on/off state. States only what it observed or read.',
   'operator-self-test':
     'Runs a one-page self-check on request: connections, a counted read, document output, and a live demonstration that it refuses identifiers it has not read. Reports to the requester only.',
   'opposing-response-deficiency-review':

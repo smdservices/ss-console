@@ -26,6 +26,7 @@ The client is built LAZILY on first tool call, so the tool surface introspects
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import re
 from typing import Any
@@ -973,6 +974,93 @@ def file_attachment_to_matter(
     client = _get_client()
     blob = client.fetch_attachment_url(download_url)
     return client.add_file(matter_id, file_name, blob, folder_id=folder_id)
+
+
+@server.tool()
+def render_docx_template(
+    matter_id: str,
+    file_name: str,
+    skeleton_markdown: str,
+    folder_id: str | None = None,
+) -> Any:
+    """Render a document TEMPLATE (markdown skeleton) to a real Word .docx and
+    file it on a matter. This is the only path that produces a .docx: the
+    drafting lane otherwise delivers markdown, and a firm whose document library
+    is Word cannot use markdown as a template.
+
+    Supply ``skeleton_markdown`` as the skeleton's TEXT. You never encode
+    anything: the .docx bytes are built here and base64-encoded here, in tool
+    code, from bytes you never saw — which is precisely the carve-out
+    ``add_file`` names when it bans model-composed base64 (#2055). It is filed
+    through ``add_file``'s own two-stage upload, unchanged.
+
+    **The content gate refuses; it never repairs.** Before anything is rendered
+    or uploaded, the markdown is checked and the whole violation list comes back
+    in ``refusals`` with ``fileId: null``. Four rules, each mechanical:
+
+    - case content outside a ``{{...}}`` marker, in four shapes: a date, a
+      dollar figure, an identifier (``ZZ-9999-0001``, ``2026-PI-102``, a bates
+      range), or a bare run of five or more digits. Case content in a template
+      reaches every future matter the template is filled for. Numbers are NOT
+      banned: statutory citations, code sections, and statutory periods
+      ("section 999", "not fewer than 30 days", "CCP 2030.060(f)") are template
+      structure and pass, as does anything inside a marker,
+    - malformed marker syntax (unbalanced ``{{``/``}}``, or an empty marker),
+    - an em dash (house style, and drafting discipline rule 7),
+    - an HTML comment (drafting gate 9: guidance and reservations must be
+      render-VISIBLE body text; ``<!-- ... -->`` renders as nothing, so an
+      attorney reviewing the .docx never sees what was reserved).
+
+    A refusal is a refusal. Fix the source markdown and call again; do not
+    reword the gate's complaint into the document.
+
+    Rendering is a deliberately small markdown subset: ``#``/``##``/``###`` ->
+    Heading 1/2/3, ``-``/``*`` bullets, ``**bold**``/``*italic*``. Anything else
+    renders as plain paragraph text with its markdown characters intact, never
+    dropped. Markers are emitted literally and unstyled.
+
+    ``file_name`` gains a ``.docx`` suffix if it lacks one (the returned
+    ``fileName`` is the name actually filed). ``folder_id`` is optional (matter
+    root if omitted).
+
+    Returns ``fileId``, ``sha256`` and ``sizeBytes`` of the rendered bytes, and
+    an empty ``refusals``. Smokeball materialization is ASYNCHRONOUS and this
+    tool does not poll: confirm the file exists with ``get_file``, and confirm
+    it is the document with ``read_document``, before reporting it delivered.
+
+    Classified INTERNAL_WRITE at the overlay: the Operator writing a template
+    into the firm's own record. Nothing leaves the firm."""
+    from .render import (
+        TemplateContentRefused,
+        check_template_content,
+        render_markdown_to_docx,
+    )
+
+    if not file_name.lower().endswith(".docx"):
+        file_name = f"{file_name}.docx"
+    try:
+        check_template_content(skeleton_markdown)
+    except TemplateContentRefused as exc:
+        return {
+            "matterId": matter_id,
+            "fileName": file_name,
+            "fileId": None,
+            "sha256": None,
+            "sizeBytes": None,
+            "refusals": [str(v) for v in exc.violations],
+        }
+    data = render_markdown_to_docx(skeleton_markdown)
+    result = add_file(
+        matter_id,
+        file_name,
+        content_base64=base64.b64encode(data).decode("ascii"),
+        folder_id=folder_id,
+    )
+    out = dict(result) if isinstance(result, dict) else {"result": result}
+    out["sha256"] = hashlib.sha256(data).hexdigest()
+    out["sizeBytes"] = len(data)
+    out["refusals"] = []
+    return out
 
 
 # ---- Memos ----------------------------------------------------------------

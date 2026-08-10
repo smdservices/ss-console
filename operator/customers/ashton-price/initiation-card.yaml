@@ -130,14 +130,18 @@ stages:
         rehearsal: pending
 
       - say: "Walk me through what you'll do each day and week."
-        backed_by: core-dialogue # grounded recitation of the authored routine schedule
+        backed_by: operator-introduce # depth 2: the grouped roster read from the seat's own config + live scheduler
         proves: self-description matches the authored grid the firm holds
         expected: >-
-          Its actual authored schedule, matching the routines detail
-          document the firm was sent — no aspirational extras.
+          Its actual authored schedule with each routine's firm name and
+          on/off state, matching the routines detail document the firm was
+          sent — no aspirational extras, and the counts line printed so a
+          short roster is visible as such.
         falsifier: >-
           A routine named that is not authored/enabled on this seat; a
-          schedule that contradicts the document the firm holds.
+          schedule that contradicts the document the firm holds; a claimed
+          run-history or "all systems normal" line; an establishment state
+          it did not read from the seat.
         rehearsal: pending
 
   - id: prove

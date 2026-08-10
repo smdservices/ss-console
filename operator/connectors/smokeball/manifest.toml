@@ -30,6 +30,14 @@
 # hermes-smd-overlay (mcp_smokeball_create_event etc. = internal_write;
 # list_events / list_folders = read) MUST land for the overlay manifest<=map
 # conformance test to stay green and for these writes to be governed at runtime.
+#
+# COORDINATED CHANGE (render_docx_template): same shape, one entry —
+# mcp_smokeball_render_docx_template = ActionClass.INTERNAL_WRITE in
+# hermes-smd-overlay shared/action_classes.py, plus an OVERLAY_REF bump at
+# deploy. Until that entry lands the tool is UNREACHABLE at runtime (an
+# unclassified tool is refused, not defaulted), which is the fail-closed
+# direction: the .docx renderer writes a template into the firm's own record and
+# sends nothing outside the firm, so internal_write is its class.
 [connector]
 name = "smokeball"
 capability = "PracticeManagement"
@@ -82,6 +90,7 @@ list_folders = "read"
 create_folder = "internal_write"
 add_file = "internal_write"
 file_attachment_to_matter = "internal_write"
+render_docx_template = "internal_write"
 delete_file = "destructive"
 get_memos_on_matter = "read"
 get_bank_accounts = "read"
