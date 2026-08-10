@@ -539,3 +539,17 @@ skill_bindings:
   connector-auth-check:
     internal: []
     outbound: none # never sends; action_class is read-only
+
+  # ---- product ops: the initiation card's Stage A (ss#2216) ----
+  # Both are reactive replies to a firm requester (RecipientClass.INTERNAL →
+  # staff class via the derived path). Neither lands any internal artifact:
+  # the self-test's step-4 fabrication attempt is REFUSED by the identifier
+  # gate by design (or discarded on the failure path), so no memo ever
+  # reaches the tenant, and the .docx sample travels as an attachment on the
+  # reply itself.
+  operator-introduce:
+    internal: []
+    outbound: derived # reactive reply to the requester, no one else
+  operator-self-test:
+    internal: []
+    outbound: derived # the one-page report + .docx attachment to the requester, no one else
