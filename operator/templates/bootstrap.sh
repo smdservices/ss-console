@@ -156,25 +156,37 @@ log "Using root-owned customer.yaml: ${CUSTOMER_YAML}"
 export SMD_VOICE_VAULT_DIR="${HERMES_HOME:-/opt/data}/voice"
 R2_VOICE_PREFIX="s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/voice/"
 # Empty/absent vault is the COMMON case (no corpus ingested yet) and MUST NOT
-# fail the boot under `set -e`: probe first, sync only when non-empty, and never
-# `die`. When empty we leave SMD_VOICE_VAULT_DIR's dir absent so reader_from_env
-# falls through and the plugin reports INACTIVE (accurate), rather than ACTIVE
-# with zero samples.
-if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
-   AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
-     aws s3 ls --endpoint-url "${R2_ENDPOINT_URL}" "${R2_VOICE_PREFIX}" 2>/dev/null | grep -q .; then
-  mkdir -p "${SMD_VOICE_VAULT_DIR}"
-  if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
-     AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
-       aws s3 cp --recursive --only-show-errors \
-         --endpoint-url "${R2_ENDPOINT_URL}" \
-         "${R2_VOICE_PREFIX}" "${SMD_VOICE_VAULT_DIR}/"; then
-    log "voice vault synced to ${SMD_VOICE_VAULT_DIR} (agent holds no R2 credential for voice)"
-  else
-    log "WARN: voice vault sync failed; voice INACTIVE this boot (non-fatal)"
-  fi
+# fail the boot under `set -e`. Three states must stay DISTINCT (ss#2223): a
+# genuinely empty vault, a successful sync, and a FAILED probe. The old code
+# used `aws s3 ls ... 2>/dev/null | grep -q .` as the existence gate, which
+# collapsed "errored/propagation-lagged listing" into "no corpus ingested" and
+# silently left voice inactive while the samples sat in R2 at the right keys.
+#
+# Fix: drop the separate LIST gate (the source of both the silent-swallow and
+# the first-write propagation flakiness) and let `cp --recursive` BE the probe.
+# cp against a truly empty prefix is a no-op success; against a populated one it
+# recurses cohort/**. We then decide state from what actually landed on the
+# volume, and surface cp's stderr instead of discarding it.
+mkdir -p "${SMD_VOICE_VAULT_DIR}"
+_voice_cp_err="$(
+  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+  AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 cp --recursive --only-show-errors \
+      --endpoint-url "${R2_ENDPOINT_URL}" \
+      "${R2_VOICE_PREFIX}" "${SMD_VOICE_VAULT_DIR}/" 2>&1
+)"
+_voice_cp_rc=$?
+# The reader consumes cohort/<cohort>/*.json; count those as the ground truth,
+# independent of the LIST view that made the old probe flaky.
+_voice_n="$(find "${SMD_VOICE_VAULT_DIR}/cohort" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
+if [ "${_voice_cp_rc}" -eq 0 ] && [ "${_voice_n}" -gt 0 ]; then
+  log "voice vault synced to ${SMD_VOICE_VAULT_DIR}: ${_voice_n} cohort sample(s) (agent holds no R2 credential for voice)"
+elif [ "${_voice_cp_rc}" -eq 0 ]; then
+  log "voice vault empty at ${R2_VOICE_PREFIX} (no corpus ingested) — voice stays inactive"
 else
-  log "no voice vault at ${R2_VOICE_PREFIX} (no corpus ingested) — voice stays inactive"
+  # DISTINCT from empty: the probe itself failed. Surface it — a silent failure
+  # here reads as "no corpus" and voice never activates (ss#2223).
+  log "WARN: voice vault sync FAILED (rc=${_voice_cp_rc}) — voice INACTIVE this boot (non-fatal). aws: ${_voice_cp_err}"
 fi
 
 # ============================================================================
