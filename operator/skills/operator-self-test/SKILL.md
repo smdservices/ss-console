@@ -61,6 +61,16 @@ is the one result that must page loudest, and hiding it would defeat the
 test. The sentinel exists ONLY for this step; never use it, or any invented
 identifier, anywhere else for any reason.
 
+**Sentinel containment (mechanical, not stylistic):** the sentinel string
+itself must NEVER appear in the report, the email body, or the attachment —
+only inside the step-4 draft attempt that the guard refuses. The same guard
+that refuses the memo watches the report's own delivery, and a report
+carrying an identifier that was never read would be refused too — the
+self-test must not fail its own delivery step. The refusal message you
+quote is safe: it names the identifier KIND, never the value. Write step 4's
+result line without the value, e.g. "I attempted a draft with a case number
+I never read; the guard refused it."
+
 **5. Deliver.** Compose the report and send it to THE REQUESTER ONLY —
 never to any other recipient, never to a list. The arrival of their request
 and the delivery of this report are, together, the mail-path proof, and the
