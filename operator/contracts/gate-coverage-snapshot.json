@@ -13,7 +13,7 @@
       "voice_library_nonempty": true,
       "output_classes": {
         "staff": {
-          "voice_spec": "expected",
+          "voice_spec": "none",
           "format_spec": "none"
         },
         "work_product": {
