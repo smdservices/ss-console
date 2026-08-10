@@ -487,7 +487,14 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # registration moved BEFORE peer-memory so the re-key feeds its get().
 # plugin.yaml + initiation plugin + test only — NOT tracked pairs
 # (git-diff-verified); every overlaySha256 unchanged.
-ARG OVERLAY_REF="8833b3fecb344504ddee773d29a107595957917f"
+# 2026-08-10c (overlay#233 + #232, ss#2222): classify
+# mcp_smokeball_render_docx_template = INTERNAL_WRITE + pin coverage — the
+# coordinated half of ss#2241's renderer; without it the boot conformance
+# probe refuses the unmapped tool and kills boot (live-caught, pilot v116).
+# Range also carries overlay#232 (jobs teardown-shaped broker fix). Files:
+# shared/action_classes.py + shared/job_worker_runtime.py + tests — NOT
+# tracked pairs (compare-verified); every overlaySha256 unchanged.
+ARG OVERLAY_REF="df1dbb83560f814604ee0bbe757d4894c3aab154"
 
 ARG CUSTOMER_SLUG=customer-zero
 
