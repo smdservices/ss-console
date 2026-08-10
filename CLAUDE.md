@@ -309,10 +309,8 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 ## Tech Stack
 
-- **Website:** Astro SSR on Cloudflare Workers + Static Assets
 - **Domain:** smd.services
-- **Language:** TypeScript
-- **No product/app planned** — this is a services business. Tech is for marketing and internal tools only.
+- **No product/app planned** — this is a services business. Tech is for marketing and internal tools only. (Stack details are derivable from `package.json`: Astro SSR on Cloudflare Workers, TypeScript.)
 
 ## Three-Subdomain Architecture
 
@@ -356,20 +354,6 @@ Subdomain-based routing keys off `hostname.startsWith('admin.')` / `portal.`. At
 ```
 
 Then `http://admin.localhost:4321/` and `http://portal.localhost:4321/` exercise the rewrite. Set matching values in `.dev.vars` (e.g. `ADMIN_BASE_URL=http://admin.localhost:4321`) so outbound-URL builders emit the right origin.
-
-## Build Commands
-
-```bash
-npm install             # Install dependencies
-npm run dev             # Local dev server (astro dev)
-npm run build           # Production build
-npm run preview         # Local Worker preview (wrangler dev)
-npm run test            # Run tests
-npm run lint            # Run linter
-npm run typecheck       # TypeScript validation (astro check)
-npm run verify          # Full verification
-npm run format          # Format with Prettier
-```
 
 ## Deployment: Workers + Static Assets
 
@@ -427,44 +411,13 @@ Then load this venture's spec for palette and tone: `crane_doc('ss', 'design-spe
 
 The catalog is the shared vocabulary across all eight ventures — eight named patterns (status display by context, redundancy ban, button hierarchy, heading skip ban, typography scale, spacing rhythm, shared primitives, actions and menus) plus the components map (atoms / molecules / organisms with per-venture implementations). The catalog is a map, not a library — each venture maintains its own source. Cite a pattern by its file slug (`patterns/03-button-hierarchy.md`, etc.) when referencing it in PRs and skill output.
 
-## The Operator Thesis (load first — [ADR 0037](docs/adr/0037-operator-thesis.md))
+## Operator Context (moved to operator/CLAUDE.md)
 
-The canonical frame for what the Operator _is_. Load this before any Operator strategy, marketing, competitive, or vertical-selection work, so it is built upon, not re-derived.
-
-1. **Competes with a hire, not with software. (mission-critical)** Every system does a subset; the human is the connective tissue between them, and the Operator is that human. Incumbent systems (Clio, the AMS, the PSA) are **connection targets, not competitors**; more disconnected systems = more value; price against a **salary**, not a software seat.
-2. **A configurable substrate, not a tool with a use case.** No fixed function; authored per engagement across skills, entitlements (initiation × exposure), voice, connectors, memory. The only hard limit is connectability — if we can connect, we can work with it.
-3. **No imposed defaults.** Unconfigured is fail-closed (a safety state), not an identity. Ask "what did the engagement author?", never "what does the system assume?"
-4. **The moat is the harness + the guide + the memory — never a single feature.** Not voice, not audit, not draft-for-review. Calling one feature "the moat" is a category error.
-5. **Packs turn the universal into the recognizable.** "All things to all people" is the capability; "exactly your thing" is the package. Packs compose and cluster into families that compound. The magnitude is the strategy; the pack is the entry.
-6. **Targeting is market-driven, on reachability × willingness-to-pay.** Pick verticals where the coordinator role is most acute/expensive, most cheaply reachable, highest-paying (vs a salary). The guide is a resource we supply, not a constraint on which market to pick.
-
-## Operator Architecture (locked 2026-05-24)
-
-The Phase 1 Operator SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all Operator work:
-
-1. **Hermes is the substrate. Trust it.** Skills, the flat-file memory core (`MEMORY.md`/`USER.md`), the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`). **Honcho is NOT deployed** — the 2026-05-30 revision of ADR 0016 deferred it to Phase 2 (demand-gated) after the first real boot exposed the in-container integration as fictional; Phase-1 seats run in-session flat-file memory only.
-2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, configurable send-posture routing (draft-for-review among the authored options), curated vertical skill catalogs, and the customer-facing business surface are what we build on top of Hermes — none are on its roadmap. (These are capabilities, not the moat: the moat is the harness + the guide + the memory, per [ADR 0037](docs/adr/0037-operator-thesis.md) Tenet 4. No single feature is the moat.)
-3. **Mirror, don't gate.** Where Hermes' learning loop creates state (today: agent-authored skills; Honcho conclusions if/when Phase 2 activates it), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. No approval queue stands between the agent and its work; safety is enforced by the authored entitlement ceilings (fail-closed when unauthored), not by an interposed gate.
-
-Load these ADRs before any Operator architectural work:
-
-- **ADR 0037** — The Operator Thesis (what it is / competes with a hire / configurable substrate / no defaults / moat = harness+guide+memory / packs / market-driven targeting) — load first
-- **ADR 0004** — Productized Operator offering (the SKU itself)
-- **ADR 0006** — Capability-adapter pattern (typed contracts as TS-side ergonomic; runtime via plugin + MCP)
-- **ADR 0007** — Per-customer Machine isolation
-- **ADR 0010** — Per-customer OAuth token storage on Fly volume
-- **ADR 0011** — Multi-persona per customer (persona = Hermes profile)
-- **ADR 0012** — customer.yaml storage (Git source of truth → D1+R2 materialized)
-- **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
-- **ADR 0016** — Honcho disposition (revised 2026-05-30: **deferred to Phase 2, demand-gated** — Phase 1 = flat-file memory core, no Honcho on any seat; the mirror/dismiss/TTL machinery is the Phase-2 shape)
-- **ADR 0017** — Skill Curator disposition (disable autonomous curator per-customer; keep in-conversation `skill_manage`; mirror to D1 inventory; supervised `--dry-run` consolidation only)
-- **ADR 0019** — customer.yaml → per-profile config translation
-- **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
-- **ADR 0021** — Leverage Hermes native primitives (`execute_code`, `delegate_task`, no-agent cron, skill bundles, webhook gateway via `pre_gateway_dispatch`, MCP-first connector retirement)
-
-Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `synthetic:` (no_pm substrate). Composio is dropped (ADR 0020, 2026-05-30 revision) — we connect to MCPs directly, and long-tail vendors with no first-party MCP get a `build:` adapter.
-
-The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. Author-built connectors we must write ourselves (no vendor/community MCP exists) are MCP servers living in `operator/connectors/` in this tree, per ADR 0053 — Smokeball is the first. The overlay repo (`venturecrane/hermes-smd-overlay`) stays substrate-only.
+The Operator Thesis (ADR 0037), the locked Operator architecture, and the
+ADR load-lists live in `operator/CLAUDE.md`, which auto-loads whenever a
+session works with files under `operator/`. For Operator strategy work that
+touches no operator/ file, read `operator/CLAUDE.md` first — the thesis is
+to be built upon, not re-derived.
 
 ## Venture Handbook
 
