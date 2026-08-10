@@ -59,6 +59,8 @@ interface HeartbeatBody {
   connector_check_ok?: unknown
   connectors?: unknown
   connector_token_age?: unknown
+  spec_control_ok?: unknown
+  spec_control?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
@@ -153,6 +155,64 @@ function parseConnectorTokenAgeJson(value: unknown): string | null {
   return JSON.stringify(parsed)
 }
 
+// Authored-spec control map (ss#2234): "<output_class>.<property>" →
+// { declared, installed }. Keyed per PROPERTY because a seat can have
+// staff.voice installed and staff.format missing, and resolving one must not
+// clear the alert on the other.
+const SPEC_CONTROL_MAX_KEYS = 64
+const SPEC_CONTROL_KEY_RE = /^[a-z_]{1,40}\.(voice|format)$/
+
+// Same three-tier rule as the connector map. Both flags are REQUIRED in a kept
+// entry and neither is defaulted: `installed` is what opens and closes the
+// alert, so inferring it from a missing field would be manufacturing the
+// verdict. An entry that cannot supply both is dropped (that key holds);
+// a structurally-invalid MAP → NULL (nothing this beat is trusted, every open
+// alert holds).
+function parseSpecControlJson(value: unknown): string | null {
+  if (value === undefined) return null
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > SPEC_CONTROL_MAX_KEYS) return null
+  const parsed: Record<string, { declared: boolean; installed: boolean }> = {}
+  for (const [key, raw] of entries) {
+    if (!SPEC_CONTROL_KEY_RE.test(key)) continue
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue
+    const entry = raw as Record<string, unknown>
+    if (typeof entry.declared !== 'boolean' || typeof entry.installed !== 'boolean') continue
+    parsed[key] = { declared: entry.declared, installed: entry.installed }
+  }
+  return JSON.stringify(parsed)
+}
+
+/**
+ * Every alert-driving field, parsed-not-cast.
+ *
+ * All of these share ONE contract that the surrounding upsert depends on: they
+ * overwrite every beat INCLUDING back to NULL. A stale pinned verdict must not
+ * outlive the signal that produced it — `COALESCE` here would keep a
+ * `scheduler_ok=0` (or a broken-control map) forever after an overlay rollback
+ * dropped the field. Grouped into one function so that contract is stated once
+ * and a new field cannot quietly acquire different semantics.
+ *
+ * The three `*_ok` booleans share `parseSchedulerOk`'s 1/0/NULL coercion, and 0
+ * always means the SEAT's own check is broken — the alerter pages that
+ * separately (`connector_check_error`, `spec_control_unprovable`) rather than
+ * letting the whole class go dark or, worse, reporting our blindness as the
+ * customer's missing config.
+ */
+function parseObservability(body: HeartbeatBody) {
+  return {
+    schedulerOk: parseSchedulerOk(body.scheduler_ok),
+    schedulerJobCount: parseNonNegInt(body.scheduler_job_count),
+    schedulerMaxOverdueSeconds: parseNonNegInt(body.scheduler_max_overdue_seconds),
+    connectorCheckOk: parseSchedulerOk(body.connector_check_ok),
+    connectorsJson: parseConnectorsJson(body.connectors),
+    connectorTokenAgeJson: parseConnectorTokenAgeJson(body.connector_token_age),
+    specControlOk: parseSchedulerOk(body.spec_control_ok),
+    specControlJson: parseSpecControlJson(body.spec_control),
+  }
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const auth = await verifyMachineRequest(request, env.MACHINE_HEARTBEAT_KEY, env.DB)
   if (!auth.ok) {
@@ -184,27 +244,61 @@ export const POST: APIRoute = async ({ request }) => {
       ? body.sticky_stop_level
       : null
 
-  // Scheduler-liveness signals (WP-2). Like sticky_stop_level, these overwrite
-  // every beat INCLUDING back to NULL when the emitter stops reporting them — a
-  // stale pinned scheduler_ok=0 must not outlive the signal (e.g. after an
-  // overlay rollback that drops the field). COALESCE here would pin a broken
-  // verdict forever, so these deliberately do NOT use it.
-  const schedulerOk = parseSchedulerOk(body.scheduler_ok)
-  const schedulerJobCount = parseNonNegInt(body.scheduler_job_count)
-  const schedulerMaxOverdueSeconds = parseNonNegInt(body.scheduler_max_overdue_seconds)
+  const {
+    schedulerOk,
+    schedulerJobCount,
+    schedulerMaxOverdueSeconds,
+    connectorCheckOk,
+    connectorsJson,
+    connectorTokenAgeJson,
+    specControlOk,
+    specControlJson,
+  } = parseObservability(body)
 
-  // Connector-health signals (ADR 0080). Same overwrite-including-NULL
-  // contract as the scheduler fields; connector_check_ok shares
-  // scheduler_ok's 1/0/NULL coercion (0 = the seat's own check is broken —
-  // the alerter pages connector_check_error rather than the class going
-  // silently dark).
-  const connectorCheckOk = parseSchedulerOk(body.connector_check_ok)
-  const connectorsJson = parseConnectorsJson(body.connectors)
-  // Token-file ages (ss#2148) — same overwrite-including-NULL contract: a seat
-  // that stops reporting ages must not leave a stale age pinned (the expiry
-  // condition holds on NULL rather than evaluating a frozen value).
-  const connectorTokenAgeJson = parseConnectorTokenAgeJson(body.connector_token_age)
+  await upsertFleetStatus({
+    entityId: auth.entityId,
+    slug: auth.slug,
+    body,
+    heartbeatStatus,
+    stickyStopLevel,
+    schedulerOk,
+    schedulerJobCount,
+    schedulerMaxOverdueSeconds,
+    connectorsJson,
+    connectorCheckOk,
+    connectorTokenAgeJson,
+    specControlJson,
+    specControlOk,
+  })
 
+  return jsonResponse(200, { ok: true, heartbeat_status: heartbeatStatus })
+}
+
+interface FleetStatusUpsert {
+  entityId: string
+  slug: string
+  body: HeartbeatBody
+  heartbeatStatus: string
+  stickyStopLevel: string | null
+  schedulerOk: 0 | 1 | null
+  schedulerJobCount: number | null
+  schedulerMaxOverdueSeconds: number | null
+  connectorsJson: string | null
+  connectorCheckOk: 0 | 1 | null
+  connectorTokenAgeJson: string | null
+  specControlJson: string | null
+  specControlOk: 0 | 1 | null
+}
+
+/**
+ * The upsert, and the two update disciplines it deliberately mixes.
+ *
+ * `COALESCE` for the four fields where a beat that omits one has nothing to say
+ * (timestamps, uptime, version). Plain overwrite — INCLUDING back to NULL — for
+ * everything an alert reads, because a stale pinned verdict must never outlive
+ * the signal that produced it.
+ */
+async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
   // Re-keyed on customer_slug (migration 0093): several seats share one entity,
   // so ON CONFLICT(entity_id) would collide them into one row. entity_id is now
   // a plain column and is refreshed from the request on every upsert.
@@ -213,8 +307,9 @@ export const POST: APIRoute = async ({ request }) => {
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
-       connectors_json, connector_check_ok, connector_token_age_json, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       connectors_json, connector_check_ok, connector_token_age_json,
+       spec_control_json, spec_control_ok, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -230,28 +325,30 @@ export const POST: APIRoute = async ({ request }) => {
        connectors_json         = excluded.connectors_json,
        connector_check_ok      = excluded.connector_check_ok,
        connector_token_age_json = excluded.connector_token_age_json,
+       spec_control_json       = excluded.spec_control_json,
+       spec_control_ok         = excluded.spec_control_ok,
        updated_at              = datetime('now')`
   )
     .bind(
-      auth.entityId,
-      auth.slug,
-      body.heartbeat_ts,
-      body.last_audit_ts ?? null,
-      body.last_skill_ts ?? null,
-      typeof body.process_uptime_seconds === 'number' ? body.process_uptime_seconds : null,
-      typeof body.version === 'string' ? body.version : null,
-      heartbeatStatus,
-      stickyStopLevel,
-      schedulerOk,
-      schedulerJobCount,
-      schedulerMaxOverdueSeconds,
-      connectorsJson,
-      connectorCheckOk,
-      connectorTokenAgeJson
+      u.entityId,
+      u.slug,
+      u.body.heartbeat_ts,
+      u.body.last_audit_ts ?? null,
+      u.body.last_skill_ts ?? null,
+      typeof u.body.process_uptime_seconds === 'number' ? u.body.process_uptime_seconds : null,
+      typeof u.body.version === 'string' ? u.body.version : null,
+      u.heartbeatStatus,
+      u.stickyStopLevel,
+      u.schedulerOk,
+      u.schedulerJobCount,
+      u.schedulerMaxOverdueSeconds,
+      u.connectorsJson,
+      u.connectorCheckOk,
+      u.connectorTokenAgeJson,
+      u.specControlJson,
+      u.specControlOk
     )
     .run()
-
-  return jsonResponse(200, { ok: true, heartbeat_status: heartbeatStatus })
 }
 
 function deriveStatus(

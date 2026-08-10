@@ -130,13 +130,28 @@ describe('Operator contracts — the spec controls are registered', () => {
     expect(registry.controls['spec_read_mark']).toBeTruthy()
   })
 
-  it('declares both UNPROBED with an owner and a tracking item', () => {
-    // Honest status is the registry's whole purpose. Neither control has a live
-    // negative-fire probe yet, and claiming `enforced` would make this file
-    // another instance of the class it exists to expose.
-    for (const name of ['spec_applier', 'spec_read_mark']) {
+  it('declares an honest status with an owner and a tracking item', () => {
+    // Honest status is the registry's whole purpose, and honesty cuts both
+    // ways: claiming `enforced` without a probe would make this file another
+    // instance of the class it exists to expose, and holding `unprobed` after
+    // a control has demonstrably fired is the same lie in the other direction.
+    //
+    // spec_applier is still unprobed — nothing yet demonstrates on a live seat
+    // that a published spec arrives, that a rejected one is refused, or that
+    // the tree survives a restart.
+    //
+    // spec_read_mark is ENFORCED as of 2026-08-10, on an observation nobody
+    // wanted: it fired on every autonomous staff send on pilot-smokeball from
+    // 08-04 to 08-09 (SPEC_GATE_TRIGGERED, reason spec_not_read, output_class
+    // staff — ss#2228, vfy_01KZP6JY5481272X5GZZDW5XT7). Six days of a control
+    // working exactly as written, doing the wrong thing.
+    const expected: Record<string, string> = {
+      spec_applier: 'unprobed',
+      spec_read_mark: 'enforced',
+    }
+    for (const [name, status] of Object.entries(expected)) {
       const entry = registry.controls[name]
-      expect(entry.status).toBe('unprobed')
+      expect(entry.status).toBe(status)
       expect(entry.owner).toBeTruthy()
       expect(entry.tracking).toBe('#2084')
       expect(entry.note).toBeTruthy()
