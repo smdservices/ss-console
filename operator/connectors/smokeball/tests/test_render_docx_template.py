@@ -67,34 +67,87 @@ def test_gate_passes_a_clean_skeleton() -> None:
     check_template_content(_CLEAN_SKELETON)  # does not raise
 
 
-def test_gate_refuses_a_digit_outside_a_marker() -> None:
-    """The core rule: a date in a template is a date in every matter the template
-    is ever filled for."""
+@pytest.mark.parametrize(
+    "content",
+    [
+        "2024-03-01",  # ISO date
+        "3/1/2024",  # numeric date
+        "March 1, 2024",  # month-name date
+        "Mar. 1 2024",  # abbreviated, no comma
+        "$4,500.00",  # dollar figure
+        "$250",  # dollar figure, bare
+        "ZZ-9999-0001",  # the sentinel identifier class
+        "2026-PI-102",  # a matter number
+        "000123-000456",  # a bates range
+        "4471902",  # a bare claim number
+    ],
+)
+def test_gate_refuses_each_case_content_shape(content: str) -> None:
+    """A case fact in a template is a case fact in every matter the template is
+    ever filled for."""
     with pytest.raises(TemplateContentRefused) as exc:
-        check_template_content("# Demand\n\nDate of loss: 2024-03-01.\n")
+        check_template_content(f"# Demand\n\nRecorded: {content}.\n")
     (violation,) = exc.value.violations
-    assert violation.rule == "digit-outside-marker"
+    assert violation.rule == "case-content"
     assert violation.line == 3
-    assert "2024-03-01" in violation.detail
+    assert content in violation.detail
 
 
-def test_gate_allows_digits_inside_a_marker() -> None:
-    """The falsifier for the rule above: if digits inside markers also refused,
-    the gate would refuse every real skeleton and would be measuring nothing."""
+@pytest.mark.parametrize(
+    "structure",
+    [
+        "Code of Civil Procedure section 999",
+        "sections 999 through 999.5",
+        "not fewer than 30 days from transmission",
+        "not fewer than 33 days if sent by ordinary mail",
+        "no impermissible subparts (CCP 2030.060(f))",
+        "Vehicle Code sections 22350, 21703, 21801, 22107, and 21453",
+        "Evidence Code section 669",
+        "Civil Code section 3333 is the measure-of-damages authority",
+        "Howell v. Hamilton Meats (2011) 52 Cal.4th 541",
+        "Pebley v. Santa Clara Organics (2018) 22 Cal.App.5th 1266",
+        "a 998 offer",
+    ],
+)
+def test_gate_passes_statutory_structure(structure: str) -> None:
+    """The falsifier in the other direction, and the reason this is a SHAPE gate
+    rather than a digit gate: a skeleton is full of legitimate numbers. If code
+    sections and statutory periods refused, the gate would refuse every real
+    skeleton and would be measuring nothing."""
+    assert find_violations(f"Confirm: {structure}.\n") == []
+
+
+def test_citation_exemption_is_scoped_to_the_bare_run_shape() -> None:
+    """The one collision in the rule set: California code sections run to five
+    digits, so a bare long run is a claim number only when nothing cites it as
+    law. The exemption is therefore narrow, and these are its edges."""
+    # cited as law -> structure
+    assert find_violations("Vehicle Code section 22350 (basic speed law).\n") == []
+    assert find_violations("Confirm compliance with §§ 999, 999.5.\n") == []
+    # the same run, uncited -> case content
+    assert _rules("Our reference is 22350 on the file.\n") == ["case-content"]
+    # a hyphen is not a citation joiner: a bates range in a citation's clothes
+    assert _rules("See sections 000123-000456 of the production.\n") == ["case-content"]
+    # the exemption never reaches another shape
+    assert _rules("Paid under section 4 the sum of $4,500.00.\n") == ["case-content"]
+
+
+def test_gate_allows_case_content_inside_a_marker() -> None:
+    """A marker names its own source, so what is inside it is structure."""
     markdown = (
         "# Interrogatories\n\n"
-        "{{FILL: date of loss | traffic collision report, page 2}}\n"
-        "{{NOT IN RECORD: subpart check under CCP 2030.060(f)}}\n"
-        "{{ATTORNEY: 998 offer decision reserved}}\n"
+        "{{FILL: date of loss, e.g. 2024-03-01 | traffic collision report}}\n"
+        "{{FILL: policy limits, e.g. $250,000 | carrier disclosure}}\n"
+        "{{NOT IN RECORD: claim number 4471902, searched correspondence}}\n"
     )
     assert find_violations(markdown) == []
 
 
-def test_gate_reports_one_violation_per_offending_line_not_per_digit() -> None:
+def test_gate_reports_one_violation_per_offending_line_not_per_match() -> None:
     """A row of figures is one thing to fix; 40 entries would bury the other
     rules."""
-    violations = find_violations("Billed 1234.56 paid 789.01 on 2024-03-01\n")
-    assert [v.rule for v in violations] == ["digit-outside-marker"]
+    violations = find_violations("Billed $1,234.56 paid $789.01 on 2024-03-01\n")
+    assert [v.rule for v in violations] == ["case-content"]
 
 
 def test_gate_refuses_an_unclosed_marker() -> None:
@@ -118,13 +171,13 @@ def test_gate_refuses_a_nested_marker() -> None:
     assert "marker-syntax" in [v.rule for v in violations]
 
 
-def test_unclosed_marker_does_not_hide_the_digits_after_it() -> None:
+def test_unclosed_marker_does_not_hide_the_case_content_after_it() -> None:
     """An unterminated '{{' yields no span. If it swallowed the rest of the
     document as one giant marker, the defect being reported would conceal every
     case figure behind it."""
     rules = _rules("{{FILL: name\n\nClaim number 4471902.\n")
     assert "marker-syntax" in rules
-    assert "digit-outside-marker" in rules
+    assert "case-content" in rules
 
 
 def test_gate_refuses_an_em_dash() -> None:
@@ -140,6 +193,15 @@ def test_gate_refuses_an_html_comment() -> None:
     assert violations[0].line == 3
 
 
+def test_case_content_inside_a_comment_is_not_reported_twice() -> None:
+    """The comment is already a violation and is destined for deletion. Scanning
+    inside it would report the same removal twice and overstate how much is
+    wrong. It can never turn a refusal into a pass: the document is refused
+    either way."""
+    violations = find_violations("<!-- GUIDANCE: e.g. 2024-03-01, claim 4471902 -->\n")
+    assert [v.rule for v in violations] == ["html-comment"]
+
+
 def test_gate_lists_every_violation_not_just_the_first() -> None:
     markdown = (
         "# Demand\n"
@@ -152,10 +214,40 @@ def test_gate_lists_every_violation_not_just_the_first() -> None:
     with pytest.raises(TemplateContentRefused) as exc:
         check_template_content(markdown)
     rules = sorted({v.rule for v in exc.value.violations})
-    assert rules == ["digit-outside-marker", "em-dash", "html-comment", "marker-syntax"]
+    assert rules == ["case-content", "em-dash", "html-comment", "marker-syntax"]
     # the raised message carries the whole list, so one call tells the whole truth
     assert str(exc.value).count("line ") == len(exc.value.violations)
-    assert len(exc.value.violations) >= 6
+    assert len(exc.value.violations) >= 5
+
+
+# ---- The gate, against the real authored skeletons -------------------------
+
+
+_SKELETON_DIR = (
+    Path(__file__).resolve().parents[3] / "templates" / "drafting" / "skeletons"
+)
+
+
+@pytest.mark.parametrize(
+    "skeleton",
+    ["demand-skeleton.md", "discovery-response-shell.md", "mediation-brief-skeleton.md"],
+)
+def test_shipped_skeletons_carry_no_case_content(skeleton: str) -> None:
+    """The falsifier that shaped this rule. The three authored skeletons are
+    dense in statutory citations, code sections, and statutory periods; an
+    any-digit rule refused all three (68 case-content hits across them) and would
+    have made the gate unusable against the firm's own templates. Every one of
+    those hits must now be gone.
+
+    Their HTML-comment violations are correct and stay: GUIDANCE that renders as
+    nothing is exactly what gate 9 bans, so these files need a comment pass
+    before they can be rendered as .docx templates."""
+    path = _SKELETON_DIR / skeleton
+    assert path.exists(), f"skeleton moved: {path}"
+    violations = find_violations(path.read_text())
+    case_content = [v for v in violations if v.rule == "case-content"]
+    assert case_content == [], "\n".join(str(v) for v in case_content)
+    assert {v.rule for v in violations} <= {"html-comment"}
 
 
 # ---- The renderer: round-trip ----------------------------------------------
@@ -331,7 +423,7 @@ def test_tool_refuses_without_building_a_client_or_uploading(monkeypatch) -> Non
     assert out["sizeBytes"] is None
     assert len(out["refusals"]) == 2
     assert any("html-comment" in r for r in out["refusals"])
-    assert any("digit-outside-marker" in r for r in out["refusals"])
+    assert any("case-content" in r for r in out["refusals"])
 
 
 # ---- Classification --------------------------------------------------------

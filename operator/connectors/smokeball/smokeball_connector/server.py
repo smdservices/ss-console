@@ -998,9 +998,13 @@ def render_docx_template(
     or uploaded, the markdown is checked and the whole violation list comes back
     in ``refusals`` with ``fileId: null``. Four rules, each mechanical:
 
-    - a digit outside a ``{{...}}`` marker (a date, figure, claim number, or
-      bates range is case content, and case content in a template reaches every
-      future matter it is filled for; digits INSIDE a marker are fine),
+    - case content outside a ``{{...}}`` marker, in four shapes: a date, a
+      dollar figure, an identifier (``ZZ-9999-0001``, ``2026-PI-102``, a bates
+      range), or a bare run of five or more digits. Case content in a template
+      reaches every future matter the template is filled for. Numbers are NOT
+      banned: statutory citations, code sections, and statutory periods
+      ("section 999", "not fewer than 30 days", "CCP 2030.060(f)") are template
+      structure and pass, as does anything inside a marker,
     - malformed marker syntax (unbalanced ``{{``/``}}``, or an empty marker),
     - an em dash (house style, and drafting discipline rule 7),
     - an HTML comment (drafting gate 9: guidance and reservations must be

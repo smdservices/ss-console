@@ -7,12 +7,37 @@ Two halves, both deliberately mechanical:
    REFUSES; it never strips, repairs, or downgrades. What it refuses is not a
    style opinion, it is the four ways a *template* stops being a template:
 
-   - **A digit outside a ``{{...}}`` marker.** A template carries structure, not
-     a case. Dates, dollar figures, claim numbers, and bates ranges are case
-     content, and content that reaches a template reaches every future matter
-     the template is filled for. Digits INSIDE a marker are fine (a marker names
-     its own source, e.g. ``{{FILL: date of loss | traffic collision report}}``,
-     and ``{{NOT IN RECORD: CCP 2030.060(f) subpart check}}``).
+   - **Case content outside a ``{{...}}`` marker.** A template carries
+     structure, not a case, and content that reaches a template reaches every
+     future matter the template is filled for. The gate refuses case-content
+     SHAPES, not digits: a template is *full* of legitimate numbers, because
+     statutory citations, code sections, and statutory periods ARE template
+     structure. "Code of Civil Procedure section 999", "not fewer than 30 days",
+     "CCP 2030.060(f)", "Vehicle Code section 22350", and a reported case year
+     all belong in a skeleton and all pass. Four shapes do not:
+
+     1. **a date** — ``2024-03-01``, ``3/1/2024``, ``March 1, 2024``, ``Mar. 1 2024``
+     2. **a dollar figure** — ``$`` followed by digits, commas and decimals optional
+     3. **an identifier** — a letter-prefixed run (``ZZ-9999-0001``), a case
+        number (``2026-PI-102``), or a hyphenated numeric range (bates)
+     4. **a claim or bates number** — a bare run of five or more digits
+
+     Shape 4 is the one that can collide with legitimate structure: California
+     code sections run to five digits (Vehicle Code 22350, 21703, 21453). A bare
+     long run is therefore case content only when nothing cites it as law, so a
+     statutory-citation span (``section(s) N``, ``§ N``, including the
+     comma-joined lists these come in) exempts shape 4 and no other. A hyphen is
+     not a citation joiner: ``sections 000123-000456`` is a bates range wearing a
+     citation's clothes and stays refused.
+
+     Digits INSIDE a marker are always fine: a marker names its own source, so
+     ``{{FILL: date of loss | traffic collision report}}`` and
+     ``{{NOT IN RECORD: subpart check under CCP 2030.060(f)}}`` are structure,
+     not content. Text inside an HTML comment is exempt from this rule for the
+     same reason it is refused by the next one: the comment is already a
+     violation and is destined for deletion, so scanning inside it would report
+     the same removal twice and overstate how many things need fixing. It can
+     never turn a refusal into a pass.
    - **Malformed marker syntax** — an unbalanced ``{{`` or ``}}``, or an empty
      marker. A marker that does not close is not a marker; it is a sentence
      fragment that a filler will read as prose and quietly answer.
@@ -46,6 +71,47 @@ from dataclasses import dataclass
 
 _EM_DASH = "—"
 _HTML_COMMENT_OPEN = "<!--"
+_HTML_COMMENT_CLOSE = "-->"
+
+_MONTHS = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+
+# The case-content shapes. Each carries the plain name that goes in the refusal,
+# so the caller is told WHAT it looks like it left in the template rather than
+# "there is a digit here". Statutory citations, code sections, and statutory
+# periods match none of these by design — they are template structure.
+_CASE_CONTENT_SHAPES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
+    ("a date", re.compile(r"\b\d{4}-\d{2}-\d{2}\b"), False),
+    ("a date", re.compile(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b"), False),
+    (
+        "a date",
+        re.compile(
+            rf"\b(?:{_MONTHS})[a-z]*\.?\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}\b"
+        ),
+        False,
+    ),
+    ("a dollar figure", re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?"), False),
+    # ZZ-9999-0001 (the sentinel class) and any letter-prefixed identifier.
+    ("an identifier", re.compile(r"\b[A-Z]{2,}-\d{3,}(?:-\d+)*\b"), False),
+    # 2026-PI-102 — the matter-number shape; digit runs too short for the
+    # bare-run rule, which is exactly why it needs its own.
+    ("a case number", re.compile(r"\b\d{4}-[A-Z]{1,4}-\d+\b"), False),
+    ("a bates or identifier range", re.compile(r"\b\d{3,}[-–]\d{3,}\b"), False),
+    # The one shape a statutory citation can collide with: California code
+    # sections run to five digits (Vehicle Code 22350, 21703, 21453), so a bare
+    # long run is a claim number ONLY when nothing cites it as law. Hence the
+    # citation exemption below, which applies to this shape and no other.
+    ("a claim or bates number", re.compile(r"\b\d{5,}\b"), True),
+)
+
+# A statutory citation, including the comma-and-"and"-joined lists these come in
+# ("sections 22350, 21703, 21801, 22107, and 21453"; "sections 999 through
+# 999.5"). Hyphens are deliberately NOT joiners: "sections 000123-000456" is a
+# bates range wearing a citation's clothes, and it stays refused.
+_CITATION_JOINER = r"(?:\s*(?:,|;|and|or|through|to)\s*)+"
+_STATUTORY_CITATION_RE = re.compile(
+    rf"(?:§§?|\bsections?\b)\s*\d[\d.]*(?:{_CITATION_JOINER}\d[\d.]*)*",
+    re.IGNORECASE,
+)
 
 # Well-formed markers, for the render pass. The gate runs first, so by the time
 # the renderer sees the text every ``{{`` has a ``}}``; non-greedy so adjacent
@@ -106,7 +172,8 @@ def find_violations(markdown: str) -> list[Violation]:
     its own."""
     line_starts = _line_starts(markdown)
     spans, violations = _scan_markers(markdown, line_starts)
-    violations.extend(_digit_violations(markdown, spans, line_starts))
+    exempt = spans + _comment_spans(markdown)
+    violations.extend(_case_content_violations(markdown, exempt, line_starts))
     violations.extend(_literal_violations(markdown, line_starts))
     return sorted(violations, key=lambda v: (v.line, v.rule))
 
@@ -199,39 +266,57 @@ def _scan_markers(
     return spans, violations
 
 
+def _comment_spans(text: str) -> list[tuple[int, int]]:
+    """HTML-comment spans, exempt from the case-content scan. An unterminated
+    ``<!--`` runs to the end of the text; that can never turn a refusal into a
+    pass, because the comment itself is already a violation."""
+    spans: list[tuple[int, int]] = []
+    start = text.find(_HTML_COMMENT_OPEN)
+    while start != -1:
+        close = text.find(_HTML_COMMENT_CLOSE, start + len(_HTML_COMMENT_OPEN))
+        end = len(text) if close == -1 else close + len(_HTML_COMMENT_CLOSE)
+        spans.append((start, end))
+        start = text.find(_HTML_COMMENT_OPEN, end)
+    return spans
+
+
 def _in_spans(index: int, spans: list[tuple[int, int]]) -> bool:
-    for start, end in spans:
-        if start <= index < end:
-            return True
-        if index < start:
-            break  # spans are ordered
-    return False
+    return any(start <= index < end for start, end in spans)
 
 
-def _digit_violations(
-    text: str, spans: list[tuple[int, int]], line_starts: list[int]
+def _case_content_violations(
+    text: str, exempt: list[tuple[int, int]], line_starts: list[int]
 ) -> list[Violation]:
-    """One violation per offending LINE, not per digit: a table row of figures is
-    one problem to fix, and 40 identical entries would bury the other rules."""
+    """Case-content SHAPES outside a marker: dates, dollar figures, identifiers,
+    and long bare digit runs. Statutory citations and periods are structure and
+    pass — see the module docstring.
+
+    One violation per offending LINE, not per match: a table row of figures is
+    one problem to fix, and 40 entries would bury the other rules."""
+    cited = [(m.start(), m.end()) for m in _STATUTORY_CITATION_RE.finditer(text)]
     out: list[Violation] = []
     seen: set[int] = set()
-    for match in re.finditer(r"\d", text):
-        if _in_spans(match.start(), spans):
-            continue
-        line = _line_of(line_starts, match.start())
-        if line in seen:
-            continue
-        seen.add(line)
-        out.append(
-            Violation(
-                "digit-outside-marker",
-                line,
-                "case content in a template (dates, figures, claim and case "
-                "numbers). Put it in a {{FILL: ... | source}} marker or spell it "
-                f"out: {_snippet(text, line_starts, line)!r}",
+    for shape, pattern, honors_citation in _CASE_CONTENT_SHAPES:
+        for match in pattern.finditer(text):
+            if _in_spans(match.start(), exempt):
+                continue
+            if honors_citation and _in_spans(match.start(), cited):
+                continue
+            line = _line_of(line_starts, match.start())
+            if line in seen:
+                continue
+            seen.add(line)
+            out.append(
+                Violation(
+                    "case-content",
+                    line,
+                    f"{shape} ({match.group(0)!r}) in a template reaches every "
+                    "matter the template is filled for. Put it in a "
+                    "{{FILL: ... | source}} marker: "
+                    f"{_snippet(text, line_starts, line)!r}",
+                )
             )
-        )
-    return out
+    return sorted(out, key=lambda v: v.line)
 
 
 def _literal_violations(text: str, line_starts: list[int]) -> list[Violation]:
