@@ -101,47 +101,10 @@ class ResolutionError(Exception):
 # Cohort vocabulary (authored, not inferred)
 # ---------------------------------------------------------------------------
 
-# The vocabulary a seat accepts when it authors no `voice_cohorts:` block
-# (mirrors BASE_VOICE_COHORTS in src/lib/operator/customer-yaml/types.ts).
-BASE_COHORTS = frozenset({"client", "opposing-counsel", "court", "internal"})
-
-
-def load_cohort_vocabulary(customer_yaml: str | None) -> frozenset[str]:
-    """Read the seat's resolved cohort vocabulary.
-
-    Mirrors ``resolveCohortVocabulary`` (sections-voice.ts): an authored
-    ``voice_cohorts.cohorts`` list REPLACES the base vocabulary rather than
-    extending it, so a seat that authors the block must list every cohort it
-    intends to use. Absence means the base set.
-
-    Parsing is deliberately narrow — the flat slug list only. The console-side
-    validator owns the real schema; this is a pre-flight guard so a typo fails
-    before a fetch, not a competing validator.
-    """
-    if not customer_yaml:
-        return BASE_COHORTS
-    text = Path(customer_yaml).read_text(encoding="utf-8")
-    authored: list[str] = []
-    in_block = False
-    in_list = False
-    for line in text.splitlines():
-        if re.match(r"^voice_cohorts:\s*$", line):
-            in_block = True
-            continue
-        if not in_block:
-            continue
-        if line.strip() and not line.startswith((" ", "\t")):
-            break  # dedented to the next top-level key
-        if re.match(r"^\s+cohorts:\s*$", line):
-            in_list = True
-            continue
-        if in_list:
-            m = re.match(r"^\s*-\s*['\"]?([a-z0-9][a-z0-9-]{0,31})['\"]?\s*(?:#.*)?$", line)
-            if m:
-                authored.append(m.group(1))
-            elif line.strip() and not line.lstrip().startswith("#"):
-                in_list = False  # a sibling key (min_samples_per_cohort, etc.)
-    return frozenset(authored) if authored else BASE_COHORTS
+# Shared with voice-ingest-corpus.py (moved to the lib 2026-08-10, #2222, so
+# the fetch and ingest gates cannot drift). Re-exported here so callers and
+# tests keep their `vfc.load_cohort_vocabulary` / `vfc.BASE_COHORTS` handles.
+from bin.lib.voice_corpus import BASE_COHORTS, load_cohort_vocabulary  # noqa: E402,F401
 
 
 # ---------------------------------------------------------------------------

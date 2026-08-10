@@ -33,7 +33,11 @@ from pathlib import Path
 _HERE = Path(__file__).resolve()
 sys.path.insert(0, str(_HERE.parents[1]))  # operator/ on sys.path
 
-from bin.lib.voice_corpus import VoiceLeakError, build_sample  # noqa: E402
+from bin.lib.voice_corpus import (  # noqa: E402
+    VoiceLeakError,
+    build_sample,
+    load_cohort_vocabulary,
+)
 
 
 def _load_corpus(path: str) -> list[str]:
@@ -71,6 +75,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--corpus", required=True, help="Reviewed corpus JSONL.")
     p.add_argument("--slug", default="smd")
     p.add_argument("--cohort", default="unassigned")
+    p.add_argument(
+        "--customer-yaml",
+        help="Seat customer.yaml; the cohort must be in its authored voice_cohorts vocabulary.",
+    )
+    p.add_argument(
+        "--unvalidated-cohort",
+        action="store_true",
+        help="Skip the vocabulary gate (tracer/dev use only; says so loudly).",
+    )
     p.add_argument("--out-dir", help="Dry-run: write samples under this dir using vault keys.")
     p.add_argument("--r2", action="store_true", help="Upload to R2 via R2_* env.")
     p.add_argument("--limit", type=int)
@@ -78,6 +91,35 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.out_dir and not args.r2:
         p.error("choose --out-dir (dry-run) or --r2 (upload)")
+
+    # Cohort gate (2026-08-10, #2222). This script was the ONE ingestion path
+    # with no vocabulary check, and an unauthorized cohort directory reached a
+    # live vault through it — a vault path no profile loader on that seat ever
+    # reads. Same posture as the fetch script: refuse before anything is
+    # written. Fail-closed: no --customer-yaml means no vocabulary, which is a
+    # refusal, not a pass. --unvalidated-cohort is the loud, explicit bypass
+    # for the local tracer (slug smd) where no seat vocabulary exists.
+    if args.unvalidated_cohort:
+        print(
+            f"WARNING: cohort '{args.cohort}' NOT validated against any seat vocabulary "
+            "(--unvalidated-cohort). Never use this flag for a customer vault.",
+            file=sys.stderr,
+        )
+    else:
+        if not args.customer_yaml:
+            p.error(
+                "provide --customer-yaml so the cohort is validated against the seat's "
+                "authored vocabulary, or pass --unvalidated-cohort (tracer/dev only)"
+            )
+        vocabulary = load_cohort_vocabulary(args.customer_yaml)
+        if args.cohort not in vocabulary:
+            print(
+                f"REFUSED: cohort '{args.cohort}' is not in the seat's authored vocabulary "
+                f"{sorted(vocabulary)} ({args.customer_yaml}). An unauthored cohort would "
+                "mint a vault directory no profile loader reads. Author it first.",
+                file=sys.stderr,
+            )
+            return 2
 
     texts = _load_corpus(args.corpus)
     if args.limit:
