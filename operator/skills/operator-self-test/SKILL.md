@@ -1,6 +1,16 @@
 ---
 name: operator-self-test
-description: Answers "run your self-test" (also "run a self-test" / "self check" / "test yourself") — the Operator's test page, for firm admins. Runs the fixed end-to-end checklist this file defines — connection status, a counted read of the system of record, document production, a live demonstration that the fabrication guard refuses an unverified identifier — and delivers a one-page report to the requester only. Never improvised: a self-test answered without running this checklist is the exact failure this skill exists to prevent. Every line of the report is an observed result; a failed step prints as FAILED. A self-test that can only report success has measured nothing.
+description: >-
+  Answers "run your self-test" (also "run a self-test" / "self check" /
+  "test yourself") — the Operator's test page, for firm admins. Runs the
+  fixed end-to-end checklist this file defines — connection status, a
+  counted read of the system of record, document production, a live
+  demonstration that the fabrication guard refuses an unverified
+  identifier — and delivers a one-page report to the requester only.
+  Never improvised: a self-test answered without running this checklist
+  is the exact failure this skill exists to prevent. Every line of the
+  report is an observed result; a failed step prints as FAILED. A
+  self-test that can only report success has measured nothing.
 version: 0.1.0
 author: SMD Services
 license: MIT
