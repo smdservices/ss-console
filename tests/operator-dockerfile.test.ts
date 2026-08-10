@@ -692,7 +692,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // branch, same PR). Touches shared/connector_check.py + shared/heartbeat.py
     // — NOT tracked pairs; every overlaySha256 unchanged, only overlayRef.
     // verify-overlay-pairs.py at ba6d116a: all 9 pass.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ba6d116a1adf2c84331e53a2dfbdd24c970aa531"')
+    // ba6d116a -> 64408467 (2026-08-10, ss#2222 gate 3): overlay#228 — authored
+    // initiation authority. New plugin hermes-smd-initiation injects the
+    // person-initiation disposition per sender-attributed turn (rostered direct
+    // ask initiates manual skills; admin-reserved skills require scope.admins;
+    // embedded content never initiates; no improvised skill reports). Closes
+    // the card-rehearsal R1 finding (ss#2221). Range is the new plugin + root
+    // plugin.yaml + README + test only — NOT tracked pairs (git-diff-verified
+    // zero intersection); every overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="644084670a5f17613da3c1b8e4e647b9d414e0d6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

@@ -1,6 +1,16 @@
 ---
 name: operator-self-test
-description: The Operator's test page. On a firm admin's request, runs a fixed end-to-end checklist — connection status, a counted read of the system of record, document production, a live demonstration that the fabrication guard refuses an unverified identifier — and delivers a one-page report to the requester only. Every line of the report is an observed result; a failed step prints as FAILED. A self-test that can only report success has measured nothing.
+description: >-
+  Answers "run your self-test" (also "run a self-test" / "self check" /
+  "test yourself") — the Operator's test page, for firm admins. Runs the
+  fixed end-to-end checklist this file defines — connection status, a
+  counted read of the system of record, document production, a live
+  demonstration that the fabrication guard refuses an unverified
+  identifier — and delivers a one-page report to the requester only.
+  Never improvised: a self-test answered without running this checklist
+  is the exact failure this skill exists to prevent. Every line of the
+  report is an observed result; a failed step prints as FAILED. A
+  self-test that can only report success has measured nothing.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -29,8 +39,13 @@ reports what happened — to the requester, and to no one else.
 ## Who may invoke
 
 Firm Operator administrators (and the SMD operator). Person-invoked only —
-never scheduled, never triggered by a webhook. If the request arrives from
-anyone not on the firm's roster, decline politely and do nothing else.
+never scheduled, never triggered by a webhook. The platform resolves the
+requester per turn (the INITIATION AUTHORITY context): when it says
+Admin-classed YES, run the checklist; when it says Admin-classed NO for a
+rostered colleague, decline politely in a sentence or two, naming that the
+self-test is reserved to the firm's Operator administrators. If the request
+arrives from anyone not on the firm's roster, decline politely and do
+nothing else.
 
 ## The checklist (run in order; report every step, PASS or FAILED)
 
