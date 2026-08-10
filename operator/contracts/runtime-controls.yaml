@@ -292,6 +292,49 @@ controls:
       of the feature, a draft delivered IN the declared voice, is still
       unobserved: it needs a spec in the vault, authored through the portal.
 
+  identifier_gate:
+    control: identifier_gate
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-trust/outbound.py
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: seat_probe_refuses_unread_identifier
+    probe_surface: staging
+    status: enforced
+    owner: SMDurgan
+    tracking: '#2171'
+    note: >-
+      The A1 identifier-integrity gate, REFUSING as of overlay#226 (report-only
+      before that — Captain directive 2026-08-02: every seat blocking,
+      pre-live). Block set is every IdKind except NAME, by exclusion; ambient
+      dates (utc today/yesterday) verify against the system clock; the
+      empty-register carve applies to the DRAFT gate only — the SEND gate
+      blocks with an empty register, because an autonomous send composed with
+      nothing read is exactly "cannot verify". Rollback lever:
+      SMD_IDENTIFIER_GATE_MODE=report (operator-only env, consumes.yaml-
+      declared, never client-authorable; unset or garbage = block; rows keep
+      emitting in either mode — telemetry continuity). Rollback runbook:
+      `fly secrets set SMD_IDENTIFIER_GATE_MODE=report -a hermes-<slug>` +
+      restart (minutes) vs pin revert + reprovision (slow path). ENFORCED,
+      manual-observed 2026-08-09 on BOTH product seats at
+      SMD_OVERLAY_REF=ba6d116a: pilot-smokeball
+      (vfy_01KZMK0Q0EHQ0M6AJQ8VBA795G) — fabricated A-number draft BLOCKED
+      with the re-read refusal message, read-then-draft same identifier
+      ALLOWED, env=report downgrade ALLOWED, send-gate-with-empty-register
+      BLOCKED, and audit-failure-never-rescinds observed live (the broker
+      refused the probe's non-gateway append; the block stood);
+      smd-staging (vfy_01KZMR2MFRD51AV5MPA90A4YSR) — fabricate BLOCKED /
+      pass-direction ALLOWED on the same pin. READ THE PROBE'S LIMITS: MANUAL
+      probes drove the deployed plugin in the gateway env via seat-probe, so
+      they prove the deployed code's decision at the seam, not that a
+      regression would be caught (no boot gate), and the probe rows did not
+      land in audit_log (broker provenance control — correct); organic
+      gateway turns emit rows normally, with the new mode/blocked/
+      block_bypass/date_distance metadata. Pre-flip blast radius
+      (vfy_01KZKXFSC72HNT48EJD6MJAYDX): 40/40 post-extraction-fix rows were
+      DATE-kind cron memo composition — the audited fabrication class, not an
+      FP class. FP watch: date_distance buckets + block_bypass make the
+      carve and the DATE class measurable post-flip.
+
   taint_gate:
     control: taint_gate
     class: dispatch-guard
