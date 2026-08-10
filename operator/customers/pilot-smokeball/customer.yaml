@@ -184,6 +184,24 @@ personas:
           scheduled: false
           webhook: false
         enabled: true
+      # product ops — the initiation card's Stage A (initiation-card.yaml).
+      # Person-invoked only; reply/report to the requester only. This seat is
+      # the rehearsal rig for the card: every card command runs green here
+      # before ashton-price (fixtures -> pilot -> client discipline).
+      - name: operator-introduce
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: operator-self-test
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
       # ops (ss#2148) — auth-plane liveness/keepalive probe. Calls auth_status
       # only (no data endpoint); its failures are the connector-health ledger's
       # signal, so a dead credential pages the same day. Vertical-neutral.

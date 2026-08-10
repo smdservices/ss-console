@@ -164,6 +164,25 @@ personas:
         external_send_client: autonomous
         external_send_vendor: autonomous
     skills:
+      # product ops — the initiation card's Stage A (initiation-card.yaml).
+      # Person-invoked only; report/reply to the requester only. admin_only
+      # enforcement note: mechanical sender-gate is ss#2160; until it lands,
+      # this seat's roster is exactly the two firm admins + the SMD operator,
+      # so the ADR 0085 restriction holds by roster construction.
+      - name: operator-introduce
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: operator-self-test
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
       # spine
       - name: matter-inbox-router
         version: pending

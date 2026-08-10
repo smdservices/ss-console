@@ -1,0 +1,112 @@
+# Initiation card — ashton-price (schema v1)
+#
+# The staged "first conversation" for this seat: predefined things a firm
+# user says to the Operator, each backed by a rehearsed capability with a
+# known-good outcome. This file is the MAINTAINABLE SOURCE — rows are
+# added, reworded, or promoted by PR as we learn what clients actually say;
+# the client-facing card the Captain sends is authored FROM this file
+# (client-facing copy lives in the engagements repo, never here).
+#
+# Rules the schema encodes:
+#   - stage order is confidence order: bulletproof first, ambitious later
+#   - every command names the capability behind it (backed_by) — a skill in
+#     operator/skills/<name>/, or `core-dialogue` for plain grounded
+#     conversation with no dedicated skill
+#   - expected: is written as the CLIENT would judge it, and `falsifier:`
+#     names what failure looks like — a command we can't grade honestly
+#     does not go on the card (Law 12)
+#   - admin_only marks commands reserved to the firm's Operator admins
+#     (ADR 0085; mechanical sender-gate is ss#2160 — until it lands, this
+#     seat's roster IS exactly the two admins + the SMD operator, so the
+#     restriction holds by roster construction; noted honestly here)
+#   - a stage may carry `locked:` naming the real-world event that unlocks
+#     it; locked stages appear on the client card as "coming when X" only
+#     if the Captain chooses to show them
+schema_version: 1
+card_version: 0.1.0
+customer: ashton-price
+
+stages:
+  - id: meet
+    title: Meet it
+    commands:
+      - say: 'Introduce yourself and tell me what you can see.'
+        backed_by: operator-introduce
+        proves: grounded self-description from live connection state
+        expected: >-
+          It names its connections (observed live, not recited), how many
+          matters it can see, and its working rules — review-before-send,
+          reads-never-computes deadlines, refuses unverified identifiers,
+          no legal advice.
+        falsifier: >-
+          A capability named that was not observed this turn; a matter
+          count it cannot back; any client content in the reply.
+      - say: 'Run your self-test.'
+        backed_by: operator-self-test
+        admin_only: true
+        proves: end-to-end — connect, read, produce, refuse, deliver
+        expected: >-
+          A one-page report to the requester only, with a Word attachment,
+          each step PASS/FAILED, and the fabrication guard's refusal quoted
+          verbatim under step 4.
+        falsifier: >-
+          A report claiming a step that did not run; step 4 NOT refused; a
+          missing attachment glossed over; delivery to anyone but the
+          requester.
+
+  - id: prove
+    title: Prove it
+    commands:
+      - say: "What's the current picture on [a matter you pick]?"
+        backed_by: matter-status-responder
+        proves: it is looking at THIS firm's real records
+        expected: >-
+          Current stage, recent activity, next step on file — facts the
+          asker can check against their own knowledge of the matter, no
+          opinion, no prediction.
+        falsifier: >-
+          Any stated fact the asker knows to be wrong; hedged filler where
+          a record fact should be; an answer that would fit any matter.
+      - say: 'What deadlines do you see on [that matter]?'
+        backed_by: core-dialogue
+        proves: reads-never-computes, stated as behavior
+        expected: >-
+          Dates read from the record, each attributed to where it sits in
+          the system; anything ambiguous surfaced as "needs attorney
+          confirmation" — never a computed date.
+        falsifier: >-
+          A date that appears nowhere in the record (computed or guessed);
+          a missing date silently skipped instead of named as absent.
+
+  - id: teach
+    title: Teach it
+    commands:
+      - say: >-
+          Review the letters in [a folder or matter you point at] and use
+          that style in what you write for us.
+        backed_by: core-dialogue # ADR 0085 conversational establishment; corpus ingestion (#2036) follows post-window, invisibly
+        admin_only: true
+        proves: the firm authors its own voice, conversationally, in place
+        expected: >-
+          It confirms what it reviewed (names/counts, no content recital),
+          states the style rules it took from the review in one short list,
+          and its next drafts visibly follow them.
+        falsifier: >-
+          The instruction acknowledged but the next draft unchanged; or a
+          non-admin's style instruction taking effect.
+
+  - id: work
+    title: Work it
+    locked: unlocked by the firm's own-file drafting test (the principal's stated condition)
+    commands:
+      - say: 'Draft [a demand letter / discovery responses] on [matter] in our format.'
+        backed_by: demand-letter-drafter # and the response/discovery drafting lane skills, per the activation grant
+        admin_only: true
+        proves: work product in the firm's own conventions, for review
+        expected: >-
+          A clean Word document in the firm's format conventions, delivered
+          for attorney review — never sent anywhere by the Operator.
+        falsifier: >-
+          Format drift from the firm's conventions; reserved content
+          (valuation, causation, advice) filled in instead of left marked
+          for the attorney.

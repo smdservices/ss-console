@@ -97,6 +97,10 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Assembles and stages a law-and-motion filing package from components already drafted in the matter. Never drafts the motion, never reserves a hearing date.',
   'new-matter-intake':
     'Turns a new-client inquiry into a structured matter draft and a non-committal acknowledgment, after a read-only conflict check.',
+  'operator-introduce':
+    'Introduces itself on request: what it is connected to, how many matters it can see, and its working rules. States only what it observed or what is configured.',
+  'operator-self-test':
+    'Runs a one-page self-check on request: connections, a counted read, document output, and a live demonstration that it refuses identifiers it has not read. Reports to the requester only.',
   'opposing-response-deficiency-review':
     "Reads the opposing side's discovery responses and surfaces candidate gaps for an attorney. An assist, never a legal finding.",
   'paid-media-anomaly-watcher': 'Scans paid-media accounts daily for anomalies and alerts you.',
