@@ -366,7 +366,22 @@ def test_run_once_wakes_on_chase_due():
         )
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    # The wake line carries the gate's plans — the woken turn's work list
+    # (#2226): a bare wakeAgent flag left the agent to re-derive targeting it
+    # structurally cannot (a NEW item has no ledger state to scan from).
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "verification_action_due"
+    key = _ledger.item_key(item.matter_id, item.task_id, item.label, item.authored_date)
+    assert parsed["plans"] == [
+        {
+            "matter_id": "m-1",
+            "task_id": "task-1",
+            "item_key": key,
+            "action": "chase",
+            "attempt": 1,
+        }
+    ]
     assert executor.calls == []  # heartbeat only on suppress path
 
 
@@ -397,9 +412,17 @@ def test_run_once_suppresses_within_cadence_and_writes_heartbeat():
     assert metadata["decision_basis"] == "no_verification_action_due"
 
 
-def test_run_once_fires_open_when_ledger_unavailable():
+def test_run_once_fires_open_when_ledger_unavailable(monkeypatch):
     """Fail-open: a chase watcher that goes silent is the dangerous failure, so a
-    ledger that cannot be loaded wakes rather than suppresses."""
+    ledger that cannot be loaded wakes rather than suppresses.
+
+    ``ledger_module=None`` alone does NOT simulate the failure — it makes
+    ``run_once`` call ``_load_ledger_module()``, which succeeds against the
+    sibling ledger file in this repo. The pre-#2226 bare-flag stdout made the
+    two paths indistinguishable, so this test passed while exercising the
+    normal wake path. The loader itself must fail.
+    """
+    monkeypatch.setattr(_pre_run, "_load_ledger_module", lambda: None)
     item = _item()
     executor = FakeExecutor()
     code, out = _capture_stdout(
@@ -410,12 +433,17 @@ def test_run_once_fires_open_when_ledger_unavailable():
             now=NOW,
             config=_CFG,
             refire_days=_REFIRE,
-            ledger_module=None,  # simulate load failure
+            ledger_module=None,  # forces the (patched) loader
             ledger_events=None,
         )
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    # Fail-open wakes carry a basis but NO plans: the agent is told it woke
+    # blind so SKILL.md's full-enumeration fallback applies.
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "ledger_unavailable_fail_open",
+    }
     assert executor.calls == []  # never reached the suppress/heartbeat path
 
 
@@ -436,7 +464,10 @@ def test_run_once_falls_back_to_wake_on_audit_failure():
             ledger_events=events,
         )
     )
-    assert json.loads(out) == {"wakeAgent": True}
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "suppress_heartbeat_failed_fail_open",
+    }
     assert len(executor.calls) == 1  # attempt made before fallback
 
 
@@ -455,7 +486,56 @@ def test_run_once_falls_back_to_wake_when_no_writer():
             ledger_events=events,
         )
     )
-    assert json.loads(out) == {"wakeAgent": True}
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "no_audit_writer_fail_open",
+    }
+
+
+def test_run_once_wake_emits_handoff_and_config_plans():
+    """Every plan action serializes, not just chase: the ceiling hand-off and
+    the config-missing surface reach the agent the same way (#2226)."""
+    item = _item()
+    events = [
+        _chased_event(item, ts="2026-07-01T09:00:00.000Z", attempt=n) for n in (1, 2, 3)
+    ]
+    executor = FakeExecutor()
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([item])],
+            _factory(executor),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=_ledger,
+            ledger_events=events,
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "verification_action_due"
+    assert [p["action"] for p in parsed["plans"]] == ["handoff"]
+    assert parsed["plans"][0]["matter_id"] == "m-1"
+
+    unauthored = ChaseConfig(chase_cadence_days=None, escalate_after_attempts=None)
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([item])],
+            _factory(FakeExecutor()),
+            today=TODAY,
+            now=NOW,
+            config=unauthored,
+            refire_days=_REFIRE,
+            ledger_module=_ledger,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["decision_basis"] == "chase_config_unauthored_surface"
+    assert [p["action"] for p in parsed["plans"]] == ["surface_config_missing"]
 
 
 # ---------------------------------------------------------------------------
