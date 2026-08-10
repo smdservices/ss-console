@@ -681,26 +681,34 @@ business_hours:
   end: '18:00'
 
 escalation:
-  # red_flag_recipients is the CENTRAL case-alert list — under matter_staff
-  # routing (below) it is no longer the delivery target for case-level alerts;
-  # it remains the pre-connect placeholder and the central-mode target.
+  # red_flag_recipients is the CENTRAL case-alert list — the delivery target
+  # while case_alert_routing.mode is central (below).
+  # Bring-up composition (Captain, 2026-08-09): everything goes to Christa AND
+  # Scott — Christa so the firm sees and judges real output from day one, Scott
+  # so SMD sees exactly what she's seeing. Routing to SMD only was explicitly
+  # rejected ("how would we know if it is correct?").
   red_flag_recipients:
+    - christa@ashtonandprice.com
     - scott@smd.services
   # System/technical failures stay with SMD (correspondence 10: "System and
   # technical monitoring stays with us").
   failure_recipients:
     - scott@smd.services
-  # Christa's routing requirement (correspondence 09, 2026-07-23; committed in
-  # 10): case-level alerts (verification stalls, deadline flags, drafts
-  # awaiting review) route per matter to the attorney/paralegal assigned in
-  # Smokeball — never a central inbox on the firm's side. Resolution + fallback
-  # algorithm: operator/skills/deadline-miss-escalator/references/case-alert-routing.md.
+  # BRING-UP POSTURE (Captain, 2026-08-09): central routing during stand-up so
+  # no alert reaches any firm staff beyond Christa until the firm says widen.
+  # Christa's per-matter routing requirement (correspondence 09, 2026-07-23;
+  # committed in 10 — case-level alerts route per matter to the assigned
+  # attorney/paralegal, never a central firm inbox) is the GRADUATION target:
+  # flip mode back to matter_staff on the firm's "turn it up", per the
+  # 2026-07-29 call agreement that alerts start with Chris + Christa only.
+  # Resolution + fallback algorithm (matter_staff mode):
+  # operator/skills/deadline-miss-escalator/references/case-alert-routing.md.
   # fallback_recipients is DELIBERATELY unauthored: who receives an alert when
   # a matter has no usable assignment is the firm's call (working-session
   # input, firm-input register); until authored, resolution failure HOLDS the
   # alert fail-closed and flags the matter in place. Never invented.
   case_alert_routing:
-    mode: matter_staff
+    mode: central
 
 # ---- VOICE LIBRARY ----
 # Empty until the firm's voice is read in place from documents they point at

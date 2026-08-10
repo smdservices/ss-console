@@ -338,14 +338,25 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
     expect({ ...authoredCeiling }).toEqual(derived)
   })
 
-  // (g) Per-matter alert routing (#2004, correspondence 09): case-level alerts
-  // route to the matter's assigned attorney/paralegal — never a central inbox
-  // on the firm's side. The seat must author matter_staff routing, must NOT
-  // author a fallback (who receives an unassigned matter's alert is the firm's
-  // working-session call; until then resolution failure holds fail-closed),
-  // and must author external_send_internal so the routed delivery is not
-  // refused at the gate.
-  it('(g) ashton-price authors matter_staff routing, no invented fallback, and internal-send delivery', () => {
+  // (g) Case-alert routing. Two authored postures, both commitment-backed:
+  //
+  // BRING-UP (current, Captain 2026-08-09): central routing to exactly
+  // Christa + Scott — the firm sees and judges real output from day one
+  // (Christa), SMD sees exactly what she's seeing (Scott), and nothing reaches
+  // any other firm staff until the firm says widen. This narrows, and is
+  // consistent with, the 2026-07-29 call agreement that alerts start with
+  // Chris + Christa only ("least disruptive").
+  //
+  // GRADUATION TARGET (#2004, correspondence 09, committed in 10): case-level
+  // alerts route per matter to the assigned attorney/paralegal — never a
+  // central firm inbox. When the firm says turn it up, mode flips back to
+  // matter_staff and this test's pins move with it in the same PR.
+  //
+  // Constant across both: no invented fallback (who receives an unassigned
+  // matter's alert is the firm's call; until authored, resolution failure
+  // holds fail-closed), and external_send_internal authored autonomous so the
+  // routed delivery is not refused at the gate.
+  it('(g) ashton-price authors bring-up central routing (Christa + Scott), no invented fallback, and internal-send delivery', () => {
     const raw = parseYaml(readFileSync(join(AP_DIR, 'customer.yaml'), 'utf-8')) as Record<
       string,
       unknown
@@ -357,9 +368,19 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
       )
     }
     const routing = result.value.escalation.case_alert_routing
-    expect(routing?.mode, 'case_alert_routing.mode must be matter_staff (correspondence 09)').toBe(
-      'matter_staff'
-    )
+    expect(
+      routing?.mode,
+      'case_alert_routing.mode must be central during bring-up (Captain 2026-08-09); matter_staff is the graduation target'
+    ).toBe('central')
+    // The client address is derived from the seat's own authored roster (the
+    // staff-role user), never hardcoded here — the client-identity gate bans
+    // the literal domain outside customer.yaml.
+    const staffUser = result.value.users.find((u) => u.role === 'staff')
+    expect(staffUser, 'the seat must author a staff-role user (Christa)').toBeTruthy()
+    expect(
+      result.value.escalation.red_flag_recipients,
+      "bring-up central list is exactly the staff-role user + Scott (Captain 2026-08-09) — widening is the firm's call"
+    ).toEqual([staffUser!.email, 'scott@smd.services'])
     expect(
       routing?.fallback_recipients,
       'fallback_recipients must stay unauthored until the firm names one (working-session input)'
