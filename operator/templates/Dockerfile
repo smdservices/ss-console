@@ -478,7 +478,16 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # card-rehearsal R1 finding (ss#2221: answer/improvise/refuse free-styled on
 # one channel). New plugin + root plugin.yaml + README + test only — NOT
 # tracked pairs (git-diff-verified); every overlaySha256 unchanged.
-ARG OVERLAY_REF="644084670a5f17613da3c1b8e4e647b9d414e0d6"
+# 2026-08-10b: 64408467 -> 8833b3fe (overlay#230, ss#2222 gate 3 second
+# half): the injection never fired live — pre_llm_call's sender_id on
+# webhook-dispatched turns is the ROUTE (webhook:agentmail), never the
+# person (the ss#1941 shape). Initiation now resolves the Svix-verified
+# sender via SESSION_INBOUND_ORIGIN (get → claim-once unbound handoff,
+# ambiguity declines) and RE-KEYS a claimed origin under the session;
+# registration moved BEFORE peer-memory so the re-key feeds its get().
+# plugin.yaml + initiation plugin + test only — NOT tracked pairs
+# (git-diff-verified); every overlaySha256 unchanged.
+ARG OVERLAY_REF="8833b3fecb344504ddee773d29a107595957917f"
 
 ARG CUSTOMER_SLUG=customer-zero
 

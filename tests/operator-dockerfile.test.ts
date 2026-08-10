@@ -700,7 +700,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // the card-rehearsal R1 finding (ss#2221). Range is the new plugin + root
     // plugin.yaml + README + test only — NOT tracked pairs (git-diff-verified
     // zero intersection); every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="644084670a5f17613da3c1b8e4e647b9d414e0d6"')
+    // 64408467 -> 8833b3fe (2026-08-10b, ss#2222 gate 3 second half):
+    // overlay#230 — the injection never fired live because pre_llm_call's
+    // sender_id on webhook-dispatched turns is the ROUTE (webhook:agentmail),
+    // never the person (the ss#1941 shape). Initiation resolves the verified
+    // sender via SESSION_INBOUND_ORIGIN with a cooperative re-key and now
+    // registers before peer-memory. plugin.yaml + initiation plugin + test
+    // only — NOT tracked pairs (git-diff-verified); every overlaySha256
+    // unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8833b3fecb344504ddee773d29a107595957917f"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
