@@ -543,7 +543,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # is what hid it (same shape as ss#2252). Files: shared/matter_gate.py + tests —
 # NOT tracked pairs; diff-verified zero intersection across
 # 1d73e2c0..e9bfe987; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="e9bfe9871197536cbb2471e617fa67588c2e13a5"
+ARG OVERLAY_REF="2c32b75d8580450776216197bc8f8c6226ad6c60"
 
 ARG CUSTOMER_SLUG=customer-zero
 
