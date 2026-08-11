@@ -457,8 +457,38 @@ def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
     return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _emit_wake() -> int:
-    print(json.dumps({"wakeAgent": True}))
+def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
+    """Print the wake gate line — WITH the decision's plans (ss #2226).
+
+    Hermes reads only ``wakeAgent`` from the last stdout line and then injects
+    the whole stdout verbatim into the woken agent's prompt (the "Script
+    Output" block). Emitting a bare ``{"wakeAgent": true}`` therefore threw
+    away the one thing the gate computed that the agent cannot cheaply
+    re-derive: WHICH items are actionable. A new verification item has no
+    escalation-ledger state yet, so a ledger-driven scan never visits its
+    matter — on 2026-08-10 the gate woke the agent for exactly one due chase
+    and the agent concluded nothing was due (#2226). The plans in this line
+    are the woken turn's work list; SKILL.md step 5 consumes them.
+
+    Fail-open callers have no decision — they pass ``basis`` so the agent
+    knows it woke blind and must run the full-enumeration fallback.
+    """
+    payload: dict = {"wakeAgent": True}
+    resolved_basis = decision.decision_basis if decision is not None else basis
+    if resolved_basis:
+        payload["decision_basis"] = resolved_basis
+    if decision is not None and decision.plans:
+        payload["plans"] = [
+            {
+                "matter_id": p.matter_id,
+                "task_id": p.task_id,
+                "item_key": p.item_key,
+                "action": p.action,
+                "attempt": p.attempt,
+            }
+            for p in decision.plans
+        ]
+    print(json.dumps(payload))
     return 0
 
 
@@ -510,7 +540,7 @@ async def run_once(
     if ledger is None:
         # Fire-open: a chase watcher that goes silent is the dangerous failure.
         sys.stderr.write("[pre_run] escalation ledger unavailable; waking\n")
-        return _emit_wake()
+        return _emit_wake(basis="ledger_unavailable_fail_open")
     if ledger_events is None:
         ledger_events = ledger.read_ledger()
 
@@ -533,12 +563,12 @@ async def run_once(
         refire_days=refire_days,
     )
     if decision.wake:
-        return _emit_wake()
+        return _emit_wake(decision)
 
     writer = audit_writer_factory()
     if writer is None:
         # Mirror-don't-gate: no writer = no heartbeat trail = always wake.
-        return _emit_wake()
+        return _emit_wake(basis="no_audit_writer_fail_open")
     try:
         await writer.write_suppressed_wake(
             skill_name=SKILL_NAME,
@@ -548,7 +578,7 @@ async def run_once(
             extra_metadata=decision.extra_metadata,
         )
     except Exception:  # noqa: BLE001 — any audit failure → wake (dead-man's-switch)
-        return _emit_wake()
+        return _emit_wake(basis="suppress_heartbeat_failed_fail_open")
     return _emit_suppress()
 
 

@@ -61,11 +61,18 @@ seat:
 # `seat.kind: proving` with no live traffic, and observing the downgrade is part
 # of what the seat exists to prove. On a customer seat, author the spec first.
 #
+# `staff` is `none` FOR NOW (#2228): the #2094 proving window above assumed the
+# declaration and the spec "land close together" — the staff spec never landed,
+# and the open window froze every escalation and digest to the Captain for a
+# week (08-04 → 08-10) with no alert. The downgrade observation the window
+# existed for is complete. Re-declare `expected` in the same PR that installs
+# an actual staff voice spec, never before.
+#
 # `work_product` carries no such window. It is `external_send: forbidden`, so
 # there is no send for a missing spec to downgrade.
 output_classes:
   staff:
-    voice_spec: expected
+    voice_spec: none
     format_spec: none
   work_product:
     voice_spec: expected
