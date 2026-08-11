@@ -115,3 +115,60 @@ The read-in-place bridge (#2071) is **kept and repointed**: name-resolution, con
 - [ ] (runtime) A seat carries an authored firm voice spec and an authored persona voice, and a delivered draft is observed in the declared voice for its class
 - [ ] (runtime) A delivered digest is observed honoring a customer-authored format, and honoring it identically on a second run
 - [ ] (runtime) The gate blocks or down-ranks an output that does not conform to its class's declared voice, observed on the live path
+
+## Amendment — 2026-08-10: what a declared-but-uninstalled spec costs (ss#2228, ss#2234)
+
+The Decision above says each property is "authored by the customer **or fails closed to
+the persona's own authored judgment**." The runtime implemented only the first half of
+that sentence for one state, and the second half never arrived.
+
+`shared/spec_gate.py` treated a class that declares `voice_spec: expected` with **no spec
+installed** as a hard refusal, on the stated reasoning that "refusing is the entire point
+of the declaration." On `pilot-smokeball` the `staff` class was declared during a proving
+window (#2094) and the spec never followed. From 2026-08-04 to 08-09 every autonomous
+staff send refused with `spec_not_read` — an instruction the model could not follow,
+because there was no spec to read. The firm's escalations and digests fell back to
+Smokeball matter memos, the Captain's mail stopped, and nothing alerted. Six days.
+
+**A control that can only fail silently and permanently is not a control.** The
+declaration was working; what it did was wrong.
+
+**Ruling (Captain, 2026-08-10).** A declared-but-never-installed spec remains a broken
+control and is still recorded as one. What it _costs_ now depends on who is waiting:
+
+| Class                                                       | Who is waiting                        | Disposition                                                   |
+| ----------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------- |
+| `staff`                                                     | a person inside the firm, on ops mail | **proceed** in the persona's own authored register, and alert |
+| `outbound_client` / `outbound_vendor` / `outbound_external` | someone outside the firm              | draft for human review, and alert                             |
+| `work_product` / `record`                                   | nobody — it is an artifact            | **still refuse**                                              |
+
+The asymmetry is the point. Persona voice needs no customer corpus and exists from day
+one (§1), so falling back to it imposes nothing — it is the ADR's own "fails closed to the
+persona's own authored judgment", finally implemented. The firm's voice to the outside
+world has no such fallback: the persona's register is the _wrong_ voice there, not a
+neutral one. And an artifact blocks no one, so refusing costs nothing.
+
+**Two states are not this, and refuse everywhere:** a spec whose bytes no longer match the
+root-recorded digest (tamper must never become an escape hatch by deleting a file), and a
+manifest the seat cannot read at all. The second required a new distinction —
+`spec_manifest.manifest_state()` — because `load_entries()` returned the same empty result
+for "nothing installed" and "cannot look", and treating the latter as the former would let
+a lost `SMD_SPEC_DIR` unlock autonomous sending while every health signal read green.
+
+**Consequence worth stating plainly:** for `staff`, `expected` and `none` now produce
+identical _send_ behaviour. What the declaration still buys is the alarm — a declared
+class with no installed spec raises `spec_control_broken:<class>.<property>` through the
+heartbeat, independent of whether the seat happens to send anything.
+
+**The same ruling closes the mirror-image defect.** A declared-but-uninstalled _format_
+spec used to yield no violations and silently PASS — the opposite failure direction from
+voice, in the same function — and a body the gate could not inspect (`None`, which the
+content floor treats as fail-toward-draft) was coerced to `""` and skipped the format
+check entirely.
+
+Amended acceptance criteria:
+
+- [ ] (repo) A declared-but-uninstalled spec is distinguishable from an unreadable manifest, and only the former can waive a refusal
+- [ ] (repo) `work_product` and `record` still refuse on a broken control; `staff` proceeds; outbound drafts
+- [ ] (runtime) A staff-class send reaches its recipient on a seat whose declared staff spec is not installed, observed as the recipient
+- [ ] (runtime) The broken control raises an alert that reaches a person, once, and resolves when a spec is installed

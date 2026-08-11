@@ -33,6 +33,8 @@ function row(overrides: Partial<FleetStatusRow>): FleetStatusRow {
     connectors_json: null,
     connector_check_ok: null,
     connector_token_age_json: null,
+    spec_control_json: null,
+    spec_control_ok: null,
     ...overrides,
   }
 }
@@ -174,14 +176,21 @@ function computeStaleHolds(state: FakeState): StaleHold[] {
   const out: StaleHold[] = []
   for (const [key, status] of state.alertState) {
     if (status !== 'open') continue
-    const [slug, condition] = key.split(':')
+    // Prefix conditions carry their own ':', so rejoin everything after the slug.
+    const [slug, ...conditionParts] = key.split(':')
+    const condition = conditionParts.join(':')
     const f = fleetBySlug.get(slug)
     const held =
       !f ||
       (condition === 'scheduler_error' && f.scheduler_ok === null) ||
       (condition === 'work_overdue' && f.scheduler_max_overdue_seconds === null) ||
       (condition === 'heartbeat_red' && f.last_heartbeat_ts === null) ||
-      (condition === 'hard_stop' && f.sticky_stop_level === null)
+      (condition === 'hard_stop' && f.sticky_stop_level === null) ||
+      (condition === 'spec_control_unprovable' && f.spec_control_ok === null) ||
+      // ss#2234: only a whole-map NULL strands a spec_control_broken key. A key
+      // that merely vanishes is a WITHDRAWN declaration, which auto-resolves
+      // through openSpecControlKeys — mirroring getStaleHolds' own comment.
+      (condition.startsWith('spec_control_broken:') && f.spec_control_json === null)
     if (held) out.push({ customer_slug: slug, condition: condition as StaleHold['condition'] })
   }
   return out.sort(
@@ -197,6 +206,19 @@ function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}):
         all() {
           if (sql.includes('LEFT JOIN fleet_status')) {
             return Promise.resolve({ results: computeStaleHolds(state) })
+          }
+          // getOpenSpecControlKeys (ss#2234) — the open spec_control_broken
+          // rows fed back so a WITHDRAWN declaration can resolve. Checked
+          // before the fleet_alert_state catch-alls because it is an unbound
+          // all() on that table.
+          if (sql.includes("condition LIKE 'spec_control_broken:%'")) {
+            const results = [...state.alertState.entries()]
+              .filter(([key, status]) => status === 'open' && key.includes(':spec_control_broken:'))
+              .map(([key]) => {
+                const [customer_slug, ...rest] = key.split(':')
+                return { customer_slug, condition: rest.join(':') }
+              })
+            return Promise.resolve({ results })
           }
           if (sql.includes('FROM fleet_status')) {
             return Promise.resolve({ results: state.fleet })
@@ -871,5 +893,163 @@ describe('connector_token_expiring (ss#2148)', () => {
     expect(conditionLabel('connector_token_expiring:smokeball')).toBe(
       'Connector credential expiring: smokeball'
     )
+  })
+})
+
+describe('spec_control (ss#2234)', () => {
+  const specJson = (entries: Record<string, { declared: boolean; installed: boolean }>) =>
+    JSON.stringify(entries)
+  const specStates = (r: FleetStatusRow, openKeys: string[] = []) =>
+    evaluateConditions([r], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      openSpecControlKeys: openKeys.length ? { [r.customer_slug]: openKeys } : {},
+    }).filter((c) => c.condition.startsWith('spec_control_'))
+
+  it('NULL spec-control fields push nothing (hold)', () => {
+    expect(specStates(row({}))).toHaveLength(0)
+  })
+
+  it('corrupt spec-control json pushes no per-key condition (hold, never a page from junk)', () => {
+    const out = specStates(row({ spec_control_ok: 1, spec_control_json: '{nope' }))
+    expect(out.filter((c) => c.condition.startsWith('spec_control_broken:'))).toHaveLength(0)
+  })
+
+  it('declared and installed pushes inactive (a landed spec resolves)', () => {
+    const out = specStates(
+      row({
+        spec_control_ok: 1,
+        spec_control_json: specJson({ 'staff.voice': { declared: true, installed: true } }),
+      })
+    )
+    const broken = out.filter((c) => c.condition === 'spec_control_broken:staff.voice')
+    expect(broken).toHaveLength(1)
+    expect(broken[0].active).toBe(false)
+    expect(broken[0].detail).toContain('spec installed')
+  })
+
+  it('declared and NOT installed opens the condition', () => {
+    const out = specStates(
+      row({
+        spec_control_ok: 1,
+        spec_control_json: specJson({ 'staff.voice': { declared: true, installed: false } }),
+      })
+    )
+    const broken = out.filter((c) => c.condition === 'spec_control_broken:staff.voice')
+    expect(broken[0].active).toBe(true)
+    expect(broken[0].detail).toContain('none is installed')
+  })
+
+  it('keys are independent — one broken, one healthy on the same seat', () => {
+    const out = specStates(
+      row({
+        spec_control_ok: 1,
+        spec_control_json: specJson({
+          'staff.voice': { declared: true, installed: true },
+          'staff.format': { declared: true, installed: false },
+        }),
+      })
+    )
+    const byCondition = Object.fromEntries(out.map((c) => [c.condition, c.active]))
+    expect(byCondition['spec_control_broken:staff.voice']).toBe(false)
+    expect(byCondition['spec_control_broken:staff.format']).toBe(true)
+  })
+
+  it('an entry missing either flag is dropped, never defaulted', () => {
+    // `installed` is what opens and closes the alert; inferring it would be
+    // manufacturing the verdict.
+    const out = specStates(
+      row({
+        spec_control_ok: 1,
+        spec_control_json: JSON.stringify({ 'staff.voice': { declared: true } }),
+      })
+    )
+    expect(out.filter((c) => c.condition.startsWith('spec_control_broken:'))).toHaveLength(0)
+  })
+
+  it('a WITHDRAWN declaration resolves its open alert and says which repair it was', () => {
+    // The key vanishes from the map entirely when voice_spec flips to `none`,
+    // so without openSpecControlKeys nothing would ever evaluate it again and
+    // the alert would sit open forever.
+    const out = specStates(row({ spec_control_ok: 1, spec_control_json: '{}' }), ['staff.voice'])
+    const broken = out.filter((c) => c.condition === 'spec_control_broken:staff.voice')
+    expect(broken).toHaveLength(1)
+    expect(broken[0].active).toBe(false)
+    expect(broken[0].detail).toContain('no longer declared')
+  })
+
+  it('ok=0 opens spec_control_unprovable and HOLDS every per-key condition', () => {
+    // "We cannot look" must never be reported as the firm's missing spec, and
+    // must not resolve keys from data the seat just said it cannot trust.
+    const out = specStates(
+      row({
+        spec_control_ok: 0,
+        spec_control_json: specJson({ 'staff.voice': { declared: true, installed: true } }),
+      }),
+      ['staff.voice']
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].condition).toBe('spec_control_unprovable')
+    expect(out[0].active).toBe(true)
+  })
+
+  it('ok=1 resolves spec_control_unprovable', () => {
+    const out = specStates(row({ spec_control_ok: 1, spec_control_json: '{}' }))
+    const unprovable = out.filter((c) => c.condition === 'spec_control_unprovable')
+    expect(unprovable).toHaveLength(1)
+    expect(unprovable[0].active).toBe(false)
+  })
+
+  it('ok NULL pushes no unprovable condition (a quiet seat has not recovered)', () => {
+    const out = specStates(row({ spec_control_json: '{}' }))
+    expect(out.filter((c) => c.condition === 'spec_control_unprovable')).toHaveLength(0)
+  })
+
+  it('labels both condition forms', () => {
+    expect(conditionLabel('spec_control_broken:staff.voice')).toBe(
+      'Authored spec declared but not installed: staff.voice'
+    )
+    expect(conditionLabel('spec_control_unprovable')).toBe(
+      'Authored-spec manifest unreadable (spec health unknown)'
+    )
+  })
+
+  it('runOnce opens once, stays silent while open, then resolves once when the spec lands', async () => {
+    const state: FakeState = {
+      fleet: [
+        row({
+          customer_slug: 'pilot-smokeball',
+          spec_control_ok: 1,
+          spec_control_json: specJson({ 'staff.voice': { declared: true, installed: false } }),
+        }),
+      ],
+      alertState: new Map(),
+      writes: [],
+    }
+    const env = makeEnv(state)
+    const fetchMock = stubResend()
+
+    await runOnce(env, NOW)
+    const bodies = () => fetchMock.mock.calls.map((c) => String((c[1] as { body: string }).body))
+    expect(bodies().some((b) => b.includes('ALERT') && b.includes('staff.voice'))).toBe(true)
+    expect(state.writes).toContain('open:pilot-smokeball:spec_control_broken:staff.voice')
+
+    // Still broken on the next tick: no second email.
+    fetchMock.mockClear()
+    await runOnce(env, NOW)
+    expect(bodies().filter((b) => b.includes('staff.voice'))).toHaveLength(0)
+
+    // The spec lands.
+    fetchMock.mockClear()
+    state.fleet = [
+      row({
+        customer_slug: 'pilot-smokeball',
+        spec_control_ok: 1,
+        spec_control_json: specJson({ 'staff.voice': { declared: true, installed: true } }),
+      }),
+    ]
+    await runOnce(env, NOW)
+    const recovered = bodies().filter((b) => b.includes('RECOVERED') && b.includes('staff.voice'))
+    expect(recovered).toHaveLength(1)
+    expect(recovered[0]).toContain('spec installed')
   })
 })

@@ -210,11 +210,16 @@ controls:
   spec_read_mark:
     control: spec_read_mark
     class: dispatch-guard
-    substrate_module: overlay:plugins/hermes-smd-trust/spec_gate.py
+    # Path corrected 2026-08-10: this said plugins/hermes-smd-trust/spec_gate.py,
+    # but overlay#212 relocated the gate to shared/ (hyphenated plugin dirs are
+    # not dotted module paths, so two plugins cannot import each other). The
+    # conformance test only existence-checks `ss-console:`-prefixed modules, so
+    # an `overlay:` path can rot unnoticed — it did, for nine days.
+    substrate_module: overlay:shared/spec_gate.py
     wired_via: 'pre_tool_call / hermes-smd-trust'
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    live_probe: seat_audit_spec_gate_triggered_rows
+    probe_surface: staging
+    status: enforced
     owner: SMDurgan
     tracking: '#2084'
     note: >-
@@ -232,9 +237,20 @@ controls:
       the stamp would be self-certifying. NOW BOUND, and the "bound nowhere"
       note this entry carried until 2026-08-01 is retired: pilot-smokeball
       declares staff AND work_product at voice_spec: expected, live in the
-      projection at vfy_01KYZK1WCKAT6RV57VJB8W29QF. Still `unprobed` because a
-      declaration is not an observation — the seat has not yet been rebuilt onto
-      the pin that carries the delivery tool, so no turn has exercised the gate.
+      projection at vfy_01KYZK1WCKAT6RV57VJB8W29QF. ENFORCED as of 2026-08-10,
+      and the `unprobed` this entry carried is retired by an observation nobody
+      wanted: the gate fired on EVERY autonomous staff send on pilot-smokeball
+      from 08-04 to 08-09 — SPEC_GATE_TRIGGERED rows, reason spec_not_read,
+      output_class staff — because the seat declared a staff voice spec that was
+      never installed (ss#2228, vfy_01KZP6JY5481272X5GZZDW5XT7). The control was
+      real; what it did was wrong. AMENDED BEHAVIOUR (ss#2234, Captain ruling):
+      a declared-but-never-installed spec is a broken control whose cost now
+      depends on who is waiting — staff proceeds in the persona's own authored
+      register, outbound routes to a human, work_product and record still
+      refuse. Tamper and an unreadable manifest refuse everywhere. The alarm is
+      no longer this gate's audit row (nobody reads those, which is how six days
+      passed): shared/spec_control_check.py reports declared-vs-installed on the
+      heartbeat and the fleet-alerts worker opens spec_control_broken.
 
   draft_delivery_gate:
     control: draft_delivery_gate

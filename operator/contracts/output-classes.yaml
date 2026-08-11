@@ -29,8 +29,33 @@
 # A THIRD STATE, and the reason customer.yaml carries a declaration while the
 # spec itself lives in the customer's own vault object: a class may DECLARE that
 # a spec is expected and the spec may then be missing or hash-mismatched. That
-# is not "unauthored" — it is a broken control wearing an unauthored costume,
-# and it fails closed. See customer.yaml `output_classes:` and ADR 0083.
+# is not "unauthored" — it is a broken control wearing an unauthored costume.
+# See customer.yaml `output_classes:` and ADR 0083.
+#
+# WHAT THE THIRD STATE COSTS — amended 2026-08-10 (Captain ruling, ss#2228/#2234).
+# It used to fail closed everywhere, full stop. That was wrong in one direction:
+# on pilot-smokeball the `staff` class declared a voice spec nobody installed,
+# and for six days every autonomous internal send refused with a remedy the
+# model could not perform — there is no spec to read — while the firm's
+# escalations landed in matter memos nobody watches and nothing alerted. A
+# control that can only fail silently and permanently is not a control.
+#
+# So the cost now falls on whoever can bear it, and the question is WHO IS
+# WAITING:
+#   staff                       a person is waiting on ops mail → PROCEED in the
+#                               persona's own authored register, and alert.
+#   outbound_client/_vendor/    the FIRM's voice to someone outside it, where the
+#   _external                   persona register is the wrong voice rather than a
+#                               neutral one → draft for a human, and alert.
+#   work_product, record        artifacts with no reader blocked → still refuse.
+#
+# Two states are NOT this third state and still fail closed everywhere: a spec
+# whose bytes no longer match the root-recorded digest (tamper must never become
+# an escape hatch), and a manifest the seat cannot read at all (absence of
+# evidence is not evidence of absence). The alert is
+# `spec_control_broken:<class>.<property>` on the fleet-alerts worker; the
+# unreadable case pages separately as `spec_control_unprovable`, because the
+# firm's authoring gap and our own blindness have different owners.
 #
 # DERIVED VS DECLARED. Four of the six classes are resolved at the send site
 # from `shared/recipient_classifier.RecipientClass`, which the trust decision

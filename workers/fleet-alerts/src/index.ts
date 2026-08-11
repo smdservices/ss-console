@@ -62,6 +62,8 @@
 
 import { escapeHtml } from './html'
 import { notifySinkAlerts, type SinkNotification } from './sink-notify'
+import { getOpenSpecControlKeys, specControlConditions } from './spec-control'
+import { getStaleHolds } from './stale-holds'
 import { tokenExpiryConditions } from './token-expiry'
 
 export type { SinkNotification }
@@ -114,8 +116,10 @@ export type FleetCondition =
   | 'scheduler_error'
   | 'work_overdue'
   | 'connector_check_error'
+  | 'spec_control_unprovable'
   | `connector_down:${string}`
   | `connector_token_expiring:${string}`
+  | `spec_control_broken:${string}`
 
 export interface FleetStatusRow {
   customer_slug: string
@@ -126,6 +130,8 @@ export interface FleetStatusRow {
   connectors_json: string | null
   connector_check_ok: number | null
   connector_token_age_json: string | null
+  spec_control_json: string | null
+  spec_control_ok: number | null
 }
 
 /** One per-server entry from the seat's connectors map (writer-side ages). */
@@ -290,6 +296,15 @@ export interface EvaluateOptions {
   connectorRunAgeThresholdSeconds?: number
   tokenLifetimesDays?: Record<string, number>
   tokenWarnDays?: number
+  /**
+   * customer_slug → the `<class>.<prop>` keys that currently have an OPEN
+   * spec_control_broken alert (ss#2234). Needed because a declaration can be
+   * WITHDRAWN: the key then vanishes from the seat's map entirely, and without
+   * this the alert would strand open forever with no signal to close it. Every
+   * other condition's source field goes NULL rather than disappearing, which is
+   * why this is the first condition that needs it.
+   */
+  openSpecControlKeys?: Record<string, string[]>
 }
 
 export function evaluateConditions(
@@ -303,6 +318,7 @@ export function evaluateConditions(
     connectorRunAgeThresholdSeconds = DEFAULT_CONNECTOR_RUN_AGE_SECONDS,
     tokenLifetimesDays = {},
     tokenWarnDays = DEFAULT_TOKEN_EXPIRY_WARN_DAYS,
+    openSpecControlKeys = {},
   } = options
   const out: ConditionState[] = []
   for (const row of rows) {
@@ -355,6 +371,7 @@ export function evaluateConditions(
     }
     out.push(...connectorConditions(row, connectorRunAgeThresholdSeconds))
     out.push(...tokenExpiryConditions(row, tokenLifetimesDays, tokenWarnDays))
+    out.push(...specControlConditions(row, openSpecControlKeys[row.customer_slug] ?? []))
   }
   return out
 }
@@ -427,7 +444,8 @@ async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
     .prepare(
       `SELECT customer_slug, last_heartbeat_ts, sticky_stop_level,
               scheduler_ok, scheduler_max_overdue_seconds,
-              connectors_json, connector_check_ok, connector_token_age_json
+              connectors_json, connector_check_ok, connector_token_age_json,
+              spec_control_json, spec_control_ok
          FROM fleet_status`
     )
     .all<FleetStatusRow>()
@@ -469,52 +487,13 @@ async function markResolved(db: D1Database, s: ConditionState): Promise<void> {
     .run()
 }
 
-/**
- * Open alerts stranded by the per-field NULL-hold: the alert is open but the
- * seat now reports NULL for its source field (or has no row). One LEFT JOIN;
- * no UI (4 seats). The runbook documents the manual-resolve UPDATE.
- */
-async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
-  const result = await db
-    .prepare(
-      `SELECT s.customer_slug AS customer_slug, s.condition AS condition
-         FROM fleet_alert_state s
-         LEFT JOIN fleet_status f ON f.customer_slug = s.customer_slug
-        WHERE s.status = 'open'
-          AND (
-            f.customer_slug IS NULL
-            OR (s.condition = 'scheduler_error' AND f.scheduler_ok IS NULL)
-            OR (s.condition = 'work_overdue' AND f.scheduler_max_overdue_seconds IS NULL)
-            OR (s.condition = 'heartbeat_red' AND f.last_heartbeat_ts IS NULL)
-            OR (s.condition = 'hard_stop' AND f.sticky_stop_level IS NULL)
-            OR (s.condition = 'connector_check_error' AND f.connector_check_ok IS NULL)
-            OR (
-              s.condition LIKE 'connector_down:%'
-              AND (
-                f.connectors_json IS NULL
-                OR json_extract(f.connectors_json, '$."' || substr(s.condition, 16) || '"') IS NULL
-              )
-            )
-            OR (
-              s.condition LIKE 'connector_token_expiring:%'
-              AND (
-                f.connector_token_age_json IS NULL
-                OR json_extract(f.connector_token_age_json, '$."' || substr(s.condition, 26) || '"') IS NULL
-              )
-            )
-          )
-        ORDER BY s.customer_slug ASC, s.condition ASC`
-    )
-    .all<StaleHold>()
-  return result.results ?? []
-}
-
 const CONDITION_LABEL: Record<string, string> = {
   heartbeat_red: 'Machine not heartbeating',
   hard_stop: 'Cost breaker HARD_STOP',
   scheduler_error: 'Cron scheduler broken/unreadable',
   work_overdue: 'Scheduled work not firing',
   connector_check_error: 'Connector health check broken (outages not counted)',
+  spec_control_unprovable: 'Authored-spec manifest unreadable (spec health unknown)',
 }
 
 /** Label lookup with the per-connector prefix form (ADR 0080). */
@@ -524,6 +503,9 @@ export function conditionLabel(condition: FleetCondition): string {
   }
   if (condition.startsWith('connector_token_expiring:')) {
     return `Connector credential expiring: ${condition.slice('connector_token_expiring:'.length)}`
+  }
+  if (condition.startsWith('spec_control_broken:')) {
+    return `Authored spec declared but not installed: ${condition.slice('spec_control_broken:'.length)}`
   }
   return CONDITION_LABEL[condition] ?? condition
 }
@@ -638,6 +620,7 @@ export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<Run
     connectorRunAgeThresholdSeconds: connectorRunAgeSeconds(env),
     tokenLifetimesDays: tokenLifetimesDays(env),
     tokenWarnDays: tokenWarnDays(env),
+    openSpecControlKeys: await getOpenSpecControlKeys(env.DB),
   })
   const transitions: Transition[] = []
 
