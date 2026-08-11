@@ -526,7 +526,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # plugin can import it) + hermes-smd-{trust,reply,audit} + tests — NOT tracked
 # pairs; diff-verified zero intersection with tracked overlayPaths across
 # 57818798..658169eb; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"
+ARG OVERLAY_REF="1d73e2c020d5ce937dfb68d98869a96c4f215b86"
 
 ARG CUSTOMER_SLUG=customer-zero
 
