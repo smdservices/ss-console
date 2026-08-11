@@ -504,7 +504,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # uninstalled voice spec: persona voice + alert internally, draft + alert
 # outbound — Captain ruling) which lands on seats with this bump. Compare-
 # verified: zero intersection with tracked pair overlayPaths.
-ARG OVERLAY_REF="055f912e39b0077501d5b93b7b7230c7f04ddc30"
+ARG OVERLAY_REF="578187988bdca7800420c4fa73cc035356e3e180"
 
 ARG CUSTOMER_SLUG=customer-zero
 

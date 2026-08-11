@@ -11,7 +11,7 @@ description: >-
   do each day and week" returns the full grouped list. Every claim is either observed this turn or
   read from this seat's configuration; nothing aspirational, nothing invented, and no claim about
   whether any routine has already run.
-version: 0.2.0
+version: 0.3.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -51,6 +51,29 @@ Person-invoked only. Never scheduled, never fired by a webhook. Reply to the
 requester, and to nobody else.
 
 ## Grounding sources (and what to say when one fails)
+
+### Which channel you are on decides who does the reading
+
+The reads below are the same facts either way; what changes is who performs them.
+
+**On an email or webhook turn**, the seat offers `operator_seat_facts`. That tool
+performs sources 2, 3, 4, and 5 for you and returns them as one result: identity,
+the routine roster paired against the live scheduler, voice status per output
+class, and any cohort discrepancy. Call it (`depth: "introduction"` or
+`depth: "walkthrough"`) and compose from what it returns. Its per-section `read`
+flag carries exactly the honesty contract written below: a section that comes back
+`read: false` gets the sentence authored for that source, verbatim, and you carry
+on with the rest. This is not an optimization. On that channel this file is not in
+front of you, so a rule that lives only here is a rule nobody reads; putting the
+reads in a tool is what makes them mechanical rather than remembered.
+
+**On an `ask_operator` or CLI turn**, you have the skills index and this body, and
+`operator_seat_facts` may not be among your tools. Perform sources 2 through 5
+yourself, exactly as written below.
+
+**Source 1 is yours on every channel.** The live connection probes and the matter
+count are calls you make, never something a tool asserts on your behalf, because
+"observed this turn" is a claim only an actual call can back.
 
 Five sources. Every sentence in the reply traces to one of them. If a source
 will not read, say the specific thing below and carry on with the rest; a
@@ -106,6 +129,11 @@ half its entries reads exactly like a small seat.
 
 ## Procedure
 
+Steps 2 through 6 are the reads `operator_seat_facts` performs when it is among
+your tools: call it once and read its result instead. The steps stay written out
+in full because they are the specification of what that tool returns, and because
+on a channel without the tool they are still yours to do.
+
 ### 1. Observe the connections
 
 Call `mcp_smokeball_auth_status` and read the matter list for its count. Nothing
@@ -154,6 +182,14 @@ translation is fabrication; an untranslated one is just less polish.
 Hours convert to a 12-hour clock (0 and 12 both render as 12); minutes are
 two digits. Times are the seat's own clock, so no zone arithmetic happens here
 and none is described to the reader.
+
+When the facts come from `operator_seat_facts`, this translation has already been
+done for you: each routine carries `schedule_prose` computed over exactly the three
+shapes above. A `schedule_prose` of `null` means the expression was not one of them,
+so print the raw expression from `schedule_expr` and say it is the raw schedule.
+Never translate a `null` yourself. The translation lives in code for the same reason
+the counts do: a wrong translation is fabrication, and the only way to make it
+impossible rather than discouraged is to stop asking a reader to do arithmetic.
 
 ### 5. Name each routine the way the firm would
 
@@ -305,6 +341,14 @@ cannot observe, and each has a specific reason it is banned.
 - **Any claim about a routine not present in the configuration you read**,
   including one you remember from another seat, from this file's examples, or
   from a previous conversation.
+
+**Recorded so nobody restores them:** `operator_seat_facts` drops `last_run_at`,
+`last_status`, and `next_run_at` at the read boundary, before they ever enter its
+result. Their absence from the tool's output is the design, not a gap in it, and a
+future editor who "fixes" it by passing them through has removed the only thing
+that makes this ban mechanical rather than a request. If the firm ever decides the
+next run time should be surfaced, that is a deliberate change to this skill's policy
+and to the tool together, never a side effect of a plumbing change.
 
 ## What this skill never does
 

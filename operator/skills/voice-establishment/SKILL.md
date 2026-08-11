@@ -10,7 +10,7 @@ description: >-
   compute. The reply names every rule the firm's own writing auto-demoted and the documents that
   broke it, and never claims a specification is in effect until the run says it is installed.
   Firm-level establishment is refused for anyone who is not an Operator admin.
-version: 0.2.0
+version: 0.3.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -174,15 +174,22 @@ One `establish_stage_document` call per document:
   every further document of the same run.
 - `name` is the document's real name as the firm knows it. It is the label that appears in
   gate results and demotion reports, so a paraphrase here makes the honesty in step 6 useless.
-- `text` is the **full extracted text, unedited**. Do not summarize, tidy, or trim. The
-  compilers derive the firm's voice from what the firm actually wrote, and they check your
-  specification against exactly these bytes.
+  For a connector-read document the seat already holds the connector-reported name and will
+  prefer it over yours; the broker's echoed name is the canonical label, so read it back from
+  the response rather than assuming yours was used.
+- **You do not pass the text.** For a document you read with the connector, the seat stages
+  the exact bytes the connector returned. Omit `text` entirely and let `source` name the
+  document (`connector`, `document_id`, and `matter_id`). You cannot retype a document
+  accurately and you are not asked to.
+- The seat stages only what you actually read. If you have not paged that document to the
+  end, staging refuses and names the character ranges you have not read. Read those, then
+  stage. This is why step 1 says paged to the end: it is now checked, not trusted.
 - `source` records where it came from (`connector`, `document_id`, and `matter_id` when there
   is one).
 
-The broker computes the hash itself and never trusts one from the wire. Keep every returned
-`{doc_id, sha256}`: the install submission must name exactly the documents this specification
-was derived from.
+The broker computes the hash itself and never trusts one from the wire, and the install
+submission must name exactly the documents this specification was derived from, by
+`{doc_id, sha256}`.
 
 Ceilings are the broker's and it will say which one you hit: a document is capped, the set is
 capped in both count and total size, and a staging set expires. A refusal here names the field
@@ -196,12 +203,13 @@ report, and stage the rest. A gate that provokes an edit is worse than a gate th
 refuses: the refusal is visible in the record and the edit is not, so the specification ends up
 derived from writing the firm never did and nothing downstream can tell. The only retry that is
 not an edit is a transport-shaped one you can repeat byte for byte - an expired staging set, or
-a set-level cap you hit by ordering. Re-stage the same text; never reshape it.
+a set-level cap you hit by ordering. Re-stage the same document; never reshape it.
 
-So that an edit cannot be silent, carry two numbers per document: the character count you
-extracted from the source, and the character count you passed as `text`. On every document you
-stage they are equal, and step 6's report prints both. A pair that differs is this skill having
-failed, whatever the rest of the reply says.
+Keep the `{doc_id, sha256, name}` the broker returns for every staged document, with the size
+it reports. Identity is now mechanical: the seat stages the bytes the connector returned, and
+the hash is computed on those bytes by a process you do not control. Report the hash and size
+per document so the admin can tie each one to the source. Report a **staged** count against a
+**blessed** count, and name every document a refusal removed with the refusal that removed it.
 
 ### 3. Analyze
 
@@ -295,8 +303,8 @@ Cover all five, in the admin's own terms:
 - **Every warning.** `warnings` carries things worth knowing that did not stop the install -
   a class not yet declared on the seat, for instance.
 - **The corpus you actually used.** How many documents you staged out of how many the admin
-  blessed, each with its extracted and staged character counts, and every document a refusal
-  removed, named with the refusal that removed it. A corpus thinned by refusals is a materially
+  blessed, each with its staged sha256 and size, and every document a refusal removed, named
+  with the refusal that removed it. A corpus thinned by refusals is a materially
   different corpus from the one the admin blessed, and only they can decide whether to proceed
   on what is left or go find other writing.
 - **What you could not do.** Unlabeled corpus, a document that would not extract, a page you
@@ -381,9 +389,9 @@ running two updates back to back and destroying the only recoverable generation.
 ## Verification
 
 1. Every staged document was named by the admin - typed by them, or on the list they
-   blessed in survey mode - read in place, and staged whole: extracted and staged character
-   counts equal, both printed in the report. Every document a refusal removed from the corpus
-   is named there with the refusal that removed it.
+   blessed in survey mode - read in place, and staged whole: the seat's own coverage check
+   accepted it, and the report prints its staged sha256 and size. Every document a refusal
+   removed from the corpus is named there with the refusal that removed it.
 2. The specification contains no client sentence beyond `approved_strings` and no digit outside
    a `{{profile.*}}` token, and the gates agree.
 3. The install result was read once and reported completely: status, demotions with their
