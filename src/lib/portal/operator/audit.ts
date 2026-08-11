@@ -109,6 +109,10 @@ export const AUDIT_ACTION_TYPES = [
   'SUBAGENT_STOPPED',
   'SUBAGENT_INCOMPLETE',
   'SUPPRESSED_WAKE',
+  // The wake half of the same gate (#2253): a gated cron logged why it did not
+  // act and logged nothing when it did, so the tick that mattered was the tick
+  // with no row. Written best-effort — a wake is never gated on its audit row.
+  'EMITTED_WAKE',
   // Reply channel (ADR 0055) — overlay hermes-smd-reply emits these when the
   // Operator answers a rostered colleague (recipient-locked, roster-authorized).
   'REPLY_SENT',

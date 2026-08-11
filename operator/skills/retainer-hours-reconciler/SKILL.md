@@ -64,7 +64,7 @@ This skill is wired to a Hermes cron-skill schedule with a `pre_run.py` gate (AD
 
 - **WAKE** if any client is in `OVER_CRITICAL`, `OVER_WARNING`, or `UNDER_CRITICAL` band — these are the buckets that need owner attention before month-end.
 - **WAKE** unconditionally on the mandatory weekly cadence boundary (Monday morning) — the weekly Slack report ships even when all clients are `BALANCED`, because the absence-of-noise itself is a signal the owner has come to rely on.
-- **SUPPRESS** otherwise. Before printing `{"wakeAgent": false}` the pre-run writes a `SUPPRESSED_WAKE` audit row capturing the polling inputs (hashed), the decision basis, and the next scheduled tick. The dashboard's watcher-health view greps the audit log for these rows — a scheduled tick with no audit row is the alarm signal (mirror-don't-gate per ADR 0016).
+- **SUPPRESS** otherwise. Before printing `{"wakeAgent": false}` the pre-run writes a `SUPPRESSED_WAKE` audit row capturing the polling inputs (hashed), the decision basis, and the next scheduled tick. A WAKE writes the sibling `EMITTED_WAKE` row on the same fields, best-effort — it can never suppress or delay the wake (#2253). The dashboard's watcher-health view greps the audit log for these rows: a scheduled tick with **neither** row is the alarm signal (mirror-don't-gate per ADR 0016).
 - **FALLBACK** to wake on any audit-write failure. A silent suppress without a trail is structurally indistinguishable from a silently-broken pre-run script.
 
 See `pre_run.py` alongside this SKILL.md for the wake decision logic; see `references/algorithm.md` for the detailed bucket thresholds and period-boundary policy.

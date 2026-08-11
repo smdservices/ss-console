@@ -217,6 +217,35 @@ class Broker:
                 )
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id}
+        # ss-console #2253: the WAKE half of the same gate. The four gated cron
+        # skills wrote a row when they suppressed and nothing when they woke, so
+        # the one tick that mattered was the one tick with no row — on
+        # 2026-08-10 a fabricated escalation email was discoverable only by
+        # reading the mailbox. Same caller shape as the heartbeat verb above (a
+        # cron pre_run child: agent uid, non-gateway PID), and deliberately a
+        # SEPARATE verb rather than a widened suppressed_wake_append, so each
+        # verb still pins exactly one action_type and stays auditable alone.
+        #
+        # The caller swallows this verb's failures — a wake is never gated on
+        # its own audit row — which is exactly why the gate lives here and not
+        # in the caller: a best-effort caller cannot be trusted to validate.
+        if action == "emitted_wake_append":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            agent_uid = self._resolve_agent_uid()
+            if agent_uid is None or peer_uid != agent_uid:
+                raise PermissionError(
+                    "emitted_wake_append requires a caller running as the agent uid"
+                )
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("emitted_wake_append requires a 'row' object")
+            if row.get("action_type") != "EMITTED_WAKE":
+                raise ValueError(
+                    "emitted_wake_append only accepts action_type=EMITTED_WAKE"
+                )
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id}
         # WP-A escalation ledger append. Same caller shape as the heartbeat
         # verbs above: a cron pre_run or the agent's execute_code turn (agent
         # uid, non-gateway PID). Gated on the agent uid, and the write is

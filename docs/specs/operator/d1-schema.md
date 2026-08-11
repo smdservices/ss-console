@@ -63,6 +63,15 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 -- SUPPRESSED_WAKE (ADR 0021 Stream B — `pre_run.py` decides not to wake
 --   the agent; emit BEFORE printing `wakeAgent: false`; audit-write
 --   failure forces fallback to wake — see SuppressedWakeWriter).
+-- EMITTED_WAKE (ss-console #2253 — the WAKE half of the same gate.
+--   `pre_run.py` emits it on the real-decision wake path BEFORE printing
+--   `wakeAgent: true`. Metadata mirrors SUPPRESSED_WAKE (inputs digest,
+--   decision_basis, next_scheduled_at) plus plans_total / plans_emitted /
+--   plans_truncated. Written BEST-EFFORT — the inverse contract to its
+--   sibling: a suppress that cannot be audited escalates to a wake, but a
+--   wake that cannot be audited still wakes. Not emitted on the fail-open
+--   paths, which have no decision to record. With both types present, a
+--   scheduled tick carrying NEITHER row is the dead-cron signal.
 -- REPLY_SENT, REPLY_HELD, REPLY_FAILED (ADR 0055 — the Operator reply
 --   channel; overlay hermes-smd-reply emits one row when it answers a
 --   rostered colleague (SENT), holds the reply to draft (HELD: off-roster

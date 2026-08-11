@@ -271,6 +271,11 @@
       "producerFile": "operator/workspace_broker/server.py",
       "note": "Broker-stamped via the uid-gated suppressed_wake_append verb (#1748): skills' pre_run.py (shared empty-seat gate at operator/templates/pre_run_gate.py, plus deadline-miss-escalator's bespoke gate) send the row over the broker socket before printing {wakeAgent:false}. The adapter SuppressedWakeWriter (operator/adapter/audit_log.py) remains the dev/test writer."
     },
+    "EMITTED_WAKE": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/server.py",
+      "note": "The wake half of the cron gate (#2253). Broker-stamped via the uid-gated emitted_wake_append verb; the producers are the four gated skills' pre_run.py — operator/skills/deadline-miss-escalator/pre_run.py, client-verification-tracker/pre_run.py, paid-media-anomaly-watcher/pre_run.py, retainer-hours-reconciler/pre_run.py — each attempting the row on the real-decision wake path BEFORE printing {wakeAgent:true}. Written best-effort: unlike SUPPRESSED_WAKE, a write failure must NOT change the decision, so a wake is never gated on its own audit row. The adapter SuppressedWakeWriter.write_emitted_wake (operator/adapter/audit_log.py) remains the dev/test writer."
+    },
     "REPLY_SENT": {
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",

@@ -121,6 +121,12 @@ export const SUPPRESSED_ACTIONS: ReadonlySet<string> = new Set([
   'SUBAGENT_STOPPED',
   'SUBAGENT_INCOMPLETE',
   'SUPPRESSED_WAKE',
+  // #2253 — the wake half of the cron gate. Suppressed alongside its sibling:
+  // both are gate telemetry, and "the Operator's scheduler decided to run" is
+  // not an act the client performed or asked about. Promoting it to
+  // MAPPED_ACTIONS needs authored client copy and a Captain call, same as the
+  // twelve below.
+  'EMITTED_WAKE',
   'REPLY_FAILED',
   'DECOMMISSION_INITIATED',
   'DECOMMISSION_DRAIN_COMPLETE',
