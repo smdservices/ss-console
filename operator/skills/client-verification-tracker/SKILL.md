@@ -301,11 +301,24 @@ surface), never a silent default.
    responsible staff, keyed to the plaintiff/response-set/version, dated to the
    authored `chase_cadence_days` cadence).
 5. **Track + chase** — the bespoke `pre_run.py` gates the wake off the ledger +
-   authored cadence/ceiling (see "The state ledger" above); on a woken turn the
-   skill re-checks open verification tasks (`list_tasks(matter_id, is_completed=false)`)
-   and looks for the matched signed document (`get_files_on_matter`). These are
-   metadata reads only; the turn reads no message body, so a chase send stays
-   un-fenced (see the taint-safe rule above):
+   authored cadence/ceiling (see "The state ledger" above). **The wake line in
+   the Script Output block is the turn's work list (#2226):** when it carries
+   `plans`, each entry names the `matter_id`, `task_id`, and `action`
+   (`chase` / `handoff` / `surface_config_missing`) the gate found due, with
+   the attempt number a chase carries. Start from those entries — verify each
+   live (`list_tasks(matter_id, is_completed=false)`, `get_files_on_matter`)
+   and act per the branches below. The gate sees every open verification task
+   through a global pull; the escalation ledger only knows items that have
+   already been raised — so a plan naming a matter with no ledger history is
+   the expected shape for a NEW item, not an anomaly to discard.
+   When the wake line carries **no plans** (a fail-open `decision_basis`), the
+   gate woke blind: enumerate ALL matters (`list_matters`, then
+   `list_tasks(matter_id, is_completed=false)` on each) and subset the
+   verification-marked tasks yourself. Never scan only the matters the ledger
+   already names, and never report "no verification tasks on other matters"
+   unless the turn actually listed those matters' tasks.
+   These are metadata reads only; the turn reads no message body, so a chase
+   send stays un-fenced (see the taint-safe rule above):
    - matched with confidence (only once the firm's convention is confirmed) → close
      (`update_task`), log (`create_memo`), append a `resolved` ledger event, let it
      fall into the daily digest.
