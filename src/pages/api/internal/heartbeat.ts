@@ -24,6 +24,7 @@
  *     "scheduler_max_overdue_seconds": <integer>,  // optional
  *     "connector_check_ok":      <boolean | 0/1>,  // optional (ADR 0080)
  *     "connectors":              <map server → entry> // optional (ADR 0080)
+ *     "cron_containment":        <boolean | 0/1>,  // optional (ss#2276 sentinel)
  *   }
  *
  * The handler doesn't trust the Machine's `heartbeat_status` — it derives
@@ -61,6 +62,7 @@ interface HeartbeatBody {
   connector_token_age?: unknown
   spec_control_ok?: unknown
   spec_control?: unknown
+  cron_containment?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
@@ -210,6 +212,9 @@ function parseObservability(body: HeartbeatBody) {
     connectorTokenAgeJson: parseConnectorTokenAgeJson(body.connector_token_age),
     specControlOk: parseSchedulerOk(body.spec_control_ok),
     specControlJson: parseSpecControlJson(body.spec_control),
+    // ss#2276: 1 = the CRON_CONTAINMENT volume sentinel is present (all managed
+    // crons deliberately off, surviving boots), 0 = normal, NULL = unreported.
+    cronContainment: parseSchedulerOk(body.cron_containment),
   }
 }
 
@@ -253,6 +258,7 @@ export const POST: APIRoute = async ({ request }) => {
     connectorTokenAgeJson,
     specControlOk,
     specControlJson,
+    cronContainment,
   } = parseObservability(body)
 
   await upsertFleetStatus({
@@ -269,6 +275,7 @@ export const POST: APIRoute = async ({ request }) => {
     connectorTokenAgeJson,
     specControlJson,
     specControlOk,
+    cronContainment,
   })
 
   return jsonResponse(200, { ok: true, heartbeat_status: heartbeatStatus })
@@ -288,6 +295,7 @@ interface FleetStatusUpsert {
   connectorTokenAgeJson: string | null
   specControlJson: string | null
   specControlOk: 0 | 1 | null
+  cronContainment: 0 | 1 | null
 }
 
 /**
@@ -308,8 +316,8 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
        connectors_json, connector_check_ok, connector_token_age_json,
-       spec_control_json, spec_control_ok, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       spec_control_json, spec_control_ok, cron_containment, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -327,6 +335,7 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        connector_token_age_json = excluded.connector_token_age_json,
        spec_control_json       = excluded.spec_control_json,
        spec_control_ok         = excluded.spec_control_ok,
+       cron_containment        = excluded.cron_containment,
        updated_at              = datetime('now')`
   )
     .bind(
@@ -346,7 +355,8 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
       u.connectorCheckOk,
       u.connectorTokenAgeJson,
       u.specControlJson,
-      u.specControlOk
+      u.specControlOk,
+      u.cronContainment
     )
     .run()
 }
