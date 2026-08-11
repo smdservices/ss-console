@@ -792,7 +792,22 @@ describe('Operator customer Machine Dockerfile', () => {
     // matter_gate.py moves to shared/ so the reply plugin can import it.
     // NOT tracked pairs; diff-verified zero intersection across the range;
     // every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"')
+    // 658169eb -> 1d73e2c0 (2026-08-11d, ss#2247): overlay#243 — the read
+    // capture unwraps the dispatcher envelope. First live reference-staging run
+    // found capture silently dark: post_tool_call's result string is
+    // {"result": "<connector JSON as a string>"}, not the connector's JSON, so
+    // the capture parsed the wrapper, found no top-level `text`, and returned
+    // through the silent guard — every stage refused no_capture after four
+    // genuine reads. (The Operator's failure report was honest and it did NOT
+    // fall back to retyping text; the unconditional refusal held.) The unwrap
+    // peels the wrapper and the MCP content-block shape, at most twice, and
+    // stops the moment the payload carries `text`. Regression tests pin the
+    // LIVE string shape from the seat's session store — the gap that let
+    // overlay#241's green suite miss this was testing the connector's
+    // documented shape instead of the dispatcher's delivered one.
+    // plugins/hermes-smd-establishment/__init__.py + tests — NOT tracked
+    // pairs; every overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1d73e2c020d5ce937dfb68d98869a96c4f215b86"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
