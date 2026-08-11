@@ -170,10 +170,12 @@ def test_disabled_skills_reconciler_subshell_scrubs_r2() -> None:
     """SEC-23: the disabled-skills reconciler subshell is forked ~300 lines before
     the parent's R2 strip, so it must scrub the account-wide R2 key from its OWN
     environ — else its /proc/<pid>/environ leaks the key to a same-uid code-executing
-    agent for the ~30s it lives. This guard fails if the `unset` inside the subshell
+    agent while it lives. This guard fails if the `unset` inside the subshell
     is removed."""
     lines = _code_lines(_BOOTSTRAP)
-    loop_idx = _first_index(lines, r"for _ in 1 2 3 4 5 6")
+    # ss#2230 replaced the fixed 6x5s window with a convergent while-loop; the
+    # anchor follows the loop, the SEC-23 assertion is unchanged.
+    loop_idx = _first_index(lines, r'while \[ "\$\{_ticks\}" -lt 60 \]')
     assert loop_idx != -1, "could not find the disabled-skills reconciler loop"
     window = "\n".join(lines[max(0, loop_idx - 6) : loop_idx])
     assert re.search(r"\bunset\b.*\bR2_ACCESS_KEY_ID\b", window), (
