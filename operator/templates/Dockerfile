@@ -526,7 +526,24 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # plugin can import it) + hermes-smd-{trust,reply,audit} + tests — NOT tracked
 # pairs; diff-verified zero intersection with tracked overlayPaths across
 # 57818798..658169eb; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="1d73e2c020d5ce937dfb68d98869a96c4f215b86"
+# 2026-08-11b (overlay#245, ss#2269 + ss#2262): the matter gate can now SEE the
+# number forms the firm's matters actually use. Alternation is first-match-wins
+# and the short branch sat ahead of the long one, so the real matter
+# `PI-2026-0001` matched as `PI-2026` and `-0001` was left behind; the truncated
+# token resolved to nothing and the send was not withheld. Measured live on the
+# pilot (vfy_01KZRZH044CH4N5EEKHQ9A6KHW), where PI-2026-0001 is the ONE matter of
+# nine carrying a complete party list — so the gate could not withhold a
+# number-cited send on that seat at all. ss#2167's number->id join was correct
+# the whole time and this regex defeated it. Fix is longest-alternative-first
+# plus IGNORECASE; IGNORECASE is safe here because _resolve_cited keeps only
+# tokens that resolve to a matter the session actually read, so a false positive
+# cannot manufacture a verdict — which is what let ss#2262 close in the same
+# three lines. Also corrects the comment claiming byte-compatibility with
+# identifier_filter._CASE_RE: they had diverged, and the comment saying otherwise
+# is what hid it (same shape as ss#2252). Files: shared/matter_gate.py + tests —
+# NOT tracked pairs; diff-verified zero intersection across
+# 1d73e2c0..e9bfe987; every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="e9bfe9871197536cbb2471e617fa67588c2e13a5"
 
 ARG CUSTOMER_SLUG=customer-zero
 

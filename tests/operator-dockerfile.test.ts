@@ -807,7 +807,23 @@ describe('Operator customer Machine Dockerfile', () => {
     // documented shape instead of the dispatcher's delivered one.
     // plugins/hermes-smd-establishment/__init__.py + tests — NOT tracked
     // pairs; every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1d73e2c020d5ce937dfb68d98869a96c4f215b86"')
+    // 1d73e2c0 -> e9bfe987 (2026-08-11b, ss#2269 + ss#2262): the matter gate can
+    // SEE the number forms the firm's matters actually use. Alternation is
+    // first-match-wins and the short branch sat ahead of the long one, so the
+    // real matter PI-2026-0001 matched as PI-2026 and -0001 was left behind; the
+    // truncated token resolved to nothing and the send was not withheld. Live on
+    // the pilot (vfy_01KZRZH044CH4N5EEKHQ9A6KHW) that matter is the ONE of nine
+    // with a complete party list, so the gate could not withhold a number-cited
+    // send on that seat at all — ss#2167's join was correct and this regex
+    // defeated it. Longest-alternative-first plus IGNORECASE, the latter safe
+    // because _resolve_cited keeps only tokens that resolve to a matter the
+    // session read, so a false positive cannot manufacture a verdict (which is
+    // what let ss#2262 close in the same three lines). Also corrects the comment
+    // claiming byte-compatibility with identifier_filter._CASE_RE — they had
+    // diverged and the comment hid it (same shape as ss#2252).
+    // shared/matter_gate.py + tests — NOT tracked pairs; diff-verified zero
+    // intersection across the range; every overlaySha256 unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e9bfe9871197536cbb2471e617fa67588c2e13a5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
