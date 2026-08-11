@@ -134,31 +134,89 @@ def _orient_parties(matter: dict[str, Any]) -> tuple[str, list[str]] | None:
     return clients[0], others  # plaintiff-side (default): client is the plaintiff
 
 
-def _resolve_surname(
-    client: Any, contact_id: str, cache: dict[str, str | None], budget: list[int] | None
-) -> str | None:
-    """get_contact -> surname, memoized in ``cache``; ``budget`` (a 1-elem list)
-    caps live lookups on the list path. Best-effort: a failed fetch yields None."""
+def _contact_email(contact: Any) -> str | None:
+    """The party's routable address, from the nested (``person``/``company``) shape
+    confirmed live 2026-07-08 with a flat fallback. Structured fields only, lowered
+    for comparison against a send's recipients."""
+    if not isinstance(contact, dict):
+        return None
+    for holder in (contact.get("person"), contact.get("company"), contact):
+        if not isinstance(holder, dict):
+            continue
+        raw = holder.get("email")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip().lower()
+    return None
+
+
+def _contact_roles(contact: Any) -> list[str]:
+    """Role-tag names on a contact (``[{"name": "Plaintiff", "type": "Role"}]``,
+    live-confirmed 2026-08-10). Non-Role tags are ignored; shape drift yields an
+    empty list, never a raise."""
+    if not isinstance(contact, dict):
+        return []
+    out: list[str] = []
+    for tag in contact.get("tags") or []:
+        if not isinstance(tag, dict):
+            continue
+        if (tag.get("type") or "") != "Role":
+            continue
+        name = (tag.get("name") or "").strip()
+        if name:
+            out.append(name[:40])
+    return out
+
+
+def _resolve_party(
+    client: Any, contact_id: str, cache: dict[str, dict | None], budget: list[int] | None
+) -> dict | None:
+    """get_contact -> one party record (label + email + roles), memoized in
+    ``cache``; ``budget`` (a 1-elem list) caps live lookups on the list path.
+
+    Best-effort: a failed fetch OR an exhausted budget yields None, and the caller
+    MUST treat None as *membership unresolved*, never as evidence of non-membership
+    (ss#2167 — a budget artifact that read as "not a party" would withhold a
+    correct send and name its recipient an outsider; confident wrong output is
+    worse than none).
+
+    One fetch now serves both the caption label and the party address, so matter
+    identity costs no additional API calls on the caption path."""
     if contact_id in cache:
         return cache[contact_id]
     if budget is not None:
         if budget[0] <= 0:
+            # Deliberately NOT cached: absence here is the budget, not a fact.
             return None
         budget[0] -= 1
-    label: str | None = None
+    record: dict | None = None
     try:
-        label = _party_surname(client.get(f"/contacts/{contact_id}"))
+        contact = client.get(f"/contacts/{contact_id}")
+        record = {
+            "contact_id": contact_id,
+            "label": _party_surname(contact),
+            "email": _contact_email(contact),
+            "roles": _contact_roles(contact),
+        }
     except Exception:  # noqa: BLE001 — enrichment must never break the read path
-        label = None
-    cache[contact_id] = label
-    return label
+        record = None
+    cache[contact_id] = record
+    return record
+
+
+def _resolve_surname(
+    client: Any, contact_id: str, cache: dict[str, dict | None], budget: list[int] | None
+) -> str | None:
+    """Caption label for one party. Behavior is unchanged; it now reads the shared
+    party record so the caption and membership paths share a single fetch."""
+    record = _resolve_party(client, contact_id, cache, budget)
+    return record.get("label") if record else None
 
 
 def _attach_caption(
     client: Any,
     matter: Any,
     *,
-    cache: dict[str, str | None] | None = None,
+    cache: dict[str, dict | None] | None = None,
     budget: list[int] | None = None,
 ) -> None:
     """Mutate ``matter`` in place, adding a ``caption`` ("Plaintiff v. Defendant"
@@ -196,10 +254,74 @@ def _attach_captions_to_list(client: Any, resp: Any) -> None:
     items = resp.get("value")
     if not isinstance(items, list):
         return
-    cache: dict[str, str | None] = {}
+    cache: dict[str, dict | None] = {}
     budget = [_CAPTION_MAX_LOOKUPS]
     for item in items:
         _attach_caption(client, item, cache=cache, budget=budget)
+
+
+def _attach_parties(client: Any, matter: Any) -> None:
+    """Mutate ``matter`` in place, adding ``parties`` (one record per client /
+    other-side contact: id, side, email, roles) and ``parties_complete``.
+
+    ss#2167 — the outbound matter-identity gate answers "is this recipient a party
+    to this matter?", which needs the parties' ADDRESSES. The caption path already
+    fetches those contacts and discards everything but the surname.
+
+    Deliberately NOT attached on the list path. ``_attach_captions_to_list`` is
+    bounded by ``_CAPTION_MAX_LOOKUPS``, and a budget-truncated party list is
+    byte-identical to a complete one — a real party whose fetch fell off the end
+    would classify as "not a party", withholding a CORRECT send and naming its
+    recipient an outsider. So the unbounded single-matter read is the only producer.
+
+    ``parties_complete`` is the gate's contract: true only when every listed party
+    resolved AND carries an address. Anything else — a failed fetch, a party with
+    no email, a party-less matter (no keys attached at all) — must read to the gate
+    as *membership unresolved*, never as *not a party*. The two verdicts are
+    different sentences to a reviewer and must never collapse into one."""
+    if not isinstance(matter, dict):
+        return
+    try:
+        ids = [
+            (cid, side)
+            for side, key in (("client", "clientIds"), ("other_side", "otherSideIds"))
+            for cid in (matter.get(key) or [])
+            if cid
+        ]
+        if not ids:
+            return  # party-less matter attaches nothing, as with the caption
+        cache: dict[str, dict | None] = {}
+        parties: list[dict] = []
+        complete = True
+        for cid, side in ids:
+            record = _resolve_party(client, cid, cache, None)  # unbounded: one matter
+            if record is None:
+                complete = False
+                continue
+            email = record.get("email")
+            if not email:
+                complete = False  # a party we cannot address cannot be matched
+            parties.append(
+                {
+                    "contact_id": cid,
+                    "side": side,
+                    "email": email,
+                    "roles": record.get("roles") or [],
+                }
+            )
+        if not parties:
+            # Nothing resolved at all (every lookup failed). Attach NOTHING rather
+            # than an empty list: absent is the same signal a party-less matter
+            # gives, whereas ``parties: []`` invites a caller that forgets the flag
+            # to read "nobody is a party" — the precise collapse of *unresolved*
+            # into *not a party* this function exists to prevent.
+            return
+        # Assigned only after the set is built, so a mid-loop raise leaves no
+        # partial parties key behind.
+        matter["parties"] = parties
+        matter["parties_complete"] = complete
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        return
 
 
 # ---- Matter-ref enrichment (tasks, events) --------------------------------
@@ -409,6 +531,17 @@ def list_matters(
         Offset=offset,
     )
     _attach_captions_to_list(client, resp)
+    # ss#2167 — the reply lane's membership binding. Measured 2026-08-10
+    # (vfy_01KZQ200CB8XE84E1M38PQ5WGB): get_matter does NOT fire on reply turns
+    # (4/77 replies vs a 3/77 control), so party data from the single-matter read
+    # never reaches 74% of sends. The router DOES resolve a sender by contact, and
+    # a contact-filtered listing is exactly "the matters this person is party to" —
+    # the same membership relation from the other direction. Echoing the filter is
+    # what lets the read-tap bind contact -> matters without changing any skill.
+    # Only ever set when the CALLER filtered by contact: an unfiltered listing says
+    # nothing about membership and must not be read as if it did.
+    if contact_id and isinstance(resp, dict):
+        resp["matters_for_contact"] = contact_id
     return resp
 
 
@@ -419,10 +552,13 @@ def get_matter(matter_id: str) -> Any:
     per-matter case-alert routing — plus status, isLead).
 
     Enriched with a composed ``caption`` ("Plaintiff v. Defendant") from the
-    matter's own party contacts (best-effort; absent for party-less matters)."""
+    matter's own party contacts (best-effort; absent for party-less matters), and
+    with ``parties`` + ``parties_complete`` — the membership facts the outbound
+    matter-identity gate joins against a send's recipients (ss#2167)."""
     client = _get_client()
     matter = client.get(f"/matters/{matter_id}")
     _attach_caption(client, matter)
+    _attach_parties(client, matter)
     return matter
 
 
