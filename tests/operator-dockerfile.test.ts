@@ -732,7 +732,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // declare that one and always agree with itself). Placed above the
     // `decision.allowed` guard: on a draft_for_review seat every send is
     // withheld, so a check inside that block would never run on the seat it is
-    // for. Silent until authored; SMD_MATTER_GATE_MODE is the rollback lever.
+    // for. CORRECTION (ss#2252): this comment originally said "silent until
+    // authored". That was false — the gate reads no customer.yaml posture and is
+    // ON by default; SMD_MATTER_GATE_MODE is the only lever. The safety property
+    // that does hold is that a mismatch downgrades to a human draft rather than
+    // refusing, and an unresolved membership does not withhold at all.
     // plugins/hermes-smd-trust/{enforce,__init__,matter_gate}.py +
     // shared/matter_binding.py + consumes.yaml + tests — NOT tracked pairs
     // (the tracked twins are voice/transform, audit/emit and the shared/
