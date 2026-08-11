@@ -1015,6 +1015,22 @@ describe('Operator Machine profile guards', () => {
     ).toBe(true)
   })
 
+  it('runs a convergent (not fixed-window) disabled-skills reconciler (ss#2230)', () => {
+    expect(
+      BOOTSTRAP.includes('ensure-disabled-skills.py --check'),
+      'the reconciler must probe with --check until the prune has converged'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.includes('[ "${_ticks}" -ge 24 ]'),
+      'the reconciler must not exit on an early clean streak — a clean check before ' +
+        'the gateway sync starts proves nothing (the 2026-08-10 race)'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.includes('for _ in 1 2 3 4 5 6'),
+      'the fixed 30s reconcile window is the ss#2230 defect; it must not return'
+    ).toBe(false)
+  })
+
   it('packages and runs the operator identity guard before the gateway starts', () => {
     expect(
       DOCKERFILE.includes(
