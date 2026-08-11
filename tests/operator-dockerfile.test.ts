@@ -716,7 +716,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // (jobs teardown-shaped broker fix). shared/action_classes.py +
     // shared/job_worker_runtime.py + tests — NOT tracked pairs
     // (compare-verified); every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="df1dbb83560f814604ee0bbe757d4894c3aab154"')
+    // df1dbb83 -> 947cc2f3 (2026-08-10d, ss#2222): overlay#234 — establishment
+    // classifies the VERIFIED sender, not the webhook route. Live-caught: an
+    // authored admin was refused "only Operator admins can establish" and the
+    // possession ceremony behind that predicate never fired, so no challenge
+    // was sent. Same ss#1941 shape initiation fixed in overlay#230. Range also
+    // carries the ss#2234 spec-control work. NOT tracked pairs
+    // (compare-verified); every overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="947cc2f372e958dcc4721d89236640c3ef4c26de"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
