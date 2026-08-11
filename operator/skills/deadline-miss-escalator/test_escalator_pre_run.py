@@ -229,7 +229,81 @@ def test_run_once_wakes_on_in_range_no_audit_written():
         "plans_emitted": 1,
         "plans_truncated": False,
     }
-    assert executor.calls == []  # audit only on suppress path
+    # The wake leaves a row too (#2253). Before this, the gate logged why it did
+    # NOT act and logged nothing when it did — which is why the 2026-08-10
+    # fabricated escalation email was findable only by reading the mailbox.
+    assert len(executor.calls) == 1
+    _, params = executor.calls[0]
+    assert params[2] == "EMITTED_WAKE"
+    assert params[5] == "deadline-miss-escalator"
+    metadata = json.loads(params[11])
+    assert metadata["decision_basis"] == "deadline_in_escalation_range"
+    # The row's plan accounting matches the wake line's, field for field.
+    assert metadata["plans_total"] == 1
+    assert metadata["plans_emitted"] == 1
+    assert metadata["plans_truncated"] is False
+
+
+def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
+    """The inverted contract: a failed audit write must not touch the wake.
+
+    On the suppress path an audit failure escalates to a wake, because a silent
+    suppress is indistinguishable from a broken gate. Here the wake is already
+    the decision, so the row is observability and never a gate — the stdout must
+    be byte-identical to the succeeding case above.
+    """
+    sources = [FakeSource([_dl(days_out=5, task_id="task-9")])]
+    executor = FakeExecutor(fail=True)
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
+    )
+    assert code == 0
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "deadline_in_escalation_range",
+        "plans": [
+            {
+                "matter_id": "7001",
+                "task_id": "task-9",
+                "label": "filing-deadline",
+                "authored_date": "2026-06-13",
+                "days_out": 5,
+                "rung": "re-route",
+                "last_raised": None,
+                "last_raised_source": "operator_ledger",
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
+    assert len(executor.calls) == 1  # attempted, failed, swallowed
+
+
+def test_run_once_wake_survives_a_writer_without_the_emitted_wake_method():
+    """A writer object too old to have `write_emitted_wake` must not break a
+    wake. The failure mode this closes is a half-deployed image, where the
+    gate's own observability would otherwise take the tick down with it."""
+
+    class _LegacyWriter:
+        async def write_suppressed_wake(self, **_kwargs) -> str:
+            return "x"
+
+    sources = [FakeSource([_dl(days_out=5, task_id="task-9")])]
+    code, out = _capture_stdout(
+        run_once(
+            sources, EscalationWindows(), lambda: _LegacyWriter(), today=TODAY, now=NOW
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "deadline_in_escalation_range"
+    assert len(parsed["plans"]) == 1
 
 
 def test_run_once_writes_heartbeat_then_suppresses_when_quiet():

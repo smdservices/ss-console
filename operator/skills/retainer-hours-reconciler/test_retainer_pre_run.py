@@ -326,7 +326,17 @@ def test_run_once_emits_wake_on_monday():
     }
     assert "plans" not in parsed
     assert not parsed["decision_basis"].endswith("_fail_open")
-    assert executor.calls == []  # audit never invoked on wake path
+    # The cadence wake is a real decision and leaves a row like any other
+    # (#2253) — with NO plan counts, because the gate computed no per-item
+    # finding. Absent counts here mean "no finding exists", the same thing the
+    # absent `plans` key on the wire means.
+    assert len(executor.calls) == 1
+    _, params = executor.calls[0]
+    assert params[2] == "EMITTED_WAKE"
+    assert params[5] == "retainer-hours-reconciler"
+    metadata = json.loads(params[11])
+    assert metadata["decision_basis"] == "weekly_mandatory_boundary"
+    assert "plans_total" not in metadata
 
 
 def test_run_once_emits_wake_on_critical_client_midweek():
@@ -359,7 +369,75 @@ def test_run_once_emits_wake_on_critical_client_midweek():
         "plans_emitted": 1,
         "plans_truncated": False,
     }
-    assert executor.calls == []
+    # The wake leaves a row too (#2253), and its plan accounting matches the
+    # wake line's field for field — the record kept to catch discrepancies must
+    # not be a source of one.
+    assert len(executor.calls) == 1
+    _, params = executor.calls[0]
+    assert params[2] == "EMITTED_WAKE"
+    assert params[5] == "retainer-hours-reconciler"
+    metadata = json.loads(params[11])
+    assert metadata["decision_basis"] == "client_in_critical_band"
+    assert metadata["plans_total"] == 1
+    assert metadata["plans_emitted"] == 1
+    assert metadata["plans_truncated"] is False
+
+
+def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
+    """The inverted contract: a failed audit write must not touch the wake.
+
+    On the suppress path an audit failure escalates to a wake, because a silent
+    suppress is indistinguishable from a broken gate. Here the wake is already
+    the decision, so the row is observability and never a gate — the stdout must
+    be byte-identical to the succeeding case above.
+    """
+    connectors = [FakeConnector([_make_util(actual_mtd_hours=50.0)])]
+    executor = FakeExecutor(fail=True)
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), factory, now=TUESDAY)
+    )
+    assert code == 0
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "client_in_critical_band",
+        "plans": [
+            {
+                "client_slug": "client_a",
+                "kind": "critical_band",
+                "bucket": "OVER_CRITICAL",
+                "projected_eom_pct": 1.25,
+                "low_confidence": False,
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
+    assert len(executor.calls) == 1  # attempted, failed, swallowed
+
+
+def test_run_once_wake_survives_a_writer_without_the_emitted_wake_method():
+    """A writer object too old to have `write_emitted_wake` must not break a
+    wake. The failure mode this closes is a half-deployed image, where the
+    gate's own observability would otherwise take the tick down with it."""
+
+    class _LegacyWriter:
+        async def write_suppressed_wake(self, **_kwargs) -> str:
+            return "x"
+
+    connectors = [FakeConnector([_make_util(actual_mtd_hours=50.0)])]
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), lambda: _LegacyWriter(), now=TUESDAY)
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "client_in_critical_band"
+    assert len(parsed["plans"]) == 1
 
 
 def test_run_once_emits_wake_with_slug_only_plans_on_pending_ack():

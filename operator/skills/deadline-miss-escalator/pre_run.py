@@ -440,6 +440,69 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
     return 0
 
 
+def _plan_counts(decision: "WakeDecision") -> dict:
+    """The cap's own accounting, computed the one way ``_emit_wake`` computes it.
+
+    Duplicating the slice in the audit path would let the row and the wake line
+    disagree about how much was handed over — a discrepancy nobody would look
+    for, in the one record kept to catch discrepancies.
+    """
+    if not decision.plans:
+        return {}
+    emitted = len(decision.plans[:_MAX_SERIALIZED_PLANS])
+    return {
+        "plans_total": len(decision.plans),
+        "plans_emitted": emitted,
+        "plans_truncated": emitted < len(decision.plans),
+    }
+
+
+async def _try_write_emitted_wake(
+    audit_writer_factory,
+    decision: "WakeDecision",
+    *,
+    skill_name: str,
+    now: datetime,
+) -> None:
+    """Best-effort EMITTED_WAKE row for a real-decision wake (#2253).
+
+    The suppress path logged its reasoning and the wake path logged nothing, so
+    the ledger held a record of every tick the gate stayed quiet and no record
+    of the ticks it fired. On 2026-08-10 the escalator woke with the Smokeball
+    connector down and sent an alert stating a date it could not read; the only
+    way anyone found it was reading the mailbox.
+
+    BEST-EFFORT IS THE CONTRACT, and it inverts the suppress path's on purpose.
+    Below, an audit failure escalates to a wake, because a silent suppress is
+    indistinguishable from a broken gate. Here the wake is already the decision,
+    so every failure — no writer wired, socket down, broker refusal, a writer
+    object too old to have the method — is swallowed. A wake that a failed audit
+    write could suppress or delay would be a gate made of observability.
+
+    It is not free, and the cost is stated rather than assumed away: the
+    broker-socket writer blocks for up to `_HEARTBEAT_TIMEOUT_SECONDS` against a
+    hung broker — the same bound the suppress path already accepts. Bounded, and
+    never a change of decision.
+
+    Not called on the fail-open paths: `no_audit_writer_fail_open` fires because
+    there is no writer to call, and `suppress_heartbeat_failed_fail_open` fires
+    because a write to that writer just failed.
+    """
+    try:
+        writer = audit_writer_factory()
+        if writer is None:
+            return
+        await writer.write_emitted_wake(
+            skill_name=skill_name,
+            pre_run_inputs=decision.pre_run_inputs_digest,
+            decision_basis=decision.decision_basis,
+            next_scheduled_at=_next_scheduled_at(now),
+            extra_metadata={**decision.extra_metadata, **_plan_counts(decision)},
+        )
+    except Exception:  # noqa: BLE001 — observability never gates the wake
+        pass
+
+
 def _emit_suppress() -> int:
     print(json.dumps({"wakeAgent": False}))
     return 0
@@ -503,6 +566,10 @@ async def run_once(
         today=today,
     )
     if decision.wake:
+        # The row goes in BEFORE the wake line, and cannot stop it (#2253).
+        await _try_write_emitted_wake(
+            audit_writer_factory, decision, skill_name=skill_name, now=now
+        )
         return _emit_wake(decision)
 
     writer = audit_writer_factory()
@@ -707,7 +774,12 @@ class SmokeballSubprocessSource:
 
 
 class BrokerSuppressedWakeWriter:
-    """SuppressedWakeWriter over the broker's uid-gated heartbeat verb."""
+    """SuppressedWakeWriter over the broker's uid-gated heartbeat verbs.
+
+    Two verbs, one per action_type — `suppressed_wake_append` for the quiet
+    tick, `emitted_wake_append` for the firing one (#2253). The broker pins each
+    verb to exactly one action_type, so neither can forge the other's row.
+    """
 
     def __init__(self, socket_path: str, customer_slug: str) -> None:
         self._socket_path = socket_path
@@ -722,10 +794,52 @@ class BrokerSuppressedWakeWriter:
         next_scheduled_at: str,
         extra_metadata: dict | None = None,
     ) -> str:
+        return self._append(
+            verb="suppressed_wake_append",
+            action_type="SUPPRESSED_WAKE",
+            skill_name=skill_name,
+            pre_run_inputs=pre_run_inputs,
+            decision_basis=decision_basis,
+            next_scheduled_at=next_scheduled_at,
+            extra_metadata=extra_metadata,
+        )
+
+    async def write_emitted_wake(
+        self,
+        *,
+        skill_name: str,
+        pre_run_inputs: bytes,
+        decision_basis: str,
+        next_scheduled_at: str,
+        extra_metadata: dict | None = None,
+    ) -> str:
+        """Same payload shape, the wake-path verb. Raises like its sibling; the
+        caller (`_try_write_emitted_wake`) is the one that swallows."""
+        return self._append(
+            verb="emitted_wake_append",
+            action_type="EMITTED_WAKE",
+            skill_name=skill_name,
+            pre_run_inputs=pre_run_inputs,
+            decision_basis=decision_basis,
+            next_scheduled_at=next_scheduled_at,
+            extra_metadata=extra_metadata,
+        )
+
+    def _append(
+        self,
+        *,
+        verb: str,
+        action_type: str,
+        skill_name: str,
+        pre_run_inputs: bytes,
+        decision_basis: str,
+        next_scheduled_at: str,
+        extra_metadata: dict | None,
+    ) -> str:
         request = {
-            "action": "suppressed_wake_append",
+            "action": verb,
             "row": {
-                "action_type": "SUPPRESSED_WAKE",
+                "action_type": action_type,
                 "actor": "agent",
                 "actor_role": "agent",
                 "skill_name": skill_name,

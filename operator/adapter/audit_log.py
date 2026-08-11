@@ -193,6 +193,31 @@ ACCEPTED_ACTION_TYPES = frozenset(
         #     "delta_under_threshold", "no_period_boundary", "config_missing"
         #   - next_scheduled_at: ISO 8601 UTC of the next tick
         "SUPPRESSED_WAKE",
+        # The WAKE half of the same gate (ss-console #2253). Until this type
+        # existed, a gated cron logged why it did NOT act and logged nothing at
+        # all when it did — so the one tick that mattered was the one tick with
+        # no row. On 2026-08-10 the deadline escalator woke with its connector
+        # down and sent an alert stating a date it could not read; the ledger
+        # held no record that the gate had fired, and the fabrication was found
+        # only by reading the mailbox. Written best-effort by `pre_run.py` on
+        # the real-decision wake path, BEFORE the wake line is printed.
+        #
+        # BEST-EFFORT IS THE POINT, and it is the opposite discipline from
+        # SUPPRESSED_WAKE above: there, an audit failure must force a wake,
+        # because a silent suppress is indistinguishable from a broken gate.
+        # Here the wake is already happening, so an audit failure must never
+        # suppress or delay it — the row is observability, never a gate.
+        #
+        # Standard payload (via metadata), deliberately parallel to
+        # SUPPRESSED_WAKE so a reader can diff the two on the same fields:
+        #   - pre_run_inputs_digest: sha-256 of the polling inputs that fed
+        #     the decision
+        #   - decision_basis: the same short code the wake line carries, so a
+        #     woken turn's stated basis can be checked against the gate's
+        #   - next_scheduled_at: ISO 8601 UTC of the next tick
+        #   - plans_total / plans_emitted / plans_truncated: how many per-item
+        #     plans the gate computed vs handed over, when plans exist
+        "EMITTED_WAKE",
         # Reply channel (ADR 0055) — emitted by the overlay's hermes-smd-reply
         # plugin when the Operator (an employee) answers a colleague who emailed
         # its inbox. The reply is recipient-locked to the verified inbound sender
@@ -586,6 +611,10 @@ class SuppressedWakeWriter:
 
     `write_suppressed_wake` never swallows executor errors. Callers MUST
     treat any raised exception as the cue to fall back to wake.
+
+    `write_emitted_wake` (#2253) is the wake-path sibling — same payload shape,
+    same reserved-key guard, opposite caller contract: its callers swallow the
+    raise, because a wake must never be gated on its own audit row.
     """
 
     def __init__(self, writer: AuditLogWriter) -> None:
@@ -630,6 +659,50 @@ class SuppressedWakeWriter:
                 meta[key] = value
         event = AuditEvent(
             action_type="SUPPRESSED_WAKE",
+            actor=actor,
+            actor_role=ActorRole.AGENT,
+            skill_name=skill_name,
+            input_payload=pre_run_inputs,
+            metadata=meta,
+        )
+        return await self._writer.write(event)
+
+    async def write_emitted_wake(
+        self,
+        *,
+        skill_name: str,
+        pre_run_inputs: bytes,
+        decision_basis: str,
+        next_scheduled_at: str,
+        actor: str = "agent",
+        extra_metadata: Optional[dict] = None,
+    ) -> str:
+        """Emit one EMITTED_WAKE row (#2253). Returns the inserted ULID.
+
+        The wake half of the same gate. Arguments are identical to
+        `write_suppressed_wake` — including the reserved-key guard — so the two
+        row shapes stay diffable on the same metadata fields.
+
+        THE CALLER CONTRACT IS INVERTED, and deliberately so. A suppress that
+        cannot be audited must escalate to a wake; a WAKE that cannot be audited
+        must still wake. This method still raises on executor failure (it does
+        not decide policy), but its callers in `pre_run.py` swallow the raise:
+        the wake line is printed either way. A wake gated on its own audit row
+        would be a gate built out of observability.
+        """
+        meta: dict = {
+            "decision_basis": decision_basis,
+            "next_scheduled_at": next_scheduled_at,
+        }
+        if extra_metadata is not None:
+            for key, value in extra_metadata.items():
+                if key in meta:
+                    raise ValueError(
+                        f"extra_metadata key {key!r} reserved by SuppressedWakeWriter"
+                    )
+                meta[key] = value
+        event = AuditEvent(
+            action_type="EMITTED_WAKE",
             actor=actor,
             actor_role=ActorRole.AGENT,
             skill_name=skill_name,

@@ -221,7 +221,84 @@ def test_run_once_emits_wake_on_anomaly():
         "plans_emitted": 1,
         "plans_truncated": False,
     }
-    assert executor.calls == []  # never invoked on the wake path
+    # The wake leaves a row too (#2253). Before this, the gate logged why it did
+    # NOT act and logged nothing when it did, so the one tick that mattered was
+    # the one tick the ledger could not show.
+    assert len(executor.calls) == 1
+    _, params = executor.calls[0]
+    assert params[2] == "EMITTED_WAKE"
+    assert params[5] == "paid-media-anomaly-watcher"
+    metadata = json.loads(params[11])
+    assert metadata["decision_basis"] == "anomaly_above_threshold"
+    # The row's plan accounting matches the wake line's, field for field — the
+    # record kept to catch discrepancies must not be a source of one.
+    assert metadata["plans_total"] == 1
+    assert metadata["plans_emitted"] == 1
+    assert metadata["plans_truncated"] is False
+
+
+def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
+    """The inverted contract: a failed audit write must not touch the wake.
+
+    On the suppress path an audit failure escalates to a wake, because a silent
+    suppress is indistinguishable from a broken gate. Here the wake is already
+    the decision, so the row is observability and never a gate — the stdout must
+    be byte-identical to the succeeding case above.
+    """
+    connectors = [FakeConnector([_make_snapshot(cpl=25.0, cpl_avg=10.0)])]
+    executor = FakeExecutor(fail=True)
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(run_once(connectors, AnomalyThresholds(), factory))
+    assert code == 0
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "anomaly_above_threshold",
+        "plans": [
+            {
+                "campaign_id": "camp_1",
+                "platform": "meta",
+                "kind": "cpl_spike",
+                "severity": "CRITICAL",
+                "detail": "CPL $25.00 > 2.0× baseline $10.00",
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
+    assert len(executor.calls) == 1  # attempted, failed, swallowed
+
+
+def test_run_once_wake_survives_a_writer_without_the_emitted_wake_method():
+    """A writer object too old to have `write_emitted_wake` must not break a
+    wake. The failure mode this closes is a half-deployed image, where the
+    gate's own observability would otherwise take the tick down with it."""
+
+    class _LegacyWriter:
+        async def write_suppressed_wake(self, **_kwargs) -> str:
+            return "x"
+
+    connectors = [FakeConnector([_make_snapshot(cpl=25.0, cpl_avg=10.0)])]
+    code, out = _capture_stdout(
+        run_once(connectors, AnomalyThresholds(), lambda: _LegacyWriter())
+    )
+    assert code == 0
+    assert json.loads(out)["wakeAgent"] is True
+    assert json.loads(out)["decision_basis"] == "anomaly_above_threshold"
+
+
+def test_run_once_wake_survives_a_writer_factory_that_raises():
+    connectors = [FakeConnector([_make_snapshot(cpl=25.0, cpl_avg=10.0)])]
+
+    def factory():
+        raise RuntimeError("broker socket unreachable")
+
+    code, out = _capture_stdout(run_once(connectors, AnomalyThresholds(), factory))
+    assert code == 0
+    assert json.loads(out)["wakeAgent"] is True
 
 
 def test_run_once_writes_audit_then_suppresses_on_clean_data():
@@ -458,3 +535,73 @@ def test_suppressed_wake_writer_rejects_reserved_metadata_keys():
                 extra_metadata={"decision_basis": "evil"},  # collision
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# write_emitted_wake — the wake-path sibling (#2253)
+# ---------------------------------------------------------------------------
+
+
+def test_emitted_wake_writer_emits_correct_row():
+    executor = FakeExecutor()
+    writer = SuppressedWakeWriter(AuditLogWriter(executor))
+    _run(
+        writer.write_emitted_wake(
+            skill_name="some-skill",
+            pre_run_inputs=b"raw-snapshot-bytes",
+            decision_basis="anomaly_above_threshold",
+            next_scheduled_at="2026-05-26T07:00:00.000Z",
+            extra_metadata={"campaigns_evaluated": 3, "plans_total": 2},
+        )
+    )
+    assert len(executor.calls) == 1
+    _sql, params = executor.calls[0]
+    assert params[2] == "EMITTED_WAKE"
+    assert params[5] == "some-skill"
+    assert params[4] == "agent"  # actor_role
+    import hashlib
+
+    assert params[7] == hashlib.sha256(b"raw-snapshot-bytes").hexdigest()
+    # Payload shape is deliberately identical to SUPPRESSED_WAKE's, so a reader
+    # can diff the two row types on the same fields.
+    assert json.loads(params[11]) == {
+        "decision_basis": "anomaly_above_threshold",
+        "next_scheduled_at": "2026-05-26T07:00:00.000Z",
+        "campaigns_evaluated": 3,
+        "plans_total": 2,
+    }
+
+
+def test_emitted_wake_writer_raises_on_executor_failure():
+    """The writer still raises; the SWALLOW lives in the pre_run caller, so a
+    caller that wants to know can, and the one that must not gate does not."""
+    executor = FakeExecutor(fail=True)
+    writer = SuppressedWakeWriter(AuditLogWriter(executor))
+    with pytest.raises(AuditWriteError):
+        _run(
+            writer.write_emitted_wake(
+                skill_name="some-skill",
+                pre_run_inputs=b"x",
+                decision_basis="anomaly_above_threshold",
+                next_scheduled_at="2026-05-26T07:00:00.000Z",
+            )
+        )
+
+
+@pytest.mark.parametrize("reserved", ["decision_basis", "next_scheduled_at"])
+def test_emitted_wake_writer_rejects_reserved_metadata_keys(reserved: str):
+    """Same guard as the suppress sibling: the caller cannot smuggle its own
+    schema fields in through extra_metadata."""
+    executor = FakeExecutor()
+    writer = SuppressedWakeWriter(AuditLogWriter(executor))
+    with pytest.raises(ValueError):
+        _run(
+            writer.write_emitted_wake(
+                skill_name="x",
+                pre_run_inputs=b"x",
+                decision_basis="a",
+                next_scheduled_at="z",
+                extra_metadata={reserved: "evil"},
+            )
+        )
+    assert executor.calls == []  # rejected before any row was written

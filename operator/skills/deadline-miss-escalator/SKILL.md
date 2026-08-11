@@ -90,7 +90,7 @@ The agent MUST NOT: compute or infer a deadline; send anything to a client or tr
 2. **No external send.** Every rung is internal — an internal surface write or an internal red-flag alert. Nothing client- or tribunal-bound goes out.
 3. **Fail-closed notify.** With no authored red-flag recipient, no named-human alert fires (re-surface/re-route still run).
 4. **Held matters route to clearance,** never a client-facing escalation.
-5. **Heartbeat integrity.** Every quiet tick writes a `SUPPRESSED_WAKE` row; an audit-write failure forces wake. A scheduled tick with no audit row is the dead-man's-switch signal — the watch is advisory, never the firm's system of record (`compliance-floor.md`).
+5. **Heartbeat integrity.** Every quiet tick writes a `SUPPRESSED_WAKE` row and an audit-write failure forces wake; every firing tick writes an `EMITTED_WAKE` row best-effort, which can never suppress or delay the wake (#2253). A scheduled tick with **neither** row is the dead-man's-switch signal — the watch is advisory, never the firm's system of record (`compliance-floor.md`).
 6. **Ledger writes are validated, never direct.** Every `fired`/`acked` event goes through the `escalation_append` tool to the broker's `escalation_event_append` verb; the agent never writes the ledger file and never reaches the broker socket via `execute_code` (that class is unauthored on customer seats and refused — ss #1915). An `acked` with no prior `fired` is rejected. An ack is a snooze, not a tombstone — only resolution in Smokeball is terminal.
 7. **No invented urgency.** The triage orders by signals the record carries (task-label markers, consequential category, overdue age) and never manufactures an urgency the data does not state.
 

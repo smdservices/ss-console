@@ -382,7 +382,87 @@ def test_run_once_wakes_on_chase_due():
             "attempt": 1,
         }
     ]
-    assert executor.calls == []  # heartbeat only on suppress path
+    # The wake leaves a row too (#2253). Before this, the gate logged why it did
+    # NOT act and logged nothing when it did, so the one tick that mattered was
+    # the one tick the ledger could not show.
+    assert len(executor.calls) == 1
+    _, params = executor.calls[0]
+    assert params[2] == "EMITTED_WAKE"
+    assert params[5] == "client-verification-tracker"
+    metadata = json.loads(params[11])
+    assert metadata["decision_basis"] == "verification_action_due"
+    assert metadata["plans_total"] == 1
+    # This gate serializes the whole plan list (no cap), so it does NOT claim an
+    # emitted/truncated split — a constant dressed as a measurement is a check
+    # that cannot fail.
+    assert "plans_emitted" not in metadata
+    assert "plans_truncated" not in metadata
+
+
+def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
+    """The inverted contract: a failed audit write must not touch the wake.
+
+    On the suppress path an audit failure escalates to a wake, because a silent
+    suppress is indistinguishable from a broken gate. Here the wake is already
+    the decision, so the row is observability and never a gate.
+    """
+    item = _item()
+    executor = FakeExecutor(fail=True)
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([item])],
+            _factory(executor),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=_ledger,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "verification_action_due"
+    key = _ledger.item_key(item.matter_id, item.task_id, item.label, item.authored_date)
+    assert parsed["plans"] == [
+        {
+            "matter_id": "m-1",
+            "task_id": "task-1",
+            "item_key": key,
+            "action": "chase",
+            "attempt": 1,
+        }
+    ]
+    assert len(executor.calls) == 1  # attempted, failed, swallowed
+
+
+def test_run_once_wake_survives_a_writer_without_the_emitted_wake_method():
+    """A writer object too old to have `write_emitted_wake` must not break a
+    wake. The failure mode this closes is a half-deployed image, where the
+    gate's own observability would otherwise take the tick down with it."""
+
+    class _LegacyWriter:
+        async def write_suppressed_wake(self, **_kwargs) -> str:
+            return "x"
+
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([_item()])],
+            lambda: _LegacyWriter(),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=_ledger,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "verification_action_due"
+    assert len(parsed["plans"]) == 1
 
 
 def test_run_once_suppresses_within_cadence_and_writes_heartbeat():
