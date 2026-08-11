@@ -700,7 +700,45 @@ describe('Operator customer Machine Dockerfile', () => {
     // the card-rehearsal R1 finding (ss#2221). Range is the new plugin + root
     // plugin.yaml + README + test only — NOT tracked pairs (git-diff-verified
     // zero intersection); every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="644084670a5f17613da3c1b8e4e647b9d414e0d6"')
+    // 64408467 -> 8833b3fe (2026-08-10b, ss#2222 gate 3 second half):
+    // overlay#230 — the injection never fired live because pre_llm_call's
+    // sender_id on webhook-dispatched turns is the ROUTE (webhook:agentmail),
+    // never the person (the ss#1941 shape). Initiation resolves the verified
+    // sender via SESSION_INBOUND_ORIGIN with a cooperative re-key and now
+    // registers before peer-memory. plugin.yaml + initiation plugin + test
+    // only — NOT tracked pairs (git-diff-verified); every overlaySha256
+    // unchanged, only overlayRef.
+    // 8833b3fe -> df1dbb83 (2026-08-10c, ss#2222): overlay#233 classifies
+    // mcp_smokeball_render_docx_template = INTERNAL_WRITE + pin coverage —
+    // the coordinated half of ss#2241's renderer. Without it the boot
+    // conformance probe refuses the unmapped tool and kills boot (live-caught
+    // on pilot v116, rolled back to v115). Range also carries overlay#232
+    // (jobs teardown-shaped broker fix). shared/action_classes.py +
+    // shared/job_worker_runtime.py + tests — NOT tracked pairs
+    // (compare-verified); every overlaySha256 unchanged, only overlayRef.
+    // df1dbb83 -> 947cc2f3 (2026-08-10d, ss#2222): overlay#234 — establishment
+    // classifies the VERIFIED sender, not the webhook route. Live-caught: an
+    // authored admin was refused "only Operator admins can establish" and the
+    // possession ceremony behind that predicate never fired, so no challenge
+    // was sent. Same ss#1941 shape initiation fixed in overlay#230. Range also
+    // carries the ss#2234 spec-control work. NOT tracked pairs
+    // (compare-verified); every overlaySha256 unchanged, only overlayRef.
+    // 947cc2f3 -> 44067ae1 (2026-08-10e, ss#2167): overlay#235 — the outbound
+    // matter-identity gate. Stops case A's content reaching case B's recipient,
+    // the one fabrication class with no control. Checks the body's own matter
+    // identifiers against who is party to that matter; neither side is the
+    // model's word, because a send that DECLARED its matter would be circular
+    // (the model resolves the recipient's matter to address them, so it would
+    // declare that one and always agree with itself). Placed above the
+    // `decision.allowed` guard: on a draft_for_review seat every send is
+    // withheld, so a check inside that block would never run on the seat it is
+    // for. Silent until authored; SMD_MATTER_GATE_MODE is the rollback lever.
+    // plugins/hermes-smd-trust/{enforce,__init__,matter_gate}.py +
+    // shared/matter_binding.py + consumes.yaml + tests — NOT tracked pairs
+    // (the tracked twins are voice/transform, audit/emit and the shared/
+    // filters; this change edits none of them); every overlaySha256 unchanged,
+    // only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="44067ae144e3c1394477ad639f65d7d465434228"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

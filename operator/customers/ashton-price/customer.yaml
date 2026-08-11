@@ -739,10 +739,53 @@ escalation:
 # under `vaults/<slug>/voice/cohort/<cohort>/`. Kept for the config-plane
 # consumers (schema validation, the portal YAML editor, the D1 projection).
 #
-# `voice_cohorts:` is deliberately unauthored here: the firm's own audience
-# partition is set at onboarding from the documents they point at, not guessed
-# ahead of them. Absent the block, the seat accepts the base vocabulary
-# (client / opposing-counsel / court / internal).
+# ---- ROUTINE NAMES (firm-legible; #2222) ----
+# Skill slug -> the routine's name in the FIRM'S language, exactly as the
+# routine-grid row (and letter 07 behind it) states it. Read at runtime by
+# operator-introduce from the seat's own config so an admin can ask "what are
+# your routines?" and hear the names the firm was actually promised — no
+# portal required. Drift-gated against routine-grid.yaml rows (verbatim) by
+# tests/routine-names-drift.test.ts. Materialization: none (no translate step);
+# a skill reads it off /var/lib/smd-config/customer.yaml directly.
+routine_names:
+  discovery-served-watch: 'Served discovery caught'
+  discovery-response-tracker: 'Response deadlines'
+  client-verification-tracker: 'Client verification'
+  separate-statement-assembler: 'Separate statement'
+  opposing-response-deficiency-review: 'Opposing responses reviewed'
+  meet-and-confer-drafter: 'Meet-and-confer letter'
+  discovery-response-staging: 'Response inputs staged'
+  matter-initiation-setup: 'New matter setup'
+  service-confirmation-watcher: 'Service confirmation'
+  medical-records-chaser: 'Records chase'
+  medical-chronology-maintainer: 'Medical chronology'
+  motion-calendar-tracker: 'Motion calendar'
+  motion-package-assembler: 'Motion package'
+  minors-compromise-packet: "Minor's compromise packet"
+  trial-binder-assembler: 'Trial binder'
+  mediation-settlement-tracker: 'Mediation and settlement'
+  lien-ledger-tracker: 'Lien ledger'
+  settlement-statement-feeder: 'Settlement statement'
+  daily-needs-you-digest: 'Daily "what needs you"'
+
+# ---- VOICE COHORTS ----
+# The audience classes this seat's voice profiles are partitioned by. An
+# authored list REPLACES the base vocabulary rather than extending it
+# (resolveCohortVocabulary, src/lib/operator/customer-yaml/sections-voice.ts).
+#
+# Authored 2026-08-10 (Captain decision, #2222): the prior posture left this
+# unauthored until onboarding, but the base fallback lacks `adjuster` — the
+# demand-letter register, a PI firm's highest-value audience — so the voice
+# work would have had no home for it. The firm refines the partition from its
+# own documents during establishment; this list is where that refinement lands.
+voice_cohorts:
+  cohorts:
+    - client
+    - adjuster
+    - opposing-counsel
+    - court
+  min_samples_per_cohort: 5
+
 voice_library:
   samples_path: 'r2://vaults/ashton-price/voice/'
 

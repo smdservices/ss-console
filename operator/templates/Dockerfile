@@ -478,7 +478,33 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # card-rehearsal R1 finding (ss#2221: answer/improvise/refuse free-styled on
 # one channel). New plugin + root plugin.yaml + README + test only — NOT
 # tracked pairs (git-diff-verified); every overlaySha256 unchanged.
-ARG OVERLAY_REF="644084670a5f17613da3c1b8e4e647b9d414e0d6"
+# 2026-08-10b: 64408467 -> 8833b3fe (overlay#230, ss#2222 gate 3 second
+# half): the injection never fired live — pre_llm_call's sender_id on
+# webhook-dispatched turns is the ROUTE (webhook:agentmail), never the
+# person (the ss#1941 shape). Initiation now resolves the Svix-verified
+# sender via SESSION_INBOUND_ORIGIN (get → claim-once unbound handoff,
+# ambiguity declines) and RE-KEYS a claimed origin under the session;
+# registration moved BEFORE peer-memory so the re-key feeds its get().
+# plugin.yaml + initiation plugin + test only — NOT tracked pairs
+# (git-diff-verified); every overlaySha256 unchanged.
+# 2026-08-10c (overlay#233 + #232, ss#2222): classify
+# mcp_smokeball_render_docx_template = INTERNAL_WRITE + pin coverage — the
+# coordinated half of ss#2241's renderer; without it the boot conformance
+# probe refuses the unmapped tool and kills boot (live-caught, pilot v116).
+# Range also carries overlay#232 (jobs teardown-shaped broker fix). Files:
+# shared/action_classes.py + shared/job_worker_runtime.py + tests — NOT
+# tracked pairs (compare-verified); every overlaySha256 unchanged.
+# 2026-08-10d (overlay#234, ss#2222): establishment classifies the VERIFIED
+# sender, not the webhook route. Live-caught — an authored admin emailed a
+# blessed corpus and was refused "only Operator admins can establish"; the
+# possession ceremony sits behind that predicate and was never reached, so no
+# challenge was ever sent. Same ss#1941 shape initiation fixed in overlay#230;
+# establishment carried it because nothing re-checked the other sender_id
+# consumers. Range ALSO carries the ss#2234 spec-control work (declared-but-
+# uninstalled voice spec: persona voice + alert internally, draft + alert
+# outbound — Captain ruling) which lands on seats with this bump. Compare-
+# verified: zero intersection with tracked pair overlayPaths.
+ARG OVERLAY_REF="44067ae144e3c1394477ad639f65d7d465434228"
 
 ARG CUSTOMER_SLUG=customer-zero
 

@@ -60,6 +60,7 @@ EXPECTED_TOOLS = {
     "get_event_types",
     "create_webhook_subscription",
     "create_memo",
+    "render_docx_template",
 }
 
 _SCRIPT = shutil.which("smokeball-mcp")
@@ -135,6 +136,10 @@ def test_write_surface_is_memo_document_and_deadline_engine() -> None:
         "create_task": "internal_write",
         "update_task": "internal_write",
         "create_folder": "internal_write",
+        # The .docx producer (2026-08-10, Captain directive #2222): renders a
+        # gated markdown skeleton server-side and files it into the matter via
+        # the same two-stage upload as add_file. Bytes never transit the model.
+        "render_docx_template": "internal_write",
     }
 
 
