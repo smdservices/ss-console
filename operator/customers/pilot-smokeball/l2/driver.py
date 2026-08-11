@@ -35,6 +35,17 @@ Commands:
                    [--to <addr>] [--attach-name <file.pdf> --attach-lines ...]
     read-matter    --matter <seed-key> [--sections tasks,events,memos,files]
     read-mail      [--inbox pilot-smokeball] [--folder drafts|messages]
+    read-doc-sha   --matter <seed-key> --file <fileId>
+
+``read-doc-sha`` is the independent-channel half of the ss#2247 staging proof:
+it downloads a matter document on App 1 and prints the sha256 of the text that
+document yields, so a broker-recorded staging hash can be compared against a
+hash produced by a different credential in a different process. The extractor
+is deliberately the SAME one the connector runs
+(``smokeball_connector.extract.extract_text``): the claim under test is "the
+bytes the broker hashed are the bytes the document yields", not "the extractor
+is right", and a second extractor would produce a different-but-equally-valid
+text and make the comparison meaningless. The channel is what is independent.
 
 Required env: SMOKEBALL_SEED_CLIENT_ID / SMOKEBALL_SEED_CLIENT_SECRET /
 SMOKEBALL_STAGING_API_KEY (App 1) and AGENTMAIL_API_KEY (email commands).
@@ -45,6 +56,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import sys
@@ -187,6 +199,63 @@ def cmd_read_matter(args: argparse.Namespace) -> None:
     print(json.dumps(out, indent=1))
 
 
+def cmd_read_doc_sha(args: argparse.Namespace) -> None:
+    # Imported here, not at module scope: extract_text pulls pypdf/python-docx
+    # only on the PDF/DOCX branches, and every OTHER command in this driver is
+    # pure stdlib on purpose. A missing optional dep must fail this command, not
+    # the whole file.
+    sys.path.insert(
+        0,
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "connectors", "smokeball"
+        ),
+    )
+    from smokeball_connector.extract import UnsupportedDocumentError, extract_text
+
+    api = Api()
+    matter_id = _matter_id(args.matter)
+    code, info = api.call("GET", f"/matters/{matter_id}/documents/files/{args.file}/download")
+    if code != 200 or not isinstance(info, dict) or not info.get("downloadUrl"):
+        sys.exit(f"download {code}: no downloadUrl for file {args.file!r} on matter {matter_id!r}")
+
+    # Presigned S3 GET: NO auth headers (same presign rule as the upload leg).
+    # The whole body is read in one pass, which IS reading the document to
+    # completion: read_document's paging is over the EXTRACTED text, and the
+    # extraction here runs over the full blob, so there is no tail to miss.
+    req = urllib.request.Request(info["downloadUrl"])
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — the URL is a Smokeball-minted presigned download URL returned by the API call above, never caller input.
+    with urllib.request.urlopen(req, timeout=120) as r:
+        blob = r.read()
+
+    try:
+        text = extract_text(
+            blob,
+            file_name=str(info.get("name") or ""),
+            file_extension=str(info.get("fileExtension") or ""),
+        )
+    except UnsupportedDocumentError as exc:
+        sys.exit(f"extract failed for file {args.file!r}: {exc}")
+
+    encoded = text.encode("utf-8")
+    print(
+        json.dumps(
+            {
+                "command": "read-doc-sha",
+                "matter": args.matter,
+                "matter_id": matter_id,
+                "file_id": args.file,
+                "name": info.get("name"),
+                "file_extension": info.get("fileExtension"),
+                "blob_bytes": len(blob),
+                "total_chars": len(text),
+                "size_bytes": len(encoded),
+                "sha256": hashlib.sha256(encoded).hexdigest(),
+            },
+            indent=1,
+        )
+    )
+
+
 def cmd_read_mail(args: argparse.Namespace) -> None:
     code, resp = _agentmail("GET", f"/v0/inboxes/{_inbox_path(args.inbox)}/{args.folder}")
     print(json.dumps({"inbox": args.inbox, "folder": args.folder, "status": code, "body": resp}, indent=1))
@@ -233,6 +302,11 @@ def main() -> None:
     p.add_argument("--matter", required=True)
     p.add_argument("--sections", default="tasks,events,memos,files")
     p.set_defaults(func=cmd_read_matter)
+
+    p = sub.add_parser("read-doc-sha")
+    p.add_argument("--matter", required=True)
+    p.add_argument("--file", required=True)
+    p.set_defaults(func=cmd_read_doc_sha)
 
     p = sub.add_parser("read-mail")
     p.add_argument("--inbox", default="pilot-smokeball")

@@ -10,7 +10,7 @@ description: >-
   never becomes an invented assertion, and a rule that cannot fire is never submitted. The reply
   renders every derived rule as a plain sentence the admin can check, names every auto-demotion,
   and claims nothing is in effect until the run says installed.
-version: 0.2.0
+version: 0.3.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -158,12 +158,17 @@ One `establish_stage_document` call per document:
 - First call: omit `staging_id`; the broker opens a set and returns its id. Pass that id on
   every further document of the run.
 - `name` is the document's real name. It is the label in gate results and demotion reports.
-- `text` is the **full extracted text, unedited**. The compilers check your specification
-  against exactly these bytes.
+- **You do not pass the text.** For a document you read with the connector, the seat stages
+  the exact bytes the connector returned. Omit `text` entirely and let `source` name the
+  document (`connector`, `document_id`, and `matter_id`). You cannot retype a document
+  accurately and you are not asked to.
+- The seat stages only what you actually read. If you have not paged that document to the
+  end, staging refuses and names the character ranges you have not read. Read those, then
+  stage. This is why step 1 says paged to the end: it is now checked, not trusted.
 - `source` records `connector`, `document_id`, and `matter_id` where there is one.
 
-Keep every returned `{doc_id, sha256}`; the install submission must name exactly the documents
-the specification came from. Broker ceilings on document size, set size, set count, and set age
+The install submission must name exactly the documents the specification came from, by
+`{doc_id, sha256}`. Broker ceilings on document size, set size, set count, and set age
 are enforced there and named in the refusal.
 
 **A staging refusal is terminal for that document.** Whatever refused it - a ceiling, a content
@@ -173,8 +178,13 @@ refusal in your report, and stage the rest. An edit made to clear a gate is invi
 record where the refusal would have been visible, and the shape would then be derived from a
 document the firm never produced. Only a transport-shaped retry is not an edit (an expired
 staging set, a set-level cap you hit by ordering): re-stage the same bytes, never reshaped
-ones. Carry two numbers per document - characters extracted from the source, characters passed
-as `text` - report both, and stage nothing where they differ.
+ones.
+
+Keep the `{doc_id, sha256, name}` the broker returns for every staged document, with the size
+it reports. Identity is now mechanical: the seat stages the bytes the connector returned, and
+the hash is computed on those bytes by a process you do not control. Report the hash and size
+per document so the admin can tie each one to the source. Report a **staged** count against a
+**blessed** count, and name every document a refusal removed with the refusal that removed it.
 
 ### 3. Analyze
 
@@ -353,9 +363,9 @@ recoverable generation.
 
 ## Verification
 
-1. Every staged document was named by the admin, read in place, and staged whole: extracted and
-   staged character counts equal and both reported, and every document a refusal removed named
-   with the refusal that removed it.
+1. Every staged document was named by the admin, read in place, and staged whole: the seat's
+   own coverage check accepted it, its staged sha256 and size are reported, and every document
+   a refusal removed is named with the refusal that removed it.
 2. Every submitted rule is one of the six, is supported literally by the examples, and can
    fire.
 3. Every observation that did not map to a rule is in the prose, and the reply says which ones
