@@ -506,20 +506,40 @@ log "Removing customer-disabled bundled skills from profile catalogs..."
 log "Disabled skill guard passed"
 
 # Hermes' gateway startup sync can rehydrate bundled skill directories after
-# this preflight guard runs. Keep a short-lived reconciler alive during gateway
-# startup so disabled bundled skills are removed again after that sync without
-# mutating the overlay's profile `skills` list shape.
+# this preflight guard runs. Keep a reconciler alive during gateway startup so
+# disabled bundled skills are removed again after that sync without mutating
+# the overlay's profile `skills` list shape.
+#
+# ss#2230: the original fixed 6×5s window was a losing race by construction —
+# on 2026-08-10 a clean reprovision failed boot smoke because the rehydration
+# landed after the 30s window and nothing re-pruned. Converge instead: re-prune
+# every 5s until the --check pass comes back clean on three consecutive probes,
+# but never exit before 120s of coverage (a clean streak in the first seconds
+# only proves the sync has not STARTED yet — exiting on it would re-create the
+# race), under a 300s ceiling. A rehydration later than 300s would still win;
+# boot smoke's own --check step remains the arbiter either way (Law 12 — the
+# gate can still fail, and did, which is how this defect was found).
 (
   # SEC-23: strip the account-wide R2 key from THIS subshell's environ. The
   # subshell is forked here, ~300 lines before the parent's `unset` (below), so
   # without this its /proc/<pid>/environ would expose the account-wide key to a
-  # same-uid code-executing agent for the ~30s it lives. ensure-disabled-skills.py
+  # same-uid code-executing agent while it lives. ensure-disabled-skills.py
   # operates on local HERMES_HOME skill dirs and never needs R2.
   unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
-  for _ in 1 2 3 4 5 6; do
+  _clean_streak=0
+  _ticks=0
+  while [ "${_ticks}" -lt 60 ]; do
+    _ticks=$((_ticks + 1))
     sleep 5
     /opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py "${CUSTOMER_YAML}" "${HERMES_HOME}" \
       || true
+    if /opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py --check "${CUSTOMER_YAML}" "${HERMES_HOME}" \
+      > /dev/null 2>&1; then
+      _clean_streak=$((_clean_streak + 1))
+      [ "${_clean_streak}" -ge 3 ] && [ "${_ticks}" -ge 24 ] && break
+    else
+      _clean_streak=0
+    fi
   done
 ) &
 
