@@ -133,10 +133,40 @@ def _assign_bucket(
 
 
 @dataclass(frozen=True)
+class ClientPlan:
+    """One client the gate is waking about, as the gate saw it (#2253).
+
+    Two of the three wake bases produce plans, and they carry unequal facts, so
+    each plan states its own ``kind`` and every plan serializes the same keys —
+    a plan dict has to make sense to the woken turn without the turn first
+    deducing which basis produced it.
+
+      - ``critical_band`` — the gate ran the bucket assignment, so ``bucket``,
+        ``projected_eom_pct`` and ``low_confidence`` are populated.
+      - ``pending_ack`` — the gate returned BEFORE assigning buckets (that
+        branch precedes it in ``decide``), so the bucket fields are None. Null
+        here means "the gate computed no bucket for this client on this tick",
+        never "this client is fine": the turn reads the figure itself.
+
+    ``low_confidence`` rides along because a projection from a handful of
+    elapsed days is not the same claim as one from three weeks, and a turn that
+    is handed the percentage without the flag will state both with the same
+    confidence.
+    """
+
+    client_slug: str
+    kind: str  # "critical_band" | "pending_ack"
+    bucket: str | None = None
+    projected_eom_pct: float | None = None
+    low_confidence: bool | None = None
+
+
+@dataclass(frozen=True)
 class WakeDecision:
     wake: bool
     decision_basis: str
     pre_run_inputs_digest: bytes
+    plans: tuple[ClientPlan, ...] = ()
     extra_metadata: dict = field(default_factory=dict)
 
 
@@ -166,6 +196,13 @@ def decide(
       4. Otherwise → SUPPRESS
     """
     if _is_weekly_boundary(now):
+        # Deliberately NO plans (#2253). This wake is a cadence, not a finding:
+        # nothing about any particular client triggered it, so there is no
+        # per-item fact to hand over and an empty-but-present plan list would
+        # falsely read as "the gate found nothing". The turn enumerates the full
+        # roster here — that IS the job of the weekly report. The basis is what
+        # tells it so, and `weekly_mandatory_boundary` is distinguishable from
+        # every fail-open basis, which all end in `_fail_open`.
         return WakeDecision(
             wake=True,
             decision_basis="weekly_mandatory_boundary",
@@ -179,6 +216,9 @@ def decide(
             wake=True,
             decision_basis="previously_critical_pending_ack",
             pre_run_inputs_digest=raw_inputs_for_digest,
+            plans=tuple(
+                ClientPlan(client_slug=slug, kind="pending_ack") for slug in pending
+            ),
             extra_metadata={"pending_ack_clients": pending},
         )
 
@@ -189,6 +229,16 @@ def decide(
             wake=True,
             decision_basis="client_in_critical_band",
             pre_run_inputs_digest=raw_inputs_for_digest,
+            plans=tuple(
+                ClientPlan(
+                    client_slug=a.client_slug,
+                    kind="critical_band",
+                    bucket=a.bucket,
+                    projected_eom_pct=round(a.projected_eom_pct, 3),
+                    low_confidence=a.low_confidence,
+                )
+                for a in critical
+            ),
             extra_metadata={
                 "critical_clients": [
                     {
@@ -224,8 +274,59 @@ def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
     return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _emit_wake() -> int:
-    print(json.dumps({"wakeAgent": True}))
+# At most this many plans are serialized onto the wake line. A prompt-injected
+# block is not free, and an agency with a hundred flagged clients does not need
+# all hundred to start work. The cap ALWAYS announces itself (plans_total /
+# plans_emitted / plans_truncated) — a truncated list that reads as complete is
+# a check that cannot fail.
+_MAX_SERIALIZED_PLANS = 50
+
+
+def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
+    """Print the wake gate line — WITH the facts the gate already computed (#2253).
+
+    Hermes reads only ``wakeAgent`` from the last stdout line and then injects
+    the whole stdout verbatim into the woken agent's prompt (the "Script Output"
+    block). Emitting a bare ``{"wakeAgent": true}`` therefore threw away every
+    per-item fact ``decide`` had in hand: which client, which utilization band,
+    what projected end-of-month percentage, and whether that projection was
+    low-confidence. On 2026-08-10 the sibling escalator woke fact-free with its
+    connector down and stated a specific date in the same alert that said it
+    could not read dates (#2253, fixed there by PR #2259). A gate that hands
+    over a bare boolean is asking the turn to supply the facts from somewhere,
+    and with no source reachable "somewhere" was invention.
+
+    Three shapes reach the woken turn, and they are distinguishable on the wire:
+
+      - ``decision_basis`` + ``plans`` — a finding. Those clients are the set.
+      - ``decision_basis: weekly_mandatory_boundary`` and no plans — the cadence
+        wake. Absent plans here mean "no per-item finding exists", not
+        "the gate saw nothing"; the turn enumerates the roster, which is the
+        weekly report's job.
+      - a ``*_fail_open`` basis and no plans — the gate woke BLIND. The turn
+        must enumerate through the connectors and must not read the absent plan
+        list as an empty one.
+    """
+    payload: dict = {"wakeAgent": True}
+    resolved_basis = decision.decision_basis if decision is not None else basis
+    if resolved_basis:
+        payload["decision_basis"] = resolved_basis
+    if decision is not None and decision.plans:
+        emitted = decision.plans[:_MAX_SERIALIZED_PLANS]
+        payload["plans"] = [
+            {
+                "client_slug": p.client_slug,
+                "kind": p.kind,
+                "bucket": p.bucket,
+                "projected_eom_pct": p.projected_eom_pct,
+                "low_confidence": p.low_confidence,
+            }
+            for p in emitted
+        ]
+        payload["plans_total"] = len(decision.plans)
+        payload["plans_emitted"] = len(emitted)
+        payload["plans_truncated"] = len(emitted) < len(decision.plans)
+    print(json.dumps(payload))
     return 0
 
 
@@ -276,12 +377,12 @@ async def run_once(
         now=now,
     )
     if decision.wake:
-        return _emit_wake()
+        return _emit_wake(decision)
 
     writer = audit_writer_factory()
     if writer is None:
         # Mirror-don't-gate: no writer = no trail = always wake.
-        return _emit_wake()
+        return _emit_wake(basis="no_audit_writer_fail_open")
     try:
         await writer.write_suppressed_wake(
             skill_name=skill_name,
@@ -291,7 +392,7 @@ async def run_once(
             extra_metadata=decision.extra_metadata,
         )
     except Exception:  # noqa: BLE001 — any audit failure → wake
-        return _emit_wake()
+        return _emit_wake(basis="suppress_heartbeat_failed_fail_open")
     return _emit_suppress()
 
 
@@ -311,17 +412,22 @@ def main() -> int:
         sys.stderr.write(
             "[pre_run] CUSTOMER_SLUG unset; falling back to wake\n"
         )
-        return _emit_wake()
+        return _emit_wake(basis="customer_slug_unset_fail_open")
 
     # TODO(connector-adapters): wire real Harvest / Toggl / Float connectors
     # when their adapters ship. For now, the production cron-daemon
     # invocation does not have connectors and we fall through to wake.
     # Tests exercise run_once() directly with mock connectors.
+    # The basis names the ACTUAL condition rather than borrowing the escalator's
+    # `pre_run_crashed_fail_open`: nothing crashed here, the connectors were
+    # never wired. A basis that misdescribes the failure is the same class of
+    # invented fact #2253 is about, just committed by the gate instead of the
+    # turn.
     sys.stderr.write(
         "[pre_run] retainer-hours connector adapters not yet shipped; "
         "falling back to wake (see ADR 0021 Stream B follow-on)\n"
     )
-    return _emit_wake()
+    return _emit_wake(basis="connectors_not_wired_fail_open")
 
 
 if __name__ == "__main__":
