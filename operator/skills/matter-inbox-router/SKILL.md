@@ -1,6 +1,10 @@
 ---
 name: matter-inbox-router
-description: The firm's coordinator on inbound mail — responds to colleagues by default (the reply channel sends it), routes recognized matter inbound to the wedge skill that handles it, and never decides legal substance.
+description: >-
+  Handles inbound mail and routes it to the right skill. The firm's coordinator on
+  inbound mail, it responds to colleagues by default (the reply channel sends it),
+  routes recognized matter inbound to the wedge skill that handles it, and never
+  decides legal substance.
 version: 0.4.0
 author: SMD Services
 license: MIT

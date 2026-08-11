@@ -1,6 +1,6 @@
 ---
 name: service-confirmation-watcher
-description: Watches for the proof of service of summons / service confirmation that InfoTrack syncs into a Smokeball matter, reads the served date (and method, and which defendant) off it, and surfaces the responsive-pleading deadline to the responsible attorney for confirmation. Captures the served-date INPUT; it never computes the responsive-pleading deadline as final (the court-rules engine does), never files or drafts a responsive pleading, and never guesses a served date, method, or defendant it cannot read.
+description: Reads the served date off a proof of service. Watches for the proof of service of summons / service confirmation that InfoTrack syncs into a Smokeball matter, reads the served date (and method, and which defendant) off it, and surfaces the responsive-pleading deadline to the responsible attorney for confirmation. Captures the served-date INPUT; it never computes the responsive-pleading deadline as final (the court-rules engine does), never files or drafts a responsive pleading, and never guesses a served date, method, or defendant it cannot read.
 version: 0.1.0
 author: SMD Services
 license: MIT

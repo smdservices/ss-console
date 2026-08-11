@@ -1,7 +1,8 @@
 ---
 name: trial-binder-assembler
 description: >-
-  As a matter heads to trial, assembles the trial binder by collating the authored components the
+  Assembles the trial binder and tracks trial-prep dates. As a matter heads to trial, it collates
+  the authored components the
   firm has already prepared (the exhibit list, the witness list, the deposition summaries, and the
   exhibits themselves) into an organized binder index, and captures and tracks the trial-prep and
   pre-trial-filing deadlines. It is an assembler and a tracker, never an author: it organizes and

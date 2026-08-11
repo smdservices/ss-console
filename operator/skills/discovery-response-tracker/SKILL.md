@@ -1,8 +1,8 @@
 ---
 name: discovery-response-tracker
 description: >
-  Tracks California discovery response deadlines in both directions, selected by an
-  action `direction: inbound|outbound`. INBOUND (discovery served on us): presents the
+  Tracks discovery response deadlines, both directions. California discovery, with the
+  direction selected by an action `direction: inbound|outbound`. INBOUND (discovery served on us): presents the
   response deadline for one-click responsible-attorney confirm, branch-aware to the firm's
   setup. If the court-rules engine (LawToolBox / Smokeball-InfoTrack) is active, it READS the
   engine's date and surfaces it to confirm; if no engine is active it does NOT compute one -

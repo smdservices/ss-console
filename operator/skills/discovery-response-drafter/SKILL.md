@@ -1,6 +1,15 @@
 ---
 name: discovery-response-drafter
-description: Drafts the plaintiff's responses to a discovery set served on the firm's client (interrogatories, requests for production, requests for admission) for attorney review, on demand, when an attorney hands the drafting work to the Operator. It fills the firm's response shell from the matter record, proposes candidate objections with the basis for each in that record, holds privilege-adjacent material out of the draft and lists it for attorney clearance, marks every point the record does not establish as not in record rather than supplying one, and reports a coverage diff showing that every propounded item received a response. It never serves, never files, never signs or fills a client verification, never decides objection strategy, and is never routine-initiated.
+description: >-
+  Drafts the plaintiff's discovery responses for review. It answers a set served on the firm's
+  client (interrogatories, requests for production, requests for admission) for attorney review,
+  on demand, when an attorney hands the drafting work to the Operator. It fills the firm's
+  response shell from the matter record, proposes candidate objections with the basis for each in
+  that record, holds privilege-adjacent material out of the draft and lists it for attorney
+  clearance, marks every point the record does not establish as not in record rather than
+  supplying one, and reports a coverage diff showing that every propounded item received a
+  response. It never serves, never files, never signs or fills a client verification, never
+  decides objection strategy, and is never routine-initiated.
 version: 0.1.0
 author: SMD Services
 license: MIT

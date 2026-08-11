@@ -1,8 +1,9 @@
 ---
 name: operator-self-test
 description: >-
-  Answers "run your self-test" (also "run a self-test" / "self check" /
-  "test yourself") — the Operator's test page, for firm admins. Runs the
+  Runs my self-test and reports each result, pass or fail. It answers
+  "run your self-test" (also "run a self-test" / "self check" /
+  "test yourself"), the Operator's test page, for firm admins. Runs the
   fixed end-to-end checklist this file defines — connection status, a
   counted read of the system of record, document production, a live
   demonstration that the fabrication guard refuses an unverified

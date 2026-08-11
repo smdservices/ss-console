@@ -1,11 +1,12 @@
 ---
 name: daily-needs-you-digest
 description: >-
-  Assembles ONE short, batched summary of what across the firm's open matters actually needs a
-  person now (due soon, unsigned verifications, deadlines near, outstanding items that have
-  stalled) from Smokeball. Quiet by design: it batches routine items into a single digest instead
-  of a stream of pings, surfaces only items that genuinely need attention, and takes no action on
-  any item (each points to the skill/step that owns it). Runs on a schedule. Never acts, never
+  Assembles today's digest of what needs a person now. ONE short, batched summary of what across
+  the firm's open matters actually needs a person now (due soon, unsigned verifications, deadlines
+  near, outstanding items that have stalled) from Smokeball. Quiet by design: it batches routine
+  items into a single digest instead of a stream of pings, surfaces only items that genuinely need
+  attention, and takes no action on any item (each points to the skill/step that owns it). Runs on
+  a schedule. Never acts, never
   manufactures urgency, never invents an item not in the record.
 version: 0.2.0
 author: SMD Services

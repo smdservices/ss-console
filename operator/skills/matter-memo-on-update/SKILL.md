@@ -1,6 +1,6 @@
 ---
 name: matter-memo-on-update
-description: When a matter changes in Smokeball, logs a short factual internal memo recording who changed it, when, and how - passive supervision, never analysis.
+description: Logs an internal memo when a Smokeball matter changes. The memo is short and factual, recording who changed it, when, and how - passive supervision, never analysis.
 version: 0.2.0
 author: SMD Services
 license: MIT

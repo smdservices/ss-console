@@ -1,6 +1,17 @@
 ---
 name: matter-initiation-setup
-description: On a new PI matter opening, sets the case up so nothing is dropped at day one - creates the firm's standard matter-folder structure and the standard tasks for the matter type, and scaffolds the two deadlines already in view (the statute of limitations and the per-defendant service-of-summons deadline) as items for the attorney and the court-rules engine to confirm. It can also stage the filing package for the venue into the matter. It never computes a final statute of limitations or asserts a limitations date (that is attorney and engine judgment - the deadline bright line), never invents a folder taxonomy or task template as fact (the firm's real convention is authored at connect, surfaced for confirmation until then), never files or serves, and never reports a write as done when a read did not confirm it.
+description: >-
+  Sets up a newly opened PI matter so nothing is dropped. At day one it creates the
+  firm's standard matter-folder structure and the standard tasks for the matter
+  type, and scaffolds the two deadlines already in view (the statute of limitations
+  and the per-defendant service-of-summons deadline) as items for the attorney and
+  the court-rules engine to confirm. It can also stage the filing package for the
+  venue into the matter. It never computes a final statute of limitations or
+  asserts a limitations date (that is attorney and engine judgment, the deadline
+  bright line), never invents a folder taxonomy or task template as fact (the
+  firm's real convention is authored at connect, surfaced for confirmation until
+  then), never files or serves, and never reports a write as done when a read did
+  not confirm it.
 version: 0.1.0
 author: SMD Services
 license: MIT

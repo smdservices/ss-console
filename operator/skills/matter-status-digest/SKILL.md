@@ -1,6 +1,6 @@
 ---
 name: matter-status-digest
-description: Assembles a periodic internal digest of the firm's matters from Smokeball — open matters by stage, upcoming dates, quiet matters, low-trust and held flags. Reports state; never decides legal next steps.
+description: Assembles a periodic internal digest of all matters. It covers the firm's matters from Smokeball — open matters by stage, upcoming dates, quiet matters, low-trust and held flags. Reports state; never decides legal next steps.
 version: 0.1.0
 author: SMD Services
 license: MIT

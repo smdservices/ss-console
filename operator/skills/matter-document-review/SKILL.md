@@ -1,6 +1,9 @@
 ---
 name: matter-document-review
-description: Reads a matter's documents and surfaces highlights, timelines, key passages, and gaps for an attorney to use — never drafts legal work product.
+description: >-
+  Reads a matter's documents and surfaces highlights. It gives an attorney the
+  highlights, timelines, key passages, and gaps to use, and never drafts legal work
+  product.
 version: 0.1.0
 author: SMD Services
 license: MIT

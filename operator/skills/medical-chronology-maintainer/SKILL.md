@@ -1,6 +1,6 @@
 ---
 name: medical-chronology-maintainer
-description: Keeps a running, structured medical chronology current on a PI matter as records land. Extracts dates, providers, diagnoses, and treatment from the medical records into a cited, structured treatment timeline on the matter. Extractive only. It never writes demand or valuation narrative, never characterizes causation or severity, and never fabricates a date or diagnosis when a record is unreadable. On messy or scanned records it is a strong first draft and an accelerator, not a replacement for the attorney.
+description: Keeps a PI matter's medical chronology current. It maintains a running, structured chronology on the matter as records land. Extracts dates, providers, diagnoses, and treatment from the medical records into a cited, structured treatment timeline on the matter. Extractive only. It never writes demand or valuation narrative, never characterizes causation or severity, and never fabricates a date or diagnosis when a record is unreadable. On messy or scanned records it is a strong first draft and an accelerator, not a replacement for the attorney.
 version: 0.1.0
 author: SMD Services
 license: MIT

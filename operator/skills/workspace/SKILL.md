@@ -1,6 +1,6 @@
 ---
 name: workspace
-description: Read and write Google Workspace through trust-classified broker tools.
+description: Reads and writes Google Workspace via broker tools. Every one of those broker tools is trust-classified.
 version: 0.2.0
 author: SMD Services
 license: MIT

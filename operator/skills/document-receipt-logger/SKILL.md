@@ -1,6 +1,9 @@
 ---
 name: document-receipt-logger
-description: Logs an inbound document against the right matter — resolves sender to matter, proposes the filing location, drafts a receipt entry, and surfaces it. Records that a document arrived; never interprets its contents.
+description: >-
+  Logs an inbound document against the right matter. It resolves sender to matter,
+  proposes the filing location, drafts a receipt entry, and surfaces it. Records
+  that a document arrived; never interprets its contents.
 version: 0.1.0
 author: SMD Services
 license: MIT

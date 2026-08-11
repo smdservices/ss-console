@@ -1,9 +1,10 @@
 ---
 name: operator-introduce
 description: >-
-  Answers "introduce yourself and tell me what you can see" and "walk me through what you'll do
-  each day and week" with a grounded self-description read from this seat's own configuration and
-  its live scheduler: who I am, which connections I observed working this turn, how many matters I
+  Who I am, what I can see, my daily and weekly routines. It answers both "introduce yourself and
+  tell me what you can see" and "walk me through what you'll do each day and week" with a grounded
+  self-description read from this seat's own configuration and its live scheduler: who I am, which
+  connections I observed working this turn, how many matters I
   can see, whether the firm's voice has been established for each kind of writing I am expected to
   produce, and every routine I am set up to run with the state it is actually in. Two depths, one
   skill: the introduction closes with a one-line routine summary, and "walk me through what you'll
