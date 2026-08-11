@@ -494,7 +494,17 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # Range also carries overlay#232 (jobs teardown-shaped broker fix). Files:
 # shared/action_classes.py + shared/job_worker_runtime.py + tests — NOT
 # tracked pairs (compare-verified); every overlaySha256 unchanged.
-ARG OVERLAY_REF="df1dbb83560f814604ee0bbe757d4894c3aab154"
+# 2026-08-10d (overlay#234, ss#2222): establishment classifies the VERIFIED
+# sender, not the webhook route. Live-caught — an authored admin emailed a
+# blessed corpus and was refused "only Operator admins can establish"; the
+# possession ceremony sits behind that predicate and was never reached, so no
+# challenge was ever sent. Same ss#1941 shape initiation fixed in overlay#230;
+# establishment carried it because nothing re-checked the other sender_id
+# consumers. Range ALSO carries the ss#2234 spec-control work (declared-but-
+# uninstalled voice spec: persona voice + alert internally, draft + alert
+# outbound — Captain ruling) which lands on seats with this bump. Compare-
+# verified: zero intersection with tracked pair overlayPaths.
+ARG OVERLAY_REF="44067ae144e3c1394477ad639f65d7d465434228"
 
 ARG CUSTOMER_SLUG=customer-zero
 
