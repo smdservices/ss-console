@@ -51,28 +51,36 @@ seat:
 # of work product, and restating it here would create a second authority over
 # one behaviour.
 #
-# ORDERING CONSEQUENCE, stated because it is invisible otherwise (#2094). This
-# seat authors `external_send_internal: autonomous`, so declaring `staff` as
-# `expected` binds spec_gate on internal sends immediately: until a staff spec
-# exists in the vault, every autonomous internal send downgrades to draft. That
-# is the declaration working correctly — `expected` with no spec is a BROKEN
-# CONTROL and refusing is the entire point — but it means the declaration and
-# the spec must land close together. Acceptable here and nowhere else: this is
-# `seat.kind: proving` with no live traffic, and observing the downgrade is part
-# of what the seat exists to prove. On a customer seat, author the spec first.
+# ORDERING CONSEQUENCE — RESOLVED 2026-08-11 (#2234), and the history matters
+# because this block has now been wrong in both directions.
 #
-# `staff` is `none` FOR NOW (#2228): the #2094 proving window above assumed the
-# declaration and the spec "land close together" — the staff spec never landed,
-# and the open window froze every escalation and digest to the Captain for a
-# week (08-04 → 08-10) with no alert. The downgrade observation the window
-# existed for is complete. Re-declare `expected` in the same PR that installs
-# an actual staff voice spec, never before.
+# #2094 declared `staff: expected` on the reasoning that the declaration and the
+# spec would "land close together". The spec never landed, and because a
+# declared-but-uninstalled spec refused every autonomous send, the seat stopped
+# emailing the Captain for a week (08-04 → 08-10) with no alert — the refusal
+# told the model to read a spec that did not exist (#2228). #2229 set this to
+# `none` as a stopgap: correct as first aid, wrong as an end state, since it
+# also deleted the only seat exhibiting the state the fix needed to prove.
+#
+# ss#2234 removed the reason for both. A declared-but-uninstalled spec is still
+# a BROKEN CONTROL and still recorded as one, but what it COSTS now depends on
+# who is waiting: `staff` PROCEEDS in the persona's own authored register (ADR
+# 0083's own "fails closed to the persona's own authored judgment"), outbound
+# routes to a human, and `work_product`/`record` still refuse. The seat raises
+# `spec_control_broken:staff.voice` on the heartbeat so the gap is visible
+# rather than silent.
+#
+# So `expected` is correct here again, and it is now SAFE: internal mail flows,
+# the alert stays open, and it resolves the moment a staff voice spec is
+# installed. That standing alert is the honest state of this seat — it declares
+# a control it does not have — and a proving seat is exactly where that should
+# be visible rather than papered over.
 #
 # `work_product` carries no such window. It is `external_send: forbidden`, so
 # there is no send for a missing spec to downgrade.
 output_classes:
   staff:
-    voice_spec: none
+    voice_spec: expected
     format_spec: none
   work_product:
     voice_spec: expected
