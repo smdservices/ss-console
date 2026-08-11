@@ -1,6 +1,13 @@
 ---
 name: connector-auth-check
-description: Scheduled auth-plane liveness probe for connectors holding durable credentials (Smokeball first). Calls the connector's auth_status tool, which mints a real token at the vendor's auth host and touches no vendor data API. On failure it retries twice, so a dead credential crosses the connector-health ledger's 3-consecutive-failures threshold and pages the ops inbox the same day it dies, not the day someone needs the connector. Where the vendor rotates refresh tokens on use, this probe is also the keepalive that prevents idle expiry (ADR 0080 amendment, ss#2148).
+description: >-
+  Probes a connector's auth to catch a dead credential. A scheduled auth-plane liveness probe for
+  connectors holding durable credentials (Smokeball first). Calls the connector's auth_status
+  tool, which mints a real token at the vendor's auth host and touches no vendor data API. On
+  failure it retries twice, so a dead credential crosses the connector-health ledger's
+  3-consecutive-failures threshold and pages the ops inbox the same day it dies, not the day
+  someone needs the connector. Where the vendor rotates refresh tokens on use, this probe is also
+  the keepalive that prevents idle expiry (ADR 0080 amendment, ss#2148).
 version: 0.1.0
 author: SMD Services
 license: MIT

@@ -738,7 +738,22 @@ describe('Operator customer Machine Dockerfile', () => {
     // (the tracked twins are voice/transform, audit/emit and the shared/
     // filters; this change edits none of them); every overlaySha256 unchanged,
     // only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="44067ae144e3c1394477ad639f65d7d465434228"')
+    // 44067ae1 -> 055f912e (2026-08-11, ss#2247): overlay#236 — establishment
+    // corpus staging is exempt from the draft fabrication gate. That gate scans
+    // text the AGENT composed; a staged document is the FIRM's own work product
+    // copied byte for byte, so scanning it for fabrication asks whether the firm
+    // fabricated its own letter. It protected nothing either: read_document had
+    // already returned that text to the model earlier in the same turn. Live
+    // cost on 08-11: it refused the firm's demand letter (dollar figures) and
+    // trial binder (dates), two of three blessed exemplars, and the agent then
+    // DELETED the figures so the letter would stage. A gate that cannot be
+    // satisfied honestly teaches the model to satisfy it dishonestly, and the
+    // edit is invisible where the refusal would have been visible.
+    // establish_submit stays gated (its spec_body IS agent-composed), and the
+    // real controls (spec_leak_check, digit invariant) both passed on that run.
+    // plugins/hermes-smd-trust/outbound.py + tests — NOT tracked pairs; every
+    // overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="055f912e39b0077501d5b93b7b7230c7f04ddc30"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

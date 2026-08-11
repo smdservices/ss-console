@@ -1,6 +1,6 @@
 ---
 name: asset-collection-follower
-description: Drafts new-client onboarding asset checklist + chase emails.
+description: Chases brand assets and access from new clients. Drafts the onboarding asset checklist and the follow-up chase emails.
 version: 0.1.0
 author: SMD Services
 license: MIT

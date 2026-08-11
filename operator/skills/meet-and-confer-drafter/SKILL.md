@@ -1,6 +1,6 @@
 ---
 name: meet-and-confer-drafter
-description: Drafts a meet-and-confer letter, for internal review, about deficiencies the responsible attorney has flagged in the opposing side's discovery responses (interrogatories, RFP, RFA), and notes the window to move to compel further responses. It never sends to opposing counsel on its own. Because the firm sometimes handles meet-and-confer informally first, it brings the go/no-go decision to the attorney rather than firing off a letter. Never identifies or adjudicates the deficiencies itself, never computes the compel deadline as final, and never asserts a fact it cannot see in the record.
+description: Drafts a meet-and-confer letter on discovery responses. For internal review, it covers deficiencies the responsible attorney has flagged in the opposing side's responses (interrogatories, RFP, RFA), and notes the window to move to compel further responses. It never sends to opposing counsel on its own. Because the firm sometimes handles meet-and-confer informally first, it brings the go/no-go decision to the attorney rather than firing off a letter. Never identifies or adjudicates the deficiencies itself, never computes the compel deadline as final, and never asserts a fact it cannot see in the record.
 version: 0.1.0
 author: SMD Services
 license: MIT

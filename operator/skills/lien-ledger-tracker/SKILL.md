@@ -1,7 +1,8 @@
 ---
 name: lien-ledger-tracker
 description: >-
-  Keeps the matter's lien ledger as tracked tasks in Smokeball (health-plan, Medi-Cal, Medicare,
+  Keeps the matter's lien ledger and chases payoffs. The ledger lives as tracked tasks in
+  Smokeball (health-plan, Medi-Cal, Medicare,
   ERISA, and hospital or provider liens): who holds each lien, the asserted amount, and the status
   of each payoff or reduction, and chases the open payoffs on a cadence. It only logs figures a
   person provides and chases on them; it never computes a lien reduction (the Medi-Cal §14124.78

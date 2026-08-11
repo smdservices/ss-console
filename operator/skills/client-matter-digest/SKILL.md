@@ -1,6 +1,9 @@
 ---
 name: client-matter-digest
-description: Drafts a proactive, client-facing per-matter status update — what's happened, what's coming, what's needed from the client — from Smokeball reads, in the firm's voice, for a human to send. Reports status; never advises or predicts.
+description: >-
+  Drafts a proactive client update on a matter's status. Covers what's happened, what's coming,
+  and what's needed from the client, from Smokeball reads, in the firm's voice, for a human to
+  send. Reports status; never advises or predicts.
 version: 0.1.0
 author: SMD Services
 license: MIT

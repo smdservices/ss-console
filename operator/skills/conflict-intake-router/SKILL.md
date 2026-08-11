@@ -1,6 +1,9 @@
 ---
 name: conflict-intake-router
-description: The full conflict workflow — rich multi-party capture, routing a surfaced potential conflict to the specific person who must clear it, and a cross-matter re-scan as the matter set grows. Surfaces and routes; never clears.
+description: >-
+  Routes a potential conflict to the person who clears it. The full conflict workflow: rich
+  multi-party capture, routing a surfaced potential conflict to the specific person who must clear
+  it, and a cross-matter re-scan as the matter set grows. Surfaces and routes; never clears.
 version: 0.1.0
 author: SMD Services
 license: MIT

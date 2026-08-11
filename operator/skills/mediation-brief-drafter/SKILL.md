@@ -1,7 +1,7 @@
 ---
 name: mediation-brief-drafter
 description: >-
-  On attorney request, drafts a confidential mediation brief for a California plaintiff PI matter
+  Drafts a confidential mediation brief on request. For a California plaintiff PI matter it works
   from the matter record (the traffic collision report, the medical chronology and underlying
   records, deposition transcripts, written discovery, the DME report, and the settlement
   correspondence file) against the firm's authored skeleton, and returns it to the requesting

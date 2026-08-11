@@ -1,6 +1,6 @@
 ---
 name: assessment-findings-draft
-description: Drafts evidence-bound findings from an assessment-interview transcript — the X-ray, not the read.
+description: Drafts findings from an assessment-interview transcript. Evidence-bound; the X-ray, not the read.
 version: 0.1.0
 author: SMD Services
 license: MIT

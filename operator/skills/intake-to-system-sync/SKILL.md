@@ -1,6 +1,10 @@
 ---
 name: intake-to-system-sync
-description: Syncs a converted lead from a separate intake CRM (Clio Grow / Lawmatics) into Smokeball — maps fields, dedupes, conflict-cross-checks before any matter create. Only load-bearing when a distinct intake CRM runs alongside Smokeball.
+description: >-
+  Syncs a converted intake CRM lead into Smokeball. For a lead converted in a
+  separate intake CRM (Clio Grow / Lawmatics), it maps fields, dedupes, and
+  conflict-cross-checks before any matter create. Only load-bearing when a distinct
+  intake CRM runs alongside Smokeball.
 version: 0.1.0
 author: SMD Services
 license: MIT

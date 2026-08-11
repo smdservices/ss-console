@@ -1,6 +1,6 @@
 ---
 name: matter-status-responder
-description: Answers a client's routine "where are we" with a factual status drawn from the system of record — status only, no opinion or prediction.
+description: Answers where a single matter stands, from the record. It handles a client's routine "where are we" with a factual status drawn from the system of record — status only, no opinion or prediction.
 version: 0.1.0
 author: SMD Services
 license: MIT

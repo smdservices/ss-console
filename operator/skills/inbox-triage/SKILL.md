@@ -1,6 +1,8 @@
 ---
 name: inbox-triage
-description: Daily Gmail triage with categorized reply drafts for owner.
+description: >-
+  Triages the owner's inbox and drafts the replies. Daily Gmail triage with
+  categorized reply drafts for the owner.
 version: 0.2.1
 author: SMD Services
 license: MIT

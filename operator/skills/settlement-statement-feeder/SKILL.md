@@ -1,6 +1,6 @@
 ---
 name: settlement-statement-feeder
-description: Assembles the settlement-statement and disbursement-list inputs when a PI case settles. Reads the gross, the attorney fee, the case costs, and each lien figure from the matter, then lays out the line-by-line breakdown and the net for a person to execute in Smokeball. Smokeball runs the trust accounting and the authoritative math; the Operator never moves trust money, never authorizes a disbursement, never invents a missing figure, and surfaces any figure it cannot read as a gap.
+description: Lays out the settlement statement and disbursement list. It gathers those inputs when a PI case settles, reading the gross, the attorney fee, the case costs, and each lien figure from the matter, then laying out the line-by-line breakdown and the net for a person to execute in Smokeball. Smokeball runs the trust accounting and the authoritative math; the Operator never moves trust money, never authorizes a disbursement, never invents a missing figure, and surfaces any figure it cannot read as a gap.
 version: 0.1.0
 author: SMD Services
 license: MIT

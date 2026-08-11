@@ -1,6 +1,6 @@
 ---
 name: stalled-matter-nudge
-description: Surfaces matters with no activity in the firm's window and drafts a neutral follow-up — flags inactivity, never decides what the matter needs.
+description: Surfaces matters gone quiet and drafts a follow-up. The scan is for matters with no activity in the firm's window and the draft is neutral; it flags inactivity, never decides what the matter needs.
 version: 0.1.0
 author: SMD Services
 license: MIT

@@ -1,6 +1,9 @@
 ---
 name: deadline-miss-escalator
-description: Escalates an approaching or missed firm-authored deadline up a ladder — re-surface, re-route, then notify a named human — so a critical date never slips silently. Internal-only; tracks authored dates, never computes one.
+description: >-
+  Escalates a deadline that is near or already missed. Walks an approaching or missed
+  firm-authored deadline up a ladder: re-surface, re-route, then notify a named human, so a
+  critical date never slips silently. Internal-only; tracks authored dates, never computes one.
 version: 0.2.0
 author: SMD Services
 license: MIT

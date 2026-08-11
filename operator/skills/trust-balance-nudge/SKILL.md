@@ -1,6 +1,6 @@
 ---
 name: trust-balance-nudge
-description: Watches the IOLTA trust balance against the firm's floor and drafts a replenishment request — read-only on funds, never moves money.
+description: Watches the IOLTA balance to draft a replenishment ask. The trust balance is watched against the firm's floor and the request is drafted for a human; read-only on funds, never moves money.
 version: 0.1.0
 author: SMD Services
 license: MIT

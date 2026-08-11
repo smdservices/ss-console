@@ -1,6 +1,15 @@
 ---
 name: follow-up-discovery-drafter
-description: On an attorney's request, drafts plaintiff's follow-up written discovery for that attorney's review, a set of Requests for Production, a set of Requests for Admission, and Special Interrogatories, each aimed at what the record leaves unestablished after the other side's responses, plus a short discovery plan stating what is still unestablished as record observations. Attorney-initiated only. It never decides that a response was deficient, never serves or files anything, never writes a request that asserts a fact the record does not establish, and never self-authorizes discovery past the statutory numerical limits.
+description: >-
+  Drafts follow-up discovery on an attorney's request. It drafts plaintiff's
+  follow-up written discovery for that attorney's review, a set of Requests for
+  Production, a set of Requests for Admission, and Special Interrogatories, each
+  aimed at what the record leaves unestablished after the other side's responses,
+  plus a short discovery plan stating what is still unestablished as record
+  observations. Attorney-initiated only. It never decides that a response was
+  deficient, never serves or files anything, never writes a request that asserts a
+  fact the record does not establish, and never self-authorizes discovery past the
+  statutory numerical limits.
 version: 0.1.0
 author: SMD Services
 license: MIT

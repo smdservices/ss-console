@@ -1,6 +1,13 @@
 ---
 name: discovery-served-watch
-description: Spots a served California discovery document on a Smokeball matter, classifies its type (interrogatories, requests for production, requests for admission, or a deposition notice), reads the service date and method off the proof of service, and surfaces the captured input to the responsible attorney for confirmation. Captures the deadline INPUT; it never computes the deadline as final (the court-rules engine does), never drafts a response, and never guesses a service date or method it cannot read.
+description: >-
+  Spots a newly served discovery document on a matter. On a served California
+  discovery document in Smokeball, it classifies the type (interrogatories,
+  requests for production, requests for admission, or a deposition notice), reads
+  the service date and method off the proof of service, and surfaces the captured
+  input to the responsible attorney for confirmation. Captures the deadline INPUT;
+  it never computes the deadline as final (the court-rules engine does), never
+  drafts a response, and never guesses a service date or method it cannot read.
 version: 0.1.0
 author: SMD Services
 license: MIT

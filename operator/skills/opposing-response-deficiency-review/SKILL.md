@@ -1,6 +1,6 @@
 ---
 name: opposing-response-deficiency-review
-description: Reads the opposing side's discovery responses to the firm's propounded requests and surfaces candidate gaps for an attorney to review (boilerplate objections, non-answers, evasive or incomplete answers, missing verifications), each pointed to the specific request and response and framed as a candidate, not a finding. It is an assist, not an authority. It never renders the legal judgment of whether a response is legally deficient, never decides to meet and confer or move to compel, and never drafts work product or legal argument. Calibrated on the firm's past matters at connect; until then it surfaces candidates and asks.
+description: Reviews opposing discovery responses for candidate gaps. It reads the opposing side's responses to the firm's propounded requests and surfaces the candidates for an attorney to review (boilerplate objections, non-answers, evasive or incomplete answers, missing verifications), each pointed to the specific request and response and framed as a candidate, not a finding. It is an assist, not an authority. It never renders the legal judgment of whether a response is legally deficient, never decides to meet and confer or move to compel, and never drafts work product or legal argument. Calibrated on the firm's past matters at connect; until then it surfaces candidates and asks.
 version: 0.1.0
 author: SMD Services
 license: MIT
