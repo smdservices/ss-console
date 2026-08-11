@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Any
 
 from . import escalation_ledger
+from .agentmail_auth import materialize_credential as materialize_agentmail_credential
+from .agentmail_ops import (
+    AgentMailOps,
+    AgentMailRefused,
+    AgentMailTransportError,
+    collect_recipients,
+)
 from .audit_ledger import LedgerWriter
 from .corrections import PROPOSED_STATUS, build_correction_row
 from .establishment import EstablishmentStore
@@ -109,6 +116,11 @@ class Broker:
     # establish_* verbs (their sweep + read-modify-write of a staging set).
     establishment: EstablishmentStore | None = None
     _establish_lock = threading.Lock()
+    # ss#2258: the ONLY transmit path on the Machine. Same default-disabled
+    # posture as the ledgers — an instance built via ``__new__`` (tests) or an
+    # image without the send credential configured has a defined, send-disabled
+    # value, and the verbs below fail closed rather than reaching for a key.
+    agentmail: AgentMailOps | None = None
 
     def __init__(self) -> None:
         self.socket_path = Path(os.environ["SMD_WORKSPACE_BROKER_SOCKET"])
@@ -164,6 +176,22 @@ class Broker:
             self.establishment = EstablishmentStore(establish_spool, self.ledger)
         else:
             self.establishment = None
+        # ss#2258: AgentMail transmit moves behind this uid boundary. The gateway
+        # keeps an inbox-scoped key with message_send/draft_send WITHHELD, so the
+        # agent process can read and draft but is vendor-refused from
+        # transmitting; the send-capable key exists only in the 0600 file below.
+        # Requires the audit ledger by design — a send that cannot be recorded
+        # must not happen, which is the whole lesson of the four unaudited
+        # messages that created this verb.
+        agentmail_credential = os.environ.get("SMD_AGENTMAIL_CREDENTIAL_PATH")
+        if agentmail_credential and self.ledger is not None:
+            credential = Path(agentmail_credential)
+            materialize_agentmail_credential(credential)
+            self.agentmail = AgentMailOps(
+                credential, self.customer_path, self.customer_slug
+            )
+        else:
+            self.agentmail = None
 
     def _resolve_agent_uid(self) -> int | None:
         """Resolve (and cache) the agent uid for the heartbeat verb.
@@ -385,6 +413,19 @@ class Broker:
                 raise ValueError("audit_append requires a 'row' object")
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id}
+        # ss#2258 transmit verbs. PID-gated (above) DELIBERATELY: unlike the
+        # heartbeat/escalation verbs, these are not reachable by a cron pre_run
+        # child or an execute_code turn. An agent-uid gate would let any future
+        # agent-uid process dispatch a real message with no approval, which is a
+        # weaker posture than today's — the gate has to tighten here, not relax.
+        #
+        # The residual is named honestly: an in-gateway rogue path can still
+        # reach these verbs. What changed is that it can now only reach people
+        # the seat's own config names, only from the seat's own inbox, and never
+        # without leaving a row — because the row is written here, by the process
+        # that holds the key, not by best-effort plugin code that can be skipped.
+        if action in ("agentmail_send", "agentmail_reply"):
+            return self._handle_agentmail(action, request)
         # B1 durable-job control plane. PID-gated (above): only the gateway
         # (which hosts the worker thread) reaches these; execute_code/terminal
         # children get a different peer PID and are rejected, so the agent
@@ -497,6 +538,94 @@ class Broker:
         if action == "job_idem_complete":
             return {"ok": True, "result": jl.idempotency_complete(job_id, step_key, epoch)}
         raise ValueError(f"unsupported job action: {action}")
+
+    # -- ss#2258 transmit --------------------------------------------------
+
+    def _append_send_row(
+        self, action_type: str, verb: str, metadata: dict[str, Any]
+    ) -> None:
+        """Record a transmit attempt. Body digests only — never the body.
+
+        Written by the broker itself so the row cannot be skipped. The four
+        unaudited messages of 2026-08 were possible because emission lived in
+        plugin code that returned early whenever its audit client was unset; a
+        row written here has no such branch.
+        """
+        if self.ledger is None:
+            return
+        self.ledger.append(
+            {
+                "action_type": action_type,
+                "actor": "operator",
+                "actor_role": "agent",
+                "metadata": json.dumps(
+                    {"customer": self.customer_slug, "verb": verb, **metadata},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            }
+        )
+
+    def _handle_agentmail(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Execute a fenced transmit and record its outcome either way."""
+        if self.agentmail is None or self.ledger is None:
+            raise ValueError(
+                "agentmail transmit is not configured on this broker "
+                "(needs SMD_AGENTMAIL_CREDENTIAL_PATH and an audit ledger)"
+            )
+        payload = request.get("payload")
+        if not isinstance(payload, dict):
+            raise ValueError(f"{action} requires a 'payload' object")
+        # Digest what the caller asked to send, computed here, so the row proves
+        # which content went out without the ledger ever holding the content.
+        digest = hashlib.sha256(_canonical(payload)).hexdigest()
+        attempted = [] if action == "agentmail_reply" else collect_recipients(payload)
+        try:
+            result = (
+                self.agentmail.send(payload)
+                if action == "agentmail_send"
+                else self.agentmail.reply(payload)
+            )
+        except AgentMailRefused as exc:
+            self._append_send_row(
+                "CONFIRM_SEND_FAILED",
+                action,
+                {
+                    "outcome": "refused",
+                    "reason": str(exc),
+                    "recipients": attempted,
+                    "input_digest": digest,
+                },
+            )
+            raise
+        except AgentMailTransportError as exc:
+            # A transport failure is NOT a policy refusal and must never read as
+            # one: the seat was permitted to write and the vendor call failed.
+            # The outcome is genuinely unknown (the message may have gone out),
+            # which is exactly what the console-side reconciler exists to settle.
+            self._append_send_row(
+                "CONFIRM_SEND_FAILED",
+                action,
+                {
+                    "outcome": "transport_error",
+                    "reason": str(exc),
+                    "recipients": attempted,
+                    "input_digest": digest,
+                },
+            )
+            raise
+        self._append_send_row(
+            "CONFIRM_SEND_DISPATCHED",
+            action,
+            {
+                "outcome": "sent",
+                "recipients": result.get("recipients") or [],
+                "message_id": result.get("message_id") or "",
+                "inbox_id": result.get("inbox_id") or "",
+                "input_digest": digest,
+            },
+        )
+        return {"ok": True, **result}
 
 
 class RequestHandler(socketserver.StreamRequestHandler):

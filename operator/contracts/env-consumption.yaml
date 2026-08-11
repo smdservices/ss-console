@@ -212,7 +212,26 @@ vars:
     requirement: optional
     agent_env: held
     custody: customer
-    note: AgentMail REST credential (send + inbox/webhook mgmt); reaches the shared account's OTHER inboxes, so staging must not borrow it
+    note: >-
+      AgentMail READ/DRAFT credential for the gateway. Inbox-scoped with
+      message_send and draft_send WITHHELD (ss#2258), so it is deliberately
+      agent-held: the agent needs it for the MCP mailbox reads and the draft
+      tools the reply channel triggers on, and the vendor refuses if any code
+      path tries to transmit with it. Transmit rides AGENTMAIL_SEND_API_KEY,
+      which is broker-only.
+  AGENTMAIL_SEND_API_KEY:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    custody: customer
+    note: >-
+      AgentMail SEND credential; inbox-scoped WITH message_send. Only the
+      workspace-broker process reads it (from a 0600 file it materializes at
+      boot), and it is unset before the exec-drop so no hermes-uid process ever
+      has it in environ — ADR 0044 D8 proved a same-uid sibling can read
+      /proc/<pid>/environ, so the strip has to precede the first fork. Every
+      send using it passes the broker's recipient fence and leaves an audit row.
 
   # ---- Provisioning-host only (never reach the Machine) ----
   OPERATOR_RUNTIME_READ_SECRET:
