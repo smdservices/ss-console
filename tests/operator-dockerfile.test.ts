@@ -757,7 +757,25 @@ describe('Operator customer Machine Dockerfile', () => {
     // real controls (spec_leak_check, digit invariant) both passed on that run.
     // plugins/hermes-smd-trust/outbound.py + tests — NOT tracked pairs; every
     // overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="055f912e39b0077501d5b93b7b7230c7f04ddc30"')
+    // 055f912e -> 658169eb (2026-08-11, ss#2167): overlay#240 — the matter gate
+    // gains the two things it lacked. It recognised a matter only as a raw UUID,
+    // so a letter citing "2026-PI-101" returned unresolved against a CLOSED
+    // party set (vfy_01KZRRW59N6HS3DHVQJRNMKVHW); matters are now aliased by
+    // number, ambiguity withdrawn rather than guessed. And it never ran on the
+    // reply lane at all — guarded by `is_send`, true only for EXTERNAL_SEND*,
+    // while that lane calls create_draft (INTERNAL_WRITE) and relays the draft
+    // out over REST (vfy_01KZRRW066Y70TFEYKGQX6ME76); it now evaluates at the
+    // relay seam, with an exemption that deliberately does not read
+    // `recipient_class is INTERNAL` (an inbound-roster match classifies INTERNAL
+    // before the typed roster is consulted, so that spelling would have exempted
+    // 100% of the lane — the conflation is filed as ss#2263).
+    // Range ALSO carries the peer's ss#2222 work, overlay#241 + #242.
+    // TRACKED PAIRS: unlike every bump above, this range is NOT clean. It
+    // touches shared/escalation_ledger.py (the peer's ss#2151 item-identity
+    // work, console twin already on main at d2e0f7cb), so that pair's
+    // overlaySha256 is re-recorded c4882668 -> a4a0600b here. Diff-verified as
+    // the only tracked-path intersection in 055f912e..658169eb.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

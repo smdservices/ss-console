@@ -504,7 +504,31 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # uninstalled voice spec: persona voice + alert internally, draft + alert
 # outbound — Captain ruling) which lands on seats with this bump. Compare-
 # verified: zero intersection with tracked pair overlayPaths.
-ARG OVERLAY_REF="055f912e39b0077501d5b93b7b7230c7f04ddc30"
+# 2026-08-11 (overlay#240, ss#2167): the outbound matter-identity gate gains
+# the two things it was missing. (1) It recognised a matter only as a raw UUID —
+# `cited_matters` extracts human-readable numbers but `_resolve_cited` compared
+# them against a map keyed by connector id, so a letter citing "2026-PI-101"
+# returned *unresolved* against a CLOSED party set. Every test seeded a UUID
+# body, so the suite and both kill-tests passed over it
+# (vfy_01KZRRW59N6HS3DHVQJRNMKVHW). Matters are now aliased by number; an
+# ambiguous number is withdrawn, never guessed. (2) The gate never ran on the
+# reply lane at all — it is guarded by `is_send`, true only for EXTERNAL_SEND*,
+# and that lane calls create_draft (INTERNAL_WRITE) then relays the draft out
+# over REST (vfy_01KZRRW066Y70TFEYKGQX6ME76). It now evaluates at the relay
+# seam. Its exemption deliberately does NOT read `recipient_class is INTERNAL`:
+# an inbound-roster match classifies INTERNAL before the typed roster is
+# consulted, so that spelling would have exempted 100% of the lane and shipped a
+# control that cannot fire (the conflation itself is filed as ss#2263).
+# `unresolved` records MATTER_UNRESOLVED and does NOT hold (Captain call).
+# Range ALSO carries the peer's ss#2222 work — overlay#241 (establishment stages
+# corpus documents by reference) and overlay#242 (operator_seat_facts) — which
+# land on seats with this bump.
+# TRACKED PAIRS: this range is NOT clean, unlike the recent bumps above. It
+# touches shared/escalation_ledger.py (peer's ss#2151 item-identity work, whose
+# console twin is already on main at d2e0f7cb), so that pair's overlaySha256 is
+# re-recorded c4882668 -> a4a0600b in this PR. Diff-verified: escalation_ledger
+# is the ONLY intersection with a tracked overlayPath in 055f912e..658169eb.
+ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"
 
 ARG CUSTOMER_SLUG=customer-zero
 
