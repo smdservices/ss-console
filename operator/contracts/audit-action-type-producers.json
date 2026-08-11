@@ -284,7 +284,12 @@
     "REPLY_HELD": {
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",
-      "reason": "emitted on the customer Machine when an autonomous reply is held to draft (off-roster sender, recipient mismatch, content floor, rate-limit, no inbox, empty body)."
+      "reason": "emitted on the customer Machine when an autonomous reply is held to draft (off-roster sender, recipient mismatch, content floor, rate-limit, no inbox, empty body, or — since ss#2167 — matter_mismatch, the reply citing a matter its recipient is provably not a party to)."
+    },
+    "MATTER_UNRESOLVED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ss#2167)",
+      "reason": "emitted on the customer Machine when the outbound matter-identity gate runs on a reply and can neither confirm nor deny that the recipient is a party to the cited matter, because the matter's party list was never read that turn. Recorded rather than held: get_matter fires on 8 of 86 reply turns (vfy_01KZRRWG2WZKTRNZQRDEX494GZ), so holding on unresolved would withhold correct client replies at an unmeasured rate; these rows are that measurement."
     },
     "REPLY_FAILED": {
       "side": "overlay",

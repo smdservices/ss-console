@@ -229,9 +229,20 @@ ACCEPTED_ACTION_TYPES = frozenset(
         #     — sender_not_on_roster / recipient_mismatch / content_sensitive /
         #     rate_limited / no_inbox_id / empty_body — recipient, message_id).
         #   REPLY_FAILED — the send was attempted but errored (metadata: reason).
+        # REPLY_HELD gained reason=matter_mismatch with ss#2167: the reply cited
+        # a matter the recipient is provably not a party to (metadata also
+        # carries matters, detail).
         "REPLY_SENT",
         "REPLY_HELD",
         "REPLY_FAILED",
+        # MATTER_UNRESOLVED (ss#2167) — the matter gate ran on a reply and could
+        # neither confirm nor deny membership, because the cited matter's party
+        # list was never read this turn (metadata: recipient, message_id,
+        # matters, detail). Recorded, NOT held: get_matter fires on 8 of 86
+        # reply turns, so holding on unresolved would withhold correct client
+        # replies at an unmeasured rate. These rows are that measurement, and
+        # they are what a decision to start holding would rest on.
+        "MATTER_UNRESOLVED",
         # ------------------------------------------------------------------
         # 2026-08-02 vocabulary reconciliation (#2122). Every type below has a
         # LIVE producer and live rows on both seats' ledgers, yet was absent

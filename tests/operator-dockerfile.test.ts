@@ -757,7 +757,42 @@ describe('Operator customer Machine Dockerfile', () => {
     // real controls (spec_leak_check, digit invariant) both passed on that run.
     // plugins/hermes-smd-trust/outbound.py + tests — NOT tracked pairs; every
     // overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="055f912e39b0077501d5b93b7b7230c7f04ddc30"')
+    // 055f912e -> 57818798 (2026-08-11b, ss#2247+ss#2222): six commits.
+    // overlay#241 — establishment stages corpus documents BY REFERENCE: the
+    // seat captures read_document results at post_tool_call (raw, pre-fence,
+    // session-scoped) and establish_stage_document assembles the captured
+    // windows; model-supplied text is refused UNCONDITIONALLY for connector
+    // documents, because the live run retyped 19KB and drifted (48 chars
+    // dropped, chars substituted) and instruction cannot fix a step the
+    // mechanism makes impossible. Paged-to-the-end becomes a gate. Broker and
+    // intake byte-identical. overlay#242 — operator_seat_facts: grounded seat
+    // facts as a registered tool (the introduce card phrasings never fired on
+    // email turns; the router body's skill_view instruction named a tool that
+    // is NOT on the webhook surface — live probe, 15 tools). Three-state voice
+    // status via manifest_state(); run-history stripped at the read boundary;
+    // WEBHOOK_EXPECTED_TOOLS warn tier (heartbeat, not _die). Range also
+    // carries overlay#237/#238 (docs/contract) and overlay#239 (ss#2151 item
+    // identity, peer lane) — #239 goes LIVE with this bump. ONE tracked twin
+    // moved: shared/escalation_ledger.py (overlay#239); its pair sha256s are
+    // recomputed to the new byte-identical value (ss side moved in ss#2257).
+    // Every other overlaySha256 unchanged.
+    // 57818798 -> 658169eb (2026-08-11, ss#2167): overlay#240 — the matter gate
+    // gains the two things it lacked. It recognised a matter only as a raw
+    // UUID, so a letter citing "2026-PI-101" returned unresolved even against a
+    // CLOSED party set; every shipped test seeded a UUID body, so the suite and
+    // both kill-tests passed over it (vfy_01KZRRW59N6HS3DHVQJRNMKVHW). Matters
+    // are now aliased by number, ambiguity withdrawn rather than guessed. And
+    // it never ran on the reply lane at all — guarded by `is_send`, true only
+    // for EXTERNAL_SEND*, while that lane calls create_draft (INTERNAL_WRITE)
+    // and relays the draft out over REST (vfy_01KZRRW066Y70TFEYKGQX6ME76). It
+    // now evaluates at the relay seam, with an exemption that deliberately does
+    // NOT read `recipient_class is INTERNAL` — an inbound-roster match
+    // classifies INTERNAL before the typed roster is consulted, so that
+    // spelling would have exempted 100% of the lane (filed as ss#2263).
+    // matter_gate.py moves to shared/ so the reply plugin can import it.
+    // NOT tracked pairs; diff-verified zero intersection across the range;
+    // every overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

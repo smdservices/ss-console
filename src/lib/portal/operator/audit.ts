@@ -118,6 +118,12 @@ export const AUDIT_ACTION_TYPES = [
   'REPLY_SENT',
   'REPLY_HELD',
   'REPLY_FAILED',
+  // ss#2167 — the outbound matter-identity gate ran on a reply but could not
+  // resolve the cited matter's party list, so membership was neither confirmed
+  // nor denied. Recorded rather than held: get_matter fires on 8 of 86 reply
+  // turns, so holding on unresolved would withhold correct client replies at a
+  // rate nobody has measured. These rows are that measurement.
+  'MATTER_UNRESOLVED',
   // Decommission lifecycle. Per-step BEGIN/COMPLETE/FAILED rows added
   // 2026-06-12 (code review) so the compliance trail distinguishes the
   // nine teardown steps; mirrors ACCEPTED_ACTION_TYPES in
