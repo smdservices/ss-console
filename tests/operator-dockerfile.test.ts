@@ -776,7 +776,23 @@ describe('Operator customer Machine Dockerfile', () => {
     // moved: shared/escalation_ledger.py (overlay#239); its pair sha256s are
     // recomputed to the new byte-identical value (ss side moved in ss#2257).
     // Every other overlaySha256 unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="578187988bdca7800420c4fa73cc035356e3e180"')
+    // 57818798 -> 658169eb (2026-08-11, ss#2167): overlay#240 — the matter gate
+    // gains the two things it lacked. It recognised a matter only as a raw
+    // UUID, so a letter citing "2026-PI-101" returned unresolved even against a
+    // CLOSED party set; every shipped test seeded a UUID body, so the suite and
+    // both kill-tests passed over it (vfy_01KZRRW59N6HS3DHVQJRNMKVHW). Matters
+    // are now aliased by number, ambiguity withdrawn rather than guessed. And
+    // it never ran on the reply lane at all — guarded by `is_send`, true only
+    // for EXTERNAL_SEND*, while that lane calls create_draft (INTERNAL_WRITE)
+    // and relays the draft out over REST (vfy_01KZRRW066Y70TFEYKGQX6ME76). It
+    // now evaluates at the relay seam, with an exemption that deliberately does
+    // NOT read `recipient_class is INTERNAL` — an inbound-roster match
+    // classifies INTERNAL before the typed roster is consulted, so that
+    // spelling would have exempted 100% of the lane (filed as ss#2263).
+    // matter_gate.py moves to shared/ so the reply plugin can import it.
+    // NOT tracked pairs; diff-verified zero intersection across the range;
+    // every overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
