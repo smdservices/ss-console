@@ -1,10 +1,10 @@
 ---
 name: demand-letter-drafter
 description: >-
-  On attorney request, drafts a policy-limits demand letter for a California plaintiff PI matter
-  against the firm's skeleton, filled only from the matter record (traffic collision report,
-  medical records and bills, medical chronology, wage-loss documentation, deposition transcripts).
-  It is work product, drafted for attorney review and delivered inside the firm. Settlement
+  Drafts a policy-limits demand letter for attorney review. On attorney request, for a California
+  plaintiff PI matter, it is drafted against the firm's skeleton and filled only from the matter
+  record (traffic collision report, medical records and bills, medical chronology, wage-loss
+  documentation, deposition transcripts). It is work product, delivered inside the firm. Settlement
   authority is the bright line it does not cross: the demand figure, any assertion that damages
   exceed the available limits, any statement of what the firm does when the offer expires, and any
   characterization of the insured's exposure are all reserved to the attorney, with the record

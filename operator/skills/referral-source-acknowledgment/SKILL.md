@@ -1,6 +1,6 @@
 ---
 name: referral-source-acknowledgment
-description: Drafts a courtesy thank-you to the source who referred a new matter — warm, prompt, and confidential. Acknowledges the referral without disclosing client identity or matter detail. Drafted for review by default; sending follows the firm's authored send ceiling.
+description: Drafts a thank-you to the source who referred a matter. The courtesy note is warm, prompt, and confidential; it acknowledges the referral without disclosing client identity or matter detail. Drafted for review by default; sending follows the firm's authored send ceiling.
 version: 0.1.0
 author: SMD Services
 license: MIT

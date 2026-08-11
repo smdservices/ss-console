@@ -1,6 +1,8 @@
 ---
 name: consult-scheduler
-description: Offers consult times within the firm's rules, drafts the confirmation, and surfaces the calendar booking for human confirm.
+description: >-
+  Schedules a client consult and drafts the confirmation. Offers times within the firm's rules and
+  surfaces the calendar booking for human confirm.
 version: 0.1.0
 author: SMD Services
 license: MIT

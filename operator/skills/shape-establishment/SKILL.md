@@ -1,15 +1,16 @@
 ---
 name: shape-establishment
 description: >-
-  On an Operator admin's instruction, establishes or updates the SHAPE of a kind of output from
-  the firm's own examples. Reads the named examples in place, derives their structure as prose for
+  Establishes the SHAPE, or structure, of an output class. On an Operator admin's instruction, it
+  establishes or updates that shape for a kind of output from the firm's own examples. Reads the
+  named examples in place, derives their structure as prose for
   the drafting model plus declarative rules for the checker, and submits both through the mediated
   intake where the compiler gates run before anything is installed. Rules come only from the closed
   checkable vocabulary; an observed convention with no matching rule is described in prose and
   never becomes an invented assertion, and a rule that cannot fire is never submitted. The reply
   renders every derived rule as a plain sentence the admin can check, names every auto-demotion,
   and claims nothing is in effect until the run says installed.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -163,7 +164,17 @@ One `establish_stage_document` call per document:
 
 Keep every returned `{doc_id, sha256}`; the install submission must name exactly the documents
 the specification came from. Broker ceilings on document size, set size, set count, and set age
-are enforced there and named in the refusal - re-stage, do not trim a document to fit.
+are enforced there and named in the refusal.
+
+**A staging refusal is terminal for that document.** Whatever refused it - a ceiling, a content
+gate, a failed extraction - you do not change the document to get past it: no redaction, no
+omitted figure, no trimmed section, no paraphrase. Drop it from the corpus, name it and the
+refusal in your report, and stage the rest. An edit made to clear a gate is invisible in the
+record where the refusal would have been visible, and the shape would then be derived from a
+document the firm never produced. Only a transport-shaped retry is not an edit (an expired
+staging set, a set-level cap you hit by ordering): re-stage the same bytes, never reshaped
+ones. Carry two numbers per document - characters extracted from the source, characters passed
+as `text` - report both, and stage nothing where they differ.
 
 ### 3. Analyze
 
@@ -304,7 +315,8 @@ The agent MAY: read the examples the admin designated; stage them; run analyze a
 derive the prose and the rules; report the outcome.
 
 The agent MUST NOT: establish on a turn the seat did not admit (and MUST NOT seek another route
-when the gate refuses); establish from documents the admin did not designate; submit a rule
+when the gate refuses); establish from documents the admin did not designate; edit, redact,
+trim, or paraphrase a staged example to clear a refusal; submit a rule
 outside the six; submit a rule that cannot fire; submit shape as `property: "voice"`; copy
 client prose or write a number the profile did not compute; claim a specification is in effect
 on anything but an `installed` status; suppress a demotion, a warning, or a rejection; send
@@ -313,15 +325,18 @@ anything to anyone.
 ## Safety invariants (any violation -> `fails`, no recovery)
 
 1. **Admin-gated.** The seat's refusal is final.
-2. **Closed vocabulary.** Only the six. An unmatched observation is prose, never an invented
+2. **Designated examples, staged unedited.** Read in place and staged byte for byte. Changing a
+   document by any amount, for any reason, to clear a refusal is this violation; drop it and
+   report it instead.
+3. **Closed vocabulary.** Only the six. An unmatched observation is prose, never an invented
    assertion.
-3. **No inert rule.** `single_closing_line` never travels without a closing prefix.
-4. **No leak, no invented number.** Verbatim only from `approved_strings`; every figure a
+4. **No inert rule.** `single_closing_line` never travels without a closing prefix.
+5. **No leak, no invented number.** Verbatim only from `approved_strings`; every figure a
    `{{profile.*}}` token.
-5. **Legible reply.** Every derived rule stated as a sentence the admin can check, every
+6. **Legible reply.** Every derived rule stated as a sentence the admin can check, every
    demotion with its documents, every rejection with its gate. Installed claimed only on
    `installed`.
-6. **No send.**
+7. **No send.**
 
 ## Pitfalls
 
@@ -330,14 +345,17 @@ submitting `single_closing_line` because the examples end with one line; setting
 the longest example's exact length and refusing the next report; deriving a rule from what the
 admin typed rather than from what the examples show; reporting rules by field name so the admin
 cannot check them; leaving "no rules were derived" unsaid and letting guidance read as
-enforcement; submitting shape as `property: "voice"`; staging a summary instead of the full
-text; paging only the first window and missing the closing structure; reporting
+enforcement; submitting shape as `property: "voice"`; redacting or trimming a refused
+example so it will stage, rather than dropping it and reporting it; staging a summary instead
+of the full text; paging only the first window and missing the closing structure; reporting
 `accepted_pending_install` as live; running two updates back to back and destroying the only
 recoverable generation.
 
 ## Verification
 
-1. Every staged document was named by the admin, read in place, and staged whole.
+1. Every staged document was named by the admin, read in place, and staged whole: extracted and
+   staged character counts equal and both reported, and every document a refusal removed named
+   with the refusal that removed it.
 2. Every submitted rule is one of the six, is supported literally by the examples, and can
    fire.
 3. Every observation that did not map to a rule is in the prose, and the reply says which ones

@@ -1,6 +1,6 @@
 ---
 name: medical-records-chaser
-description: Watches for the plaintiff's medical records landing in the Smokeball matter (records arrive through YoCierge, imported into the matter — observed via document reads, not a YoCierge tool), tracks which requested providers are still outstanding, and chases the provider or records vendor on a cadence until the records are in. Never decides which providers to request, never infers providers from treatment, never diagnoses or characterizes treatment, never drafts a demand, and never asserts a record was received unless the matching document is observed in the matter.
+description: Chases outstanding medical records from providers. Watches for the plaintiff's medical records landing in the Smokeball matter (records arrive through YoCierge, imported into the matter — observed via document reads, not a YoCierge tool), tracks which requested providers are still outstanding, and chases the provider or records vendor on a cadence until the records are in. Never decides which providers to request, never infers providers from treatment, never diagnoses or characterizes treatment, never drafts a demand, and never asserts a record was received unless the matching document is observed in the matter.
 version: 0.1.0
 author: SMD Services
 license: MIT

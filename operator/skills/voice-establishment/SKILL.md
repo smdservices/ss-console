@@ -1,15 +1,16 @@
 ---
 name: voice-establishment
 description: >-
-  On an Operator admin's instruction, establishes or updates the firm's voice for an output class
-  from the firm's own documents. Reads the named documents in place, stages them, runs the
+  Establishes the VOICE, or how the firm's writing sounds. On an Operator admin's instruction, it
+  establishes or updates that voice for an output class from the firm's own documents. Reads the
+  named documents in place, stages them, runs the
   distillation analysis, drafts a voice specification as a characterization of how the firm writes,
   and submits it through the mediated intake where the compiler gates run before anything is
   installed. The specification carries no copied client prose and no number the profile did not
   compute. The reply names every rule the firm's own writing auto-demoted and the documents that
   broke it, and never claims a specification is in effect until the run says it is installed.
   Firm-level establishment is refused for anyone who is not an Operator admin.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -185,7 +186,22 @@ was derived from.
 
 Ceilings are the broker's and it will say which one you hit: a document is capped, the set is
 capped in both count and total size, and a staging set expires. A refusal here names the field
-and the ceiling - re-stage, do not paraphrase the document to fit.
+and the ceiling.
+
+**A staging refusal is terminal for that document.** Whatever refused it - a ceiling, a content
+gate, a failed extraction - you do not change the document to get past it. Not a redaction, not
+an omitted figure, not a trimmed section, not a paraphrase, not "the same letter without the
+part it objected to". Drop that document from the corpus, name it and the refusal in your
+report, and stage the rest. A gate that provokes an edit is worse than a gate that simply
+refuses: the refusal is visible in the record and the edit is not, so the specification ends up
+derived from writing the firm never did and nothing downstream can tell. The only retry that is
+not an edit is a transport-shaped one you can repeat byte for byte - an expired staging set, or
+a set-level cap you hit by ordering. Re-stage the same text; never reshape it.
+
+So that an edit cannot be silent, carry two numbers per document: the character count you
+extracted from the source, and the character count you passed as `text`. On every document you
+stage they are equal, and step 6's report prints both. A pair that differs is this skill having
+failed, whatever the rest of the reply says.
 
 ### 3. Analyze
 
@@ -278,6 +294,11 @@ Cover all five, in the admin's own terms:
   disagree with the rule they just installed. They are the only party who can resolve it.
 - **Every warning.** `warnings` carries things worth knowing that did not stop the install -
   a class not yet declared on the seat, for instance.
+- **The corpus you actually used.** How many documents you staged out of how many the admin
+  blessed, each with its extracted and staged character counts, and every document a refusal
+  removed, named with the refusal that removed it. A corpus thinned by refusals is a materially
+  different corpus from the one the admin blessed, and only they can decide whether to proceed
+  on what is left or go find other writing.
 - **What you could not do.** Unlabeled corpus, a document that would not extract, a page you
   could not reach.
 
@@ -324,7 +345,8 @@ draft the specification; report the outcome.
 
 The agent MUST NOT: establish anything on a turn the seat did not admit (and MUST NOT seek
 another route when the gate refuses); establish from documents the admin did not designate;
-copy client prose into a specification; write a number the profile did not compute; claim a
+edit, redact, trim, or paraphrase a corpus document to clear a refusal; copy client prose into
+a specification; write a number the profile did not compute; claim a
 specification is in effect on anything but an `installed` status; suppress or soften a
 demotion, a warning, or a rejection; send anything to anyone.
 
@@ -332,9 +354,10 @@ demotion, a warning, or a rejection; send anything to anyone.
 
 1. **Admin-gated.** The seat's refusal is final. No retry, no alternate path, no asking the
    person to vouch for themselves.
-2. **Designated corpus only.** Documents the admin named - directly, or by blessing the
-   survey's proposed list (step 1b) - read in place, staged unedited. Staging before the
-   blessing is this violation, not a shortcut.
+2. **Designated corpus only, staged unedited.** Documents the admin named - directly, or by
+   blessing the survey's proposed list (step 1b) - read in place and staged byte for byte.
+   Staging before the blessing is this violation, not a shortcut. So is changing a document by
+   any amount, for any reason, to clear a refusal: drop it and say so instead.
 3. **No leak, no invented number.** Characterization only; verbatim only from
    `approved_strings`; every figure a `{{profile.*}}` token.
 4. **Honest reply.** Every demotion with its documents, every warning, every rejection with
@@ -346,8 +369,9 @@ demotion, a warning, or a rejection; send anything to anyone.
 Reading the profile card before reading the letters, and producing a specification that
 rationalizes the statistics; resolving "the recent letters" yourself instead of asking which
 ones (survey mode is not that: the survey proposes, the admin's blessing draws the boundary,
-and staging before the blessing is invariant 2's violation); staging a summary instead of
-the full text; paging only the first window of a long
+and staging before the blessing is invariant 2's violation); redacting a figure or dropping a
+paragraph so a refused document will stage, rather than dropping the document and reporting it;
+staging a summary instead of the full text; paging only the first window of a long
 document; treating `approved_strings` as a menu of nice phrases to reuse rather than a
 ceiling; writing "the firm uses semicolons in about 40% of paragraphs" from your own reading;
 reporting `accepted_pending_install` as live; burying a demotion in a closing sentence
@@ -357,7 +381,9 @@ running two updates back to back and destroying the only recoverable generation.
 ## Verification
 
 1. Every staged document was named by the admin - typed by them, or on the list they
-   blessed in survey mode - read in place, and staged whole.
+   blessed in survey mode - read in place, and staged whole: extracted and staged character
+   counts equal, both printed in the report. Every document a refusal removed from the corpus
+   is named there with the refusal that removed it.
 2. The specification contains no client sentence beyond `approved_strings` and no digit outside
    a `{{profile.*}}` token, and the gates agree.
 3. The install result was read once and reported completely: status, demotions with their

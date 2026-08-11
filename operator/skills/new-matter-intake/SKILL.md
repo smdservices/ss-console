@@ -1,6 +1,6 @@
 ---
 name: new-matter-intake
-description: Turns a new-client inquiry into a structured matter draft + a non-committal acknowledgment, after a read-only conflict check.
+description: Turns a new client inquiry into a matter draft. It produces a structured matter draft + a non-committal acknowledgment, after a read-only conflict check.
 version: 0.1.0
 author: SMD Services
 license: MIT

@@ -1,6 +1,8 @@
 ---
 name: email-reply
-description: Handles inbound email to crane@smd.services from allow-listed senders and replies in Crane's voice.
+description: >-
+  Replies to inbound email in Crane's voice. Handles mail to crane@smd.services
+  from allow-listed senders.
 version: 0.2.1
 author: SMD Services
 license: MIT

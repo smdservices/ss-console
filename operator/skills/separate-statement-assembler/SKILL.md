@@ -1,7 +1,8 @@
 ---
 name: separate-statement-assembler
 description: >-
-  Assembles the California Rules of Court 3.1345 item-by-item separate statement for a motion to
+  Assembles the separate statement for a motion to compel. It builds the California Rules of Court
+  3.1345 item-by-item statement for a motion to
   compel further responses (brought by the propounding/demanding party against the opposing
   party's served responses) by reading the served requests and the opposing party's served
   responses from the matter and collating them into the mechanical table the rule requires: each

@@ -1,6 +1,9 @@
 ---
 name: engagement-letter-chaser
-description: Tracks an unsigned engagement letter, drafts a cadence nudge, logs the signature — without ever interpreting the letter's terms.
+description: >-
+  Chases an unsigned engagement letter to signature. It tracks the letter, drafts
+  a cadence nudge, and logs the signature, without ever interpreting the letter's
+  terms.
 version: 0.1.0
 author: SMD Services
 license: MIT

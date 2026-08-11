@@ -1,8 +1,9 @@
 ---
 name: deadline-and-sol-tracker
 description: >-
-  Surfaces the firm's authored court dates, filing deadlines, and
-  statute-of-limitations dates by proximity — overdue, imminent, upcoming.
+  Surfaces court dates and deadlines by proximity. Shows the
+  firm's authored court dates, filing deadlines, and
+  statute-of-limitations dates as overdue, imminent, upcoming.
   Reflects dates a human entered; reads dates the Smokeball court-rules engine
   computed and presents them "unconfirmed: confirm with the responsible
   attorney," logging a bookkeeping memo on confirmation; never computes a

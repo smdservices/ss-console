@@ -1,6 +1,6 @@
 ---
 name: ar-chaser
-description: Drafts AR-aging follow-ups from QuickBooks for owner review.
+description: Drafts overdue-invoice follow-ups for owner review. Sources the AR aging from QuickBooks.
 version: 0.1.0
 author: SMD Services
 license: MIT

@@ -1,6 +1,16 @@
 ---
 name: discovery-response-staging
-description: Stages a served discovery request and its supporting documents (prior verified responses, relevant records) into the Smokeball matter folder that the firm's drafting engine (BriefPoint / CoCounsel) draws from, so a response draft can be generated with everything in place; then when the finished draft lands back in the matter, picks it up, files it, and routes it to the responsible attorney to review. It never drafts the discovery response itself (the drafting engine does), never invents a folder or naming convention (the staging target is surfaced for confirmation until the firm's matter-folder convention is established at connect), and never reports a file as staged when the write did not confirm.
+description: >-
+  Stages discovery documents for the drafting engine. It places a served discovery
+  request and its supporting documents (prior verified responses, relevant records)
+  into the Smokeball matter folder that the firm's drafting engine (BriefPoint /
+  CoCounsel) draws from, so a response draft can be generated with everything in
+  place; then when the finished draft lands back in the matter, picks it up, files
+  it, and routes it to the responsible attorney to review. It never drafts the
+  discovery response itself (the drafting engine does), never invents a folder or
+  naming convention (the staging target is surfaced for confirmation until the
+  firm's matter-folder convention is established at connect), and never reports a
+  file as staged when the write did not confirm.
 version: 0.1.0
 author: SMD Services
 license: MIT

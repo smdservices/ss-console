@@ -1,6 +1,12 @@
 ---
 name: client-verification-tracker
-description: Prepares a client's discovery-response verification (interrogatories, RFPs, and requests for admission), routes it for authenticated attorney approval, tracks it as an open item per plaintiff per response-set, and chases the signer on a cadence until it is signed — the connective chase for the firm's most-slipped discovery step. Never decides which responses need verification, never sends to the signer without authenticated attorney approval, never signs, and never asserts a signature it cannot see.
+description: >-
+  Chases the client's discovery-response verification. Prepares it (interrogatories, RFPs, and
+  requests for admission), routes it for authenticated attorney approval, tracks it as an open
+  item per plaintiff per response-set, and chases the signer on a cadence until it is signed: the
+  connective chase for the firm's most-slipped discovery step. Never decides which responses need
+  verification, never sends to the signer without authenticated attorney approval, never signs,
+  and never asserts a signature it cannot see.
 version: 0.3.0
 author: SMD Services
 license: MIT
