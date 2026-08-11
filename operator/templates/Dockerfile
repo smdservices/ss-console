@@ -504,7 +504,29 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # uninstalled voice spec: persona voice + alert internally, draft + alert
 # outbound — Captain ruling) which lands on seats with this bump. Compare-
 # verified: zero intersection with tracked pair overlayPaths.
-ARG OVERLAY_REF="578187988bdca7800420c4fa73cc035356e3e180"
+# 2026-08-11 (overlay#240, ss#2167): the outbound matter-identity gate gains the
+# two things it lacked. (1) It recognised a matter only as a raw UUID —
+# `cited_matters` extracts human-readable numbers, but `_resolve_cited` compared
+# them against a map keyed by connector id, so a letter citing "2026-PI-101"
+# returned *unresolved* even against a CLOSED party set. Every shipped test
+# seeded a UUID body, so the suite and both kill-tests passed straight over it
+# (vfy_01KZRRW59N6HS3DHVQJRNMKVHW). Matters are now aliased by number; a number
+# seen pointing at two matters is withdrawn, never guessed. (2) The gate never
+# ran on the reply lane at all: it is guarded by `is_send`, true only for
+# EXTERNAL_SEND*, and that lane calls create_draft (INTERNAL_WRITE) then relays
+# the draft out over REST (vfy_01KZRRW066Y70TFEYKGQX6ME76). It now evaluates at
+# the relay seam. Its exemption deliberately does NOT read `recipient_class is
+# INTERNAL`: an inbound-roster match classifies INTERNAL before the typed roster
+# is consulted, so that spelling would have exempted 100% of the lane and
+# shipped a control that cannot fire (the conflation is filed as ss#2263).
+# `unresolved` records MATTER_UNRESOLVED and does NOT hold — get_matter fires on
+# 8 of 86 reply turns, so holding would withhold correct client replies at an
+# unmeasured rate (Captain call). Files: shared/matter_binding.py +
+# shared/matter_gate.py (moved there from plugins/hermes-smd-trust/ so the reply
+# plugin can import it) + hermes-smd-{trust,reply,audit} + tests — NOT tracked
+# pairs; diff-verified zero intersection with tracked overlayPaths across
+# 57818798..658169eb; every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="658169ebfdf8cc5e3a0f519bd08d6068473bdbfa"
 
 ARG CUSTOMER_SLUG=customer-zero
 
