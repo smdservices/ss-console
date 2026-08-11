@@ -723,7 +723,22 @@ describe('Operator customer Machine Dockerfile', () => {
     // was sent. Same ss#1941 shape initiation fixed in overlay#230. Range also
     // carries the ss#2234 spec-control work. NOT tracked pairs
     // (compare-verified); every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="947cc2f372e958dcc4721d89236640c3ef4c26de"')
+    // 947cc2f3 -> 44067ae1 (2026-08-10e, ss#2167): overlay#235 — the outbound
+    // matter-identity gate. Stops case A's content reaching case B's recipient,
+    // the one fabrication class with no control. Checks the body's own matter
+    // identifiers against who is party to that matter; neither side is the
+    // model's word, because a send that DECLARED its matter would be circular
+    // (the model resolves the recipient's matter to address them, so it would
+    // declare that one and always agree with itself). Placed above the
+    // `decision.allowed` guard: on a draft_for_review seat every send is
+    // withheld, so a check inside that block would never run on the seat it is
+    // for. Silent until authored; SMD_MATTER_GATE_MODE is the rollback lever.
+    // plugins/hermes-smd-trust/{enforce,__init__,matter_gate}.py +
+    // shared/matter_binding.py + consumes.yaml + tests — NOT tracked pairs
+    // (the tracked twins are voice/transform, audit/emit and the shared/
+    // filters; this change edits none of them); every overlaySha256 unchanged,
+    // only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="44067ae144e3c1394477ad639f65d7d465434228"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
