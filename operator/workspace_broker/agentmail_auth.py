@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
 
@@ -83,10 +84,32 @@ def load_send_key(credential_path: Path) -> str:
 
 
 def normalize_address(value: Any) -> str:
-    """Lowercase/strip an address. Non-strings and blanks normalize to ``""``."""
+    """Reduce any address shape to its bare, lowercased form.
+
+    Mail carries addresses as ``"Display Name <addr@host>"`` at least as often as
+    bare, and a fence that compares the display form against a roster refuses
+    everyone — so this parses rather than merely lowercasing. Mirrors the
+    overlay's ``inbound_message._bare_address`` deliberately: the two must agree
+    on what an address IS, or the reply lane and the fence disagree about who
+    sent a message. Mappings are tolerated for the same reason it does.
+    """
+    if isinstance(value, dict):
+        for key in ("address", "email", "emailAddress"):
+            nested = value.get(key)
+            if isinstance(nested, dict):
+                nested = nested.get("address") or nested.get("email")
+            if isinstance(nested, str) and nested.strip():
+                value = nested
+                break
+        else:
+            return ""
     if not isinstance(value, str):
         return ""
-    return value.strip().lower()
+    parsed = parseaddr(value)[1].strip().lower()
+    # parseaddr yields "" for input it cannot read as an address; falling back to
+    # the raw string would let an unparseable value be compared against the
+    # roster, and the only safe comparison for garbage is one that fails.
+    return parsed
 
 
 def _domain_of(address: str) -> str:
@@ -110,14 +133,21 @@ def _split_authored(entries: Any) -> tuple[set[str], set[str]]:
         # inbound_allow_from and admins are bare strings.
         if isinstance(entry, dict):
             entry = entry.get("address")
-        value = normalize_address(entry)
-        if not value:
+        if not isinstance(entry, str):
             continue
-        if value.startswith("@"):
-            if len(value) > 1:
-                domains.add(value[1:])
-        elif "@" in value:
-            exact.add(value)
+        raw = entry.strip().lower()
+        if not raw:
+            continue
+        # A domain grant is checked BEFORE address parsing: "@firm.example" is
+        # not a valid address, so parseaddr discards it, and a grant silently
+        # dropped here would refuse every person at that firm.
+        if raw.startswith("@"):
+            if len(raw) > 1:
+                domains.add(raw[1:])
+            continue
+        parsed = normalize_address(raw)
+        if parsed and "@" in parsed:
+            exact.add(parsed)
     return exact, domains
 
 

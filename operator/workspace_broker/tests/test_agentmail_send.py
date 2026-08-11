@@ -208,6 +208,59 @@ def test_case_and_whitespace_do_not_evade_the_fence(tmp_path: Path) -> None:
         ops.send({"to": [UNAUTHORED.upper()], "text": "x"})
 
 
+def test_a_display_name_address_is_parsed_not_compared_raw(tmp_path: Path) -> None:
+    """Mail carries 'Name <addr@host>' constantly.
+
+    Comparing that raw string against a roster refuses everyone — the fence
+    would look strict while being broken, which is the worst failure available.
+    """
+    ops = _ops(tmp_path, FakeHTTP())
+    assert ops.send({"to": ['"Scott D" <scott@smd.services>'], "text": "x"})["message_id"]
+    with pytest.raises(AgentMailRefused):
+        ops.send({"to": [f"Someone <{UNAUTHORED}>"], "text": "x"})
+
+
+def test_an_unparseable_recipient_is_refused_not_passed_through(tmp_path: Path) -> None:
+    ops = _ops(tmp_path, FakeHTTP())
+    for garbage in ("not an address", "<<>>", "@", "a@b@c.com"):
+        with pytest.raises(AgentMailRefused):
+            ops.send({"to": [garbage], "text": "x"})
+
+
+def test_a_domain_grant_survives_address_parsing(tmp_path: Path) -> None:
+    """'@firm.example' is not a valid address; parsing it as one drops the grant.
+
+    If this regresses, every person at the client firm becomes unreachable —
+    a silent outage on the seat that matters most.
+    """
+    policy = authored_policy(_seat(tmp_path, AP_YAML)[0])
+    assert "examplefirm.example" in policy.domains
+    assert policy.allows_recipient("anyone@examplefirm.example")
+
+
+def test_either_agentmail_id_spelling_reaches_the_audit_row(tmp_path: Path) -> None:
+    """The reply endpoint returns messageId; the send path is read as message_id.
+
+    An empty id in the row would silently break the console reconciler's
+    exact-match join — the backstop for this entire control.
+    """
+    camel = FakeHTTP({"/messages/send": {"messageId": "msg_camel"}})
+    assert _ops(tmp_path, camel).send({"to": ["scott@smd.services"], "text": "x"})[
+        "message_id"
+    ] == "msg_camel"
+    snake = FakeHTTP({"/messages/send": {"message_id": "msg_snake"}})
+    assert _ops(tmp_path, snake).send({"to": ["scott@smd.services"], "text": "x"})[
+        "message_id"
+    ] == "msg_snake"
+
+
+def test_reply_parses_a_display_name_sender(tmp_path: Path) -> None:
+    ops = _ops(tmp_path, _reply_http('"Scott" <scott@smd.services>'))
+    assert ops.reply({"message_id": "m1", "text": "answer"})["recipients"] == [
+        "scott@smd.services"
+    ]
+
+
 def test_a_lookalike_domain_is_not_the_authored_domain(tmp_path: Path) -> None:
     """'@examplefirm.example' must not authorize 'examplefirm.example.evil.com'."""
     policy = authored_policy(_seat(tmp_path, AP_YAML)[0])

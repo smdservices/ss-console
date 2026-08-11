@@ -54,6 +54,22 @@ class AgentMailTransportError(RuntimeError):
     """The send could not be attempted or its outcome is unknown."""
 
 
+def _message_id(response: dict[str, Any]) -> str:
+    """AgentMail's id, under either spelling it uses.
+
+    The reply endpoint documents ``messageId`` and the send endpoint is read as
+    ``message_id`` by the two existing overlay call sites — they disagree with
+    each other. Accepting both is what keeps the id out of the audit row from
+    being empty, and an empty id would silently break the console reconciler's
+    exact-match join, which is the backstop for this entire control.
+    """
+    for key in ("message_id", "messageId"):
+        found = response.get(key)
+        if isinstance(found, str) and found:
+            return found
+    return ""
+
+
 def _as_addresses(value: Any) -> list[str]:
     """Normalize a recipient field that may be a bare string or a list."""
     if isinstance(value, str):
@@ -196,7 +212,7 @@ class AgentMailOps:
         body = {k: payload[k] for k in _BODY_FIELDS if payload.get(k) not in (None, "", [])}
         response = self._request(self._path("messages", "send"), "POST", body)
         return {
-            "message_id": response.get("message_id") or "",
+            "message_id": _message_id(response),
             "recipients": recipients,
             "inbox_id": self.inbox_id(),
         }
@@ -230,7 +246,7 @@ class AgentMailOps:
             raise AgentMailRefused("refusing to send an empty reply")
         response = self._request(self._path("messages", message_id, "reply"), "POST", body)
         return {
-            "message_id": response.get("message_id") or "",
+            "message_id": _message_id(response),
             "recipients": [sender],
             "inbox_id": self.inbox_id(),
         }
