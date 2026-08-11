@@ -74,6 +74,15 @@ class MatterDeadline:
     # for an item with no stable id: it gets no per-item ack token and renders
     # in the blanket-ack-only group.
     task_id: str | None = None
+    # When the OPERATOR last raised this item, from the escalation ledger
+    # (``ItemState.last_raised_ts``), joined in ``enrich_with_ledger``. ``None``
+    # on a pulled-but-not-yet-enriched item and on an item the Operator has
+    # never raised. It is NOT "when the firm last acted on this deadline" — the
+    # ledger records only Operator raises, and only after a successful send
+    # (SKILL.md step 3), so absent means "no Operator raise on record" and never
+    # "not raised". Carried into the wake payload so a woken turn states a last
+    # raise it READ instead of inventing one (#2253).
+    last_raised: str | None = None
 
 
 class DeadlineSource(Protocol):
@@ -216,6 +225,11 @@ def enrich_with_ledger(
     was acked and is still inside the snooze window, or was handed off/resolved.
     An item that should fire now stays un-acknowledged and wakes the ladder.
 
+    Also carries each item's ``last_raised`` across from the ledger state this
+    join already reads (``ItemState.last_raised_ts``) so the wake payload can
+    state it with provenance (#2253). No new ledger API: the state dataclass
+    already exposes the field.
+
     Ledger unavailable (module load fails) → fire-open: every item's
     ``acknowledged`` is left as pulled (False), i.e. the pre-ledger behavior."""
     ledger = _load_ledger_module()
@@ -243,6 +257,7 @@ def enrich_with_ledger(
                 conflict_hold=d.conflict_hold,
                 acknowledged=not fire,
                 task_id=d.task_id,
+                last_raised=None if state is None else state.last_raised_ts,
             )
         )
     return enriched
@@ -254,10 +269,32 @@ def enrich_with_ledger(
 
 
 @dataclass(frozen=True)
+class ItemPlan:
+    """One firing item as the gate saw it, carried to the woken turn (#2253).
+
+    ``authored_date`` is the human-authored date VERBATIM, not only the derived
+    ``days_out``: an integer alone invites the woken turn to invert it back into
+    a date, which is arithmetic that PRODUCES a date and the one thing this
+    skill may never do. Both are carried; the date is the fact, the integer is
+    the convenience.
+    """
+
+    matter_id: str
+    task_id: str | None
+    label: str  # the authored deadline label
+    authored_date: str  # ISO YYYY-MM-DD, verbatim from the authored record
+    days_out: int
+    rung: str
+    # The Operator's own last raise on this item, or None. See MatterDeadline.
+    last_raised: str | None
+
+
+@dataclass(frozen=True)
 class WakeDecision:
     wake: bool
     decision_basis: str
     pre_run_inputs_digest: bytes
+    plans: tuple[ItemPlan, ...] = ()
     extra_metadata: dict = field(default_factory=dict)
 
 
@@ -303,6 +340,18 @@ def decide(
             wake=True,
             decision_basis="deadline_in_escalation_range",
             pre_run_inputs_digest=raw_inputs_for_digest,
+            plans=tuple(
+                ItemPlan(
+                    matter_id=d.matter_id,
+                    task_id=d.task_id,
+                    label=d.label,
+                    authored_date=d.authored_date.isoformat(),
+                    days_out=(d.authored_date - today).days,
+                    rung=_rung_for(d, today, windows),
+                    last_raised=d.last_raised,
+                )
+                for d in in_range
+            ),
             extra_metadata={
                 "matters": [
                     {
@@ -332,8 +381,62 @@ def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
     return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _emit_wake() -> int:
-    print(json.dumps({"wakeAgent": True}))
+# At most this many plans are serialized onto the wake line. A prompt-injected
+# block is not free, and a firm with a hundred in-range dates does not need all
+# hundred to start work. The cap ALWAYS announces itself (plans_total /
+# plans_emitted / plans_truncated) — a truncated list that reads as complete is
+# a check that cannot fail.
+_MAX_SERIALIZED_PLANS = 50
+
+
+def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
+    """Print the wake gate line — WITH the facts the gate already computed (#2253).
+
+    Hermes reads only ``wakeAgent`` from the last stdout line and then injects
+    the whole stdout verbatim into the woken agent's prompt (the "Script Output"
+    block). Emitting a bare ``{"wakeAgent": true}`` therefore threw away every
+    per-item fact ``decide`` had in hand: which matter, which authored date,
+    which rung, when the Operator last raised it. On 2026-08-10 the escalator
+    woke fact-free with the Smokeball connector down, and the alert it sent
+    stated a specific "last raised" date in the same message that said it could
+    not read dates (#2253). A gate that hands over a bare boolean is asking the
+    turn to supply the facts from somewhere, and with no source reachable
+    "somewhere" was invention.
+
+    ``authored_date`` rides verbatim for the same reason ``days_out`` alone is
+    not enough: re-deriving a date from an integer is producing a date.
+
+    Fail-open callers have no decision — they pass ``basis`` so the woken turn
+    knows it woke blind and must enumerate through the connector instead of
+    treating an absent plan list as an empty one.
+    """
+    payload: dict = {"wakeAgent": True}
+    resolved_basis = decision.decision_basis if decision is not None else basis
+    if resolved_basis:
+        payload["decision_basis"] = resolved_basis
+    if decision is not None and decision.plans:
+        emitted = decision.plans[:_MAX_SERIALIZED_PLANS]
+        payload["plans"] = [
+            {
+                "matter_id": p.matter_id,
+                "task_id": p.task_id,
+                "label": p.label,
+                "authored_date": p.authored_date,
+                "days_out": p.days_out,
+                "rung": p.rung,
+                "last_raised": p.last_raised,
+                # Provenance, stated in the payload rather than assumed by the
+                # reader: this timestamp is the OPERATOR's escalation ledger,
+                # which records only raises that sent successfully. Null means
+                # "no Operator raise on record", never "not raised".
+                "last_raised_source": "operator_ledger",
+            }
+            for p in emitted
+        ]
+        payload["plans_total"] = len(decision.plans)
+        payload["plans_emitted"] = len(emitted)
+        payload["plans_truncated"] = len(emitted) < len(decision.plans)
+    print(json.dumps(payload))
     return 0
 
 
@@ -400,12 +503,12 @@ async def run_once(
         today=today,
     )
     if decision.wake:
-        return _emit_wake()
+        return _emit_wake(decision)
 
     writer = audit_writer_factory()
     if writer is None:
         # Mirror-don't-gate: no writer = no heartbeat trail = always wake.
-        return _emit_wake()
+        return _emit_wake(basis="no_audit_writer_fail_open")
     try:
         await writer.write_suppressed_wake(
             skill_name=skill_name,
@@ -415,7 +518,7 @@ async def run_once(
             extra_metadata=decision.extra_metadata,
         )
     except Exception:  # noqa: BLE001 — any audit failure → wake (dead-man's-switch)
-        return _emit_wake()
+        return _emit_wake(basis="suppress_heartbeat_failed_fail_open")
     return _emit_suppress()
 
 
@@ -672,7 +775,7 @@ def main() -> int:
     customer_slug = os.environ.get("CUSTOMER_SLUG")
     if not customer_slug:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
-        return _emit_wake()
+        return _emit_wake(basis="customer_slug_unset_fail_open")
     windows, fire_policy = load_escalation_config()
     today = datetime.now(timezone.utc).date()
     source = SmokeballSubprocessSource(windows, today)
@@ -684,7 +787,7 @@ def main() -> int:
         )
     except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
         sys.stderr.write(f"[pre_run] escalator pre_run failed ({exc}); waking\n")
-        return _emit_wake()
+        return _emit_wake(basis="pre_run_crashed_fail_open")
 
 
 if __name__ == "__main__":

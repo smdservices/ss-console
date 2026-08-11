@@ -820,7 +820,7 @@ def main() -> int:
     customer_slug = os.environ.get("CUSTOMER_SLUG")
     if not customer_slug:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
-        return _emit_wake()
+        return _emit_wake(basis="customer_slug_unset_fail_open")
     config, refire_days = load_chase_config()
     today = datetime.now(timezone.utc).date()
     source = SmokeballSubprocessSource(today)
@@ -836,7 +836,7 @@ def main() -> int:
         )
     except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
         sys.stderr.write(f"[pre_run] chase pre_run failed ({exc}); waking\n")
-        return _emit_wake()
+        return _emit_wake(basis="pre_run_crashed_fail_open")
 
 
 if __name__ == "__main__":
