@@ -128,6 +128,15 @@ export const SUPPRESSED_ACTIONS: ReadonlySet<string> = new Set([
   'DECOMMISSION_STEP_COMPLETE',
   'DECOMMISSION_STEP_FAILED',
   'DECOMMISSION_FINAL',
+  // ss#2167 — the matter gate ran on a reply and could neither confirm nor deny
+  // that the recipient is a party to the cited matter. Suppressed deliberately:
+  // this is our instrument, not the firm's news. It fires on the ordinary case
+  // (the matter's party list simply was not read that turn), so surfacing it
+  // would put a line reading like a near-miss on most replies the firm sees,
+  // and the honest client-facing event is the one where we DID hold something —
+  // that is REPLY_HELD, already mapped. Promote only if the measurement shows
+  // these rows mean something a client should act on.
+  'MATTER_UNRESOLVED',
   // 2026-08-02 vocabulary reconciliation (#2122). All twelve start
   // suppressed: they were invisible before (unknown types render nothing),
   // and promoting any to a client-visible category requires authored client
