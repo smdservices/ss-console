@@ -83,6 +83,8 @@ def _dl(
     matter_open: bool = True,
     conflict_hold: bool = False,
     acknowledged: bool = False,
+    task_id: str | None = None,
+    last_raised: str | None = None,
 ) -> MatterDeadline:
     from datetime import timedelta
 
@@ -93,6 +95,8 @@ def _dl(
         matter_open=matter_open,
         conflict_hold=conflict_hold,
         acknowledged=acknowledged,
+        task_id=task_id,
+        last_raised=last_raised,
     )
 
 
@@ -195,7 +199,7 @@ def test_rung_clearance_for_held_regardless_of_proximity():
 
 
 def test_run_once_wakes_on_in_range_no_audit_written():
-    sources = [FakeSource([_dl(days_out=5)])]
+    sources = [FakeSource([_dl(days_out=5, task_id="task-9")])]
     executor = FakeExecutor()
 
     def factory():
@@ -203,7 +207,28 @@ def test_run_once_wakes_on_in_range_no_audit_written():
 
     code, out = _capture_stdout(run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW))
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    # The wake line carries the facts the gate computed (#2253). A bare
+    # wakeAgent flag left the woken turn to source per-item facts itself, and
+    # with the connector down it sourced them from nowhere.
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "deadline_in_escalation_range",
+        "plans": [
+            {
+                "matter_id": "7001",
+                "task_id": "task-9",
+                "label": "filing-deadline",
+                "authored_date": "2026-06-13",  # verbatim, not re-derived from days_out
+                "days_out": 5,
+                "rung": "re-route",
+                "last_raised": None,  # never raised → no Operator raise on record
+                "last_raised_source": "operator_ledger",
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
     assert executor.calls == []  # audit only on suppress path
 
 
@@ -228,7 +253,13 @@ def test_run_once_writes_heartbeat_then_suppresses_when_quiet():
 
 def test_run_once_falls_back_to_wake_on_audit_failure():
     """The dead-man's-switch: audit-write failure forces wake, so a silently
-    broken heartbeat surfaces as the agent waking rather than going dark."""
+    broken heartbeat surfaces as the agent waking rather than going dark.
+
+    Asserted by exact equality with NO ``plans`` key: pre-#2253 every wake path
+    printed the same bare flag, so a blind fail-open and a fact-carrying wake
+    were indistinguishable on the wire — which is precisely how a fact-free turn
+    could read as a well-briefed one.
+    """
     sources = [FakeSource([_dl(days_out=40)])]
     executor = FakeExecutor(fail=True)
 
@@ -237,7 +268,12 @@ def test_run_once_falls_back_to_wake_on_audit_failure():
 
     code, out = _capture_stdout(run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW))
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "suppress_heartbeat_failed_fail_open",
+    }
+    assert "plans" not in parsed  # woke blind: SKILL.md's enumeration fallback applies
     assert len(executor.calls) == 1  # attempt made before fallback
 
 
@@ -245,7 +281,12 @@ def test_run_once_falls_back_to_wake_when_no_writer():
     sources = [FakeSource([_dl(days_out=40)])]
     code, out = _capture_stdout(run_once(sources, EscalationWindows(), lambda: None, today=TODAY, now=NOW))
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "no_audit_writer_fail_open",
+    }
+    assert "plans" not in parsed
 
 
 # ---------------------------------------------------------------------------
@@ -479,7 +520,138 @@ def test_run_once_still_wakes_when_refire_window_elapsed() -> None:
             ledger_events=[fired],
         )
     )
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed["wakeAgent"] is True
+    assert parsed["decision_basis"] == "deadline_in_escalation_range"
+    # The re-fire carries the prior raise it read, with its provenance — the
+    # turn states "last raised" only from this, never from recall (#2253).
+    assert parsed["plans"][0]["last_raised"] == "2026-06-01T07:00:00.000Z"
+    assert parsed["plans"][0]["last_raised_source"] == "operator_ledger"
+
+
+# ---------------------------------------------------------------------------
+# The wake payload (#2253) — the handoff Hermes injects verbatim into the
+# woken turn's prompt. What is absent here is what the turn has to invent.
+# ---------------------------------------------------------------------------
+
+
+def test_wake_payload_carries_last_raised_only_when_the_ledger_has_one() -> None:
+    """A never-raised item carries None. Rendered downstream as "no Operator
+    raise on record" — the ledger records Operator raises after a successful
+    send, so absent is never evidence that nobody raised it."""
+    raised = _dl(days_out=2, matter_id="m-1", task_id="t-1")
+    fresh = _dl(days_out=4, matter_id="m-2", task_id="t-2")
+    fired = _fired_event(raised, ts="2026-06-01T07:00:00.000Z")
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([raised, fresh])],
+            EscalationWindows(),
+            lambda: None,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[fired],
+        )
+    )
+    assert code == 0
+    by_matter = {p["matter_id"]: p for p in json.loads(out)["plans"]}
+    assert by_matter["m-1"]["last_raised"] == "2026-06-01T07:00:00.000Z"
+    assert by_matter["m-2"]["last_raised"] is None
+    assert {p["last_raised_source"] for p in by_matter.values()} == {"operator_ledger"}
+
+
+def test_wake_payload_truncation_announces_itself() -> None:
+    """Over the cap the list is partial, and the payload says so. A truncated
+    list that reads as complete is a check that cannot fail (Law 12)."""
+    deadlines = [
+        _dl(days_out=(i % 14), matter_id=f"m-{i}", task_id=f"t-{i}") for i in range(58)
+    ]
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource(deadlines)],
+            EscalationWindows(),
+            lambda: None,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["plans_total"] == 58
+    assert parsed["plans_emitted"] == 50
+    assert parsed["plans_truncated"] is True
+    assert len(parsed["plans"]) == 50
+
+
+def test_wake_payload_untruncated_says_so_explicitly() -> None:
+    """The flag is present on the complete case too, so its absence never has
+    to be read as "complete"."""
+    deadlines = [_dl(days_out=3, matter_id=f"m-{i}", task_id=f"t-{i}") for i in range(4)]
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource(deadlines)],
+            EscalationWindows(),
+            lambda: None,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["plans_total"] == parsed["plans_emitted"] == 4
+    assert parsed["plans_truncated"] is False
+
+
+def test_wake_payload_carries_the_rung_and_authored_date_per_item() -> None:
+    """Each rung serializes, and the authored date rides verbatim alongside the
+    derived days_out — an integer alone invites re-deriving a date, which is the
+    one arithmetic this skill may never do."""
+    deadlines = [
+        _dl(days_out=1, matter_id="near", task_id="t-a"),
+        _dl(days_out=6, matter_id="mid", task_id="t-b"),
+        _dl(days_out=12, matter_id="far", task_id="t-c"),
+        _dl(days_out=2, matter_id="held", task_id="t-d", conflict_hold=True),
+    ]
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource(deadlines)],
+            EscalationWindows(),
+            lambda: None,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    plans = {p["matter_id"]: p for p in json.loads(out)["plans"]}
+    assert plans["near"]["rung"] == "notify"
+    assert plans["mid"]["rung"] == "re-route"
+    assert plans["far"]["rung"] == "re-surface"
+    assert plans["held"]["rung"] == "clearance"
+    assert plans["far"]["authored_date"] == "2026-06-20"
+    assert plans["far"]["days_out"] == 12
+
+
+def test_decide_plans_mirror_the_in_range_set() -> None:
+    decision = decide(
+        [_dl(matter_id="a", days_out=2), _dl(matter_id="b", days_out=40), _dl(matter_id="c", days_out=12)],
+        EscalationWindows(),
+        raw_inputs_for_digest=b"x",
+        today=TODAY,
+    )
+    assert {p.matter_id for p in decision.plans} == {"a", "c"}
+    assert len(decision.plans) == len(decision.extra_metadata["matters"])
+
+
+def test_decide_suppressed_decision_carries_no_plans() -> None:
+    decision = decide([_dl(days_out=40)], EscalationWindows(), raw_inputs_for_digest=b"x", today=TODAY)
+    assert decision.wake is False
+    assert decision.plans == ()
 
 
 def test_no_stable_id_item_always_fires_until_blanket_acked() -> None:
