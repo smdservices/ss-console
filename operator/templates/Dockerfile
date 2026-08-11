@@ -543,7 +543,27 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # is what hid it (same shape as ss#2252). Files: shared/matter_gate.py + tests —
 # NOT tracked pairs; diff-verified zero intersection across
 # 1d73e2c0..e9bfe987; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="e9bfe9871197536cbb2471e617fa67588c2e13a5"
+# e9bfe987 -> ad647365 (2026-08-11c, ss#2258 + ss#2255): a seat sends from ITS OWN
+# inbox, or refuses. resolve_inbox_id took inboxes[0] on the reasoning "single
+# tenant per Machine, so the first inbox is the agent's own". AGENTMAIL_API_KEY is
+# account-wide — the agentmail block in provision-customer.sh says so outright
+# ("It can reach the shared account's OTHER inboxes (cross-tenant)") — and the
+# listing is newest-first: probed live it held EIGHT inboxes, the pilot's own at
+# index SIX, a probe inbox created the previous afternoon at index 0. The caller is
+# _dispatch_approved_send, which fires the moment a human approves a draft, and a
+# client seat's day-one posture is external_send: draft_for_review — so EVERY
+# approved letter went through it. The moment ashton-price's inbox is created it
+# becomes inboxes[0] and every OTHER seat starts sending as that client. Latent
+# only because CONFIRM_SEND_DISPATCHED has 0 rows ever, which is also why nobody
+# caught it. Now: authored AGENTMAIL_INBOX_ADDRESS else the <slug>@agentmail.to
+# convention, and the address MUST be in the listing — a miss RAISES rather than
+# falling back, because sending from another firm's mailbox is worse than not
+# sending. Also sweeps overlay#246 (docs; stranded 29 min after the last bump) and
+# overlay#247 (webhook fallback instructs read_file, not the absent skill_view,
+# ss#2255). Files: plugins/hermes-smd-trust/outbound_send.py,
+# plugins/hermes-smd-reply/__init__.py + tests — NOT tracked pairs; every
+# overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="ad647365348bbebc6d84b2339ee25f5ea75b7b4a"
 
 ARG CUSTOMER_SLUG=customer-zero
 
