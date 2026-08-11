@@ -1,0 +1,111 @@
+# Reconcile what left every Operator mailbox against what its audit log recorded.
+#
+# WHY (ss#2258). The audit log is what a law firm is offered as the record of
+# what its Operator did. On 2026-08-11 a message left the pilot seat's inbox with
+# no audit row at all; reconciling the whole mailbox found 9 of 121 sends
+# unaccounted, four of them to a real client. Nothing was watching, because
+# nothing compared the two sides.
+#
+# Console-side on purpose: a seat cannot audit its own egress. A send from an
+# inbox belonging to a decommissioned seat -- or to no seat at all -- is exactly
+# what a seat-side check could never see. From here it is the loudest signal.
+#
+# HOLDS vs FINDS: a transport or credential failure exits 0 and is reported as a
+# hold. Only a successful read with unmatched sends exits non-zero. A control
+# that pages on its own blips gets muted within a week.
+
+name: unaudited-send-reconcile
+
+on:
+  schedule:
+    # 13:17 UTC daily — deliberately off the hour and off :00/:30 so it does not
+    # land with every other scheduled job.
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Only consider sends in the last N days (blank = all)'
+        required: false
+  pull_request:
+    paths:
+      - 'operator/bin/reconcile-sends.py'
+      - 'operator/bin/tests/test_reconcile_sends.py'
+      - '.github/workflows/unaudited-send-reconcile.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '>=3.11'
+
+      - name: Install pytest
+        run: python3 -m pip install --quiet pytest
+
+      # The unit tests gate the scheduled run: a reconciler whose matcher is
+      # broken would report either nothing or everything, and both are worse
+      # than no report.
+      - name: Test the reconciler
+        run: python3 -m pytest operator/bin/tests/test_reconcile_sends.py -q
+
+      # On pull_request there are no secrets and nothing to reconcile against —
+      # the tests above are the whole job.
+      - name: Reconcile every inbox
+        if: github.event_name != 'pull_request'
+        id: reconcile
+        env:
+          AGENTMAIL_API_KEY: ${{ secrets.AGENTMAIL_API_KEY }}
+          OPERATOR_RUNTIME_READ_SECRET: ${{ secrets.OPERATOR_RUNTIME_READ_SECRET }}
+          OPERATOR_RUNTIME_READ_URL: ${{ secrets.OPERATOR_RUNTIME_READ_URL }}
+          # Via env, never interpolated into the script body: a workflow_dispatch
+          # input is user-supplied and would otherwise be a shell-injection seam.
+          RECONCILE_DAYS: ${{ github.event.inputs.days }}
+        run: |
+          set -u
+          ARGS=""
+          if [ -n "${RECONCILE_DAYS:-}" ]; then
+            ARGS="--days ${RECONCILE_DAYS}"
+          fi
+          # Redirect rather than pipe: `$?` after `| tee` reports TEE's status,
+          # not the script's, and this control would then never fire.
+          # shellcheck disable=SC2086 — ARGS is built above, not caller-supplied.
+          python3 operator/bin/reconcile-sends.py $ARGS > reconcile.txt 2>&1
+          STATUS=$?
+          cat reconcile.txt
+          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue when a send has no audit record
+        if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Same discipline as above: github context reaches the script only
+          # through env, never through `${{ }}` inside the body.
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "A message left an Operator mailbox with no matching audit row."
+            echo
+            echo "The audit log is what a client firm is offered as the record of"
+            echo "what its Operator did. Anything listed here is not in it."
+            echo
+            echo '```'
+            cat reconcile.txt
+            echo '```'
+            echo
+            echo "Reconciler: \`operator/bin/reconcile-sends.py\` (ss#2258)."
+            echo "Run: ${RUN_URL}"
+          } > body.md
+          gh issue create \
+            --repo "${REPO}" \
+            --title "Unaudited send detected $(date -u +%Y-%m-%d)" \
+            --label "prio:P1" --label "type:bug" \
+            --body-file body.md
