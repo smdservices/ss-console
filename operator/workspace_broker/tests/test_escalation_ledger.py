@@ -33,6 +33,35 @@ def test_item_key_stable_and_source_id_disambiguates() -> None:
     assert a != c
 
 
+def test_item_key_ignores_label() -> None:
+    """ss #2151 guard. ``label`` is model-composed free text and MUST NOT reach
+    the hash. Putting it back re-breaks the ledger join."""
+    base = el.item_key("m-1", "task-1", "task-deadline", date(2026, 7, 20))
+    assert base == el.item_key("m-1", "task-1", "settlement-offer-lapsed", date(2026, 7, 20))
+    assert base == el.item_key("m-1", "task-1", "", date(2026, 7, 20))
+    assert base == el.item_key("m-1", "task-1", None, date(2026, 7, 20))
+
+
+def test_pre_run_and_agent_labels_agree_on_one_task() -> None:
+    """The live defect, reproduced. ``pre_run`` assigns a closed-set label; the
+    agent's turn invents a descriptor. Before ss #2151 these hashed the SAME
+    Smokeball task to different keys, so nothing ever joined: on the pilot, 160
+    events produced 128 item states and none matched an open task. Fire-once and
+    the seven-day ack snooze were both inert."""
+    pre_run_side = el.item_key("m-7", "task-42", "task-deadline", date(2026, 8, 11))
+    agent_side = el.item_key("m-7", "task-42", "rfa-confirm-service-date", date(2026, 8, 11))
+    assert pre_run_side == agent_side
+    assert el.token_for(pre_run_side) == el.token_for(agent_side)
+
+
+def test_item_key_still_discriminates_on_stable_fields() -> None:
+    """Dropping label must not collapse genuinely distinct items."""
+    base = el.item_key("m-1", "task-1", "task-deadline", date(2026, 7, 20))
+    assert base != el.item_key("m-2", "task-1", "task-deadline", date(2026, 7, 20))
+    assert base != el.item_key("m-1", "task-2", "task-deadline", date(2026, 7, 20))
+    assert base != el.item_key("m-1", "task-1", "task-deadline", date(2026, 7, 21))
+
+
 def test_has_stable_identity() -> None:
     assert el.has_stable_identity("task-9") is True
     assert el.has_stable_identity("") is False
@@ -194,3 +223,46 @@ def test_validate_append_requires_item_key_and_skill() -> None:
         el.validate_append([], {"event": "fired", "item_key": "", "skill": "s", "ts": "x"})
     with pytest.raises(ValueError):
         el.validate_append([], {"event": "fired", "item_key": "k1", "skill": "", "ts": "x"})
+
+
+# ---------------------------------------------------------------------------
+# Identity epoch (ss #2151) — a pre-epoch code must not read as acknowledged
+# ---------------------------------------------------------------------------
+
+
+def test_ack_against_pre_epoch_raise_is_refused_by_name() -> None:
+    """A human replying with an ACK code from an old alert must be told the code
+    is superseded, not quietly told the item was acked. The pre-epoch key names
+    nothing live, so accepting it would report a silenced alarm that never rang —
+    the same false-report class the identity fix exists to end."""
+    stale = _ev("fired", ts="2026-08-11T14:05:18.711Z", token="ACK-8SQ6CJ", key="d6718838f50dfa54")
+    stale["v"] = 1
+    with pytest.raises(ValueError, match="ss #2151"):
+        el.validate_append(
+            [stale], _ev("acked", ts="2026-08-12T09:00:00.000Z", token="ACK-8SQ6CJ", key="d6718838f50dfa54")
+        )
+
+
+def test_ack_still_accepted_when_a_current_raise_exists() -> None:
+    """The epoch guard must not block a legitimate ack. A pre-epoch row alongside
+    a current raise for the same token resolves against the current one."""
+    stale = _ev("fired", ts="2026-08-11T14:05:18.711Z", token="ACK-8SQ6CJ", key="k-live")
+    stale["v"] = 1
+    current = _ev("fired", ts="2026-08-12T14:00:00.000Z", token="ACK-8SQ6CJ", key="k-live")
+    el.validate_append([stale, current], _ev("acked", ts="2026-08-12T15:00:00.000Z", token="ACK-8SQ6CJ", key="k-live"))
+
+
+def test_raise_with_missing_version_is_treated_as_pre_epoch() -> None:
+    """Unknown provenance is not evidence of a current key."""
+    stale = _ev("fired", ts="2026-08-11T14:05:18.711Z", token="ACK-ZZZZZZ", key="k-unknown")
+    stale.pop("v", None)
+    with pytest.raises(ValueError, match="ss #2151"):
+        el.validate_append(
+            [stale], _ev("acked", ts="2026-08-12T09:00:00.000Z", token="ACK-ZZZZZZ", key="k-unknown")
+        )
+
+
+def test_schema_version_is_at_the_identity_epoch() -> None:
+    """New events must be written at (or above) the epoch, or every ack they
+    later receive would be refused as superseded."""
+    assert el.SCHEMA_VERSION >= el.IDENTITY_EPOCH
