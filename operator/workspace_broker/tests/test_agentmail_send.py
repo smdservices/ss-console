@@ -208,6 +208,111 @@ def test_case_and_whitespace_do_not_evade_the_fence(tmp_path: Path) -> None:
         ops.send({"to": [UNAUTHORED.upper()], "text": "x"})
 
 
+# ---------------------------------------------------------------------------
+# Unicode canonicalization (ss#2284 — five roster matchers exist and disagree)
+# ---------------------------------------------------------------------------
+
+# The SAME address in the two valid encodings of "é": precomposed (U+00E9) and
+# decomposed (e + U+0301). Written as escapes so the distinction survives any
+# editor that would silently normalize the file.
+_NFC_ADDR = "josé@examplefirm.example"
+_NFD_ADDR = "josé@examplefirm.example"
+_UNICODE_YAML = f"""
+scope:
+  inbound_allow_from:
+    - {_NFC_ADDR}
+  admins: []
+"""
+
+
+def test_the_two_encodings_are_genuinely_different_strings() -> None:
+    """Guard the guard: if these were equal, every test below would pass vacuously."""
+    assert _NFC_ADDR != _NFD_ADDR
+    assert _NFC_ADDR.lower() != _NFD_ADDR.lower()
+
+
+def test_a_decomposed_recipient_matches_a_precomposed_roster_entry(tmp_path: Path) -> None:
+    """Same human, two encodings. Without NFC this refuses a legitimate contact."""
+    ops = _ops(tmp_path, FakeHTTP(), _UNICODE_YAML)
+    assert ops.send({"to": [_NFD_ADDR], "text": "x"})["message_id"]
+    assert ops.send({"to": [_NFC_ADDR], "text": "x"})["message_id"]
+
+
+# An accented DOMAIN in both encodings. Grants and blocks are keyed on the DOMAIN,
+# not the local part, so isolating either path needs the accent here.
+_NFC_DOMAIN = "f\u00efrm.example"
+_NFD_DOMAIN = "fi\u0308rm.example"
+
+
+def test_the_two_domain_encodings_are_genuinely_different() -> None:
+    assert _NFC_DOMAIN != _NFD_DOMAIN
+
+
+def test_a_decomposed_recipient_matches_a_precomposed_domain_grant(tmp_path: Path) -> None:
+    """The grant branch canonicalizes too — it is parsed separately from addresses."""
+    grant_yaml = f"scope:\n  inbound_allow_from:\n    - '@{_NFC_DOMAIN}'\n"
+    policy = authored_policy(_seat(tmp_path, grant_yaml)[0])
+    assert policy.allows_recipient(f"anyone@{_NFD_DOMAIN}")
+    assert policy.allows_recipient(f"anyone@{_NFC_DOMAIN}")
+
+
+def test_an_encoding_variant_cannot_evade_a_domain_block(tmp_path: Path) -> None:
+    """The dangerous direction: on a DENY list a canonicalization miss fails OPEN.
+
+    Constructed so the BLOCK is the only thing that can refuse. The allow-side
+    grant is authored in BOTH encodings, so the recipient clears the allow check
+    either way; the block is authored in one encoding and the recipient arrives
+    in the other. Without NFC the block misses and the send is permitted.
+
+    The first version of this test authored the grant in ONE encoding, so the
+    recipient was refused by the allow miss and the assertion passed whether or
+    not the block worked. It proved nothing — the failure mode this file exists
+    to prevent, committed inside the file itself.
+    """
+    blocked = (
+        "scope:\n"
+        "  inbound_allow_from:\n"
+        f"    - '@{_NFC_DOMAIN}'\n"
+        f"    - '@{_NFD_DOMAIN}'\n"
+        "  domain_blocks:\n"
+        f"    - '@{_NFC_DOMAIN}'\n"
+    )
+    policy = authored_policy(_seat(tmp_path, blocked)[0])
+    assert not policy.allows_recipient(f"a@{_NFD_DOMAIN}"), "block evaded by encoding"
+    assert not policy.allows_recipient(f"a@{_NFC_DOMAIN}")
+
+
+def test_the_block_test_above_can_actually_fail(tmp_path: Path) -> None:
+    """Companion proof: with the block removed, that same recipient IS allowed.
+
+    Without this, a refusal coming from the allow set rather than the block would
+    be indistinguishable from the control working.
+    """
+    allow_only = (
+        "scope:\n"
+        "  inbound_allow_from:\n"
+        f"    - '@{_NFC_DOMAIN}'\n"
+        f"    - '@{_NFD_DOMAIN}'\n"
+    )
+    policy = authored_policy(_seat(tmp_path, allow_only)[0])
+    assert policy.allows_recipient(f"a@{_NFD_DOMAIN}")
+
+
+def test_canonicalize_matches_the_runtime_classifier_and_does_not_widen() -> None:
+    """Pins the exact form, including the deliberate choice of lower over casefold.
+
+    casefold maps ``ß`` to ``ss``, which would let ``strasse@x`` match an authored
+    ``straße@x`` — two different mailboxes colliding. On an allowlist a collision
+    WIDENS the fence, so lower() is correct here even though casefold is the more
+    common canonicalization advice.
+    """
+    from workspace_broker.agentmail_auth import canonicalize
+
+    assert canonicalize("  JOSÉ@Example.EXAMPLE ") == "josé@example.example"
+    assert canonicalize(_NFD_ADDR) == canonicalize(_NFC_ADDR)
+    assert canonicalize("straße@x.example") != "strasse@x.example"
+
+
 def test_a_display_name_address_is_parsed_not_compared_raw(tmp_path: Path) -> None:
     """Mail carries 'Name <addr@host>' constantly.
 

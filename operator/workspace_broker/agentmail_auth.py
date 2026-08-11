@@ -41,6 +41,7 @@ are refused.
 from __future__ import annotations
 
 import os
+import unicodedata
 from dataclasses import dataclass
 from email.utils import parseaddr
 from pathlib import Path
@@ -83,8 +84,37 @@ def load_send_key(credential_path: Path) -> str:
         return ""
 
 
+def canonicalize(text: str) -> str:
+    """The ONE canonical form every comparison at this fence uses (ss#2284).
+
+    ``unicodedata.normalize("NFC", …).strip().lower()`` — identical to the
+    runtime classifier's ``_canonicalize_roster_entry``
+    (``shared/recipient_classifier.py``), deliberately.
+
+    NFC is the load-bearing part. ``é`` has two valid encodings (precomposed
+    U+00E9, or ``e`` + U+0301), they are the same character to every human and
+    every mail system, and ``.lower()`` alone leaves them unequal. Without this,
+    a roster authored in one form and a recipient arriving in the other simply
+    never match.
+
+    Both directions of that mistake are real here, and one of them is dangerous:
+
+    * on the ALLOW set a mismatch REFUSES — a legitimate client contact becomes
+      silently unreachable, which is safe but wrong;
+    * on ``domain_blocks`` a mismatch **fails open** — an authored block written
+      in one form would not catch a recipient arriving in the other.
+
+    NOT ``casefold()``, which some canonicalization advice recommends: casefold
+    maps ``ß`` to ``ss``, so ``straße@x`` and ``strasse@x`` — different mailboxes —
+    would collide, and on an allowlist a collision WIDENS the fence. ``lower()``
+    can only ever fail to match, never over-match, which is the correct direction
+    for a deny-by-default control.
+    """
+    return unicodedata.normalize("NFC", text).strip().lower()
+
+
 def normalize_address(value: Any) -> str:
-    """Reduce any address shape to its bare, lowercased form.
+    """Reduce any address shape to its bare, canonical form.
 
     Mail carries addresses as ``"Display Name <addr@host>"`` at least as often as
     bare, and a fence that compares the display form against a roster refuses
@@ -105,11 +135,15 @@ def normalize_address(value: Any) -> str:
             return ""
     if not isinstance(value, str):
         return ""
-    parsed = parseaddr(value)[1].strip().lower()
+    # Canonicalize BEFORE parsing: a decomposed character inside a display name
+    # must not change how the address is extracted, and canonicalizing once at
+    # the boundary is the whole point (ss#2284 — five roster matchers exist
+    # seat-side and they do not agree; this fence adds no sixth spelling).
+    parsed = parseaddr(canonicalize(value))[1]
     # parseaddr yields "" for input it cannot read as an address; falling back to
     # the raw string would let an unparseable value be compared against the
     # roster, and the only safe comparison for garbage is one that fails.
-    return parsed
+    return canonicalize(parsed) if parsed else ""
 
 
 def _domain_of(address: str) -> str:
@@ -135,7 +169,7 @@ def _split_authored(entries: Any) -> tuple[set[str], set[str]]:
             entry = entry.get("address")
         if not isinstance(entry, str):
             continue
-        raw = entry.strip().lower()
+        raw = canonicalize(entry)
         if not raw:
             continue
         # A domain grant is checked BEFORE address parsing: "@firm.example" is
