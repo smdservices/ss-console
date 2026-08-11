@@ -823,19 +823,28 @@ describe('Operator customer Machine Dockerfile', () => {
     // diverged and the comment hid it (same shape as ss#2252).
     // shared/matter_gate.py + tests — NOT tracked pairs; diff-verified zero
     // intersection across the range; every overlaySha256 unchanged.
-    // e9bfe987 -> 2c32b75d (2026-08-11c, ss#2255): _webhook_skill_prompt's
-    // self-heal fallback instructed skill_view, which is not on the webhook
-    // tool surface, so every vendor route was one pre-load failure away from
-    // silent improvisation with a dead recovery path. The fallback now
-    // instructs read_file on /app/skills/<slug>/SKILL.md plus an honest-failure
-    // sentence — the same mechanism proven live on the pilot this same day
-    // (self-test and demand-letter lanes, vfy_01KZS2WAYH / vfy_01KZS44424).
-    // A new overlay test resolves the named tool against the actual webhook
-    // read surface, so naming an absent tool fails the build instead of
-    // shipping as prose. Range also carries overlay#246 (comment-only, reply
-    // plugin). bootstrap/translate.py + plugins/hermes-smd-reply/__init__.py +
-    // tests — NOT tracked pairs; every overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2c32b75d8580450776216197bc8f8c6226ad6c60"')
+    // e9bfe987 -> ad647365 (2026-08-11c, ss#2258 + ss#2255): a seat sends from
+    // ITS OWN inbox, or refuses. resolve_inbox_id took inboxes[0] on the
+    // docstring reasoning "single tenant per Machine, so the first inbox is the
+    // agent's own". AGENTMAIL_API_KEY is account-wide — provision-customer.sh
+    // says so outright ("It can reach the shared account's OTHER inboxes
+    // (cross-tenant)") — and the listing is newest-first: probed live it held
+    // EIGHT inboxes with the pilot's own at index SIX and a probe inbox created
+    // the previous afternoon at index 0. The caller is _dispatch_approved_send,
+    // which fires the moment a human approves a draft, and a client seat's
+    // day-one posture is external_send: draft_for_review — so every approved
+    // letter went through it. The moment ashton-price's inbox is created it
+    // becomes inboxes[0] and every OTHER seat starts sending as that client.
+    // Latent only because CONFIRM_SEND_DISPATCHED has 0 rows ever, which is also
+    // why nobody caught it. Now: authored AGENTMAIL_INBOX_ADDRESS else the
+    // <slug>@agentmail.to convention, and the address MUST appear in the listing
+    // — a miss RAISES rather than falling back, because sending from another
+    // firm's mailbox is worse than not sending. Also sweeps overlay#246 (docs,
+    // stranded 29 min after the last bump) and overlay#247 (webhook fallback
+    // instructs read_file not the absent skill_view, ss#2255).
+    // outbound_send.py + reply/__init__.py — NOT tracked pairs; every
+    // overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ad647365348bbebc6d84b2339ee25f5ea75b7b4a"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
