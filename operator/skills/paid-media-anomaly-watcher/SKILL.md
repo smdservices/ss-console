@@ -57,6 +57,8 @@ ADR 0021 Stream B: the cron daemon invokes `pre_run.py` BEFORE the agent. The sc
 
 The dashboard's watcher-health view greps `audit_log` for `SUPPRESSED_WAKE` rows in the last 24h — a missing row on a scheduled tick is the alarm signal, not silence.
 
+**On wake — the wake line in the Script Output block is this turn's item list (#2253).** Hermes injects the pre-run's stdout verbatim into the woken prompt, so that line is not a flag, it is the handoff. When it carries `plans`, each entry names the `campaign_id`, the `platform` it fired on, the anomaly `kind`, its `severity`, and the `detail` — the observed-vs-baseline comparison the rubric actually made. Those entries are the firing set: work from them, verify each against the platform when the connector allows, and state the figures they carry rather than re-deriving figures of your own. When the line carries **no plans** (a fail-open `decision_basis` such as `no_audit_writer_fail_open`, `suppress_heartbeat_failed_fail_open`, `customer_slug_unset_fail_open`, or `connectors_not_wired_fail_open`), or carries `plans_truncated: true`, the gate woke blind or partial: enumerate the platforms yourself and never treat a partial list as the complete one. Anything neither the payload nor a tool call this run produced renders "unavailable (connector down)" per `docs/style/empty-state-pattern.md` — never a plausible number.
+
 `customer.yaml.personas[].cron[]` (added by ADR 0021 Stream D schema PR) declares the per-customer schedule and points `pre_run` at `pre_run.py`:
 
 ```yaml
@@ -85,7 +87,7 @@ Per client, per active campaign, the rubric (see `references/categorization-rubr
 
 ### What the agent does
 
-1. **Iterate active clients with paid-media connectors enabled.** Per `customer.yaml`.
+1. **Start from the wake payload's `plans`, then iterate active clients with paid-media connectors enabled** per `customer.yaml`. The plans are the gate's firing set (see "When the agent wakes"); a blind or truncated wake means this enumeration is the only source and must run in full.
 2. **Pull yesterday's data + rolling 7-day baselines** from each enabled platform. Aggregate by campaign.
 3. **Run the anomaly rubric** against each campaign. Score each finding by severity (CRITICAL / WARN / INFO).
 4. **Group by client.** A client with 3 CRITICAL findings is treated differently than one with 1 INFO. Suppress all-INFO clients to keep the digest scannable.

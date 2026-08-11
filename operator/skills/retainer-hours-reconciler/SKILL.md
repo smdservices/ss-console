@@ -69,6 +69,14 @@ This skill is wired to a Hermes cron-skill schedule with a `pre_run.py` gate (AD
 
 See `pre_run.py` alongside this SKILL.md for the wake decision logic; see `references/algorithm.md` for the detailed bucket thresholds and period-boundary policy.
 
+**On wake — the wake line in the Script Output block is this turn's item list (#2253).** Hermes injects the pre-run's stdout verbatim into the woken prompt, so that line is not a flag, it is the handoff. Three shapes reach you, and the `decision_basis` tells them apart:
+
+- **`client_in_critical_band`** — carries `plans`, one per firing client: `client_slug`, `kind: critical_band`, the `bucket`, the `projected_eom_pct` the gate computed, and `low_confidence`. Those clients are the finding set. State the figures the payload carries; do not re-derive your own, and carry `low_confidence: true` into the post as the "projected (linear extrapolation), few days elapsed" caveat.
+- **`previously_critical_pending_ack`** — carries `plans` with `kind: pending_ack`: the slug only, with `bucket` / `projected_eom_pct` / `low_confidence` null. The gate returns on this branch before assigning buckets, so null means "no bucket computed this tick", never "this client is fine" — read the utilization yourself for those clients.
+- **`weekly_mandatory_boundary`** — carries **no plans, BY DESIGN.** This is the Monday cadence wake: no individual client triggered it, so there is no per-item fact to hand over, and enumerating the full roster IS the job. Absent plans here are not blindness. The distinction is in the basis itself — every blind basis ends in `_fail_open`; this one does not.
+
+When the line carries a **`*_fail_open` basis** (`no_audit_writer_fail_open`, `suppress_heartbeat_failed_fail_open`, `customer_slug_unset_fail_open`, `connectors_not_wired_fail_open`), or carries `plans_truncated: true`, the gate woke blind or partial: enumerate through the time tracker yourself and never treat a partial list as the complete one. Anything neither the payload nor a tool call this run produced surfaces as `"{client}: data unavailable — owner check {connector}"`, never as a plausible utilization figure (Phase 2 step 7).
+
 ## Procedure
 
 The skill runs in two phases. The mechanical per-client × per-connector fetch loop runs inside a single `execute_code` block — intermediate time-entry and SOW reads never enter the conversation context (ADR 0021 Stream A). Utilization-bucket classification, service-line threading detection, and Slack-report assembly stay in the agent's reasoning loop where they belong.
