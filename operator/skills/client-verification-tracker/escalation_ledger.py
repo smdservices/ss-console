@@ -336,8 +336,12 @@ def should_fire(
 # ---------------------------------------------------------------------------
 
 
-def _is_pre_identity_epoch(event) -> bool:
-    """True for a raise written before the ss #2151 identity fix. Its ``item_key``
+def is_pre_identity_epoch(event) -> bool:
+    """True for a raise written before the ss #2151 identity fix. PUBLIC so the
+    overlay's escalation plugin resolves ack tokens against the same rule the
+    broker validates with — a second implementation there would be a second
+    authority over one decision, and the two would disagree the first time
+    either changed. Its ``item_key``
     came from a different derivation (it hashed the model-composed label), so it
     can never name a live item. Acking one would tell a human an alarm was
     silenced when nothing changed — the exact class of false report the fix
@@ -377,7 +381,7 @@ def validate_append(existing_events, new_event: dict) -> None:
                 pass
             else:
                 continue
-            if _is_pre_identity_epoch(prior):
+            if is_pre_identity_epoch(prior):
                 # Matches, but its key came from the superseded derivation, so it
                 # names nothing live. Keep looking for a current raise.
                 stale_only = True
