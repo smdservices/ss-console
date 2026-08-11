@@ -554,6 +554,17 @@ skill_bindings:
     internal:
       - { artifact: establishment_report, seam: session_output, class: staff }
     outbound: none # same
+  # The third establishment skill, and the one that lands a real artifact. Its
+  # templates are `record`, not `work_product`: a skeleton carries the firm's
+  # structure and, by the render gate's construction, no case content at all, so
+  # it is a filed record of how the firm builds a document rather than a draft
+  # of anything. The report to the instructing admin is the same staff-class
+  # session output the other two emit.
+  document-library-establishment:
+    internal:
+      - { artifact: template_docx, seam: smokeball_file, class: record }
+      - { artifact: establishment_report, seam: session_output, class: staff }
+    outbound: none # the templates are filed into the firm's own record; the reply is the admin's own turn
 
   # ---- ops (ss#2148) ----
   # The auth probe produces NO artifact of any class: its entire output is the

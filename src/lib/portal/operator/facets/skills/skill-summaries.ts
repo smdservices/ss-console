@@ -54,6 +54,8 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Tracks California discovery response deadlines in both directions and brings the decision to your attorney. Never computes a deadline as final.',
   'discovery-served-watch':
     'Spots served discovery, reads the service date, and surfaces the deadline input for attorney confirmation. Never computes the deadline.',
+  'document-library-establishment':
+    'Surveys the documents your firm writes and proposes a library of templates, then builds only what you bless. Admin only. Case detail stays a visible marker, never filled in.',
   'document-receipt-logger':
     'Logs an inbound document against the right matter and drafts a receipt entry. Records arrival, never interprets contents.',
   'email-reply':
