@@ -313,7 +313,19 @@ def test_run_once_emits_wake_on_monday():
         run_once(connectors, BucketThresholds(), factory, now=MONDAY)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    # The cadence wake carries a basis and NO plans, BY DESIGN (#2253): nothing
+    # about a particular client triggered it, so there is no per-item fact to
+    # hand over and the turn enumerates the roster — that is the weekly report.
+    # This is NOT the blind fail-open case, and the basis is how the turn tells
+    # them apart: `weekly_mandatory_boundary` is a finding-free decision the
+    # gate made with the data in hand; every blind basis ends in `_fail_open`.
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "weekly_mandatory_boundary",
+    }
+    assert "plans" not in parsed
+    assert not parsed["decision_basis"].endswith("_fail_open")
     assert executor.calls == []  # audit never invoked on wake path
 
 
@@ -328,8 +340,58 @@ def test_run_once_emits_wake_on_critical_client_midweek():
         run_once(connectors, BucketThresholds(), factory, now=TUESDAY)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    # The wake line carries the facts the gate computed (#2253). A bare
+    # wakeAgent flag left the woken turn to source the band and the projection
+    # itself, and with the time tracker down it would source them from nowhere.
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "client_in_critical_band",
+        "plans": [
+            {
+                "client_slug": "client_a",
+                "kind": "critical_band",
+                "bucket": "OVER_CRITICAL",
+                "projected_eom_pct": 1.25,
+                "low_confidence": False,
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
     assert executor.calls == []
+
+
+def test_run_once_emits_wake_with_slug_only_plans_on_pending_ack():
+    """The pending-ack basis is fact-poorer by construction: `decide` returns
+    on that branch BEFORE assigning buckets, so the plan carries the slug and
+    nulls. Null here means "the gate computed no bucket this tick", never
+    "this client is fine" — the turn reads the figure itself."""
+    connectors = [
+        FakeConnector(
+            [_make_util(actual_mtd_hours=30.0, previously_critical_pending_ack=True)]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), lambda: None, now=TUESDAY)
+    )
+    assert code == 0
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "previously_critical_pending_ack",
+        "plans": [
+            {
+                "client_slug": "client_a",
+                "kind": "pending_ack",
+                "bucket": None,
+                "projected_eom_pct": None,
+                "low_confidence": None,
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
 
 
 def test_run_once_writes_audit_then_suppresses_on_quiet_tuesday():
@@ -361,6 +423,11 @@ def test_run_once_falls_back_to_wake_on_audit_failure():
     Without this, a silent suppress is structurally indistinguishable
     from a silently-broken pre_run.py — exactly the failure mode the
     Devil's Advocate critique flagged.
+
+    Asserted by exact equality with NO ``plans`` key: pre-#2253 every wake path
+    printed the same bare flag, so a blind fail-open and a fact-carrying wake
+    were indistinguishable on the wire — which is precisely how a fact-free turn
+    could read as a well-briefed one.
     """
     connectors = [FakeConnector([_make_util(actual_mtd_hours=30.0)])]
     executor = FakeExecutor(fail=True)
@@ -372,7 +439,12 @@ def test_run_once_falls_back_to_wake_on_audit_failure():
         run_once(connectors, BucketThresholds(), factory, now=TUESDAY)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "suppress_heartbeat_failed_fail_open",
+    }
+    assert "plans" not in parsed  # woke blind: SKILL.md's enumeration fallback applies
     assert len(executor.calls) == 1  # the attempt was made before fallback
 
 
@@ -385,7 +457,12 @@ def test_run_once_falls_back_to_wake_when_writer_factory_returns_none():
         run_once(connectors, BucketThresholds(), lambda: None, now=TUESDAY)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "no_audit_writer_fail_open",
+    }
+    assert "plans" not in parsed
 
 
 def test_run_once_suppresses_with_multiple_clients_all_balanced():
@@ -412,3 +489,133 @@ def test_run_once_suppresses_with_multiple_clients_all_balanced():
     assert len(executor.calls) == 1
     metadata = json.loads(executor.calls[0][1][11])
     assert metadata["client_count"] == 5
+
+
+# ---------------------------------------------------------------------------
+# The wake payload (#2253) — the handoff Hermes injects verbatim into the
+# woken turn's prompt. What is absent here is what the turn has to invent.
+# Ported from the escalator's fix (PR #2259). Three wake bases, unequal fact
+# richness, all three distinguishable on the wire.
+# ---------------------------------------------------------------------------
+
+
+def test_wake_payload_carries_every_critical_client_with_its_band():
+    """Each firing client lands with the band and the projection the gate
+    computed, so the Slack post states figures it was handed rather than
+    figures it re-derived."""
+    connectors = [
+        FakeConnector(
+            [
+                _make_util(client_slug="a", actual_mtd_hours=50.0),  # OVER_CRITICAL
+                _make_util(client_slug="b", actual_mtd_hours=10.0),  # UNDER_CRITICAL
+                _make_util(client_slug="c", actual_mtd_hours=30.0),  # BALANCED
+            ]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), lambda: None, now=TUESDAY)
+    )
+    assert code == 0
+    plans = {p["client_slug"]: p for p in json.loads(out)["plans"]}
+    assert set(plans) == {"a", "b"}  # c is BALANCED — not a finding
+    assert plans["a"]["bucket"] == "OVER_CRITICAL"
+    assert plans["b"]["bucket"] == "UNDER_CRITICAL"
+    assert plans["a"]["projected_eom_pct"] == 1.25
+    assert all(p["kind"] == "critical_band" for p in plans.values())
+
+
+def test_wake_payload_flags_a_low_confidence_projection():
+    """Three elapsed days extrapolated to a month is a weaker claim than
+    fifteen, and the gate already knows which it made. Handing the percentage
+    over without the flag invites the turn to state both identically."""
+    connectors = [
+        FakeConnector([_make_util(actual_mtd_hours=12.0, mtd_days_elapsed=3)])
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), lambda: None, now=TUESDAY)
+    )
+    assert code == 0
+    assert json.loads(out)["plans"][0]["low_confidence"] is True
+
+
+def test_wake_payload_truncation_announces_itself():
+    """Over the cap the list is partial, and the payload says so. A truncated
+    list that reads as complete is a check that cannot fail (Law 12)."""
+    connectors = [
+        FakeConnector(
+            [
+                _make_util(client_slug=f"client_{i}", actual_mtd_hours=50.0)
+                for i in range(58)
+            ]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), lambda: None, now=TUESDAY)
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["plans_total"] == 58
+    assert parsed["plans_emitted"] == 50
+    assert parsed["plans_truncated"] is True
+    assert len(parsed["plans"]) == 50
+
+
+def test_wake_payload_untruncated_says_so_explicitly():
+    """The flag is present on the complete case too, so its absence never has
+    to be read as "complete"."""
+    connectors = [
+        FakeConnector(
+            [
+                _make_util(client_slug=f"client_{i}", actual_mtd_hours=50.0)
+                for i in range(4)
+            ]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, BucketThresholds(), lambda: None, now=TUESDAY)
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["plans_total"] == parsed["plans_emitted"] == 4
+    assert parsed["plans_truncated"] is False
+
+
+def test_decide_plans_mirror_the_critical_set():
+    utils = [
+        _make_util(client_slug="a", actual_mtd_hours=50.0),  # OVER_CRITICAL
+        _make_util(client_slug="b", actual_mtd_hours=10.0),  # UNDER_CRITICAL
+        _make_util(client_slug="c", actual_mtd_hours=30.0),  # BALANCED
+    ]
+    decision = decide(
+        utils, BucketThresholds(), raw_inputs_for_digest=b"x", now=TUESDAY
+    )
+    assert {p.client_slug for p in decision.plans} == {"a", "b"}
+    assert len(decision.plans) == len(decision.extra_metadata["critical_clients"])
+
+
+def test_decide_weekly_boundary_carries_no_plans_by_design():
+    """The cadence wake has no per-item finding to hand over — the absence is
+    the design, not blindness, and the basis says which: it does NOT end in
+    `_fail_open`, so the turn reads it as "enumerate the roster, that is the
+    weekly report", not as "the gate could not see"."""
+    decision = decide(
+        [_make_util(actual_mtd_hours=50.0)],  # would otherwise be OVER_CRITICAL
+        BucketThresholds(),
+        raw_inputs_for_digest=b"x",
+        now=MONDAY,
+    )
+    assert decision.wake is True
+    assert decision.decision_basis == "weekly_mandatory_boundary"
+    assert decision.plans == ()
+    assert not decision.decision_basis.endswith("_fail_open")
+
+
+def test_decide_suppressed_decision_carries_no_plans():
+    decision = decide(
+        [_make_util(actual_mtd_hours=30.0)],
+        BucketThresholds(),
+        raw_inputs_for_digest=b"x",
+        now=TUESDAY,
+    )
+    assert decision.wake is False
+    assert decision.plans == ()

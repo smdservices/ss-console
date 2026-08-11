@@ -200,7 +200,27 @@ def test_run_once_emits_wake_on_anomaly():
         run_once(connectors, AnomalyThresholds(), factory)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    # The wake line carries the facts the gate computed (#2253). A bare
+    # wakeAgent flag left the woken turn to source per-item facts itself, and
+    # with a platform connector down it would source them from nowhere.
+    assert json.loads(out) == {
+        "wakeAgent": True,
+        "decision_basis": "anomaly_above_threshold",
+        "plans": [
+            {
+                "campaign_id": "camp_1",
+                "platform": "meta",
+                "kind": "cpl_spike",
+                "severity": "CRITICAL",
+                # The comparison the rubric made, verbatim — the digest states
+                # these numbers instead of reconstructing them.
+                "detail": "CPL $25.00 > 2.0× baseline $10.00",
+            }
+        ],
+        "plans_total": 1,
+        "plans_emitted": 1,
+        "plans_truncated": False,
+    }
     assert executor.calls == []  # never invoked on the wake path
 
 
@@ -238,6 +258,11 @@ def test_run_once_falls_back_to_wake_on_audit_failure():
     Without this, a silent suppress is structurally indistinguishable from
     a silently-broken pre_run.py — exactly the failure mode the
     Devil's Advocate critique flagged.
+
+    Asserted by exact equality with NO ``plans`` key: pre-#2253 every wake path
+    printed the same bare flag, so a blind fail-open and a fact-carrying wake
+    were indistinguishable on the wire — which is precisely how a fact-free turn
+    could read as a well-briefed one.
     """
     connectors = [FakeConnector([_make_snapshot()])]  # would suppress
     executor = FakeExecutor(fail=True)  # but audit write blows up
@@ -249,7 +274,12 @@ def test_run_once_falls_back_to_wake_on_audit_failure():
         run_once(connectors, AnomalyThresholds(), factory)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "suppress_heartbeat_failed_fail_open",
+    }
+    assert "plans" not in parsed  # woke blind: SKILL.md's enumeration fallback applies
     # The audit attempt was made (and failed) before the fallback.
     assert len(executor.calls) == 1
 
@@ -263,7 +293,104 @@ def test_run_once_falls_back_to_wake_when_writer_factory_returns_none():
         run_once(connectors, AnomalyThresholds(), lambda: None)
     )
     assert code == 0
-    assert json.loads(out) == {"wakeAgent": True}
+    parsed = json.loads(out)
+    assert parsed == {
+        "wakeAgent": True,
+        "decision_basis": "no_audit_writer_fail_open",
+    }
+    assert "plans" not in parsed
+
+
+# ---------------------------------------------------------------------------
+# The wake payload (#2253) — the handoff Hermes injects verbatim into the
+# woken turn's prompt. What is absent here is what the turn has to invent.
+# Ported from the escalator's fix (PR #2259).
+# ---------------------------------------------------------------------------
+
+
+def test_wake_payload_carries_every_firing_campaign_across_platforms():
+    """Multi-platform, multi-kind: each anomaly the rubric fired lands in the
+    plan list with the platform it fired on, so the digest never has to guess
+    which account a campaign belongs to."""
+    connectors = [
+        FakeConnector(
+            [
+                _make_snapshot(campaign_id="a", platform="meta", cpl=25.0, cpl_avg=10.0),
+                _make_snapshot(campaign_id="b", platform="google", frequency=6.0),
+                _make_snapshot(campaign_id="c", platform="linkedin", ctr=0.02, ctr_avg=0.05),
+            ]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, AnomalyThresholds(), lambda: None)
+    )
+    assert code == 0
+    plans = {p["campaign_id"]: p for p in json.loads(out)["plans"]}
+    assert plans["a"]["kind"] == "cpl_spike" and plans["a"]["platform"] == "meta"
+    assert plans["b"]["kind"] == "frequency_saturation" and plans["b"]["severity"] == "WARN"
+    assert plans["c"]["kind"] == "ctr_collapse" and plans["c"]["platform"] == "linkedin"
+    # Each detail is the observed-vs-baseline comparison, present verbatim.
+    assert all(p["detail"] for p in plans.values())
+
+
+def test_wake_payload_truncation_announces_itself():
+    """Over the cap the list is partial, and the payload says so. A truncated
+    list that reads as complete is a check that cannot fail (Law 12)."""
+    connectors = [
+        FakeConnector(
+            [
+                _make_snapshot(campaign_id=f"camp_{i}", cpl=25.0, cpl_avg=10.0)
+                for i in range(58)
+            ]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, AnomalyThresholds(), lambda: None)
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["plans_total"] == 58
+    assert parsed["plans_emitted"] == 50
+    assert parsed["plans_truncated"] is True
+    assert len(parsed["plans"]) == 50
+
+
+def test_wake_payload_untruncated_says_so_explicitly():
+    """The flag is present on the complete case too, so its absence never has
+    to be read as "complete"."""
+    connectors = [
+        FakeConnector(
+            [
+                _make_snapshot(campaign_id=f"camp_{i}", cpl=25.0, cpl_avg=10.0)
+                for i in range(4)
+            ]
+        )
+    ]
+    code, out = _capture_stdout(
+        run_once(connectors, AnomalyThresholds(), lambda: None)
+    )
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["plans_total"] == parsed["plans_emitted"] == 4
+    assert parsed["plans_truncated"] is False
+
+
+def test_decide_plans_mirror_the_anomaly_set():
+    snaps = [
+        _make_snapshot(campaign_id="a", cpl=25.0, cpl_avg=10.0),
+        _make_snapshot(campaign_id="b", frequency=6.0),
+        _make_snapshot(campaign_id="quiet"),  # daily == baseline, fires nothing
+    ]
+    decision = decide(snaps, AnomalyThresholds(), raw_inputs_for_digest=b"x")
+    assert {p.campaign_id for p in decision.plans} == {"a", "b"}
+    assert len(decision.plans) == decision.anomaly_count
+    assert len(decision.plans) == len(decision.extra_metadata["anomalies"])
+
+
+def test_decide_suppressed_decision_carries_no_plans():
+    decision = decide([_make_snapshot()], AnomalyThresholds(), raw_inputs_for_digest=b"x")
+    assert decision.wake is False
+    assert decision.plans == ()
 
 
 # ---------------------------------------------------------------------------

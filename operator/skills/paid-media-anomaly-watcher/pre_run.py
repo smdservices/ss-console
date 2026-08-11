@@ -196,12 +196,32 @@ def _compute_anomalies(
 
 
 @dataclass(frozen=True)
+class AnomalyPlan:
+    """One firing anomaly as the gate saw it, carried to the woken turn (#2253).
+
+    ``detail`` is the comparison the rubric actually made, VERBATIM — the
+    observed value against the baseline it was measured against. The kind and
+    severity alone say an anomaly exists; only the detail says what it was, and
+    a digest-writing turn that is handed the label without the numbers has to
+    source the numbers from somewhere. With the connector down, "somewhere"
+    is invention (the failure this whole change closes).
+    """
+
+    campaign_id: str
+    platform: str
+    kind: str
+    severity: str
+    detail: str
+
+
+@dataclass(frozen=True)
 class WakeDecision:
     wake: bool  # True → agent wakes; False → suppressed
     decision_basis: str
     pre_run_inputs_digest: bytes  # raw bytes the digest will be computed from
     anomaly_count: int
     extra_metadata: dict
+    plans: tuple[AnomalyPlan, ...] = ()
 
 
 def decide(
@@ -235,6 +255,16 @@ def decide(
                     for a in anomalies
                 ],
             },
+            plans=tuple(
+                AnomalyPlan(
+                    campaign_id=a.campaign_id,
+                    platform=a.platform,
+                    kind=a.kind,
+                    severity=a.severity,
+                    detail=a.detail,
+                )
+                for a in anomalies
+            ),
         )
     return WakeDecision(
         wake=False,
@@ -255,8 +285,52 @@ def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
     return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _emit_wake() -> int:
-    print(json.dumps({"wakeAgent": True}))
+# At most this many plans are serialized onto the wake line. A prompt-injected
+# block is not free, and an agency with a hundred firing campaigns does not need
+# all hundred to start work. The cap ALWAYS announces itself (plans_total /
+# plans_emitted / plans_truncated) — a truncated list that reads as complete is
+# a check that cannot fail.
+_MAX_SERIALIZED_PLANS = 50
+
+
+def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
+    """Print the wake gate line — WITH the facts the gate already computed (#2253).
+
+    Hermes reads only ``wakeAgent`` from the last stdout line and then injects
+    the whole stdout verbatim into the woken agent's prompt (the "Script Output"
+    block). Emitting a bare ``{"wakeAgent": true}`` therefore threw away every
+    per-item fact ``decide`` had in hand: which campaign, on which platform,
+    which anomaly kind, at what severity, and the observed-vs-baseline
+    comparison that tripped the rubric. On 2026-08-10 the sibling escalator woke
+    fact-free with its connector down and stated a specific date in the same
+    alert that said it could not read dates (#2253, fixed there by PR #2259).
+    A gate that hands over a bare boolean is asking the turn to supply the facts
+    from somewhere, and with no source reachable "somewhere" was invention.
+
+    Fail-open callers have no decision — they pass ``basis`` so the woken turn
+    knows it woke blind and must enumerate the platforms itself instead of
+    treating an absent plan list as an empty one.
+    """
+    payload: dict = {"wakeAgent": True}
+    resolved_basis = decision.decision_basis if decision is not None else basis
+    if resolved_basis:
+        payload["decision_basis"] = resolved_basis
+    if decision is not None and decision.plans:
+        emitted = decision.plans[:_MAX_SERIALIZED_PLANS]
+        payload["plans"] = [
+            {
+                "campaign_id": p.campaign_id,
+                "platform": p.platform,
+                "kind": p.kind,
+                "severity": p.severity,
+                "detail": p.detail,
+            }
+            for p in emitted
+        ]
+        payload["plans_total"] = len(decision.plans)
+        payload["plans_emitted"] = len(emitted)
+        payload["plans_truncated"] = len(emitted) < len(decision.plans)
+    print(json.dumps(payload))
     return 0
 
 
@@ -292,12 +366,12 @@ async def run_once(
 
     decision = decide(snapshots, thresholds, raw_inputs_for_digest=raw_input_blob)
     if decision.wake:
-        return _emit_wake()
+        return _emit_wake(decision)
 
     writer = audit_writer_factory()
     if writer is None:
         # Mirror-don't-gate: no writer = no trail = always wake.
-        return _emit_wake()
+        return _emit_wake(basis="no_audit_writer_fail_open")
     try:
         await writer.write_suppressed_wake(
             skill_name=skill_name,
@@ -307,7 +381,7 @@ async def run_once(
             extra_metadata=decision.extra_metadata,
         )
     except Exception:  # noqa: BLE001 — any audit failure → wake
-        return _emit_wake()
+        return _emit_wake(basis="suppress_heartbeat_failed_fail_open")
     return _emit_suppress()
 
 
@@ -348,18 +422,23 @@ def main() -> int:
         sys.stderr.write(
             "[pre_run] CUSTOMER_SLUG unset; falling back to wake\n"
         )
-        return _emit_wake()
+        return _emit_wake(basis="customer_slug_unset_fail_open")
 
     # TODO(connector-adapters): wire real connectors when
     # `operator/connectors/meta_ads/`, `google_ads/`, `linkedin_ads/`
     # ship. For now, the production cron-daemon invocation does not have
     # connectors and we fall through to wake. Tests exercise run_once()
     # directly with mock connectors.
+    # The basis names the ACTUAL condition rather than borrowing the escalator's
+    # `pre_run_crashed_fail_open`: nothing crashed here, the connectors were
+    # never wired. A woken turn that reads a basis it can trust literally is the
+    # whole point of #2253 — a basis that misdescribes the failure is the same
+    # class of invented fact, just committed by the gate instead of the turn.
     sys.stderr.write(
         "[pre_run] paid-media connector adapters not yet shipped; "
         "falling back to wake (see ADR 0021 Stream B follow-on)\n"
     )
-    return _emit_wake()
+    return _emit_wake(basis="connectors_not_wired_fail_open")
 
 
 if __name__ == "__main__":
