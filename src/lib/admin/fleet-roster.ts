@@ -240,6 +240,8 @@ export interface SchedulerSignal {
   connectorCheckOk?: number | null
   /** fleet_status.connectors_json verbatim; parsed defensively here. */
   connectorsJson?: string | null
+  /** ss#2276: 1 = crons deliberately contained, 0 normal, NULL unreported. */
+  cronContainment?: number | null
 }
 
 /**
@@ -274,6 +276,7 @@ export function seatSignals(
     scheduler_max_overdue_seconds: number | null
     connector_check_ok: number | null
     connectors_json: string | null
+    cron_containment?: number | null
   } | null
 ): SchedulerSignal {
   return {
@@ -281,6 +284,7 @@ export function seatSignals(
     maxOverdueSeconds: fleet?.scheduler_max_overdue_seconds ?? null,
     connectorCheckOk: fleet?.connector_check_ok ?? null,
     connectorsJson: fleet?.connectors_json ?? null,
+    cronContainment: fleet?.cron_containment ?? null,
   }
 }
 
@@ -306,6 +310,7 @@ interface RosterNoteInputs {
   summaryStatus: SummaryStatus | null
   connectorCheckOk: number | null
   failingConnectors: string[]
+  cronContainment: number | null
 }
 
 // Note precedence, most-actionable first: a hard breaker stop and a broken
@@ -322,6 +327,10 @@ function rosterHealthNote(inputs: RosterNoteInputs): string | null {
   }
   if (inputs.connectorCheckOk === 0) return 'connector health check broken'
   if (inputs.stickyStopLevel === 'SOFT_STOP') return 'cost breaker soft stop'
+  // ss#2276: a deliberate state, not a fault - but it must be SAID, because it
+  // also explains a zero job count and suppressed routines. Sits above
+  // 'overdue' so containment is named instead of read as lateness.
+  if (inputs.cronContainment === 1) return 'crons contained (deliberate)'
   if (inputs.overdue) return 'scheduled work overdue'
   if (inputs.summaryStatus === 'red') return 'operator reports a problem'
   if (inputs.summaryStatus === 'yellow') return 'operator reports a warning'
@@ -337,6 +346,8 @@ function signalEscalations(inputs: RosterNoteInputs): (RosterHealthColor | null)
     inputs.overdue ? 'yellow' : null,
     inputs.failingConnectors.length > 0 ? 'red' : null,
     inputs.connectorCheckOk === 0 ? 'red' : null,
+    // Containment paints attention-yellow: deliberate, but never invisible.
+    inputs.cronContainment === 1 ? 'yellow' : null,
   ]
 }
 
@@ -381,6 +392,7 @@ export function rosterHealth(
     summaryStatus,
     connectorCheckOk: scheduler?.connectorCheckOk ?? null,
     failingConnectors: failingConnectorNames(scheduler?.connectorsJson),
+    cronContainment: scheduler?.cronContainment ?? null,
   }
   const color = escalatedColor(heartbeatColor, signalEscalations(inputs))
   return { color, label: heartbeatLabel, note: rosterHealthNote(inputs) }

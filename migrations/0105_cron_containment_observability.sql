@@ -1,0 +1,12 @@
+-- ss#2276: cron containment visibility.
+--
+-- The overlay's CRON_CONTAINMENT volume sentinel durably disables all managed
+-- cron jobs across boots (the #2258-incident lever). The heartbeat reports the
+-- sentinel state every tick as cron_containment 1/0; this column stores it so
+-- a contained seat is visibly contained on the admin roster — never mistaken
+-- for a quietly broken one (Law 12).
+--
+-- 1 = sentinel present (crons deliberately off), 0 = normal, NULL = the seat
+-- has not reported (pre-upgrade overlay, or the check itself failed).
+-- Overwrite-including-NULL discipline, same as the other alert-driving fields.
+ALTER TABLE fleet_status ADD COLUMN cron_containment INTEGER;

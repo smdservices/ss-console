@@ -60,6 +60,8 @@ export interface FleetStatusRow {
   connectors_json: string | null
   /** Connector self-check verdict: 1 healthy / 0 broken / NULL unreported. */
   connector_check_ok: number | null
+  /** ss#2276: 1 = crons deliberately contained (volume sentinel), 0 normal, NULL unreported. */
+  cron_containment: number | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -71,7 +73,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
       `SELECT entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
               process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
               scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
-              connectors_json, connector_check_ok,
+              connectors_json, connector_check_ok, cron_containment,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`
