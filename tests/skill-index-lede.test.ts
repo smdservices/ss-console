@@ -45,8 +45,14 @@ const SKILLS_DIR = resolve('operator/skills')
 /** Hermes' own budget: `desc[:57] + '...'` once the description exceeds 60 chars. */
 const INDEX_BUDGET = 57
 
-type Skill = { slug: string; description: string }
+type Skill = { slug: string; description: string; parseError?: string }
 
+/**
+ * Never throws. A single malformed frontmatter used to abort this whole file at
+ * describe-time, which blinded the gate for all 56 skills at exactly the moment
+ * a skill file was broken. A parse failure is now a named row like any other
+ * finding.
+ */
 function loadSkills(): Skill[] {
   const slugs = readdirSync(SKILLS_DIR).filter((name) => {
     const dir = join(SKILLS_DIR, name)
@@ -54,12 +60,16 @@ function loadSkills(): Skill[] {
   })
 
   return slugs.map((slug) => {
-    const raw = readFileSync(join(SKILLS_DIR, slug, 'SKILL.md'), 'utf8')
-    const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-    if (!match) throw new Error(`${slug}/SKILL.md has no frontmatter block`)
-    const fm = parse(match[1]) as { description?: unknown }
-    const description = typeof fm?.description === 'string' ? fm.description.trim() : ''
-    return { slug, description }
+    try {
+      const raw = readFileSync(join(SKILLS_DIR, slug, 'SKILL.md'), 'utf8')
+      const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+      if (!match) return { slug, description: '', parseError: 'no frontmatter block' }
+      const fm = parse(match[1]) as { description?: unknown }
+      const description = typeof fm?.description === 'string' ? fm.description.trim() : ''
+      return { slug, description }
+    } catch (err) {
+      return { slug, description: '', parseError: (err as Error).message.split('\n')[0] }
+    }
   })
 }
 
@@ -87,8 +97,19 @@ describe('skill index lede — what the model sees when it selects', () => {
     expect(skills.length).toBeGreaterThan(0)
   })
 
+  it('every skill frontmatter parses', () => {
+    const broken = skills.filter((s) => s.parseError).map((s) => `${s.slug}: ${s.parseError}`)
+    expect(
+      broken,
+      `These SKILL.md files have malformed YAML frontmatter. The usual cause is a bare ` +
+        `"key: value" colon inside a PLAIN scalar description, which YAML reads as a nested ` +
+        `mapping; use a block scalar (description: >-) or drop the inner colon.\n\n    ` +
+        broken.join('\n    ')
+    ).toEqual([])
+  })
+
   it('every skill has a description', () => {
-    const missing = skills.filter((s) => !s.description).map((s) => s.slug)
+    const missing = skills.filter((s) => !s.parseError && !s.description).map((s) => s.slug)
     expect(missing, `skills with no frontmatter description:\n  ${missing.join('\n  ')}`).toEqual(
       []
     )
@@ -96,7 +117,7 @@ describe('skill index lede — what the model sees when it selects', () => {
 
   it(`every description opens with a sentence of <= ${INDEX_BUDGET} characters`, () => {
     const offenders = skills
-      .filter((s) => s.description)
+      .filter((s) => !s.parseError && s.description)
       .map((s) => ({ slug: s.slug, lede: firstSentence(s.description) }))
       .filter((s) => s.lede.length > INDEX_BUDGET)
       .map(
@@ -118,7 +139,7 @@ describe('skill index lede — what the model sees when it selects', () => {
   it('no two skills share an index fragment', () => {
     const byFragment = new Map<string, string[]>()
     for (const s of skills) {
-      if (!s.description) continue
+      if (s.parseError || !s.description) continue
       const frag = indexFragment(s.description)
       byFragment.set(frag, [...(byFragment.get(frag) ?? []), s.slug])
     }
