@@ -21,6 +21,8 @@ import { describe, it, expect } from 'vitest'
 import {
   CONNECTOR_DOWN_PREFIX,
   CONNECTOR_TOKEN_EXPIRING_PREFIX,
+  SPEC_CONTROL_BROKEN_PREFIX,
+  WEBHOOK_SURFACE_MISSING_PREFIX,
   CONDITION_PREFIXES,
 } from './conditions'
 import { STALE_HOLDS_SQL, STALE_HOLDS_BINDINGS } from './stale-holds'
@@ -134,6 +136,40 @@ describe('stale-holds SQL (executed against real SQLite)', () => {
       ]
     )
     expect(rows.map((r) => r.condition)).toEqual([`${CONNECTOR_TOKEN_EXPIRING_PREFIX}gmail`])
+  })
+
+  // The two prefix-only clauses: bound LIKE, no slice. A key that merely
+  // VANISHES from the map is a withdrawn declaration/expectation and resolves
+  // through openSpecControlKeys / openWebhookSurfaceKeys, so only a whole-map
+  // NULL strands these. Exercised here because bindings 5 and 6 are otherwise
+  // never executed by any test.
+  it('strands spec_control_broken only when the whole map is NULL', () => {
+    const cond = `${SPEC_CONTROL_BROKEN_PREFIX}staff.voice_spec`
+    expect(
+      runQuery([{ customer_slug: 'smd', condition: cond }], [{ customer_slug: 'smd' }])
+    ).toEqual([{ customer_slug: 'smd', condition: cond }])
+
+    // Map present but this key absent: NOT stranded (withdrawn declaration).
+    expect(
+      runQuery(
+        [{ customer_slug: 'smd', condition: cond }],
+        [{ customer_slug: 'smd', spec_control_json: JSON.stringify({ other: {} }) }]
+      )
+    ).toEqual([])
+  })
+
+  it('strands webhook_surface_missing only when the whole map is NULL', () => {
+    const cond = `${WEBHOOK_SURFACE_MISSING_PREFIX}operator_seat_facts`
+    expect(
+      runQuery([{ customer_slug: 'smd', condition: cond }], [{ customer_slug: 'smd' }])
+    ).toEqual([{ customer_slug: 'smd', condition: cond }])
+
+    expect(
+      runQuery(
+        [{ customer_slug: 'smd', condition: cond }],
+        [{ customer_slug: 'smd', webhook_surface_json: JSON.stringify({ other: {} }) }]
+      )
+    ).toEqual([])
   })
 
   // --- (a) the SQL follows the constant, not a memorized offset --------------
