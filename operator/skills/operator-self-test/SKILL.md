@@ -5,14 +5,15 @@ description: >-
   "run your self-test" (also "run a self-test" / "self check" /
   "test yourself"), the Operator's test page, for firm admins. Runs the
   fixed end-to-end checklist this file defines — connection status, a
-  counted read of the system of record, document production, a live
-  demonstration that the fabrication guard refuses an unverified
-  identifier — and delivers a one-page report to the requester only.
+  counted read of the system of record, document production into the
+  seat's authored ops location, a live demonstration that the
+  fabrication guard refuses an unverified identifier — and delivers a
+  one-page report to the requester only.
   Never improvised: a self-test answered without running this checklist
   is the exact failure this skill exists to prevent. Every line of the
   report is an observed result; a failed step prints as FAILED. A
   self-test that can only report success has measured nothing.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -25,10 +26,10 @@ metadata:
   smd:
     vertical: neutral # product skill — every seat ships it
     weight: light
-    action_class: read + internal draft + one report to the requester
+    action_class: read + internal_write + one report to the requester # internal_write is exactly ONE file per run — the step-3 certificate, filed only to the authored ops location (ss#2237); never a client matter, never a memo
     content_ceiling: counts_and_status_only # no matter content, no client names, no identifiers from the tenant appear in the report
     connectors:
-      - smokeball # auth_status + a counted list read; no writes to the tenant
+      - smokeball # auth_status + a counted list read + the ONE step-3 certificate render into the authored ops location (ss#2237); no other write of any kind
 ---
 
 # Operator Self-Test
@@ -60,10 +61,35 @@ remaining steps.
 numbers, no client identity of any kind appears in the report — the page
 proves reach, not content. If the read fails, FAILED + continue.
 
-**3. Produce.** Render this report itself as a Word document (.docx) and
-attach it to the delivery email. The attachment IS the document-production
-proof: if rendering fails, say so in the email body and send without it —
-a missing attachment reported honestly beats a silent downgrade.
+**3. Produce.** Render a one-page self-test certificate as a Word document
+(.docx) into the seat's authored ops location, and read it back. The filed,
+read-back document IS the document-production proof (ss#2237: an email turn
+has no .docx-attachment path; the render tool is the proven production path —
+the same one the document library uses).
+
+- **Resolve the location first, from the seat's own config** (`read_file` on
+  `/var/lib/smd-config/customer.yaml`): the `self_initiation.document_library`
+  location (resolve `matter_hint` against `mcp_smokeball_list_matters`, find
+  the authored `folder_name` with `mcp_smokeball_list_folders`); if that block
+  names no matter, fall back to `digest.home_matter_id`. If NEITHER is
+  authored, this step is FAILED with exactly that reason ("no authored ops
+  location for document production") — never render into a client matter, and
+  never pick a matter yourself. An honest FAILED here beats a document filed
+  where nobody chose.
+- **The certificate is dateless and content-free by design.** The render
+  gate mechanically refuses digit dates, figures, and identifiers outside
+  markers — and a certificate needs none of them. Write the checklist's step
+  names with PASS/FAILED, the connection status, and the matter COUNT; the
+  run's date, time, and detail live in the delivery email, and the
+  certificate says so in one line. Do not spell values out to slip the gate.
+- **Read it back before claiming it** (`mcp_smokeball_get_file`, then
+  `mcp_smokeball_read_document`, a bounded handful of polls): filed and
+  read back is PASS; filed but not yet materialized is reported in those
+  words; a render refusal or failure is FAILED with the refusal verbatim.
+
+This is the ONE write this skill ever makes, and only to the authored ops
+location. If rendering fails, say so in the email body and send the report
+without it — a missing document reported honestly beats a silent downgrade.
 
 **4. Refuse (the demonstration).** Attempt to create an internal draft memo
 containing the sentinel case number `ZZ-9999-0001` — a deliberately
@@ -78,8 +104,8 @@ test. The sentinel exists ONLY for this step; never use it, or any invented
 identifier, anywhere else for any reason.
 
 **Sentinel containment (mechanical, not stylistic):** the sentinel string
-itself must NEVER appear in the report, the email body, or the attachment —
-only inside the step-4 draft attempt that the guard refuses. The same guard
+itself must NEVER appear in the report, the email body, or the step-3
+certificate — only inside the step-4 draft attempt that the guard refuses. The same guard
 that refuses the memo watches the report's own delivery, and a report
 carrying an identifier that was never read would be refused too — the
 self-test must not fail its own delivery step. The refusal message you
@@ -99,7 +125,8 @@ OPERATOR SELF-TEST — [seat display name] — [date, time, timezone]
 
 1. Connections     [PASS/FAILED]  Smokeball: authenticated, production, N permissions
 2. Read            [PASS/FAILED]  I can see N matters
-3. Produce         [PASS/FAILED]  This report is attached as a Word document
+3. Produce         [PASS/FAILED]  Word document filed to [location] and read
+                                  back: [fileName], [sha256], [sizeBytes]
 4. Refuse          [PASS/FAILED]  What happens when I'm asked to use a case
                                   number I never read: "[refusal, verbatim]"
 5. Deliver         [PASS]         You asked; this reply is the round trip
@@ -110,8 +137,11 @@ FAILED step as the thing to fix, or: "All checks passed."]
 
 ## What this skill never does
 
-- Never writes anything into the tenant (no memo lands — step 4's draft is
-  refused by design or discarded on the failure path).
+- Never writes anything into the tenant EXCEPT the one step-3 certificate,
+  and only into the seat's authored ops location (ss#2237). No memo ever
+  lands — step 4's draft is refused by design or discarded on the failure
+  path — and no client matter is ever written to. An unauthored ops
+  location means step 3 is FAILED, never a location the skill chose.
 - Never includes matter content, client names, or any tenant identifier in
   the report. Counts and statuses only.
 - Never sends to anyone but the requester.
