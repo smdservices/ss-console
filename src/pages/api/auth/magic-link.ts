@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { createMagicLink, MAGIC_LINK_EXPIRY_MS } from '../../../lib/auth/magic-link'
 import { ORG_ID } from '../../../lib/constants'
+import { EMAIL_IDENTITY_PREDICATE, normalizeEmail } from '../../../lib/identity/email'
 import { requirePortalBaseUrl } from '../../../lib/config/app-url'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildMagicLinkUrl, magicLinkEmailHtml } from '../../../lib/email/templates'
@@ -44,7 +45,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       return redirect('/auth/sign-in?error=server', 302)
     }
 
-    const normalizedEmail = email.toLowerCase().trim()
+    const normalizedEmail = normalizeEmail(email)
     // Look up the portal user in the current app org. Email is not globally
     // unique across organizations.
     //
@@ -59,7 +60,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     // to check their email and nothing was ever sent. Same fix, same reason, as
     // src/lib/auth/clerk-bridge.ts:101.
     const user = await env.DB.prepare(
-      `SELECT * FROM users WHERE org_id = ? AND lower(email) = lower(?) AND role = 'client'`
+      `SELECT * FROM users WHERE org_id = ? AND ${EMAIL_IDENTITY_PREDICATE} AND role = 'client'`
     )
       .bind(ORG_ID, normalizedEmail)
       .first<UserRow>()

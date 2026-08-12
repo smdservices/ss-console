@@ -111,6 +111,50 @@ describe('ADR 0045 Workspace capability broker', () => {
     expect(bootSmoke).toContain('r2-account-key-strip-probe.py hermes AGENTMAIL_SEND_API_KEY')
   })
 
+  // ss#2258 msgraph wave. Same custody shape for the Graph SEND app credential —
+  // and one deliberate asymmetry that these tests pin so it cannot be "tidied"
+  // into symmetry by someone who reads the block above and assumes an omission.
+  it('strips the Graph send credential from the gateway environment', () => {
+    expect(entrypoint).toContain('unset MSGRAPH_SEND_TENANT_ID')
+    expect(entrypoint).toContain('MSGRAPH_SEND_CLIENT_SECRET')
+    expect(entrypoint.indexOf('unset MSGRAPH_SEND_TENANT_ID')).toBeLessThan(
+      entrypoint.lastIndexOf('exec setpriv')
+    )
+  })
+
+  it('KEEPS the Graph READ credential in the gateway, on purpose', () => {
+    // The agent needs MSGRAPH_CLIENT_SECRET for the inbound delta poller and the
+    // msgraph-mail MCP server, and Graph app-only auth has no read-only variant
+    // of a send-capable credential (a client-credentials token is always
+    // `/.default`). Stripping it would blind the seat, not harden it. Deleting
+    // this test to "fix the inconsistency" is the mistake it guards against.
+    const stripSection = entrypoint.slice(entrypoint.indexOf('unset AGENTMAIL_SEND_API_KEY'))
+    expect(stripSection).not.toMatch(/unset[^\n]*\bMSGRAPH_CLIENT_SECRET\b/)
+    expect(stripSection).not.toMatch(/unset[^\n]*\bMSGRAPH_MAILBOX\b/)
+  })
+
+  it('gives the broker the Graph send credential by path, never by value', () => {
+    const brokerChild = entrypoint.slice(entrypoint.indexOf('setpriv'))
+    expect(brokerChild).toContain('SMD_MSGRAPH_CREDENTIAL_PATH=')
+    expect(brokerChild).not.toContain('MSGRAPH_SEND_CLIENT_SECRET=')
+    // Nor the read credential: the broker has no business reading mail, and the
+    // mailbox it sends as comes from customer.yaml rather than from a secret.
+    expect(brokerChild).not.toContain('MSGRAPH_CLIENT_SECRET=')
+    expect(brokerChild).not.toContain('MSGRAPH_MAILBOX=')
+  })
+
+  it('locks the Graph send credential to the broker uid at 0600', () => {
+    expect(entrypoint).toContain(
+      'chown workspace-broker:workspace-broker "${SMD_MSGRAPH_CREDENTIAL_PATH}"'
+    )
+    expect(entrypoint).toContain('chmod 0600 "${SMD_MSGRAPH_CREDENTIAL_PATH}"')
+  })
+
+  it('proves the Graph send-credential strip on the RUNNING machine', () => {
+    expect(bootSmoke).toContain('msgraph-send-credential-stripped-from-agent')
+    expect(bootSmoke).toContain('hermes MSGRAPH_SEND_CLIENT_SECRET')
+  })
+
   it('does not install Google provider libraries into the Hermes venv', () => {
     expect(dockerfile).not.toMatch(
       /uv pip install --no-cache-dir google-api-python-client google-auth/
