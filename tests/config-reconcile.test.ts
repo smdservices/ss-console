@@ -596,3 +596,105 @@ describe('the reconciler is actually scheduled', () => {
     expect(source).toContain('fetch-depth: 0')
   })
 })
+
+/**
+ * ss#2307. The script's exit-code contract was correct and covered by every
+ * test above; the WORKFLOW STEP consuming it threw that contract away. GitHub
+ * runs `run:` bodies under `bash -e`, so the reconciler exiting 2 — the
+ * findings code, the only non-zero path that is not an error — aborted the step
+ * before `cat reconcile.txt` and before `status` reached GITHUB_OUTPUT, leaving
+ * the issue-opening step (gated on `status == '2'`) unreachable. The control
+ * was mute in precisely the case it exists for: the 2026-08-12 dry run found
+ * three drifted rows and reported them nowhere.
+ *
+ * These tests execute the REAL step body extracted from the YAML, under the
+ * shell GitHub uses, against a stub that exits 2. Asserting on the body's text
+ * would only restate the fix; running it is what can fail.
+ */
+describe('the reconcile step reports what the reconciler found (ss#2307)', () => {
+  const workflow = join(REPO_ROOT, '.github', 'workflows', 'customer-config-reconcile.yml')
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  /** The `run:` body of the reconcile step, dedented, exactly as GitHub runs it. */
+  const stepBody = (): string => {
+    const source = readFileSync(workflow, 'utf8')
+    const start = source.indexOf('      - name: Reconcile every row against main')
+    expect(start).toBeGreaterThan(-1)
+    const body = source.slice(source.indexOf('run: |', start) + 'run: |\n'.length)
+    const lines: string[] = []
+    for (const line of body.split('\n')) {
+      if (line.trim() !== '' && !line.startsWith('          ')) break
+      lines.push(line.slice(10))
+    }
+    return lines.join('\n')
+  }
+
+  /**
+   * Run a step body the way the runner does: `bash -e <file>`, with the
+   * reconciler replaced by a stub that prints a report and exits `code`.
+   */
+  const runStep = (body: string, code: number) => {
+    dir = mkdtempSync(join(tmpdir(), 'step-2307-'))
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(
+      join(dir, 'scripts', 'ci-reconcile-customer-configs.sh'),
+      `#!/usr/bin/env bash\necho "REPORT: smd-staging DRIFTED"\nexit ${code}\n`
+    )
+    const outputs = join(dir, 'github_output')
+    writeFileSync(outputs, '')
+    writeFileSync(join(dir, 'step.sh'), body)
+    let stdout: string
+    let failed = false
+    try {
+      stdout = execFileSync('bash', ['-e', join(dir, 'step.sh')], {
+        cwd: dir,
+        encoding: 'utf-8',
+        env: { ...process.env, GITHUB_OUTPUT: outputs },
+      })
+    } catch (err) {
+      failed = true
+      stdout = String((err as { stdout?: string }).stdout ?? '')
+    }
+    return { stdout, failed, outputs: readFileSync(outputs, 'utf-8') }
+  }
+
+  it('prints the report and records status=2 when the reconciler finds drift', () => {
+    const run = runStep(stepBody(), 2)
+    // Without this the finding exists only in an exit code nobody can read.
+    expect(run.stdout).toContain('REPORT: smd-staging DRIFTED')
+    // The issue-opening step is gated on exactly this.
+    expect(run.outputs).toContain('status=2')
+    expect(run.failed).toBe(false)
+  })
+
+  it('still fails the run when the reconciler could not evaluate (exit 1)', () => {
+    const run = runStep(stepBody(), 1)
+    expect(run.failed).toBe(true)
+    // Even a HOLD must not be silent — a control that cannot evaluate says so.
+    expect(run.stdout).toContain('REPORT: smd-staging DRIFTED')
+  })
+
+  it('passes the report through untouched on a clean run', () => {
+    const run = runStep(stepBody(), 0)
+    expect(run.failed).toBe(false)
+    expect(run.outputs).toContain('status=0')
+  })
+
+  /**
+   * The falsifier. Reintroduce the pre-fix body and confirm this harness
+   * reports the defect — otherwise the three tests above are green for a reason
+   * nobody has established.
+   */
+  it('detects the regression if the `|| STATUS=$?` guard is removed', () => {
+    const regressed = stepBody().replace(/ \|\| STATUS=\$\?/, '\n          STATUS=$?')
+    expect(regressed).not.toEqual(stepBody())
+    const run = runStep(regressed, 2)
+    expect(run.stdout).not.toContain('REPORT: smd-staging DRIFTED')
+    expect(run.outputs).not.toContain('status=2')
+  })
+})
