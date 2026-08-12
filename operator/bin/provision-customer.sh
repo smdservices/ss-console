@@ -654,8 +654,23 @@ stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base
 # multi-customer AgentMail seat.
 if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
     "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
-  stage_secret_from_env AGENTMAIL_API_KEY "${AGENTMAIL_API_KEY:-}" "AgentMail read/draft credential for the gateway (inbox-scoped, NO send permission)"
-  stage_secret_from_env AGENTMAIL_SEND_API_KEY "${AGENTMAIL_SEND_API_KEY:-}" "AgentMail send credential for the broker ONLY (inbox-scoped, message_send; stripped from agent env)"
+  # PER-SEAT, and it has to be. Both keys are scoped to ONE inbox at the vendor
+  # (ss#2258), so a single shared value is no longer merely untidy — staging one
+  # seat's key onto another gives that seat a credential for a mailbox it does
+  # not own, and its own mailbox becomes unreachable. Same convention and the
+  # same reasoning as WEBHOOK_SECRET_AGENTMAIL__<CID> below, whose comment
+  # records the identical bug one layer over: a reprovision silently overwriting
+  # a customer's own value with the global one.
+  #
+  # The global fallback is kept ONLY for the pre-scoped-key transition. It is a
+  # migration affordance, not a supported end state: once every seat has vaulted
+  # AGENTMAIL_API_KEY__<CID>, the bare names should go.
+  _AGENTMAIL_CID="$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+  _AGENTMAIL_READ_NAME="AGENTMAIL_API_KEY__${_AGENTMAIL_CID}"
+  _AGENTMAIL_SEND_NAME="AGENTMAIL_SEND_API_KEY__${_AGENTMAIL_CID}"
+  stage_secret_from_env AGENTMAIL_API_KEY "${!_AGENTMAIL_READ_NAME:-${AGENTMAIL_API_KEY:-}}" "AgentMail read/draft credential for the gateway (inbox-scoped, NO send permission; per-seat ${_AGENTMAIL_READ_NAME}, else global)"
+  stage_secret_from_env AGENTMAIL_SEND_API_KEY "${!_AGENTMAIL_SEND_NAME:-${AGENTMAIL_SEND_API_KEY:-}}" "AgentMail send credential for the broker ONLY (inbox-scoped, message_send; stripped from agent env; per-seat ${_AGENTMAIL_SEND_NAME}, else global)"
+  unset _AGENTMAIL_CID _AGENTMAIL_READ_NAME _AGENTMAIL_SEND_NAME
   _AGENTMAIL_WH_KEY="WEBHOOK_SECRET_AGENTMAIL__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
   _AGENTMAIL_WH_SECRET="${!_AGENTMAIL_WH_KEY:-${WEBHOOK_SECRET_AGENTMAIL:-}}"
   stage_secret_from_env WEBHOOK_SECRET_AGENTMAIL "${_AGENTMAIL_WH_SECRET}" "AgentMail Svix webhook signing secret (per-customer ${_AGENTMAIL_WH_KEY}, else global)"
