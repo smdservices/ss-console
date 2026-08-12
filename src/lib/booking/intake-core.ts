@@ -11,6 +11,7 @@ import { createContact } from '../db/contacts'
 import { updateAssessment, getAssessment } from '../db/assessments'
 import { createMeetingWithLegacyAssessment, ensureMeetingForAssessment } from '../db/meetings'
 import { appendContext } from '../db/context'
+import { EMAIL_IDENTITY_PREDICATE, normalizeEmail } from '../identity/email'
 import { interestLabel } from './config'
 import { attributionSummary, type AdAttribution } from '../marketing/attribution'
 
@@ -161,9 +162,15 @@ async function resolveContact(
   entityId: string,
   input: IntakeInput
 ): Promise<ContactResolution> {
+  // Case-INSENSITIVE, and trimmed on the input side. `contacts.email` carries
+  // no COLLATE NOCASE (migrations/0001_create_tables.sql:164), so an exact
+  // comparison made `Owner@Example.com` and `owner@example.com` two different
+  // people: the same prospect booking twice got a second contact row on the
+  // same entity and a split correspondence history. Nobody types their own
+  // address the same way twice. See src/lib/identity/email.ts.
   const existing = await db
-    .prepare('SELECT id FROM contacts WHERE org_id = ? AND email = ? LIMIT 1')
-    .bind(orgId, input.email)
+    .prepare(`SELECT id FROM contacts WHERE org_id = ? AND ${EMAIL_IDENTITY_PREDICATE} LIMIT 1`)
+    .bind(orgId, normalizeEmail(input.email))
     .first<{ id: string }>()
   if (existing) return { contactId: existing.id, contactCreated: false }
   const contact = await createContact(db, orgId, entityId, { name: input.name, email: input.email })

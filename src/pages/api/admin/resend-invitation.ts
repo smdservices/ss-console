@@ -5,6 +5,7 @@ import { sendEmail } from '../../../lib/email/resend'
 import { buildMagicLinkUrl, portalInvitationEmailHtml } from '../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../lib/auth/admin-session'
+import { normalizeEmail } from '../../../lib/identity/email'
 import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 
 interface UserRow {
@@ -42,7 +43,7 @@ async function maybeUpdateEmail(
   newEmail: unknown
 ): Promise<string | Response> {
   if (!newEmail || typeof newEmail !== 'string') return currentEmail
-  const normalizedEmail = newEmail.toLowerCase().trim()
+  const normalizedEmail = normalizeEmail(newEmail)
   if (normalizedEmail === currentEmail) return currentEmail
 
   // Update is org-scoped as a defense-in-depth measure even though the

@@ -2,6 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { z } from 'zod'
 import type { McpConnector } from '../customer-yaml/types'
 import { parseMcpConnector } from '../../portal/customer-config'
+import { normalizeEmail } from '../../identity/email'
 
 const CUSTOMER_SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/
 const MCP_RESOURCE_PREFIX = '/api/operator'
@@ -78,9 +79,14 @@ function resolvePrincipals(
   connector: McpConnector,
   userRows: readonly z.infer<typeof userRowSchema>[]
 ): AuthorizedMcpPrincipal[] {
-  const usersByEmail = new Map(userRows.map((user) => [user.email.toLowerCase(), user]))
+  // Both sides folded through the shared identity normalization: the authored
+  // `mcp_connector.access[]` email is hand-typed into customer.yaml and the
+  // users row carries whatever casing its IdP returned. A miss here does not
+  // error — the entry is dropped from the principal set, so the person simply
+  // has no MCP access and nothing says why.
+  const usersByEmail = new Map(userRows.map((user) => [normalizeEmail(user.email), user]))
   return connector.access.flatMap((entry) => {
-    const user = usersByEmail.get(entry.email.toLowerCase())
+    const user = usersByEmail.get(normalizeEmail(entry.email))
     if (!user) return []
     const clerkUserIds = [
       ...(entry.clerk_subjects ?? []),

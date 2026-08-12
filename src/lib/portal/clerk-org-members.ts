@@ -30,6 +30,7 @@
 
 import type { APIContext } from 'astro'
 import { clerkClient } from '@clerk/astro/server'
+import { normalizeEmail } from '../identity/email'
 
 /**
  * One Clerk-side participant in an organization. Discriminated by
@@ -178,8 +179,8 @@ export function dedupePendingAgainstMembers(
   pending: readonly ClerkOrgPendingInvite[],
   members: readonly ClerkOrgMember[]
 ): ClerkOrgPendingInvite[] {
-  const joinedEmails = new Set(members.map((m) => m.email.toLowerCase()))
-  return pending.filter((inv) => !joinedEmails.has(inv.email.toLowerCase()))
+  const joinedEmails = new Set(members.map((m) => normalizeEmail(m.email)))
+  return pending.filter((inv) => !joinedEmails.has(normalizeEmail(inv.email)))
 }
 
 /**

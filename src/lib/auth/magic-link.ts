@@ -16,6 +16,8 @@
  *     in a future change.
  */
 
+import { normalizeEmail } from '../identity/email'
+
 /** Default TTL for admin and client login magic links (15 minutes). */
 export const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000
 
@@ -74,7 +76,7 @@ export async function createMagicLink(
       `INSERT INTO magic_links (id, org_id, user_id, email, token, expires_at)
        VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .bind(id, subject.orgId, subject.userId, subject.email.toLowerCase().trim(), token, expiresAt)
+    .bind(id, subject.orgId, subject.userId, normalizeEmail(subject.email), token, expiresAt)
     .run()
 
   return token
