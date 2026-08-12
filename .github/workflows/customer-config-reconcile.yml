@@ -93,8 +93,16 @@ jobs:
           set -u
           # Redirect rather than pipe: `$?` after `| tee` reports TEE's status,
           # not the script's, and this control would then never fire.
-          bash scripts/ci-reconcile-customer-configs.sh > reconcile.txt 2>&1
-          STATUS=$?
+          #
+          # `|| STATUS=$?` is load-bearing, not style (ss#2307). GitHub runs this
+          # body under `bash -e`, so an unguarded non-zero exit aborts the step
+          # HERE — before the report is printed and before `status` reaches
+          # GITHUB_OUTPUT — which silently skips the issue-opening step below.
+          # The findings path is the one path that exits non-zero, so the control
+          # was mute in exactly the case it exists for. Putting the call in a
+          # `||` list makes its failure handled, which is what suspends `-e`.
+          STATUS=0
+          bash scripts/ci-reconcile-customer-configs.sh > reconcile.txt 2>&1 || STATUS=$?
           cat reconcile.txt
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
           # Exit 2 is a finding, handled by the next step. Anything else that is
