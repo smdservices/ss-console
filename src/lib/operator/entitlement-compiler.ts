@@ -56,6 +56,7 @@ import {
 } from '../portal/operator/config-governance'
 import type { RoutineGrid, RoutineGridRow, RoutineTier } from './routine-grid'
 import { ROUTINE_TIERS } from './routine-grid'
+import { EXPOSURE_ACTION_CLASSES } from './customer-yaml/types'
 
 /** Ordering of the tier vocabulary, least → most autonomous. */
 const TIER_RANK: Readonly<Record<RoutineTier, number>> = {
@@ -85,6 +86,7 @@ export type RejectionCode =
   | 'no_graduation_path'
   | 'below_vertical_floor'
   | 'persona_missing'
+  | 'unknown_exposure_key'
 
 export interface Rejection {
   code: RejectionCode
@@ -147,24 +149,70 @@ export function sendActionClassOf(row: RoutineGridRow): string | null {
 }
 
 /**
+ * True when a grid key names an action class the seat's override store can
+ * actually hold a row for. Mirrors the Machine's `_OVERRIDABLE_ACTIONS`
+ * (`shared/exposure_override.py`) — see `EXPOSURE_ACTION_CLASSES`.
+ */
+export function isHonoredActionClass(key: string): boolean {
+  return (EXPOSURE_ACTION_CLASSES as readonly string[]).includes(key)
+}
+
+/**
+ * The resolved live tier plus WHY it resolved that way (ss#2314).
+ *
+ * `flag-only` has two causes that used to be the same value:
+ *   - the key is honored and simply carries no authored/override value —
+ *     the legitimate fail-closed posture (ADR 0035/0056), and
+ *   - the key matches nothing the seat can honor — a CONFIG DEFECT that was
+ *     rendering as a safety posture nobody was enforcing.
+ *
+ * `unknownActionClass` names the offending key in the second case and is null
+ * in the first. The tier is fail-closed either way: a broken key never relaxes
+ * a posture, it only stops being silent about it.
+ */
+export interface LiveTierResolution {
+  tier: RoutineTier
+  /** The grid key the seat cannot honor, or null when the key is fine. */
+  unknownActionClass: string | null
+}
+
+/**
  * The tier a routine is CURRENTLY at, derived from live config rather than
  * from the grid's recorded `start_tier` (which is the letter's starting
- * point, not necessarily today's state after a prior change).
+ * point, not necessarily today's state after a prior change), together with
+ * the key-health signal callers need to tell a posture from a defect.
  */
-export function liveTierOf(row: RoutineGridRow, live: LiveExposure): RoutineTier {
+export function resolveLiveTier(row: RoutineGridRow, live: LiveExposure): LiveTierResolution {
   const sendClass = sendActionClassOf(row)
-  if (sendClass === null) return 'flag-only'
+  // No send class at all is structural, not a defect: the row's skills carry
+  // no draft or send tool, so flag-only is the only tier it HAS.
+  if (sendClass === null) return { tier: 'flag-only', unknownActionClass: null }
+  if (!isHonoredActionClass(sendClass)) {
+    // Fail closed AND say so. The authored value (if any) is deliberately not
+    // consulted — a key the Machine cannot index has no enforced meaning, and
+    // reading one would be inventing a posture from a string.
+    return { tier: 'flag-only', unknownActionClass: sendClass }
+  }
   const authored = asCeiling(live.exposure[sendClass])
-  if (authored === null) return 'flag-only'
-  if (authored === 'autonomous') return 'auto-handle'
+  if (authored === null) return { tier: 'flag-only', unknownActionClass: null }
+  if (authored === 'autonomous') return { tier: 'auto-handle', unknownActionClass: null }
   // `refused` IS flag-only: the runtime dial expresses a flag-only target as
   // an explicit refused override (the store has no delete verb), which is
   // enforcement-equivalent to the unauthored key. Mapping it to
   // prepare-and-route rendered a lowered routine one tier too high — found by
   // the ss#2003 live probe (portal set flag-only; page re-rendered
   // prepare-and-route while the Machine correctly held refused).
-  if (authored === 'refused') return 'flag-only'
-  return 'prepare-and-route'
+  if (authored === 'refused') return { tier: 'flag-only', unknownActionClass: null }
+  return { tier: 'prepare-and-route', unknownActionClass: null }
+}
+
+/**
+ * Tier-only accessor for callers that genuinely need nothing else. Prefer
+ * `resolveLiveTier` on any DISPLAY path: this function cannot distinguish a
+ * fail-closed posture from a broken key, which is the ss#2314 defect itself.
+ */
+export function liveTierOf(row: RoutineGridRow, live: LiveExposure): RoutineTier {
+  return resolveLiveTier(row, live).tier
 }
 
 /**
@@ -216,10 +264,24 @@ function guardRequest(
       message: `"${row.routine}" is committed at a ceiling of ${row.ceiling_tier} (${row.ceiling_verbatim}); raising it is a commitment change, not a settings change`,
     })
   }
-  if (sendActionClassOf(row) === null && TIER_RANK[target] > TIER_RANK['flag-only']) {
+  const sendClass = sendActionClassOf(row)
+  if (sendClass === null && TIER_RANK[target] > TIER_RANK['flag-only']) {
     rejections.push({
       code: 'no_graduation_path',
       message: `"${row.routine}" authors no send action class — its skills carry no draft or send tool, so there is no path above flag-only`,
+    })
+  }
+  // A key the Machine cannot index is refused BEFORE anything is posted
+  // (ss#2314). The seat would reject the write itself (409, unknown action
+  // class), but only after the console had already computed a `fromTier` from
+  // a lookup that could never hit — so the client saw a generic transport
+  // error for a config defect. Rejecting here names the actual cause, and
+  // covers a grid that reached this path unvalidated (the D1 projection is not
+  // re-run through validateRoutineGrid).
+  if (sendClass !== null && !isHonoredActionClass(sendClass)) {
+    rejections.push({
+      code: 'unknown_exposure_key',
+      message: `"${row.routine}" is configured with the exposure key "${sendClass}", which is not an action class the Operator can enforce; its level cannot be changed until the configuration is corrected`,
     })
   }
   return rejections.length > 0 ? { ok: false, rejections } : { ok: true, row, target }

@@ -14,6 +14,7 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import {
   ACCEPTED_ACTION_CLASSES,
+  EXPOSURE_ACTION_CLASSES,
   SEND_ACTION_CLASSES,
 } from '../src/lib/operator/customer-yaml/types'
 
@@ -57,5 +58,30 @@ describe('action-class parity: TS ⇄ Python adapter (ADR 0075)', () => {
   it('the send classes agree between TS SEND_ACTION_CLASSES and the Python enum', () => {
     const pySend = new Set(pyValues.filter((v) => v.startsWith('external_send')))
     expect(pySend).toEqual(new Set<string>(SEND_ACTION_CLASSES as readonly string[]))
+  })
+
+  /**
+   * ss#2314: `EXPOSURE_ACTION_CLASSES` is the key set the seat's override
+   * store will honor, and it now gates what `routine-grid.yaml` may author.
+   * The seat computes its own `_OVERRIDABLE_ACTIONS`
+   * (`shared/exposure_override.py`) as the Python enum minus `READ` and
+   * `REFUSED`. This pins the same derivation against the in-repo adapter, so
+   * a class added or renamed on the Python side cannot leave the authoring
+   * gate silently checking a stale vocabulary.
+   *
+   * LIMIT, stated so this test is not read as more than it is: the adapter
+   * this reads is ss-console's copy. The overlay's `shared/action_classes.py`
+   * lives in another repo and is not reachable from CI here — drift between
+   * those two Python files is out of this instrument's range.
+   */
+  it('EXPOSURE_ACTION_CLASSES equals the Python enum minus read/refused', () => {
+    const expected = new Set(pyValues.filter((v) => v !== 'read' && v !== 'refused'))
+    expect(new Set<string>(EXPOSURE_ACTION_CLASSES as readonly string[])).toEqual(expected)
+  })
+
+  it('EXPOSURE_ACTION_CLASSES is derived from ACCEPTED_ACTION_CLASSES, not transcribed', () => {
+    expect([...EXPOSURE_ACTION_CLASSES]).toEqual(
+      ACCEPTED_ACTION_CLASSES.filter((c) => c !== 'read')
+    )
   })
 })

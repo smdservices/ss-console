@@ -20,6 +20,12 @@
  * artifact so the two validators stay independent.
  */
 
+import {
+  ACCEPTED_EXPOSURE_CEILINGS,
+  EXPOSURE_ACTION_CLASSES,
+  SEND_ACTION_CLASSES,
+} from './customer-yaml/types'
+
 /**
  * Closed tier vocabulary. The letter's prose forms ("Runs on its own",
  * "Flag-only / prepare-and-route") are normalized to exactly these three in the
@@ -35,8 +41,13 @@ export const ROUTINE_TIERS: readonly RoutineTier[] = [
 
 export interface RoutineGridEnforcement {
   initiation: string
-  /** Exposure action class -> live ceiling value (e.g. internal_write ->
-   *  autonomous). Free-form keys; every value must be a string. */
+  /**
+   * Exposure action class -> live ceiling value (e.g. internal_write ->
+   * autonomous). Keys are drawn from `EXPOSURE_ACTION_CLASSES` and values from
+   * `ACCEPTED_EXPOSURE_CEILINGS` — NOT free-form (ss#2314). These strings index
+   * the seat's runtime override store, so a key outside the vocabulary matches
+   * nothing on the Machine and used to render as a silent `flag-only`.
+   */
   exposure_keys: Record<string, string>
   content_floor: boolean
   banned_tools: string[]
@@ -63,7 +74,13 @@ export interface RoutineGrid {
 }
 
 export type RoutineGridErrorCode =
-  'MissingField' | 'EmptyField' | 'EmptyList' | 'TypeMismatch' | 'EnumViolation'
+  | 'MissingField'
+  | 'EmptyField'
+  | 'EmptyList'
+  | 'TypeMismatch'
+  | 'EnumViolation'
+  | 'InvalidActionClass'
+  | 'InvalidActionCeiling'
 
 export interface RoutineGridValidationError {
   code: RoutineGridErrorCode
@@ -174,8 +191,29 @@ function reqTier(
   return v as RoutineTier
 }
 
-/** Mapping of exposure action class -> string ceiling value. Empty map is
- *  admitted (a row may gate nothing); a non-string value is rejected per key. */
+/**
+ * Mapping of exposure action class -> ceiling value. Empty map is admitted (a
+ * row may gate nothing).
+ *
+ * KEYS ARE A CLOSED VOCABULARY (ss#2314). These strings are not documentation:
+ * they index the seat's `exposure_override` store, both when the portal reads
+ * the tier it DISPLAYS and when it writes the override the Machine enforces. A
+ * key outside `EXPOSURE_ACTION_CLASSES` matches nothing on either side, and the
+ * read path's miss is indistinguishable from the legitimate fail-closed
+ * "unauthored" answer — so the portal rendered a safety posture nobody was
+ * enforcing. Validating here is the offline half of the fix: the typo fails CI
+ * rather than reaching a client-facing control. The runtime half is
+ * `resolveLiveTier` / the `unknown_exposure_key` rejection in
+ * entitlement-compiler.ts, which stays fail-closed for a key that gets past
+ * this gate (a grid read from the D1 projection is not re-validated here).
+ *
+ * `confirm` is restricted to the send classes exactly as the customer.yaml
+ * exposure validator restricts it (`sections-persona-skills.ts`
+ * `checkExposureMap`) — enforce()'s confirm branch lives in the send branch,
+ * so the value has no defined meaning elsewhere. The two validators are
+ * deliberately parallel: the grid records what customer.yaml authors, so a
+ * pair they disagree about could never be realized.
+ */
 function reqExposureKeys(
   rec: Record<string, unknown>,
   path: string,
@@ -196,11 +234,24 @@ function reqExposureKeys(
   }
   const out: Record<string, string> = {}
   for (const [k, val] of Object.entries(v)) {
-    if (typeof val !== 'string') {
+    if (!(EXPOSURE_ACTION_CLASSES as readonly string[]).includes(k)) {
       errors.push({
-        code: 'TypeMismatch',
+        code: 'InvalidActionClass',
         path: `${path}.${k}`,
-        message: `${path}.${k} must be a string`,
+        message:
+          `${path}.${k} is not an action class the Operator can honor; ` +
+          `must be one of: ${EXPOSURE_ACTION_CLASSES.join(', ')}`,
+      })
+      continue
+    }
+    const allowed = (SEND_ACTION_CLASSES as readonly string[]).includes(k)
+      ? ACCEPTED_EXPOSURE_CEILINGS
+      : ACCEPTED_EXPOSURE_CEILINGS.filter((c) => c !== 'confirm')
+    if (typeof val !== 'string' || !(allowed as readonly string[]).includes(val)) {
+      errors.push({
+        code: 'InvalidActionCeiling',
+        path: `${path}.${k}`,
+        message: `${path}.${k} must be one of: ${allowed.join(', ')}`,
       })
       continue
     }
