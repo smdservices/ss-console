@@ -857,7 +857,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // canonicalization work but not modified — so every overlaySha256 is
     // unchanged and only overlayRef moves. The broker half is ss-console#2279;
     // neither half functions alone.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1b74e1cb8a749aaa11d535b43052f07ca9cbdfee"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ec3fb713ceb0edb875f322842338feb4441fffea"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
