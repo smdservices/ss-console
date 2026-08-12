@@ -120,11 +120,19 @@ log = logging.getLogger("aie.namespace_assertion")
 # ---------------------------------------------------------------------------
 # Slug validation
 #
-# Matches the slug shape enforced by bin/provision-customer.sh: lowercase
-# alphanumerics + dashes, 2-40 chars, no leading or trailing dash. The
-# adapter does not own provisioning, but it owns the contract for what
-# qualifies as a customer scope at runtime — a malformed slug here is a
-# bootstrap-time invariant failure.
+# CANONICAL. Lowercase alphanumerics + dashes, 2-40 chars, no leading or
+# trailing dash. The adapter does not own provisioning, but it owns the
+# contract for what qualifies as a customer scope at runtime — a malformed slug
+# here is a bootstrap-time invariant failure, so every write-side guard is held
+# to THIS pattern rather than the other way round (#2285). Through 2026-08-11
+# the write-side guards were looser than this one, which meant a slug like
+# `acme-` could provision, publish to R2, and project to D1, and only then die
+# here at boot. The four guards that must not drift from this line:
+#   bin/provision-customer.sh                (input gate)
+#   scripts/ci-publish-customer-configs.sh   (slug gate + R2 key gate)
+#   scripts/ci-sync-customer-configs.sh      (D1 projection gate)
+# tests/customer-slug-pattern.test.ts runs one candidate table through all of
+# them, including this file, and fails the moment two verdicts disagree.
 # ---------------------------------------------------------------------------
 
 

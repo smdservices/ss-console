@@ -20,8 +20,8 @@
     {
       "adapterPath": "operator/adapter/namespace_assertion.py",
       "overlayPath": "shared/d1_client.py",
-      "syncNote": "2026-06-12 baseline; overlaySha256 added 2026-06-16 (SEC-32). Overlay ported only the NamespacedD1Executor analog; its voice plugin still carries an inline R2 wrapper mirror.",
-      "sha256": "768fea397cf700befcd3baf0b92f7986159f440909a2302474284602357eedef",
+      "syncNote": "2026-06-12 baseline; overlaySha256 added 2026-06-16 (SEC-32). Overlay ported only the NamespacedD1Executor analog; its voice plugin still carries an inline R2 wrapper mirror. 2026-08-11 (#2285): COMMENT-ONLY rehash — the _SLUG_PATTERN docblock now records that this pattern is canonical and names the four write-side guards held to it. _SLUG_PATTERN itself is byte-identical and no executable line changed, so no paired overlay PR is required.",
+      "sha256": "1de2c18307b840757d9a469e6eb0e96648c18470cb1e798260d22e403c943738",
       "overlaySha256": "22386cc8c2719fa2071879b3ad66b0edfb3f610fe0267d691751060da25afaed"
     },
     {

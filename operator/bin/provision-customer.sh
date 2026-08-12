@@ -76,9 +76,21 @@ SLUG="${1:-}"
 # R2 keys below — all before the customer_id==SLUG equality check. Constraining
 # it to a DNS-style label (no quotes, slashes, ampersands, or shell
 # metacharacters) closes the SQL-injection / sed-corruption / RCE vectors at
-# the source. Mirrors decommission_cli.py's guard.
-if [[ ! "${SLUG}" =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]]; then
-  echo "invalid slug '${SLUG}' (must match ^[a-z0-9][a-z0-9-]{0,31}$)" >&2
+# the source.
+#
+# CANONICAL SLUG PATTERN (#2285) — the runtime's, because it is the strictest
+# and it is the one that decides whether a seat can boot at all. Four sites
+# used to carry four different patterns, and the LOOSEST of them
+# (`^[a-z0-9-]+$`, in the CI publisher/syncer) was the one that wrote to R2 and
+# D1. A slug like `acme-` or a single character therefore provisioned,
+# published, and projected, then died at boot inside
+# operator/adapter/namespace_assertion.py as what that file calls "a
+# bootstrap-time invariant failure". Every site now enforces the same shape:
+# lowercase alphanumerics + dashes, 2-40 chars, no leading or trailing dash.
+# Keep these in step — tests/customer-slug-pattern.test.ts runs one candidate
+# table through all of them and fails the moment two disagree.
+if [[ ! "${SLUG}" =~ ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$ ]]; then
+  echo "invalid slug '${SLUG}' (must match ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$)" >&2
   exit 2
 fi
 
@@ -969,18 +981,36 @@ fi
 #
 # Uses wrangler from the operator's working tree (assumes the same wrangler
 # version used for migrations). entity_id resolved via customer_configs.
+#
+# THE CONFLICT TARGET IS LOAD-BEARING (#2286). Migration 0093 re-keyed
+# fleet_status from `entity_id TEXT PRIMARY KEY` to `customer_slug TEXT PRIMARY
+# KEY` — several seats share one entity, so an entity-keyed row collapsed two
+# seats into one. entity_id survives only as a plain, NON-UNIQUE index, and
+# SQLite rejects an ON CONFLICT target that names no PRIMARY KEY or UNIQUE
+# constraint: the whole statement is a parse error, seeding zero rows. This
+# statement carried ON CONFLICT(entity_id) from 0093 until #2286 and never
+# seeded again — silently, because the stderr was discarded (see below) and
+# the WARN read like a transient hiccup. The TypeScript writer was corrected
+# at the same time as the migration; keep the two in step:
+# src/pages/api/internal/heartbeat.ts (upsertFleetStatus).
 log "Seeding fleet_status row for ${SLUG}..."
 SEED_SQL=$(cat <<EOF
 INSERT INTO fleet_status (entity_id, customer_slug, heartbeat_status, updated_at)
 SELECT entity_id, customer_slug, 'unknown', datetime('now')
   FROM customer_configs
  WHERE customer_slug = '${SLUG}'
-    ON CONFLICT(entity_id) DO NOTHING;
+    ON CONFLICT(customer_slug) DO NOTHING;
 EOF
 )
-( cd "${REPO_ROOT}" && npx --quiet wrangler d1 execute ss-console-db --remote --command "${SEED_SQL}" >/dev/null 2>&1 ) \
-  && log "Seeded fleet_status (no-op if row already exists or customer_configs is missing)" \
-  || log "WARN: fleet_status seed failed — Wave-1 first-heartbeat will create the row on its own"
+# stderr is CAPTURED AND REPORTED, never discarded (#2286). `2>&1 >/dev/null`
+# orders the redirects so the capture takes stderr only: a schema mismatch here
+# is a defect to read in the provisioning log, not a shrug.
+if SEED_ERR=$( cd "${REPO_ROOT}" && npx --quiet wrangler d1 execute ss-console-db --remote --command "${SEED_SQL}" 2>&1 >/dev/null ); then
+  log "Seeded fleet_status (no-op if row already exists or customer_configs is missing)"
+else
+  log "WARN: fleet_status seed failed — Wave-1 first-heartbeat will create the row on its own"
+  log "WARN: wrangler stderr: ${SEED_ERR}"
+fi
 
 # ---------- Step 7: deploy (new image + staged secrets, atomically) ----------
 # DEPLOY ORDERING IS LOAD-BEARING — do NOT add a separate `fly secrets deploy`
