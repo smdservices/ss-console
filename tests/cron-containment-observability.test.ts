@@ -147,9 +147,87 @@ describe('rosterHealth — contained seat is visible, never calming (ss#2276)', 
     expect(health.note).toBe('crons contained (deliberate)')
   })
 
-  it('NULL and 0 participate in nothing', () => {
-    expect(rosterHealth('green', 'just now', null, null, scheduler(null)).color).toBe('green')
+  it('0 participates in nothing — a reported "not contained" is the quiet state', () => {
     expect(rosterHealth('green', 'just now', null, null, scheduler(0)).color).toBe('green')
     expect(rosterHealth('green', 'just now', null, null, scheduler(0)).note).toBeNull()
+  })
+})
+
+describe('rosterHealth — containment is THREE states, never two (ss#2295)', () => {
+  const scheduler = (cronContainment: number | null) => ({
+    ok: 1,
+    maxOverdueSeconds: 0,
+    connectorCheckOk: 1,
+    connectorsJson: '{}',
+    cronContainment,
+  })
+
+  // Before overlay#252 (which fixed ss#2291), a seat that could not read
+  // /opt/data still reported a containment verdict, so NULL meant only "old
+  // overlay build". After #252 the seat sends NOTHING when the volume read
+  // fails, and NULL carries information: the console cannot tell whether this
+  // seat's crons are contained. Rendering that as silence made an unreadable
+  // seat look identical to a healthy uncontained one.
+  it('NULL is visible and distinct from a reported 0', () => {
+    const unknown = rosterHealth('green', 'just now', null, null, scheduler(null))
+    const notContained = rosterHealth('green', 'just now', null, null, scheduler(0))
+    expect(unknown.note).not.toBe(notContained.note)
+    expect(unknown.note).toBe('containment state not reported')
+    expect(unknown.color).toBe('yellow')
+  })
+
+  it('the three states are mutually distinct in both note and color', () => {
+    const contained = rosterHealth('green', 'just now', null, null, scheduler(1))
+    const notContained = rosterHealth('green', 'just now', null, null, scheduler(0))
+    const unknown = rosterHealth('green', 'just now', null, null, scheduler(null))
+    expect(new Set([contained.note, notContained.note, unknown.note]).size).toBe(3)
+    expect(contained.note).toBe('crons contained (deliberate)')
+    expect(notContained.note).toBeNull()
+    expect(contained.color).toBe('yellow')
+    expect(notContained.color).toBe('green')
+  })
+
+  // A seat whose heartbeat is gray reports nothing at all; every field is NULL
+  // by construction. Naming containment there would blame one field for a
+  // whole-seat silence AND would escalate gray to yellow, which reads as a
+  // narrower fault than the one actually present (#2295: distinguish this from
+  // a genuinely stale heartbeat).
+  it('says nothing about containment when the seat itself has gone quiet', () => {
+    const health = rosterHealth('gray', 'no heartbeat', null, null, scheduler(null))
+    expect(health.color).toBe('gray')
+    expect(health.note).toBeNull()
+  })
+
+  // The production shape: the seat POSTED a beat, fleet_status has a row, the
+  // field simply was not in it. An omitted key must land in the same state as
+  // an explicit null — anything else would make the treatment depend on how
+  // the reader spelled "absent".
+  it('an omitted field is the same third state as an explicit null', () => {
+    const omitted = rosterHealth('green', 'just now', null, null, {
+      ok: 1,
+      maxOverdueSeconds: 0,
+      connectorCheckOk: 1,
+      connectorsJson: '{}',
+    })
+    expect(omitted.color).toBe('yellow')
+    expect(omitted.note).toBe('containment state not reported')
+  })
+
+  // No SchedulerSignal bundle means no fleet_status row: no beat was recorded,
+  // so no beat can be said to have omitted the field. Claiming otherwise would
+  // manufacture an observation the console never made.
+  it('says nothing when there is no fleet_status row to have carried a beat', () => {
+    const health = rosterHealth('green', 'just now', null, null, null)
+    expect(health.color).toBe('green')
+    expect(health.note).toBeNull()
+  })
+
+  it('never calms a worse color, and never outranks an actionable note', () => {
+    expect(rosterHealth('red', 'stale 47m', null, null, scheduler(null)).color).toBe('red')
+    const overdue = rosterHealth('green', 'just now', null, null, {
+      ...scheduler(null),
+      maxOverdueSeconds: 100000,
+    })
+    expect(overdue.note).toBe('scheduled work overdue')
   })
 })
