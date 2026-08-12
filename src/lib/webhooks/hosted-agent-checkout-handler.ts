@@ -21,6 +21,7 @@
 
 import type { D1Database } from '@cloudflare/workers-types'
 import { ORG_ID } from '../constants'
+import { EMAIL_IDENTITY_PREDICATE, normalizeEmail } from '../identity/email'
 import { createEntity } from '../db/entities'
 import { createHostedAgentIntake } from '../db/hosted-agent-intake'
 import { HOSTED_AGENT_PRODUCT_SLUG } from '../portal/hosted-agent-access'
@@ -80,8 +81,8 @@ async function resolveBuyer(
   const email = payload.customer_details?.email
   if (email) {
     const byEmail = await db
-      .prepare('SELECT id, email, name, entity_id FROM users WHERE lower(email) = lower(?)')
-      .bind(email)
+      .prepare(`SELECT id, email, name, entity_id FROM users WHERE ${EMAIL_IDENTITY_PREDICATE}`)
+      .bind(normalizeEmail(email))
       .first<LocalUserRow>()
     if (byEmail) return byEmail
   }
