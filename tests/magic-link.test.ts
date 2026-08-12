@@ -177,6 +177,55 @@ describe('magic links', () => {
       user_id: PRIMARY_USER_ID,
     })
   })
+
+  it('magic-link POST matches a MIXED-CASE stored email (issue #2282)', async () => {
+    // The bug this guards: the handler lowercased the input in JS and then
+    // compared with `WHERE email = ?`. SQLite `=` is case-sensitive and
+    // users.email carries no COLLATE NOCASE (migrations/0001_create_tables.sql),
+    // so a mixed-case stored row could never match. Prod had exactly one such
+    // row — the A&P client — and because a miss deliberately returns the same
+    // anti-enumeration success redirect, the failure was silent: the user was
+    // told to check their email and nothing was ever sent.
+    //
+    // The redirect is identical on hit and on miss BY DESIGN, so it cannot be
+    // the assertion. The magic_links row is the only observable difference
+    // between "found the user" and "silently matched nothing".
+    const MIXED_CASE_USER_ID = 'user-mixed-case'
+    await db
+      .prepare(
+        `INSERT INTO users (id, org_id, email, name, role)
+         VALUES (?, ?, ?, ?, 'client')`
+      )
+      .bind(MIXED_CASE_USER_ID, ORG_ID, 'Christa@Example.com', 'Mixed Case Client')
+      .run()
+
+    const redirect = (location: string, status: number) =>
+      new Response(null, {
+        status,
+        headers: { Location: location },
+      })
+
+    const response = await POST({
+      request: new Request('https://smd.services/api/auth/magic-link', {
+        method: 'POST',
+        body: new URLSearchParams({ email: '  christa@example.com  ' }),
+      }),
+      redirect,
+    } as unknown as Parameters<typeof POST>[0])
+
+    // Anti-enumeration behavior is unchanged — same redirect either way.
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe('/auth/sign-in?status=sent')
+
+    const rows = await db
+      .prepare(`SELECT user_id, email FROM magic_links`)
+      .all<{ user_id: string; email: string }>()
+
+    expect(rows.results).toHaveLength(1)
+    expect(rows.results[0].user_id).toBe(MIXED_CASE_USER_ID)
+    // The token is minted against the normalized (lowercased, trimmed) address.
+    expect(rows.results[0].email).toBe('christa@example.com')
+  })
 })
 
 describe('/auth/verify.astro page', () => {

@@ -362,10 +362,12 @@ export function needsEscalationAffordance(level: AlivenessLevel): boolean {
 }
 
 /**
- * Server-side resolver invoked by the dashboard header. Reads this
- * customer's `fleet_status` row — the console-side heartbeat store each
- * Machine pushes to (ADR 0023 Wave 1) — and derives the signal from it
- * (#1678 wired this; the prior revision was the #821 stub).
+ * Server-side resolver invoked by the dashboard header. Reads this SEAT's
+ * `fleet_status` row — the console-side heartbeat store each Machine pushes
+ * to (ADR 0023 Wave 1) — and derives the signal from it (#1678 wired this;
+ * the prior revision was the #821 stub). The row is addressed by the
+ * subscription's `instance_slug`, not by entity: several seats share one
+ * entity (#2281).
  *
  * Source semantics:
  *   - `sticky_stop_level` is the Machine-reported breaker ladder value;
@@ -404,20 +406,39 @@ interface FleetStatusAlivenessRow {
   sticky_stop_level: string | null
 }
 
-/** Read exactly this customer's heartbeat row (never a fleet-wide read from
- * the portal — ADR 0052 scopes this surface to the client's own operator). */
+/**
+ * Read exactly this SEAT's heartbeat row (never a fleet-wide read from the
+ * portal — ADR 0052 scopes this surface to the client's own operator).
+ *
+ * Keyed on `customer_slug`, which is `fleet_status`'s primary key since
+ * migration 0093. It must not be keyed on `entity_id`: the multi-operator
+ * model puts several seats on ONE entity, so `entity_id` is a plain
+ * non-unique index and an entity-keyed `.first()` returns an arbitrary
+ * sibling seat's heartbeat (#2281 — one live entity carries four rows).
+ * The sibling module `pause-control.ts::readPausePosture` keys the same
+ * table the same way.
+ *
+ * The seat identity is `subscription.instance_slug` (= the instance's
+ * `customer_slug`, migration 0089). A subscription with no instance slug
+ * carries no seat identity, so it resolves to the silent empty state rather
+ * than falling back to the entity read — a borrowed heartbeat is exactly the
+ * fabrication `docs/style/empty-state-pattern.md` forbids.
+ */
 async function fetchAlivenessFromFleetStatus(
   db: D1Database,
   subscription: SubscriptionRow
 ): Promise<AlivenessBridgeReading | null> {
+  const customerSlug = subscription.instance_slug
+  if (!customerSlug) return null
+
   let row: FleetStatusAlivenessRow | null
   try {
     row = await db
       .prepare(
         'SELECT last_heartbeat_ts, last_audit_ts, sticky_stop_level ' +
-          'FROM fleet_status WHERE entity_id = ?'
+          'FROM fleet_status WHERE customer_slug = ?'
       )
-      .bind(subscription.entity_id)
+      .bind(customerSlug)
       .first<FleetStatusAlivenessRow>()
   } catch {
     // A missing table (fresh environment) degrades to the silent empty state.
