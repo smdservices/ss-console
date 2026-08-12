@@ -548,55 +548,74 @@ personas:
     # bills tokens, so the cadence matches how fast each item actually changes.
     # All times are seat-local (business_hours.timezone -> HERMES_TIMEZONE):
     # authored as Pacific.
-    cron:
-      - skill: deadline-miss-escalator
-        schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: daily-needs-you-digest
-        schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: discovery-response-tracker
-        schedule: '17 7 * * 1-5' # weekday 0717 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: client-verification-tracker
-        schedule: '41 7 * * 1-5' # weekday 0741 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: motion-calendar-tracker
-        schedule: '27 7 * * 1-5' # weekday 0727 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: service-confirmation-watcher
-        schedule: '51 7 * * 1-5' # weekday 0751 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: medical-chronology-maintainer
-        schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: medical-records-chaser
-        schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: lien-ledger-tracker
-        schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: mediation-settlement-tracker
-        schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: minors-compromise-packet
-        schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
-      - skill: trial-binder-assembler
-        schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
+    # GO-LIVE POSTURE (Captain directive 2026-08-12): NO scheduled initiation at
+    # hand-off. We told the firm that once they connect Smokeball and their mail,
+    # nothing runs on a schedule until they ask for it. So the seat comes up with
+    # an empty cron list, and a routine is scheduled only when Chris or Christa
+    # asks for that routine by name.
+    #
+    # The authored schedules are PRESERVED AS COMMENTS below, not deleted, so
+    # "turn on the records chase" is a one-line uncomment at the cadence already
+    # designed rather than a re-derivation. Uncommenting one entry IS the whole
+    # activation: `initiation.scheduled: true` on a skill is only the PERMISSION
+    # for a cron to target it (sections-bundles-cron.ts:250), never a schedule by
+    # itself, so leaving those flags set arms nothing.
+    #
+    # Empty here is load-bearing at runtime, not only in git: the overlay's cron
+    # materializer is a reconciler (hermes-smd-overlay bootstrap/cron_materialize.py)
+    # — at bootstrap it REMOVES every managed job missing from this list before
+    # creating the authored ones, so emptying the list also clears the 12 jobs
+    # already persisted in this seat's cron store on its Fly volume. Config alone
+    # converges the runtime; no manual purge of the volume is needed.
+    cron: []
+    # - skill: deadline-miss-escalator
+    #   schedule: '0 7 * * *' # daily 0700 seat-local (America/Los_Angeles via business_hours; was silently UTC = midnight PT before HERMES_TIMEZONE landed)
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: daily-needs-you-digest
+    #   schedule: '23 6 * * 1-5' # weekday 0623 seat-local — the morning digest
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: discovery-response-tracker
+    #   schedule: '17 7 * * 1-5' # weekday 0717 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: client-verification-tracker
+    #   schedule: '41 7 * * 1-5' # weekday 0741 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: motion-calendar-tracker
+    #   schedule: '27 7 * * 1-5' # weekday 0727 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: service-confirmation-watcher
+    #   schedule: '51 7 * * 1-5' # weekday 0751 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: medical-chronology-maintainer
+    #   schedule: '33 8 * * 1-5' # weekday 0833 seat-local — after records imports land
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: medical-records-chaser
+    #   schedule: '9 8 * * 2' # weekly Tue 0809 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: lien-ledger-tracker
+    #   schedule: '13 9 * * 2' # weekly Tue 0913 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: mediation-settlement-tracker
+    #   schedule: '43 9 * * 2' # weekly Tue 0943 seat-local
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: minors-compromise-packet
+    #   schedule: '3 9 * * 3' # weekly Wed 0903 seat-local — GAL/hearing/lien-figure track
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
+    # - skill: trial-binder-assembler
+    #   schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
+    #   pre_run: pre_run.py
+    #   wake_policy: pre_run_decides
     # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
     skills_disabled:
       - google-workspace
