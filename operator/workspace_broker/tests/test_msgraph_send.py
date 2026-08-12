@@ -392,6 +392,42 @@ def test_reply_refuses_when_the_sender_cannot_be_determined(tmp_path: Path) -> N
         ops.reply({"message_id": "AAMk123", "comment": "sure"})
 
 
+@pytest.mark.parametrize(
+    "message_id",
+    [
+        "../../users/someone-else@evil.example/messages/x",
+        "AAMk123/../../me/sendMail",
+        "AAMk123?$select=body",
+        "AAMk123#frag",
+        "AAMk 123",
+    ],
+)
+def test_a_message_id_cannot_restructure_the_graph_url(tmp_path: Path, message_id: str) -> None:
+    """Segments reach Graph RAW (matching the live-proven wire format), so an id
+    carrying `/` would add a path element and one carrying `?` a query string.
+    Validated rather than escaped: a refusal is visible, a failed lookup is not."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    with pytest.raises(MsGraphRefused):
+        ops.reply({"message_id": message_id, "comment": "ok"})
+    assert http.calls == []
+
+
+def test_a_real_graph_id_shape_is_accepted(tmp_path: Path) -> None:
+    """Law 12 control: the guard above is worthless if it refuses real ids.
+
+    Graph message ids are a URL-safe base64 variant and routinely end in `=`.
+    """
+    real_shape = "AAMkAGI2THVSAAA-9xQdAAA=_-.~"
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": real_shape, "comment": "ok"})
+    # And it reached Graph UNESCAPED — no %3D for the trailing '='.
+    url = http.graph_posts()[0][1]
+    assert f"/messages/{real_shape}/reply" in url
+    assert "%" not in url.split("/messages/")[1]
+
+
 def test_reply_refuses_without_a_message_id_or_a_comment(tmp_path: Path) -> None:
     ops = _ops(tmp_path, FakeGraph(source_from="scott@smd.services"))
     with pytest.raises(MsGraphRefused):

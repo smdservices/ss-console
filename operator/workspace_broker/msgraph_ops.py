@@ -126,6 +126,33 @@ def enforce_recipients(policy: RecipientPolicy, recipients: list[str]) -> None:
         )
 
 
+#: Characters a Graph id may legitimately contain. Graph message ids are a
+#: URL-safe base64 variant, so alphanumerics plus ``-_=`` covers them; ``.`` and
+#: ``~`` are permitted because they are unreserved in a path and harmless.
+#: Everything else — most importantly ``/``, ``?`` and ``#`` — is refused.
+_SEGMENT_ALLOWED = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_=.~"
+)
+
+
+def _safe_segment(value: str) -> str:
+    """A path segment that cannot restructure the URL it is placed in.
+
+    The segments reaching here are a fixed verb (``sendMail``, ``messages``,
+    ``reply``) and one caller-supplied message id. Since segments are passed to
+    Graph raw, an id carrying ``/`` would silently add a path element and an id
+    carrying ``?`` would start a query string — so the id is validated instead of
+    escaped, and an invalid one is a refusal rather than a request that quietly
+    addresses something else.
+    """
+    if not value or any(ch not in _SEGMENT_ALLOWED for ch in value):
+        raise MsGraphRefused(
+            "refusing a Graph path segment with characters outside the id "
+            f"alphabet: {value!r}"
+        )
+    return value
+
+
 def _recipients(addresses: Any) -> list[dict[str, Any]]:
     """Flat addresses → Graph's ``toRecipients``/``ccRecipients`` nesting."""
     items = [addresses] if isinstance(addresses, str) else list(addresses or [])
@@ -260,15 +287,25 @@ class MsGraphOps:
         return parsed if isinstance(parsed, dict) else {}
 
     def _mail_path(self, *parts: str) -> str:
-        """A path under the PINNED mailbox.
+        """A path under the PINNED mailbox, built from RAW segments.
 
-        The mailbox is passed unquoted, matching the overlay client and the
-        sandbox-proven connector: Graph wants the bare address in the path and
-        percent-encoding the ``@`` breaks the route. Everything after it — the
-        only segment a caller can influence — IS quoted, so a message id cannot
-        climb out of the mailbox it was given.
+        Nothing here is percent-encoded, and that is a deliberate match to the
+        live-proven wire format rather than a convenience. The overlay's Graph
+        client and the sandbox-verified connector both pass these segments raw,
+        and the client says why for the mailbox: Graph wants the bare address and
+        encoding the ``@`` breaks the route. Message ids ride the same way there.
+        Encoding them here on a guess would mean this process speaks a different
+        wire format from the one that was actually proven against the tenant —
+        and the failure would appear as a 404 on a reply, at runtime, on a client
+        seat.
+
+        Safety therefore comes from ``_safe_segment`` below rather than from
+        quoting: a caller-supplied id that could restructure the path is refused
+        outright, which is the stronger control anyway. Encoding turns a
+        traversal attempt into a lookup that merely fails; refusing it makes the
+        attempt itself visible in the ledger.
         """
-        suffix = "/".join(urllib.parse.quote(p, safe="") for p in parts)
+        suffix = "/".join(_safe_segment(p) for p in parts)
         return f"/users/{self.mailbox()}/{suffix}"
 
     # -- verbs -------------------------------------------------------------
