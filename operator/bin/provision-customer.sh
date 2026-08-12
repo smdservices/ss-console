@@ -601,11 +601,34 @@ stage_secret_from_env CLIO_CLIENT_SECRET     "${CLIO_CLIENT_SECRET:-}"     "Clio
 stage_secret_from_env CLIO_ENCRYPTION_KEY    "${CLIO_ENCRYPTION_KEY:-}"    "AES key for the Clio token file (subprocess reads it as ENCRYPTION_KEY)"
 stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base64 of the seed ~/.clio-mcp/tokens.enc"
 
-# AgentMail (mcp:agentmail). AGENTMAIL_API_KEY is the account-wide REST credential
-# (send + inbox/webhook management). It can reach the shared account's OTHER inboxes
-# (cross-tenant; see docs/security/operator-threat-model.md), so — unlike the
-# unconditional connector secrets above — it is staged ONLY for a customer whose
-# customer.yaml actually binds the agentmail adapter.
+# AgentMail (mcp:agentmail). TWO keys per seat since ss#2258, and they are NOT
+# interchangeable:
+#
+#   AGENTMAIL_API_KEY      -> the gateway (agent-reachable). Inbox-scoped, with
+#                             message_send and draft_send WITHHELD. The agent
+#                             reads and drafts its own mailbox; if any code path
+#                             on the Machine tries to transmit, AgentMail itself
+#                             refuses. That fence is the vendor's, not ours,
+#                             which is what makes it hold "no matter where the
+#                             send came from."
+#   AGENTMAIL_SEND_API_KEY -> the workspace broker ONLY. Inbox-scoped WITH
+#                             message_send. entrypoint.sh materializes it to a
+#                             0600 broker-owned file and unsets it before the
+#                             gateway exists, so it is never in agent-reachable
+#                             env. Every send goes through a broker verb that
+#                             fences the recipient against the seat's own
+#                             authored config and writes the audit row itself.
+#
+# Mint both with POST /v0/api-keys carrying `inbox_id` (the seat's own inbox) and
+# a `permissions` whitelist; see docs/security/operator-threat-model.md. The old
+# single org-wide key (unscoped, every permission, one value shared by every
+# seat) is what let a rehearsal seat mail a real client principal with no audit
+# row on four days in 2026-08. Retiring it at the vendor is the step that kills
+# the copies already written to every seat's volume — a seat that still holds it
+# is not fixed by this provisioning change alone.
+#
+# Both are staged ONLY for a customer whose customer.yaml binds the agentmail
+# adapter.
 #
 # WEBHOOK_SECRET_AGENTMAIL is the Svix signing secret the webhook gate verifies. It
 # is PER-CUSTOMER, NOT account-wide: each customer's inbox is wired to its own
@@ -619,7 +642,8 @@ stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base
 # multi-customer AgentMail seat.
 if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
     "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
-  stage_secret_from_env AGENTMAIL_API_KEY "${AGENTMAIL_API_KEY:-}" "AgentMail REST credential (account-wide; send + inbox/webhook mgmt)"
+  stage_secret_from_env AGENTMAIL_API_KEY "${AGENTMAIL_API_KEY:-}" "AgentMail read/draft credential for the gateway (inbox-scoped, NO send permission)"
+  stage_secret_from_env AGENTMAIL_SEND_API_KEY "${AGENTMAIL_SEND_API_KEY:-}" "AgentMail send credential for the broker ONLY (inbox-scoped, message_send; stripped from agent env)"
   _AGENTMAIL_WH_KEY="WEBHOOK_SECRET_AGENTMAIL__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
   _AGENTMAIL_WH_SECRET="${!_AGENTMAIL_WH_KEY:-${WEBHOOK_SECRET_AGENTMAIL:-}}"
   stage_secret_from_env WEBHOOK_SECRET_AGENTMAIL "${_AGENTMAIL_WH_SECRET}" "AgentMail Svix webhook signing secret (per-customer ${_AGENTMAIL_WH_KEY}, else global)"

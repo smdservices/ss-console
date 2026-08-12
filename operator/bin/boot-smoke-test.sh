@@ -235,4 +235,18 @@ ssh_exec "activation-handler-not-agent-writable" "setpriv --reuid=hermes --regid
 # and never echoes the value.
 ssh_exec "r2-account-key-stripped-from-agent" "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py"
 
+# ss#2258, the same proof for the AgentMail SEND credential. This is the one
+# check that would have caught the incident class before a client ever saw it:
+# four fabricated messages reached a real principal from a seat whose agent
+# process held an org-wide, all-permission send key, and no static test can tell
+# you what is in a running process's environ. The probe takes the var names as
+# arguments, so this reuses it verbatim — no second implementation to drift.
+#
+# What makes this able to FAIL: if entrypoint.sh's `unset AGENTMAIL_SEND_API_KEY`
+# is removed, reordered after the exec-drop, or never runs because the strip
+# block moved, the gateway inherits the send key and this exits non-zero naming
+# the pid. The value is never printed.
+ssh_exec "agentmail-send-key-stripped-from-agent" \
+  "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py hermes AGENTMAIL_SEND_API_KEY"
+
 log "All boot smoke checks passed for ${APP_NAME}"

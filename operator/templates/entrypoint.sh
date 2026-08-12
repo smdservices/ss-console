@@ -261,6 +261,32 @@ PYTHONPATH="/opt/workspace-broker" \
 chown workspace-broker:workspace-broker "${SMD_WORKSPACE_CREDENTIAL_PATH}"
 chmod 0600 "${SMD_WORKSPACE_CREDENTIAL_PATH}"
 
+# ss#2258: the AgentMail SEND credential, same custody shape as the Google one
+# above. The gateway keeps a DIFFERENT AgentMail key (AGENTMAIL_API_KEY) that is
+# inbox-scoped with message_send/draft_send withheld, so the agent can read and
+# draft its own mailbox but is refused by the vendor if it tries to transmit.
+# The send-capable key exists only here, in a 0600 broker-owned file, and
+# AGENTMAIL_SEND_API_KEY is unset below before any hermes-uid process exists.
+#
+# Absent on a seat with no AgentMail connector — not fatal (unlike the Google
+# credential, which is only staged when authored). The broker's transmit verbs
+# fail closed when the file is missing, so absence cannot become permission.
+export SMD_AGENTMAIL_CREDENTIAL_PATH="${BROKER_DIR}/agentmail.json"
+if [ -n "${AGENTMAIL_SEND_API_KEY:-}" ]; then
+  PYTHONPATH="/opt/workspace-broker" \
+    /opt/workspace-broker/.venv/bin/python -c \
+    'import os; from pathlib import Path; from workspace_broker.agentmail_auth import materialize_credential; materialize_credential(Path(os.environ["SMD_AGENTMAIL_CREDENTIAL_PATH"]))'
+  [ -f "${SMD_AGENTMAIL_CREDENTIAL_PATH}" ] || {
+    log "FATAL: AgentMail send credential was staged but not materialized"
+    exit 1
+  }
+  chown workspace-broker:workspace-broker "${SMD_AGENTMAIL_CREDENTIAL_PATH}"
+  chmod 0600 "${SMD_AGENTMAIL_CREDENTIAL_PATH}"
+  log "AgentMail send credential materialized to the broker store"
+else
+  log "AGENTMAIL_SEND_API_KEY unset; broker transmit verbs stay fail-closed"
+fi
+
 # The broker is the SECOND principal that BOTH the Google capability path AND the
 # OP-P1-4 audit_append path depend on. Define its launch ONCE; the supervisor
 # below uses it for the first start and every respawn. env -i with a fixed
@@ -285,6 +311,7 @@ launch_broker() {
     SMD_AGENT_UID="$(id -u hermes)" \
     SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
     SMD_ESTABLISH_SPOOL_DIR="${SMD_ESTABLISH_SPOOL_DIR}" \
+    SMD_AGENTMAIL_CREDENTIAL_PATH="${SMD_AGENTMAIL_CREDENTIAL_PATH}" \
     /opt/workspace-broker/.venv/bin/python \
     -m workspace_broker.server
 }
@@ -324,6 +351,13 @@ done
 
 unset GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_TOKEN_JSON GOOGLE_CLIENT_SECRET_JSON
 unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
+# ss#2258: the AgentMail SEND key dies with root's environment. It must be
+# stripped HERE — before the exec-drop below and before any hermes-uid process
+# exists — because ADR 0044 Decision 8 proved a same-uid sibling can read a
+# credential out of /proc/<pid>/environ, so a strip that happens after the first
+# fork is cosmetic. What the gateway inherits is AGENTMAIL_API_KEY, the
+# inbox-scoped key the vendor refuses to let transmit.
+unset AGENTMAIL_SEND_API_KEY
 
 export HOME=/opt/data
 

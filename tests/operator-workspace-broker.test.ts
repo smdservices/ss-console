@@ -5,6 +5,7 @@ import { resolve } from 'path'
 const dockerfile = readFileSync(resolve('operator/templates/Dockerfile'), 'utf8')
 const entrypoint = readFileSync(resolve('operator/templates/entrypoint.sh'), 'utf8')
 const bootstrap = readFileSync(resolve('operator/templates/bootstrap.sh'), 'utf8')
+const bootSmoke = readFileSync(resolve('operator/bin/boot-smoke-test.sh'), 'utf8')
 const workspaceSkill = readFileSync(resolve('operator/skills/workspace/SKILL.md'), 'utf8')
 const inboxTriageSkill = readFileSync(resolve('operator/skills/inbox-triage/SKILL.md'), 'utf8')
 const emailReplySkill = readFileSync(resolve('operator/skills/email-reply/SKILL.md'), 'utf8')
@@ -70,6 +71,44 @@ describe('ADR 0045 Workspace capability broker', () => {
     const brokerChild = entrypoint.slice(entrypoint.indexOf('setpriv'))
     expect(brokerChild).not.toContain('GOOGLE_SERVICE_ACCOUNT_JSON=')
     expect(brokerChild).not.toContain('GOOGLE_TOKEN_JSON=')
+  })
+
+  // ss#2258. The AgentMail SEND key gets the same custody as the Google one:
+  // materialized to a 0600 broker-owned file, passed to the broker as a PATH,
+  // and unset before the gateway exists. The gateway keeps AGENTMAIL_API_KEY —
+  // a different, inbox-scoped key the vendor refuses to let transmit — so the
+  // two names must never be conflated.
+  it('strips the AgentMail send credential from the gateway environment', () => {
+    expect(entrypoint).toContain('unset AGENTMAIL_SEND_API_KEY')
+    // Order is the whole control: ADR 0044 D8 showed a same-uid sibling can read
+    // a credential out of /proc/<pid>/environ, so a strip after the exec-drop
+    // would be cosmetic.
+    expect(entrypoint.indexOf('unset AGENTMAIL_SEND_API_KEY')).toBeLessThan(
+      entrypoint.lastIndexOf('exec setpriv')
+    )
+  })
+
+  it('gives the broker the AgentMail send credential by path, never by value', () => {
+    const brokerChild = entrypoint.slice(entrypoint.indexOf('setpriv'))
+    expect(brokerChild).toContain('SMD_AGENTMAIL_CREDENTIAL_PATH=')
+    // The secret itself must not ride the broker child env: the broker reads the
+    // file, so a respawn needs nothing the parent later unset.
+    expect(brokerChild).not.toContain('AGENTMAIL_SEND_API_KEY=')
+    expect(brokerChild).not.toContain('AGENTMAIL_API_KEY=')
+  })
+
+  it('locks the AgentMail send credential to the broker uid at 0600', () => {
+    expect(entrypoint).toContain(
+      'chown workspace-broker:workspace-broker "${SMD_AGENTMAIL_CREDENTIAL_PATH}"'
+    )
+    expect(entrypoint).toContain('chmod 0600 "${SMD_AGENTMAIL_CREDENTIAL_PATH}"')
+  })
+
+  it('proves the AgentMail send-key strip on the RUNNING machine, not just in source', () => {
+    // The incident class is invisible to static tests — what matters is what is
+    // in a live process's environ. Reuses the R2 probe by argument.
+    expect(bootSmoke).toContain('agentmail-send-key-stripped-from-agent')
+    expect(bootSmoke).toContain('r2-account-key-strip-probe.py hermes AGENTMAIL_SEND_API_KEY')
   })
 
   it('does not install Google provider libraries into the Hermes venv', () => {
