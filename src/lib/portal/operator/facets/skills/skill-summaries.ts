@@ -101,6 +101,8 @@ export const SKILL_SUMMARIES: Record<string, string> = {
     'Turns a new-client inquiry into a structured matter draft and a non-committal acknowledgment, after a read-only conflict check.',
   'operator-introduce':
     'Introduces itself on request: connections, matter count, voice-establishment status per kind of writing, and every routine with its schedule and on/off state. States only what it observed or read.',
+  'operator-self-initiation':
+    'Sets itself up for your firm on an admin request: self-test, learning your writing voice, and building your document library, pausing for your blessing at each step. Creates nothing unblessed.',
   'operator-self-test':
     'Runs a one-page self-check on request: connections, a counted read, document output, and a live demonstration that it refuses identifiers it has not read. Reports to the requester only.',
   'opposing-response-deficiency-review':

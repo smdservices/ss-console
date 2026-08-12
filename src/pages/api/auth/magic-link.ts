@@ -47,8 +47,19 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     const normalizedEmail = email.toLowerCase().trim()
     // Look up the portal user in the current app org. Email is not globally
     // unique across organizations.
+    //
+    // The comparison must be case-insensitive IN SQL (issue #2282). Lowercasing
+    // the input in JS is not enough: users.email carries no COLLATE NOCASE
+    // (migrations/0001_create_tables.sql) and SQLite `=` is case-sensitive, so a
+    // mixed-case STORED address could never match. Nobody controls the casing an
+    // address is stored with — it arrives from an IdP, an invitation, or a human
+    // typing it into the admin console — and email is treated case-insensitively
+    // in practice. The miss was silent besides: a not-found deliberately returns
+    // the same success redirect below (anti-enumeration), so the person was told
+    // to check their email and nothing was ever sent. Same fix, same reason, as
+    // src/lib/auth/clerk-bridge.ts:101.
     const user = await env.DB.prepare(
-      `SELECT * FROM users WHERE org_id = ? AND email = ? AND role = 'client'`
+      `SELECT * FROM users WHERE org_id = ? AND lower(email) = lower(?) AND role = 'client'`
     )
       .bind(ORG_ID, normalizedEmail)
       .first<UserRow>()
