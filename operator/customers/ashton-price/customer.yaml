@@ -616,7 +616,9 @@ personas:
     #   schedule: '19 9 * * 1' # weekly Mon 0919 seat-local — trial-prep deadline sweep
     #   pre_run: pre_run.py
     #   wake_policy: pre_run_decides
-    # Native Google/Himalaya mail skills disabled — the Operator's inbox is AgentMail.
+    # Native Google/Himalaya mail skills disabled — this firm runs M365 (F-002),
+    # and the Operator's own mailbox is the one the firm is creating in its own
+    # tenant (letter 18), reached over Microsoft Graph once Track E wires it.
     skills_disabled:
       - google-workspace
       - himalaya
@@ -658,17 +660,38 @@ connectors:
     token_ref: 'infisical:/operator/ashton-price/practice-management/smokeball-oauth'
     webhook_url: 'https://hermes-ashton-price.fly.dev/webhooks/smokeball'
 
-  # The Operator's OWN inbox (default-on). AGENTMAIL_API_KEY is a Fly secret.
-  Email:
-    adapter: agentmail
-    backend: mcp:agentmail
-    enabled: true
-    webhook_url: 'https://hermes-ashton-price.fly.dev/webhooks/agentmail'
-
-  # NOTE: A&P's mail/calendar platform is M365 / Office 365 (confirmed). Mail +
-  # calendar ride Microsoft Graph (Smokeball has no calendar API). The M365
-  # backend is not yet runtime-wired (Track E), so the Calendar connector is added
-  # at a later provision — authoring it here would be dropped by translate.py.
+  # NO Email connector is authored, deliberately (Captain, 2026-08-12).
+  #
+  # This block used to author `adapter: agentmail` while the note directly below
+  # it said the firm runs M365 — a contradiction that made the file assert a
+  # channel this firm will never use. The authored field is what the system ACTS
+  # on, so provisioning staged an AgentMail credential onto the seat for a
+  # mailbox that does not exist: `mint-agentmail-keys.py ashton-price` exits 1,
+  # `inbox 'ashton-price@agentmail.to' does not exist`, and the account's 8
+  # inboxes contain no A&P seat (the two `ap-*-standin` boxes are rehearsal
+  # stand-ins, not this firm's mailbox).
+  #
+  # The cost of leaving it was concrete, not cosmetic. `provision-customer.sh`
+  # stages the AgentMail keys only when this file names agentmail, and it falls
+  # back to the GLOBAL org-wide key when no per-seat key is vaulted. A&P has no
+  # per-seat key, so the seat was handed the org-wide credential — the one that
+  # can send as ANY inbox on the account, which is the exact credential shape
+  # behind the ss#2258 incident. Removing the authoring removes the credential at
+  # its source rather than scoping a key for a channel nobody will use.
+  #
+  # A&P's mail and calendar ride Microsoft Graph (F-002: the firm runs Outlook;
+  # Smokeball has no calendar API), and the firm is creating the Operator's own
+  # mailbox inside its own M365 tenant (letter 18, 2026-07-29 — name to follow
+  # from Christa). That backend is not yet runtime-wired (Track E), so the Email
+  # and Calendar connectors are authored at a later provision; authoring msgraph
+  # here now would be dropped by translate.py.
+  #
+  # CONSEQUENCE, stated so it is not discovered later: until Track E lands, this
+  # seat has NO inbound-mail lane. `matter-inbox-router` stays in the skill list
+  # but has no webhook source, so the PI skills described as "webhook-initiable
+  # via the matter-inbox-router spine" are person-invoked only. Nothing is lost
+  # that worked — without an inbox that lane was already inert.
+  #
   # Documents ride the Smokeball Documents API (get_files_on_matter), not a
   # separate store.
 
@@ -690,11 +713,13 @@ webhook_triggers:
     # coalesced.
     throttle:
       cooldown_minutes: 30
-  # An inbound email to the Operator routes through the spine to the right skill.
-  - source: agentmail
-    event_type: message.received
-    skill: matter-inbox-router
-    persona: operator
+  # NO inbound-mail trigger, deliberately (Captain, 2026-08-12) — paired with the
+  # removed Email connector above. This authored `source: agentmail`, a channel
+  # this firm does not use and has no inbox on, so the trigger could never fire.
+  # It is re-authored against msgraph when Track E wires the firm's own M365
+  # Operator mailbox (letter 18), at which point `matter-inbox-router` regains a
+  # webhook source and the spine-initiable PI skills become webhook-initiable
+  # again.
 
 # ---- SCOPE ----
 scope:
