@@ -106,23 +106,41 @@ tuple this skill's pre_run computes: the matter id, the STABLE Smokeball
 task/event id (`source_id`; null only for idless items, which get no token),
 the fixed label, and the authored date per the skill's identity convention.
 
+**Every non-`acked` write is TWO calls, and the identity components are typed
+on the FIRST one only** (ss #2304). The derive returns an `append_handle`; the
+write presents that handle and names no identity at all. Until this changed, the
+derive and the write were two independent tuples, so the ACK code quoted to a
+person came off call 1 while the ledger row was keyed off call 2 — a single
+transposition (`task-42` -> `task-43`, one row off in a batch of nine) wrote an
+item the quoted code does not name, and both calls were individually
+well-formed, so nothing could see it. The handle makes that divergence
+unrepresentable rather than merely unlikely: there is no second derivation.
+
 ```
-# BEFORE composing an alert: derive the real ACK code, write NOTHING
+# STEP 1 — identity: derive the real ACK code, write NOTHING
 escalation_append(skill=..., matter_id=..., source_id=..., label=...,
                   authored_date=... or null, event="fired", attempt=N,
                   derive_only=true)
-  -> {"ok": true, "written": false, "item_key": <derived>, "token": <derived>}
-# raises (fired / chased / handed_off / resolved): identity by components
-escalation_append(skill=..., matter_id=..., source_id=..., label=...,
-                  authored_date=... or null, event=..., attempt=N)
+  -> {"ok": true, "written": false, "item_key": <derived>, "token": <derived>,
+      "append_handle": "EDH-..."}
+# STEP 2 — the write (fired / chased / handed_off / resolved): the handle ONLY.
+# Passing matter_id / source_id / label / authored_date here is REFUSED.
+escalation_append(skill=..., event=..., attempt=N, append_handle="EDH-...")
   -> {"ok": true, "id": "...", "item_key": <derived>, "token": <derived>}
 # acked: identity by the quoted ACK code (resolved against prior raises;
-# an alarm that never rang cannot be acked)
+# an alarm that never rang cannot be acked). No components, no handle.
 escalation_append(skill=..., event="acked", attempt=N, ack_token="ACK-XXXXXX")
 escalation_state(skill=...)
   -> {"event_count": N, "item_count": N,
       "items": {item_key: {..., "token": <ACK code or null>, "ackable": <bool>}}}
 ```
+
+The handle is **single-use and short-lived**: one derive writes one row, `skill`
+and `event` must match the derive that minted it, and a spent, unknown or
+expired handle is refused rather than written. A refusal writes nothing, which
+is the safe direction — derive again and the item re-fires next run. Never carry
+a handle across runs, and never reuse one to write a second row (that would
+inflate the attempt count the ceiling reads).
 
 `escalation_state` reports the token the ledger actually RECORDED, or `null`
 with `"ackable": false` (ss #2289). It used to synthesize `token_for(item_key)`
@@ -133,18 +151,21 @@ recompute a code for it.
 
 - **fired** — three steps, in this order (ss #1935):
   1. For each firing item, call `escalation_append` with `derive_only=true` to
-     get its real `item_key` + ACK token. Nothing is written.
+     get its real `item_key` + ACK token + `append_handle`. Nothing is written.
+     Keep each item's handle next to the code you are about to print for it.
   2. Compose and send ONE alert quoting exactly those returned tokens. NEVER
      print a code the tool did not return this run — an invented code
      (`ACK-A1`, `ACK-PENDING`) resolves to nothing, and a code remembered from
      a prior alert belongs to a DIFFERENT item and would silently ack the
      wrong thing. No follow-up "codes confirmed" email; the first email is the
      only email.
-  3. After the send succeeds, emit one `fired` event per item (same identity
-     components, no `derive_only`). The broker stamps `ts`/`id`. If the send
-     did not happen, write nothing (the item re-fires next run: annoying,
-     never dangerous). Never report an item as raised unless the send AND the
-     ledger write both succeeded.
+  3. After the send succeeds, emit one `fired` event per item, presenting that
+     item's `append_handle` and **no identity components** — the handle is the
+     only thing that can name the row, so the code you just printed is
+     necessarily the code of the row you write. The broker stamps `ts`/`id`. If
+     the send did not happen, write nothing (the item re-fires next run:
+     annoying, never dangerous). Never report an item as raised unless the send
+     AND the ledger write both succeeded.
 - **acked** — on a rostered internal reply (routed here by the inbox skill), emit
   one `acked` event per quoted token. The broker REJECTS an `acked` whose token
   has no prior `fired`, so a stray or forged code cannot silence an alarm that
