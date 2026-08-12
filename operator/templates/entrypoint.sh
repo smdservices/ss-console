@@ -287,6 +287,41 @@ else
   log "AGENTMAIL_SEND_API_KEY unset; broker transmit verbs stay fail-closed"
 fi
 
+# ss#2258 (msgraph wave): the Graph SEND credential, same custody shape again.
+#
+# Read the next paragraph before "fixing" the missing unset at the bottom of this
+# file. Unlike AGENTMAIL_SEND_API_KEY, the gateway's MSGRAPH_* is NOT stripped
+# before the exec-drop, and that is deliberate: the agent needs Graph credentials
+# for READS it legitimately performs — the inbound delta poller in the gateway,
+# and the msgraph-mail MCP server that is its mail tool surface. Graph app-only
+# auth has no read-only variant of a send-capable credential (a client-credentials
+# token is always `/.default` — every permission the app registration holds), so
+# stripping MSGRAPH_* here would blind the seat rather than harden it.
+#
+# The consequence, stated plainly so nobody reads this channel as equivalent to
+# the AgentMail one: an in-agent path can still mint its own Graph token and POST
+# /sendMail directly. What the broker verbs add is that the GOVERNED path is
+# recipient-fenced and always audited. Closing the rest needs a SECOND app
+# registration in the tenant — read-only for the agent, send-capable only here —
+# which is a tenant-admin action, and on a client seat that is the client's to
+# grant. The MSGRAPH_SEND_* names below are already what that split would use, so
+# it becomes a provisioning change with no code change.
+export SMD_MSGRAPH_CREDENTIAL_PATH="${BROKER_DIR}/msgraph.json"
+if [ -n "${MSGRAPH_SEND_CLIENT_SECRET:-}" ]; then
+  PYTHONPATH="/opt/workspace-broker" \
+    /opt/workspace-broker/.venv/bin/python -c \
+    'import os; from pathlib import Path; from workspace_broker.msgraph_auth import materialize_credential; materialize_credential(Path(os.environ["SMD_MSGRAPH_CREDENTIAL_PATH"]))'
+  [ -f "${SMD_MSGRAPH_CREDENTIAL_PATH}" ] || {
+    log "FATAL: msgraph send credential was staged but not materialized"
+    exit 1
+  }
+  chown workspace-broker:workspace-broker "${SMD_MSGRAPH_CREDENTIAL_PATH}"
+  chmod 0600 "${SMD_MSGRAPH_CREDENTIAL_PATH}"
+  log "msgraph send credential materialized to the broker store"
+else
+  log "MSGRAPH_SEND_CLIENT_SECRET unset; broker msgraph verbs stay fail-closed"
+fi
+
 # The broker is the SECOND principal that BOTH the Google capability path AND the
 # OP-P1-4 audit_append path depend on. Define its launch ONCE; the supervisor
 # below uses it for the first start and every respawn. env -i with a fixed
@@ -312,6 +347,7 @@ launch_broker() {
     SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
     SMD_ESTABLISH_SPOOL_DIR="${SMD_ESTABLISH_SPOOL_DIR}" \
     SMD_AGENTMAIL_CREDENTIAL_PATH="${SMD_AGENTMAIL_CREDENTIAL_PATH}" \
+    SMD_MSGRAPH_CREDENTIAL_PATH="${SMD_MSGRAPH_CREDENTIAL_PATH}" \
     /opt/workspace-broker/.venv/bin/python \
     -m workspace_broker.server
 }
@@ -358,6 +394,13 @@ unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 # fork is cosmetic. What the gateway inherits is AGENTMAIL_API_KEY, the
 # inbox-scoped key the vendor refuses to let transmit.
 unset AGENTMAIL_SEND_API_KEY
+# The Graph SEND app credential dies here too, for the same reason and at the same
+# moment. Today it may carry the SAME app registration's values as the MSGRAPH_*
+# the gateway keeps for reads, so this strip buys little on its own — but it means
+# the day a send-only app registration exists, its secret is already unreachable
+# from the agent with no further change to this file. The gateway's read-side
+# MSGRAPH_* deliberately survives; see the materialization block above for why.
+unset MSGRAPH_SEND_TENANT_ID MSGRAPH_SEND_CLIENT_ID MSGRAPH_SEND_CLIENT_SECRET
 
 export HOME=/opt/data
 

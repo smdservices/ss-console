@@ -715,6 +715,32 @@ print(str(auth.get('secret_ref') or '').strip())
   stage_secret_from_env MSGRAPH_CLIENT_ID     "${_MSG_CLIENT}"        "Microsoft Graph app client id (from msgraph_auth.client_id)"
   stage_secret_from_env MSGRAPH_MAILBOX       "${_MSG_MAILBOX}"       "Microsoft Graph pinned operator mailbox (from msgraph_auth.mailbox)"
   stage_secret_from_env MSGRAPH_CLIENT_SECRET "${_MSG_SECRET_VALUE}"  "Microsoft Graph app client secret (per-customer ${_MSG_SECRET_CID_KEY}, else ${_MSG_SECRET_NAME})"
+  # ss#2258: the SEND-side Graph app credential, which only the workspace broker
+  # ever sees (root materializes it to a 0600 file and unsets these before the
+  # exec-drop). Separate names because they are meant to become a separate app
+  # registration — read-only for the agent, send-capable only for the broker —
+  # which is the ONLY way to give this channel the vendor-enforced fence the
+  # AgentMail channel already has (a Graph app-only token is always `/.default`,
+  # so one registration cannot be two permission sets).
+  #
+  # The fallback to the read app's values is a MIGRATION AFFORDANCE and nothing
+  # more. While it is taken, the broker's key is the agent's key, so only the
+  # governed path is fenced; a rogue in-agent path can still mint its own token.
+  # Staging real MSGRAPH_SEND_* values for a seat is what ends that, and it needs
+  # no code change — only these three variables pointing at the second app.
+  _MSG_SEND_CID="$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+  _MSG_SEND_TENANT_KEY="MSGRAPH_SEND_TENANT_ID__${_MSG_SEND_CID}"
+  _MSG_SEND_CLIENT_KEY="MSGRAPH_SEND_CLIENT_ID__${_MSG_SEND_CID}"
+  _MSG_SEND_SECRET_KEY="MSGRAPH_SEND_CLIENT_SECRET__${_MSG_SEND_CID}"
+  _MSG_SEND_TENANT="${!_MSG_SEND_TENANT_KEY:-${MSGRAPH_SEND_TENANT_ID:-${_MSG_TENANT}}}"
+  _MSG_SEND_CLIENT="${!_MSG_SEND_CLIENT_KEY:-${MSGRAPH_SEND_CLIENT_ID:-${_MSG_CLIENT}}}"
+  _MSG_SEND_SECRET="${!_MSG_SEND_SECRET_KEY:-${MSGRAPH_SEND_CLIENT_SECRET:-${_MSG_SECRET_VALUE}}}"
+  if [ "${_MSG_SEND_CLIENT}" = "${_MSG_CLIENT}" ]; then
+    log "  msgraph SEND app == READ app on this seat (migration fallback): the broker fences the governed path, but the agent's own credential can still transmit. Stage ${_MSG_SEND_CLIENT_KEY} to close it."
+  fi
+  stage_secret_from_env MSGRAPH_SEND_TENANT_ID     "${_MSG_SEND_TENANT}"  "Graph SEND app tenant id (broker-only; per-customer ${_MSG_SEND_TENANT_KEY})"
+  stage_secret_from_env MSGRAPH_SEND_CLIENT_ID     "${_MSG_SEND_CLIENT}"  "Graph SEND app client id (broker-only; per-customer ${_MSG_SEND_CLIENT_KEY})"
+  stage_secret_from_env MSGRAPH_SEND_CLIENT_SECRET "${_MSG_SEND_SECRET}"  "Graph SEND app client secret (broker-only; per-customer ${_MSG_SEND_SECRET_KEY})"
   # Loopback signing secrets for the delta poller (ADR 0078 / email-channel-seam
   # D1). Unlike AgentMail's Svix secret these are NOT vendor-issued — the poller
   # signs its own loopback POST with WEBHOOK_SECRET_MSGRAPH and the Hermes webhook
@@ -732,7 +758,9 @@ print(str(auth.get('secret_ref') or '').strip())
   stage_secret_from_env WEBHOOK_SECRET_MSGRAPH "${_MSG_WH_SECRET}" "msgraph delta-poller loopback signing secret (per-customer ${_MSG_WH_KEY}, else generated)"
   stage_secret_from_env SMD_WEBHOOK_SIGNING_SECRET "${_MSG_WH_SECRET}" "router forward-verify secret (== msgraph route secret on an msgraph seat)"
   unset MSG_PARSE_PY MSG_FIELDS _MSG_TENANT _MSG_CLIENT _MSG_MAILBOX _MSG_SECRET_REF \
-    _MSG_SECRET_NAME _MSG_SECRET_CID_KEY _MSG_SECRET_VALUE _MSG_WH_KEY _MSG_WH_SECRET
+    _MSG_SECRET_NAME _MSG_SECRET_CID_KEY _MSG_SECRET_VALUE _MSG_WH_KEY _MSG_WH_SECRET \
+    _MSG_SEND_CID _MSG_SEND_TENANT_KEY _MSG_SEND_CLIENT_KEY _MSG_SEND_SECRET_KEY \
+    _MSG_SEND_TENANT _MSG_SEND_CLIENT _MSG_SEND_SECRET
 fi
 
 # Brave Search (native:brave-free, ADR 0070). BRAVE_SEARCH_API_KEY is the env var
