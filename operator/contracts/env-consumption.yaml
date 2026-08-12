@@ -233,6 +233,78 @@ vars:
       /proc/<pid>/environ, so the strip has to precede the first fork. Every
       send using it passes the broker's recipient fence and leaves an audit row.
 
+  # ---- Microsoft Graph mail (ADR 0078), the OTHER mail channel ----
+  # Declared here because the split below is the whole point and is easy to
+  # misread as an oversight: the READ family stays agent-held while the SEND
+  # family is broker-only and stripped. That asymmetry is forced by the vendor.
+  # A Graph app-only token is always `/.default` — every application permission
+  # the app registration holds — so there is no send-incapable variant of the
+  # credential the agent needs for the delta poller and its mail tools. The
+  # AgentMail channel gets a vendor fence for free; this one does not, and the
+  # only thing that buys it is a SECOND app registration (read-only for the
+  # agent, send-capable only for the broker), which is a tenant-admin action.
+  MSGRAPH_TENANT_ID:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: Graph READ app tenant id; the delta poller and msgraph-mail MCP server read it.
+  MSGRAPH_CLIENT_ID:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: Graph READ app client id (consented into the customer's tenant).
+  MSGRAPH_CLIENT_SECRET:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      Graph READ app secret. Agent-held DELIBERATELY: the inbound delta poller
+      runs in the gateway and the msgraph-mail MCP server is the agent's own mail
+      tool surface, so stripping it would blind the seat rather than harden it.
+      Until a send-only app registration exists this same credential can also
+      POST /sendMail, which is the residual ss#2258 names rather than hides.
+  MSGRAPH_MAILBOX:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      The pinned operator mailbox for the READ path. The broker does NOT read
+      this — it takes the mailbox from customer.yaml, so a secret cannot
+      contradict the authored config about who the seat sends as.
+  MSGRAPH_SEND_TENANT_ID:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    custody: customer
+    note: Graph SEND app tenant id; broker-only (0600 file materialized at boot).
+  MSGRAPH_SEND_CLIENT_ID:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    custody: customer
+    note: >-
+      Graph SEND app client id; broker-only. While this equals MSGRAPH_CLIENT_ID
+      the seat is on the migration fallback and only the GOVERNED send path is
+      fenced; the provisioner logs that state explicitly when it stages them.
+  MSGRAPH_SEND_CLIENT_SECRET:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    custody: customer
+    note: >-
+      Graph SEND app secret. Only the workspace-broker process reads it, and it
+      is unset before the exec-drop so no hermes-uid process has it in environ
+      (ADR 0044 D8: a same-uid sibling can read /proc/<pid>/environ, so the strip
+      must precede the first fork). Every send using it passes the broker's
+      recipient fence and leaves an audit row the broker writes itself.
+
   # ---- Provisioning-host only (never reach the Machine) ----
   OPERATOR_RUNTIME_READ_SECRET:
     stage: provisioning-host
