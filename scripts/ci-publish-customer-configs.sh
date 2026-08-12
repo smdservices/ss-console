@@ -114,9 +114,12 @@ fi
 # The last gate before any write. Belt to the constant basename's braces: even if
 # a future edit made the slug or the basename variable, a key outside this one
 # shape aborts the run rather than writing to a neighbouring key space.
+#
+# The slug segment carries the canonical pattern (#2285), not a looser one — a
+# key space this guard admits is a key space a seat must be able to boot from.
 assert_config_key() {
   local key="$1"
-  if [[ ! "$key" =~ ^vaults/[a-z0-9-]+/customer\.yaml$ ]]; then
+  if [[ ! "$key" =~ ^vaults/[a-z0-9][a-z0-9-]{0,38}[a-z0-9]/customer\.yaml$ ]]; then
     echo "::error::refusing to write R2 key outside the customer.yaml key space: ${key}"
     exit 1
   fi
@@ -162,8 +165,11 @@ for slug in "${slugs[@]}"; do
     continue
   fi
 
-  # The slug becomes part of the R2 key; constrain it hard.
-  if [[ ! "$slug" =~ ^[a-z0-9-]+$ ]]; then
+  # The slug becomes part of the R2 key; constrain it hard. Canonical pattern
+  # (#2285): lowercase alphanumerics + dashes, 2-40 chars, no leading/trailing
+  # dash — the same shape operator/adapter/namespace_assertion.py demands at
+  # seat boot. This guard writes to R2, so it must never be the loose one.
+  if [[ ! "$slug" =~ ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$ ]]; then
     echo "::error::Refusing to publish suspicious slug: $slug"
     fail=1
     continue

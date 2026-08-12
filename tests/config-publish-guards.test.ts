@@ -355,7 +355,10 @@ describe('ci-publish-customer-configs: one key space', () => {
     expect(basenameAssignments).toEqual(['R2_CONFIG_BASENAME="customer.yaml"'])
     const keyAssignments = source.match(/^[ \t]*key=.*$/gm) ?? []
     expect(keyAssignments).toEqual(['  key="vaults/${slug}/${R2_CONFIG_BASENAME}"'])
-    expect(source).toContain('^vaults/[a-z0-9-]+/customer\\.yaml$')
+    // The slug segment carries the canonical pattern (#2285), not a looser
+    // one. tests/customer-slug-pattern.test.ts holds all four guards to the
+    // same shape; this assertion pins the key guard's copy of it.
+    expect(source).toContain('^vaults/[a-z0-9][a-z0-9-]{0,38}[a-z0-9]/customer\\.yaml$')
   })
 
   it('refuses a slug that could name any other object', () => {

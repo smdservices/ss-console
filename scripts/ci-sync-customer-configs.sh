@@ -70,8 +70,12 @@ for slug in "${slugs[@]}"; do
     echo "Skipping template dir: $slug"
     continue
   fi
-  # The slug becomes part of a SQL literal below; constrain it hard.
-  if [[ ! "$slug" =~ ^[a-z0-9-]+$ ]]; then
+  # The slug becomes part of a SQL literal below; constrain it hard. Canonical
+  # pattern (#2285): lowercase alphanumerics + dashes, 2-40 chars, no
+  # leading/trailing dash — the same shape
+  # operator/adapter/namespace_assertion.py demands at seat boot. This guard
+  # projects into D1, so it must never be the loose one.
+  if [[ ! "$slug" =~ ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$ ]]; then
     echo "::error::Refusing to sync suspicious slug: $slug"
     fail=1
     continue
