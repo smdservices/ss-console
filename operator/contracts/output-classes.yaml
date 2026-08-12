@@ -588,14 +588,20 @@ skill_bindings:
 
   # ---- product ops: the initiation card's Stage A (ss#2216) ----
   # Both are reactive replies to a firm requester (RecipientClass.INTERNAL →
-  # staff class via the derived path). Neither lands any internal artifact:
-  # the self-test's step-4 fabrication attempt is REFUSED by the identifier
-  # gate by design (or discarded on the failure path), so no memo ever
-  # reaches the tenant, and the .docx sample travels as an attachment on the
-  # reply itself.
+  # staff class via the derived path). The introduce lands no internal
+  # artifact. The self-test lands exactly ONE (ss#2237): its step-3
+  # certificate, rendered into the seat's AUTHORED ops location and read back
+  # — an email turn has no .docx-attachment path, so the filed document is
+  # the production proof. It is `record`, not `work_product`, for the same
+  # reason the library's templates are: the render gate refuses dates,
+  # figures, and identifiers, and a certificate carries only step names,
+  # statuses, and a count. Step 4's fabrication attempt is still REFUSED by
+  # the identifier gate by design (or discarded on the failure path), so no
+  # memo ever reaches the tenant.
   operator-introduce:
     internal: []
     outbound: derived # reactive reply to the requester, no one else
   operator-self-test:
-    internal: []
-    outbound: derived # the one-page report + .docx attachment to the requester, no one else
+    internal:
+      - { artifact: self_test_certificate, seam: smokeball_file, class: record }
+    outbound: derived # the one-page report to the requester, no one else

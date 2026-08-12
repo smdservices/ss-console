@@ -140,7 +140,11 @@ What each act contributes on the kickoff turn:
 
 - **operator-self-test** — the full five-step checklist, PASS/FAILED per step, exactly as
   its body defines. The report lands inside the status board rather than as a separate
-  delivery; a FAILED step prints as FAILED.
+  delivery; a FAILED step prints as FAILED. Its step 3 files one certificate into the
+  seat's authored ops location and reads it back (ss#2237); on a seat whose ops location
+  is not yet authored — a firm whose document library has not been blessed — step 3
+  reports FAILED for exactly that reason, which is the honest state and resolves itself
+  once the library blessing fixes a location.
 - **voice-establishment** — **survey mode, turn one only**: enumerate, classify
   firm-authored vs received vs unreadable, propose the cohort-partitioned corpus, then
   STOP, exactly as its §1b defines. Nothing is staged, nothing is submitted. The blessing
