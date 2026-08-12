@@ -311,6 +311,41 @@ interface RosterNoteInputs {
   connectorCheckOk: number | null
   failingConnectors: string[]
   cronContainment: number | null
+  /**
+   * ss#2295: true when this seat is reporting at all — a live heartbeat AND a
+   * fleet_status row to have carried it. That is what makes an ABSENT
+   * cron_containment meaningful rather than a by-product of whole-seat
+   * silence. See `containmentUnreported`.
+   */
+  seatReporting: boolean
+}
+
+/**
+ * ss#2295 — containment is three states, and the third one is not silence.
+ *
+ * `cron_containment` is 1 contained / 0 not contained / NULL unreported, and
+ * the `=== 1` tests above are deliberately strict: NULL must never be resolved
+ * into either verdict (the ss#2291 rule). But NULL was then rendered as
+ * nothing at all, so a seat whose containment could not be read looked exactly
+ * like a healthy uncontained one.
+ *
+ * What NULL means changed under the console's feet. Before the overlay fix for
+ * ss#2291 (hermes-smd-overlay#252), a seat that could not read `/opt/data`
+ * still reported a verdict, so NULL only ever meant "overlay build predating
+ * ss#2276". After #252 the seat sends the field only when it actually read the
+ * volume — and `/opt/data` is also where profile homes, cron stores, and
+ * tokens live, so an absent field is rarely benign.
+ *
+ * Gated on the seat reporting at all, in two ways. When the heartbeat is gray
+ * every field is NULL by construction, and naming containment there would
+ * blame one field for a whole-seat silence while escalating gray to yellow — a
+ * narrower fault than the one actually present. And with no SchedulerSignal
+ * bundle there is no fleet_status row, so there is no evidence a beat was ever
+ * recorded to have omitted the field. "Absent from a beat we received" is the
+ * claim; without a beat, the claim has no subject.
+ */
+function containmentUnreported(inputs: RosterNoteInputs): boolean {
+  return inputs.seatReporting && inputs.cronContainment === null
 }
 
 // Note precedence, most-actionable first: a hard breaker stop and a broken
@@ -334,6 +369,12 @@ function rosterHealthNote(inputs: RosterNoteInputs): string | null {
   if (inputs.overdue) return 'scheduled work overdue'
   if (inputs.summaryStatus === 'red') return 'operator reports a problem'
   if (inputs.summaryStatus === 'yellow') return 'operator reports a warning'
+  // ss#2295: last among the notes because it is an information GAP, not a
+  // fault — anything else this roster can name is more actionable, and the
+  // yellow dot fires either way. The wording states only what the console
+  // observed (the field was absent from the beat); it does not promote that
+  // into "unreadable volume" or "broken seat", neither of which is known here.
+  if (containmentUnreported(inputs)) return 'containment state not reported'
   return null
 }
 
@@ -348,6 +389,10 @@ function signalEscalations(inputs: RosterNoteInputs): (RosterHealthColor | null)
     inputs.connectorCheckOk === 0 ? 'red' : null,
     // Containment paints attention-yellow: deliberate, but never invisible.
     inputs.cronContainment === 1 ? 'yellow' : null,
+    // ss#2295: and UNKNOWN containment paints attention-yellow too, for the
+    // same reason — a state the console cannot read is not a state it may
+    // render as calm. Still escalate-only: it can never calm a red seat.
+    containmentUnreported(inputs) ? 'yellow' : null,
   ]
 }
 
@@ -393,6 +438,7 @@ export function rosterHealth(
     connectorCheckOk: scheduler?.connectorCheckOk ?? null,
     failingConnectors: failingConnectorNames(scheduler?.connectorsJson),
     cronContainment: scheduler?.cronContainment ?? null,
+    seatReporting: heartbeatColor !== 'gray' && scheduler !== null,
   }
   const color = escalatedColor(heartbeatColor, signalEscalations(inputs))
   return { color, label: heartbeatLabel, note: rosterHealthNote(inputs) }

@@ -252,9 +252,15 @@ describe('rosterHealth', () => {
     const overdue = rosterHealth('green', '5s ago', null, null, { ok: 1, maxOverdueSeconds: 901 })
     expect(overdue.color).toBe('yellow')
     expect(overdue.note).toMatch(/work overdue/)
-    // Just under threshold stays calm.
+    // Just under threshold stays calm. cronContainment is stated (0 = reported
+    // "not contained") rather than omitted, so this asserts the overdue
+    // threshold alone — an omitted field is its own yellow under ss#2295.
     expect(
-      rosterHealth('green', '5s ago', null, null, { ok: 1, maxOverdueSeconds: 899 }).color
+      rosterHealth('green', '5s ago', null, null, {
+        ok: 1,
+        maxOverdueSeconds: 899,
+        cronContainment: 0,
+      }).color
     ).toBe('green')
   })
 
@@ -349,6 +355,9 @@ describe('connector health signals (ADR 0080)', () => {
       maxOverdueSeconds: null,
       connectorCheckOk: null,
       connectorsJson: null,
+      // Stated, not omitted: this test is about the CONNECTOR NULLs. An
+      // omitted cron_containment is separately visible under ss#2295.
+      cronContainment: 0,
     })
     expect(health.color).toBe('green')
     expect(health.note).toBeNull()

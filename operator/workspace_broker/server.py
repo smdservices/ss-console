@@ -29,6 +29,9 @@ from .corrections import PROPOSED_STATUS, build_correction_row
 from .establishment import EstablishmentStore
 from .google_auth import materialize_credential
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
+from .msgraph_auth import materialize_credential as materialize_msgraph_credential
+from .msgraph_ops import MsGraphOps, MsGraphRefused, MsGraphTransportError
+from .msgraph_ops import collect_recipients as collect_msgraph_recipients
 from .operations import WorkspaceOperations
 
 MAX_REQUEST_BYTES = 1_048_576
@@ -121,6 +124,7 @@ class Broker:
     # image without the send credential configured has a defined, send-disabled
     # value, and the verbs below fail closed rather than reaching for a key.
     agentmail: AgentMailOps | None = None
+    msgraph: MsGraphOps | None = None
 
     def __init__(self) -> None:
         self.socket_path = Path(os.environ["SMD_WORKSPACE_BROKER_SOCKET"])
@@ -192,6 +196,21 @@ class Broker:
             )
         else:
             self.agentmail = None
+        # ss#2258 msgraph wave. Same verb shape, same recipient fence, same
+        # broker-written row — but only ONE of the two AgentMail fences, and the
+        # difference is the vendor's, not ours: a Graph app-only token is
+        # ``/.default`` (every permission the app registration holds), so there is
+        # no send-incapable variant of the credential the agent already needs for
+        # the delta poller and its mail tools. ``msgraph_auth`` carries the full
+        # argument and what would close it. Ledger required for the same reason as
+        # above: a send that cannot be recorded must not happen.
+        msgraph_credential = os.environ.get("SMD_MSGRAPH_CREDENTIAL_PATH")
+        if msgraph_credential and self.ledger is not None:
+            graph_credential = Path(msgraph_credential)
+            materialize_msgraph_credential(graph_credential)
+            self.msgraph = MsGraphOps(graph_credential, self.customer_path)
+        else:
+            self.msgraph = None
 
     def _resolve_agent_uid(self) -> int | None:
         """Resolve (and cache) the agent uid for the heartbeat verb.
@@ -426,6 +445,8 @@ class Broker:
         # that holds the key, not by best-effort plugin code that can be skipped.
         if action in ("agentmail_send", "agentmail_reply"):
             return self._handle_agentmail(action, request)
+        if action in ("msgraph_send", "msgraph_reply"):
+            return self._handle_msgraph(action, request)
         # B1 durable-job control plane. PID-gated (above): only the gateway
         # (which hosts the worker thread) reaches these; execute_code/terminal
         # children get a different peer PID and are rejected, so the agent
@@ -566,27 +587,40 @@ class Broker:
             }
         )
 
-    def _handle_agentmail(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
-        """Execute a fenced transmit and record its outcome either way."""
-        if self.agentmail is None or self.ledger is None:
-            raise ValueError(
-                "agentmail transmit is not configured on this broker "
-                "(needs SMD_AGENTMAIL_CREDENTIAL_PATH and an audit ledger)"
-            )
+    def _dispatch_transmit(
+        self,
+        action: str,
+        request: dict[str, Any],
+        *,
+        send: Any,
+        reply: Any,
+        refused: type[Exception],
+        transport: type[Exception],
+        attempted_for_send: Any,
+        identity_key: str,
+    ) -> dict[str, Any]:
+        """Execute a fenced transmit and record its outcome either way.
+
+        Shared by both mail channels ON PURPOSE. The row this writes is the only
+        evidence that a send happened, and two hand-maintained copies of an audit
+        writer drift — silently, and in the direction of the copy nobody is
+        reading. Channel differences are parameters, not forks: which ops object,
+        which exception pair, and what the sending identity is called
+        (``inbox_id`` for AgentMail, ``mailbox`` for Graph).
+        """
         payload = request.get("payload")
         if not isinstance(payload, dict):
             raise ValueError(f"{action} requires a 'payload' object")
         # Digest what the caller asked to send, computed here, so the row proves
         # which content went out without the ledger ever holding the content.
         digest = hashlib.sha256(_canonical(payload)).hexdigest()
-        attempted = [] if action == "agentmail_reply" else collect_recipients(payload)
+        # A reply names no recipient — it is derived from the source message — so
+        # there is nothing to pre-record for it. Whoever it reached appears on the
+        # dispatched row, resolved by the broker.
+        attempted = [] if action.endswith("_reply") else attempted_for_send(payload)
         try:
-            result = (
-                self.agentmail.send(payload)
-                if action == "agentmail_send"
-                else self.agentmail.reply(payload)
-            )
-        except AgentMailRefused as exc:
+            result = send(payload) if action.endswith("_send") else reply(payload)
+        except refused as exc:
             self._append_send_row(
                 "CONFIRM_SEND_FAILED",
                 action,
@@ -598,7 +632,7 @@ class Broker:
                 },
             )
             raise
-        except AgentMailTransportError as exc:
+        except transport as exc:
             # A transport failure is NOT a policy refusal and must never read as
             # one: the seat was permitted to write and the vendor call failed.
             # The outcome is genuinely unknown (the message may have gone out),
@@ -621,11 +655,45 @@ class Broker:
                 "outcome": "sent",
                 "recipients": result.get("recipients") or [],
                 "message_id": result.get("message_id") or "",
-                "inbox_id": result.get("inbox_id") or "",
+                identity_key: result.get(identity_key) or "",
                 "input_digest": digest,
             },
         )
         return {"ok": True, **result}
+
+    def _handle_agentmail(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
+        if self.agentmail is None or self.ledger is None:
+            raise ValueError(
+                "agentmail transmit is not configured on this broker "
+                "(needs SMD_AGENTMAIL_CREDENTIAL_PATH and an audit ledger)"
+            )
+        return self._dispatch_transmit(
+            action,
+            request,
+            send=self.agentmail.send,
+            reply=self.agentmail.reply,
+            refused=AgentMailRefused,
+            transport=AgentMailTransportError,
+            attempted_for_send=collect_recipients,
+            identity_key="inbox_id",
+        )
+
+    def _handle_msgraph(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
+        if self.msgraph is None or self.ledger is None:
+            raise ValueError(
+                "msgraph transmit is not configured on this broker "
+                "(needs SMD_MSGRAPH_CREDENTIAL_PATH and an audit ledger)"
+            )
+        return self._dispatch_transmit(
+            action,
+            request,
+            send=self.msgraph.send,
+            reply=self.msgraph.reply,
+            refused=MsGraphRefused,
+            transport=MsGraphTransportError,
+            attempted_for_send=collect_msgraph_recipients,
+            identity_key="mailbox",
+        )
 
 
 class RequestHandler(socketserver.StreamRequestHandler):
