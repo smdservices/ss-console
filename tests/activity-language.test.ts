@@ -52,11 +52,14 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'COMPLIANCE_PACKET_EXPORTED',
         'CONFIG_CHANGE_REJECTED',
         'CONFIG_CHANGE_SUBMITTED',
+        'CONFIRM_SEND_DISPATCHED',
+        'CONFIRM_SEND_FAILED',
         'CONNECTOR_AUTH_EXPIRED',
         'CONNECTOR_AUTH_RESTORED',
         'CONNECTOR_BOUND',
         'CONNECTOR_RECONSENT_REQUESTED',
         'CONNECTOR_UNBOUND',
+        'CORRECTION_PROPOSED',
         'DRAFT_APPROVED',
         'DRAFT_CREATED',
         'DRAFT_EXPIRED',
@@ -67,6 +70,7 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'OUTPUT_SPEC_AUTHORED',
         'OUTPUT_SPEC_REJECTED',
         'PORTAL_LOGIN',
+        'REPLY_FAILED',
         'REPLY_HELD',
         'REPLY_SENT',
         'SCOPE_CHANGED',
@@ -79,6 +83,51 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'TRUST_PROMOTED',
       ].sort()
     )
+  })
+})
+
+/**
+ * ss#2320. Every reply and confirmed-send OUTCOME reaches the client, not just
+ * the ones that went well. Before this, REPLY_SENT and REPLY_HELD rendered
+ * while REPLY_FAILED rendered nothing, so a client watching their own feed saw
+ * a filtered operation: a reply that never arrived left no trace of the attempt.
+ * These assert the rendering, not the table — a membership check would pass on
+ * an entry mapped to an empty string.
+ */
+describe('failure outcomes are visible to the client (ss#2320)', () => {
+  const outcomes: ReadonlyArray<[string, string]> = [
+    ['REPLY_SENT', 'Replied to a message'],
+    ['REPLY_HELD', 'Held a reply for your review'],
+    ['REPLY_FAILED', 'A reply could not be sent'],
+    ['CONFIRM_SEND_DISPATCHED', 'Sent a confirmed message'],
+    ['CONFIRM_SEND_FAILED', 'A confirmed message could not be sent'],
+    ['CORRECTION_PROPOSED', 'Captured your correction'],
+  ]
+
+  for (const [action, copy] of outcomes) {
+    it(`${action} renders for the client`, () => {
+      const lines = toClientActivity([entry(action)])
+      expect(lines, `${action} rendered nothing on the client feed`).toHaveLength(1)
+      expect(lines[0].summary).toBe(copy)
+    })
+  }
+
+  it('no reply or confirmed-send outcome is silently withheld', () => {
+    const withheld = outcomes
+      .map(([action]) => action)
+      .filter((action) => SUPPRESSED_ACTIONS.has(action))
+    expect(withheld, 'an outcome the client cannot see').toEqual([])
+  })
+
+  it('the failure copy promises no retry the system does not perform', () => {
+    // Pattern A: a sentence implying future business behaviour we have not
+    // contracted. The system does not retry these sends.
+    for (const [action] of outcomes) {
+      const summary = toClientActivity([entry(action)])[0].summary
+      expect(summary, `${action} implies a commitment`).not.toMatch(
+        /\b(will|we'll|retry|retrying|shortly|follow up|try again)\b/i
+      )
+    }
   })
 })
 
