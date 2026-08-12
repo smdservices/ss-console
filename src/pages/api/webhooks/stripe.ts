@@ -3,7 +3,8 @@ import { z } from 'zod'
 import type { StripeWebhookEvent } from '../../../lib/stripe/types'
 import { handleInvoicePaid, handleInvoicePaymentFailed } from '../../../lib/webhooks/stripe-handler'
 import {
-  extractStripeSubscriptionId,
+  handleUnrecognizedInvoiceLinkage,
+  resolveStripeSubscriptionLinkage,
   handleRetainerInvoiceFinalized,
   handleRetainerInvoicePaid,
   handleRetainerInvoicePaymentFailed,
@@ -123,10 +124,17 @@ const StripeCheckoutSessionWebhookEventSchema = z.looseObject({
 })
 
 /**
- * Route an invoice event. Subscription-linked payloads (both API shapes:
- * top-level `subscription` and `parent.subscription_details.subscription` —
- * looseObject retains them even though the schema does not declare them)
- * belong to the retainer mirror; unlinked ones to the legacy one-time flow.
+ * Route an invoice event. Subscription-linked payloads (every API shape
+ * `resolveStripeSubscriptionLinkage` knows — looseObject retains the fields
+ * even though the schema does not declare them) belong to the retainer
+ * mirror; unlinked ones to the legacy one-time flow.
+ *
+ * A payload that signals a subscription but whose linkage cannot be read is
+ * the third case, and it must not travel either route: sending it to the
+ * legacy flow finds no local invoice row and acks, which is how a Stripe API
+ * change turns into a silently missing retainer invoice. It fails loudly
+ * instead (ss#2315).
+ *
  * Returns null when the event type is not an invoice event this route handles.
  */
 async function dispatchInvoiceEvent(eventType: string, parsed: unknown): Promise<Response | null> {
@@ -142,7 +150,16 @@ async function dispatchInvoiceEvent(eventType: string, parsed: unknown): Promise
     return errorResponse(400, 'Malformed event payload')
   }
   const invoice = eventResult.data.data.object
-  const subId = extractStripeSubscriptionId(invoice)
+  const linkage = resolveStripeSubscriptionLinkage(invoice)
+  if (linkage.kind === 'unrecognized') {
+    return handleUnrecognizedInvoiceLinkage(
+      env.RESEND_API_KEY,
+      eventType,
+      invoice.id,
+      linkage.reason
+    )
+  }
+  const subId = linkage.kind === 'linked' ? linkage.subscriptionId : null
 
   if (eventType === 'invoice.paid') {
     if (subId !== null) return handleRetainerInvoicePaid(env.DB, env.RESEND_API_KEY, subId, invoice)
