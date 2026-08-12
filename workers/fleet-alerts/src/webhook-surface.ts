@@ -30,6 +30,7 @@
  * clear the alert on another still absent.
  */
 
+import { WEBHOOK_SURFACE_MISSING_PREFIX, conditionPayload } from './conditions'
 import type { ConditionState, FleetStatusRow } from './index'
 
 /**
@@ -48,12 +49,13 @@ export async function getOpenWebhookSurfaceKeys(db: D1Database): Promise<Record<
     .prepare(
       `SELECT customer_slug, condition
          FROM fleet_alert_state
-        WHERE status = 'open' AND condition LIKE 'webhook_surface_missing:%'`
+        WHERE status = 'open' AND condition LIKE ? || '%'`
     )
+    .bind(WEBHOOK_SURFACE_MISSING_PREFIX)
     .all<{ customer_slug: string; condition: string }>()
   const out: Record<string, string[]> = {}
   for (const row of result.results ?? []) {
-    const tool = row.condition.slice('webhook_surface_missing:'.length)
+    const tool = conditionPayload(row.condition, WEBHOOK_SURFACE_MISSING_PREFIX)
     if (!tool) continue
     ;(out[row.customer_slug] ??= []).push(tool)
   }
@@ -152,7 +154,7 @@ export function webhookSurfaceConditions(
     if (entry === undefined) {
       out.push({
         customer_slug: row.customer_slug,
-        condition: `webhook_surface_missing:${tool}`,
+        condition: `${WEBHOOK_SURFACE_MISSING_PREFIX}${tool}`,
         active: false,
         detail: `${tool}: no longer expected on the webhook surface.`,
       })
@@ -161,7 +163,7 @@ export function webhookSurfaceConditions(
     const missing = entry.expected && !entry.offered
     out.push({
       customer_slug: row.customer_slug,
-      condition: `webhook_surface_missing:${tool}`,
+      condition: `${WEBHOOK_SURFACE_MISSING_PREFIX}${tool}`,
       active: missing,
       detail: missing
         ? `${tool}: expected on every webhook turn and not offered. Answers that ` +

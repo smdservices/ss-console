@@ -85,8 +85,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // the client is moving FROM is the enforced one — without this, lowering a
   // previously-raised routine would no-op against the stale authored value.
   // A failed read falls back to authored (the apply itself stays safe: the
-  // set is absolute and the Machine re-clamps).
-  const overrides = await readLiveOverrides(
+  // set is absolute and the Machine re-clamps). A persona mismatch does NOT
+  // fall back (ss#2314): the seat is enforcing overrides under a name this
+  // grid does not know, so the tier we would compile FROM is fiction — refuse
+  // and say so rather than write a change computed against the wrong baseline.
+  const read = await readLiveOverrides(
     {
       OPERATOR_RUNTIME_READ_SECRET: env.OPERATOR_RUNTIME_READ_SECRET,
       OPERATOR_RUNTIME_READ_URL: env.OPERATOR_RUNTIME_READ_URL,
@@ -94,10 +97,13 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     instance,
     resolved.live.personaSlug
   )
-  if (overrides) {
+  if (read.status === 'persona_mismatch') {
+    return redirectWithStatus(instance, 'entitlement_config_unreadable')
+  }
+  if (read.status === 'ok') {
     resolved.live = {
       personaSlug: resolved.live.personaSlug,
-      exposure: { ...resolved.live.exposure, ...overrides },
+      exposure: { ...resolved.live.exposure, ...read.overrides },
     }
   }
 

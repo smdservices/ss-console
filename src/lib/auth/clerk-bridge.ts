@@ -20,6 +20,7 @@
  */
 
 import { ORG_ID } from '../constants'
+import { EMAIL_IDENTITY_PREDICATE, normalizeEmail } from '../identity/email'
 import type { Entity } from '../db/entities'
 import { stampLoginIfNewSession } from './login-events'
 
@@ -86,7 +87,9 @@ export async function ensureLocalUser(
   // so we never overwrite an existing binding. Email comes from Clerk's
   // verified primary email, which is the trust anchor.
   //
-  // Matched case-INSENSITIVELY. The `users.email` column carries no
+  // Matched through the shared identity normalization (src/lib/identity/email.ts):
+  // trimmed and lowercased on the input side, `lower()` on the column side.
+  // The `users.email` column carries no
   // COLLATE NOCASE, so a seeded row's casing had to match Clerk's byte for
   // byte or the link silently missed — the JIT INSERT below would then
   // succeed (UNIQUE(org_id,email) is case-sensitive too), stranding the
@@ -98,10 +101,10 @@ export async function ensureLocalUser(
   const emailMatch = await db
     .prepare(
       `SELECT * FROM users
-       WHERE org_id = ? AND lower(email) = lower(?) AND clerk_user_id IS NULL
+       WHERE org_id = ? AND ${EMAIL_IDENTITY_PREDICATE} AND clerk_user_id IS NULL
        LIMIT 1`
     )
-    .bind(ORG_ID, profile.email)
+    .bind(ORG_ID, normalizeEmail(profile.email))
     .first<PortalUserRow>()
 
   if (emailMatch) {
@@ -112,6 +115,10 @@ export async function ensureLocalUser(
     return { ...emailMatch, clerk_user_id: clerkUserId }
   }
 
+  // Stored VERBATIM, not normalized. This is Clerk's verified primary address
+  // — the trust anchor — and it is what the admin console displays. The lookup
+  // above folds case; the record keeps the IdP's spelling. See the second rule
+  // in src/lib/identity/email.ts for why those are deliberately separate.
   const id = crypto.randomUUID()
   await db
     .prepare(

@@ -249,4 +249,24 @@ ssh_exec "r2-account-key-stripped-from-agent" "/opt/hermes/.venv/bin/python3 /ap
 ssh_exec "agentmail-send-key-stripped-from-agent" \
   "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py hermes AGENTMAIL_SEND_API_KEY"
 
+# The same proof for the Graph SEND app credential (ss#2258 msgraph wave).
+#
+# READ THE LIMIT OF THIS CHECK, because it is narrower than the AgentMail one
+# above and a reader who assumes symmetry will over-trust it. It proves the
+# BROKER'S copy never reaches the agent. It does NOT prove the agent cannot send:
+# MSGRAPH_CLIENT_SECRET deliberately stays in the gateway (the delta poller and
+# the msgraph-mail MCP server need it), and while a seat is on the migration
+# fallback that read credential is the SAME app registration, so it can still
+# POST /sendMail. What ends that is a send-only app registration, at which point
+# this probe becomes the real fence and starts guarding a credential the agent
+# genuinely never has.
+#
+# What makes it able to FAIL: remove or reorder the `unset MSGRAPH_SEND_*` in
+# entrypoint.sh on a seat where those are staged, and the gateway inherits them —
+# non-zero, naming the pid, never the value. On a seat with no msgraph connector
+# nothing is staged and this passes vacuously, which is the honest outcome for a
+# credential that does not exist.
+ssh_exec "msgraph-send-credential-stripped-from-agent" \
+  "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py hermes MSGRAPH_SEND_CLIENT_SECRET MSGRAPH_SEND_CLIENT_ID MSGRAPH_SEND_TENANT_ID"
+
 log "All boot smoke checks passed for ${APP_NAME}"

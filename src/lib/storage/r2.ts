@@ -1,11 +1,68 @@
 /**
  * R2 storage helpers for file uploads.
  *
- * Transcript files are stored with a structured key pattern:
- *   {orgId}/assessments/{assessmentId}/transcript/{filename}
+ * Uploaded files are stored under a structured, tenant-scoped key:
+ *   {orgId}/assessments/{assessmentId}/transcript/{nameHash}/{filename}
+ *   {orgId}/engagements/{engagementId}/docs/{nameHash}/{filename}
  *
- * This ensures tenant isolation and logical grouping within the R2 bucket.
+ * The `{nameHash}` segment exists because `{filename}` is lossy — see
+ * `uploadKeyLeaf` — and two different uploads that sanitized to the same
+ * string used to write the same key, the second destroying the first
+ * (ss#2315).
  */
+
+/** Sanitize a client-supplied filename for use in a key: alphanumerics, dots,
+ * hyphens and underscores survive; everything else becomes an underscore.
+ * Many-to-one on purpose — the hash segment is what makes the key unique. */
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+/**
+ * The two trailing segments of an upload key: a short digest of the ORIGINAL
+ * filename, then the sanitized filename.
+ *
+ * Three properties, each load-bearing:
+ *
+ * - **Distinct names never collide.** `Scope (final).pdf` and
+ *   `Scope [final].pdf` sanitize identically but hash differently, so neither
+ *   overwrites the other. For engagement deliverables — prefix-listed and
+ *   rendered on the client portal — a collision silently removed a document
+ *   the client could see.
+ * - **The same name still replaces.** Hashing the name rather than the bytes
+ *   keeps re-uploading a corrected file a replacement, not a second entry the
+ *   UI has no way to remove.
+ * - **Display is unchanged.** The filename stays the LAST segment, so every
+ *   reader's `key.split('/').pop()` shows what it always showed, and the key
+ *   stays under its existing prefix, so prefix listing and the portal's
+ *   path-traversal checks are unaffected.
+ *
+ * Keys written before this existed are untouched and stay reachable: readers
+ * use the key recorded in D1 or the key returned by `list()`, never a
+ * recomputed one. No migration, nothing orphaned.
+ */
+export async function uploadKeyLeaf(originalName: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(originalName))
+  const nameHash = Array.from(new Uint8Array(digest).slice(0, 4))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+  return `${nameHash}/${sanitizeFileName(originalName)}`
+}
+
+/**
+ * Structured key for an engagement deliverable.
+ *
+ * @param orgId - Organization ID for tenant scoping
+ * @param engagementId - Engagement the document belongs to
+ * @param originalName - The uploaded file's name, unsanitized
+ */
+export async function getEngagementDocumentKey(
+  orgId: string,
+  engagementId: string,
+  originalName: string
+): Promise<string> {
+  return `${orgId}/engagements/${engagementId}/docs/${await uploadKeyLeaf(originalName)}`
+}
 
 /**
  * Upload a transcript file to R2.
@@ -22,9 +79,7 @@ export async function uploadTranscript(
   assessmentId: string,
   file: File
 ): Promise<string> {
-  // Sanitize filename — keep only alphanumeric, dots, hyphens, underscores
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const key = `${orgId}/assessments/${assessmentId}/transcript/${safeName}`
+  const key = `${orgId}/assessments/${assessmentId}/transcript/${await uploadKeyLeaf(file.name)}`
 
   const arrayBuffer = await file.arrayBuffer()
 

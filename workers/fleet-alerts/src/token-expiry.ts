@@ -12,6 +12,7 @@
  * been dead for ~(lifetime - warn) days — the watcher's watcher.
  */
 
+import { CONNECTOR_TOKEN_EXPIRING_PREFIX } from './conditions'
 import type { ConditionState, FleetStatusRow } from './index'
 
 function nonNegInt(value: unknown): number | null {
@@ -62,7 +63,7 @@ export function tokenExpiryConditions(
     const ageDays = Math.floor(age / 86400)
     out.push({
       customer_slug: row.customer_slug,
-      condition: `connector_token_expiring:${server}`,
+      condition: `${CONNECTOR_TOKEN_EXPIRING_PREFIX}${server}`,
       active: age >= thresholdSeconds,
       detail:
         `${server} durable credential is ${ageDays}d old ` +

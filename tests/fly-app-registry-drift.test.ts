@@ -10,9 +10,10 @@
  * rather than guessed. That default is correct and this guard does not touch
  * it. The problem is that the rejection is SILENT — a runtime read for an
  * unlisted slug throws and collapses to an honest-empty result, and
- * `readLiveOverrides` returns null and the console renders the authored config.
- * A seat that was simply never added to the map is indistinguishable from a
- * seat with nothing to report.
+ * `readLiveOverrides` reports `unconfigured` (a bare null until ss#2314) so the
+ * console renders the authored config. A seat that was simply never added to
+ * the map is still indistinguishable from a seat with no read transport
+ * configured, which is why this guard exists rather than a richer status.
  *
  * Proven live (vfy_01KZSK4TQF2G0PKNNWV6GNM0BQ): `customer_configs` held five
  * slugs and the map held three. `scott` and `smd-staging` were missing, and

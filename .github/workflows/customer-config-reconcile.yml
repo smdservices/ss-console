@@ -16,6 +16,17 @@
 # would not land) and fails the run on its own. Exit 2 means it evaluated and
 # found something — drift, or a git_sha main no longer contains — and opens an
 # issue. A control that pages on its own blips gets muted within a week.
+#
+# TWO PROJECTIONS, ONE CONTROL (ss#2305). The `reconcile` job covers D1, which
+# the PORTAL reads; `reconcile-r2` covers the R2 object, which the SEAT BOOTS
+# FROM. They are separate jobs rather than a separate workflow on purpose: the
+# defect is identical (one push-range trigger in deploy.yml drives both
+# projections, and an unprocessed range is never revisited), the cadence and the
+# exit contract are identical, and a human asking "is what main authored what is
+# live?" should find one answer in one run rather than have to know there are
+# two workflows. Separate JOBS, though, not one job: they share no code — D1
+# compares a stamped git_sha, R2 compares bytes — and a D1 outage must not stop
+# the seat-config check from running.
 
 name: customer-config-reconcile
 
@@ -27,15 +38,19 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Detect and report only; write nothing to D1 (any value = on)'
+        description: 'Detect and report only; write nothing to D1 or R2 (any value = on)'
         required: false
-  # The reconciler is exercised by tests/config-reconcile.test.ts; run them on a
-  # PR that touches either side so a broken control cannot merge green.
+  # The reconcilers are exercised by tests/config-reconcile.test.ts and
+  # tests/r2-config-reconcile.test.ts; run them on a PR that touches any side so
+  # a broken control cannot merge green.
   pull_request:
     paths:
       - 'scripts/ci-reconcile-customer-configs.sh'
+      - 'scripts/ci-reconcile-r2-customer-configs.sh'
       - 'scripts/ci-sync-customer-configs.sh'
+      - 'scripts/ci-publish-customer-configs.sh'
       - 'tests/config-reconcile.test.ts'
+      - 'tests/r2-config-reconcile.test.ts'
       - '.github/workflows/customer-config-reconcile.yml'
 
 permissions:
@@ -140,5 +155,99 @@ jobs:
           gh issue create \
             --repo "${REPO}" \
             --title "customer_configs projection drift $(date -u +%Y-%m-%d)" \
+            --label "prio:P1" --label "type:bug" \
+            --body-file body.md
+
+  # ss#2305. Same defect, the other projection — and the one with the higher
+  # stakes: a stale D1 row means the portal SHOWS the wrong posture, a stale R2
+  # object means the seat ENFORCES it.
+  reconcile-r2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history: a finding names the commit and date that authored the
+          # bytes R2 should be holding, and in a shallow slice `git log -1` names
+          # the newest commit in the slice instead. The reconciler refuses to run
+          # shallow rather than report a confidently wrong age.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@venturecrane'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm ci
+
+      # Same gate as the D1 job: a reconciler whose detection is broken reports
+      # either nothing or everything, and both are worse than no report at all.
+      - name: Test the R2 reconciler
+        run: npx vitest run tests/r2-config-reconcile.test.ts
+
+      # On pull_request there are no secrets and no live R2 — the tests above
+      # are the whole job.
+      - name: Reconcile every seat config against main
+        if: github.event_name != 'pull_request'
+        id: reconcile
+        env:
+          # No R2_* secrets: the S3 credentials are derived from these two inside
+          # the script, exactly as the publisher derives them.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Via env, never interpolated into the script body: a workflow_dispatch
+          # input is user-supplied and would otherwise be a shell-injection seam.
+          R2_RECONCILE_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -u
+          # `|| STATUS=$?` is load-bearing, not style (ss#2307). GitHub runs this
+          # body under `bash -e`, so an unguarded non-zero exit aborts the step
+          # HERE — before the report is printed and before `status` reaches
+          # GITHUB_OUTPUT — which silently skips the issue-opening step below.
+          # The findings path is the one path that exits non-zero, so the control
+          # would be mute in exactly the case it exists for.
+          STATUS=0
+          bash scripts/ci-reconcile-r2-customer-configs.sh > reconcile-r2.txt 2>&1 || STATUS=$?
+          cat reconcile-r2.txt
+          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+          # Exit 2 is a finding, handled by the next step. Anything else that is
+          # not 0 is the control failing, and must fail the run.
+          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 2 ]; then exit "${STATUS}"; fi
+
+      - name: Open an issue when a seat config drifted in R2
+        if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "An R2 seat config did not match the customer.yaml main carries."
+            echo
+            echo "DRIFT means the object at \`vaults/<slug>/customer.yaml\` was not"
+            echo "byte-identical to what HEAD authored. The reconciler republished it"
+            echo "and is reporting anyway: the seat BOOTED FROM the other bytes until"
+            echo "it did, and how long that lasted is the thing worth knowing."
+            echo
+            echo "The seat adopts the republished object on its next restart;"
+            echo "live-writable fields apply sooner via the ADR 0044 poller."
+            echo
+            echo '```'
+            cat reconcile-r2.txt
+            echo '```'
+            echo
+            echo "Reconciler: \`scripts/ci-reconcile-r2-customer-configs.sh\` (ss#2305)."
+            echo "Run: ${RUN_URL}"
+          } > body.md
+          gh issue create \
+            --repo "${REPO}" \
+            --title "R2 seat config drift $(date -u +%Y-%m-%d)" \
             --label "prio:P1" --label "type:bug" \
             --body-file body.md
