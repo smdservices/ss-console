@@ -25,7 +25,15 @@
  *     "connector_check_ok":      <boolean | 0/1>,  // optional (ADR 0080)
  *     "connectors":              <map server → entry> // optional (ADR 0080)
  *     "cron_containment":        <boolean | 0/1>,  // optional (ss#2276 sentinel)
+ *     "webhook_surface_ok":      <boolean | 0/1>,  // optional (ss#2222 warn tier)
+ *     "webhook_surface":         <map tool → entry> // optional (ss#2222 warn tier)
  *   }
+ *
+ * The authoritative list of fields the pinned overlay can emit is
+ * `operator/observability/heartbeat-fields.json`, enforced by
+ * `tests/heartbeat-field-parity.test.ts` — a field the seat sends that this
+ * handler has no reader for is the ss#2287 defect class, and that gate is what
+ * makes it fail a test instead of degrading silently.
  *
  * The handler doesn't trust the Machine's `heartbeat_status` — it derives
  * it from the freshness math the admin dashboard uses (green/yellow/red
@@ -62,6 +70,8 @@ interface HeartbeatBody {
   connector_token_age?: unknown
   spec_control_ok?: unknown
   spec_control?: unknown
+  webhook_surface_ok?: unknown
+  webhook_surface?: unknown
   cron_containment?: unknown
 }
 
@@ -186,6 +196,37 @@ function parseSpecControlJson(value: unknown): string | null {
   return JSON.stringify(parsed)
 }
 
+// Webhook expected-tool surface (ss#2287, the ss#2222 warn tier): tool name →
+// { expected, offered }. Tool names come from the overlay's
+// WEBHOOK_EXPECTED_TOOLS tuple, so the key shape is a python identifier.
+const WEBHOOK_SURFACE_MAX_TOOLS = 64
+const WEBHOOK_SURFACE_TOOL_RE = /^[a-z][a-z0-9_]{0,63}$/
+
+// Same three-tier rule as the connector and spec-control maps. Both flags are
+// REQUIRED in a kept entry and neither is defaulted: `offered` is what opens and
+// closes the alert, so inferring it from a missing field would be manufacturing
+// the verdict. An entry that cannot supply both is dropped (that tool holds); a
+// structurally-invalid MAP → NULL (nothing this beat is trusted).
+//
+// An EMPTY reported map is deliberately preserved as `{}` rather than collapsed
+// to NULL: the overlay's docstring is explicit that "checked, every expected
+// tool is offered" is the state that RESOLVES an open alert, and NULL holds.
+function parseWebhookSurfaceJson(value: unknown): string | null {
+  if (value === undefined) return null
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > WEBHOOK_SURFACE_MAX_TOOLS) return null
+  const parsed: Record<string, { expected: boolean; offered: boolean }> = {}
+  for (const [tool, raw] of entries) {
+    if (!WEBHOOK_SURFACE_TOOL_RE.test(tool)) continue
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue
+    const entry = raw as Record<string, unknown>
+    if (typeof entry.expected !== 'boolean' || typeof entry.offered !== 'boolean') continue
+    parsed[tool] = { expected: entry.expected, offered: entry.offered }
+  }
+  return JSON.stringify(parsed)
+}
+
 /**
  * Every alert-driving field, parsed-not-cast.
  *
@@ -212,6 +253,11 @@ function parseObservability(body: HeartbeatBody) {
     connectorTokenAgeJson: parseConnectorTokenAgeJson(body.connector_token_age),
     specControlOk: parseSchedulerOk(body.spec_control_ok),
     specControlJson: parseSpecControlJson(body.spec_control),
+    // ss#2287: the ss#2222 warn tier. ok=0 is the seat saying it could not
+    // resolve its own webhook toolset — our blindness, paged separately from a
+    // missing tool, for spec_control's reason.
+    webhookSurfaceOk: parseSchedulerOk(body.webhook_surface_ok),
+    webhookSurfaceJson: parseWebhookSurfaceJson(body.webhook_surface),
     // ss#2276: 1 = the CRON_CONTAINMENT volume sentinel is present (all managed
     // crons deliberately off, surviving boots), 0 = normal, NULL = unreported.
     cronContainment: parseSchedulerOk(body.cron_containment),
@@ -258,6 +304,8 @@ export const POST: APIRoute = async ({ request }) => {
     connectorTokenAgeJson,
     specControlOk,
     specControlJson,
+    webhookSurfaceOk,
+    webhookSurfaceJson,
     cronContainment,
   } = parseObservability(body)
 
@@ -275,6 +323,8 @@ export const POST: APIRoute = async ({ request }) => {
     connectorTokenAgeJson,
     specControlJson,
     specControlOk,
+    webhookSurfaceJson,
+    webhookSurfaceOk,
     cronContainment,
   })
 
@@ -295,6 +345,8 @@ interface FleetStatusUpsert {
   connectorTokenAgeJson: string | null
   specControlJson: string | null
   specControlOk: 0 | 1 | null
+  webhookSurfaceJson: string | null
+  webhookSurfaceOk: 0 | 1 | null
   cronContainment: 0 | 1 | null
 }
 
@@ -316,8 +368,9 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
        connectors_json, connector_check_ok, connector_token_age_json,
-       spec_control_json, spec_control_ok, cron_containment, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       spec_control_json, spec_control_ok,
+       webhook_surface_json, webhook_surface_ok, cron_containment, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -335,6 +388,8 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        connector_token_age_json = excluded.connector_token_age_json,
        spec_control_json       = excluded.spec_control_json,
        spec_control_ok         = excluded.spec_control_ok,
+       webhook_surface_json    = excluded.webhook_surface_json,
+       webhook_surface_ok      = excluded.webhook_surface_ok,
        cron_containment        = excluded.cron_containment,
        updated_at              = datetime('now')`
   )
@@ -356,6 +411,8 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
       u.connectorTokenAgeJson,
       u.specControlJson,
       u.specControlOk,
+      u.webhookSurfaceJson,
+      u.webhookSurfaceOk,
       u.cronContainment
     )
     .run()

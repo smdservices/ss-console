@@ -35,6 +35,8 @@ function row(overrides: Partial<FleetStatusRow>): FleetStatusRow {
     connector_token_age_json: null,
     spec_control_json: null,
     spec_control_ok: null,
+    webhook_surface_json: null,
+    webhook_surface_ok: null,
     ...overrides,
   }
 }
@@ -190,7 +192,10 @@ function computeStaleHolds(state: FakeState): StaleHold[] {
       // ss#2234: only a whole-map NULL strands a spec_control_broken key. A key
       // that merely vanishes is a WITHDRAWN declaration, which auto-resolves
       // through openSpecControlKeys — mirroring getStaleHolds' own comment.
-      (condition.startsWith('spec_control_broken:') && f.spec_control_json === null)
+      (condition.startsWith('spec_control_broken:') && f.spec_control_json === null) ||
+      (condition === 'webhook_surface_unprovable' && f.webhook_surface_ok === null) ||
+      // ss#2287, mirroring the spec_control_broken clause above.
+      (condition.startsWith('webhook_surface_missing:') && f.webhook_surface_json === null)
     if (held) out.push({ customer_slug: slug, condition: condition as StaleHold['condition'] })
   }
   return out.sort(
@@ -214,6 +219,19 @@ function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}):
           if (sql.includes("condition LIKE 'spec_control_broken:%'")) {
             const results = [...state.alertState.entries()]
               .filter(([key, status]) => status === 'open' && key.includes(':spec_control_broken:'))
+              .map(([key]) => {
+                const [customer_slug, ...rest] = key.split(':')
+                return { customer_slug, condition: rest.join(':') }
+              })
+            return Promise.resolve({ results })
+          }
+          // getOpenWebhookSurfaceKeys (ss#2287) — same feedback shape, so a
+          // WITHDRAWN expectation can resolve.
+          if (sql.includes("condition LIKE 'webhook_surface_missing:%'")) {
+            const results = [...state.alertState.entries()]
+              .filter(
+                ([key, status]) => status === 'open' && key.includes(':webhook_surface_missing:')
+              )
               .map(([key]) => {
                 const [customer_slug, ...rest] = key.split(':')
                 return { customer_slug, condition: rest.join(':') }
@@ -1051,5 +1069,222 @@ describe('spec_control (ss#2234)', () => {
     const recovered = bodies().filter((b) => b.includes('RECOVERED') && b.includes('staff.voice'))
     expect(recovered).toHaveLength(1)
     expect(recovered[0]).toContain('spec installed')
+  })
+})
+
+describe('webhook_surface (ss#2287 — the ss#2222 warn tier)', () => {
+  const surfaceJson = (entries: Record<string, { expected: boolean; offered: boolean }>) =>
+    JSON.stringify(entries)
+  const surfaceStates = (r: FleetStatusRow, openTools: string[] = []) =>
+    evaluateConditions([r], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      openWebhookSurfaceKeys: openTools.length ? { [r.customer_slug]: openTools } : {},
+    }).filter((c) => c.condition.startsWith('webhook_surface_'))
+
+  it('NULL webhook-surface fields push nothing (hold)', () => {
+    // Covers the pre-ss#2222 overlay, a seat that serves no webhook platform,
+    // and a sentinel written by a dead pid. None of those is a recovery.
+    expect(surfaceStates(row({}))).toHaveLength(0)
+  })
+
+  it('corrupt map pushes no per-tool condition (hold, never a page from junk)', () => {
+    const out = surfaceStates(row({ webhook_surface_ok: 1, webhook_surface_json: '{nope' }))
+    expect(out.filter((c) => c.condition.startsWith('webhook_surface_missing:'))).toHaveLength(0)
+  })
+
+  it('expected and NOT offered opens the condition', () => {
+    const out = surfaceStates(
+      row({
+        webhook_surface_ok: 1,
+        webhook_surface_json: surfaceJson({
+          operator_seat_facts: { expected: true, offered: false },
+        }),
+      })
+    )
+    const missing = out.filter((c) => c.condition === 'webhook_surface_missing:operator_seat_facts')
+    expect(missing).toHaveLength(1)
+    expect(missing[0].active).toBe(true)
+    expect(missing[0].detail).toContain('not offered')
+  })
+
+  it('expected and offered pushes inactive (a restored tool resolves)', () => {
+    const out = surfaceStates(
+      row({
+        webhook_surface_ok: 1,
+        webhook_surface_json: surfaceJson({
+          operator_seat_facts: { expected: true, offered: true },
+        }),
+      })
+    )
+    const missing = out.filter((c) => c.condition === 'webhook_surface_missing:operator_seat_facts')
+    expect(missing[0].active).toBe(false)
+    expect(missing[0].detail).toContain('offered on the webhook surface')
+  })
+
+  it('tools are independent — one missing, one offered on the same seat', () => {
+    const out = surfaceStates(
+      row({
+        webhook_surface_ok: 1,
+        webhook_surface_json: surfaceJson({
+          operator_seat_facts: { expected: true, offered: true },
+          read_file: { expected: true, offered: false },
+        }),
+      })
+    )
+    const byCondition = Object.fromEntries(out.map((c) => [c.condition, c.active]))
+    expect(byCondition['webhook_surface_missing:operator_seat_facts']).toBe(false)
+    expect(byCondition['webhook_surface_missing:read_file']).toBe(true)
+  })
+
+  it('an entry missing either flag is dropped, never defaulted', () => {
+    const out = surfaceStates(
+      row({
+        webhook_surface_ok: 1,
+        webhook_surface_json: JSON.stringify({ operator_seat_facts: { expected: true } }),
+      })
+    )
+    expect(out.filter((c) => c.condition.startsWith('webhook_surface_missing:'))).toHaveLength(0)
+  })
+
+  it('a WITHDRAWN expectation resolves its open alert and says which repair it was', () => {
+    // The tool leaves WEBHOOK_EXPECTED_TOOLS: its key vanishes from the map, so
+    // without openWebhookSurfaceKeys the alert would sit open forever.
+    const out = surfaceStates(row({ webhook_surface_ok: 1, webhook_surface_json: '{}' }), [
+      'operator_seat_facts',
+    ])
+    const missing = out.filter((c) => c.condition === 'webhook_surface_missing:operator_seat_facts')
+    expect(missing).toHaveLength(1)
+    expect(missing[0].active).toBe(false)
+    expect(missing[0].detail).toContain('no longer expected')
+  })
+
+  it('expected:false resolves the same way a vanished key does', () => {
+    const out = surfaceStates(
+      row({
+        webhook_surface_ok: 1,
+        webhook_surface_json: surfaceJson({
+          operator_seat_facts: { expected: false, offered: false },
+        }),
+      })
+    )
+    const missing = out.filter((c) => c.condition === 'webhook_surface_missing:operator_seat_facts')
+    expect(missing[0].active).toBe(false)
+    expect(missing[0].detail).toContain('no longer expected')
+  })
+
+  it('ok=0 opens webhook_surface_unprovable and HOLDS every per-tool condition', () => {
+    // "We cannot look" must never be reported as a missing tool, and must not
+    // resolve tools from data the seat just said it cannot trust.
+    const out = surfaceStates(
+      row({
+        webhook_surface_ok: 0,
+        webhook_surface_json: surfaceJson({
+          operator_seat_facts: { expected: true, offered: true },
+        }),
+      }),
+      ['operator_seat_facts']
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].condition).toBe('webhook_surface_unprovable')
+    expect(out[0].active).toBe(true)
+  })
+
+  it('ok=1 resolves webhook_surface_unprovable', () => {
+    const out = surfaceStates(row({ webhook_surface_ok: 1, webhook_surface_json: '{}' }))
+    const unprovable = out.filter((c) => c.condition === 'webhook_surface_unprovable')
+    expect(unprovable).toHaveLength(1)
+    expect(unprovable[0].active).toBe(false)
+  })
+
+  it('ok NULL pushes no unprovable condition (a quiet seat has not recovered)', () => {
+    const out = surfaceStates(row({ webhook_surface_json: '{}' }))
+    expect(out.filter((c) => c.condition === 'webhook_surface_unprovable')).toHaveLength(0)
+  })
+
+  it('labels both condition forms', () => {
+    expect(conditionLabel('webhook_surface_missing:operator_seat_facts')).toBe(
+      'Webhook tool expected but not offered: operator_seat_facts'
+    )
+    expect(conditionLabel('webhook_surface_unprovable')).toBe(
+      'Webhook tool surface unresolvable (warn-tier health unknown)'
+    )
+  })
+
+  it('runOnce opens once, stays silent while open, then resolves once when the tool returns', async () => {
+    const state: FakeState = {
+      fleet: [
+        row({
+          customer_slug: 'pilot-smokeball',
+          webhook_surface_ok: 1,
+          webhook_surface_json: surfaceJson({
+            operator_seat_facts: { expected: true, offered: false },
+          }),
+        }),
+      ],
+      alertState: new Map(),
+      writes: [],
+    }
+    const env = makeEnv(state)
+    const fetchMock = stubResend()
+
+    await runOnce(env, NOW)
+    const bodies = () => fetchMock.mock.calls.map((c) => String((c[1] as { body: string }).body))
+    expect(bodies().some((b) => b.includes('ALERT') && b.includes('operator_seat_facts'))).toBe(
+      true
+    )
+    expect(state.writes).toContain(
+      'open:pilot-smokeball:webhook_surface_missing:operator_seat_facts'
+    )
+
+    // Still missing on the next tick: no second email.
+    fetchMock.mockClear()
+    await runOnce(env, NOW)
+    expect(bodies().filter((b) => b.includes('operator_seat_facts'))).toHaveLength(0)
+
+    // The tool returns to the surface.
+    fetchMock.mockClear()
+    state.fleet = [
+      row({
+        customer_slug: 'pilot-smokeball',
+        webhook_surface_ok: 1,
+        webhook_surface_json: surfaceJson({
+          operator_seat_facts: { expected: true, offered: true },
+        }),
+      }),
+    ]
+    await runOnce(env, NOW)
+    const recovered = bodies().filter(
+      (b) => b.includes('RECOVERED') && b.includes('operator_seat_facts')
+    )
+    expect(recovered).toHaveLength(1)
+    expect(recovered[0]).toContain('offered on the webhook surface')
+  })
+
+  it('an open alert whose seat stops reporting the map surfaces as a stale hold', async () => {
+    const state: FakeState = {
+      fleet: [
+        row({
+          customer_slug: 'pilot-smokeball',
+          webhook_surface_ok: 1,
+          webhook_surface_json: surfaceJson({
+            operator_seat_facts: { expected: true, offered: false },
+          }),
+        }),
+      ],
+      alertState: new Map(),
+      writes: [],
+    }
+    const env = makeEnv(state)
+    stubResend()
+    await runOnce(env, NOW)
+
+    // Overlay rollback: both fields go NULL. The alert holds (correct) and must
+    // therefore appear in stale_holds so a human can clear it.
+    state.fleet = [row({ customer_slug: 'pilot-smokeball' })]
+    const summary = await runOnce(env, NOW)
+    expect(summary.stale_holds).toContainEqual({
+      customer_slug: 'pilot-smokeball',
+      condition: 'webhook_surface_missing:operator_seat_facts',
+    })
   })
 })
