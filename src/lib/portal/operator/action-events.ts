@@ -83,18 +83,39 @@ export interface PortalActionEventRow {
   created_at: string
 }
 
+/**
+ * Read one SEAT's console-action ledger, newest first.
+ *
+ * Scoped on BOTH keys. `entity_id` is the tenant fence. `customer_slug` is the
+ * seat fence: every writer above attributes its event to the instance it was
+ * performed on (`ctx.instance` / `access.customerSlug` / `auth.customerSlug`),
+ * the feed that consumes this is itself per-instance, and its slug-keyed
+ * siblings (`listPauseEvents`, `listEntitlementChanges`) already scope this
+ * way. Reading on `entity_id` alone showed one seat's role grants and config
+ * submissions on a sibling seat's activity feed for any multi-seat entity
+ * (#2281 — the same identity-key defect migration 0093 fixed in fleet_status;
+ * latent here only because the table is still empty in prod).
+ *
+ * Rows with a NULL `customer_slug` are entity-wide by construction — the
+ * column is nullable by design — so they surface on every seat of the entity
+ * rather than being silently dropped. Contrast `portal_login_events`, which is
+ * entity-scoped on purpose: a sign-in spans the entity, not one seat.
+ */
 export async function listPortalActionEvents(
   db: D1Database,
   entityId: string,
+  customerSlug: string | null,
   limit = 50
 ): Promise<PortalActionEventRow[]> {
   const res = await db
     .prepare(
       'SELECT id, entity_id, customer_slug, action_type, actor_email, actor_role, ' +
         'source, target, status, metadata_json, created_at ' +
-        'FROM portal_action_events WHERE entity_id = ? ORDER BY created_at DESC LIMIT ?'
+        'FROM portal_action_events ' +
+        'WHERE entity_id = ? AND (customer_slug IS NULL OR customer_slug = ?) ' +
+        'ORDER BY created_at DESC LIMIT ?'
     )
-    .bind(entityId, limit)
+    .bind(entityId, customerSlug, limit)
     .all<PortalActionEventRow>()
   return res.results ?? []
 }
