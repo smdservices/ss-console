@@ -55,6 +55,9 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'DRAFT_EXPIRED',
       'REPLY_SENT',
       'REPLY_HELD',
+      'REPLY_FAILED',
+      'CONFIRM_SEND_DISPATCHED',
+      'CONFIRM_SEND_FAILED',
     ],
   },
   {
@@ -86,6 +89,7 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'CONFIG_CHANGE_REJECTED',
       'OUTPUT_SPEC_AUTHORED',
       'OUTPUT_SPEC_REJECTED',
+      'CORRECTION_PROPOSED',
     ],
   },
   {
@@ -207,20 +211,6 @@ export const SUPPRESSED_ACTION_REASONS: Readonly<Record<string, string>> = {
   DECOMMISSION_STEP_COMPLETE: 'INTERNAL. Per-step decommission marker for the compliance trail.',
   DECOMMISSION_STEP_FAILED: 'INTERNAL. Per-step decommission marker for the compliance trail.',
   DECOMMISSION_FINAL: 'INTERNAL. Decommission pipeline boundary, run by us.',
-
-  // --- NEEDS COPY: promotion candidates blocked on authored wording ---------
-  // These describe acts a client plausibly should see. They stay suppressed
-  // because the venture forbids inventing client-facing sentences, not because
-  // anyone decided the client should be kept in the dark. Captain authors the
-  // wording in ss#2320; until then, withheld and said so.
-  REPLY_FAILED:
-    'NEEDS COPY (ss#2320). The Operator attempted a reply and the send errored. Its siblings REPLY_SENT and REPLY_HELD are both mapped, so today a failed reply is the one reply outcome the client cannot see.',
-  CONFIRM_SEND_DISPATCHED:
-    'NEEDS COPY (ss#2320). A confirmed external send dispatched. Sibling of the mapped REPLY_SENT.',
-  CONFIRM_SEND_FAILED:
-    'NEEDS COPY (ss#2320). A confirmed external send errored. Same gap as REPLY_FAILED.',
-  CORRECTION_PROPOSED:
-    'NEEDS COPY (ss#2320). The client own correction was captured (ss#2091). Arguably theirs to see confirmed.',
 }
 
 /**
@@ -264,6 +254,16 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   DRAFT_EXPIRED: () => 'A draft expired without review',
   REPLY_SENT: () => 'Replied to a message',
   REPLY_HELD: () => 'Held a reply for your review',
+  // ss#2320, Captain-approved 2026-08-12. A client who sees REPLY_SENT and
+  // REPLY_HELD but not REPLY_FAILED is shown a filtered version of their own
+  // operation, and eventually notices a reply that never arrived with no record
+  // of the attempt. Past tense, and deliberately no promise of a retry: the
+  // system does not retry these, and copy implying it would is an uncontracted
+  // outbound commitment (Pattern A).
+  REPLY_FAILED: () => 'A reply could not be sent',
+  CONFIRM_SEND_DISPATCHED: () => 'Sent a confirmed message',
+  CONFIRM_SEND_FAILED: () => 'A confirmed message could not be sent',
+  CORRECTION_PROPOSED: () => 'Captured your correction',
   ESCALATION_FIRED: (e) => e.reason ?? 'Flagged something for your attention',
   ESCALATION_ACKNOWLEDGED: () => 'An escalation was acknowledged',
   AGENT_STOPPED: () => 'Your operator was paused',
