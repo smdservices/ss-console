@@ -565,6 +565,16 @@ skill_bindings:
       - { artifact: template_docx, seam: smokeball_file, class: record }
       - { artifact: establishment_report, seam: session_output, class: staff }
     outbound: none # the templates are filed into the firm's own record; the reply is the admin's own turn
+  # The conductor (ss#2220 rescoped): one admin request runs the seat's authored
+  # initiation sequence. It lands no artifact of its own — every act it runs is
+  # a delegated procedure whose artifacts are bound above (the self-test's
+  # reply, the establishment reports, the library's filed templates). Its own
+  # output is the status board, the same staff-class session output the
+  # establishment skills emit, in the instructing admin's own turn.
+  operator-self-initiation:
+    internal:
+      - { artifact: initiation_report, seam: session_output, class: staff }
+    outbound: none # the status board is the admin's own turn; delegated acts carry their own bindings
 
   # ---- ops (ss#2148) ----
   # The auth probe produces NO artifact of any class: its entire output is the
@@ -578,14 +588,20 @@ skill_bindings:
 
   # ---- product ops: the initiation card's Stage A (ss#2216) ----
   # Both are reactive replies to a firm requester (RecipientClass.INTERNAL →
-  # staff class via the derived path). Neither lands any internal artifact:
-  # the self-test's step-4 fabrication attempt is REFUSED by the identifier
-  # gate by design (or discarded on the failure path), so no memo ever
-  # reaches the tenant, and the .docx sample travels as an attachment on the
-  # reply itself.
+  # staff class via the derived path). The introduce lands no internal
+  # artifact. The self-test lands exactly ONE (ss#2237): its step-3
+  # certificate, rendered into the seat's AUTHORED ops location and read back
+  # — an email turn has no .docx-attachment path, so the filed document is
+  # the production proof. It is `record`, not `work_product`, for the same
+  # reason the library's templates are: the render gate refuses dates,
+  # figures, and identifiers, and a certificate carries only step names,
+  # statuses, and a count. Step 4's fabrication attempt is still REFUSED by
+  # the identifier gate by design (or discarded on the failure path), so no
+  # memo ever reaches the tenant.
   operator-introduce:
     internal: []
     outbound: derived # reactive reply to the requester, no one else
   operator-self-test:
-    internal: []
-    outbound: derived # the one-page report + .docx attachment to the requester, no one else
+    internal:
+      - { artifact: self_test_certificate, seam: smokeball_file, class: record }
+    outbound: derived # the one-page report to the requester, no one else

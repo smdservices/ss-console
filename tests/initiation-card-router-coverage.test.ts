@@ -172,7 +172,12 @@ describe('the neutral-vertical predicate selects the Operator product skills', (
       .filter(([, vertical]) => vertical === 'neutral')
       .map(([slug]) => slug)
       .sort()
-    expect(neutral).toEqual(['connector-auth-check', 'operator-introduce', 'operator-self-test'])
+    expect(neutral).toEqual([
+      'connector-auth-check',
+      'operator-introduce',
+      'operator-self-initiation',
+      'operator-self-test',
+    ])
   })
 })
 
