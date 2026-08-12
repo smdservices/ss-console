@@ -439,9 +439,15 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
 
     // The client seat's roster is a domain-wide grant; its admin list is not.
     // That contrast is the reason this key exists.
+    //
+    // Three admins, not two: letter 18's two Named Administrators (Chris,
+    // Christa) plus the SMD operator, added PERMANENTLY by Captain decision
+    // 2026-08-11 (the self-initiation decision set) so SMD can run initiation
+    // and establishment on the firm's behalf. Disclosure of the third admin
+    // to the firm is a tracked Captain follow-up (ss#2220 rescope).
     const [, ap] = seats[0]
     expect(ap.scope.inbound_allow_from.some((e) => e.startsWith('@'))).toBe(true)
-    expect(ap.scope.admins.length).toBe(2)
+    expect(ap.scope.admins.length).toBe(3)
   })
 
   it('(i) the authored persona register is real and identical across the client and proving seats', () => {

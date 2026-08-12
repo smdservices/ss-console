@@ -565,6 +565,16 @@ skill_bindings:
       - { artifact: template_docx, seam: smokeball_file, class: record }
       - { artifact: establishment_report, seam: session_output, class: staff }
     outbound: none # the templates are filed into the firm's own record; the reply is the admin's own turn
+  # The conductor (ss#2220 rescoped): one admin request runs the seat's authored
+  # initiation sequence. It lands no artifact of its own — every act it runs is
+  # a delegated procedure whose artifacts are bound above (the self-test's
+  # reply, the establishment reports, the library's filed templates). Its own
+  # output is the status board, the same staff-class session output the
+  # establishment skills emit, in the instructing admin's own turn.
+  operator-self-initiation:
+    internal:
+      - { artifact: initiation_report, seam: session_output, class: staff }
+    outbound: none # the status board is the admin's own turn; delegated acts carry their own bindings
 
   # ---- ops (ss#2148) ----
   # The auth probe produces NO artifact of any class: its entire output is the
