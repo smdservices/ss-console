@@ -18,6 +18,9 @@ const migrationsDir = resolve(process.cwd(), 'migrations')
 
 const ENTITY_ID = 'entity-action-events'
 const OTHER_ENTITY_ID = 'entity-other'
+const SLUG = 'firm-alpha'
+/** A second seat on the SAME entity — the multi-operator shape (#2281). */
+const SIBLING_SLUG = 'firm-alpha-two'
 
 function baseInput(
   action_type: PortalActionType,
@@ -25,7 +28,7 @@ function baseInput(
 ): RecordPortalActionEventInput {
   return {
     entity_id: ENTITY_ID,
-    customer_slug: 'firm-alpha',
+    customer_slug: SLUG,
     action_type,
     actor_user_id: 'user-1',
     actor_email: 'principal@firm.example',
@@ -71,7 +74,7 @@ describe('portal_action_events ledger', () => {
         })
       )
     }
-    const rows = await listPortalActionEvents(db, ENTITY_ID)
+    const rows = await listPortalActionEvents(db, ENTITY_ID, SLUG)
     expect(rows).toHaveLength(ALL_TYPES.length)
     const byType = new Map(rows.map((r) => [r.action_type, r]))
     for (const t of ALL_TYPES) {
@@ -90,9 +93,33 @@ describe('portal_action_events ledger', () => {
   it('is entity-scoped and newest-first', async () => {
     await recordPortalActionEvent(db, baseInput('role_granted'))
     await recordPortalActionEvent(db, baseInput('role_revoked', { entity_id: OTHER_ENTITY_ID }))
-    const rows = await listPortalActionEvents(db, ENTITY_ID)
+    const rows = await listPortalActionEvents(db, ENTITY_ID, SLUG)
     expect(rows).toHaveLength(1)
     expect(rows[0].action_type).toBe('role_granted')
+  })
+
+  // #2281 — every writer attributes its event to the instance it happened on,
+  // so an entity-only read leaks one seat's actions onto a sibling's feed.
+  it('is seat-scoped: a sibling seat on the same entity does not show', async () => {
+    await recordPortalActionEvent(db, baseInput('role_granted'))
+    await recordPortalActionEvent(
+      db,
+      baseInput('role_revoked', { customer_slug: SIBLING_SLUG, target: 'sibling@firm.example' })
+    )
+
+    const mine = await listPortalActionEvents(db, ENTITY_ID, SLUG)
+    expect(mine.map((r) => r.action_type)).toEqual(['role_granted'])
+
+    const theirs = await listPortalActionEvents(db, ENTITY_ID, SIBLING_SLUG)
+    expect(theirs.map((r) => r.action_type)).toEqual(['role_revoked'])
+  })
+
+  it('surfaces a NULL-slug (entity-wide) row on every seat of the entity', async () => {
+    await recordPortalActionEvent(db, baseInput('invite_sent', { customer_slug: null }))
+    for (const slug of [SLUG, SIBLING_SLUG]) {
+      const rows = await listPortalActionEvents(db, ENTITY_ID, slug)
+      expect(rows.map((r) => r.action_type)).toEqual(['invite_sent'])
+    }
   })
 
   it('CHECK constraint rejects an unknown action_type', async () => {
@@ -135,7 +162,7 @@ describe('portal_action_events ledger', () => {
       db,
       baseInput('output_class_spec_authored', { status: 'applied', metadata: { bodies: 2 } })
     )
-    const rows = await listPortalActionEvents(db, ENTITY_ID)
+    const rows = await listPortalActionEvents(db, ENTITY_ID, SLUG)
     expect(rows).toHaveLength(1)
     expect(rows[0].status).toBe('applied')
   })

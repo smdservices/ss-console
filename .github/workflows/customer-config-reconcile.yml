@@ -1,0 +1,136 @@
+# Reconcile every customer_configs D1 row against the customer.yaml main carries.
+#
+# WHY (ss#2292). The merge-triggered sync in deploy.yml diffs one push range. A
+# range that is never processed — failed deploy, skipped job, force-push,
+# rewritten history — is never revisited, because no later push's range contains
+# it. On 2026-08-11 the smd-staging row had said `format_spec: none` for eleven
+# days while main and the live seat both said `expected`, and nothing was
+# watching, because nothing compared every row to git.
+#
+# Scheduled AND at the deploy tail, on purpose: the schedule is what catches a
+# range that was dropped weeks ago, and the deploy-tail run is what stops a
+# freshly-failed sync from waiting a day to be noticed.
+#
+# HOLDS vs FINDS, same discipline as unaudited-send-reconcile: exit 1 means the
+# control could not evaluate (shallow clone, D1 unreadable, a re-projection that
+# would not land) and fails the run on its own. Exit 2 means it evaluated and
+# found something — drift, or a git_sha main no longer contains — and opens an
+# issue. A control that pages on its own blips gets muted within a week.
+
+name: customer-config-reconcile
+
+on:
+  schedule:
+    # 09:41 UTC daily — off the hour and off :00/:30 so it does not land with
+    # every other scheduled job.
+    - cron: '41 9 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Detect and report only; write nothing to D1 (any value = on)'
+        required: false
+  # The reconciler is exercised by tests/config-reconcile.test.ts; run them on a
+  # PR that touches either side so a broken control cannot merge green.
+  pull_request:
+    paths:
+      - 'scripts/ci-reconcile-customer-configs.sh'
+      - 'scripts/ci-sync-customer-configs.sh'
+      - 'tests/config-reconcile.test.ts'
+      - '.github/workflows/customer-config-reconcile.yml'
+
+permissions:
+  contents: read
+  # Findings open an issue rather than annotating a log nobody reads.
+  issues: write
+  # Required so npm ci can fetch @venturecrane/crane-test-harness from
+  # GitHub Packages via the workflow's GITHUB_TOKEN.
+  packages: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history, non-negotiable: the reconciler resolves per-file
+          # commits and tests ancestry, and it refuses to run on a shallow clone
+          # rather than emit a confidently wrong answer.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@venturecrane'
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm ci
+
+      # The unit tests gate the scheduled run: a reconciler whose detection is
+      # broken reports either nothing or everything, and both are worse than no
+      # report at all.
+      - name: Test the reconciler
+        run: npx vitest run tests/config-reconcile.test.ts
+
+      # On pull_request there are no secrets and no live D1 — the tests above
+      # are the whole job.
+      - name: Reconcile every row against main
+        if: github.event_name != 'pull_request'
+        id: reconcile
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Via env, never interpolated into the script body: a workflow_dispatch
+          # input is user-supplied and would otherwise be a shell-injection seam.
+          RECONCILE_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -u
+          # Redirect rather than pipe: `$?` after `| tee` reports TEE's status,
+          # not the script's, and this control would then never fire.
+          bash scripts/ci-reconcile-customer-configs.sh > reconcile.txt 2>&1
+          STATUS=$?
+          cat reconcile.txt
+          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+          # Exit 2 is a finding, handled by the next step. Anything else that is
+          # not 0 is the control failing, and must fail the run.
+          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 2 ]; then exit "${STATUS}"; fi
+
+      - name: Open an issue when a row drifted or lost its provenance
+        if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Same discipline as above: github context reaches the script only
+          # through env, never through `${{ }}` inside the body.
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "A customer_configs row did not match the customer.yaml main carries."
+            echo
+            echo "DRIFT means the row's git_sha was not the commit HEAD names for"
+            echo "that file. The reconciler re-projected it, and is reporting anyway:"
+            echo "the portal served a posture the seat did not enforce until it did,"
+            echo "and how long that lasted is the thing worth knowing."
+            echo
+            echo "ORPHAN means the row's git_sha is not an ancestor of main at all."
+            echo "Main's history was rewritten out from under the provenance stamp;"
+            echo "re-projecting fixes the row but not the question of why."
+            echo
+            echo '```'
+            cat reconcile.txt
+            echo '```'
+            echo
+            echo "Reconciler: \`scripts/ci-reconcile-customer-configs.sh\` (ss#2292)."
+            echo "Run: ${RUN_URL}"
+          } > body.md
+          gh issue create \
+            --repo "${REPO}" \
+            --title "customer_configs projection drift $(date -u +%Y-%m-%d)" \
+            --label "prio:P1" --label "type:bug" \
+            --body-file body.md

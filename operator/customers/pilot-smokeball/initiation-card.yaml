@@ -53,11 +53,15 @@ stages:
         admin_only: true
         proves: end-to-end — connect, read, produce, refuse, deliver
         expected: >-
-          One-page report to the requester only, Word attachment, each step
-          PASS/FAILED, the fabrication guard's refusal quoted verbatim.
+          One-page report to the requester only, each step PASS/FAILED, the
+          fabrication guard's refusal quoted verbatim, and step 3's Word
+          certificate filed to the seat's authored ops location and read
+          back (fileName, sha256, size named).
         falsifier: >-
           A report claiming a step that did not run; step 4 not refused; a
-          missing attachment glossed over; delivery beyond the requester.
+          failed or unmaterialized document reported as produced; anything
+          filed to a client matter or to a location the skill chose;
+          delivery beyond the requester.
         rehearsal: pending
 
       # SELF-INITIATION (ss#2220 rescoped; Captain 2026-08-11): one admin

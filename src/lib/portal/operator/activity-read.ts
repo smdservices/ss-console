@@ -74,7 +74,7 @@ export async function loadActivityPage(
   const pauseRows = await loadPauseEventEntries(deps.db, customerSlug)
   const entitlementRows = await loadEntitlementChangeEntries(deps.db, customerSlug)
   const loginRows = await loadLoginEventEntries(deps.db, deps.entityId)
-  const actionRows = await loadActionEventEntries(deps.db, deps.entityId)
+  const actionRows = await loadActionEventEntries(deps.db, deps.entityId, customerSlug)
   const consoleRows = [...pauseRows, ...entitlementRows, ...loginRows, ...actionRows]
 
   if (!isRuntimeReadConfigured(deps.env)) {
@@ -293,10 +293,17 @@ const REJECTED_FEED_MAP: Partial<Record<PortalActionEventRow['action_type'], str
  * Map portal_action_events into AuditEntry shape. A rejected customer.yaml
  * submission surfaces as CONFIG_CHANGE_REJECTED; role events carry the role
  * in the reason cell (parsed defensively from metadata).
+ *
+ * Seat-scoped as well as entity-scoped (#2281): these events are written with
+ * the instance they were performed on, so a sibling seat must not show them.
  */
-async function loadActionEventEntries(db: D1Database, entityId: string): Promise<AuditEntry[]> {
+async function loadActionEventEntries(
+  db: D1Database,
+  entityId: string,
+  customerSlug: string
+): Promise<AuditEntry[]> {
   try {
-    const events = await listPortalActionEvents(db, entityId)
+    const events = await listPortalActionEvents(db, entityId, customerSlug)
     return events.map((e) => {
       const action =
         (e.status === 'rejected' ? REJECTED_FEED_MAP[e.action_type] : undefined) ??

@@ -8,7 +8,7 @@ terminal), and validate_append's acked-needs-prior-raise rule.
 from __future__ import annotations
 
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -62,11 +62,79 @@ def test_item_key_still_discriminates_on_stable_fields() -> None:
     assert base != el.item_key("m-1", "task-1", "task-deadline", date(2026, 7, 21))
 
 
+# One authored deadline, as the several call sites actually spell it: the
+# connector reads a ``date`` off the record; the agent's tool arg is a schema
+# ``string``, and the model has written the bare day, the full timestamp the
+# Smokeball payload carried, and a ``datetime`` handed straight through.
+_ONE_EVENT_SPELLINGS = (
+    date(2026, 8, 11),
+    "2026-08-11",
+    "  2026-08-11 ",
+    "2026-08-11T00:00:00Z",
+    "2026-08-11T14:32:07.512Z",
+    "2026-08-11T14:32:07+00:00",
+    datetime(2026, 8, 11, 14, 32, 7, tzinfo=timezone.utc),
+)
+
+
+def test_one_event_two_date_spellings_is_one_item() -> None:
+    """ss #2289 fix 1. ``authored_date`` reaches ``item_key`` as free text the
+    model typed (the append tool's schema types it ``string``), so the SAME
+    deadline arrives spelled several ways across runs. Before normalization each
+    spelling hashed to its own item: fire-once counted them separately and every
+    per-item ACK code named whichever spelling happened to be in the last raise.
+    Same defect family as the label — a key component that is not canonical."""
+    keys = {
+        el.item_key("m-1", "task-1", "task-deadline", spelling)
+        for spelling in _ONE_EVENT_SPELLINGS
+    }
+    assert len(keys) == 1, f"one event, {len(keys)} identities: {sorted(keys)}"
+    # ...and it is the SAME identity the connector side derives, which passes a
+    # real ``date`` object read off the Smokeball record.
+    assert keys == {el.item_key("m-1", "task-1", "task-deadline", date(2026, 8, 11))}
+
+
+def test_unparseable_authored_date_is_rejected_not_hashed() -> None:
+    """A date the module cannot canonicalize must NOT silently become part of an
+    identity — that is how "tomorrow" and "2026-08-11" become two items. Reject
+    at the seam so the turn sees the error while it can still fix the argument."""
+    with pytest.raises(ValueError, match="authored_date"):
+        el.item_key("m-1", "task-1", "task-deadline", "tomorrow")
+    with pytest.raises(ValueError, match="authored_date"):
+        el.item_key("m-1", "task-1", "task-deadline", "08/11/2026")
+
+
+def test_source_and_matter_ids_are_normalized_before_hashing() -> None:
+    """Smokeball ids are GUIDs; a model retyping one may pad or re-case it. The
+    connector emits them verbatim off the wire, so both sides must fold the same
+    way or the join forks on whitespace."""
+    guid = "3C191BED-CDDA-48B9-A6ED-A51A349F3F94"
+    base = el.item_key("m-1", guid.lower(), "task-deadline", date(2026, 8, 11))
+    assert el.item_key("m-1", guid, "task-deadline", date(2026, 8, 11)) == base
+    assert el.item_key("m-1", f"  {guid}  ", "task-deadline", date(2026, 8, 11)) == base
+    assert el.item_key("  M-1 ", guid, "task-deadline", date(2026, 8, 11)) == base
+
+
 def test_has_stable_identity() -> None:
-    assert el.has_stable_identity("task-9") is True
-    assert el.has_stable_identity("") is False
-    assert el.has_stable_identity(None) is False
-    assert el.has_stable_identity("unknown-matter") is False
+    assert el.has_stable_identity("task-9", "m-1") is True
+    assert el.has_stable_identity("", "m-1") is False
+    assert el.has_stable_identity(None, "m-1") is False
+
+
+def test_sentinel_exclusion_fires_on_a_real_unknown_matter_row() -> None:
+    """ss #2289 fix 2. The guard excluded ``"unknown-matter"`` from ``source_id``
+    — but ``_source_id_of`` never emits it and ``_matter_id_of`` does (both
+    pre_run copies: it is the fallback when the nested matter link is absent).
+    The exclusion could not fire on any row the connector actually writes.
+
+    A row shaped exactly as the connector writes one for an unresolvable matter:
+    a real task GUID, the matter sentinel. Half its identity tuple is invented,
+    so the key moves the moment the matter resolves — it cannot carry a per-item
+    ACK code, and this is the guard that has to say so."""
+    real_task_guid = "3c191bed-cdda-48b9-a6ed-a51a349f3f94"
+    assert el.has_stable_identity(real_task_guid, "unknown-matter") is False
+    # The same task on a resolved matter keeps its per-item token.
+    assert el.has_stable_identity(real_task_guid, "m-1") is True
 
 
 def test_token_is_deterministic_and_typable() -> None:

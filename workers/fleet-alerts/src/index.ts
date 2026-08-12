@@ -65,6 +65,7 @@ import { notifySinkAlerts, type SinkNotification } from './sink-notify'
 import { getOpenSpecControlKeys, specControlConditions } from './spec-control'
 import { getStaleHolds } from './stale-holds'
 import { tokenExpiryConditions } from './token-expiry'
+import { getOpenWebhookSurfaceKeys, webhookSurfaceConditions } from './webhook-surface'
 
 export type { SinkNotification }
 
@@ -117,9 +118,11 @@ export type FleetCondition =
   | 'work_overdue'
   | 'connector_check_error'
   | 'spec_control_unprovable'
+  | 'webhook_surface_unprovable'
   | `connector_down:${string}`
   | `connector_token_expiring:${string}`
   | `spec_control_broken:${string}`
+  | `webhook_surface_missing:${string}`
 
 export interface FleetStatusRow {
   customer_slug: string
@@ -132,6 +135,8 @@ export interface FleetStatusRow {
   connector_token_age_json: string | null
   spec_control_json: string | null
   spec_control_ok: number | null
+  webhook_surface_json: string | null
+  webhook_surface_ok: number | null
 }
 
 /** One per-server entry from the seat's connectors map (writer-side ages). */
@@ -305,6 +310,13 @@ export interface EvaluateOptions {
    * why this is the first condition that needs it.
    */
   openSpecControlKeys?: Record<string, string[]>
+  /**
+   * customer_slug → the tool names that currently have an OPEN
+   * webhook_surface_missing alert (ss#2287). Same need as openSpecControlKeys:
+   * a tool can leave WEBHOOK_EXPECTED_TOOLS, at which point its key vanishes
+   * from the seat's map and nothing would ever close the alert.
+   */
+  openWebhookSurfaceKeys?: Record<string, string[]>
 }
 
 export function evaluateConditions(
@@ -319,6 +331,7 @@ export function evaluateConditions(
     tokenLifetimesDays = {},
     tokenWarnDays = DEFAULT_TOKEN_EXPIRY_WARN_DAYS,
     openSpecControlKeys = {},
+    openWebhookSurfaceKeys = {},
   } = options
   const out: ConditionState[] = []
   for (const row of rows) {
@@ -371,7 +384,11 @@ export function evaluateConditions(
     }
     out.push(...connectorConditions(row, connectorRunAgeThresholdSeconds))
     out.push(...tokenExpiryConditions(row, tokenLifetimesDays, tokenWarnDays))
-    out.push(...specControlConditions(row, openSpecControlKeys[row.customer_slug] ?? []))
+    // Indexed straight in, no `?? []`: both helpers default an absent list to
+    // empty, and the extra branches pushed this function over its complexity
+    // ceiling once the ss#2287 condition joined.
+    out.push(...specControlConditions(row, openSpecControlKeys[row.customer_slug]))
+    out.push(...webhookSurfaceConditions(row, openWebhookSurfaceKeys[row.customer_slug]))
   }
   return out
 }
@@ -445,7 +462,8 @@ async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
       `SELECT customer_slug, last_heartbeat_ts, sticky_stop_level,
               scheduler_ok, scheduler_max_overdue_seconds,
               connectors_json, connector_check_ok, connector_token_age_json,
-              spec_control_json, spec_control_ok
+              spec_control_json, spec_control_ok,
+              webhook_surface_json, webhook_surface_ok
          FROM fleet_status`
     )
     .all<FleetStatusRow>()
@@ -494,6 +512,7 @@ const CONDITION_LABEL: Record<string, string> = {
   work_overdue: 'Scheduled work not firing',
   connector_check_error: 'Connector health check broken (outages not counted)',
   spec_control_unprovable: 'Authored-spec manifest unreadable (spec health unknown)',
+  webhook_surface_unprovable: 'Webhook tool surface unresolvable (warn-tier health unknown)',
 }
 
 /** Label lookup with the per-connector prefix form (ADR 0080). */
@@ -506,6 +525,9 @@ export function conditionLabel(condition: FleetCondition): string {
   }
   if (condition.startsWith('spec_control_broken:')) {
     return `Authored spec declared but not installed: ${condition.slice('spec_control_broken:'.length)}`
+  }
+  if (condition.startsWith('webhook_surface_missing:')) {
+    return `Webhook tool expected but not offered: ${condition.slice('webhook_surface_missing:'.length)}`
   }
   return CONDITION_LABEL[condition] ?? condition
 }
@@ -621,6 +643,7 @@ export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<Run
     tokenLifetimesDays: tokenLifetimesDays(env),
     tokenWarnDays: tokenWarnDays(env),
     openSpecControlKeys: await getOpenSpecControlKeys(env.DB),
+    openWebhookSurfaceKeys: await getOpenWebhookSurfaceKeys(env.DB),
   })
   const transitions: Transition[] = []
 

@@ -33,12 +33,19 @@ otherwise it writes a `SUPPRESSED_WAKE` heartbeat and suppresses.
 against the ledger:
 
 - **item identity** — `item_key = sha256(matter_id, Smokeball task/event id,
-label, authored_date)`. The task id is the anti-collision half: two same-day
-  tasks on one matter differ only by it. An item with no stable id gets no
-  per-item token and renders in the blanket-ack-only group.
+authored_date)`. The task id is the anti-collision half: two same-day tasks on
+  one matter differ only by it. `label` is accepted and IGNORED (ss #2151 — it is
+  model-composed, and hashing it made one deadline two items). Every component is
+  normalized before hashing (ss #2289): ids stripped and case-folded, the date
+  canonicalized to `YYYY-MM-DD`. `2026-08-11` and `2026-08-11T00:00:00Z` are the
+  same item; a date the module cannot parse is REJECTED, not hashed verbatim.
 - **token** — `token_for(item_key)` is a short human-typable `ACK-XXXXXX` a
   reader types back off the email. It is deterministic, so any reader recomputes
-  it; no lookup table.
+  it; no lookup table. An item only gets one if its identity tuple is built
+  entirely from values READ off the record (`has_stable_identity`): no stable
+  task id, or a sentinel like `unknown-matter` in the tuple, means the key moves
+  the moment the real value arrives, so the item renders in the
+  blanket-ack-only group instead of printing a code that will name nothing.
 - **state** — `derive_state(events)` folds the ledger into per-item
   `last_raised`, `attempts`, `acked`, `handed_off`, `resolved`.
 
@@ -113,8 +120,16 @@ escalation_append(skill=..., matter_id=..., source_id=..., label=...,
 # an alarm that never rang cannot be acked)
 escalation_append(skill=..., event="acked", attempt=N, ack_token="ACK-XXXXXX")
 escalation_state(skill=...)
-  -> {"event_count": N, "item_count": N, "items": {item_key: {..., "token": ...}}}
+  -> {"event_count": N, "item_count": N,
+      "items": {item_key: {..., "token": <ACK code or null>, "ackable": <bool>}}}
 ```
+
+`escalation_state` reports the token the ledger actually RECORDED, or `null`
+with `"ackable": false` (ss #2289). It used to synthesize `token_for(item_key)`
+whenever a row carried none, which is exactly the blanket-ack-only items — the
+ones the ack path refuses by design — so the code handed to the turn could not
+be acked by anyone. Route an `ackable: false` item to the blanket group. Never
+recompute a code for it.
 
 - **fired** — three steps, in this order (ss #1935):
   1. For each firing item, call `escalation_append` with `derive_only=true` to
@@ -144,9 +159,11 @@ reply:
 1. Extract every `ACK-XXXXXX` code present in the reply body (they survive quote
    trimming). A blanket `ESCALATION_ACKNOWLEDGED` with no codes acks exactly the
    items **quoted** in the message being replied to; items not quoted stay open.
-2. For each code, resolve it to its `item_key` (recompute `token_for` over the
-   currently-open items, or read the `token` off the ledger's `fired` events) and
-   emit an `acked` event via the broker seam above.
+2. For each code, emit an `acked` event via the broker seam above, passing the
+   code as `ack_token` — the tool resolves it to its `item_key` against the
+   ledger's prior raises. Do NOT recompute `token_for` over open items to find a
+   match: that manufactures a code for items that were never issued one, and the
+   append is refused anyway (an alarm that never rang cannot be acked).
 3. Reply with the confirmation that **enumerates** the acked items and **counts**
    what remains un-acked, so an under-ack stays visible (`output-format.md`).
 
