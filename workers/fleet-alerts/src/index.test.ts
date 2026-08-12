@@ -204,40 +204,26 @@ function computeStaleHolds(state: FakeState): StaleHold[] {
   )
 }
 
+/**
+ * Open `<prefix><payload>` rows fed back so a WITHDRAWN declaration/expectation
+ * can resolve (ss#2234 spec-control, ss#2287 webhook-surface). Since ss#2316
+ * both queries bind their prefix rather than inlining it, so the fake selects on
+ * the BOUND VALUE — which is also what keeps this helper honest under a rename.
+ */
+function openKeysForPrefix(state: FakeState, prefix: string) {
+  return [...state.alertState.entries()]
+    .filter(([key, status]) => status === 'open' && key.includes(`:${prefix}`))
+    .map(([key]) => {
+      const [customer_slug, ...rest] = key.split(':')
+      return { customer_slug, condition: rest.join(':') }
+    })
+}
+
 function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}): Env {
   const db = {
     prepare(sql: string) {
       return {
         all() {
-          if (sql.includes('LEFT JOIN fleet_status')) {
-            return Promise.resolve({ results: computeStaleHolds(state) })
-          }
-          // getOpenSpecControlKeys (ss#2234) — the open spec_control_broken
-          // rows fed back so a WITHDRAWN declaration can resolve. Checked
-          // before the fleet_alert_state catch-alls because it is an unbound
-          // all() on that table.
-          if (sql.includes("condition LIKE 'spec_control_broken:%'")) {
-            const results = [...state.alertState.entries()]
-              .filter(([key, status]) => status === 'open' && key.includes(':spec_control_broken:'))
-              .map(([key]) => {
-                const [customer_slug, ...rest] = key.split(':')
-                return { customer_slug, condition: rest.join(':') }
-              })
-            return Promise.resolve({ results })
-          }
-          // getOpenWebhookSurfaceKeys (ss#2287) — same feedback shape, so a
-          // WITHDRAWN expectation can resolve.
-          if (sql.includes("condition LIKE 'webhook_surface_missing:%'")) {
-            const results = [...state.alertState.entries()]
-              .filter(
-                ([key, status]) => status === 'open' && key.includes(':webhook_surface_missing:')
-              )
-              .map(([key]) => {
-                const [customer_slug, ...rest] = key.split(':')
-                return { customer_slug, condition: rest.join(':') }
-              })
-            return Promise.resolve({ results })
-          }
           if (sql.includes('FROM fleet_status')) {
             return Promise.resolve({ results: state.fleet })
           }
@@ -254,6 +240,16 @@ function makeEnv(state: FakeState, withResend = true, extra: Partial<Env> = {}):
           }
           return {
             all() {
+              // getStaleHolds (ss#2316: now bound — the prefixes travel as
+              // parameters). NOTE: this returns a TypeScript reimplementation,
+              // NOT the query. The SQL itself is exercised against real SQLite
+              // in stale-holds.test.ts; assertions here cannot see it.
+              if (sql.includes('LEFT JOIN fleet_status')) {
+                return Promise.resolve({ results: computeStaleHolds(state) })
+              }
+              if (sql.includes("condition LIKE ? || '%'")) {
+                return Promise.resolve({ results: openKeysForPrefix(state, String(args[0])) })
+              }
               if (!sql.includes('FROM cost_anomaly_alerts')) {
                 throw new Error(`unexpected bound all(): ${sql}`)
               }

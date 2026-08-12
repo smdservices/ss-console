@@ -60,6 +60,13 @@
  * verification, plus GET /health.
  */
 
+import {
+  CONNECTOR_DOWN_PREFIX,
+  CONNECTOR_TOKEN_EXPIRING_PREFIX,
+  SPEC_CONTROL_BROKEN_PREFIX,
+  WEBHOOK_SURFACE_MISSING_PREFIX,
+  conditionPayload,
+} from './conditions'
 import { escapeHtml } from './html'
 import { notifySinkAlerts, type SinkNotification } from './sink-notify'
 import { getOpenSpecControlKeys, specControlConditions } from './spec-control'
@@ -419,7 +426,7 @@ function connectorConditions(row: FleetStatusRow, runAgeThreshold: number): Cond
   const connectors = parseConnectorsMap(row.connectors_json)
   if (connectors === null) return out
   for (const [server, entry] of Object.entries(connectors)) {
-    const condition: FleetCondition = `connector_down:${server}`
+    const condition: FleetCondition = `${CONNECTOR_DOWN_PREFIX}${server}`
     if (entry.consecutive_failures === 0) {
       out.push({
         customer_slug: row.customer_slug,
@@ -517,18 +524,14 @@ const CONDITION_LABEL: Record<string, string> = {
 
 /** Label lookup with the per-connector prefix form (ADR 0080). */
 export function conditionLabel(condition: FleetCondition): string {
-  if (condition.startsWith('connector_down:')) {
-    return `Connector failing: ${condition.slice('connector_down:'.length)}`
-  }
-  if (condition.startsWith('connector_token_expiring:')) {
-    return `Connector credential expiring: ${condition.slice('connector_token_expiring:'.length)}`
-  }
-  if (condition.startsWith('spec_control_broken:')) {
-    return `Authored spec declared but not installed: ${condition.slice('spec_control_broken:'.length)}`
-  }
-  if (condition.startsWith('webhook_surface_missing:')) {
-    return `Webhook tool expected but not offered: ${condition.slice('webhook_surface_missing:'.length)}`
-  }
+  const down = conditionPayload(condition, CONNECTOR_DOWN_PREFIX)
+  if (down !== null) return `Connector failing: ${down}`
+  const expiring = conditionPayload(condition, CONNECTOR_TOKEN_EXPIRING_PREFIX)
+  if (expiring !== null) return `Connector credential expiring: ${expiring}`
+  const spec = conditionPayload(condition, SPEC_CONTROL_BROKEN_PREFIX)
+  if (spec !== null) return `Authored spec declared but not installed: ${spec}`
+  const tool = conditionPayload(condition, WEBHOOK_SURFACE_MISSING_PREFIX)
+  if (tool !== null) return `Webhook tool expected but not offered: ${tool}`
   return CONDITION_LABEL[condition] ?? condition
 }
 
