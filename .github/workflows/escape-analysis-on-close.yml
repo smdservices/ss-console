@@ -1,0 +1,99 @@
+name: Escape analysis on bug close
+
+# ss#2280. Ask the four questions at the moment the knowledge is cheapest.
+#
+# The 2026-08-12 latent-defect audit found ELEVEN instruments that could not
+# fail — a D1 fake ignoring SQL, an HMAC parity test pinning a transcription of
+# the script instead of the script, a workflow step whose findings path `bash -e`
+# killed before it could print, a mock acknowledging nothing the caller sent.
+# Each had been green for as long as it existed. They were found by one
+# heavyweight audit that only ran because the Captain asked why bugs keep
+# escaping.
+#
+# This is the everyday version. When a bug closes, its author still knows why the
+# defect hid — a week later nobody does. Four questions, a sentence each; the
+# fourth is the one that matters, because it turns one fix into a closed class.
+#
+# DELIBERATELY NARROW. Fires only on `type:bug`, only on a completed close, and
+# any bug that does not warrant the analysis takes `escape-analysis-exempt` — a
+# visible, greppable decision rather than a silent skip. A gate that fires on
+# everything gets routed around, and then it protects nothing (the lesson already
+# written into scope-deferred-todo.yml).
+#
+# The DECISION logic lives in scripts/escape-analysis.mjs and is unit-tested in
+# tests/escape-analysis.test.ts, including a falsifier per accept case. That split
+# exists because this workflow guards against checks that cannot fail and must not
+# become the twelfth: github-script bodies cannot be executed by any test, so the
+# part that decides is not written in one.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Closed bugs carry an escape analysis
+    runs-on: ubuntu-latest
+    # Cheap pre-filter so the job does not even start on features and chores.
+    # The module re-checks the label itself; this only saves a runner.
+    if: contains(join(github.event.issue.labels.*.name, ','), 'type:bug')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Only the checker module is needed; history is irrelevant here.
+          fetch-depth: 1
+
+      - name: Evaluate the close
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { checkEscapeAnalysis, rejectionComment } =
+              await import(`${process.env.GITHUB_WORKSPACE}/scripts/escape-analysis.mjs`);
+
+            const issue = context.payload.issue;
+
+            // Comments are read at close time rather than trusting the payload:
+            // the analysis is usually the comment posted moments before closing.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+
+            const verdict = checkEscapeAnalysis({
+              body: issue.body || '',
+              comments: comments.map((c) => c.body || ''),
+              labels: (issue.labels || []).map((l) => l.name),
+              stateReason: issue.state_reason,
+            });
+
+            if (verdict.ok) {
+              core.info(`escape analysis: ${verdict.reason}`);
+              return;
+            }
+
+            // Reopen rather than merely comment. A comment on a closed issue is
+            // read by nobody, which would make this a gate that cannot fail in a
+            // second sense — it would fire and change nothing.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: rejectionComment({ missing: verdict.missing }),
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'open',
+            });
+
+            core.setFailed(
+              `#${issue.number} closed without an escape analysis (missing: ${verdict.missing.join(', ')}). Reopened.`
+            );
