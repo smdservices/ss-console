@@ -210,6 +210,23 @@ escalation:
 #     inbound_daily_cap: 200       # verified webhook wakes routed per UTC day;
 #                                  # overflow is parked (202 + audit, no wake)
 
+# ---- SELF-INITIATION (ss#2220; optional) ----
+# The seat's authored initiation sequence: the acts one Operator-admin request
+# ("initialize yourself") runs, in order, via the operator-self-initiation
+# conductor skill. Person-initiated always — never automatic at connect, boot,
+# or on a schedule. Every sequence act must be a skill bound+enabled on this
+# seat (drift-gated by tests/self-initiation-sequence.test.ts), and any seat
+# that binds operator-self-initiation must author this block. Read at turn
+# time off /var/lib/smd-config/customer.yaml (routine_names shape).
+# self_initiation:
+#   sequence:
+#     - operator-self-test
+#     - voice-establishment
+#     - document-library-establishment
+#   document_library:
+#     matter_hint: '[the ops matter the library lives on — authored after the blessing]'
+#     folder_name: 'Document Library'
+
 # ---- VOICE LIBRARY ----
 voice_library:
   samples_path: 'r2://vaults/[FIRM-SLUG]/voice/samples/'

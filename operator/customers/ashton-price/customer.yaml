@@ -40,6 +40,36 @@ seat:
   kind: customer
   product: operator
 
+# ---- OUTPUT CLASSES (ADR 0083) ----
+# Mirrors the proving seat's declaration (pilot-smokeball, fixtures -> pilot ->
+# client discipline): the firm's voice is EXPECTED on staff mail and on work
+# product, established through the self-initiation / establishment path.
+# format_spec: none is an authored choice — the drafting lane's skeletons and
+# mechanical gates own work-product shape.
+#
+# TWO AUTHORED CAVEATS, read before touching this block:
+# (a) PRECONDITION: this seat's rebuild pin must carry overlay#2234's
+#     proceed-and-alert semantics. Before #2234, `voice_spec: expected` with
+#     no installed spec REFUSED every autonomous send — on the pilot that
+#     froze internal mail for six days with no alert (#2228). On a pre-#2234
+#     pin this block would recreate that outage on a production client seat,
+#     case alerts included. Verify the pin at activation with a probe +
+#     crane_verify; never assume.
+# (b) STANDING ALERT WINDOW: from rebuild until the firm blesses its voice,
+#     the seat raises `spec_control_broken:staff.voice` on the heartbeat.
+#     That alert is AUTHORED state, not a defect: the seat declares a control
+#     it does not yet have, and it resolves the moment voice establishment
+#     installs the staff spec. work_product carries no such window (its class
+#     is external_send: forbidden — no send exists for a missing spec to
+#     downgrade).
+output_classes:
+  staff:
+    voice_spec: expected
+    format_spec: none
+  work_product:
+    voice_spec: expected
+    format_spec: none
+
 vertical: law-firm
 addons:
   - law-firm/pi@0.3.0 # the CA PI-litigation lifecycle pack (19 routine skills active here; the v0.3.0 drafting lane is NOT activated on this seat — see the fail-closed block at the end of the skills list)
@@ -165,10 +195,12 @@ personas:
         external_send_vendor: autonomous
     skills:
       # product ops — the initiation card's Stage A (initiation-card.yaml).
-      # Person-invoked only; report/reply to the requester only. admin_only
-      # enforcement note: mechanical sender-gate is ss#2160; until it lands,
-      # this seat's roster is exactly the two firm admins + the SMD operator,
-      # so the ADR 0085 restriction holds by roster construction.
+      # Person-invoked only; report/reply to the requester only. admin_only is
+      # enforced per turn by the INITIATION AUTHORITY context resolved from
+      # scope.admins (proven live on the pilot 2026-08-10: admin fires
+      # vfy_01KZPE39V4C4TAM89ZR8Q9KTHF, rostered non-admin declined
+      # vfy_01KZPE3MC9WDG1RJD6N0C1H395; the "holds by roster construction"
+      # interim note this replaced is obsolete).
       - name: operator-introduce
         version: pending
         initiation:
@@ -177,6 +209,39 @@ personas:
           webhook: false
         enabled: true
       - name: operator-self-test
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      # establishment + initiation (ADR 0085; ss#2220 rescoped) — activation on
+      # a client seat is a Captain act, and this binding is that act (Captain
+      # 2026-08-11, the self-initiation decision set). Conversational only:
+      # never scheduled, never webhook-fired, because establishment is an
+      # instructed act and an unattributed turn may not establish anything.
+      # Proven on the pilot first (voice chain vfy_01KZQ60KAV2MSTTS1H1JHV5XTD;
+      # document library vfy_01KZS7250G84C421SMNCBQ09W7 +
+      # vfy_01KZS7HM8A67SWX9Y1BMQSWPZY).
+      - name: voice-establishment
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      - name: document-library-establishment
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      # The initiation conductor: one admin request ("initialize yourself")
+      # runs the authored self_initiation.sequence below, each act by its own
+      # skill body, each stopping at its own blessing gate. This is the
+      # letter-23 self-initialization commitment, person-initiated always.
+      - name: operator-self-initiation
         version: pending
         initiation:
           manual: true
@@ -631,13 +696,18 @@ scope:
     - scott@smd.services
   # The Operator-admin allow list (ADR 0085 §2) — who may establish the firm's
   # voice and output shapes by instructing the Operator, and who may promote a
-  # captured correction. This is the role letter 18 named to the firm as its two
-  # Named Administrators; the config key is ours, the people are the paper's.
+  # captured correction. Chris and Christa are the two Named Administrators of
+  # letter 18; the config key is ours, the people are the paper's. Scott
+  # (SMD) was added PERMANENTLY by Captain decision 2026-08-11 (the
+  # self-initiation decision set) so SMD can run initiation and establishment
+  # on the firm's behalf. Letter 18 named only the firm's two admins, so this
+  # third admin is disclosed to the firm (Captain follow-up, tracked with the
+  # ss#2220 rescope).
   #
   # Why this list is NOT the roster above: the roster is domain-wide, so every
   # person at the firm gets real answers. Establishment is narrower on purpose —
   # an associate asking for a different tone is captured as a proposed
-  # correction, and Chris or Christa decides whether it becomes how the firm
+  # correction, and an admin decides whether it becomes how the firm
   # writes. Person addresses only; a whole-@domain grant is refused by the
   # validator precisely because it would erase that distinction.
   #
@@ -646,6 +716,7 @@ scope:
   admins:
     - chris@ashtonandprice.com
     - christa@ashtonandprice.com
+    - scott@smd.services
   # External send to non-roster recipients is drafted, never autonomous — client-
   # and tribunal-bound mail ships under a human reviewer. The draft_for_review
   # posture is authored on the persona's entitlements.exposure (ADR 0056), the
@@ -767,6 +838,30 @@ routine_names:
   lien-ledger-tracker: 'Lien ledger'
   settlement-statement-feeder: 'Settlement statement'
   daily-needs-you-digest: 'Daily "what needs you"'
+
+# ---- SELF-INITIATION (ss#2220 rescoped; Captain 2026-08-11) ----
+# The seat's authored initiation sequence: the acts one admin request
+# ("initialize yourself") runs, in order, each act by its own skill body and
+# each stopping at its own blessing gate. This is the letter-23
+# self-initialization commitment. PERSON-INITIATED ALWAYS — nothing here
+# fires at connect, at boot, or on any schedule; an unattributed turn may not
+# initialize anything. Runtime consumer is the operator-self-initiation
+# skill, which reads this block off /var/lib/smd-config/customer.yaml at
+# turn time (the routine_names materialization shape). Drift-gated by
+# tests/self-initiation-sequence.test.ts.
+#
+# document_library.matter_hint is DELIBERATELY unauthored: this seat has
+# never been connected, so no matter exists to name. The library location is
+# fixed by the admin at the blessing turn, then authored here by PR so the
+# status probe can find it; until then the probe reports "unknown — ask the
+# admin", never a false "absent".
+self_initiation:
+  sequence:
+    - operator-self-test
+    - voice-establishment
+    - document-library-establishment
+  document_library:
+    folder_name: 'Document Library'
 
 # ---- VOICE COHORTS ----
 # The audience classes this seat's voice profiles are partitioned by. An
