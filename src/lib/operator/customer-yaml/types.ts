@@ -188,6 +188,26 @@ export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
 export type AuthoredExposureActionClass = Exclude<ActionClass, 'read'>
 
 /**
+ * Action classes that may carry an AUTHORED or OVERRIDDEN exposure value —
+ * every class except `read` (enforcement always allows a read, so authoring a
+ * ceiling for it is meaningless and is rejected by the validators).
+ *
+ * This is the exact key set the seat's runtime override store will honor. The
+ * overlay derives its own `_OVERRIDABLE_ACTIONS` (`shared/exposure_override.py`)
+ * as the Python `ActionClass` enum minus `READ` and `REFUSED`; the TS
+ * vocabulary has no `refused` member (it is a terminal enforcement outcome,
+ * never an authorable class), so enum-minus-`read` on this side is the same
+ * set. DERIVED, never transcribed — a hand-copied second list is the drift the
+ * ss#2280 audit was cataloguing.
+ *
+ * Load-bearing for ss#2314: `routine-grid.yaml`'s `enforcement.exposure_keys`
+ * are validated against this set, so a typo fails CI instead of indexing the
+ * seat's override map with a string that matches nothing.
+ */
+export const EXPOSURE_ACTION_CLASSES: readonly AuthoredExposureActionClass[] =
+  ACCEPTED_ACTION_CLASSES.filter((c): c is AuthoredExposureActionClass => c !== 'read')
+
+/**
  * The send action classes — the only classes for which the `confirm` ceiling
  * (ADR 0071) has defined enforcement behavior, and the classes the recipient
  * classifier resolves a send to. Mirrors `SEND_ACTION_CLASSES` in the overlay

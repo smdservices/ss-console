@@ -135,11 +135,37 @@ async function setEntitlementOnMachine(
     throw new Error(`gate entitlement set failed: ${resp.status} ${detail.slice(0, 200)}`)
   }
   const data: Partial<GateEntitlementResult> = await resp.json()
-  return {
-    applied: Array.isArray(data.applied) ? data.applied : [],
-    persona: data.persona ?? body.persona,
-    updated_at: data.updated_at ?? '',
+  const applied = Array.isArray(data.applied) ? data.applied : []
+  // The Machine echoes the rows it actually wrote. Compare it to what we sent
+  // (ss#2314): a 200 whose echo is empty or partial means the seat dropped a
+  // change — the shape an override key it cannot index takes when it does not
+  // 409 — and recording that as `applied` would put a posture in the client's
+  // ledger that the runtime never took. Throwing keeps the module's stated
+  // invariant true: a change the Machine did not acknowledge is never recorded.
+  const missing = unacknowledgedChanges(body.changes, applied)
+  if (missing.length > 0) {
+    throw new Error(
+      `gate entitlement set incomplete: the Operator acknowledged ${applied.length} of ` +
+        `${body.changes.length} changes (unconfirmed: ${missing.join(', ')})`
+    )
   }
+  return { applied, persona: data.persona ?? body.persona, updated_at: data.updated_at ?? '' }
+}
+
+/**
+ * Requested changes the Machine's echo does not confirm at the exact ceiling
+ * we asked for. Order-independent; an echo carrying extra rows is fine (the
+ * batch is atomic seat-side, so extras are other personas' rows, never a
+ * substitution for ours).
+ */
+export function unacknowledgedChanges(
+  requested: readonly { action_class: string; ceiling: string }[],
+  applied: readonly { action_class: string; ceiling: string }[]
+): string[] {
+  const seen = new Set(applied.map((a) => `${a.action_class}=${a.ceiling}`))
+  return requested
+    .filter((c) => !seen.has(`${c.action_class}=${c.ceiling}`))
+    .map((c) => `${c.action_class}=${c.ceiling}`)
 }
 
 /**
@@ -208,47 +234,89 @@ export interface LiveOverrideReadEnv {
 }
 
 /**
+ * Outcome of reading the Machine's live override store, as a state the caller
+ * can render honestly (ss#2314). The old `Record | null` return collapsed four
+ * different situations into two values: an empty map meant BOTH "no overrides
+ * are set" and "the persona name did not match anything on the seat", and null
+ * meant BOTH "this seat has no read transport configured" and "the read
+ * failed" — so a display fell back to authored-only config without ever being
+ * able to say the live posture was unknown.
+ */
+export type LiveOverrideRead =
+  /** The seat answered. `overrides` may legitimately be empty. */
+  | { status: 'ok'; overrides: Record<string, string> }
+  /** No read transport for this seat — the live posture was never asked for. */
+  | { status: 'unconfigured' }
+  /** The seat was asked and did not answer usably. */
+  | { status: 'unavailable'; detail: string }
+  /** The seat answered about OTHER personas only — a config/identity defect. */
+  | { status: 'persona_mismatch'; requested: string; seatPersonas: string[] }
+
+/**
+ * Project the seat's `/runtime/entitlements` payload onto one persona.
+ *
+ * Split out so the caller stays inside the complexity ceiling, and because the
+ * persona discrimination is the interesting half: an empty projection is only
+ * "no overrides are set" when the seat reported NO personas at all or reported
+ * the one we asked about. If it reported rows under other names, the client's
+ * overrides are being enforced somewhere we cannot see them (ss#2314).
+ */
+export function projectOverridesForPersona(
+  entries: readonly { persona?: string; action_class?: string; ceiling?: string }[],
+  personaSlug: string
+): LiveOverrideRead {
+  const out: Record<string, string> = {}
+  const seatPersonas = new Set<string>()
+  for (const entry of entries) {
+    if (typeof entry.persona === 'string') seatPersonas.add(entry.persona)
+    if (entry.persona === personaSlug && entry.action_class && entry.ceiling) {
+      out[entry.action_class] = entry.ceiling
+    }
+  }
+  if (seatPersonas.size > 0 && !seatPersonas.has(personaSlug)) {
+    return { status: 'persona_mismatch', requested: personaSlug, seatPersonas: [...seatPersonas] }
+  }
+  return { status: 'ok', overrides: out }
+}
+
+/**
  * Read the Machine's live override store (`GET /runtime/entitlements`) for
  * display: the settings page overlays these onto the projected authored
  * exposure so the tier shown is the tier ENFORCED, not the authored default.
- * Returns null when the read is unconfigured or fails — the caller falls back
- * to authored-only display (display never blocks the control; enforcement is
- * Machine-side either way).
+ *
+ * Every non-`ok` status means the displayed tier is the AUTHORED one and the
+ * enforced one is unknown — the caller must not present it as the live
+ * posture. Enforcement is Machine-side regardless; this is a display path, and
+ * its failure mode is a wrong-looking safety control, not a wrong enforcement.
  */
 export async function readLiveOverrides(
   env: LiveOverrideReadEnv,
   customerSlug: string,
   personaSlug: string
-): Promise<Record<string, string> | null> {
-  if (
-    typeof env.OPERATOR_RUNTIME_READ_SECRET !== 'string' ||
-    env.OPERATOR_RUNTIME_READ_SECRET.length === 0 ||
-    typeof env.OPERATOR_RUNTIME_READ_URL !== 'string' ||
-    env.OPERATOR_RUNTIME_READ_URL.length === 0
-  ) {
-    return null
+): Promise<LiveOverrideRead> {
+  const secret = env.OPERATOR_RUNTIME_READ_SECRET
+  const urlTemplate = env.OPERATOR_RUNTIME_READ_URL
+  if (typeof secret !== 'string' || secret.length === 0) return { status: 'unconfigured' }
+  if (typeof urlTemplate !== 'string' || urlTemplate.length === 0) {
+    return { status: 'unconfigured' }
   }
   const app = resolveCustomerFlyApp(customerSlug)
-  if (!app) return null
+  if (!app) return { status: 'unconfigured' }
   try {
-    const bearer = await deriveRuntimeReadKey(env.OPERATOR_RUNTIME_READ_SECRET, customerSlug)
-    const resp = await fetch(
-      `${machineBaseUrl(env.OPERATOR_RUNTIME_READ_URL, app)}/runtime/entitlements`,
-      { headers: { Authorization: `Bearer ${bearer}`, 'X-Tenant-Slug': customerSlug } }
-    )
-    if (!resp.ok) return null
+    const bearer = await deriveRuntimeReadKey(secret, customerSlug)
+    const resp = await fetch(`${machineBaseUrl(urlTemplate, app)}/runtime/entitlements`, {
+      headers: { Authorization: `Bearer ${bearer}`, 'X-Tenant-Slug': customerSlug },
+    })
+    if (!resp.ok) return { status: 'unavailable', detail: `runtime read ${resp.status}` }
     const data: {
       entries?: { persona?: string; action_class?: string; ceiling?: string }[]
     } = await resp.json()
-    const out: Record<string, string> = {}
-    for (const entry of data.entries ?? []) {
-      if (entry.persona === personaSlug && entry.action_class && entry.ceiling) {
-        out[entry.action_class] = entry.ceiling
-      }
+    return projectOverridesForPersona(Array.isArray(data.entries) ? data.entries : [], personaSlug)
+  } catch (err) {
+    return {
+      status: 'unavailable',
+      detail: err instanceof Error ? err.message : 'runtime read failed',
     }
-    return out
-  } catch {
-    return null
   }
 }
 

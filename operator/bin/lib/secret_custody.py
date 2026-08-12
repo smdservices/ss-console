@@ -107,6 +107,11 @@ _CUSTOMER_EXACT: frozenset[str] = frozenset(
 # own SMOKEBALL_-family credentials.
 _CUSTOMER_PREFIX: tuple[str, ...] = (
     "ANTHROPIC_API_KEY__",
+    # Per-seat override forms AGENTMAIL_API_KEY__<CID> / AGENTMAIL_SEND_API_KEY__<CID>
+    # (ss#2258). Both keys are inbox-scoped at the vendor, so one shared value
+    # across seats would hand a seat a credential for someone else's mailbox.
+    "AGENTMAIL_API_KEY__",
+    "AGENTMAIL_SEND_API_KEY__",
     "WEBHOOK_SECRET_AGENTMAIL__",
     "WEBHOOK_SECRET_SMOKEBALL__",
     "WEBHOOK_SMOKEBALL_CLIENT_ID__",

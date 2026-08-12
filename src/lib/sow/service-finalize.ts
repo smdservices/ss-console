@@ -16,6 +16,7 @@ import { getSowRevisionSignedKey, uploadSignedSowRevisionPdf } from '../storage/
 import { getSignedPdf } from '../signwell/client'
 import type { SignWellWebhookPayload } from '../signwell/types'
 import { sendEmail } from '../email/resend'
+import { normalizeEmail } from '../identity/email'
 import { portalWelcomeEmailHtml, signatureConfirmationEmailHtml } from '../email/templates'
 import { createStripeInvoice, sendStripeInvoice } from '../stripe/client'
 
@@ -233,7 +234,7 @@ interface FinalizeCtx {
 function buildOutboxStmts(ctx: FinalizeCtx): D1PreparedStatement[] {
   // prettier-ignore
   const { db, orgId, requestId, entityId, quoteId, engagementId, invoiceId, depositAmount, signer, now } = ctx
-  const normalizedEmail = signer.email.toLowerCase().trim()
+  const normalizedEmail = normalizeEmail(signer.email)
   return [
     db
       .prepare(
@@ -369,7 +370,7 @@ function buildFinalizationBatch(
   const milestoneIds = lineItems.map(() => crypto.randomUUID())
   const clientUserId = crypto.randomUUID()
   const contextEntryId = crypto.randomUUID()
-  const normalizedEmail = signer.email.toLowerCase().trim()
+  const normalizedEmail = normalizeEmail(signer.email)
   const stageChangeContent = 'Stage: proposing -> engaged. SOW signed via SignWell.'
   const stageChangeMetadata = JSON.stringify({
     from: 'proposing',
