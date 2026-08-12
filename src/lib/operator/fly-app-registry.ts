@@ -19,8 +19,11 @@
  * changing. But it is also SILENT: a seat that exists everywhere else and is
  * merely absent from this map does not error anywhere a human looks — the
  * runtime read throws and `readMachineRuntime` collapses it to an honest-empty
- * result, `readLiveOverrides` returns null and the console renders the authored
- * config. "No live data" and "we forgot to add the slug" look identical.
+ * result. `readLiveOverrides` reports `unconfigured` (it returned a bare null
+ * until ss#2314) and the console renders the authored config. "No live data"
+ * and "we forgot to add the slug" still look identical from HERE — the status
+ * distinguishes a missing transport from a failed read, not a missing transport
+ * from a missing registry entry, which is what the drift guard below is for.
  *
  * That is exactly what happened: `scott` (ADR 0067 hosted-agent founding seat)
  * and `smd-staging` (the pre-production mirror of customer-zero) were both
