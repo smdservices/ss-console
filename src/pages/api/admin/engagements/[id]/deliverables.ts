@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getEngagement } from '../../../../../lib/db/engagements'
-import { listDocuments } from '../../../../../lib/storage/r2'
+import { getEngagementDocumentKey, listDocuments } from '../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 import { errorResponse, jsonResponse } from '../../../../../lib/api/helpers'
@@ -23,8 +23,11 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
     if (!file || !(file instanceof File)) {
       return errorResponse(400, 'File required')
     }
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const key = `${session.orgId}/engagements/${engagementId}/docs/${safeName}`
+    // Collision-resistant key (ss#2315): two deliverables whose names
+    // sanitized to the same string used to write the same key, and the
+    // second silently removed the first from the client's document list.
+    const key = await getEngagementDocumentKey(session.orgId, engagementId, file.name)
+    const safeName = key.split('/').pop() ?? file.name
     const arrayBuffer = await file.arrayBuffer()
     await env.STORAGE.put(key, arrayBuffer, {
       httpMetadata: { contentType: file.type || 'application/octet-stream' },

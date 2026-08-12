@@ -13,7 +13,10 @@ import { hasPortalVisibleInvoices } from '../../../../../../lib/portal/offerings
 import { env } from 'cloudflare:workers'
 import { readPausePosture } from '../../../../../../lib/portal/operator/pause-control'
 import { readLiveOverrides } from '../../../../../../lib/portal/operator/entitlement-change'
-import { liveTierOf, selectableTiers } from '../../../../../../lib/operator/entitlement-compiler'
+import {
+  resolveLiveTier,
+  selectableTiers,
+} from '../../../../../../lib/operator/entitlement-compiler'
 import Field from '../../../../../../components/portal/form/Field.astro'
 import TextInput from '../../../../../../components/portal/form/TextInput.astro'
 import SelectField from '../../../../../../components/portal/form/SelectField.astro'
@@ -126,11 +129,18 @@ const pausedNow = await readPausePosture(env.DB, instance ?? '')
 // offer a choice the route would reject). The tier DISPLAYED is the tier
 // ENFORCED: the Machine's live override store is overlaid onto the projected
 // authored exposure (a portal-set change is runtime posture the projection
-// never carries). A failed live read falls back to authored-only display.
+// never carries).
+//
+// ss#2314: neither half of that is asserted blindly any more. `liveConfirmed`
+// is false whenever the seat did not answer with this persona's rows, so the
+// page says the levels are the authored ones rather than presenting them as
+// what is running. And a row whose grid key names an action class the Operator
+// cannot enforce is marked `configDefect`: it stays fail-closed AND is called
+// out, instead of rendering as the surface-only level a working routine shows.
 const gridPersona = config?.routine_grid?.persona ?? ''
 const authoredExposure = (config?.personas.find((p) => p.slug === gridPersona)?.entitlements
   .exposure ?? {}) as Record<string, string>
-const liveOverrides =
+const liveRead =
   instance && gridPersona
     ? await readLiveOverrides(
         {
@@ -140,16 +150,22 @@ const liveOverrides =
         instance,
         gridPersona
       )
-    : null
-const routineRows = (config?.routine_grid?.rows ?? []).map((row) => ({
-  routine: row.routine,
-  liveTier: liveTierOf(row, {
+    : ({ status: 'unconfigured' } as const)
+const liveOverrides = liveRead.status === 'ok' ? liveRead.overrides : {}
+const liveConfirmed = liveRead.status === 'ok'
+const routineRows = (config?.routine_grid?.rows ?? []).map((row) => {
+  const resolved = resolveLiveTier(row, {
     personaSlug: gridPersona,
-    exposure: { ...authoredExposure, ...(liveOverrides ?? {}) },
-  }),
-  ceiling: row.ceiling_tier,
-  options: selectableTiers(row),
-}))
+    exposure: { ...authoredExposure, ...liveOverrides },
+  })
+  return {
+    routine: row.routine,
+    liveTier: resolved.tier,
+    configDefect: resolved.unknownActionClass !== null,
+    ceiling: row.ceiling_tier,
+    options: selectableTiers(row),
+  }
+})
 
 const PAUSE_BANNERS: Record<string, Banner> = {
   paused: { text: 'The Operator is paused. It stays off until an admin resumes it.', tone: 'info' },
@@ -338,33 +354,47 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
               to send, or handle it end to end. A change takes effect right away and stays in place
               until someone changes it again. Every change is logged with who made it and when.
             </p>
+            {!liveConfirmed && (
+              <p class={`mt-3 ${emptyNoteClass}`}>
+                We could not reach the Operator to confirm its current levels. The levels below are
+                the ones on file. Try again shortly, or contact us if this persists.
+              </p>
+            )}
             <ul class="mt-4 flex flex-col gap-4 list-none p-0">
               {routineRows.map((row) => (
                 <li class="border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-4">
                   <p class="m-0 font-body font-bold text-[color:var(--ss-color-text-primary)]">
                     {row.routine}
                   </p>
-                  <form
-                    method="POST"
-                    action={`/api/portal/products/operator/${instance}/entitlement`}
-                    class="mt-3 flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_auto] md:items-end"
-                  >
-                    <input type="hidden" name="routine" value={row.routine} />
-                    <Field label="Level">
-                      <SelectField
-                        name="targetTier"
-                        options={row.options.map((tier) => ({
-                          value: tier,
-                          label: TIER_LABELS[tier],
-                          selected: tier === row.liveTier,
-                        }))}
-                      />
-                    </Field>
-                    <Field label="Reason (required, kept in the log)">
-                      <TextInput name="reason" required maxlength={300} />
-                    </Field>
-                    <SubmitButton label="Submit" />
-                  </form>
+                  {row.configDefect ? (
+                    <p class={`mt-2 ${emptyNoteClass}`}>
+                      This routine is set up in a way the Operator cannot act on, so its level
+                      cannot be shown or changed here. It stays limited to surfacing work until we
+                      correct it. We have been notified.
+                    </p>
+                  ) : (
+                    <form
+                      method="POST"
+                      action={`/api/portal/products/operator/${instance}/entitlement`}
+                      class="mt-3 flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,19rem)_minmax(0,1fr)_auto] md:items-end"
+                    >
+                      <input type="hidden" name="routine" value={row.routine} />
+                      <Field label="Level">
+                        <SelectField
+                          name="targetTier"
+                          options={row.options.map((tier) => ({
+                            value: tier,
+                            label: TIER_LABELS[tier],
+                            selected: tier === row.liveTier,
+                          }))}
+                        />
+                      </Field>
+                      <Field label="Reason (required, kept in the log)">
+                        <TextInput name="reason" required maxlength={300} />
+                      </Field>
+                      <SubmitButton label="Submit" />
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>
@@ -374,13 +404,21 @@ const SETTINGS_LINKS: ReadonlyArray<{ href: string; label: string; description: 
               Each routine runs at one of three levels: it can surface work, prepare it for someone
               to send, or handle it end to end.
             </p>
+            {!liveConfirmed && (
+              <p class={`mt-3 ${emptyNoteClass}`}>
+                We could not reach the Operator to confirm its current levels. The levels below are
+                the ones on file.
+              </p>
+            )}
             <ul class="mt-4 flex flex-col gap-2 list-none p-0">
               {routineRows.map((row) => (
                 <li class="flex flex-wrap items-baseline justify-between gap-2 border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-2">
                   <span class="font-body text-sm text-[color:var(--ss-color-text-primary)]">
                     {row.routine}
                   </span>
-                  <span class={emptyNoteClass}>{TIER_LABELS[row.liveTier]}</span>
+                  <span class={emptyNoteClass}>
+                    {row.configDefect ? 'Needs our attention' : TIER_LABELS[row.liveTier]}
+                  </span>
                 </li>
               ))}
             </ul>

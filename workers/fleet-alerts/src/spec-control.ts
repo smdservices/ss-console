@@ -26,6 +26,7 @@
  * missing, and installing one must not clear the alert on the other.
  */
 
+import { SPEC_CONTROL_BROKEN_PREFIX, conditionPayload } from './conditions'
 import type { ConditionState, FleetStatusRow } from './index'
 
 /**
@@ -43,12 +44,13 @@ export async function getOpenSpecControlKeys(db: D1Database): Promise<Record<str
     .prepare(
       `SELECT customer_slug, condition
          FROM fleet_alert_state
-        WHERE status = 'open' AND condition LIKE 'spec_control_broken:%'`
+        WHERE status = 'open' AND condition LIKE ? || '%'`
     )
+    .bind(SPEC_CONTROL_BROKEN_PREFIX)
     .all<{ customer_slug: string; condition: string }>()
   const out: Record<string, string[]> = {}
   for (const row of result.results ?? []) {
-    const key = row.condition.slice('spec_control_broken:'.length)
+    const key = conditionPayload(row.condition, SPEC_CONTROL_BROKEN_PREFIX)
     if (!key) continue
     ;(out[row.customer_slug] ??= []).push(key)
   }
@@ -145,7 +147,7 @@ export function specControlConditions(
     if (entry === undefined) {
       out.push({
         customer_slug: row.customer_slug,
-        condition: `spec_control_broken:${key}`,
+        condition: `${SPEC_CONTROL_BROKEN_PREFIX}${key}`,
         active: false,
         detail: `${key}: no longer declared — the seat expects no spec for it.`,
       })
@@ -154,7 +156,7 @@ export function specControlConditions(
     const broken = entry.declared && !entry.installed
     out.push({
       customer_slug: row.customer_slug,
-      condition: `spec_control_broken:${key}`,
+      condition: `${SPEC_CONTROL_BROKEN_PREFIX}${key}`,
       active: broken,
       detail: broken
         ? `${key}: the seat declares this spec and none is installed. Autonomous ` +

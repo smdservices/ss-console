@@ -76,11 +76,25 @@ jobs:
           fi
           # Redirect rather than pipe: `$?` after `| tee` reports TEE's status,
           # not the script's, and this control would then never fire.
+          #
+          # `|| STATUS=$?` is load-bearing, not style (ss#2309, sibling of
+          # ss#2307). GitHub runs this body under `bash -e`, so an unguarded
+          # non-zero exit aborts the step HERE — before the report is printed and
+          # before `status` reaches GITHUB_OUTPUT — which silently skips the
+          # issue-opening step below. Exit 1 is the FINDINGS path, the one path
+          # that exits non-zero, so the control was mute in exactly the case it
+          # exists for. Putting the call in a `||` list makes its failure
+          # handled, which is what suspends `-e`.
           # shellcheck disable=SC2086 — ARGS is built above, not caller-supplied.
-          python3 operator/bin/reconcile-sends.py $ARGS > reconcile.txt 2>&1
-          STATUS=$?
+          STATUS=0
+          python3 operator/bin/reconcile-sends.py $ARGS > reconcile.txt 2>&1 || STATUS=$?
           cat reconcile.txt
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+          # This reconciler's contract (operator/bin/reconcile-sends.py:367):
+          # 0 is clean OR a hold, 1 is a finding handled by the next step. There
+          # is no exit 2 — anything else that is not 0 or 1 (argparse misuse,
+          # a missing interpreter) is the control failing, and must fail the run.
+          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 1 ]; then exit "${STATUS}"; fi
 
       - name: Open an issue when a send has no audit record
         if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'

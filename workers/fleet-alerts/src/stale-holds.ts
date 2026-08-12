@@ -9,16 +9,57 @@
  * runbook documents the manual-resolve UPDATE.
  *
  * Extracted from index.ts (ss#2234) to keep that file under its line ceiling,
- * the same move `token-expiry.ts` and `spec-control.ts` made. The `substr`
- * offsets are 1-indexed and point at the character after the prefix's colon.
+ * the same move `token-expiry.ts` and `spec-control.ts` made.
+ *
+ * ss#2316 removed two hazards from the payload-carrying clauses:
+ *
+ *   1. The prefixes were sliced by hardcoded 1-indexed offsets (16, 26) that
+ *      silently duplicated the prefix literals' length. They are now bound
+ *      parameters and the offset is derived in SQL with `length(?) + 1`, so a
+ *      rename cannot desync the query from the constant. See ./conditions.
+ *
+ *   2. The key was interpolated into a JSON path (`'$."' || key || '"'`). A key
+ *      containing a double quote produced a malformed path, and SQLite answers a
+ *      malformed path with NULL rather than an error — which is this query's
+ *      "stranded" signal, so a healthy connector whose name contained a quote
+ *      reported stranded forever. `json_each` takes the key as a VALUE and
+ *      compares it, so no key can be read as syntax. Semantics are preserved
+ *      exactly: `NOT EXISTS (key present AND value non-null)` is true in the same
+ *      two cases the old `json_extract(...) IS NULL` was — key absent, or key
+ *      present with a JSON null value.
  */
 
+import {
+  CONNECTOR_DOWN_PREFIX,
+  CONNECTOR_TOKEN_EXPIRING_PREFIX,
+  SPEC_CONTROL_BROKEN_PREFIX,
+  WEBHOOK_SURFACE_MISSING_PREFIX,
+} from './conditions'
 import type { StaleHold } from './index'
 
-export async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
-  const result = await db
-    .prepare(
-      `SELECT s.customer_slug AS customer_slug, s.condition AS condition
+/**
+ * A payload-carrying clause: the condition matches the prefix, and either the
+ * whole map is NULL or the map holds nothing live under the sliced key.
+ *
+ * Two placeholders per clause, both bound to the SAME prefix constant — the first
+ * builds the LIKE pattern, the second sets the slice offset. Written as `?` rather
+ * than `?1`/`?2` so the statement stays on D1's plainest binding path.
+ */
+function strandedKeyClause(mapColumn: string): string {
+  return `(
+              s.condition LIKE ? || '%'
+              AND (
+                f.${mapColumn} IS NULL
+                OR NOT EXISTS (
+                  SELECT 1 FROM json_each(f.${mapColumn}) je
+                   WHERE je.key = substr(s.condition, length(?) + 1)
+                     AND je.value IS NOT NULL
+                )
+              )
+            )`
+}
+
+export const STALE_HOLDS_SQL = `SELECT s.customer_slug AS customer_slug, s.condition AS condition
          FROM fleet_alert_state s
          LEFT JOIN fleet_status f ON f.customer_slug = s.customer_slug
         WHERE s.status = 'open'
@@ -29,35 +70,41 @@ export async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
             OR (s.condition = 'heartbeat_red' AND f.last_heartbeat_ts IS NULL)
             OR (s.condition = 'hard_stop' AND f.sticky_stop_level IS NULL)
             OR (s.condition = 'connector_check_error' AND f.connector_check_ok IS NULL)
-            OR (
-              s.condition LIKE 'connector_down:%'
-              AND (
-                f.connectors_json IS NULL
-                OR json_extract(f.connectors_json, '$."' || substr(s.condition, 16) || '"') IS NULL
-              )
-            )
-            OR (
-              s.condition LIKE 'connector_token_expiring:%'
-              AND (
-                f.connector_token_age_json IS NULL
-                OR json_extract(f.connector_token_age_json, '$."' || substr(s.condition, 26) || '"') IS NULL
-              )
-            )
+            OR ${strandedKeyClause('connectors_json')}
+            OR ${strandedKeyClause('connector_token_age_json')}
             OR (s.condition = 'spec_control_unprovable' AND f.spec_control_ok IS NULL)
             -- A spec_control_broken key that VANISHES from the map is not
             -- stranded: a withdrawn declaration auto-resolves through
             -- openSpecControlKeys. Only a whole-map NULL strands it, so this
             -- clause deliberately does not test the individual key.
-            OR (s.condition LIKE 'spec_control_broken:%' AND f.spec_control_json IS NULL)
+            OR (s.condition LIKE ? || '%' AND f.spec_control_json IS NULL)
             OR (s.condition = 'webhook_surface_unprovable' AND f.webhook_surface_ok IS NULL)
             -- ss#2287, same shape as spec_control_broken above: a tool that
             -- merely vanishes from the map is a WITHDRAWN expectation and
             -- auto-resolves through openWebhookSurfaceKeys. Only a whole-map
             -- NULL strands it.
-            OR (s.condition LIKE 'webhook_surface_missing:%' AND f.webhook_surface_json IS NULL)
+            OR (s.condition LIKE ? || '%' AND f.webhook_surface_json IS NULL)
           )
         ORDER BY s.customer_slug ASC, s.condition ASC`
-    )
+
+/**
+ * Bindings for {@link STALE_HOLDS_SQL}, in placeholder order. Every value is a
+ * prefix constant — the query contains no prefix literal and no offset, so this
+ * list is the ONLY thing that decides what the SQL matches and where it slices.
+ */
+export const STALE_HOLDS_BINDINGS: readonly string[] = [
+  CONNECTOR_DOWN_PREFIX,
+  CONNECTOR_DOWN_PREFIX,
+  CONNECTOR_TOKEN_EXPIRING_PREFIX,
+  CONNECTOR_TOKEN_EXPIRING_PREFIX,
+  SPEC_CONTROL_BROKEN_PREFIX,
+  WEBHOOK_SURFACE_MISSING_PREFIX,
+]
+
+export async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
+  const result = await db
+    .prepare(STALE_HOLDS_SQL)
+    .bind(...STALE_HOLDS_BINDINGS)
     .all<StaleHold>()
   return result.results ?? []
 }

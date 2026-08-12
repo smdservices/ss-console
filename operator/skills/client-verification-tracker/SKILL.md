@@ -246,17 +246,24 @@ daily (the July 6 / 7 / 8 / 14 defect).
 
 The item's identity is its stable Smokeball tracking-task id, via
 `item_key(matter_id, task_id, label, authored_date)`. **Never build this key by
-hand** — pass the components to `escalation_append` (`matter_id`, `source_id` =
-the tracking task's stable id, `label` = `client-verification`,
-`authored_date` = null — a re-dated tracking task must not change identity) and
-the tool derives the key and token with the same helpers the pre_run gate uses.
+hand** — pass the components to `escalation_append` with `derive_only: true`
+(`matter_id`, `source_id` = the tracking task's stable id, `label` =
+`client-verification`, `authored_date` = null — a re-dated tracking task must
+not change identity) and the tool derives the key and token with the same
+helpers the pre_run gate uses. That call also returns a single-use
+`append_handle`, and **the write that follows presents the handle and no
+identity components at all** — re-supplying them is refused (ss #2304: identity
+typed twice is identity that can diverge, and the divergence is invisible
+because both calls are well-formed).
 Two ledger raise events matter for the chase:
 
 - **`chased`** — one per client nudge that actually sent. The count of `chased`
   raises on an item is the `nudge <#>` numerator; it is what the ceiling counts.
   Append it **only after both the send AND the ledger write succeed** (never
-  report a chase that did not go out). Write it with the **`escalation_append`
-  tool**, which carries the event to the broker's validated
+  report a chase that did not go out). Derive first, then write with that
+  derive's `append_handle` — one handle writes one row, so a retry cannot
+  double-count a nudge against the ceiling. Write it with the
+  **`escalation_append` tool**, which carries the event to the broker's validated
   `escalation_event_append` verb (the same door as the deadline lane; tool
   contract in `deadline-miss-escalator/references/algorithm.md` — never an
   `execute_code` socket snippet, that class is refused on customer seats,
@@ -264,7 +271,10 @@ Two ledger raise events matter for the chase:
   The LLM turn never writes the ledger file directly — the state that governs a
   chase must pass broker validation.
 - **`handed_off`** — one when the attempt count reaches `escalate_after_attempts`
-  and the client chase stops. `handed_off` is **terminal** for autonomous wakes:
+  and the client chase stops. Same two-step: derive the item, then present its
+  handle. A handle derived for a `chased` cannot be spent on a `handed_off` —
+  the write is terminal, so it must name an item this turn deliberately looked
+  up. `handed_off` is **terminal** for autonomous wakes:
   the pre_run will not re-raise the item, so the hand-off alert to the attorney
   fires **once**, not on every wake. A `resolved` event (written on a confident
   signed-document close) is likewise terminal.
