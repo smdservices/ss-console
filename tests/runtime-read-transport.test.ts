@@ -10,7 +10,11 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { execFileSync } from 'node:child_process'
+import { scriptDerivation, runDerivation, provisionScriptSource } from './_support/provision-script'
+import {
+  createMachineWebhookTransport,
+  type HandoffEnvelope,
+} from '../src/lib/operator/mcp/webhook-transport'
 import {
   createMachineRuntimeTransport,
   deriveRuntimeReadKey,
@@ -61,20 +65,98 @@ describe('deriveRuntimeReadKey', () => {
     expect(await deriveRuntimeReadKey('master', 'other')).not.toBe(a)
   })
 
-  it('matches the shell derivation the provision script uses (cross-side)', () => {
+  it('matches the shell derivation the provision script uses (cross-side)', async () => {
     // This is the byte-identity check Captain flagged: the console derives over
-    // the slug via WebCrypto; provision derives over customer_id via openssl.
-    // They MUST agree or every read silently 401s. Canonical input: the slug
-    // string with NO trailing newline (printf %s).
+    // the slug via WebCrypto; provision derives via openssl. They MUST agree or
+    // every read silently 401s and the drill-in renders empty. Canonical input:
+    // the slug string with NO trailing newline (printf %s).
+    //
+    // The pipeline below is READ OUT OF provision-customer.sh, not transcribed
+    // here — see tests/_support/provision-script.ts for why (ss#2313). Editing
+    // the script's derivation changes what this test executes, so drift is red.
     const master = 'test-master-key-1234567890'
     const slug = 'smith-pi-firm'
-    const shell = execFileSync('bash', [
-      '-c',
-      `printf '%s' "${slug}" | openssl dgst -sha256 -hmac "${master}" | sed 's/^.*= //'`,
-    ])
-      .toString()
-      .trim()
-    return expect(deriveRuntimeReadKey(master, slug)).resolves.toBe(shell)
+
+    const pipeline = scriptDerivation('_rt_key')
+    expect(pipeline, 'the runtime-read derivation must still hash the slug').toContain('${SLUG}')
+    expect(
+      pipeline,
+      'the runtime-read derivation must still key on OPERATOR_RUNTIME_READ_SECRET'
+    ).toContain('${OPERATOR_RUNTIME_READ_SECRET}')
+
+    const shell = runDerivation(pipeline, { SLUG: slug, OPERATOR_RUNTIME_READ_SECRET: master })
+    expect(shell).toMatch(/^[0-9a-f]{64}$/)
+    await expect(deriveRuntimeReadKey(master, slug)).resolves.toBe(shell)
+  })
+
+  it('provision stages the derived runtime-read value under the key the Machine reads', () => {
+    // Deriving correctly and staging the wrong variable is the same outage.
+    expect(provisionScriptSource()).toContain(
+      'stage_secret_from_env OPERATOR_RUNTIME_READ_KEY "${_rt_key}"'
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// MCP handoff master — cross-side parity
+// ---------------------------------------------------------------------------
+
+/**
+ * The MCP webhook master had ZERO cross-side coverage before ss#2313. It uses a
+ * DIFFERENT master (`OPERATOR_MCP_WEBHOOK_SECRET`) through the SAME derivation,
+ * staged by a separate block in provision-customer.sh — so the runtime-read
+ * parity check above could not observe a drift here.
+ *
+ * This exercises the real transport rather than `deriveRuntimeReadKey` directly:
+ * what must match the Machine's `WEBHOOK_SECRET_MCP` is the bearer that actually
+ * goes on the wire, not an intermediate the transport might stop calling.
+ */
+describe('MCP handoff bearer (cross-side)', () => {
+  const ENVELOPE: HandoffEnvelope = {
+    handoff_id: 'h-1',
+    surface: 'mcp',
+    trust_class: 'known_external',
+    task: 'summarize the intake',
+    from_email: 'captain@example.com',
+    from_profile: 'operator',
+    submitted_at: '2026-08-12T00:00:00Z',
+  }
+
+  it('matches the shell derivation the provision script uses', async () => {
+    const master = 'test-mcp-master-key-0987654321'
+    const slug = 'smd'
+
+    const pipeline = scriptDerivation('_mcp_key')
+    expect(pipeline, 'the MCP handoff derivation must still hash the slug').toContain('${SLUG}')
+    expect(
+      pipeline,
+      'the MCP handoff derivation must still key on OPERATOR_MCP_WEBHOOK_SECRET'
+    ).toContain('${OPERATOR_MCP_WEBHOOK_SECRET}')
+
+    const shell = runDerivation(pipeline, { SLUG: slug, OPERATOR_MCP_WEBHOOK_SECRET: master })
+    expect(shell).toMatch(/^[0-9a-f]{64}$/)
+
+    let seenAuth = ''
+    stubFetch((_url, init) => {
+      seenAuth = ((init.headers as Record<string, string>) ?? {})['Authorization'] ?? ''
+      return new Response('', { status: 200 })
+    })
+    const transport = createMachineWebhookTransport({
+      OPERATOR_RUNTIME_READ_URL: 'https://{app}.fly.dev',
+      OPERATOR_MCP_WEBHOOK_SECRET: master,
+    })
+    await transport.send(slug, ENVELOPE)
+
+    expect(seenAuth).toBe(`Bearer ${shell}`)
+  })
+
+  it('provision stages the derived value under BOTH keys the Machine reads', () => {
+    // The gate verifies WEBHOOK_SECRET_MCP; the internal Hermes adapter
+    // re-verifies the forwarded hop with WEBHOOK_SECRET_HANDOFF. Staging only
+    // one leaves the handoff failing at the second hop, after a 2xx ack.
+    const src = provisionScriptSource()
+    expect(src).toContain('stage_secret_from_env WEBHOOK_SECRET_MCP     "${_mcp_key}"')
+    expect(src).toContain('stage_secret_from_env WEBHOOK_SECRET_HANDOFF "${_mcp_key}"')
   })
 })
 
