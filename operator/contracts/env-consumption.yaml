@@ -194,6 +194,126 @@ vars:
     custody: customer
     note: paired with CLIO_CLIENT_ID
 
+  # ---- Smokeball practice-management connector (ADR 0053, author-built MCP) ----
+  # Declared here because they were NOT, which is the point. This family reaches
+  # the Machine and can WRITE to the client's live practice-management system —
+  # matters, contacts, memos, tasks, documents, webhook subscriptions — and it
+  # was absent from the one inventory that exists to make custody reviewable.
+  # An undeclared credential is not an ungoverned one (the authored exposure
+  # ceiling still applies), but it is an unreviewable one: a custody audit that
+  # reads this file would not have known to ask about it. ss#2258 found the same
+  # hole for MSGRAPH_*.
+  #
+  # All are agent-held; none is stripped. That is a deliberate accepted posture,
+  # not an oversight — see operator/contracts/connector-custody-dispositions.md.
+  # Unlike mail, there is no counterparty invariant a credential holder could
+  # check here: the Operator legitimately decides what to write to a matter it
+  # works on, and no authored list can tell a sound memo from an unsound one.
+  # The controls that do bear on it are the exposure ceiling and the content
+  # floors, both in the gateway.
+  SMOKEBALL_CLIENT_ID:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      Smokeball MCP connector; materialized into the mcp_servers subprocess env
+      when the customer binds Smokeball. Required BY THE CONNECTOR when bound
+      (it fail-closes at construction), optional across the fleet.
+  SMOKEBALL_CLIENT_SECRET:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: paired with SMOKEBALL_CLIENT_ID
+  SMOKEBALL_API_KEY:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: Smokeball API key, alongside the OAuth client pair.
+  SMOKEBALL_ENVIRONMENT:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      staging|production. INFRA, not customer: it selects which Smokeball HOST
+      we point at, which is an SMD deployment choice, not anything the firm
+      owns. Staged like a secret only so the connector cannot default itself
+      onto the wrong tenant. (Declared customer first; test_secret_custody's
+      infra list caught it — the classifier reads this file, so a wrong custody
+      label here silently reclassifies the secret everywhere.)
+  SMOKEBALL_AUTH_MODE:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      client_credentials (default) or authorization_code for a firm-delegated
+      seat. Non-secret; staged by provision-customer.sh only in the latter case.
+  SMOKEBALL_REFRESH_TOKEN:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      authorization_code seats only. Set at the connect step
+      (operator/bin/connect-smokeball.sh), not at provision — so a reprovision
+      does not mint it and its absence is normal on a client_credentials seat.
+  SMOKEBALL_ACCOUNT_ID:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: multi-account seats only; identifier, not a credential.
+  SMOKEBALL_REGION:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      Connector-optional, defaults to "us". NOTHING STAGES IT TODAY — declared so
+      the gap is visible rather than discovered by a non-US firm.
+  SMOKEBALL_OAUTH_STATE_KEY:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Per-seat HMAC(OPERATOR_OAUTH_STATE_MASTER, slug) (ADR 0054). NOT a
+      connector var — the Machine uses it to verify the state parameter that
+      connect-smokeball.sh signs, so an unstaged key makes the connect callback
+      reject every attempt. Infra custody: derived from an SMD-owned master.
+
+  # ---- Telegram approval channel ----
+  # The confirm round-trip's transport. The bot token is a hand-set Fly secret,
+  # never staged by provision-customer.sh, which is exactly why it was missing
+  # here. Custody is an ACCEPTED in-gateway exception, recorded in
+  # connector-custody-dispositions.md — the seat's own bot identity, same
+  # posture as the AgentMail read key.
+  TELEGRAM_BOT_TOKEN:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      Setting it ALONE auto-enables the Telegram platform, which is why
+      operator/templates/ensure-telegram-allowlist.py refuses to boot a seat
+      that has a token and no allowlist — a bot with no allowlist answers anyone
+      who finds it.
+  TELEGRAM_ALLOWED_USERS:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      CSV of permitted sender ids, read by the approval gate
+      (hermes-smd-trust/approval.py). NOT staged as a secret: translate.py
+      materializes telegram.allow_from into the profile config and Hermes maps
+      it to this env var. Declared anyway because its ABSENCE is the security
+      condition — unset means the allowlist check returns True for everyone.
+
   # ---- Optional agent observability / Phase-2 forward-compat ----
   SMD_D1_OBSERVATIONS_BINDING:
     stage: agent
