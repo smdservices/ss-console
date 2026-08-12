@@ -1,0 +1,81 @@
+{
+  "_comment": [
+    "The heartbeat wire contract between the seat and ss-console (ss#2287).",
+    "",
+    "WHY THIS FILE EXISTS. On 2026-08-11 the #2280 audit found that the seat had",
+    "been emitting webhook_surface_ok + webhook_surface on EVERY heartbeat since",
+    "ss#2222 and ss-console had no column, no parser and no alert for either. The",
+    "whole warn tier was written to the wire and dropped at ingest, silently, for",
+    "as long as it had existed. Nothing could have caught it: the two halves live",
+    "in different repos and no test asserted they agree.",
+    "",
+    "WHAT IT IS. Every field the PINNED overlay's shared/heartbeat.py build_payload",
+    "can put on the wire, paired with the fleet_status column ss-console stores it",
+    "in and a sample value. tests/heartbeat-field-parity.test.ts posts each sample",
+    "at the real ingest handler and fails if the column stays NULL -- so a field",
+    "listed here without a reader is a failing test, not a silent drop.",
+    "",
+    "overlay_ref is the OVERLAY_REF this list was read against, and it must equal",
+    "ARG OVERLAY_REF in operator/templates/Dockerfile. That pin is the only way a",
+    "new overlay field reaches a seat, so bumping it fails this gate until someone",
+    "re-reads build_payload at the new ref and re-stamps this file. Read the",
+    "limits of that in the test's header before trusting it further than it goes."
+  ],
+  "overlay_ref": "ad647365348bbebc6d84b2339ee25f5ea75b7b4a",
+  "fields": [
+    {
+      "name": "heartbeat_ts",
+      "column": "last_heartbeat_ts",
+      "sample": "2026-08-11T00:00:00.000Z"
+    },
+    {
+      "name": "last_audit_ts",
+      "column": "last_audit_ts",
+      "sample": "2026-08-11T00:00:00.000Z"
+    },
+    {
+      "name": "last_skill_ts",
+      "column": "last_skill_ts",
+      "sample": "2026-08-11T00:00:00.000Z"
+    },
+    { "name": "process_uptime_seconds", "column": "process_uptime_seconds", "sample": 4242 },
+    { "name": "version", "column": "version", "sample": "parity-probe" },
+    { "name": "sticky_stop_level", "column": "sticky_stop_level", "sample": "OK" },
+    { "name": "scheduler_ok", "column": "scheduler_ok", "sample": 1 },
+    { "name": "scheduler_job_count", "column": "scheduler_job_count", "sample": 3 },
+    {
+      "name": "scheduler_max_overdue_seconds",
+      "column": "scheduler_max_overdue_seconds",
+      "sample": 12
+    },
+    { "name": "connector_check_ok", "column": "connector_check_ok", "sample": 1 },
+    {
+      "name": "connectors",
+      "column": "connectors_json",
+      "sample": { "smokeball": { "consecutive_failures": 0 } }
+    },
+    {
+      "name": "connector_token_age",
+      "column": "connector_token_age_json",
+      "sample": { "smokeball": 86400 }
+    },
+    { "name": "spec_control_ok", "column": "spec_control_ok", "sample": 1 },
+    {
+      "name": "spec_control",
+      "column": "spec_control_json",
+      "sample": { "staff.voice": { "declared": true, "installed": true } }
+    },
+    { "name": "webhook_surface_ok", "column": "webhook_surface_ok", "sample": 1 },
+    {
+      "name": "webhook_surface",
+      "column": "webhook_surface_json",
+      "sample": { "operator_seat_facts": { "expected": true, "offered": true } }
+    },
+    {
+      "_comment": "Emitted by overlay origin/main but not by the pinned ref. The console reading AHEAD of the pin is harmless; reading BEHIND it is the ss#2287 defect, which is the only direction the local cross-check enforces.",
+      "name": "cron_containment",
+      "column": "cron_containment",
+      "sample": 1
+    }
+  ]
+}

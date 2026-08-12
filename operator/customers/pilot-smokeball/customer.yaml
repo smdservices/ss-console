@@ -255,6 +255,25 @@ personas:
           scheduled: false
           webhook: false
         enabled: true
+      - name: document-library-establishment
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
+      # The initiation conductor (ss#2220 rescoped, Captain 2026-08-11): one
+      # admin request runs the seat's authored self_initiation.sequence, each
+      # act by its own skill body, each stopping at its own blessing gate.
+      # Person-initiated always — never scheduled, never webhook-fired, never
+      # automatic at connect; an unattributed turn may not initialize anything.
+      - name: operator-self-initiation
+        version: pending
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
+        enabled: true
       # intake / conflict
       - name: new-matter-intake
         version: pending
@@ -918,6 +937,26 @@ routine_names:
   lien-ledger-tracker: 'Lien ledger'
   settlement-statement-feeder: 'Settlement statement'
   daily-needs-you-digest: 'Daily "what needs you"'
+
+# ---- SELF-INITIATION (ss#2220 rescoped; Captain 2026-08-11) ----
+# The seat's authored initiation sequence: the acts one admin request
+# ("initialize yourself") runs, in order, each act by its own skill body and
+# each stopping at its own blessing gate. PERSON-INITIATED ALWAYS — nothing
+# here fires at connect, at boot, or on any schedule; an unattributed turn may
+# not initialize anything. Runtime consumer is the operator-self-initiation
+# skill, which reads this block off /var/lib/smd-config/customer.yaml at turn
+# time (the routine_names materialization shape). Drift-gated by
+# tests/self-initiation-sequence.test.ts (every act bound+enabled here).
+# document_library names the status-probe target: the ops matter the proven
+# library run filed into (2026-08-11, vfy_01KZS7HM8A67SWX9Y1BMQSWPZY).
+self_initiation:
+  sequence:
+    - operator-self-test
+    - voice-establishment
+    - document-library-establishment
+  document_library:
+    matter_hint: '2026-OPS-001 (the internal operations matter)'
+    folder_name: 'Document Library'
 
 # ---- VOICE COHORTS ----
 # The audience classes this seat's voice profiles are partitioned by. An

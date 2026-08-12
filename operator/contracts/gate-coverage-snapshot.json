@@ -3,7 +3,16 @@
   "seats": {
     "ashton-price": {
       "voice_library_nonempty": true,
-      "output_classes": {}
+      "output_classes": {
+        "staff": {
+          "voice_spec": "expected",
+          "format_spec": "none"
+        },
+        "work_product": {
+          "voice_spec": "expected",
+          "format_spec": "none"
+        }
+      }
     },
     "pilot-law": {
       "voice_library_nonempty": true,

@@ -49,6 +49,12 @@ export async function getStaleHolds(db: D1Database): Promise<StaleHold[]> {
             -- openSpecControlKeys. Only a whole-map NULL strands it, so this
             -- clause deliberately does not test the individual key.
             OR (s.condition LIKE 'spec_control_broken:%' AND f.spec_control_json IS NULL)
+            OR (s.condition = 'webhook_surface_unprovable' AND f.webhook_surface_ok IS NULL)
+            -- ss#2287, same shape as spec_control_broken above: a tool that
+            -- merely vanishes from the map is a WITHDRAWN expectation and
+            -- auto-resolves through openWebhookSurfaceKeys. Only a whole-map
+            -- NULL strands it.
+            OR (s.condition LIKE 'webhook_surface_missing:%' AND f.webhook_surface_json IS NULL)
           )
         ORDER BY s.customer_slug ASC, s.condition ASC`
     )

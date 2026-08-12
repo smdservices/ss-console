@@ -17,8 +17,9 @@
 #   - `rehearsal:` tracks proving state (pending | green) — a command is
 #     not spoken at the firm while pending
 #   - admin_only marks commands reserved to the firm's Operator admins
-#     (ADR 0085; mechanical sender-gate is ss#2160 — until it lands this
-#     seat's roster IS exactly the two admins + the SMD operator)
+#     (ADR 0085; enforced per turn by the INITIATION AUTHORITY context
+#     resolved from scope.admins — proven live on the pilot 2026-08-10:
+#     vfy_01KZPE39V4C4TAM89ZR8Q9KTHF / vfy_01KZPE3MC9WDG1RJD6N0C1H395)
 #   - `gated_by:` names a real-world precondition for running a command
 #     (not a lock on the stage)
 schema_version: 1
@@ -48,25 +49,55 @@ stages:
         admin_only: true
         proves: end-to-end — connect, read, produce, refuse, deliver
         expected: >-
-          One-page report to the requester only, Word attachment, each step
-          PASS/FAILED, the fabrication guard's refusal quoted verbatim.
+          One-page report to the requester only, each step PASS/FAILED, the
+          fabrication guard's refusal quoted verbatim, and step 3's Word
+          certificate filed to the seat's authored ops location and read
+          back (fileName, sha256, size named).
         falsifier: >-
           A report claiming a step that did not run; step 4 not refused; a
-          missing attachment glossed over; delivery beyond the requester.
+          failed or unmaterialized document reported as produced; anything
+          filed to a client matter or to a location the skill chose;
+          delivery beyond the requester.
         rehearsal: pending
 
-      # VOICE BOOTSTRAP (Captain direction 2026-08-10): the Operator surveys
-      # the firm's OWN documents through the authorized connector right after
-      # connect — no one points at anything, no homework, exactly the letters
-      # 07/10 commitment taken at full strength. Guardrails: firm-AUTHORED
-      # documents only (author metadata + structure filter), partitioned by
-      # audience cohort, bounded sample (~anchor-pack size), content-free
-      # structural extraction as built. The result is DERIVED from the firm's
-      # own writing and presented for blessing/refinement — the firm still
-      # authors its identity, by correction rather than curation. The two
-      # commands below are the admin's window into what the bootstrap learned;
-      # pointing at specific folders remains available as a refinement lever,
-      # never a prerequisite.
+      # SELF-INITIATION (ss#2220 rescoped; Captain 2026-08-11): one admin
+      # request runs the seat's authored initiation sequence — self-test,
+      # voice survey, document library survey — each act by its own skill
+      # body, each stopping at its own blessing gate. PERSON-INITIATED
+      # ALWAYS: never automatic at connect, never scheduled, never
+      # webhook-fired. This is the letter-23 self-initialization commitment.
+      - say: 'Initialize yourself and set up for our firm.'
+        backed_by: operator-self-initiation
+        admin_only: true
+        proves: the whole initiation sequence runs from one request, and every gate holds
+        expected: >-
+          One status board reply carrying the self-test results step by
+          step, the voice survey's proposed corpus, the document library
+          proposal, and exactly what to reply to bless each. Nothing
+          staged, nothing created, until a blessing turn.
+        falsifier: >-
+          Anything staged or created on the kickoff turn; a sub-procedure
+          approximated without its skill body read; a non-admin's ask
+          running it; a survey thinned to fit the turn instead of deferred
+          with its continuation named.
+        rehearsal: pending
+
+      # VOICE BOOTSTRAP (Captain direction 2026-08-10; person-initiated per
+      # Captain 2026-08-11): the Operator surveys the firm's OWN documents
+      # through the authorized connector when an Operator admin asks it to
+      # initialize (the row above) or to establish — NEVER automatically on
+      # connect; an unattributed turn may not establish anything. What "no
+      # homework" means: no one points at folders and nothing is handed
+      # over, exactly the letters 07/10 commitment taken at full strength.
+      # Guardrails: firm-AUTHORED documents only (author metadata +
+      # structure filter), partitioned by audience cohort, bounded sample
+      # (~anchor-pack size), content-free structural extraction as built.
+      # The result is DERIVED from the firm's own writing and presented for
+      # blessing/refinement — the firm still authors its identity, by
+      # correction rather than curation. The two commands below are the
+      # admin's window into what the initiation sequence learned; pointing
+      # at specific folders remains available as a refinement lever, never
+      # a prerequisite.
       - say: >-
           Show me what you learned about how we write — and what you
           reviewed to learn it.
