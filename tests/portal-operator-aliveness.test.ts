@@ -31,7 +31,14 @@
  */
 
 import type { D1Database } from '@cloudflare/workers-types'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
+import {
+  createTestD1,
+  discoverNumericMigrations,
+  runMigrations,
+} from '@venturecrane/crane-test-harness'
+import { resolve } from 'path'
+import { ORG_ID } from '../src/lib/constants'
 import {
   ALIVENESS_LEVELS,
   OFFLINE_THRESHOLD_MINUTES,
@@ -399,5 +406,105 @@ describe('resolveAlivenessSignal', () => {
     })
     const signal = await resolveAlivenessSignal(db, makeSubscription(), NOW_MS)
     expect(signal?.level).toBe('offline')
+  })
+})
+
+/**
+ * #2281 regression — multi-seat entities.
+ *
+ * Migration 0093 re-keyed `fleet_status` from `entity_id` onto `customer_slug`
+ * precisely because several seats share one entity; `entity_id` is a plain,
+ * non-unique index. A read keyed on `entity_id` + `.first()` therefore returns
+ * an ARBITRARY sibling seat's heartbeat. Live prod carries one entity with four
+ * fleet_status rows, so the chip was rendering another seat's aliveness.
+ *
+ * These run against a real migrated SQLite (crane-test-harness) rather than the
+ * hand-rolled fake above, because the defect lives in the WHERE clause — a fake
+ * that ignores the SQL cannot see it.
+ */
+describe('resolveAlivenessSignal — seat identity on a multi-seat entity (#2281)', () => {
+  const NOW_MS = Date.parse('2026-05-24T12:05:00.000Z')
+  const ENTITY_ID = 'ent-multi-seat'
+  const migrationsDir = resolve(process.cwd(), 'migrations')
+
+  let db: D1Database
+
+  async function seedSeat(slug: string, lastAuditTs: string, stickyStopLevel: string) {
+    await db
+      .prepare(
+        'INSERT INTO fleet_status ' +
+          '(customer_slug, entity_id, last_heartbeat_ts, last_audit_ts, sticky_stop_level) ' +
+          'VALUES (?, ?, ?, ?, ?)'
+      )
+      .bind(slug, ENTITY_ID, '2026-05-24T12:04:00.000Z', lastAuditTs, stickyStopLevel)
+      .run()
+  }
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    // fleet_status.entity_id is a real FK; the entity must exist or the seed
+    // fails on the constraint instead of exercising the read.
+    await db
+      .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
+      .bind(ENTITY_ID, ORG_ID, 'Multi Seat Firm', 'multi-seat-firm')
+      .run()
+  })
+
+  it('reads the addressed seat, not a sibling seat sharing the entity', async () => {
+    // Insert order matters: the sibling lands first, so an entity-keyed
+    // `.first()` returns IT and the assertion below fails on unfixed code.
+    await seedSeat('sibling-seat', '2026-05-24T08:00:00.000Z', 'HARD_STOP')
+    await seedSeat('addressed-seat', '2026-05-24T12:00:00.000Z', 'OK')
+
+    const signal = await resolveAlivenessSignal(
+      db,
+      makeSubscription({ entity_id: ENTITY_ID, instance_slug: 'addressed-seat' }),
+      NOW_MS
+    )
+
+    expect(signal?.lastActionAt).toBe('2026-05-24T12:00:00.000Z')
+    expect(signal?.level).toBe('idle')
+  })
+
+  it('reads the sibling seat when the sibling is the one addressed', async () => {
+    await seedSeat('sibling-seat', '2026-05-24T08:00:00.000Z', 'HARD_STOP')
+    await seedSeat('addressed-seat', '2026-05-24T12:00:00.000Z', 'OK')
+
+    const signal = await resolveAlivenessSignal(
+      db,
+      makeSubscription({ entity_id: ENTITY_ID, instance_slug: 'sibling-seat' }),
+      NOW_MS
+    )
+
+    expect(signal?.lastActionAt).toBe('2026-05-24T08:00:00.000Z')
+    expect(signal?.level).toBe('sticky_stop')
+  })
+
+  it('returns null when a seat of this entity exists but the addressed slug has no row', async () => {
+    await seedSeat('sibling-seat', '2026-05-24T12:00:00.000Z', 'OK')
+
+    const signal = await resolveAlivenessSignal(
+      db,
+      makeSubscription({ entity_id: ENTITY_ID, instance_slug: 'no-such-seat' }),
+      NOW_MS
+    )
+
+    // Empty-state contract: a sibling's heartbeat is never borrowed to fill in.
+    expect(signal).toBeNull()
+  })
+
+  it('returns null when the subscription carries no instance slug', async () => {
+    await seedSeat('sibling-seat', '2026-05-24T12:00:00.000Z', 'OK')
+
+    const signal = await resolveAlivenessSignal(
+      db,
+      makeSubscription({ entity_id: ENTITY_ID, instance_slug: null }),
+      NOW_MS
+    )
+
+    // No seat identity → no chip. Falling back to the entity read is exactly
+    // the defect this test guards.
+    expect(signal).toBeNull()
   })
 })
