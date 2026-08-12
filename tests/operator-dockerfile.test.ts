@@ -844,7 +844,20 @@ describe('Operator customer Machine Dockerfile', () => {
     // instructs read_file not the absent skill_view, ss#2255).
     // outbound_send.py + reply/__init__.py — NOT tracked pairs; every
     // overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ad647365348bbebc6d84b2339ee25f5ea75b7b4a"')
+    //
+    // ad647365 -> 1b74e1cb (2026-08-11d): a three-commit range whose console
+    // halves all landed first. overlay#249 (ss#2276) volume sentinel for durable
+    // cron disable; overlay#250 (ss#2258) AgentMail transmit behind the workspace
+    // broker — the two REST send paths call broker verbs, agent-side inbox
+    // resolution is DELETED, the four MCP send tools leave the menu, and
+    // smd_send_message replaces them carrying the same EXTERNAL_SEND class so the
+    // authored external_send_internal:autonomous tier survives the change;
+    // overlay#251 (ss#2220) seat_gate_binding_snapshot fixture sync. NO tracked
+    // twin moves — recipient_classifier.py was READ during the ss#2258
+    // canonicalization work but not modified — so every overlaySha256 is
+    // unchanged and only overlayRef moves. The broker half is ss-console#2279;
+    // neither half functions alone.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1b74e1cb8a749aaa11d535b43052f07ca9cbdfee"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
