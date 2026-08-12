@@ -40,7 +40,11 @@ on:
 
 permissions:
   contents: read
+  # Findings open an issue rather than annotating a log nobody reads.
   issues: write
+  # Required so npm ci can fetch @venturecrane/crane-test-harness from
+  # GitHub Packages via the workflow's GITHUB_TOKEN.
+  packages: read
 
 jobs:
   reconcile:
