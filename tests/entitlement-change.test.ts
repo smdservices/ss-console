@@ -78,13 +78,29 @@ function deps() {
   return { grid: grid(), live: live() }
 }
 
+/**
+ * A Machine that acknowledges exactly the batch it was sent — the behaviour of
+ * the real gate on success (`shared.exposure_override.set_overrides` returns
+ * `applied` built from the normalized changes it just wrote).
+ *
+ * The default echo used to be a fixed `[{action_class:'x', ceiling:'y'}]`,
+ * which acknowledged NOTHING the console sent and was accepted as `applied`
+ * anyway. That made this suite unable to observe the layer it claimed to check
+ * (ss#2314): the "gate first, one applied row second" assertions passed
+ * whether or not the seat took the change. Echoing the request is what lets
+ * the new acknowledgement check be exercised by the happy path at all.
+ */
 function mockGate(status = 200, body?: unknown) {
-  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
     const u = String(url)
     if (u.endsWith('/entitlement/set')) {
+      const sent = JSON.parse(String(init?.body ?? '{}')) as {
+        persona?: string
+        changes?: { action_class: string; ceiling: string }[]
+      }
       return new Response(
         JSON.stringify(
-          body ?? { applied: [{ action_class: 'x', ceiling: 'y' }], persona: 'operator' }
+          body ?? { applied: sent.changes ?? [], persona: sent.persona ?? 'operator' }
         ),
         { status }
       )
