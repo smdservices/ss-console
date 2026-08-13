@@ -178,6 +178,86 @@ def find_violations(markdown: str) -> list[Violation]:
     return sorted(violations, key=lambda v: (v.line, v.rule))
 
 
+def check_draft_content(markdown: str) -> None:
+    """Raise :class:`TemplateContentRefused` if the FILLED DRAFT is not
+    deliverable. Returns None when it is clean."""
+    violations = find_draft_violations(markdown)
+    if violations:
+        raise TemplateContentRefused(violations)
+
+
+def find_draft_violations(markdown: str) -> list[Violation]:
+    """The template gate, inverted where a filled draft differs from a template.
+
+    WHY A SECOND ENTRY POINT (ss-console#2258). The template gate refuses case
+    content because "content that reaches a template reaches every future matter
+    the template is filled for." A FILLED DRAFT is the opposite artifact: the
+    case content IS the letter. Rehearsing card 18 on the pilot produced a real
+    demand draft that could not become a .docx at all, because the only renderer
+    was the template one and every medical figure in the letter tripped its gate.
+    The drafter filed a .txt instead, and an attorney cannot edit that in Word.
+
+    WHAT STAYS, and it is most of the gate:
+
+    * **Malformed marker syntax.** Unchanged. An unterminated ``{{`` is a
+      sentence fragment a reader answers as prose either way.
+    * **HTML comments.** Unchanged, and MORE load-bearing here than in a
+      template. Drafting gate 9: a reservation that renders as nothing is a
+      reservation the attorney never sees. In a draft, the thing being reserved
+      is the demand figure.
+    * **Em dashes** — but only OUTSIDE a quoted passage. See below.
+
+    WHAT GOES:
+
+    * **Case content.** Dates, dollar figures, identifiers and long digit runs
+      are the substance of a demand letter, and every one of them is required to
+      trace to a source document by rules enforced elsewhere: the drafting
+      discipline's ten mechanical gates, the A1 identifier provenance gate, and
+      the skill's own "name the source in the same sentence". Refusing them here
+      would not add a control, it would only route the work to a file format the
+      firm cannot use.
+
+    THE EM-DASH CARVE-OUT, DECIDED RATHER THAN DISCOVERED. House style bans em
+    dashes; the drafting checker requires a quotation to appear VERBATIM in a
+    source. A medical record containing an em dash inside a passage the draft
+    quotes can satisfy neither rule, and the only ways out are to misquote the
+    record or to drop the quote. Both are worse than an em dash. So the quote
+    wins: house style governs our prose, never the record's words.
+
+    Markers are exempt from the em-dash rule for the same reason they are exempt
+    from everything else: a marker names its own source and is not prose.
+    """
+    line_starts = _line_starts(markdown)
+    spans, violations = _scan_markers(markdown, line_starts)
+    exempt = spans + _comment_spans(markdown) + _quoted_spans(markdown)
+    violations.extend(_literal_violations(markdown, line_starts, em_dash_exempt=exempt))
+    return sorted(violations, key=lambda v: (v.line, v.rule))
+
+
+def _quoted_spans(text: str) -> list[tuple[int, int]]:
+    """Double-quoted passages, straight or curly, as half-open spans INCLUDING
+    the quote marks.
+
+    Only closed pairs count. An unterminated quote yields no span, the same
+    fail-toward-refusing choice ``_scan_markers`` makes for an unterminated
+    marker: treating the rest of the document as quoted would exempt everything
+    after a stray quote mark from the em-dash rule.
+    """
+    out: list[tuple[int, int]] = []
+    for opener, closer in (('"', '"'), ("“", "”")):
+        pos = 0
+        while True:
+            start = text.find(opener, pos)
+            if start == -1:
+                break
+            end = text.find(closer, start + 1)
+            if end == -1:
+                break
+            out.append((start, end + 1))
+            pos = end + 1
+    return out
+
+
 def _line_starts(text: str) -> list[int]:
     starts = [0]
     for i, ch in enumerate(text):
@@ -319,13 +399,29 @@ def _case_content_violations(
     return sorted(out, key=lambda v: v.line)
 
 
-def _literal_violations(text: str, line_starts: list[int]) -> list[Violation]:
+def _literal_violations(
+    text: str,
+    line_starts: list[int],
+    em_dash_exempt: list[tuple[int, int]] | None = None,
+) -> list[Violation]:
     """Em dashes (house style + drafting rule 7) and HTML comments (drafting gate
-    9: a reservation that vanishes on render was never reserved)."""
+    9: a reservation that vanishes on render was never reserved).
+
+    ``em_dash_exempt`` is empty for a TEMPLATE — a skeleton has no quotations of
+    its own, and exempting spans there would only create a way to smuggle house
+    style violations past the gate. A filled draft passes its quoted passages,
+    because the record's words are not ours to restyle (see
+    :func:`find_draft_violations`). HTML comments are never exempt on either
+    path: a comment inside a quotation still renders as nothing.
+    """
+    exempt = em_dash_exempt or []
     out: list[Violation] = []
     seen_em: set[int] = set()
     start = text.find(_EM_DASH)
     while start != -1:
+        if _in_spans(start, exempt):
+            start = text.find(_EM_DASH, start + 1)
+            continue
         line = _line_of(line_starts, start)
         if line not in seen_em:
             seen_em.add(line)

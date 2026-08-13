@@ -1,5 +1,119 @@
 # Microsoft Graph Azure AD app registration
 
+> **Two runbooks live in this file.** The section immediately below covers the
+> **client-custody, app-only** path an Operator seat uses for the client's own
+> mailbox ([ADR 0078](../../adr/0078-client-custody-email-channel.md)) — this is
+> what a client's IT administrator does, in the client's own tenant, before
+> stand-up day. Everything after it covers the older **multi-tenant delegated**
+> app registered once in the SMD tenant for the admin console's OAuth flow. They
+> are different apps for different purposes; do not conflate them.
+
+## Client-custody app-only registrations — TWO apps, not one (ADR 0078)
+
+**What the client's IT administrator must have ready before stand-up day: two app
+registrations in the firm's own Microsoft Entra tenant, and one Exchange access
+policy for each.** Provisioning refuses a seat that has only one — this is a hard
+requirement, not a recommendation (Captain decision 2026-08-13).
+
+### Why two
+
+A Microsoft Graph **app-only** token is always issued for `/.default`: every
+application permission the registration already holds, with no per-request
+scope-down and no narrower variant. One registration is therefore one permission
+set. If the app can read the mailbox and also holds `Mail.Send`, then anything
+holding that app's credential can send — including a path inside the agent that
+was never meant to transmit.
+
+The Operator's mail credentials live in two different places on the seat. The
+agent process holds the read credential (its delta poller and its `msgraph-mail`
+tool surface both genuinely need it); the send credential is materialized to a
+file only the workspace broker can read and is stripped from the agent's
+environment before the agent starts. That split is only worth anything if the two
+credentials belong to **different registrations with different grants** — which is
+the only way this channel gets the vendor-enforced fence that a rogue in-agent
+path cannot talk its way around.
+
+Proven live on the `smdopslab` sandbox seat, 2026-08-13
+(`vfy_01KZXX523V6JNWEETG4PSZDQY3`): the read app is refused `sendMail` with
+`403 ErrorAccessDenied` while the broker's send app returns `202`, and the read
+app still reads the pinned mailbox and is refused a tenant user list.
+
+### App 1 — the READ app (the agent holds this)
+
+1. **Entra → App registrations → + New registration.** Name it for what it is,
+   e.g. `Operator Mail (read)`. **Single tenant** — this app is the firm's own,
+   not a multi-tenant SMD app.
+2. **API permissions → Microsoft Graph → Application permissions:**
+   - `Mail.ReadWrite`
+   - `MailboxSettings.Read` _(optional; only if the seat needs mailbox settings)_
+   - **Do NOT add `Mail.Send`.** Adding it defeats the entire arrangement — this
+     app's credential is the one the agent process holds.
+3. **Grant admin consent** for the firm's tenant.
+4. **Certificates & secrets → + New client secret.** Record the **Value** once.
+5. Record the **Application (client) ID**. It is authored into the seat's
+   `customer.yaml` as `connectors.Email.msgraph_auth.client_id`.
+
+### App 2 — the SEND app (only the broker ever holds this)
+
+1. A second registration, e.g. `Operator Mail (send)`. Single tenant, same tenant.
+2. **API permissions → Microsoft Graph → Application permissions:** `Mail.Send`,
+   and nothing else.
+3. **Grant admin consent.**
+4. Create a client secret and record the **Value** once.
+5. This client ID and secret never appear in `customer.yaml`. They are staged as
+   operator-env secrets (below) and reach the broker alone.
+
+### Pin BOTH apps to the one mailbox (ApplicationAccessPolicy)
+
+Without this, an application permission is tenant-wide — the app could reach every
+mailbox in the firm. Run once per app, in Exchange Online PowerShell, as a tenant
+admin:
+
+```powershell
+# Repeat for BOTH app ids. $Mailbox is the Operator's own mailbox.
+New-ApplicationAccessPolicy `
+  -AppId "<client-id>" `
+  -PolicyScopeGroupId "<operator-mailbox-or-mail-enabled-security-group>" `
+  -AccessRight RestrictAccess `
+  -Description "Operator seat — pinned to the Operator mailbox only"
+
+# Prove it, per app: Accessible = True for the Operator mailbox…
+Test-ApplicationAccessPolicy -Identity "operator@firm.com"  -AppId "<client-id>"
+# …and Accessible = False for any other mailbox in the tenant.
+Test-ApplicationAccessPolicy -Identity "someone.else@firm.com" -AppId "<client-id>"
+```
+
+Policy changes can take up to ~30 minutes to take effect across Exchange.
+
+### What SMD stages (per seat)
+
+`msgraph_auth` in the seat's `customer.yaml` carries the non-secret read-side
+fields (`tenant_id`, `client_id` — **the READ app**, `mailbox`, `secret_ref`). The
+secrets are staged in the operator env (Infisical `/ss`, prod) under per-customer
+names, where `<CID>` is the customer id upper-cased with `-` → `_`:
+
+| Variable                            | Which app | Notes                                                                                                   |
+| ----------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| `MSGRAPH_CLIENT_SECRET__<CID>`      | READ      | Matches `msgraph_auth.client_id`                                                                        |
+| `MSGRAPH_SEND_CLIENT_ID__<CID>`     | SEND      | Must differ from the read client id                                                                     |
+| `MSGRAPH_SEND_CLIENT_SECRET__<CID>` | SEND      | Must differ from the read secret                                                                        |
+| `MSGRAPH_SEND_TENANT_ID__<CID>`     | SEND      | Optional — defaults to the read tenant, which is correct when both apps live in the client's one tenant |
+
+`operator/bin/provision-customer.sh` refuses to provision an msgraph seat when the
+send client id or secret is unstaged, equal to the read app's, or half-staged, and
+its refusal names the exact variable to set. The refusal arms are driven in
+`tests/msgraph-two-app-fence.test.ts`.
+
+### Verify after stand-up
+
+The two-app split is only proven by watching the read app be refused. From the
+seat, acquire an app-only token with each credential and attempt
+`POST /v1.0/users/<mailbox>/sendMail`: the read app must return
+`403 ErrorAccessDenied` and the send app `202`. A read app that returns `202` has
+`Mail.Send` on it and the seat is not fenced.
+
+---
+
 > **Status note (2026-05-25):** The in-tree Python adapter (`operator/connectors/ms_graph/`) was removed per the 2026-05-24 Hermes alignment. Mail and Calendar capabilities now bind to the hosted Microsoft 365 MCPs (`mcp:m365-mail`, `mcp:m365-calendar`) per ADR 0020 and need no in-house adapter. DocumentStorage (OneDrive/SharePoint) ships as a sub-plugin in `venturecrane/hermes-smd-overlay` (issue #1055). The Azure AD app registration described below is still required; the smoke-test invocation later in this runbook will be replaced when the overlay sub-plugin ships.
 
 How to register the SMD Services Operator app in Microsoft Entra ID (Azure AD), obtain the client credentials used by the OAuth callback, and grant the Phase-1 scopes that the MS Graph adapter requires.
