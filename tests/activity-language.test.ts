@@ -50,6 +50,9 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'AGENT_RESUMED',
         'AGENT_STOPPED',
         'COMPLIANCE_PACKET_EXPORTED',
+        // ss#2122: a Named Administrator pulled the per-matter audit record
+        // from the portal. Console-plane, synthesized from portal_action_events.
+        'COMPLIANCE_RECORD_EXPORTED',
         'CONFIG_CHANGE_REJECTED',
         'CONFIG_CHANGE_SUBMITTED',
         'CONFIRM_SEND_DISPATCHED',

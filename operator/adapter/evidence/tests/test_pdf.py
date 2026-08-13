@@ -34,7 +34,7 @@ def test_render_summary_pdf_returns_valid_pdf_bytes():
         period_start="2026-04-01T00:00:00Z",
         period_end="2026-05-01T00:00:00Z",
         matter="all",
-        captain_id="key-abc",
+        signer_key_id="key-abc",
         manifest_sha256="deadbeef" * 8,
         counts=_counts(),
     )
@@ -50,7 +50,7 @@ def test_render_summary_pdf_includes_signature_and_manifest_sha():
         period_start="2026-04-01T00:00:00Z",
         period_end="2026-05-01T00:00:00Z",
         matter="m-9",
-        captain_id="key-xyz",
+        signer_key_id="key-xyz",
         manifest_sha256=sha,
         counts=_counts(),
     )
@@ -68,7 +68,7 @@ def test_render_summary_pdf_strips_em_dashes():
         period_start="2026-04-01T00:00:00Z",
         period_end="2026-05-01T00:00:00Z",
         matter="all",
-        captain_id="key-abc",
+        signer_key_id="key-abc",
         manifest_sha256="0" * 64,
         counts=_counts(),
     )
@@ -84,7 +84,7 @@ def test_render_summary_pdf_renders_counts_truthfully_for_zeros():
         period_start="2026-04-01T00:00:00Z",
         period_end="2026-05-01T00:00:00Z",
         matter="all",
-        captain_id="key-abc",
+        signer_key_id="key-abc",
         manifest_sha256="0" * 64,
         counts=zeroed,
     )
@@ -100,7 +100,7 @@ def test_render_summary_pdf_is_deterministic_for_same_inputs():
         period_start="2026-04-01T00:00:00Z",
         period_end="2026-05-01T00:00:00Z",
         matter="all",
-        captain_id="key-abc",
+        signer_key_id="key-abc",
         manifest_sha256="deadbeef" * 8,
         counts=_counts(),
     )

@@ -113,7 +113,7 @@ def test_manifest_declares_the_algorithm_and_key_id_it_was_signed_with(
     archive = _build(tmp_path)
     body = json.loads(_extract(archive, "manifest.json"))
 
-    block = body["captain_signature"]
+    block = body["signer"]
     assert block["algorithm"] == signing.ALGORITHM_ED25519
     assert block["signature"] == signing.SIGNATURE_DETACHED_MARKER
 
@@ -146,7 +146,7 @@ def test_no_key_configured_ships_no_signature_file_and_says_so(tmp_path, monkeyp
 
     assert _extract(archive, signing.DETACHED_SIGNATURE_FILENAME) is None
     body = json.loads(_extract(archive, "manifest.json"))
-    assert body["captain_signature"]["signature"] == signing.UNSIGNED
+    assert body["signer"]["signature"] == signing.UNSIGNED
 
 
 def test_a_configured_but_broken_key_halts_the_build(tmp_path, monkeypatch):

@@ -31,15 +31,26 @@
  * Reconciliation with the Machine (overlay `shared/runtime_read.py`,
  * checked 2026-07-04 / #1678): every kind listed here is in the Machine's
  * SUPPORTED_KINDS, so no console request can 404. `audit_log`,
- * `memory_export`, `config_export`, and `jobs` are REAL (backed by a table
- * or the broker ledger); `activity` is supported but serves an honest empty
- * page until its runtime table lands — portal Home therefore derives its
- * activity feed from `audit_log`, and only the admin observe surface still
- * requests `activity` (renders the empty state it was built for). The
- * Machine additionally serves `audit_export` / `config` / `draft` /
- * `matter` for the decommission pipeline and drift audit; those are
- * deliberately NOT listed here — portal/admin drill-ins must not request
- * compliance-export payloads.
+ * `memory_export`, `config_export`, `audit_export`, and `jobs` are REAL
+ * (backed by a table or the broker ledger); `activity` is supported but
+ * serves an honest empty page until its runtime table lands — portal Home
+ * therefore derives its activity feed from `audit_log`, and only the admin
+ * observe surface still requests `activity` (renders the empty state it was
+ * built for). The Machine additionally serves `config` / `draft` / `matter`
+ * for the decommission pipeline and drift audit; those are deliberately NOT
+ * listed here.
+ *
+ * `audit_export` serves the FULL audit_log row — `matter_ref`,
+ * `trust_ceiling`, the digests, the metadata blob, and the hash-chain
+ * columns. The UI kind (`audit_log`) deliberately omits them, which is
+ * correct for a narrative activity feed and wrong for a compliance record:
+ * "what authorized this action" lives in `trust_ceiling` + the routine
+ * attribution inside `metadata`, and neither crosses the seam on the UI
+ * kind (ss#2122). Consumption is restricted by construction rather than by
+ * kind availability: the only portal caller is the role-gated per-matter
+ * audit record path (`portal/operator/matter-audit-record.ts`), reachable
+ * solely by a firm's Named Administrator or its compliance reviewer. An
+ * ordinary drill-in must keep requesting `audit_log`.
  *
  * `memory_export` serves an allow-listed Machine-local memory table one at a
  * time via the `table` query field (ADR 0016 mirror tables + `peer_preferences`,
@@ -61,6 +72,9 @@
  * reads its own ledger over the broker socket and returns a single page. */
 export type RuntimeReadKind =
   | 'audit_log'
+  /** Full-row compliance read. See the `audit_export` paragraph above for the
+   * restriction on who may request it. */
+  | 'audit_export'
   | 'activity'
   | 'memory_export'
   | 'config_export'

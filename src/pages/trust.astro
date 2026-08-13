@@ -1,0 +1,197 @@
+---
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import {
+  CURRENT_KEY_URL,
+  SIGNER_OF_RECORD,
+  SIGNING_KEYS,
+  activeSigningKey,
+} from '../lib/trust/signing-keys'
+
+/**
+ * Public trust page (ss#2122). The standing address where anyone holding a
+ * compliance evidence packet can verify it without asking us for anything.
+ *
+ * WHY IT IS PUBLIC AND UNAUTHENTICATED. The person who most needs this page is
+ * not our client. It is the client's insurance carrier, their outside counsel,
+ * or an opposing party, reading a packet the client handed them. Requiring a
+ * login would mean the client has to vouch for their own evidence, which is
+ * precisely the position the signature exists to get them out of.
+ *
+ * Every value on this page comes from `src/lib/trust/signing-keys.ts`, which is
+ * reviewed authored data, and `tests/trust-signing-keys.test.ts` recomputes
+ * each fingerprint from the committed PEM. Nothing here is rendered from a
+ * default or derived at request time.
+ */
+
+const H2 =
+  'mb-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]'
+
+const active = activeSigningKey()
+---
+
+<Base
+  title="Trust | SMD Services"
+  description="Verify a compliance evidence packet from SMDurgan, LLC: the published signing keys, their fingerprints, and how to check a packet yourself without contacting us."
+>
+  <Nav />
+  <main id="main" role="main" class="bg-[color:var(--ss-color-background)] px-6 py-20 md:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-body text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        Trust
+      </h1>
+
+      <div
+        class="mt-10 space-y-10 font-body text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
+      >
+        <p>
+          This page exists for one job: if someone hands you a compliance evidence packet produced
+          by {SIGNER_OF_RECORD}, you can confirm here that it came from us and has not been altered,
+          without contacting us and without trusting whoever handed it to you.
+        </p>
+
+        <section>
+          <h2 class={H2}>Who signs</h2>
+          <p>
+            Packets are signed by {SIGNER_OF_RECORD}, the company under contract with the firm. They
+            are not signed by an individual. A packet is often read years after the work, and the
+            party a reader needs to identify is the one that holds the obligation, not whoever
+            happened to run the export. The person who ran it is recorded separately inside the
+            packet, under <span class="font-mono text-base">generated_by</span>.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>The signing keys</h2>
+          {
+            active === null ? (
+              <p>
+                No signing key is published right now. Packets produced in this period carry a
+                SHA-256 for every file they contain and say plainly, on their own first page, that
+                they are not cryptographically verifiable. Do not read an unsigned packet as a
+                signed one.
+              </p>
+            ) : (
+              <p>
+                The current key always lives at the same address, so a link to it never rots:
+                <br />
+                <a
+                  href={CURRENT_KEY_URL}
+                  class="font-mono text-base break-all underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
+                >
+                  {CURRENT_KEY_URL}
+                </a>
+              </p>
+            )
+          }
+
+          <div class="mt-6 overflow-x-auto">
+            <table class="w-full border-collapse text-left">
+              <thead>
+                <tr class="border-b-2 border-[color:var(--ss-color-text-primary)]">
+                  <th
+                    scope="col"
+                    class="py-2 pr-4 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+                    >Fingerprint (SHA-256 of the DER public key)</th
+                  >
+                  <th
+                    scope="col"
+                    class="py-2 pr-4 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+                    >Status</th
+                  >
+                  <th
+                    scope="col"
+                    class="py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+                    >In use</th
+                  >
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  SIGNING_KEYS.map((key) => (
+                    <tr class="border-b border-[color:var(--ss-color-text-muted)]/40 align-top">
+                      <td class="py-3 pr-4">
+                        <a
+                          href={key.path}
+                          class="font-mono text-sm break-all underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
+                        >
+                          {key.keyId}
+                        </a>
+                        <span class="block font-mono text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]">
+                          {key.algorithm}
+                        </span>
+                      </td>
+                      <td class="py-3 pr-4 font-mono text-sm uppercase tracking-[0.12em]">
+                        {key.status}
+                        {key.retiredReason !== null && (
+                          <span class="block font-body text-base normal-case tracking-normal">
+                            {key.retiredReason}
+                          </span>
+                        )}
+                      </td>
+                      <td class="py-3 font-mono text-sm">
+                        {key.activeFrom} to {key.retiredOn ?? 'present'}
+                      </td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6">
+            A retired key stays on this page permanently. Packets signed under it are still
+            authentic, and removing the key would make them unverifiable for no reason. If a key was
+            retired because its private half may have been exposed, the reason says so, and you
+            should weigh packets signed after that date accordingly.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Verifying a packet</h2>
+          <p>
+            Open <span class="font-mono text-base">manifest.json</span> inside the packet and read the
+            fingerprint under <span class="font-mono text-base">signer.key_id</span>. Find that
+            fingerprint in the table above and download that key. Then check the detached signature
+            over the exact bytes of the manifest:
+          </p>
+          <pre
+            class="mt-4 overflow-x-auto border-2 border-[color:var(--ss-color-text-primary)] p-4 font-mono text-sm"><code>openssl pkeyutl -verify -pubin \
+  -inkey evidence-packet-signing-key.pem \
+  -rawin -in manifest.json -sigfile manifest.sig</code></pre>
+          <p class="mt-4">
+            A success result means the manifest is ours and unmodified. The manifest carries a
+            SHA-256 for every other file in the packet, so once it verifies you can hash any
+            individual file and compare.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>What the signature does not tell you</h2>
+          <p>
+            It proves origin and integrity after export. It says nothing about whether the
+            underlying audit record is correct. That is a separate mechanism: the record is hash
+            chained, so a deleted, reordered, or inserted entry breaks the chain at a point anyone
+            can identify. The packet reports both, separately, and never blurs them.
+          </p>
+        </section>
+
+        <section>
+          <h2 class={H2}>Questions</h2>
+          <p>
+            If a packet fails to verify, tell the firm that gave it to you before you tell us, then
+            write to <a
+              href="mailto:team@smd.services"
+              class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
+              >team@smd.services</a
+            >.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Base>
