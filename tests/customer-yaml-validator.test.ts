@@ -3172,9 +3172,46 @@ describe('validate — scope.outbound_roster (ADR 0075)', () => {
     if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')
   })
 
-  it('rejects an address also present in inbound_allow_from', () => {
+  // ss#2263 — this pair used to be a single "rejects an address also present in
+  // inbound_allow_from" case, and that rejection was the defect. It read the reply
+  // list as a statement of class. It is not one: it says who the Operator may
+  // autonomously REPLY to. Forbidding the overlap meant the only way to make a
+  // firm's own client reply-able was to leave them classified as staff — exempt
+  // from the content floor (ADR 0072) and the matter-identity gate (ss#2167) — and
+  // it made the gate's reply-lane branch unreachable in every authorable config
+  // (ss#2271).
+  it('accepts a reply-authorized address that also carries a typed class', () => {
     const r = validate(
-      withOutbound([{ address: 'scott@smd.services', class: 'client' }], ['scott@smd.services'])
+      withOutbound([{ address: 'client@example.com', class: 'client' }], ['client@example.com'])
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.outbound_roster).toEqual([
+        { address: 'client@example.com', class: 'client' },
+      ])
+      expect(r.value.scope.inbound_allow_from).toEqual(['client@example.com'])
+    }
+  })
+
+  it('accepts firm_staff, the authored form of "is firm staff"', () => {
+    const r = validate(withOutbound([{ address: 'paralegal@firm.example', class: 'firm_staff' }]))
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.outbound_roster).toEqual([
+        { address: 'paralegal@firm.example', class: 'firm_staff' },
+      ])
+    }
+  })
+
+  it('still rejects one address typed as more than one class, overlap or not', () => {
+    const r = validate(
+      withOutbound(
+        [
+          { address: 'client@example.com', class: 'client' },
+          { address: 'client@example.com', class: 'firm_staff' },
+        ],
+        ['client@example.com']
+      )
     )
     expect(r.ok).toBe(false)
     if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOutboundRoster')

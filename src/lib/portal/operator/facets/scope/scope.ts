@@ -13,7 +13,11 @@
  *                              EMPTY roster is the fail-closed safety posture —
  *                              the operator drafts but never responds on its
  *                              own — and the viewer says so plainly, never as
- *                              an error.
+ *                              an error. This list is REPLY AUTHORITY only: it
+ *                              no longer implies "firm staff" (ss#2263), so an
+ *                              address can appear here AND under "who it writes
+ *                              to" with a class — that is how a firm says "reply
+ *                              to my client, and treat them as a client".
  *   - who sets its standards — admins (ADR 0085 §2), the Operator-admin allow
  *                              list. Distinct from the roster above: everyone
  *                              rostered gets answered, but only these people
@@ -52,6 +56,7 @@ import { parseScope } from '../../configure'
 const OUTBOUND_CLASS_LABEL: Record<OutboundRosterClass, string> = {
   client: 'Client',
   records_vendor: 'Records vendor',
+  firm_staff: 'Firm staff',
 }
 
 /** One standing outbound recipient, rendered from the authored roster entry. */
