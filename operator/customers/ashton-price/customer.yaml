@@ -703,30 +703,48 @@ connectors:
   # separate store.
 
 # ---- WEBHOOK TRIGGERS ----
-webhook_triggers:
-  # The flagship: a Smokeball matter change drives the internal supervision memo.
-  - source: smokeball
-    event_type: matter.updated
-    skill: matter-memo-on-update
-    persona: operator
-    # Per-(trigger, matter) cooldown (#1781): breaks the create_memo →
-    # matter.updated echo loop at the gate (202 + WEBHOOK_SUPPRESSED; the echo
-    # never wakes the agent). Proven live on pilot-smokeball 2026-07-06→07 —
-    # on THIS seat the loop would write unbounded agent memos into the firm's
-    # production Smokeball. 30 = platform default, authored explicitly.
-    # AT PRODUCTION CONNECT (plan §3/M3, issue #1671): additionally author the
-    # seat's own Smokeball userId (known after the firm's OAuth) into
-    # exclude.actors so the Operator's writes are excluded precisely, not just
-    # coalesced.
-    throttle:
-      cooldown_minutes: 30
-  # NO inbound-mail trigger, deliberately (Captain, 2026-08-12) — paired with the
-  # removed Email connector above. This authored `source: agentmail`, a channel
-  # this firm does not use and has no inbox on, so the trigger could never fire.
-  # It is re-authored against msgraph when Track E wires the firm's own M365
-  # Operator mailbox (letter 18), at which point `matter-inbox-router` regains a
-  # webhook source and the spine-initiable PI skills become webhook-initiable
-  # again.
+# GO-LIVE POSTURE (Captain directive 2026-08-13, extending the 2026-08-12 cron
+# directive to the webhook surface): NO autonomous initiation of any kind at
+# hand-off — the seat comes up with zero cron jobs AND zero webhook triggers, so
+# "nothing runs until you ask for it" is unconditionally true rather than
+# dependent on Smokeball's connection state. A routine gains its trigger only
+# when Chris or Christa asks for it by name.
+#
+# The authored trigger is PRESERVED AS COMMENTS below, same pattern as the cron
+# block: re-arming the flagship memo is an uncomment at the composition already
+# designed (cooldown proven on pilot-smokeball), not a re-derivation.
+#
+# Empty here converges the MACHINE side: no authored trigger means an inbound
+# event has nothing to dispatch to, so no webhook can wake a skill. The VENDOR
+# side does not converge from this file by design — the subscription reconciler
+# is never-delete-to-zero (operator/connectors/smokeball/smokeball_connector/
+# webhook_reconcile.py: an empty desired is a SKIP, never a delete), so any
+# vendor-side subscription that exists stays registered and its deliveries are
+# absorbed at the gate with nothing to fire.
+webhook_triggers: []
+# The flagship: a Smokeball matter change drives the internal supervision memo.
+# - source: smokeball
+#   event_type: matter.updated
+#   skill: matter-memo-on-update
+#   persona: operator
+#   # Per-(trigger, matter) cooldown (#1781): breaks the create_memo →
+#   # matter.updated echo loop at the gate (202 + WEBHOOK_SUPPRESSED; the echo
+#   # never wakes the agent). Proven live on pilot-smokeball 2026-07-06→07 —
+#   # on THIS seat the loop would write unbounded agent memos into the firm's
+#   # production Smokeball. 30 = platform default, authored explicitly.
+#   # AT PRODUCTION CONNECT (plan §3/M3, issue #1671): additionally author the
+#   # seat's own Smokeball userId (known after the firm's OAuth) into
+#   # exclude.actors so the Operator's writes are excluded precisely, not just
+#   # coalesced.
+#   throttle:
+#     cooldown_minutes: 30
+# NO inbound-mail trigger, deliberately (Captain, 2026-08-12) — paired with the
+# removed Email connector above. This authored `source: agentmail`, a channel
+# this firm does not use and has no inbox on, so the trigger could never fire.
+# It is re-authored against msgraph when Track E wires the firm's own M365
+# Operator mailbox (letter 18), at which point `matter-inbox-router` regains a
+# webhook source and the spine-initiable PI skills become webhook-initiable
+# again.
 
 # ---- SCOPE ----
 scope:
