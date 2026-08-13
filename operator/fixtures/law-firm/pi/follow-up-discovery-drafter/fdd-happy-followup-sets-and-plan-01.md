@@ -84,7 +84,12 @@ non-genuineness admissions, plus the count in this set. The itemized report
 carries no completeness sentence ("this set fully addresses the gaps" and
 similar are banned). The gate runs on each set and the plan with `--sprog-lint`,
 and the delivery note records PASS with its execution point (in-skill or
-harness-side, whichever the seat used).
+delivery-path, whichever the seat used).
+
+> **The delivery-path arm is unbuilt (2026-08-13, ss-console#2258),** so a seat
+> that refuses `code_execution` has no gate on either path — the discipline's
+> variant C, where nothing surfaces. This fixture's PASS is reachable today only
+> on a seat that authors code execution.
 
 `fails` if any drafted request assumes the hitch receiver was removed rather than
 asking; any special interrogatory or admission carries a subpart; the plan ranks
