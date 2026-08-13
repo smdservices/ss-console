@@ -877,7 +877,21 @@ describe('Operator customer Machine Dockerfile', () => {
     // files AT THE OLD PIN first, so the manifest was honest going in. Live
     // blast radius at bump time: pilot-smokeball and smd-staging only —
     // hermes-ashton-price is stopped with autostart disabled.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d8e0d767d57673a9324eceb0a55dbcf917ebfbb9"')
+    //
+    // d8e0d767 -> d567cfb (2026-08-13b): the second bump of the day, carrying
+    // overlay#266 (classify render_docx_draft) and #268 (stop forbidding the
+    // dollar figure the skill authorizes), both ss#2258. Nothing in the drafting
+    // lane's four built phases reaches a seat until this lands. ONE tracked twin
+    // moves — shared/identifier_filter.py at #268 — and it is one-sided: the
+    // change adds MONEY_RE/canon_money/extract_money, and ss-console has no
+    // consumer of any of them (grep returns nothing across the repo, while the
+    // same command shape finds _DATE_STRPTIME_FORMATS in that very twin, so the
+    // search works and the symbols are absent). overlaySha256 moves; the ss-twin
+    // sha256 does not. Both parity snapshots were re-derived rather than
+    // re-stamped: heartbeat.py (af3cf3f2) and hermes-smd-audit/schemas.py
+    // (1696c30a) are byte-identical at both ends of the range, so neither
+    // derived list can have moved.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d567cfb07a9c712bdff56aa38dba51e1ee09b53c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
