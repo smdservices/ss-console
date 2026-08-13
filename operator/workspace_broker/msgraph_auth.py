@@ -24,23 +24,30 @@ read-side and both real: the delta poller that pulls inbound mail
 server that is the agent's own mail tool surface. Stripping ``MSGRAPH_*`` from the
 gateway today would not harden the seat; it would blind it.
 
-So the honest position, stated here rather than discovered later:
+The way out is TWO app registrations in the tenant — a read-only one
+(``Mail.ReadWrite``, no ``Mail.Send``) whose credential the agent holds, and a
+send-capable one (``Mail.Send``) whose secret only ever reaches this file, both
+pinned to the one mailbox by an Exchange ``ApplicationAccessPolicy``. That is a
+tenant action requiring admin consent, so on a client seat it is the client's to
+grant. As of 2026-08-13 it is REQUIRED rather than hoped for: the Captain made two
+registrations a precondition of the channel, and ``provision-customer.sh`` refuses
+to stand up an msgraph seat whose ``MSGRAPH_SEND_*`` values are unstaged, equal to
+the read app's, or half-staged.
+
+So the position on a seat that provisioned successfully:
 
 * **Fence 2 is live** — every governed send and reply crosses this boundary, is
   checked against the seat's authored counterparty surface, and leaves a row
   written by the credential holder.
-* **Fence 1 is NOT live for msgraph.** A rogue in-agent path can still mint its
-  own Graph token from ``MSGRAPH_CLIENT_SECRET`` and POST ``/sendMail`` directly,
-  which is the shape of the original incident. Closing it needs a SECOND app
-  registration in the tenant — a read-only one (``Mail.ReadWrite``, no
-  ``Mail.Send``) for the agent, and a send-capable one whose secret only ever
-  reaches this file. That is a tenant action requiring admin consent, which for a
-  client seat is the client's to grant, not ours to take.
+* **Fence 1 is live too.** The agent's ``MSGRAPH_CLIENT_SECRET`` belongs to a
+  registration without ``Mail.Send``, so a rogue in-agent path that mints its own
+  Graph token and POSTs ``/sendMail`` is refused by Microsoft, not by us. Proven
+  on the sandbox seat 2026-08-13 (``vfy_01KZXX523V6JNWEETG4PSZDQY3``): the read
+  app got ``403 ErrorAccessDenied``, this file's credential got ``202``.
 
-The env names below are already the ones a separate send-only app would use, so
-that migration is a provisioning change with no code change. Today they may carry
-the same app registration's values as the gateway's ``MSGRAPH_*``; the day a
-send-only app exists, only what the provisioner stages changes.
+Setup for the client's tenant admin:
+``docs/runbooks/operator/ms-graph-azure-ad-setup.md`` — "Client-custody app-only
+registrations".
 """
 
 from __future__ import annotations
@@ -55,9 +62,9 @@ import yaml
 from .recipient_policy import normalize_address
 
 #: The send-capable Graph app credential, named apart from the gateway's
-#: ``MSGRAPH_*`` on purpose. Sharing the names would make the eventual split
-#: invisible in config and let a future entrypoint edit hand the agent the send
-#: app by accident — the exact failure the AgentMail key split exists to prevent.
+#: ``MSGRAPH_*`` on purpose. Sharing the names would make the split invisible in
+#: config and let a future entrypoint edit hand the agent the send app by
+#: accident — the exact failure the AgentMail key split exists to prevent.
 #: The MAILBOX is deliberately absent: it comes from customer.yaml (below), so a
 #: caller cannot express it and a secret cannot contradict the authored config.
 SEND_ENV = (

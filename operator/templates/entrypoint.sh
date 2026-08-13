@@ -298,14 +298,17 @@ fi
 # token is always `/.default` — every permission the app registration holds), so
 # stripping MSGRAPH_* here would blind the seat rather than harden it.
 #
-# The consequence, stated plainly so nobody reads this channel as equivalent to
-# the AgentMail one: an in-agent path can still mint its own Graph token and POST
-# /sendMail directly. What the broker verbs add is that the GOVERNED path is
-# recipient-fenced and always audited. Closing the rest needs a SECOND app
-# registration in the tenant — read-only for the agent, send-capable only here —
-# which is a tenant-admin action, and on a client seat that is the client's to
-# grant. The MSGRAPH_SEND_* names below are already what that split would use, so
-# it becomes a provisioning change with no code change.
+# What closes the rest is the SECOND app registration — read-only for the agent,
+# send-capable only here. As of 2026-08-13 that is REQUIRED, not aspirational:
+# provision-customer.sh refuses an msgraph seat whose MSGRAPH_SEND_* credentials
+# are not a distinct registration from the gateway's MSGRAPH_*. So on any seat
+# that provisioned successfully, the MSGRAPH_* the gateway keeps below holds
+# Mail.ReadWrite and NOT Mail.Send, and the Graph token an in-agent path could
+# mint with it is refused at /sendMail by Microsoft (403 ErrorAccessDenied —
+# proven on the sandbox seat 2026-08-13, vfy_01KZXX523V6JNWEETG4PSZDQY3). Both
+# fences are live for msgraph: the vendor makes the agent's credential incapable
+# of transmitting, and the broker verbs recipient-fence and audit the governed
+# path. Setup: docs/runbooks/operator/ms-graph-azure-ad-setup.md.
 export SMD_MSGRAPH_CREDENTIAL_PATH="${BROKER_DIR}/msgraph.json"
 if [ -n "${MSGRAPH_SEND_CLIENT_SECRET:-}" ]; then
   PYTHONPATH="/opt/workspace-broker" \
@@ -395,11 +398,11 @@ unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 # inbox-scoped key the vendor refuses to let transmit.
 unset AGENTMAIL_SEND_API_KEY
 # The Graph SEND app credential dies here too, for the same reason and at the same
-# moment. Today it may carry the SAME app registration's values as the MSGRAPH_*
-# the gateway keeps for reads, so this strip buys little on its own — but it means
-# the day a send-only app registration exists, its secret is already unreachable
-# from the agent with no further change to this file. The gateway's read-side
-# MSGRAPH_* deliberately survives; see the materialization block above for why.
+# moment. Since 2026-08-13 it carries a DIFFERENT app registration from the
+# MSGRAPH_* the gateway keeps for reads — provisioning refuses the seat otherwise
+# — so this strip is the whole point: the only credential in the tenant that holds
+# Mail.Send becomes unreachable from the agent. The gateway's read-side MSGRAPH_*
+# deliberately survives; see the materialization block above for why.
 unset MSGRAPH_SEND_TENANT_ID MSGRAPH_SEND_CLIENT_ID MSGRAPH_SEND_CLIENT_SECRET
 
 export HOME=/opt/data
