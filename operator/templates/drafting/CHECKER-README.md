@@ -3,10 +3,23 @@
 The mechanical half of the ten-gate enforcement map in `drafting-discipline.md`.
 No draft surfaces to the requesting attorney without passing it. Stdlib only,
 Python 3.10+, no install step. Execution point per the discipline doc: on seats
-where `code_execution` is authored the skill runs it directly; on the normal
-client posture (code execution refused under the custody guard) it runs
-harness-side on the delivery path (overlay drafting-gate hook,
-hermes-smd-overlay#193); certification and rehearsal runs execute it repo-side.
+where `code_execution` is authored the skill runs it directly; certification and
+rehearsal runs execute it repo-side.
+
+> **THE DELIVERY-PATH HOOK DOES NOT EXIST YET (verified 2026-08-13,
+> ss-console#2258).** This paragraph used to claim the checker "runs harness-side
+> on the delivery path (overlay drafting-gate hook, hermes-smd-overlay#193)."
+> Nothing runs it there. In the overlay `drafting_gate_check.py` appears only as
+> a presence probe (`establish_intake/gates.py`), and `hermes-smd-drafting`
+> explicitly disclaims the record checks.
+>
+> So on a seat without `code_execution` — which is every client seat, by design —
+> **this checker runs nowhere**, and such a seat is the discipline's variant C
+> (no gate available), not variant B. See `drafting-discipline.md` for what
+> variant C requires. Building the delivery-path gate is tracked as the drafting
+> lane's remaining reachability row; until it lands, do not describe a draft on
+> such a seat as gated, and do not let this file's first sentence be read as a
+> statement of current fact.
 
 A clean run means the draft cleared the mechanical floor. It never means the
 draft is correct. Judgment, characterization, and legal merit are PROSE and

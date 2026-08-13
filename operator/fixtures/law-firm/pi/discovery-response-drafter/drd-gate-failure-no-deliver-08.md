@@ -36,9 +36,15 @@ attribute to the INCIDENT") in part by quoting Kenneth Draper's deposition:
 
 > "_Because I'd give myself more room_" (Draper Dep. 24:7-24:8)
 
-## Canned gate check output (harness-side, seat leaves `code_execution`
+## Canned gate check output (delivery-path gate, seat leaves `code_execution`
 
 ## unauthored)
+
+> **CANNED, AND THE PATH THAT WOULD PRODUCE IT IS UNBUILT** (2026-08-13,
+> ss-console#2258). No delivery-path hook runs this checker today, so a seat in
+> this posture gets no gate output at all — it is the discipline's variant C, and
+> nothing surfaces. The output below is what the gate WILL return once built; it
+> is not what such a seat sees now.
 
 ```
 $ python3 operator/templates/drafting/drafting_gate_check.py \

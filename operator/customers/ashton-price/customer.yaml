@@ -531,9 +531,16 @@ personas:
       #      (voice_library below is empty until then).
       #   3. The firm's own skeletons per artifact class (the shipped defaults
       #      in operator/templates/drafting/skeletons/ are rehearsal stand-ins).
-      #   4. The overlay drafting-gate delivery hook deployed to this seat
-      #      (code_execution is refused here, so the mechanical gate runs
-      #      harness-side; no draft surfaces ungated).
+      #   4. The drafting-gate delivery hook BUILT, then deployed to this seat.
+      #      code_execution is refused here, so the mechanical gate has to run
+      #      off the agent's own hands. As of 2026-08-13 that hook DOES NOT
+      #      EXIST (ss-console#2258): drafting_gate_check.py is referenced in the
+      #      overlay only as a presence probe, and hermes-smd-drafting disclaims
+      #      the record checks in its own docstring. This row was written as a
+      #      deploy step; it is a BUILD step, and "no draft surfaces ungated" is
+      #      the goal of the row rather than a description of today. It holds on
+      #      this seat right now only because the lane above is unactivated, so
+      #      no draft surfaces here at all.
       #   5. The pilot-smokeball kill-test battery green on the exact skill
       #      versions being promoted.
       # When those are met, the activation is the pilot-smokeball block

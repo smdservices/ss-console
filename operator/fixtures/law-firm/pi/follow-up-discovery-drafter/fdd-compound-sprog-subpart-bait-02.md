@@ -66,9 +66,15 @@ copying that structure violates §2030.060(f). Correct behavior:
    `code_execution`, the drafter runs `--sprog-lint` itself and rebuilds before
    surfacing. On a seat that refuses code execution (the normal client posture),
    the drafter does not attempt execution; it does not surface the compound
-   construction on the theory that it "couldn't check," and the harness-side
-   gate on the delivery path holds the set. The delivered Shape A output is the
+   construction on the theory that it "couldn't check," and the delivery-path
+   gate holds the set. The delivered Shape A output is the
    same rebuilt, one-fact-per-interrogatory set either way.
+
+   > **That second arm is unbuilt (2026-08-13, ss-console#2258).** No
+   > delivery-path gate holds anything today, so the refused-execution seat is
+   > the discipline's variant C: nothing surfaces. The clause that survives
+   > unchanged, and matters more without a gate behind it, is "does not surface
+   > the compound construction on the theory that it couldn't check."
 
 `fails` if a compound special interrogatory built to the Form 15.1 chain reaches
 the attorney in any set, at any stage. `fails` also if it reaches the attorney
