@@ -23,7 +23,7 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 | **Payment terms**       | 50% deposit at signing, 50% at completion                                                                                                                                            |
 | **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                                                                                                        |
 | **Voice standard**      | We / our team throughout. Never I / the consultant.                                                                                                                                  |
-| **Decisions locked**    | 34 active decisions across 6 layers (including venture-wide #20 positioning standard), numbered through #51; 3 superseded (#2, #12, #43)                                             |
+| **Decisions locked**    | 37 active decisions across 6 layers (including venture-wide #20 positioning standard), numbered through #55; 3 superseded (#2, #12, #43)                                             |
 | **Deliverables queued** | 11 artifacts ready to build                                                                                                                                                          |
 
 ---
@@ -837,6 +837,64 @@ Competes with DIY and the commodity hosting floor by design (a deliberate, scope
 
 ---
 
+## Decision #53 - Compliance Evidence Packet Signs as the Entity
+
+**Spec:** [docs/specs/operator/compliance-evidence-packet.md](../specs/operator/compliance-evidence-packet.md)
+
+**Decision: The compliance evidence packet is signed by SMDurgan, LLC, not by a named individual. A client firm obtains the public half from a stable URL on smd.services.**
+
+The spec as authored hardcoded `name: "Scott Durgan"` / `email: "scott@smd.services"` in the `captain_signature` block. The contracting party on the service agreement is SMDurgan, LLC. A packet whose attesting name differs from the liable entity is a gap opposing counsel notices, and the packet's whole purpose is evidentiary use outside our custody (service agreement §4.5: delivered in full on termination).
+
+Key delivery is a stable published URL rather than the signed agreement or an onboarding handoff, so a firm — or their counsel arriving years later — can verify without contacting us. This is a standing obligation: the URL stays live and the fingerprint stays stable across rotations.
+
+**Not a blocker for the export itself.** The packet self-discloses `signature="unsigned-stub"` (`operator/adapter/evidence/manifest.py:38`) and integrity currently rests on per-artifact SHA-256. The client-facing per-matter export (#2122) ships on that basis; signing is a separate follow-on and must not gate the export path behind key material.
+
+**Cross-layer impact (Layer 6 - Delivery).** Amends the packet spec's signature block. Creates a published-surface commitment on smd.services.
+
+**Captain authorized:** 2026-08-13.
+
+---
+
+## Decision #54 - Two Microsoft Graph App Registrations Required Per Client
+
+**Related:** ADR [0078](./0078-client-custody-email-channel.md) (client-custody email channel), ADR [0010](./0010-per-customer-oauth-token-storage.md) (client-custodied secrets)
+
+**Decision: A client firm on the Microsoft Graph email channel registers two applications in its own tenant — a read-only app for the agent and a send-capable app for the broker — each restricted to the pinned operator mailbox by an Exchange `ApplicationAccessPolicy`. This is required, not preferred.**
+
+A Graph app-only token is always `/.default`, so one registration cannot hold two permission sets. Two apps is therefore the only way this channel gets a vendor-enforced send fence, matching what the AgentMail channel gained after ss#2258. With one app the broker's key is the agent's key: the governed path is fenced by us, but a rogue in-agent path can still mint its own token and transmit.
+
+The provisioner already stages per-customer `MSGRAPH_SEND_TENANT_ID__<CID>` / `MSGRAPH_SEND_CLIENT_ID__<CID>` / `MSGRAPH_SEND_CLIENT_SECRET__<CID>` and needs no code change to use a second app (`operator/bin/provision-customer.sh:735-756`). Its current fallback to the read app's values was authored as a migration affordance; under this decision that fallback becomes a defect and the provisioner refuses rather than warns.
+
+**Cost accepted.** One extra app registration and access policy per client, performed by their IT during stand-up. Onboarding documentation must surface the requirement before stand-up day, not during it.
+
+**Cross-layer impact (Layer 6 - Delivery).** Standing requirement on every future M365 client. Closes the credential-shape class behind ss#2258 on the channel most professional-services firms will use.
+
+**Captain authorized:** 2026-08-13.
+
+---
+
+## Decision #55 - Reply Authorization and Staff Status Are Separate Authored Facts
+
+**Issues:** [#2263](https://github.com/venturecrane/ss-console/issues/2263), [#2271](https://github.com/venturecrane/ss-console/issues/2271), [#2264](https://github.com/venturecrane/ss-console/issues/2264), [#2167](https://github.com/venturecrane/ss-console/issues/2167)
+
+**Decision: "May the Operator reply to you" and "is firm staff" become separate authored facts. Not a validator warning, not a documented convention — separate fields.**
+
+`scope.inbound_allow_from` answers the first question but is also passed as the internal-staff roster to `classify_recipients_typed`, and `_classify_one_typed` returns INTERNAL on an inbound-roster match before consulting the typed roster. The natural way for a firm to enable autonomous replies to its own client is to add that client to that list, which silently reclassifies them as staff and exempts them from the content floor (ADR [0072](./0072-recipient-aware-proactive-send.md) / ss#1932). The firm authored "reply to my client" and got "treat my client as staff." Nothing warns.
+
+The console validator compounds it: `src/lib/operator/customer-yaml/sections-scope.ts:268` rejects any address appearing on both `inbound_allow_from` and a typed `outbound_roster` class, so the typed roster can never say CLIENT for a reply-authorized address. The reply-lane matter gate is therefore unreachable in every configuration a client is permitted to author — a control that cannot fire, not merely one left unconfigured.
+
+**The coupling is mandatory.** Unblocking the matter gate without moving the content floor is a net loss: a reply-authorized client would still classify INTERNAL at the floor, which relaxes it. Per ss#2263 this change moves the content floor, the send ceilings, and the taint gate together. Either they move in one coordinated release or the work stops and reports. ss#2264 rides with it — a party set can only close via `get_matter`, so without a completeness signal on the contact-filtered listing the gate stays a no-op even once reachable.
+
+**Already live, not to be rebuilt.** Overlay#240 (`658169e`, an ancestor of the pinned `ec3fb713`) makes the matter gate's exemption ignore an inbound-roster INTERNAL when the typed roster says CLIENT. The gate is deployed and has never had a configuration that lets it fire.
+
+**Existing configs must not regress.** A&P today is `@ashtonandprice.com` plus `scott@smd.services` with no `outbound_roster` authored, which ss#2263 records as correct for them.
+
+**Cross-layer impact (Layer 6 - Delivery).** Posture change across three safety controls. An ADR follows from the implementing design rather than preceding it.
+
+**Captain authorized:** 2026-08-13.
+
+---
+
 ## Decision #30 - Case Study Creation
 
 **Issue:** smdservices/ss-console #30
@@ -948,6 +1006,9 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #50   | Operator launch pricing - flat monthly retainer + stand-up fee, internal, never published (see ADR 0063)                                                                                                                                                    |
 | #51   | Hosted Agent self-serve SKU - $79/mo BYO-key personal Hermes agent, 25 founding seats at $49/mo (see ADR 0067)                                                                                                                                              |
 | #52   | Repository visibility - ss-console PUBLIC (2026-08-01; going private 07-27 was containment, not policy), hermes-smd-overlay PUBLIC (provisioning depends on it); client material lives in the private venturecrane/engagements repo (see ADR 0081 revision) |
+| #53   | Compliance evidence packet signs as SMDurgan, LLC, not a named individual; public key at a stable URL on smd.services; signing never gates the per-matter export                                                                                            |
+| #54   | Two Microsoft Graph app registrations required per client - read-only for the agent, send-capable for the broker, each mailbox-restricted; the single-app fallback becomes a provisioning refusal                                                           |
+| #55   | Reply authorization and staff status are separate authored facts; the content floor, send ceilings and taint gate move in one coordinated release (#2263, #2271, #2264, #2167)                                                                              |
 
 ---
 

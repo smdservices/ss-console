@@ -155,13 +155,32 @@ connectors:
   # message enters through the same fence/taint/roster spine as webhook mail.
   # AgentMail is deliberately NOT bound on this seat — one mail path, one
   # custody story (ADR 0078 §1).
+  #
+  # TWO app registrations, both pinned to this mailbox by ApplicationAccessPolicy
+  # (Captain decision 2026-08-13; provision-customer.sh refuses a seat without
+  # both). `client_id` below is the READ-ONLY one — Mail.ReadWrite, NO Mail.Send —
+  # and it is the ONLY Graph identity the agent process ever holds. The
+  # send-capable registration reaches the workspace broker alone, via
+  # MSGRAPH_SEND_CLIENT_ID__SMD_STAGING / MSGRAPH_SEND_CLIENT_SECRET__SMD_STAGING,
+  # and is stripped from the agent's env before the exec-drop.
+  #
+  # The split is proven live on this seat, 2026-08-13
+  # (vfy_01KZXX523V6JNWEETG4PSZDQY3): the read app below is refused sendMail with
+  # 403 ErrorAccessDenied, the broker's send app returns 202, and the read app
+  # still reads this mailbox (200) while being refused a tenant user list (403).
+  #
+  # CORRECTED 2026-08-13: this field previously carried 83a044a4-…, which is the
+  # SEND-capable registration. Authoring it here is what a reprovision would have
+  # staged as MSGRAPH_CLIENT_ID — handing the agent the app that can transmit and
+  # undoing the fence. The read-only app is 9301fd6f-… , which is what the live
+  # seat actually runs.
   Email:
     adapter: msgraph
     backend: mcp:msgraph-mail
     enabled: true
     msgraph_auth:
       tenant_id: 'f11d2887-b7f2-4464-a9c6-d4db2166b43c'
-      client_id: '83a044a4-0b43-4cb4-b989-370aa711af20'
+      client_id: '9301fd6f-1d97-4ed4-abc3-e99e3cf326f0'
       mailbox: operator@smdopslab.onmicrosoft.com
       secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET'
     poll_seconds: 45

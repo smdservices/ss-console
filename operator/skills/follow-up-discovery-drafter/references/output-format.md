@@ -16,7 +16,7 @@ attorney's review of the served responses, <date>">
 **Built to:** instrument-mechanics reference (no firm skeleton is authored for
 follow-up discovery sets)
 **Gate:** drafting_gate_check.py, sets + plan, --sprog-lint, PASS <timestamp>, run
-<in-skill | harness-side on the delivery path>
+<in-skill | on the delivery path (not built for this lane)>
 **Status:** DRAFT. Not served, not filed. The firm serves.
 
 ## Counts against the statutory limits
@@ -118,7 +118,7 @@ held.
 
 A failing draft is never delivered with the failure noted as a caveat, and a gate
 result that cannot be confirmed is treated as a failure. This shape is the same whether
-the gate ran in the skill or harness-side on the delivery path.
+the gate ran in the skill or on the delivery path (not built for this lane).
 
 ## Rules
 

@@ -149,7 +149,7 @@ Every set and the plan pass the lane's mechanical gate
 (`operator/templates/drafting/drafting_gate_check.py`), with `--sprog-lint` on the
 interrogatory and admission sets. Where the seat authors code execution, the drafter
 runs it; where code execution is refused, which is the normal client posture, the gate
-runs harness-side on the delivery path. The drafter does not need to know which, and
+runs on the delivery path (not built for this lane). The drafter does not need to know which, and
 must not treat a refused execution tool as permission to skip the gate. **No draft
 surfaces ungated.**
 

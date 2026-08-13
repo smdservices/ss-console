@@ -732,27 +732,52 @@ print(str(auth.get('secret_ref') or '').strip())
   stage_secret_from_env MSGRAPH_CLIENT_SECRET "${_MSG_SECRET_VALUE}"  "Microsoft Graph app client secret (per-customer ${_MSG_SECRET_CID_KEY}, else ${_MSG_SECRET_NAME})"
   # ss#2258: the SEND-side Graph app credential, which only the workspace broker
   # ever sees (root materializes it to a 0600 file and unsets these before the
-  # exec-drop). Separate names because they are meant to become a separate app
-  # registration — read-only for the agent, send-capable only for the broker —
-  # which is the ONLY way to give this channel the vendor-enforced fence the
-  # AgentMail channel already has (a Graph app-only token is always `/.default`,
-  # so one registration cannot be two permission sets).
+  # exec-drop). Separate names because they name a SEPARATE APP REGISTRATION —
+  # read-only for the agent, send-capable only for the broker — which is the ONLY
+  # way to give this channel the vendor-enforced fence the AgentMail channel has
+  # (a Graph app-only token is always `/.default`, so one registration cannot be
+  # two permission sets: an app that can read mail can also send it the moment
+  # Mail.Send is among its grants).
   #
-  # The fallback to the read app's values is a MIGRATION AFFORDANCE and nothing
-  # more. While it is taken, the broker's key is the agent's key, so only the
-  # governed path is fenced; a rogue in-agent path can still mint its own token.
-  # Staging real MSGRAPH_SEND_* values for a seat is what ends that, and it needs
-  # no code change — only these three variables pointing at the second app.
+  # TWO REGISTRATIONS ARE REQUIRED, NOT PREFERRED (Captain decision 2026-08-13).
+  # This branch used to fall back to the read app's values and merely WARN. That
+  # fallback is a defect, not an affordance: while it is taken the broker's key IS
+  # the agent's key, so only the governed path is fenced and a rogue in-agent path
+  # can still mint its own token and POST /sendMail — the exact shape of the
+  # ss#2258 incident. A seat that cannot be fenced does not get provisioned; the
+  # client's tenant admin creates the second registration BEFORE stand-up day.
+  # See docs/runbooks/operator/ms-graph-azure-ad-setup.md ("client-custody
+  # app-only registrations") for what the tenant admin does, and ADR 0078.
+  #
+  # Proven live on the smd-staging sandbox seat 2026-08-13
+  # (vfy_01KZXX523V6JNWEETG4PSZDQY3): the read app is refused sendMail with 403
+  # ErrorAccessDenied while the broker's send app returns 202.
+  #
+  # The sentinels below delimit the block that tests/msgraph-two-app-fence.test.ts
+  # extracts and DRIVES. Keep them; a fence nobody has watched refuse is a fence
+  # nobody knows the shape of.
+  # >>> msgraph-two-app-fence
   _MSG_SEND_CID="$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
   _MSG_SEND_TENANT_KEY="MSGRAPH_SEND_TENANT_ID__${_MSG_SEND_CID}"
   _MSG_SEND_CLIENT_KEY="MSGRAPH_SEND_CLIENT_ID__${_MSG_SEND_CID}"
   _MSG_SEND_SECRET_KEY="MSGRAPH_SEND_CLIENT_SECRET__${_MSG_SEND_CID}"
+  # The tenant legitimately matches the read app's (both registrations live in the
+  # CLIENT's tenant), so that one keeps its fallback. The client id and secret do
+  # NOT fall back — an unstaged value stays empty so the refusal below can tell
+  # "never staged" apart from "staged as the read app", and name the right fix.
   _MSG_SEND_TENANT="${!_MSG_SEND_TENANT_KEY:-${MSGRAPH_SEND_TENANT_ID:-${_MSG_TENANT}}}"
-  _MSG_SEND_CLIENT="${!_MSG_SEND_CLIENT_KEY:-${MSGRAPH_SEND_CLIENT_ID:-${_MSG_CLIENT}}}"
-  _MSG_SEND_SECRET="${!_MSG_SEND_SECRET_KEY:-${MSGRAPH_SEND_CLIENT_SECRET:-${_MSG_SECRET_VALUE}}}"
-  if [ "${_MSG_SEND_CLIENT}" = "${_MSG_CLIENT}" ]; then
-    log "  msgraph SEND app == READ app on this seat (migration fallback): the broker fences the governed path, but the agent's own credential can still transmit. Stage ${_MSG_SEND_CLIENT_KEY} to close it."
+  _MSG_SEND_CLIENT="${!_MSG_SEND_CLIENT_KEY:-${MSGRAPH_SEND_CLIENT_ID:-}}"
+  _MSG_SEND_SECRET="${!_MSG_SEND_SECRET_KEY:-${MSGRAPH_SEND_CLIENT_SECRET:-}}"
+  if [ -z "${_MSG_SEND_CLIENT}" ] || [ -z "${_MSG_SEND_SECRET}" ]; then
+    die "msgraph seat ${CUSTOMER_ID} has no SEND app credential. This channel requires TWO Graph app registrations in the client's tenant — a read-only one (Mail.ReadWrite, NO Mail.Send) whose client id is authored as msgraph_auth.client_id, and a send-capable one (Mail.Send) that only the broker ever sees. Both pinned to ${_MSG_MAILBOX} by an Exchange ApplicationAccessPolicy. Stage ${_MSG_SEND_CLIENT_KEY} and ${_MSG_SEND_SECRET_KEY} in the operator env, then re-run. Setup: docs/runbooks/operator/ms-graph-azure-ad-setup.md"
   fi
+  if [ "${_MSG_SEND_CLIENT}" = "${_MSG_CLIENT}" ]; then
+    die "msgraph seat ${CUSTOMER_ID} names the SAME Graph app for read and send (client id ${_MSG_CLIENT}). A Graph app-only token is always /.default, so one registration cannot be read-only for the agent and send-capable for the broker — the agent's own credential would be able to transmit. Point ${_MSG_SEND_CLIENT_KEY} at the SECOND (send-capable) registration, or correct msgraph_auth.client_id in ${CUSTOMER_YAML} to name the READ-ONLY one. Setup: docs/runbooks/operator/ms-graph-azure-ad-setup.md"
+  fi
+  if [ "${_MSG_SEND_SECRET}" = "${_MSG_SECRET_VALUE}" ]; then
+    die "msgraph seat ${CUSTOMER_ID} stages the same client secret for read and send while naming two different app registrations. One of them is wrong — a client secret belongs to exactly one registration. Re-stage ${_MSG_SEND_SECRET_KEY} with the SEND app's secret."
+  fi
+  # <<< msgraph-two-app-fence
   stage_secret_from_env MSGRAPH_SEND_TENANT_ID     "${_MSG_SEND_TENANT}"  "Graph SEND app tenant id (broker-only; per-customer ${_MSG_SEND_TENANT_KEY})"
   stage_secret_from_env MSGRAPH_SEND_CLIENT_ID     "${_MSG_SEND_CLIENT}"  "Graph SEND app client id (broker-only; per-customer ${_MSG_SEND_CLIENT_KEY})"
   stage_secret_from_env MSGRAPH_SEND_CLIENT_SECRET "${_MSG_SEND_SECRET}"  "Graph SEND app client secret (broker-only; per-customer ${_MSG_SEND_SECRET_KEY})"

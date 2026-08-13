@@ -89,6 +89,8 @@ connectors:
     poll_seconds: 45 # delta poll cadence
 ```
 
+**TWO app registrations are required per seat** (Captain decision 2026-08-13; hard requirement, provisioning refuses without both). `msgraph_auth.client_id` above is the **read-only** app (`Mail.ReadWrite`, no `Mail.Send`) — the only Graph identity the agent process ever holds. The **send-capable** app (`Mail.Send`) never appears in `customer.yaml`: it is staged as `MSGRAPH_SEND_CLIENT_ID__<CID>` / `MSGRAPH_SEND_CLIENT_SECRET__<CID>` in the operator env, materialized to a broker-owned 0600 file, and stripped from the agent's environment before the exec-drop. Both apps are pinned to the one mailbox by an Exchange `ApplicationAccessPolicy`. One registration cannot serve both roles because a Graph app-only token is always `/.default` — every permission the registration holds, with no per-request scope-down — so an app that can read the mailbox can also send from it the moment `Mail.Send` is granted. Setup: [ms-graph-azure-ad-setup.md](../../runbooks/operator/ms-graph-azure-ad-setup.md) ("client-custody app-only registrations"). Proven live on the sandbox seat 2026-08-13 (`vfy_01KZXX523V6JNWEETG4PSZDQY3`): read app refused `sendMail` with `403 ErrorAccessDenied`, send app `202`.
+
 - Schema: `msgraph_auth` block validated when `adapter: msgraph` (tenant id GUID, mailbox address, secret ref shape). Parallel in structure to the existing `google_auth` block.
 - `PersonaSendAs.agentmail_identity` generalizes to a provider-neutral send-as identity (`send_identity: { provider, address }`) with a back-compat read of the old field.
 - Provisioning: `provision-customer.sh` gains an msgraph branch (stages the client secret per-customer; skips AgentMail secrets when unbound — already conditional).
