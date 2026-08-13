@@ -61,6 +61,7 @@ EXPECTED_TOOLS = {
     "create_webhook_subscription",
     "create_memo",
     "render_docx_template",
+    "render_docx_draft",
 }
 
 _SCRIPT = shutil.which("smokeball-mcp")
@@ -140,6 +141,11 @@ def test_write_surface_is_memo_document_and_deadline_engine() -> None:
         # gated markdown skeleton server-side and files it into the matter via
         # the same two-stage upload as add_file. Bytes never transit the model.
         "render_docx_template": "internal_write",
+        # The FILLED-DRAFT producer (ss-console#2258). Same class and same
+        # reasoning as its template sibling: the Operator saving its own work
+        # product into the firm's record, bytes never transiting the model. The
+        # two differ only in which artifact their content gate is written for.
+        "render_docx_draft": "internal_write",
     }
 
 
