@@ -251,14 +251,20 @@ ssh_exec "agentmail-send-key-stripped-from-agent" \
 
 # The same proof for the Graph SEND app credential (ss#2258 msgraph wave).
 #
-# READ THE LIMIT OF THIS CHECK, because it is narrower than the AgentMail one
-# above and a reader who assumes symmetry will over-trust it. It proves the
-# BROKER'S copy never reaches the agent. It does NOT prove the agent cannot send:
+# READ WHAT THIS CHECK DOES AND DOES NOT COVER. It proves the BROKER'S copy never
+# reaches the agent. It does NOT itself prove the agent cannot send —
 # MSGRAPH_CLIENT_SECRET deliberately stays in the gateway (the delta poller and
-# the msgraph-mail MCP server need it), and while a seat is on the migration
-# fallback that read credential is the SAME app registration, so it can still
-# POST /sendMail. What ends that is a send-only app registration, at which point
-# this probe becomes the real fence and starts guarding a credential the agent
+# the msgraph-mail MCP server need it), and this probe never asks Microsoft what
+# that credential is allowed to do.
+#
+# What makes the agent unable to send is upstream, at provisioning: since
+# 2026-08-13 provision-customer.sh REFUSES a seat whose MSGRAPH_SEND_* is not a
+# distinct app registration from the gateway's MSGRAPH_* (tests/msgraph-two-app
+# -fence.test.ts drives the refusal arms). So on any seat that booted, the
+# gateway's credential belongs to a read-only registration that Microsoft refuses
+# at /sendMail with 403 ErrorAccessDenied — proven on the sandbox seat 2026-08-13,
+# vfy_01KZXX523V6JNWEETG4PSZDQY3. This probe guards the other half: the one
+# credential in the tenant that DOES hold Mail.Send is a credential the agent
 # genuinely never has.
 #
 # What makes it able to FAIL: remove or reorder the `unset MSGRAPH_SEND_*` in

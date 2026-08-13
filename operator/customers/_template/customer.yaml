@@ -113,9 +113,42 @@ connectors:
     backend: '[build:filevine / mcp:clio-oktopeak / synthetic:no_pm]'
     enabled: true
   Email:
-    adapter: '[m365-mail / google-gmail / synthetic]'
-    backend: '[mcp:m365-mail / mcp:google-gmail / synthetic:fixture]'
+    adapter: '[msgraph / m365-mail / google-gmail / agentmail / synthetic]'
+    backend: '[mcp:msgraph-mail / mcp:m365-mail / mcp:google-gmail / synthetic:fixture]'
     enabled: true
+    # CLIENT-CUSTODY MAIL (adapter: msgraph — ADR 0078 / email-channel-seam D5).
+    # The Operator reads and sends from a mailbox inside the CLIENT's own
+    # Microsoft 365 tenant. Uncomment and author when this seat uses it; delete
+    # otherwise (a msgraph_auth block on any other adapter is a hard validation
+    # error — no dead config).
+    #
+    # THE CLIENT'S IT ADMINISTRATOR MUST CREATE **TWO** APP REGISTRATIONS BEFORE
+    # STAND-UP DAY. This is a hard requirement (Captain decision 2026-08-13);
+    # provision-customer.sh refuses the seat without both, naming the exact
+    # variable to stage.
+    #
+    #   1. READ app  — Mail.ReadWrite, NO Mail.Send. Its client id goes in
+    #      `client_id` below. This is the only Graph identity the agent holds.
+    #   2. SEND app  — Mail.Send only. Never appears in this file; staged as
+    #      MSGRAPH_SEND_CLIENT_ID__<CID> / MSGRAPH_SEND_CLIENT_SECRET__<CID> in
+    #      the operator env and materialized to the broker alone.
+    #
+    # Both pinned to the one mailbox by an Exchange ApplicationAccessPolicy. Two
+    # apps is the ONLY way to split read from send here: a Graph app-only token
+    # is always `/.default` — every permission the registration holds, with no
+    # per-request scope-down — so one app that can read the mailbox can also send
+    # from it the moment Mail.Send is granted.
+    #
+    # Setup (give this to the client's IT):
+    #   docs/runbooks/operator/ms-graph-azure-ad-setup.md
+    #     → "Client-custody app-only registrations — TWO apps, not one"
+    #
+    # msgraph_auth:
+    #   tenant_id: '[the CLIENT tenant GUID]'
+    #   client_id: '[the READ app client id — the one WITHOUT Mail.Send]'
+    #   mailbox: '[the Operator's own mailbox in the CLIENT's tenant]'
+    #   secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET'  # READ app secret, ADR 0010
+    # poll_seconds: 45   # delta poll cadence; inbound is polling, not webhooks
   Calendar:
     # ADR 0021 Stream F migration (PR #1080): M365 calendar shipped as
     # first-party MCP. Per ADR 0020 the MCP-first ordering applies.
