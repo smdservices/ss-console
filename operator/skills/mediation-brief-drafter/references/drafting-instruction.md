@@ -112,7 +112,7 @@ The itemized report is assembled separately and never inside the brief:
 
 The draft, the assembled source set, and the held-out manifest then go to the
 drafting gate, and nothing is surfaced until it returns a pass. The gate runs
-in-seat where the seat authors `code_execution` and harness-side on the delivery
+in-seat where the seat authors `code_execution` and delivery-path on the delivery
 path where it does not, which is the normal client posture. See SKILL.md, the
 delivery-gate section, for the invocation, the execution points, and the
 refuse-on-failure rule.

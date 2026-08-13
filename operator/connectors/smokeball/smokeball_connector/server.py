@@ -260,6 +260,46 @@ def _attach_captions_to_list(client: Any, resp: Any) -> None:
         _attach_caption(client, item, cache=cache, budget=budget)
 
 
+def _contact_listing_is_complete(
+    resp: dict, *, offset: int, limit: int, narrowed: bool
+) -> bool:
+    """Is a contact-filtered ``list_matters`` response provably the WHOLE set of
+    matters this contact is a party to? (ss#2264, the contact axis.)
+
+    Membership has two axes and only the matter axis was implemented. ``parties``
+    + ``parties_complete`` close a MATTER's own party list, so "this recipient is
+    not among them" proves non-membership. The other direction proves it just as
+    validly: if the full list of matters a PERSON is party to is known, and the
+    cited matter is not in it, the person is not a party. That axis is keyed off
+    the read the reply lane actually performs — ``list_matters`` fires on 34 of 86
+    reply turns against ``get_matter``'s 8 (vfy_01KZRRWG2WZKTRNZQRDEX494GZ) — so
+    it is where the gate can actually conclude something.
+
+    The fail-safe rule is the one ``_attach_parties`` is built on, applied to this
+    shape: a TRUNCATED listing is byte-identical to a complete one, so anything
+    short of proof is ``False``, which the binding must read as *membership
+    unresolved* and never as *not a party*. Four ways to be unprovable:
+
+    * ``narrowed`` — any ``status`` / ``is_lead`` / ``matter_type_id`` / ``search``
+      / ``updated_since`` filter. This is the subtle one and the reason the flag
+      is computed at the call site rather than inferred here: a listing filtered
+      to ``status=Open`` legitimately omits the CLOSED matter the recipient is a
+      party to, so an absence in it would manufacture a mismatch against a real
+      client. A narrowed listing is not a smaller answer to the same question; it
+      is an answer to a different one.
+    * a non-zero ``offset`` — one page of a set says nothing about the set.
+    * a full page (``len(items) >= limit``) — indistinguishable from a truncated
+      one, which is precisely the case that must not be trusted.
+    * a malformed envelope — no ``value`` list to count.
+    """
+    if narrowed or offset:
+        return False
+    items = resp.get("value")
+    if not isinstance(items, list):
+        return False
+    return len(items) < limit
+
+
 def _attach_parties(client: Any, matter: Any) -> None:
     """Mutate ``matter`` in place, adding ``parties`` (one record per client /
     other-side contact: id, side, email, roles) and ``parties_complete``.
@@ -540,8 +580,22 @@ def list_matters(
     # what lets the read-tap bind contact -> matters without changing any skill.
     # Only ever set when the CALLER filtered by contact: an unfiltered listing says
     # nothing about membership and must not be read as if it did.
+    #
+    # ss#2264 adds the COMPLETENESS half. Direction 2 of the binding could record
+    # "this person is on these matters" but never close the set, so the gate could
+    # only ever return *unresolved* from it — the contact axis existed as data and
+    # not as evidence. `matters_for_contact_complete` is the contact-axis twin of
+    # `parties_complete`: true only when this listing provably IS the whole set.
     if contact_id and isinstance(resp, dict):
         resp["matters_for_contact"] = contact_id
+        resp["matters_for_contact_complete"] = _contact_listing_is_complete(
+            resp,
+            offset=offset,
+            limit=limit,
+            narrowed=any(
+                f is not None for f in (status, is_lead, matter_type_id, search, updated_since)
+            ),
+        )
     return resp
 
 
@@ -1199,12 +1253,44 @@ def render_docx_template(
     return out
 
 
+def _collect_matter_sources(matter_id: str) -> tuple[list[tuple[str, str]], list[str]]:
+    """Every readable document on the matter as ``(name, extracted_text)``, plus
+    the names of the ones that would not extract.
+
+    The second list is not diagnostics. A source that did not extract makes a
+    correctly quoted passage look fabricated to gate 2a, so the caller REFUSES
+    on it rather than checking against a partial record."""
+    from .extract import extract_text
+
+    client = _get_client()
+    listing = client.get(f"/matters/{matter_id}/documents/files", Limit=500, Offset=0)
+    entries = listing.get("value") if isinstance(listing, dict) else listing
+    sources: list[tuple[str, str]] = []
+    unextractable: list[str] = []
+    for entry in entries or []:
+        name = str(entry.get("name") or entry.get("id") or "document")
+        try:
+            _meta, blob = client.download_file(matter_id, entry["id"])
+            text = extract_text(
+                blob, file_name=name, file_extension=str(entry.get("fileExtension") or "")
+            )
+        except Exception:  # noqa: BLE001 — one unreadable document refuses the whole check
+            unextractable.append(name)
+            continue
+        if text and text.strip():
+            sources.append((name, text))
+        else:
+            unextractable.append(name)
+    return sources, unextractable
+
+
 @server.tool()
 def render_docx_draft(
     matter_id: str,
     file_name: str,
     draft_markdown: str,
     folder_id: str | None = None,
+    held_out_file_names: list[str] | None = None,
 ) -> Any:
     """Render a FILLED DRAFT (markdown) to a real Word .docx and file it on a
     matter, for attorney review. The sibling of ``render_docx_template``, and the
@@ -1262,6 +1348,8 @@ def render_docx_draft(
         render_markdown_to_docx,
     )
 
+    from .record_check import run_record_check
+
     if not file_name.lower().endswith(".docx"):
         file_name = f"{file_name}.docx"
     try:
@@ -1275,6 +1363,31 @@ def render_docx_draft(
             "sizeBytes": None,
             "refusals": [str(v) for v in exc.violations],
         }
+
+    # The ten mechanical gates, against this matter's own record. Nothing is
+    # rendered or uploaded until they pass — see record_check.py for the
+    # disposition table and for why exit 2 refuses.
+    sources, unextractable = _collect_matter_sources(matter_id)
+    verdict = run_record_check(
+        draft_markdown,
+        sources,
+        held_out_names=set(held_out_file_names or ()),
+        unextractable=unextractable,
+    )
+    if not verdict.passed:
+        return {
+            "matterId": matter_id,
+            "fileName": file_name,
+            "fileId": None,
+            "sha256": None,
+            "sizeBytes": None,
+            "refusals": verdict.refusals,
+            "recordCheck": verdict.disposition,
+            "warnings": verdict.warnings,
+            "infos": verdict.infos,
+            "checkedSources": verdict.checked_sources,
+        }
+
     data = render_markdown_to_docx(draft_markdown)
     result = add_file(
         matter_id,

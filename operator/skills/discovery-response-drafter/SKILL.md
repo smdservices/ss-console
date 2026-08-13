@@ -217,7 +217,7 @@ agent performs, because on most seats the agent is not the thing that runs it.
   surfacing, and reads its exit code.
 - **Where code execution is refused**, which is the normal client posture (pilot-smokeball
   and client seats leave `code_execution` unauthored, because executed code could reach
-  gateway-held credentials), the gate runs **harness-side on the delivery path**: the
+  gateway-held credentials), the gate runs **on the delivery path (NOT BUILT for this lane)**: the
   overlay drafting-gate hook, the same pattern as the scheduler-staged `pre_run_gate.py`
   that runs outside the agent. The skill hands off the draft, the sources, the held-out
   list, and the propounded items, and the delivery path holds the draft until the gate
@@ -226,6 +226,21 @@ agent performs, because on most seats the agent is not the thing that runs it.
 A refused code-execution attempt is not a reason to surface the draft anyway, and it is
 never worked around. If the skill cannot establish that the gate ran and cleared, by either
 path, the draft does not go to the attorney (Shape C). Fail closed.
+
+> **NO DELIVERY-PATH GATE EXISTS FOR THIS LANE (ss-console#2258, 2026-08-13).**
+> The "harness-side" hook described here was never built: `drafting_gate_check.py`
+> appears in the overlay only as a presence probe, and the plugin that would have
+> been that hook disclaims the record checks in its own docstring. ss-console#2258
+> built a real gate, but it lives inside `mcp_smokeball_render_docx_draft`, and
+> **this lane does not deliver through that tool.**
+>
+> So on a seat with `code_execution` refused, this lane is in the drafting
+> discipline's **variant C — no gate on either path — and variant C's rule is that
+> nothing surfaces.** Do not describe a draft as gated here, do not treat the
+> execution refusal as a reason to deliver anyway, and say plainly that the
+> mechanical check did not run. The clause that matters most without a gate behind
+> it is the one already written below: do not surface a draft before a gate result
+> is established, reasoning that it looks clean.
 
 The invocation, wherever it runs:
 
@@ -358,7 +373,7 @@ was sought, where you looked}}`.
 5. **Enumerate and diff** the propounded items against the drafted responses (gate 7).
 6. **Clear the gate.** Run the checker directly where the seat authors `code_execution`;
    otherwise hand the draft, sources, held-out list, and propounded items to the
-   harness-side delivery gate and let it hold the draft. On a failed gate, or on a gate
+   delivery-path delivery gate and let it hold the draft. On a failed gate, or on a gate
    whose result cannot be established, stop and report the itemized failures instead of
    the draft.
 7. **Write the draft into the matter** (`create_memo`), and confirm it landed with a
@@ -394,7 +409,7 @@ was sought, where you looked}}`.
   be established.**
 - **Never attempt code execution on a seat that leaves `code_execution` unauthored**, and
   never treat clearing the gate as a reason to try. Where execution is refused, the gate
-  runs harness-side; the skill's obligation is that the draft waits for it, not that the
+  runs on the delivery path (not built for this lane); the skill's obligation is that the draft waits for it, not that the
   skill runs it.
 - **Never report a write as done that a read did not confirm.**
 

@@ -65,7 +65,7 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     domain_blocks: requireStringList(raw, 'domain_blocks', 'scope.domain_blocks', errors),
     matter_blocks: optionalStringList(raw, 'matter_blocks', 'scope.matter_blocks', errors),
     inbound_allow_from: inboundAllowFrom,
-    outbound_roster: checkOutboundRoster(raw['outbound_roster'], inboundAllowFrom, errors),
+    outbound_roster: checkOutboundRoster(raw['outbound_roster'], errors),
     admins: checkAdmins(raw['admins'], errors),
   }
 }
@@ -164,14 +164,22 @@ function canonRosterAddress(raw: string): string | null {
 /**
  * Validate `scope.outbound_roster` (ADR 0075): a list of `{address, class, note?}`
  * where `class` is the closed vocabulary. A whole-@domain grant at a public-mail
- * provider is rejected; a canonical address appearing under more than one class,
- * or also in `inbound_allow_from`, is rejected. Same rules as the overlay validator.
+ * provider is rejected; a canonical address appearing under more than one class is
+ * rejected. Same rules as the overlay validator (`bootstrap/validate.py`).
+ *
+ * An address on BOTH this roster and `scope.inbound_allow_from` is ALLOWED as of
+ * ss#2263. It used to be rejected — "a recipient cannot be both internal and a
+ * typed outbound class" — which read the reply list as a statement of class. It is
+ * not one: it says who the Operator may autonomously REPLY to. Forbidding the
+ * overlap meant a reply-authorized address could never carry a typed class, so a
+ * firm's own client could only be made reply-able by leaving them classified as
+ * staff (exempt from the content floor and the matter-identity gate), and the
+ * gate's reply-lane branch was unreachable in every authorable config (ss#2271).
+ * The overlap now resolves deterministically to the typed class: the runtime
+ * classifier reads the typed roster first and falls back to the reply list only
+ * where the typed roster is silent.
  */
-function checkOutboundRoster(
-  raw: unknown,
-  inboundAllowFrom: string[],
-  errors: ValidationError[]
-): OutboundRosterEntry[] {
+function checkOutboundRoster(raw: unknown, errors: ValidationError[]): OutboundRosterEntry[] {
   if (raw === undefined || raw === null) return []
   if (!Array.isArray(raw)) {
     errors.push({
@@ -181,15 +189,10 @@ function checkOutboundRoster(
     })
     return []
   }
-  const inboundKeys = new Set<string>()
-  for (const e of inboundAllowFrom) {
-    const c = canonRosterAddress(e)
-    if (c !== null) inboundKeys.add(c)
-  }
   const seenClass = new Map<string, OutboundRosterClass>()
   const out: OutboundRosterEntry[] = []
   for (let i = 0; i < raw.length; i++) {
-    const entry = checkOneOutboundEntry(raw[i], i, inboundKeys, seenClass, errors)
+    const entry = checkOneOutboundEntry(raw[i], i, seenClass, errors)
     if (entry !== null) out.push(entry)
   }
   return out
@@ -198,7 +201,6 @@ function checkOutboundRoster(
 function checkOneOutboundEntry(
   raw: unknown,
   i: number,
-  inboundKeys: Set<string>,
   seenClass: Map<string, OutboundRosterClass>,
   errors: ValidationError[]
 ): OutboundRosterEntry | null {
@@ -230,7 +232,7 @@ function checkOneOutboundEntry(
     })
   }
   const canon = canonRosterAddress(address)
-  const err = outboundAddressError(canon, cls, inboundKeys, seenClass, path)
+  const err = outboundAddressError(canon, cls, seenClass, path)
   if (err !== null) {
     errors.push(err)
     return null
@@ -246,7 +248,6 @@ function checkOneOutboundEntry(
 function outboundAddressError(
   canon: string | null,
   cls: string,
-  inboundKeys: Set<string>,
   seenClass: Map<string, OutboundRosterClass>,
   path: string
 ): ValidationError | null {
@@ -263,13 +264,6 @@ function outboundAddressError(
       code: 'InvalidOutboundRoster',
       path: p,
       message: `a whole-@domain grant at a public-mail provider (${canon.slice(1)}) is not allowed; author the exact address`,
-    }
-  }
-  if (inboundKeys.has(canon)) {
-    return {
-      code: 'InvalidOutboundRoster',
-      path: p,
-      message: `${canon} is already in scope.inbound_allow_from; a recipient cannot be both internal and a typed outbound class`,
     }
   }
   const prior = seenClass.get(canon)
