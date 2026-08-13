@@ -891,7 +891,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // re-stamped: heartbeat.py (af3cf3f2) and hermes-smd-audit/schemas.py
     // (1696c30a) are byte-identical at both ends of the range, so neither
     // derived list can have moved.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d567cfb07a9c712bdff56aa38dba51e1ee09b53c"')
+    //
+    // d567cfb -> 20518e8 (2026-08-13c, Captain-authorized convergence sweep):
+    // the target moved BEFORE this bump landed. overlay#248, #265 and #267 all
+    // merged after the d567cfb pin was written, so retargeting supersedes it
+    // rather than following it — ONE bump and ONE reprovision instead of two.
+    // A SECOND tracked twin moves: shared/recipient_classifier.py at #265,
+    // one-sided the same way (ss-console counterpart unchanged). Both parity
+    // snapshots were re-checked across the EXTENDED range: heartbeat.py and
+    // hermes-smd-audit/schemas.py are untouched from d567cfb to 20518e8, so the
+    // re-derivation recorded above still holds.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="20518e862f11d2f6401a34519c134d781165d029"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
