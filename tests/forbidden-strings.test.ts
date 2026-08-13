@@ -1085,3 +1085,121 @@ describe('console vocabulary guard (blueprint §6 — retired display labels)', 
 // Do not re-add a client-data scan to this file. If the engagements repo's
 // guards need extending, extend them there.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Skill prose must not carry a matter-number-shaped example (ss#2168, AC2).
+//
+// THE DEFECT THIS CLOSES. The 2026-07-31 provenance audit found 37 of 51 skills
+// instructing "refer to the matter by its NUMBER (e.g. 2026-PI-101)". The
+// instruction demands an identifier on every line and hands the model a
+// plausible one, so on a seat with a failed or absent connector the model emits
+// the example — which is exactly the phantom 2026-PI-101 / -103 / -105 rows that
+// turned up in ashton-price's escalation ledger for matters that do not exist in
+// that firm's tenant.
+//
+// The prose itself was remediated (examples replaced with <matter-id>
+// placeholders; verified 2026-08-13, zero phantom identifiers across 58 skills).
+// What never landed was anything stopping the pattern coming back. AC2 asked for
+// exactly this guard and it did not exist — which is why ss#2168 sat open with
+// its first AC met, and why a fix with no guard is one careless edit from being
+// unfixed.
+//
+// WHY THE PATTERN IS BORROWED, NOT INVENTED. It is the overlay's own
+// _MATTER_NUM_RE (shared/matter_gate.py) — the regex the runtime uses to decide
+// what counts as a cited matter. A guard written against a different pattern
+// would police something other than what the gate reacts to.
+// ---------------------------------------------------------------------------
+
+/** The overlay's `_MATTER_NUM_RE`, kept spelling-identical on purpose. */
+const MATTER_NUM_RE =
+  /\b(?:[A-Za-z]{2,4}-\d{4}-\d{2,5}|\d{2,4}-[A-Za-z]{2,4}-\d{2,5}|[A-Za-z]{2,4}-\d{4,6})\b/g
+
+/**
+ * Token classes this regex matches that are NOT fabricated matter numbers.
+ *
+ * Deliberately prefix classes with a stated reason, rather than a list of
+ * literal strings: a literal allowlist grows on every edit, and eventually
+ * someone adds a real offender to it to make the build green. Each entry here
+ * has to be a class a reader can evaluate on sight.
+ */
+const NOT_A_MATTER_NUMBER: ReadonlyArray<{ re: RegExp; why: string }> = [
+  { re: /^ISO-\d+$/i, why: 'standards reference (ISO-8601), not a matter' },
+  { re: /^ADR-\d+$/i, why: 'architecture decision record reference' },
+  {
+    re: /^(?:sect|ev|ccp|crc)-[\d-]+$/i,
+    why: 'statute / code-section citation — real legal writing, and the runtime gate drops unresolved tokens rather than judging them',
+  },
+  {
+    re: /^ZZ-9999-0001$/,
+    why: 'the deliberate never-real sentinel operator-self-test uses to PROVE the fabrication guard refuses; removing it would delete a control',
+  },
+]
+
+describe('skill prose carries no matter-number-shaped example (ss#2168)', () => {
+  const SKILLS_ROOT = resolve('operator/skills')
+
+  /**
+   * Skill directory names are a closed shape: lowercase kebab-case, no dots, no
+   * separators. Validating before joining keeps a directory name from ever being
+   * a path fragment — belt and braces on a test-only read, but the alternative is
+   * suppressing the rule, and a suppressed rule teaches the next reader that this
+   * shape is fine.
+   */
+  const SKILL_DIR_RE = /^[a-z0-9][a-z0-9-]*$/
+
+  // The path is composed by concatenation rather than join()/resolve() ON
+  // PURPOSE. The directory name is already constrained to the closed shape above
+  // — no dot, no slash, no separator can survive SKILL_DIR_RE — so the join is
+  // safe either way, but semgrep's path-traversal rule is a taint rule that
+  // cannot see the filter and would flag it forever. Concatenating after
+  // validating keeps the check honest instead of parking a nosemgrep comment
+  // here, which is the thing that actually rots: a suppression teaches the next
+  // reader the shape is fine, where this spells out why it is.
+  const skillFiles = existsSync(SKILLS_ROOT)
+    ? readdirSync(SKILLS_ROOT)
+        .filter((d) => SKILL_DIR_RE.test(d))
+        .map((d) => `${SKILLS_ROOT}/${d}/SKILL.md`)
+        .filter((f) => existsSync(f))
+    : []
+
+  /** Matter-number-shaped tokens in `text`, minus classes legitimately shaped that way. */
+  function offendingTokens(text: string): string[] {
+    return [...new Set(text.match(MATTER_NUM_RE) ?? [])].filter(
+      (tok) => !NOT_A_MATTER_NUMBER.some(({ re }) => re.test(tok))
+    )
+  }
+
+  it('finds skills to scan at all', () => {
+    // Without this the whole describe passes vacuously the day the skills move,
+    // and green would mean "found nothing" rather than "nothing to find".
+    expect(skillFiles.length).toBeGreaterThan(20)
+  })
+
+  it('the detector fires on a known-bad string', () => {
+    // The control. A guard that cannot fail has measured nothing, and this one's
+    // failure mode is silent: an over-broad exemption empties every result while
+    // the suite stays green.
+    expect(offendingTokens('refer to the matter by its number (e.g. 2026-PI-101)')).toEqual([
+      '2026-PI-101',
+    ])
+    expect(offendingTokens('PI-2026-0001 and PI-123456')).toEqual(['PI-2026-0001', 'PI-123456'])
+  })
+
+  it('the exemptions do not swallow a real offender', () => {
+    // The inverse control: prove the allowlist is narrow. A statute cite passes,
+    // and a matter number sitting right beside it still does not.
+    expect(offendingTokens('under sect-2033-290, see matter 2026-PI-104')).toEqual(['2026-PI-104'])
+  })
+
+  for (const file of skillFiles) {
+    const rel = file.replace(resolve('.') + '/', '')
+    it(`${rel} — no fabricated matter identifier in prose`, () => {
+      const tokens = offendingTokens(readFileSync(file, 'utf-8'))
+      expect(
+        tokens,
+        `${rel} supplies matter-number-shaped example(s) the model will emit under failure: ${tokens.join(', ')}. ` +
+          'Demand the identifier FROM THE READ RECORD and use a non-emittable placeholder such as <matter-id>.'
+      ).toEqual([])
+    })
+  }
+})
