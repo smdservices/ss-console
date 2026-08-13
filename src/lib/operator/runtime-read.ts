@@ -48,7 +48,7 @@
  * attribution inside `metadata`, and neither crosses the seam on the UI
  * kind (ss#2122). Consumption is restricted by construction rather than by
  * kind availability: the only portal caller is the role-gated per-matter
- * audit record path (`portal/operator/matter-audit-record.ts`), reachable
+ * audit record path (`portal/operator/object-audit-record.ts`), reachable
  * solely by a firm's Named Administrator or its compliance reviewer. An
  * ordinary drill-in must keep requesting `audit_log`.
  *
