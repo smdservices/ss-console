@@ -61,7 +61,13 @@ _Turn a signed engagement into a running project with the client aligned._
 4. **Send the prep list.** Tell the client the decisions they will make and the
    materials to bring: samples of their own letters and templates (for voice),
    who administers each system, and which work they want the Operator to start
-   with.
+   with. Where a system needs their administrator to create something new, that
+   ask belongs on this list, not on stand-up day — the Operator's own mailbox in
+   the client's Microsoft 365 tenant is the common one, and it needs **two** app
+   registrations, not one (give their IT
+   [ms-graph-azure-ad-setup.md](ms-graph-azure-ad-setup.md), "Client-custody
+   app-only registrations"). Provisioning refuses the seat if only one exists, so
+   discovering it late costs a day.
 
 **Gate:** scope recorded, roles identified, working session scheduled, prep list
 sent.
