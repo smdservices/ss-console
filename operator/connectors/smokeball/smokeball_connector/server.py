@@ -260,6 +260,46 @@ def _attach_captions_to_list(client: Any, resp: Any) -> None:
         _attach_caption(client, item, cache=cache, budget=budget)
 
 
+def _contact_listing_is_complete(
+    resp: dict, *, offset: int, limit: int, narrowed: bool
+) -> bool:
+    """Is a contact-filtered ``list_matters`` response provably the WHOLE set of
+    matters this contact is a party to? (ss#2264, the contact axis.)
+
+    Membership has two axes and only the matter axis was implemented. ``parties``
+    + ``parties_complete`` close a MATTER's own party list, so "this recipient is
+    not among them" proves non-membership. The other direction proves it just as
+    validly: if the full list of matters a PERSON is party to is known, and the
+    cited matter is not in it, the person is not a party. That axis is keyed off
+    the read the reply lane actually performs — ``list_matters`` fires on 34 of 86
+    reply turns against ``get_matter``'s 8 (vfy_01KZRRWG2WZKTRNZQRDEX494GZ) — so
+    it is where the gate can actually conclude something.
+
+    The fail-safe rule is the one ``_attach_parties`` is built on, applied to this
+    shape: a TRUNCATED listing is byte-identical to a complete one, so anything
+    short of proof is ``False``, which the binding must read as *membership
+    unresolved* and never as *not a party*. Four ways to be unprovable:
+
+    * ``narrowed`` — any ``status`` / ``is_lead`` / ``matter_type_id`` / ``search``
+      / ``updated_since`` filter. This is the subtle one and the reason the flag
+      is computed at the call site rather than inferred here: a listing filtered
+      to ``status=Open`` legitimately omits the CLOSED matter the recipient is a
+      party to, so an absence in it would manufacture a mismatch against a real
+      client. A narrowed listing is not a smaller answer to the same question; it
+      is an answer to a different one.
+    * a non-zero ``offset`` — one page of a set says nothing about the set.
+    * a full page (``len(items) >= limit``) — indistinguishable from a truncated
+      one, which is precisely the case that must not be trusted.
+    * a malformed envelope — no ``value`` list to count.
+    """
+    if narrowed or offset:
+        return False
+    items = resp.get("value")
+    if not isinstance(items, list):
+        return False
+    return len(items) < limit
+
+
 def _attach_parties(client: Any, matter: Any) -> None:
     """Mutate ``matter`` in place, adding ``parties`` (one record per client /
     other-side contact: id, side, email, roles) and ``parties_complete``.
@@ -540,8 +580,22 @@ def list_matters(
     # what lets the read-tap bind contact -> matters without changing any skill.
     # Only ever set when the CALLER filtered by contact: an unfiltered listing says
     # nothing about membership and must not be read as if it did.
+    #
+    # ss#2264 adds the COMPLETENESS half. Direction 2 of the binding could record
+    # "this person is on these matters" but never close the set, so the gate could
+    # only ever return *unresolved* from it — the contact axis existed as data and
+    # not as evidence. `matters_for_contact_complete` is the contact-axis twin of
+    # `parties_complete`: true only when this listing provably IS the whole set.
     if contact_id and isinstance(resp, dict):
         resp["matters_for_contact"] = contact_id
+        resp["matters_for_contact_complete"] = _contact_listing_is_complete(
+            resp,
+            offset=offset,
+            limit=limit,
+            narrowed=any(
+                f is not None for f in (status, is_lead, matter_type_id, search, updated_since)
+            ),
+        )
     return resp
 
 

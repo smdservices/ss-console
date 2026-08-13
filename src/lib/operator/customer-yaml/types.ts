@@ -223,12 +223,21 @@ export type SendActionClass = (typeof SEND_ACTION_CLASSES)[number]
 
 /**
  * Closed vocabulary for a `scope.outbound_roster` entry's `class` (ADR 0075).
- * A typed outbound-roster address is either the firm's own `client` or a
- * `records_vendor`; these map to the `external_send_client` / `external_send_vendor`
- * action classes. There is deliberately NO opposing-counsel / court class — an
- * un-rostered outside recipient stays governed by `external_send`.
+ * A typed outbound-roster address is the firm's own `client`, a `records_vendor`,
+ * or `firm_staff`; the first two map to the `external_send_client` /
+ * `external_send_vendor` action classes and `firm_staff` to
+ * `external_send_internal`. There is deliberately NO opposing-counsel / court
+ * class — an un-rostered outside recipient stays governed by `external_send`.
+ *
+ * `firm_staff` (ss#2263) is the authored form of "is firm staff". That fact used
+ * to have no field: it was DERIVED from `scope.inbound_allow_from`, which answers
+ * a different question — may the Operator autonomously REPLY to you. A firm that
+ * added its own client to the reply list therefore got that client classified as
+ * staff, exempt from the content floor (ADR 0072) and the matter-identity gate
+ * (ss#2167). The two facts are now independently authorable, and an address may
+ * appear on both lists: the typed class wins.
  */
-export const OUTBOUND_ROSTER_CLASSES = ['client', 'records_vendor'] as const
+export const OUTBOUND_ROSTER_CLASSES = ['client', 'records_vendor', 'firm_staff'] as const
 export type OutboundRosterClass = (typeof OUTBOUND_ROSTER_CLASSES)[number]
 
 /**
