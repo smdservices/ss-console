@@ -122,7 +122,7 @@ def _unsigned() -> SigningResult:
     return SigningResult(
         signed=False,
         algorithm=ALGORITHM_UNSIGNED,
-        key_id=os.environ.get("CAPTAIN_SIGNING_KEY_ID", "unconfigured"),
+        key_id=os.environ.get("EVIDENCE_SIGNER_KEY_ID", "unconfigured"),
         manifest_signature_value=UNSIGNED,
         signature=None,
     )

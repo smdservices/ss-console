@@ -21,6 +21,11 @@ export type PortalActionType =
    *  Unlike the customer.yaml submission beside it, this one really writes —
    *  which is why it is the only console action that may carry 'applied'. */
   | 'output_class_spec_authored'
+  /** A Named Administrator pulled the audit record for one matter (ss#2122).
+   *  Recorded because a compliance export that leaves no trace would be the
+   *  one console action invisible to the record it exports. Carries 'applied':
+   *  the bytes were produced and handed over. */
+  | 'compliance_record_exported'
 
 export interface RecordPortalActionEventInput {
   entity_id: string

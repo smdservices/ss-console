@@ -260,7 +260,7 @@ def render_summary_pdf(
     period_start: str,
     period_end: str,
     matter: str,
-    captain_id: str,
+    signer_key_id: str,
     manifest_sha256: str,
     counts: dict,
     coverage_lines: Optional[Sequence[str]] = None,
@@ -282,7 +282,7 @@ def render_summary_pdf(
 
     The last page always carries:
 
-    * ``Captain signature: <captain_id>``
+    * ``Signature (SMDurgan, LLC): <signer_key_id>``
     * ``Manifest SHA-256: <hex>``
 
     so a reader can verify the document is the one the manifest
@@ -387,7 +387,7 @@ def render_summary_pdf(
                 "- 06-memory-snapshot.json (rules, person mappings, voice metadata)",
                 "- 07-skill-catalog.json (active skills + content hashes)",
                 "- 09-boot-checks.csv (invariant boot-check dump)",
-                "- manifest.json (file hashes + Captain signature stub)",
+                "- manifest.json (file hashes + the SMDurgan, LLC signature block)",
                 "",
                 "Per spec, the substantive payload of drafts and sent messages "
                 "is NOT in this packet -- those live in R2 keyed by digest. The "
@@ -404,7 +404,7 @@ def render_summary_pdf(
         (
             "Verification",
             [
-                f"Captain signature: {captain_id} (UNSIGNED stub -- not "
+                f"Signature (SMDurgan, LLC): {signer_key_id} (UNSIGNED stub -- not "
                 "cryptographically verifiable in this release).",
                 f"Manifest SHA-256: {manifest_sha256}",
                 "",

@@ -1,0 +1,273 @@
+---
+import PortalShell from '../../../../../../layouts/PortalShell.astro'
+import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import Field from '../../../../../../components/portal/form/Field.astro'
+import TextInput from '../../../../../../components/portal/form/TextInput.astro'
+import SubmitButton from '../../../../../../components/portal/form/SubmitButton.astro'
+import { resolveOperatorAccess } from '../../../../../../lib/portal/operator-access'
+import { formatAuditTimestamp } from '../../../../../../lib/portal/operator/audit'
+import {
+  authorizationOf,
+  describeAuthorization,
+  loadObjectAuditRecord,
+  type ObjectAuditRecord,
+} from '../../../../../../lib/portal/operator/object-audit-record'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — the audit record for one object reference (ss#2122).
+ *
+ * URL: portal.smd.services/portal/products/operator/<instance>/compliance/audit-record
+ *
+ * THE ACT THIS SURFACE IS. A Named Administrator names the reference their own
+ * system of record uses for a piece of work, and reads every Operator action
+ * recorded against it together with what authorized that action. Service
+ * agreement §4.5 commits to the audit record being viewable by the Firm in the
+ * portal at any time; before this page the only export was a Captain CLI, so
+ * the commitment had no client-reachable path.
+ *
+ * VOCABULARY IS DELIBERATE (ADR 0052 §6). The client types the handle their own
+ * system uses, and this surface never interprets it: it is an opaque reference
+ * compared for equality and nothing more. That is why the page says "reference"
+ * and never the law-vertical word for it, even though a law firm reading the
+ * page will type exactly that. The resolver underneath still calls the wire
+ * field `matterRef` because that is the audit schema's column name today; ADR
+ * 0052's migration to a `ref { connector, id }` shape is the follow-on, and the
+ * lib deliberately mirrors the wire until it lands rather than inventing a name
+ * the seam does not serve.
+ *
+ * WHO REACHES IT. `principal` (the role the signed agreements call a Named
+ * Administrator) and `compliance` (the firm's reviewer, where separation of
+ * duties is in use). `staff` cannot: the record carries digests and hash-chain
+ * material across every reference the reader names, which is an officer read.
+ *
+ * NOT GATED ON `compliance_enabled`. That flag is the opt-in for the dedicated
+ * compliance DASHBOARD, not for the record itself. §4.5 is owed to every firm
+ * on the agreement, so this page is reachable whether or not the firm has stood
+ * up a separate compliance reviewer, and the dashboard's not-enabled state
+ * links here.
+ *
+ * WHAT IT WILL NOT DO. It will not render a clean zero. A reference with no
+ * rows, when unattributed rows exist in the same window, says so with the
+ * count. An unreadable seam says it could not read. Both weigh more than the
+ * table: a blank compliance page is read as "the Operator did nothing", and
+ * that is the misreading the whole path exists to prevent.
+ */
+
+const instance = Astro.params.instance
+if (!instance) return Astro.redirect('/portal/products/operator')
+const operatorBase = `/portal/products/operator/${instance}`
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'compliance'],
+  customerSlug: instance,
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { user, client, roles } = access
+
+const actorRole = roles.includes('principal') ? 'principal' : 'compliance'
+
+const ref = (Astro.url.searchParams.get('ref') ?? '').trim()
+const from = (Astro.url.searchParams.get('from') ?? '').trim() || null
+const to = (Astro.url.searchParams.get('to') ?? '').trim() || null
+
+const record: ObjectAuditRecord | null =
+  ref === ''
+    ? null
+    : await loadObjectAuditRecord(
+        {
+          db: env.DB,
+          env: {
+            OPERATOR_RUNTIME_READ_URL: env.OPERATOR_RUNTIME_READ_URL,
+            OPERATOR_RUNTIME_READ_SECRET: env.OPERATOR_RUNTIME_READ_SECRET,
+          },
+          actorUserId: user.id,
+        },
+        instance,
+        { actor: user.email, actorRole },
+        { ref, from, to }
+      )
+
+const downloadHref = (() => {
+  if (ref === '') return null
+  const qs = new URLSearchParams({ ref })
+  if (from !== null) qs.set('from', from)
+  if (to !== null) qs.set('to', to)
+  return `/api/portal/products/operator/${instance}/compliance/audit-record?${qs.toString()}`
+})()
+
+/** Plain-language reason the seam could not answer. Never a bare code. */
+const unavailableCopy: Record<string, string> = {
+  not_configured:
+    'This portal is not yet connected to the read path for your Operator, so no record could be pulled.',
+  unreachable:
+    'Your Operator did not answer the read request, so no record could be pulled. Nothing here should be taken as a statement about what it did.',
+  unauthorized:
+    'The read request was refused by your Operator, so no record could be pulled. Contact SMD.',
+}
+
+const rows = record?.rows ?? []
+const readable = record !== null && record.unavailable === null
+
+const HEAD_CELL =
+  'text-left px-4 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]'
+const PANEL = 'border-[3px] border-[color:var(--ss-color-text-primary)]'
+const PANEL_HEAD =
+  'bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold'
+---
+
+<PortalShell
+  title="Operator · Audit record"
+  clientName={client.name}
+  orgId={client.org_id}
+  entityId={client.id}
+  pathname={Astro.url.pathname}
+>
+  <PortalPageHead
+    crumbHref={`${operatorBase}/compliance`}
+    crumbLabel="Compliance"
+    tag="Section"
+    h1="Audit record"
+    meta={readable ? `${rows.length} recorded actions` : null}
+  />
+
+  <section
+    aria-label="Choose a reference"
+    class={`mt-8 ${PANEL} bg-[color:var(--ss-color-background)]`}
+  >
+    <div class={PANEL_HEAD}>Choose a reference</div>
+    <div class="px-5 md:px-7 py-6">
+      <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+        Enter the reference exactly as it appears in your own system of record. Your Operator stores
+        it as an opaque handle and never interprets it, so it has to be an exact match. The record
+        below covers every action recorded against that reference, and names what authorized each
+        one.
+      </p>
+      <form method="get" class="mt-5 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <Field label="Reference" class="md:col-span-2">
+          <TextInput name="ref" value={ref} required maxlength={200} mono />
+        </Field>
+        <Field label="From">
+          <TextInput name="from" type="date" value={from ?? ''} />
+        </Field>
+        <Field label="To">
+          <TextInput name="to" type="date" value={to ?? ''} />
+        </Field>
+        <div class="md:col-span-4 flex flex-wrap items-center gap-3">
+          <SubmitButton label="Show record" tone="primary" />
+          {
+            downloadHref !== null && readable && (
+              <a
+                href={downloadHref}
+                class="inline-flex h-11 items-center whitespace-nowrap border-[3px] border-[color:var(--ss-color-text-primary)] px-5 font-body text-body font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              >
+                Download CSV
+              </a>
+            )
+          }
+        </div>
+      </form>
+    </div>
+  </section>
+
+  {
+    record !== null && record.unavailable !== null && (
+      <section aria-label="Record could not be read" class={`mt-8 ${PANEL} p-6 md:p-8`}>
+        <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]">
+          No record was produced
+        </p>
+        <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
+          {unavailableCopy[record.unavailable]}
+        </p>
+      </section>
+    )
+  }
+
+  {
+    record !== null && readable && (
+      <section aria-label="Coverage" class={`mt-8 ${PANEL} p-6 md:p-8`}>
+        <p class="font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]">
+          What this record covers
+        </p>
+        <ul class="mt-3 flex flex-col gap-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+          <li>
+            {rows.length === 0
+              ? `No actions are recorded against this reference in this window.`
+              : `${rows.length} actions are recorded against this reference in this window.`}
+          </li>
+          <li>
+            {`${record.scannedInPeriod} actions were recorded in total, across all references, in this window.`}
+          </li>
+          {record.unattributedInPeriod > 0 && (
+            <li>
+              {`${record.unattributedInPeriod} of those carry no reference at all. A reference was added to the record after your Operator began writing to it, so actions recorded before that change cannot be tied to any object, in either direction. They are neither included here nor ruled out.`}
+            </li>
+          )}
+          {record.truncated && (
+            <li>
+              This window holds more history than one page can carry, so the oldest part of it is
+              not shown. Narrow the dates to read the rest.
+            </li>
+          )}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    readable && rows.length > 0 && (
+      <section
+        aria-label="Recorded actions"
+        class={`mt-8 ${PANEL} bg-[color:var(--ss-color-background)]`}
+      >
+        <div class={PANEL_HEAD}>Recorded actions</div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse text-sm">
+            <thead>
+              <tr class="border-b-[3px] border-[color:var(--ss-color-text-primary)]">
+                <th scope="col" class={HEAD_CELL}>
+                  When (UTC)
+                </th>
+                <th scope="col" class={HEAD_CELL}>
+                  Action
+                </th>
+                <th scope="col" class={HEAD_CELL}>
+                  What authorized it
+                </th>
+                <th scope="col" class={HEAD_CELL}>
+                  Skill
+                </th>
+                <th scope="col" class={HEAD_CELL}>
+                  Row hash
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr class="border-b border-[color:var(--ss-color-text-secondary)]/30 align-top">
+                  <td class="px-4 py-3 font-mono whitespace-nowrap text-[color:var(--ss-color-text-primary)]">
+                    {formatAuditTimestamp(row.ts)}
+                  </td>
+                  <td class="px-4 py-3 font-mono text-[color:var(--ss-color-text-primary)]">
+                    {row.actionType}
+                  </td>
+                  <td class="px-4 py-3 text-[color:var(--ss-color-text-primary)]">
+                    {describeAuthorization(authorizationOf(row))}
+                  </td>
+                  <td class="px-4 py-3 font-mono text-[color:var(--ss-color-text-secondary)]">
+                    {row.skillName ?? 'Not recorded'}
+                  </td>
+                  <td class="px-4 py-3 font-mono text-xs break-all text-[color:var(--ss-color-text-secondary)]">
+                    {row.rowHash ?? 'Not recorded'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )
+  }
+</PortalShell>

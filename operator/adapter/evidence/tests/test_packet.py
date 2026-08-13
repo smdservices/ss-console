@@ -382,8 +382,12 @@ def test_build_emits_compliance_packet_audit_row(tmp_path):
     assert action_type == "COMPLIANCE_PACKET_EXPORTED"
     assert actor == "captain@example.com"
     assert actor_role == "captain"
-    assert skill_name == "compliance-audit-export"
+    # No skill originated this row, and the row must not name one: the export
+    # is a Captain-run CLI, and a seat skill provably cannot write this row
+    # (broker audit_append is gateway-PID-gated). ss-console #2122.
+    assert skill_name is None
     meta = json.loads(metadata_text)
+    assert meta["producer"] == "operator/bin/generate-evidence-packet.sh"
     assert meta["customer_slug"] == "acme"
     assert meta["matter"] == "all"
     assert meta["manifest_sha256"] == result.manifest_sha256

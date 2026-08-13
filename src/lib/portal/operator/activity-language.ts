@@ -106,7 +106,7 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
   {
     key: 'compliance',
     label: 'Compliance',
-    actions: ['COMPLIANCE_PACKET_EXPORTED'],
+    actions: ['COMPLIANCE_PACKET_EXPORTED', 'COMPLIANCE_RECORD_EXPORTED'],
   },
 ] as const
 
@@ -295,6 +295,7 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   CONNECTOR_RECONSENT_REQUESTED: () => 'A connection re-authorization was requested',
   OUTPUT_SPEC_AUTHORED: () => 'An output spec was saved to the Operator',
   OUTPUT_SPEC_REJECTED: () => 'An output spec was not saved',
+  COMPLIANCE_RECORD_EXPORTED: () => 'The audit record for a matter was downloaded',
 }
 
 /** Raw action strings with authored client copy. */

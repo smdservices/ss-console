@@ -53,22 +53,31 @@ import { env } from 'cloudflare:workers'
  *     surfaces both the default and the override; the view branches
  *     here without code changes (see compliance.ts).
  *
- * Evidence packet generation:
- *   - The card is DISABLED because no client-facing export path exists.
- *     The `compliance-audit-export` skill named by the spec
- *     (docs/specs/operator/compliance-evidence-packet.md) was never
- *     built — it exists in neither repo and in no customer.yaml, though
- *     operator/adapter/evidence/packet.py:850 stamps its name as the
- *     skill_name on the packet's own audit row. The only working export
- *     today is the Captain CLI (operator/bin/generate-evidence-packet.sh).
- *   - Tracking: #2122. This comment previously cited #878, which is a
- *     closed, unrelated issue (OAuth token storage); the spec issue #802
- *     is likewise closed with the skill unbuilt. Service agreement §4.5
+ * Audit record for one object reference (ss#2122):
+ *   - LIVE. `compliance/audit-record` is the client-facing path: a Named
+ *     Administrator names the reference their own system uses and reads
+ *     every recorded action against it together with what authorized it,
+ *     then downloads the same rows as CSV. Service agreement §4.5
  *     commits to the audit record being "viewable by the Firm in the
- *     portal at any time", so this gap is contractual, not cosmetic.
- *   - The entry point ships as a disabled-state card with an honest
- *     explanation per docs/style/empty-state-pattern.md so the
- *     placement contract is stable when the trigger lands.
+ *     portal at any time", so this was contractual debt, not cosmetic.
+ *   - The link also sits in the not-enabled empty state above, on
+ *     purpose. `compliance_enabled` is the opt-in for THIS dashboard, and
+ *     §4.5 is owed to every firm on the agreement, so gating the record
+ *     behind the dashboard's opt-in would withhold a contractual surface
+ *     from any firm that has not stood up a separate reviewer.
+ *
+ * Full evidence packet:
+ *   - Stays SMD-run (`operator/bin/generate-evidence-packet.sh`). The
+ *     packet carries the customer.yaml redaction validator and the
+ *     detached signature; neither belongs in an unattended portal
+ *     endpoint, so the card states how a firm requests one rather than
+ *     pretending to a self-serve trigger.
+ *   - The spec's `compliance-audit-export` SKILL is not buildable and the
+ *     spec now says so: the packet's own chain-of-custody row goes
+ *     through the broker's gateway-PID-gated `audit_append`, which
+ *     rejects the process shape skills run in. That refusal is the
+ *     control the packet attests to, so it is not something to route
+ *     around (vfy_01KZXYQNK316TK9JGHS9KBEFJC).
  */
 
 const instance = Astro.params.instance
@@ -148,6 +157,14 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
             class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
           >
             Go to audit log
+          </a>
+        </p>
+        <p class="mt-3 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+          <a
+            href={`${operatorBase}/compliance/audit-record`}
+            class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
+          >
+            Pull the audit record for one reference
           </a>
         </p>
       </section>
@@ -250,6 +267,32 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
         </section>
 
         <section
+          aria-label="Audit record"
+          class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+        >
+          <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-mono text-label uppercase tracking-[0.18em] font-bold">
+            Audit record
+          </div>
+          <div class="px-5 md:px-7 py-6">
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+              Name the reference your own system uses for a piece of work, and read every action the
+              Operator recorded against it, each one alongside what authorized it: the permission
+              level in force, and either the scheduled routine that opened the session or the person
+              who asked. Download the same rows as a spreadsheet to hand to counsel, a carrier, or
+              an auditor.
+            </p>
+            <p class="mt-4">
+              <a
+                href={`${operatorBase}/compliance/audit-record`}
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              >
+                Open audit record
+              </a>
+            </p>
+          </div>
+        </section>
+
+        <section
           aria-label="Evidence packet"
           class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
         >
@@ -258,13 +301,22 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
           </div>
           <div class="px-5 md:px-7 py-6">
             <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-              A signed, reviewer-readable archive documenting how the Operator operated inside this
-              organization during a chosen window: plain-language summary, structured audit log,
-              redacted configuration, signed addenda.
+              The full archive documenting how the Operator operated inside this organization during
+              a chosen window: plain-language summary, structured audit log, redacted configuration,
+              signed addenda. It carries a detached signature from SMDurgan, LLC, so a recipient can
+              confirm it came from us and was not altered after export.
             </p>
-            <p class="mt-4 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-              Generation runs on the per-firm machine. The portal trigger lands separately; contact
-              your principal to request a packet today.
+            <p class="mt-4 text-sm text-[color:var(--ss-color-text-secondary)]">
+              A packet is assembled and signed by SMD on request, because the redaction check and
+              the signing key are part of producing it. Ask your principal to request one. To verify
+              a packet you already hold, see{' '}
+              <a
+                href="https://smd.services/trust"
+                class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
+              >
+                smd.services/trust
+              </a>
+              .
             </p>
           </div>
         </section>

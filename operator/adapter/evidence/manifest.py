@@ -1,23 +1,39 @@
-"""Evidence-packet manifest.json builder + Captain signature stub.
+"""Evidence-packet manifest.json builder + the signature block.
 
 The manifest is the deterministic index of every file in the packet,
-their sha256 digests, and the Captain signature block. Per spec
+their sha256 digests, and the signature block. Per spec
 (``compliance-evidence-packet.md`` §manifest.json), the manifest carries:
 
 * ``customer_slug``
 * ``period_start`` / ``period_end`` (ISO 8601)
 * ``generated_at`` (ISO 8601)
-* ``captain_signature`` — name, email, key_id, and a detached signature
+* ``signer`` — name, email, key_id, algorithm, and the signature value
 * ``file_hashes`` — every packet entry's sha256
 * ``packet_version``
 
-Signing is a no-op stub in this PR: ``signature`` carries the literal
-string ``"unsigned-stub"`` and ``key_id`` reads from
-``CAPTAIN_SIGNING_KEY_ID`` env or falls back to ``"stub-key"``. The PDF
-summary page interpolates the manifest's sha256 + the Captain ID
-verbatim so a reader can verify the manifest is the same one referenced
-by the PDF. Real RSA signing wires in later per the spec's
-implementation notes section.
+THE PACKET SIGNS AS THE ENTITY, NOT AS A PERSON (Captain decision,
+2026-08-13; ss-console #2122). The signer of record is **SMDurgan, LLC**.
+The reason is not cosmetic. A firm hands this packet to its malpractice
+carrier or to opposing counsel years after the engagement ends, and what
+that recipient needs to confirm is that the company under contract with
+the firm produced it. A named individual's signature would decay the
+moment staffing changed, and it would misstate who bears the obligation:
+the agreement is with the entity. The person who RAN the export is still
+recorded, separately and correctly, in ``generated_by`` — that is an
+operator-attribution fact, not a statement of provenance.
+
+That split is why ``packet_version`` moved to 1.1 and the block is named
+``signer`` rather than the old ``captain_signature``: a reader must not
+have to guess whether the name inside is the author, the operator, or the
+guarantor.
+
+Signing itself is optional and self-disclosing. With no key configured,
+``signature`` carries the literal ``"unsigned-stub"`` and the packet says
+plainly, on its face, that it is not cryptographically verifiable. With a
+key configured, ``adapter/evidence/signing.py`` produces a detached
+Ed25519 signature and the block names the key id. The public half is
+published at https://smd.services/trust so verification needs no
+credential and no contact with us.
 
 The manifest sha256 is the canonical handle: PDF references it, the
 packet generation audit row carries it in metadata, the receipt the
@@ -34,10 +50,21 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Mapping, Optional
 
-PACKET_VERSION = "1.0"
+#: 1.1 renamed ``captain_signature`` to ``signer`` and moved the signer of
+#: record from a named person to SMDurgan, LLC. A reader who sees 1.0 is
+#: holding a packet whose signature block names an individual.
+PACKET_VERSION = "1.1"
 SIGNATURE_STUB = "unsigned-stub"
 
-#: Recorded in ``captain_signature.algorithm`` when no key is configured. The
+#: The entity that signs every evidence packet. Not configurable per run: the
+#: signer is the party under contract with the firm, and a packet that could
+#: name someone else would be describing an obligation nobody holds. The env
+#: override below exists for test fixtures and for a future entity rename, not
+#: for per-packet attribution (that is ``generated_by``).
+SIGNER_NAME = "SMDurgan, LLC"
+SIGNER_EMAIL = "team@smd.services"
+
+#: Recorded in ``signer.algorithm`` when no key is configured. The
 #: historical literal was ``"stub-noop"``; it is kept for byte-compatibility
 #: with packets generated before ss-console #2122 wired real signing.
 SIGNATURE_ALGORITHM_UNSIGNED = "stub-noop"
@@ -62,9 +89,9 @@ class EvidenceManifest:
     period_start: str
     period_end: str
     generated_at: str
-    captain_name: str
-    captain_email: str
-    captain_key_id: str
+    signer_name: str
+    signer_email: str
+    signer_key_id: str
     file_hashes: Mapping[str, str]
     actor: str
     actor_role: str
@@ -85,10 +112,10 @@ class EvidenceManifest:
                 "actor": self.actor,
                 "actor_role": self.actor_role,
             },
-            "captain_signature": {
-                "name": self.captain_name,
-                "email": self.captain_email,
-                "key_id": self.captain_key_id,
+            "signer": {
+                "name": self.signer_name,
+                "email": self.signer_email,
+                "key_id": self.signer_key_id,
                 "signature": self.signature,
                 "algorithm": self.signature_algorithm,
             },
@@ -128,9 +155,9 @@ def build_manifest(
     file_hashes: Mapping[str, str],
     actor: str,
     actor_role: str,
-    captain_name: Optional[str] = None,
-    captain_email: Optional[str] = None,
-    captain_key_id: Optional[str] = None,
+    signer_name: Optional[str] = None,
+    signer_email: Optional[str] = None,
+    signer_key_id: Optional[str] = None,
     generated_at: Optional[str] = None,
     extra: Optional[Mapping[str, object]] = None,
     signature: Optional[str] = None,
@@ -138,11 +165,15 @@ def build_manifest(
 ) -> EvidenceManifest:
     """Construct an :class:`EvidenceManifest` from packet inputs.
 
-    Captain identity defaults read from env (set by the CLI wrapper or
-    bootstrap.sh in production). The signing stub does not require a
-    real key, but recording who would have signed is part of the audit
-    trail — a future real-signature switch only changes the
-    ``signature`` field.
+    The signer defaults to the entity (:data:`SIGNER_NAME`), never to a
+    person. ``EVIDENCE_SIGNER_NAME`` / ``EVIDENCE_SIGNER_EMAIL`` exist for
+    fixtures and for a future entity rename; they are not a per-packet
+    attribution knob, because attribution is ``generated_by``.
+
+    ``signer_key_id`` is supplied by the caller once a signing key is
+    resolved. With no key it falls back to ``"unconfigured"``, matching
+    ``signing.py``'s unsigned result, so the manifest never implies a key
+    that does not exist.
     """
     return EvidenceManifest(
         customer_slug=customer_slug,
@@ -150,12 +181,10 @@ def build_manifest(
         period_start=period_start,
         period_end=period_end,
         generated_at=generated_at or _iso_utc(),
-        captain_name=captain_name
-        or os.environ.get("CAPTAIN_SIGNING_NAME", "Scott Durgan"),
-        captain_email=captain_email
-        or os.environ.get("CAPTAIN_SIGNING_EMAIL", "scott@smd.services"),
-        captain_key_id=captain_key_id
-        or os.environ.get("CAPTAIN_SIGNING_KEY_ID", "stub-key"),
+        signer_name=signer_name or os.environ.get("EVIDENCE_SIGNER_NAME", SIGNER_NAME),
+        signer_email=signer_email or os.environ.get("EVIDENCE_SIGNER_EMAIL", SIGNER_EMAIL),
+        signer_key_id=signer_key_id
+        or os.environ.get("EVIDENCE_SIGNER_KEY_ID", "unconfigured"),
         file_hashes=dict(file_hashes),
         actor=actor,
         actor_role=actor_role,
@@ -169,6 +198,8 @@ __all__ = [
     "EvidenceManifest",
     "PACKET_VERSION",
     "SIGNATURE_STUB",
+    "SIGNER_NAME",
+    "SIGNER_EMAIL",
     "build_manifest",
     "manifest_sha256_hex",
 ]
