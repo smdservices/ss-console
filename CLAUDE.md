@@ -429,7 +429,7 @@ The franchise operations manual lives in `docs/handbook/` and renders in the adm
 
 ## Key Reference
 
-- **Decision Stack:** `docs/adr/decision-stack.md` (34 active decisions across 6 layers, numbered through #51 (3 superseded: #2, #12, #43) — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
+- **Decision Stack:** `docs/adr/decision-stack.md` (37 active decisions across 6 layers, numbered through #55 (3 superseded: #2, #12, #43) — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
 - **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0061-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
