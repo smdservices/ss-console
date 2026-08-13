@@ -1199,6 +1199,96 @@ def render_docx_template(
     return out
 
 
+@server.tool()
+def render_docx_draft(
+    matter_id: str,
+    file_name: str,
+    draft_markdown: str,
+    folder_id: str | None = None,
+) -> Any:
+    """Render a FILLED DRAFT (markdown) to a real Word .docx and file it on a
+    matter, for attorney review. The sibling of ``render_docx_template``, and the
+    difference between them is which artifact you have.
+
+    **Use this one for a draft: a demand letter, discovery responses, a brief.**
+    Use ``render_docx_template`` for a reusable skeleton. A draft filed through
+    the template tool will be refused on every case fact it contains, because a
+    template is refused for exactly what a draft is made of.
+
+    WHY IT EXISTS. Until this, the only .docx path was the template renderer, so
+    a filled demand letter could not become a Word document at all and was filed
+    as .txt. An attorney cannot edit that in Word, and "here is your demand
+    letter, as a text file" is not the deliverable.
+
+    **The content gate refuses; it never repairs.** Nothing is rendered or
+    uploaded until the markdown passes, and the whole violation list comes back
+    in ``refusals`` with ``fileId: null``. Three rules, each mechanical:
+
+    - malformed marker syntax (unbalanced ``{{``/``}}``, or an empty marker),
+    - an em dash OUTSIDE a quoted passage. House style bans them; the drafting
+      checker requires quotations to appear verbatim in a source. A record whose
+      quoted words contain an em dash can satisfy only one of those, so the quote
+      wins. Restyling the record's words to satisfy our house style would be a
+      misquotation, which is a far worse defect than a dash,
+    - an HTML comment. Drafting gate 9: ``<!-- ... -->`` renders as nothing, so a
+      reservation written that way is one the attorney never sees. In a draft the
+      reserved thing is usually the demand figure.
+
+    Case content is NOT refused here. Dates, figures, identifiers and case
+    numbers are the substance of the letter. What binds them is enforced
+    elsewhere and is stricter: every figure must trace to a source document.
+
+    **``{{FILL:}}``, ``{{NOT IN RECORD:}}`` and ``{{ATTORNEY:}}`` markers are
+    preserved and rendered visibly**, as literal unstyled runs. Do not resolve a
+    marker you cannot source and do not delete one to make the draft look
+    finished: an unresolved marker in front of the attorney is the point of the
+    draft, and a letter that looks complete when it is not is the failure this
+    whole lane exists to prevent.
+
+    ``file_name`` gains a ``.docx`` suffix if it lacks one. ``folder_id`` is
+    optional (matter root if omitted).
+
+    Returns ``fileId``, ``sha256`` and ``sizeBytes`` of the rendered bytes, and
+    an empty ``refusals``. Smokeball materialization is ASYNCHRONOUS and this
+    tool does not poll: confirm with ``get_file``, and confirm it is the document
+    with ``read_document``, before reporting it delivered.
+
+    Classified INTERNAL_WRITE at the overlay: the Operator saving its own work
+    product into the firm's record. Nothing leaves the firm; delivery to anyone
+    outside is a separate, separately-gated act."""
+    from .render import (
+        TemplateContentRefused,
+        check_draft_content,
+        render_markdown_to_docx,
+    )
+
+    if not file_name.lower().endswith(".docx"):
+        file_name = f"{file_name}.docx"
+    try:
+        check_draft_content(draft_markdown)
+    except TemplateContentRefused as exc:
+        return {
+            "matterId": matter_id,
+            "fileName": file_name,
+            "fileId": None,
+            "sha256": None,
+            "sizeBytes": None,
+            "refusals": [str(v) for v in exc.violations],
+        }
+    data = render_markdown_to_docx(draft_markdown)
+    result = add_file(
+        matter_id,
+        file_name,
+        content_base64=base64.b64encode(data).decode("ascii"),
+        folder_id=folder_id,
+    )
+    out = dict(result) if isinstance(result, dict) else {"result": result}
+    out["sha256"] = hashlib.sha256(data).hexdigest()
+    out["sizeBytes"] = len(data)
+    out["refusals"] = []
+    return out
+
+
 # ---- Memos ----------------------------------------------------------------
 #
 # Lean lossless representation (context-cost fix): Smokeball returns BOTH an RTF

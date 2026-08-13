@@ -9,11 +9,28 @@ draft surfaces to the attorney without passing the mechanical checker
 **Checker execution point.** Client seats keep `code_execution` unauthored
 (refused) under the custody guard, so the checker is not an agent-invoked
 script there. On seats where code execution is authored, the skill runs it
-directly; on the normal client posture, it runs harness-side on the delivery
-path (overlay drafting-gate hook — same pattern as the scheduler-staged
-`pre_run_gate.py`, which runs outside the agent). Certification and rehearsal
-runs execute it repo-side against produced drafts. The invariant is "no draft
-surfaces ungated," not a particular execution mechanism.
+directly. Certification and rehearsal runs execute it repo-side against
+produced drafts. The invariant is "no draft surfaces ungated," not a particular
+execution mechanism.
+
+> **THE HARNESS-SIDE PATH IS NOT BUILT (verified 2026-08-13, ss-console#2258).**
+> This section previously said that on the normal client posture the checker
+> "runs harness-side on the delivery path (overlay drafting-gate hook)." It does
+> not. `drafting_gate_check.py` is referenced in the overlay only as a presence
+> probe for the establishment compilers (`establish_intake/gates.py`), and the
+> plugin that would be that hook disclaims the job in its own docstring:
+> "WHAT IT DOES NOT VALIDATE: The record… belong to the drafting discipline's
+> ten mechanical gates."
+>
+> **Consequence, stated plainly because it inverts a fail-closed rule.** A seat
+> without `code_execution` is not variant B (harness-side gate runs). It is
+> **variant C — no gate available on either path** — and variant C's rule is
+> that nothing surfaces. Until the delivery-path gate exists, a draft produced
+> on such a seat has passed no mechanical check, and the skill must say so and
+> withhold rather than surface it with a caveat. Reporting "this goes to
+> harness-side gating" is asserting a control that is not there; that sentence
+> was in this file, a drafting skill read it, and a draft surfaced on the pilot
+> on 2026-08-12 believing it was gated downstream.
 
 **Delivery verification (no claimed delivery without a read-back).** A draft is
 delivered when the attorney can actually open it, not when a write tool
