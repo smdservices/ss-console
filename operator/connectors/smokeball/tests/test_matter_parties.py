@@ -186,3 +186,90 @@ def test_caption_still_composes_from_the_shared_fetch() -> None:
     assert matter["caption"] == "Alvarez v. Draper"
     # One fetch per party — membership rides the caption's existing calls.
     assert len([r for r in captured if "/contacts/" in r.url.path]) == 2
+
+
+# ---- the CONTACT axis: `matters_for_contact_complete` (ss#2264) ------------
+#
+# The matter axis above closes a matter's own party list. The contact axis closes
+# the other direction — the full set of matters one person is a party to — and it
+# proves non-membership just as validly. It matters because it is keyed off the
+# read the reply lane actually performs: `list_matters` fires on 34 of 86 reply
+# turns against `get_matter`'s 8, so without it the gate can rarely conclude
+# anything there and mostly returns *unresolved*.
+#
+# Same fail-safe rule as `parties_complete`, and for the same reason: a truncated
+# listing is byte-identical to a complete one.
+
+
+def _listing(n: int) -> dict:
+    return {"value": [{"id": f"m{i}", "number": f"2026-PI-{i}"} for i in range(n)]}
+
+
+def test_unfiltered_untruncated_contact_listing_is_complete() -> None:
+    assert srv._contact_listing_is_complete(_listing(3), offset=0, limit=500, narrowed=False) is True
+
+
+def test_full_page_is_not_complete() -> None:
+    # Indistinguishable from a truncated one — the exact case that must not be
+    # trusted, and the one a naive "we got a response" check would pass.
+    assert (
+        srv._contact_listing_is_complete(_listing(500), offset=0, limit=500, narrowed=False) is False
+    )
+
+
+def test_later_page_is_not_complete() -> None:
+    assert (
+        srv._contact_listing_is_complete(_listing(3), offset=500, limit=500, narrowed=False) is False
+    )
+
+
+def test_narrowed_listing_is_not_complete() -> None:
+    # The subtle one. A listing filtered to status=Open legitimately omits a CLOSED
+    # matter the recipient IS a party to; trusting it would manufacture a mismatch
+    # against a real client — the gate's worst failure, not its safest.
+    assert srv._contact_listing_is_complete(_listing(3), offset=0, limit=500, narrowed=True) is False
+
+
+def test_malformed_envelope_is_not_complete() -> None:
+    assert srv._contact_listing_is_complete({}, offset=0, limit=500, narrowed=False) is False
+    assert (
+        srv._contact_listing_is_complete({"value": "nope"}, offset=0, limit=500, narrowed=False)
+        is False
+    )
+
+
+def _list_matters_handler(items: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/oauth2/token"):
+            return httpx.Response(
+                200, json={"access_token": "tok", "expires_in": 3600, "token_type": "Bearer"}
+            )
+        if request.url.path.endswith("/matters"):
+            return httpx.Response(200, json={"value": items})
+        return httpx.Response(200, json={"ok": True})
+
+    return handler
+
+
+def test_list_matters_emits_the_contact_axis_signal(monkeypatch) -> None:
+    client = _mock_client(_list_matters_handler([{"id": "m1", "number": "2026-PI-101"}]))
+    monkeypatch.setattr(srv, "_get_client", lambda: client)
+
+    resp = srv.list_matters(contact_id="c1")
+    assert resp["matters_for_contact"] == "c1"
+    assert resp["matters_for_contact_complete"] is True
+
+    # A status filter answers a DIFFERENT question, so the set is not closed.
+    narrowed = srv.list_matters(contact_id="c1", status="Open")
+    assert narrowed["matters_for_contact"] == "c1"
+    assert narrowed["matters_for_contact_complete"] is False
+
+
+def test_unfiltered_listing_carries_no_contact_axis_keys(monkeypatch) -> None:
+    # An unfiltered listing says nothing about any one person's membership; it must
+    # not leave a completeness flag behind for the binding to misread.
+    client = _mock_client(_list_matters_handler([{"id": "m1"}]))
+    monkeypatch.setattr(srv, "_get_client", lambda: client)
+    resp = srv.list_matters()
+    assert "matters_for_contact" not in resp
+    assert "matters_for_contact_complete" not in resp
