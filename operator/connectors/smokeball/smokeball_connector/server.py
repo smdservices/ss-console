@@ -1199,12 +1199,44 @@ def render_docx_template(
     return out
 
 
+def _collect_matter_sources(matter_id: str) -> tuple[list[tuple[str, str]], list[str]]:
+    """Every readable document on the matter as ``(name, extracted_text)``, plus
+    the names of the ones that would not extract.
+
+    The second list is not diagnostics. A source that did not extract makes a
+    correctly quoted passage look fabricated to gate 2a, so the caller REFUSES
+    on it rather than checking against a partial record."""
+    from .extract import extract_text
+
+    client = _get_client()
+    listing = client.get(f"/matters/{matter_id}/documents/files", Limit=500, Offset=0)
+    entries = listing.get("value") if isinstance(listing, dict) else listing
+    sources: list[tuple[str, str]] = []
+    unextractable: list[str] = []
+    for entry in entries or []:
+        name = str(entry.get("name") or entry.get("id") or "document")
+        try:
+            _meta, blob = client.download_file(matter_id, entry["id"])
+            text = extract_text(
+                blob, file_name=name, file_extension=str(entry.get("fileExtension") or "")
+            )
+        except Exception:  # noqa: BLE001 — one unreadable document refuses the whole check
+            unextractable.append(name)
+            continue
+        if text and text.strip():
+            sources.append((name, text))
+        else:
+            unextractable.append(name)
+    return sources, unextractable
+
+
 @server.tool()
 def render_docx_draft(
     matter_id: str,
     file_name: str,
     draft_markdown: str,
     folder_id: str | None = None,
+    held_out_file_names: list[str] | None = None,
 ) -> Any:
     """Render a FILLED DRAFT (markdown) to a real Word .docx and file it on a
     matter, for attorney review. The sibling of ``render_docx_template``, and the
@@ -1262,6 +1294,8 @@ def render_docx_draft(
         render_markdown_to_docx,
     )
 
+    from .record_check import run_record_check
+
     if not file_name.lower().endswith(".docx"):
         file_name = f"{file_name}.docx"
     try:
@@ -1275,6 +1309,31 @@ def render_docx_draft(
             "sizeBytes": None,
             "refusals": [str(v) for v in exc.violations],
         }
+
+    # The ten mechanical gates, against this matter's own record. Nothing is
+    # rendered or uploaded until they pass — see record_check.py for the
+    # disposition table and for why exit 2 refuses.
+    sources, unextractable = _collect_matter_sources(matter_id)
+    verdict = run_record_check(
+        draft_markdown,
+        sources,
+        held_out_names=set(held_out_file_names or ()),
+        unextractable=unextractable,
+    )
+    if not verdict.passed:
+        return {
+            "matterId": matter_id,
+            "fileName": file_name,
+            "fileId": None,
+            "sha256": None,
+            "sizeBytes": None,
+            "refusals": verdict.refusals,
+            "recordCheck": verdict.disposition,
+            "warnings": verdict.warnings,
+            "infos": verdict.infos,
+            "checkedSources": verdict.checked_sources,
+        }
+
     data = render_markdown_to_docx(draft_markdown)
     result = add_file(
         matter_id,
