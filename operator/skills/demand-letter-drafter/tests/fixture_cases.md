@@ -328,7 +328,7 @@ differs and the contract does not:
 - **Variant A, `code_execution` authored** (the pilot posture): the skill runs the
   checker itself and sees the failure.
 - **Variant B, code execution refused** (the normal client posture): the skill does not
-  attempt execution. The harness-side drafting-gate hook on the delivery path returns
+  attempt execution. `render_docx_draft` runs the checker before it files and returns
   the failure.
 - **Variant C, no gate available on either path.**
 
