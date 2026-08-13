@@ -11,6 +11,12 @@ confirm the packet was produced by SMD and has not been altered since export.
 Without it, the client is asking to be taken at their word about their own
 evidence.
 
+The human-readable registry of every key, current and retired, is published at
+https://smd.services/trust. That page is generated from
+`src/lib/trust/signing-keys.ts`, which is the authored source of truth;
+`tests/trust-signing-keys.test.ts` recomputes each fingerprint from the key
+committed here and fails if the two disagree. Update both together.
+
 ## Current key
 
 | Field                     | Value                                                              |

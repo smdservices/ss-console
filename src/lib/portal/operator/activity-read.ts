@@ -279,6 +279,7 @@ const ACTION_EVENT_FEED_MAP: Record<PortalActionEventRow['action_type'], string>
   customer_yaml_update_submitted: 'CONFIG_CHANGE_SUBMITTED',
   connector_reconsent_requested: 'CONNECTOR_RECONSENT_REQUESTED',
   output_class_spec_authored: 'OUTPUT_SPEC_AUTHORED',
+  compliance_record_exported: 'COMPLIANCE_RECORD_EXPORTED',
 }
 
 /** The two action types whose rejected attempts have their own client copy —

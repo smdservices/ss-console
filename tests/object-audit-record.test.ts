@@ -1,0 +1,264 @@
+import { describe, it, expect } from 'vitest'
+import {
+  authorizationOf,
+  describeAuthorization,
+  loadObjectAuditRecord,
+  objectAuditCsvFilename,
+  OBJECT_AUDIT_CSV_COLUMNS,
+  parseObjectAuditRows,
+  scopeToRef,
+  toObjectAuditCsv,
+  type ObjectAuditRow,
+} from '../src/lib/portal/operator/object-audit-record'
+
+/**
+ * The per-reference audit record (ss#2122).
+ *
+ * The properties under test are the ones a compliance reader is entitled to
+ * rely on, not the ones easiest to assert:
+ *
+ *   1. The authorization column is DERIVED, never invented. A row with no
+ *      authorizing party reports `unattributed`, and the copy says so.
+ *   2. An empty answer is never a clean zero. When a reference matches nothing
+ *      but unattributed rows exist in the same window, the count rides along.
+ *   3. A seam failure is `unavailable`, not an empty record. This is the
+ *      difference between "we could not read" and "nothing happened", and
+ *      conflating them in a legal record is the defect the issue opened on.
+ *   4. The CSV is spreadsheet-safe. A compliance CSV is opened in Excel by
+ *      definition, so a leading `=` must not become a formula.
+ */
+
+function row(over: Partial<ObjectAuditRow> = {}): ObjectAuditRow {
+  return {
+    id: '01J0000000000000000000000A',
+    ts: '2026-08-01T10:00:00.000Z',
+    actionType: 'TOOL_CALL_COMPLETED',
+    actor: 'agent',
+    actorRole: 'agent',
+    skillName: null,
+    matterRef: 'M-1',
+    trustCeiling: 'draft_for_review',
+    inputDigest: null,
+    outputDigest: null,
+    diffDigest: null,
+    prevHash: null,
+    rowHash: null,
+    routine: null,
+    ...over,
+  }
+}
+
+describe('parseObjectAuditRows', () => {
+  it('maps the overlay audit_export wire shape onto the typed row', () => {
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'REPLY_SENT',
+          actor: 'christa@example.com',
+          actor_role: 'principal',
+          skill_name: 'matter-status-responder',
+          matter_ref: 'M-7',
+          trust_ceiling: 'autonomous',
+          input_digest: 'sha256:aa',
+          output_digest: 'sha256:bb',
+          diff_digest: null,
+          prev_hash: 'p0',
+          row_hash: 'r0',
+          metadata: JSON.stringify({ routine: 'matter-status-digest', cron_job_id: 'j1' }),
+        },
+      ],
+      cursor: null,
+    })
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]).toMatchObject({
+      id: 'A',
+      actionType: 'REPLY_SENT',
+      actor: 'christa@example.com',
+      actorRole: 'principal',
+      matterRef: 'M-7',
+      trustCeiling: 'autonomous',
+      rowHash: 'r0',
+      routine: 'matter-status-digest',
+    })
+  })
+
+  it('drops a row missing any required field rather than rendering a partial line', () => {
+    const parsed = parseObjectAuditRows({
+      entries: [
+        { ts: '2026-08-01T00:00:00.000Z', action_type: 'X', actor: 'agent' }, // no id
+        { id: 'B', action_type: 'X', actor: 'agent' }, // no ts
+        { id: 'C', ts: '2026-08-01T00:00:00.000Z', actor: 'agent' }, // no action_type
+        'not an object',
+      ],
+    })
+    expect(parsed).toEqual([])
+  })
+
+  it('survives an unparseable metadata blob without losing the row', () => {
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'X',
+          actor: 'agent',
+          metadata: '{not json',
+        },
+      ],
+    })
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0].routine).toBeNull()
+  })
+})
+
+describe('authorizationOf', () => {
+  it('names the scheduled routine when one opened the session', () => {
+    const basis = authorizationOf(row({ routine: 'medical-records-chaser' }))
+    expect(basis).toEqual({
+      basis: 'routine',
+      routine: 'medical-records-chaser',
+      ceiling: 'draft_for_review',
+    })
+    expect(describeAuthorization(basis)).toBe(
+      'Scheduled routine "medical-records-chaser" (permission level: draft_for_review)'
+    )
+  })
+
+  it('names the person when a human actor and role are recorded', () => {
+    const basis = authorizationOf(
+      row({ actor: 'christa@example.com', actorRole: 'principal', trustCeiling: 'autonomous' })
+    )
+    expect(basis).toEqual({
+      basis: 'person',
+      person: 'christa@example.com',
+      role: 'principal',
+      ceiling: 'autonomous',
+    })
+  })
+
+  it('reports unattributed rather than guessing when the writer named nobody', () => {
+    // This is the state of every row written before the writer carried an
+    // actor: actor='agent', actor_role='agent', no routine. It must not be
+    // rendered as if the agent authorized itself.
+    const basis = authorizationOf(row({ trustCeiling: null }))
+    expect(basis).toEqual({ basis: 'unattributed', ceiling: null })
+    expect(describeAuthorization(basis)).toBe('Not recorded (no permission level recorded)')
+  })
+
+  it('a routine wins over a bare agent actor', () => {
+    expect(authorizationOf(row({ routine: 'ar-chaser', actor: 'agent' })).basis).toBe('routine')
+  })
+})
+
+describe('scopeToRef', () => {
+  const rows = [
+    row({ id: '1', ts: '2026-07-01T00:00:00.000Z', matterRef: 'M-1' }),
+    row({ id: '2', ts: '2026-08-01T00:00:00.000Z', matterRef: 'M-1' }),
+    row({ id: '3', ts: '2026-08-02T00:00:00.000Z', matterRef: 'M-2' }),
+    row({ id: '4', ts: '2026-08-03T00:00:00.000Z', matterRef: null }),
+    row({ id: '5', ts: '2026-08-04T00:00:00.000Z', matterRef: null }),
+  ]
+
+  it('scopes to the named reference inside the window', () => {
+    const rec = scopeToRef(rows, { ref: 'M-1', from: '2026-07-15', to: null })
+    expect(rec.rows.map((r) => r.id)).toEqual(['2'])
+  })
+
+  it('a date-only "to" bound covers the whole day', () => {
+    const rec = scopeToRef(rows, { ref: 'M-2', from: null, to: '2026-08-02' })
+    expect(rec.rows.map((r) => r.id)).toEqual(['3'])
+  })
+
+  it('counts unattributed rows in the window so an empty answer is never silent', () => {
+    const rec = scopeToRef(rows, { ref: 'M-99', from: null, to: null })
+    expect(rec.rows).toEqual([])
+    expect(rec.unattributedInPeriod).toBe(2)
+    expect(rec.scannedInPeriod).toBe(5)
+  })
+})
+
+describe('toObjectAuditCsv', () => {
+  it('emits the stable column order with a derived authorization column', () => {
+    const rec = scopeToRef([row({ routine: 'ar-chaser' })], {
+      ref: 'M-1',
+      from: null,
+      to: null,
+    })
+    const csv = toObjectAuditCsv(rec)
+    const lines = csv.trimEnd().split('\n')
+    expect(lines[0]).toBe(OBJECT_AUDIT_CSV_COLUMNS.join(','))
+    expect(lines[1]).toContain('Scheduled routine ""ar-chaser""')
+    expect(lines[1]).toContain(',routine,')
+  })
+
+  it('neutralizes a spreadsheet formula prefix', () => {
+    // A matter reference is an opaque handle from a source system. If one ever
+    // begins with '=', Excel would execute it on open.
+    const rec = scopeToRef([row({ matterRef: '=1+1' })], {
+      ref: '=1+1',
+      from: null,
+      to: null,
+    })
+    const csv = toObjectAuditCsv(rec)
+    expect(csv).toContain(`"'=1+1"`)
+    expect(csv).not.toMatch(/,=1\+1,/)
+  })
+
+  it('quotes and escapes embedded quotes and commas', () => {
+    const rec = scopeToRef([row({ skillName: 'a,"b"' })], {
+      ref: 'M-1',
+      from: null,
+      to: null,
+    })
+    expect(toObjectAuditCsv(rec)).toContain('"a,""b"""')
+  })
+})
+
+describe('objectAuditCsvFilename', () => {
+  it('is filesystem safe for an arbitrary source-system handle', () => {
+    expect(objectAuditCsvFilename('ashton-price', 'ABC/123 x')).toBe(
+      'audit-record-ashton-price-ABC_123_x.csv'
+    )
+  })
+})
+
+describe('loadObjectAuditRecord', () => {
+  const query = { ref: 'M-1', from: null, to: null }
+  const actor = { actor: 'u1', actorRole: 'principal' }
+  const db = {} as never
+
+  it('reports not_configured instead of an empty record when the seam is unwired', async () => {
+    const rec = await loadObjectAuditRecord(
+      { db, env: {}, actorUserId: 'u1' },
+      'slug',
+      actor,
+      query
+    )
+    expect(rec.unavailable).toBe('not_configured')
+    expect(rec.rows).toEqual([])
+  })
+
+  it('reports unreachable instead of a clean zero when the Machine does not answer', async () => {
+    // The distinction under test: a fail-closed empty here would be
+    // indistinguishable from "the Operator did nothing on this matter".
+    const rec = await loadObjectAuditRecord(
+      {
+        db: {
+          prepare: () => ({ bind: () => ({ run: async () => {} }) }),
+        } as never,
+        env: {
+          OPERATOR_RUNTIME_READ_URL: 'https://{app}.example.invalid',
+          OPERATOR_RUNTIME_READ_SECRET: 'x'.repeat(40),
+        },
+        actorUserId: 'u1',
+      },
+      'no-such-customer-slug',
+      actor,
+      query
+    )
+    expect(rec.unavailable).toBe('unreachable')
+    expect(rec.rows).toEqual([])
+  })
+})

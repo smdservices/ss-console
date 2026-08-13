@@ -182,6 +182,11 @@ export const CONSOLE_ACTION_TYPES = [
   // ?action=ENTITLEMENT_CHANGED silently no-opped to "show everything"
   // (#2122 read-side survey, defect 1). Console-plane: no Machine producer.
   'ENTITLEMENT_CHANGED',
+  // Synthesized from portal_action_events when a Named Administrator pulls the
+  // per-matter audit record (ss#2122). Console-plane: the Machine has no
+  // producer for it, because the export happens in the console. Distinct from
+  // the Machine's COMPLIANCE_PACKET_EXPORTED, which the packet builder writes.
+  'COMPLIANCE_RECORD_EXPORTED',
 ] as const
 
 const AUDIT_ACTION_TYPE_SET: ReadonlySet<string> = new Set([
