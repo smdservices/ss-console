@@ -857,7 +857,27 @@ describe('Operator customer Machine Dockerfile', () => {
     // canonicalization work but not modified — so every overlaySha256 is
     // unchanged and only overlayRef moves. The broker half is ss-console#2279;
     // neither half functions alone.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ec3fb713ceb0edb875f322842338feb4441fffea"')
+    //
+    // ec3fb713 -> d8e0d767 (2026-08-13): a Captain-authorized SINGLE bump past
+    // an eight-commit backlog. It is one bump rather than four because four
+    // sessions had independently queued on this lever, and four separate
+    // rollouts would mean four chances to meet a bad interaction with no way to
+    // tell which commit caused it. Range: overlay#257 content floor reads the
+    // html half of a send (ss#2297); #258 one name for the tool-call correlation
+    // key (ss#2312); #259 ACK code bound to the ledger row it was written for
+    // (ss#2304); #261 working rules become a READ section (ss#2338); #260 person
+    // nudge covers work sent TO a person (ss#2151); #262 the installed voice
+    // carries what it was learned from (ss#2339); #263 the gate can see a
+    // delivery it suppressed (echo-guard Phase 1a); #264 the send tool can be
+    // called the way Hermes calls it (ss#2348). ONE tracked twin moves —
+    // hermes-smd-audit/emit.py at #258 — and it is one-sided: the console twin
+    // operator/adapter/audit_log.py has no build_per_tool_metadata and carries
+    // neither trace_id nor tool_call_id, so overlaySha256 moves and the ss-twin
+    // sha256 does not. All nine overlaySha256 values were verified against their
+    // files AT THE OLD PIN first, so the manifest was honest going in. Live
+    // blast radius at bump time: pilot-smokeball and smd-staging only —
+    // hermes-ashton-price is stopped with autostart disabled.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d8e0d767d57673a9324eceb0a55dbcf917ebfbb9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
