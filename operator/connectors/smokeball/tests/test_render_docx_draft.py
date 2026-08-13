@@ -229,9 +229,37 @@ def _handler(captured: list[httpx.Request]):
     return handler
 
 
+def _stub_record_check(monkeypatch, *, passed: bool = True, disposition: str = "pass") -> None:
+    """Hold the RECORD check still so these tests measure the upload shape.
+
+    The record check has its own suite (test_record_check.py) which runs the
+    real 1574-line checker. Exercising it again here would make an upload-shape
+    failure and a gate failure indistinguishable in the output.
+    """
+    from smokeball_connector import record_check as rc
+
+    monkeypatch.setattr(server, "_collect_matter_sources", lambda _m: ([("Src", "text")], []))
+    # Patch the MODULE attribute, not a name on `server`. render_docx_draft does
+    # `from .record_check import run_record_check` inside the function body, so
+    # the binding is resolved from the module on every call — a stub set on
+    # `server` would be silently ignored and the real checker would run, which is
+    # exactly what happened the first time this was written.
+    monkeypatch.setattr(
+        rc,
+        "run_record_check",
+        lambda *a, **k: rc.RecordCheckResult(
+            passed=passed,
+            disposition=disposition,
+            refusals=[] if passed else ["[2a] quoted passage is not contiguous in any source"],
+            checked_sources=1,
+        ),
+    )
+
+
 def test_tool_files_the_rendered_draft(monkeypatch) -> None:
     captured: list[httpx.Request] = []
     monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    _stub_record_check(monkeypatch)
 
     out = server.render_docx_draft("m-104", "Demand Letter Draft", _FILLED_DRAFT)
 
@@ -271,7 +299,51 @@ def test_tool_sends_base64_it_computed_itself(monkeypatch) -> None:
     the carve-out. The bytes on the wire must be the ones this tool encoded."""
     captured: list[httpx.Request] = []
     monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    _stub_record_check(monkeypatch)
     server.render_docx_draft("m-104", "Draft", _FILLED_DRAFT)
     put = next(r for r in captured if r.method == "PUT")
     assert base64.b64encode(put.content)  # round-trips; bytes are real docx bytes
     assert put.content[:2] == b"PK", "a .docx is a zip container"
+
+
+def test_tool_refuses_and_uploads_nothing_when_the_record_check_fails(monkeypatch) -> None:
+    """The reachability property this whole phase exists for. A draft whose
+    quotations do not trace must not reach the matter, and the refusal carries
+    the checker's own finding so the model is told which rule it broke.
+
+    FALSIFIER: the tool must make NO POST and NO PUT. A refusal that still filed
+    a partial artifact would be indistinguishable, to the attorney, from a
+    finished one.
+    """
+    captured: list[httpx.Request] = []
+    monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    _stub_record_check(monkeypatch, passed=False, disposition="fail_findings")
+
+    out = server.render_docx_draft("m-104", "Bad Draft", _FILLED_DRAFT)
+
+    assert out["fileId"] is None
+    assert out["recordCheck"] == "fail_findings"
+    assert any("not contiguous" in r for r in out["refusals"])
+    assert not [r for r in captured if r.method == "PUT"]
+    assert not [
+        r for r in captured if r.method == "POST" and r.url.path.endswith("/documents/files")
+    ]
+
+
+def test_the_content_gate_runs_BEFORE_the_record_check(monkeypatch) -> None:
+    """Ordering, asserted because it is cheap and the reverse would be wasteful
+    and confusing: a draft with an em dash should be told about the em dash, not
+    handed a record-check verdict it will have to re-earn after fixing it.
+
+    The record check is the expensive step (it downloads and extracts every
+    document on the matter), so a content violation must short-circuit it.
+    """
+    called: list[str] = []
+    monkeypatch.setattr(
+        server, "_collect_matter_sources", lambda _m: called.append("collected") or ([], [])
+    )
+    out = server.render_docx_draft("m-104", "Bad", "Body — dash.\n")
+    assert out["fileId"] is None
+    assert any("em dash" in r for r in out["refusals"])
+    assert not called, "the record check ran despite a content-gate refusal"
+    assert "recordCheck" not in out
