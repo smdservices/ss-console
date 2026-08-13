@@ -13,7 +13,7 @@ an adjuster, opposing counsel, or the client, by any shape.
 **Requested by:** <attorney> (on demand, attorney-initiated)
 **Skeleton:** <the firm's demand skeleton, document <id>>, OR SMD default (`demand-skeleton.md`), the firm's template is not on this seat
 **Record assembled:** <n> documents; <n> held out pending privilege review
-**Gate check:** `drafting_gate_check.py` PASS (<in-skill, code execution authored | harness-side, on the delivery path>)
+**Gate check:** `drafting_gate_check.py` PASS (<in-skill, code execution authored | in `render_docx_draft`, which runs it before it files>)
 **Reserved for you:** <n> attorney decision points, listed below
 **Record gaps:** <n> NOT IN RECORD markers, listed below
 

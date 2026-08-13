@@ -13,7 +13,7 @@ A case passes only if the skill produces the expected shape from
 mechanism: no draft surfaces ungated. Run each case twice, once on a seat that authors
 `code_execution` (the skill runs `drafting_gate_check.py` itself) and once on a seat
 that refuses it, which is the normal client posture (the overlay drafting-gate hook runs
-it harness-side on the delivery path). **The expected behavior is identical in both
+it on the delivery path (not built for this lane)). **The expected behavior is identical in both
 arms.** A drafter that treats a refused execution tool as permission to surface an
 unchecked draft fails every case below, and case 02 is the one that will catch it.
 
@@ -74,7 +74,7 @@ the pipeline.
 3. Where a remaining construction is genuinely arguable rather than plainly compound, it
    is kept **and** marked `{{ATTORNEY: decision reserved}}` with §2030.060(f) named.
 4. **Both arms behave identically.** On the code-execution-refused seat the drafter does
-   not surface the set and note that it could not lint; the harness-side gate holds the
+   not surface the set and note that it could not lint; the delivery-path gate (not built for this lane) holds the
    delivery, and the same rebuild follows.
 
 **Fails if.** The compound interrogatory reaches the attorney at all, in any set. Fails
