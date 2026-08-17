@@ -25,13 +25,25 @@
 #   * well-formedness: `enforced` ⇒ names a live_probe + wired_via; `unprobed`
 #     and `inert` ⇒ carry owner + tracking + note (cannot rot undocumented).
 #
-# WHAT IS DEFERRED. The live negative-fire PROBE suite (boot-time / staging
-# "exceeding the caps actually halts") is Component 3 of the harness design and
-# overlaps ADR 0050 **B3** ("Confirm sticky-stop is live in the dispatch path …
-# verify on staging that exceeding the caps actually halts"). Per Captain
-# decision 2026-06-18 it folds into B3's mandated design review, NOT this change.
-# `live_probe` / `probe_surface` fields are recorded here so the registry is the
-# shared spec that review navigates by; the probe MECHANISM is not built here.
+# COMPONENT 3 NOW EXISTS (ss#2387, 2026-08-17), and this paragraph replaces the
+# deferral that stood here. The negative-fire probe suite is
+# operator/bin/control-probes.py, and its per-control specs are the sibling file
+# operator/contracts/runtime-control-probes.yaml. Every probe name this registry
+# cites (`live_probe`, `candidate_probe`) must resolve to an entry there, which
+# is what stops a status from resting on a string.
+#
+# The suite STILL WIRES NOTHING, which is why an inert row stays inert: its probe
+# asks whether anything on a dispatch path calls the arm, gets no, and records
+# EXPECTED_FAIL. That is the honest reading of a control nobody calls, not a hole
+# in the probe. The reverse is a finding: an inert row whose probe FIRES means
+# this registry is wrong and the run goes red.
+#
+# WHAT IS STILL DEFERRED. Local probes run against the in-repo substrate and
+# prove the substrate refuses; they cannot prove the live dispatch path invokes
+# it. Every overlay-resident control is therefore probed only by a `seat` entry,
+# and no seat driver is authored yet, so those probes HOLD (loud, exit 2) rather
+# than reporting a status nobody measured. Authoring the drivers is the remaining
+# half of ADR 0050 B3, and no status below moves on the strength of this file.
 #
 # RELATIONSHIP TO ADR 0050. ADR 0050 locks the task-execution taxonomy (7
 # archetypes; execution classes N/C/R/D/A/O; the cross-cutting safety guard).
@@ -77,9 +89,18 @@
 #                          way this registry exists to expose.
 #                      Empty ONLY for a root-side process outside dispatch entirely
 #                      (see spec_applier), which has neither.
-#   live_probe       — name of the negative-fire probe that proves it fires.
-#                      Recorded for the B3 review; the probe itself is not built
-#                      here. Empty for unprobed/inert.
+#   live_probe       — name of the negative-fire probe that PROVES it fires; must
+#                      resolve to an entry in runtime-control-probes.yaml. Empty
+#                      for unprobed/inert.
+#   candidate_probe  — for unprobed/inert ONLY: the probe authored for this
+#                      control that has not yet come back green. Deliberately a
+#                      different field from live_probe, because naming a probe
+#                      must never be mistakable for having passed one. Also
+#                      resolves against runtime-control-probes.yaml.
+#   risk_review      — for unprobed/inert ONLY: a dated, Captain-visible sentence
+#                      on what is unproven and what it would cost. Dated because
+#                      an undated risk note is indistinguishable from one nobody
+#                      has looked at since it was written.
 #   probe_surface    — staging | prod-boot. Where the probe is permitted to run.
 #                      prod-boot is EARNED (a probe earns os._exit boot-gate
 #                      privilege only after a staging flakiness bar). Empty for
@@ -138,6 +159,12 @@ controls:
     status: unprobed
     owner: SMDurgan
     tracking: ADR-0050:B3
+    candidate_probe: seat_inbound_boundary_withholds
+    risk_review: >-
+      2026-08-17 (ss#2387): probe authored, driver NOT authored, so it holds. The
+      exposure while it holds is that an inbound payload from an unverified
+      sender could reach the autonomous path and nothing would say so until a
+      client noticed the reply. Owner SMDurgan, tracked at ADR-0050:B3.
     note: >-
       Safety-critical hook (routes inbound webhook payloads + applies the inbound
       trust boundary, ADR 0027/0032). It IS registered, but no negative-fire probe
@@ -155,6 +182,14 @@ controls:
     status: unprobed
     owner: SMDurgan
     tracking: '#2079'
+    candidate_probe: seat_voice_gate_downgrades
+    risk_review: >-
+      2026-08-17 (ss#2387): probe authored, driver NOT authored, so it holds. The
+      gate is fail-closed today, so the live exposure is the opposite of unsafe:
+      every autonomous outside send is downgrading to draft for a reason nobody
+      chose, and no probe would tell us the day that stops. ADR 0083 repoints it,
+      and a driver authored against mechanism B would have to be rewritten with
+      that change. Owner SMDurgan, tracked at #2079.
     note: >-
       ADR 0028's outbound voice gate. Registered here BEFORE it is rewritten,
       because its absence from this registry was itself an instance of the class
@@ -190,6 +225,13 @@ controls:
     status: unprobed
     owner: SMDurgan
     tracking: '#2084'
+    candidate_probe: seat_spec_applier_refuses_bad_hash
+    risk_review: >-
+      2026-08-17 (ss#2387): probe authored, driver NOT authored, so it holds.
+      Note the probe shape this control needs is fail-STATIC, not fail-closed:
+      the pass condition includes that the previously installed tree keeps
+      serving, so a refusal-only driver would miss half of it. Owner SMDurgan,
+      tracked at #2084.
     note: >-
       ss ADR 0083. Pulls the portal-written vaults/<slug>/output-classes.json,
       verifies each body against its declared sha256, and installs a root-owned
@@ -361,6 +403,13 @@ controls:
     status: unprobed
     owner: SMDurgan
     tracking: ADR-0050:B0
+    candidate_probe: seat_taint_blocks_autonomous_send
+    risk_review: >-
+      2026-08-17 (ss#2387): probe authored, driver NOT authored, so it holds. The
+      verified hole (untrusted content read through the code-execution channel)
+      is closed in code and unproven at runtime; the residual delegate_task
+      result-laundering path is not covered by the authored probe at all and
+      needs design before it can be. Owner SMDurgan, tracked at ADR-0050:B0.
     note: >-
       Sticky SessionTaint gate (an untrusted-fed turn cannot autonomously
       send/destroy/exec). ADR 0050 B0's MAIN bypass is now CLOSED + LIVE: the
@@ -430,6 +479,14 @@ controls:
     status: inert
     owner: SMDurgan
     tracking: ADR-0050:B3
+    candidate_probe: tool_failure_arm_has_no_dispatch_caller
+    risk_review: >-
+      2026-08-17 (ss#2387): now PROBED as inert rather than asserted as inert. The
+      probe drives the ladder (it still climbs) and then searches for a non-test
+      caller (there is none), so it records EXPECTED_FAIL. Exposure unchanged: a
+      seat looping on a failing tool has no brake and stops only on cost. The day
+      a caller appears in ss-console the probe flips to UNEXPECTED_PASS and this
+      row goes red. Owner SMDurgan, tracked at ADR-0050:B3.
     note: >-
       record_tool_failure() consecutive-failure ladder (WARN/SOFT_STOP/HARD_STOP).
       Built + tested; no dispatch caller. Wired by B3 (StickyStopError integration
@@ -445,6 +502,14 @@ controls:
     status: inert
     owner: SMDurgan
     tracking: ADR-0050:B3
+    candidate_probe: refusal_cascade_arm_has_no_dispatch_caller
+    risk_review: >-
+      2026-08-17 (ss#2387): probed as inert, EXPECTED_FAIL. Worth recording that
+      the first version of this probe reported a caller in
+      safety-substrate/refusal.py and was wrong: it had grepped a docstring
+      sentence. The probe parses calls now, which is the difference between a
+      control declared live by prose and one declared live by a call site. Owner
+      SMDurgan, tracked at ADR-0050:B3.
     note: >-
       record_refusal() refusal-cascade ladder. Built + tested; no dispatch caller.
       Wired by B3.
@@ -459,6 +524,12 @@ controls:
     status: inert
     owner: SMDurgan
     tracking: ADR-0050:B3
+    candidate_probe: time_budget_arm_has_no_dispatch_caller
+    risk_review: >-
+      2026-08-17 (ss#2387): probed as inert, EXPECTED_FAIL. Exposure unchanged: a
+      single run has no wall-clock brake, and the only backstop is the cost cap,
+      which is a different question asked slowly. Owner SMDurgan, tracked at
+      ADR-0050:B3.
     note: >-
       record_runtime_seconds() 3600s wall-clock single-run cap → SOFT_STOP. Built
       + tested; no dispatch caller. Wired by B3.
@@ -511,6 +582,13 @@ controls:
     status: unprobed
     owner: SMDurgan
     tracking: '#2003'
+    candidate_probe: seat_entitlement_lowered_downgrades
+    risk_review: >-
+      2026-08-17 (ss#2387): probe authored, driver NOT authored, so it holds.
+      This is the one on the list a client touches directly: a Named
+      Administrator lowering a routine's level has no proof the next execution
+      obeys it, and the promotion path in the note below is still the only route
+      to enforced. Owner SMDurgan, tracked at #2003.
     note: >-
       Portal entitlement dial (ss#2003 Q7, agreement §2.4-2.5): Named
       Administrator changes a routine's tier in the portal -> console compiles

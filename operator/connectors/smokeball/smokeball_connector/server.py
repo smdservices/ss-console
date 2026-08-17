@@ -364,7 +364,120 @@ def _attach_parties(client: Any, matter: Any) -> None:
         return
 
 
-# ---- Matter-ref enrichment (tasks, events) --------------------------------
+# ---- Matter-party join on the ROLES reads (ADR 0086 / ss#2167) ------------
+#
+# ADR 0086 names ``get_roles_on_matter`` / ``get_relationships_on_matter`` the
+# canonical seeding sources for matter membership — they are the reads that
+# answer "who is on this matter". THE VENDOR PAYLOAD DOES NOT CARRY THE JOIN.
+# ``/matters/{id}/roles`` is a sub-resource: each record names its contact by id
+# and the matter appears only in the request path, so a role record carries
+# neither the party's ADDRESS (which is on the contact) nor the matter's NUMBER
+# (which is on the matter). Both halves of the (matterNumber, email) pair are one
+# fetch away and nothing was performing that fetch, so the reads that describe
+# matter membership taught the membership register nothing at all.
+#
+# So the connector attaches it, in the ``_attach_matter_ref`` fail-safe shape: an
+# unresolved contact, an unresolved matter, or an address-less party attaches
+# NOTHING to that record. A record with no ``party_of_matter`` key supplies no
+# membership, which is precisely the *unresolved* verdict the gate must reach
+# when it cannot see — never "not a party".
+#
+# The key is explicit and single-purpose (``party_of_matter``) rather than a bare
+# ``matterId``, because the overlay's capture walks every dict in a payload: an
+# inferred join ("this dict has a matter id and an email, so they must be
+# related") is exactly the cross-product inference that pair provenance exists to
+# refuse. This key is an assertion made in code from a resolved fetch.
+#
+# NOTE ON COMPLETENESS, deliberately absent: no ``*_complete`` flag is attached
+# here. Seeding from roles can only ADD proven parties, which makes the gate more
+# permissive and can never manufacture a mismatch. Closing a set is what enables a
+# withhold, and a roles listing is not provably the whole membership of a matter
+# (Smokeball pages it, and a party can exist with no role record). ss#2264's
+# contact axis and ``parties_complete`` remain the only two closers.
+_ROLE_PARTY_MAX_LOOKUPS = 40
+
+#: Where a role / relationship record can name its contact. Checked in order; an
+#: unrecognized shape resolves nothing and the record is left untouched.
+_ROLE_CONTACT_KEYS: tuple[str, ...] = ("contactId", "contact_id", "contact", "party")
+
+
+def _role_contact_id(record: Any) -> str:
+    """The contact id a role/relationship record refers to, or ``""``.
+
+    Deliberately does NOT fall back to the record's own ``id``: that is the ROLE
+    id, and resolving it as a contact would either 404 (harmless) or, worse,
+    collide with a real contact id and attach a WRONG address to a matter. A
+    wrong party is the one output this whole control exists to prevent.
+    """
+    if not isinstance(record, dict):
+        return ""
+    for key in _ROLE_CONTACT_KEYS:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            inner = value.get("id")
+            if isinstance(inner, str) and inner.strip():
+                return inner.strip()
+    return ""
+
+
+def _iter_role_records(resp: Any) -> list[dict]:
+    """The role/relationship records in a response envelope.
+
+    Handles the two shapes the connector sees elsewhere — a HATEOAS envelope
+    (``{"value": [...]}``) and a bare list — plus a single record. An
+    unrecognized shape yields nothing, which attaches nothing.
+    """
+    if isinstance(resp, dict):
+        items = resp.get("value")
+        if isinstance(items, list):
+            return [i for i in items if isinstance(i, dict)]
+        return [resp]
+    if isinstance(resp, list):
+        return [i for i in resp if isinstance(i, dict)]
+    return []
+
+
+def _attach_matter_party_join(client: Any, matter_id: str, resp: Any) -> None:
+    """Mutate a roles / relationships response in place, landing
+    ``(party_of_matter, matterNumber, email)`` on each record whose contact
+    resolves to an address.
+
+    Fail-safe in every direction: a failed contact fetch, a party with no email,
+    an exhausted lookup budget, or an unresolvable matter number all leave the
+    record exactly as the vendor returned it.
+    """
+    if not matter_id:
+        return
+    try:
+        records = _iter_role_records(resp)
+        if not records:
+            return
+        contact_cache: dict[str, dict | None] = {}
+        matter_cache: dict[str, dict[str, str] | None] = {}
+        budget = [_ROLE_PARTY_MAX_LOOKUPS]
+        ref = _resolve_matter_ref(client, matter_id, matter_cache, None)
+        number = (ref or {}).get("number")
+        for record in records:
+            contact_id = _role_contact_id(record)
+            if not contact_id:
+                continue
+            party = _resolve_party(client, contact_id, contact_cache, budget)
+            if party is None:
+                continue  # unresolved: attach nothing rather than a half-fact
+            email = party.get("email")
+            if not email:
+                continue  # a party we cannot address supplies no membership
+            record["party_of_matter"] = matter_id
+            record["email"] = email
+            if isinstance(number, str) and number:
+                record["matterNumber"] = number
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        return
+
+
+# ---- Matter-ref enrichment (tasks, events, memos, files) ------------------
 # A task or event carries its matter as ``matter: {href, id, rel}`` — a GUID and
 # nothing else. The human-readable number lives on the matter record. Rendering
 # "2026-PI-101" beside a task therefore requires a matter.id -> matter.number
@@ -377,6 +490,21 @@ def _attach_parties(client: Any, matter: Any) -> None:
 # Fail-safe direction, deliberately: an unresolved ref attaches NOTHING. A task
 # with no ``matterNumber`` gives the model nothing to copy, which is the safe
 # failure — it can only fail to supply a number, never supply a wrong one.
+#
+# Three shapes bind a record to its matter, and the projection reads all three
+# (ss#2390) so the memo and document surfaces are projected exactly like tasks:
+#
+#   1. ``matter: {id, ...}``  — tasks, events (GET /tasks, GET /events)
+#   2. ``matterId: "<guid>"`` — memos (GET /matters/{id}/memos), read_document
+#   3. neither                — files (GET /matters/{id}/documents/files carries
+#      only file metadata; the matter lives in the REQUEST PATH). Those surfaces
+#      pass the path argument as ``matter_id``, which is the same GUID the API
+#      just scoped the read to, never a GUID inferred from anything.
+#
+# Precedence is record-first: a GUID the record itself carries outranks the
+# caller's fallback, because the record is the binding and the argument is only
+# the route to it. They agree on every matter-scoped read; if they ever did not,
+# the record wins.
 
 
 def _resolve_matter_ref(
@@ -413,28 +541,50 @@ def _resolve_matter_ref(
     return ref
 
 
+def _item_matter_id(item: dict[str, Any]) -> str | None:
+    """The matter GUID a record carries about ITSELF, or None.
+
+    Reads the two shapes the API uses (``matter: {id}`` on tasks and events,
+    ``matterId`` on memos and document reads) and nothing else. It never derives
+    a GUID from a name, a subject line, or a neighbouring record: a record that
+    does not state its matter has no matter here, and the caller either supplies
+    the request-path GUID or the record goes unprojected."""
+    matter = item.get("matter")
+    if isinstance(matter, dict):
+        candidate = matter.get("id")
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    candidate = item.get("matterId")
+    if isinstance(candidate, str) and candidate:
+        return candidate
+    return None
+
+
 def _attach_matter_ref(
     client: Any,
     item: Any,
     *,
     cache: dict[str, dict[str, str] | None] | None = None,
     budget: list[int] | None = None,
+    matter_id: str | None = None,
 ) -> None:
-    """Mutate a matter-bound item (task, event) in place, adding ``matterNumber``
-    and ``matterCaption`` resolved from its own ``matter.id``. No-op when the item
-    carries no matter ref or the matter cannot be resolved."""
+    """Mutate a matter-bound record (task, event, memo, file, document read) in
+    place, adding ``matterNumber`` and ``matterCaption`` resolved from the matter
+    the record is bound to. No-op when the record names no matter and the caller
+    supplies none, or when the matter cannot be resolved.
+
+    ``matter_id`` is the fallback for surfaces whose records carry no matter ref
+    of their own because the matter was in the request path (files, folders). It
+    is used ONLY when the record states nothing itself."""
     if not isinstance(item, dict):
         return
     try:
-        matter = item.get("matter")
-        if not isinstance(matter, dict):
-            return
-        matter_id = matter.get("id")
-        if not isinstance(matter_id, str) or not matter_id:
+        resolved_id = _item_matter_id(item) or matter_id
+        if not isinstance(resolved_id, str) or not resolved_id:
             return
         if cache is None:
             cache = {}
-        ref = _resolve_matter_ref(client, matter_id, cache, budget)
+        ref = _resolve_matter_ref(client, resolved_id, cache, budget)
         if not ref:
             return
         if "number" in ref:
@@ -511,19 +661,38 @@ def _stamp(text: str | None) -> str | None:
     return text if text.lstrip().startswith(_PROVENANCE_MARK) else f"{_PROVENANCE_MARK} {text}"
 
 
-def _attach_matter_refs_to_list(client: Any, resp: Any) -> None:
-    """Best-effort matter-ref enrichment over a ``list_tasks`` / ``list_events``
-    HATEOAS envelope, bounded to ``_MATTER_REF_MAX_LOOKUPS`` distinct matter
-    lookups (shared cache, so a single-matter listing costs one GET)."""
-    if not isinstance(resp, dict):
+def _attach_matter_refs_to_list(
+    client: Any, resp: Any, *, matter_id: str | None = None
+) -> None:
+    """Best-effort matter-ref enrichment over a list response, bounded to
+    ``_MATTER_REF_MAX_LOOKUPS`` distinct matter lookups (shared cache, so a
+    single-matter listing costs one GET no matter how many rows it holds — the
+    N+1 the ``_attach_captions_to_list`` pattern already avoids).
+
+    Accepts the ``{"value": [...]}`` HATEOAS envelope (tasks, events, files) and
+    a bare list (the memo surface returns either). ``matter_id`` is the
+    request-path matter for matter-scoped reads; it is also projected onto the
+    ENVELOPE, so a listing that comes back empty still carries the number the
+    read was scoped to and a skill reporting "nothing on file" can name the
+    matter without composing the name."""
+    if isinstance(resp, list):
+        items: Any = resp
+        envelope: dict[str, Any] | None = None
+    elif isinstance(resp, dict):
+        items = resp.get("value")
+        envelope = resp
+    else:
         return
-    items = resp.get("value")
     if not isinstance(items, list):
         return
     cache: dict[str, dict[str, str] | None] = {}
     budget = [_MATTER_REF_MAX_LOOKUPS]
     for item in items:
-        _attach_matter_ref(client, item, cache=cache, budget=budget)
+        _attach_matter_ref(client, item, cache=cache, budget=budget, matter_id=matter_id)
+    if envelope is not None and matter_id:
+        _attach_matter_ref(
+            client, envelope, cache=cache, budget=None, matter_id=matter_id
+        )
 
 
 # ---- Auth -----------------------------------------------------------------
@@ -975,32 +1144,62 @@ def get_staff(staff_id: str) -> Any:
 # ---- Roles / relationships ------------------------------------------------
 @server.tool()
 def get_roles_on_matter(matter_id: str) -> Any:
-    """Get the roles (parties) on a matter."""
-    return _get_client().get(f"/matters/{matter_id}/roles")
+    """Get the roles (parties) on a matter.
+
+    Each record is enriched with ``party_of_matter``, ``matterNumber`` and the
+    party's ``email`` where they resolve (ADR 0086 / ss#2167) — this read is the
+    canonical "who is on this matter", and the outbound matter-identity gate
+    needs the ADDRESS to answer "is this recipient a party?". Fail-safe: an
+    unresolved contact or matter attaches nothing to that record."""
+    client = _get_client()
+    resp = client.get(f"/matters/{matter_id}/roles")
+    _attach_matter_party_join(client, matter_id, resp)
+    return resp
 
 
 @server.tool()
 def get_relationships_on_matter(matter_id: str, role_id: str) -> Any:
     """Get the relationships attached to a role on a matter. (The API nests
     relationships under a role, so role_id is required — a connect-step
-    refinement of the surface-doc single-arg signature.)"""
-    return _get_client().get(f"/matters/{matter_id}/roles/{role_id}/relationships")
+    refinement of the surface-doc single-arg signature.)
+
+    Enriched with the same ``(party_of_matter, matterNumber, email)`` join as
+    ``get_roles_on_matter``: a relationship is how opposing counsel and adjusters
+    attach to a matter, and those are exactly the OUTSIDE recipients ADR 0086
+    requires to pair."""
+    client = _get_client()
+    resp = client.get(f"/matters/{matter_id}/roles/{role_id}/relationships")
+    _attach_matter_party_join(client, matter_id, resp)
+    return resp
 
 
 # ---- Files / documents ----------------------------------------------------
 @server.tool()
 def get_files_on_matter(matter_id: str, limit: int = 500, offset: int = 0) -> Any:
-    """List documents/files on a matter."""
-    return _get_client().get(
-        f"/matters/{matter_id}/documents/files", Limit=limit, Offset=offset
-    )
+    """List documents/files on a matter.
+
+    A file record carries only file metadata, so the number is resolved from the
+    matter this read was scoped to and projected onto every row and onto the
+    envelope (``matterNumber`` / ``matterCaption``, best-effort, one lookup for
+    the whole listing). Cite those fields; a listing without them has no number
+    to cite. See the matter-ref enrichment block."""
+    client = _get_client()
+    resp = client.get(f"/matters/{matter_id}/documents/files", Limit=limit, Offset=offset)
+    _attach_matter_refs_to_list(client, resp, matter_id=matter_id)
+    return resp
 
 
 @server.tool()
 def get_file(matter_id: str, file_id: str) -> Any:
     """Get one file's metadata. (Needs matter_id + file_id — the file lives under
-    its matter, not a flat /files/{id}.)"""
-    return _get_client().get(f"/matters/{matter_id}/documents/files/{file_id}")
+    its matter, not a flat /files/{id}.)
+
+    Enriched with ``matterNumber`` and ``matterCaption`` resolved from the matter
+    the file lives under (best-effort; absent if the matter cannot be resolved)."""
+    client = _get_client()
+    file = client.get(f"/matters/{matter_id}/documents/files/{file_id}")
+    _attach_matter_ref(client, file, matter_id=matter_id)
+    return file
 
 
 @server.tool()
@@ -1022,10 +1221,17 @@ def read_document(
     Classified ``read``. Unsupported/malformed types return an explicit error
     (fail closed, no guessing). ``offset``/``max_chars`` page long documents:
     the response carries ``total_chars`` and ``truncated`` so a caller knows to
-    page. Size ceiling 25 MB."""
+    page. Size ceiling 25 MB.
+
+    The response carries ``matterNumber`` / ``matterCaption`` resolved from
+    ``matterId`` in code, because the skills that read documents are the ones
+    that go on to quote them in a draft, and the number in that draft must come
+    from the read rather than from the document's own text (a served pleading
+    names ITS matter, which is not always this one)."""
     from .extract import UnsupportedDocumentError, extract_text
 
-    info, blob = _get_client().download_file(matter_id, file_id)
+    client = _get_client()
+    info, blob = client.download_file(matter_id, file_id)
     try:
         text = extract_text(
             blob,
@@ -1033,15 +1239,17 @@ def read_document(
             file_extension=str(info.get("fileExtension") or ""),
         )
     except UnsupportedDocumentError as exc:
-        return {
+        unsupported = {
             "fileId": file_id,
             "matterId": matter_id,
             "name": info.get("name"),
             "fileExtension": info.get("fileExtension"),
             "error": str(exc),
         }
+        _attach_matter_ref(client, unsupported)
+        return unsupported
     window = text[offset : offset + max_chars]
-    return {
+    read = {
         "fileId": file_id,
         "matterId": matter_id,
         "name": info.get("name"),
@@ -1052,6 +1260,8 @@ def read_document(
         "truncated": offset + max_chars < len(text),
         "text": window,
     }
+    _attach_matter_ref(client, read)
+    return read
 
 
 @server.tool()
@@ -1438,9 +1648,17 @@ def _slim_memos(resp: Any) -> Any:
 def get_memos_on_matter(matter_id: str, limit: int = 500, offset: int = 0) -> Any:
     """List memos (internal log entries) on a matter. The redundant RTF ``text``
     rendering is dropped when ``plainText`` is present (lossless — see the note
-    above; ~half the payload is RTF markup the agent does not read)."""
-    resp = _get_client().get(f"/matters/{matter_id}/memos", Limit=limit, Offset=offset)
-    return _slim_memos(resp)
+    above; ~half the payload is RTF markup the agent does not read).
+
+    Each memo is enriched with ``matterNumber`` and ``matterCaption`` resolved
+    from its own ``matterId`` (best-effort, one lookup for the listing). A memo
+    is where one matter's facts most easily reach another matter's record (the
+    2026-07-14 merge, provenance audit §3.4), so the number beside a memo is
+    read from the record rather than recalled."""
+    client = _get_client()
+    resp = _slim_memos(client.get(f"/matters/{matter_id}/memos", Limit=limit, Offset=offset))
+    _attach_matter_refs_to_list(client, resp, matter_id=matter_id)
+    return resp
 
 
 @server.tool()

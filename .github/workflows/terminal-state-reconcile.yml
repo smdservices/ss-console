@@ -1,0 +1,157 @@
+# Find routine runs that ended in no observable terminal state.
+#
+# WHY (ss#2388, hardening track 4). Every triggered routine run is supposed to
+# end in exactly one observable terminal state: delivered, refused with the
+# reason delivered, or escalated. Two incidents show what happens when nothing
+# checks that. In ss#2367 the Operator filed a correct demand letter, had its
+# reply held by the fabrication gate, and the turn ended 23 seconds later with
+# no redraft, no note, no escalation: the firm asked for a letter and got
+# silence. In ss#2136 `hermes cron run` printed "Ran now: succeeded." and wrote
+# zero audit rows. Silence is the one outcome a client cannot tell from success,
+# so something has to read absence on a schedule.
+#
+# Console-side, like the unaudited-send reconciler: the failure being measured is
+# the seat not writing a row, and a seat-side check that depends on the seat
+# writing rows cannot see it.
+#
+# LOUD HOLD, and this differs from unaudited-send-reconcile.yml on purpose. That
+# workflow exits 0 when its credential is missing, so a rotated secret reads as a
+# green control until somebody looks. Here a missing credential (exit 3) FAILS
+# the run and writes the reason to the job summary. A control that could not run
+# has not passed. A per-seat read failure is still reported as a hold line and
+# does not by itself fail anything, because pinging on one seat's network blip is
+# how controls get muted.
+#
+#   exit 0  clean    every evaluated run reached a terminal state
+#   exit 1  finding  a run ended in silence; an issue is filed
+#   exit 3  HOLD     nothing could be evaluated; the run goes red, loudly
+
+name: terminal-state-reconcile
+
+on:
+  schedule:
+    # 06:41 UTC daily. Off the hour and off the unaudited-send slot (13:17) so
+    # the two audit controls do not contend for the same seam.
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Only consider runs in the last N days (blank = all)'
+        required: false
+  pull_request:
+    paths:
+      - 'operator/bin/reconcile-outcomes.py'
+      - 'operator/bin/tests/test_reconcile_outcomes.py'
+      - 'operator/bin/tests/fixtures/**'
+      - 'operator/contracts/terminal-states.yaml'
+      - '.github/workflows/terminal-state-reconcile.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '>=3.11'
+
+      - name: Install pytest
+        run: python3 -m pip install --quiet pytest pyyaml
+
+      # The unit tests gate the scheduled run. A reconciler whose matcher is
+      # broken reports either nothing or everything, and both are worse than no
+      # report at all: the fixtures are the two real incidents, so this step
+      # failing means the control can no longer see what already happened once.
+      - name: Test the reconciler against the captured incidents
+        run: python3 -m pytest operator/bin/tests/test_reconcile_outcomes.py -q
+
+      # On pull_request there are no secrets and no seat to read. The tests
+      # above are the whole job, and that is stated rather than skipped
+      # silently.
+      - name: Reconcile every seat
+        if: github.event_name != 'pull_request'
+        id: reconcile
+        env:
+          OPERATOR_RUNTIME_READ_SECRET: ${{ secrets.OPERATOR_RUNTIME_READ_SECRET }}
+          OPERATOR_RUNTIME_READ_URL: ${{ secrets.OPERATOR_RUNTIME_READ_URL }}
+          # Via env, never interpolated into the script body: a workflow_dispatch
+          # input is user-supplied and would otherwise be a shell-injection seam.
+          RECONCILE_DAYS: ${{ github.event.inputs.days }}
+        run: |
+          set -u
+          ARGS=""
+          if [ -n "${RECONCILE_DAYS:-}" ]; then
+            ARGS="--days ${RECONCILE_DAYS}"
+          fi
+          # `|| STATUS=$?` is load-bearing (ss#2309): under `bash -e` an
+          # unguarded non-zero exit aborts the step before the report is printed
+          # and before `status` reaches GITHUB_OUTPUT, which mutes the control in
+          # exactly the case it exists for.
+          # shellcheck disable=SC2086 -- ARGS is built above, not caller-supplied.
+          STATUS=0
+          python3 operator/bin/reconcile-outcomes.py $ARGS > outcomes.txt 2>&1 || STATUS=$?
+          cat outcomes.txt
+          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+          # Contract: 0 clean, 1 finding (next step files it), 3 hold (the step
+          # after that fails the run loudly). Anything else is the control
+          # itself breaking, and must fail here.
+          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 1 ] && [ "${STATUS}" -ne 3 ]; then
+            exit "${STATUS}"
+          fi
+
+      - name: Open an issue when a run ended in silence
+        if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "A triggered routine run ended in no observable terminal state."
+            echo
+            echo "Every run is supposed to end delivered, refused with the reason"
+            echo "delivered, or escalated. Anything listed below ended in silence,"
+            echo "which from a client's side is indistinguishable from nothing"
+            echo "having happened (ss#2367) or from nothing having run (ss#2136)."
+            echo
+            echo '```'
+            cat outcomes.txt
+            echo '```'
+            echo
+            echo "Contract: \`operator/contracts/terminal-states.yaml\`."
+            echo "Reconciler: \`operator/bin/reconcile-outcomes.py\` (ss#2388)."
+            echo "Run: ${RUN_URL}"
+          } > body.md
+          gh issue create \
+            --repo "${REPO}" \
+            --title "Routine run with no terminal state $(date -u +%Y-%m-%d)" \
+            --label "prio:P1" --label "type:bug" \
+            --body-file body.md
+
+      # THE LOUD HOLD. A control that cannot run has not passed, and a green
+      # check that means "nothing was measured" is the failure this whole track
+      # exists to remove.
+      - name: Fail loudly when nothing could be evaluated
+        if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '3'
+        run: |
+          {
+            echo "## Terminal-state reconciler: HOLD"
+            echo
+            echo "Nothing was evaluated. This is NOT a clean fleet: it is a"
+            echo "control that could not run (missing credential, or every seat"
+            echo "failed to read). Fix the cause and re-run before treating any"
+            echo "seat's outcomes as reconciled."
+            echo
+            echo '```'
+            cat outcomes.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat outcomes.txt
+          echo "::error title=terminal-state reconciler HOLD::nothing evaluated; the control did not run"
+          exit 1
