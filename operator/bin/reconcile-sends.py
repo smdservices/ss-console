@@ -29,9 +29,17 @@ MATCHING, two passes:
 
 FAIL-CLOSED, THE OTHER WAY. A failed seam read must never read as "zero audit
 rows", which would mark every send unaccounted and mute this within a week. A
-transport failure HOLDS (exit 0, reported as unknown); only a successful read
-with unmatched sends is a finding. Same tri-state as connector_check: absence is
-a hold, corruption is a page.
+transport failure HOLDS: it accuses nobody and files no issue, and only a
+successful read with unmatched sends is a finding. Same tri-state as
+connector_check: absence is a hold, corruption is a page.
+
+A HOLD IS NOT A PASS (ss#2386 review). It exits 2 and reddens the run. The
+ss#2258 lesson is that a control must not page on its own blips, which is why a
+hold files no issue -- but a hold that exits 0 leaves an unevaluated control
+looking identical to a healthy one, and that is how a watchdog sits inert for
+weeks. Exit codes: 0 clean, 1 findings, 2 nothing measured, anything else the
+control itself broke. The sibling watchdogs hold the same posture
+(control-probes.py exits 2 on hold, reconcile-outcomes.py exits 3).
 
 MEMORY (ss#2386). A watchdog with no memory re-reports its own history: this one
 filed a fresh P1 every scheduled run for the same 11 finds until five copies of
@@ -103,6 +111,18 @@ KNOWN_NON_SEAT_INBOXES: dict[str, str] = {
     "agentcrane@agentmail.to": "Crane venture mailbox, not an SMD Operator seat",
     "smdcrane@agentmail.to": "Crane SMD Services mailbox, not an Operator seat",
 }
+
+#: Exit codes, and the whole contract of this script.
+#:
+#: EXIT_HOLD is NON-ZERO on purpose (ss#2386 review). A hold still never files an
+#: issue and still never accuses anyone -- that half of ss#2258 is unchanged --
+#: but it must not be reported as a pass, because an unevaluated control that
+#: looks green is how a control sits inert for weeks with nobody noticing. Same
+#: posture as the sibling watchdogs: control-probes.py exits 2 on hold,
+#: reconcile-outcomes.py exits 3.
+EXIT_CLEAN = 0
+EXIT_FINDING = 1
+EXIT_HOLD = 2
 
 #: Sends this control has already reported, so a scheduled run alerts only on
 #: what is new. Committed and PR-updated on purpose (ss#2386, see module header).
@@ -306,6 +326,20 @@ def finding_digest(reports: list[InboxReport]) -> str:
     return hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
 
 
+def exit_code(reports: list[InboxReport]) -> int:
+    """0 clean, 1 findings, 2 nothing measured.
+
+    A finding outranks a hold so the issue still gets filed when both are true;
+    the workflow reddens the run off the HOLD lines in the report, not off this
+    code, so a hold can never be lost behind a finding.
+    """
+    if any(report.is_finding for report in reports):
+        return EXIT_FINDING
+    if any(report.held for report in reports):
+        return EXIT_HOLD
+    return EXIT_CLEAN
+
+
 def baseline_entries(reports: list[InboxReport]) -> list[dict]:
     """The findings, shaped as baseline rows a human can paste into a PR."""
     return [
@@ -452,7 +486,8 @@ def main(argv: list[str] | None = None) -> int:
     api_key = os.environ.get("AGENTMAIL_API_KEY")
     if not api_key:
         print("HOLD: AGENTMAIL_API_KEY unset (run under infisical)", file=sys.stderr)
-        return 0  # hold, not a finding
+        # Not a finding, and still not a pass: nothing was measured.
+        return EXIT_HOLD
 
     since = None
     if args.days:
@@ -468,7 +503,7 @@ def main(argv: list[str] | None = None) -> int:
         inboxes = args.inbox or list_inboxes(api_key)
     except ReconcileError as exc:
         print(f"HOLD: {exc}", file=sys.stderr)
-        return 0
+        return EXIT_HOLD
 
     baseline = set() if args.no_baseline else load_baseline(args.baseline)
 
@@ -504,9 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(render(reports))
 
-    # Non-zero ONLY on a real finding. A hold exits 0 so a transport blip cannot
-    # page anyone -- the report still names it.
-    return 1 if any(r.is_finding for r in reports) else 0
+    return exit_code(reports)
 
 
 def _customers_dir() -> str:

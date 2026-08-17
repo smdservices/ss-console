@@ -10,11 +10,16 @@
 # inbox belonging to a decommissioned seat -- or to no seat at all -- is exactly
 # what a seat-side check could never see. From here it is the loudest signal.
 #
-# HOLDS vs FINDS: a transport or credential failure exits 0 and is reported as a
-# hold. Only a successful read with unmatched sends exits non-zero. A control
-# that pages on its own blips gets muted within a week. A hold is still not a
-# pass: it is written to the run summary and annotated as a warning, because an
-# unevaluated control that looks green is the same silence in a nicer colour.
+# HOLDS vs FINDS: a transport or credential failure is a hold, and a hold files
+# no issue. Only a successful read with unmatched sends opens one. A control that
+# pages on its own blips gets muted within a week.
+#
+# A HOLD STILL FAILS THE RUN (ss#2386 review). Filing nothing is not the same as
+# reporting a pass: an unevaluated control that goes green looks exactly like a
+# healthy one, which is how a watchdog sits inert for weeks. Exit codes are
+# 0 clean / 1 findings / 2 nothing measured, and the last step in the job turns
+# any hold red. Standardized with control-probes.py (#2395) and
+# reconcile-outcomes.py (#2399).
 #
 # MEMORY (ss#2386). This job used to file a fresh P1 EVERY DAY re-reporting the
 # same 11 historical finds, until five copies of one finding were open at once.
@@ -105,27 +110,15 @@ jobs:
           python3 operator/bin/reconcile-sends.py $ARGS > reconcile.txt 2>&1 || STATUS=$?
           cat reconcile.txt
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
-          # This reconciler's contract (operator/bin/reconcile-sends.py:367):
-          # 0 is clean OR a hold, 1 is a finding handled by the next step. There
-          # is no exit 2 — anything else that is not 0 or 1 (argparse misuse,
-          # a missing interpreter) is the control failing, and must fail the run.
-          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 1 ]; then exit "${STATUS}"; fi
-          # A HOLD is not a pass. Its exit code is deliberately 0 (ss#2258: a
-          # transport blip must not page), which is exactly why an unevaluated
-          # inbox has to be readable without opening the log: a green run that
-          # measured nothing is the failure this control exists to prevent.
-          if grep '^HOLD' reconcile.txt > holds.txt; then
-            echo "::warning title=Reconcile hold::$(wc -l < holds.txt) inbox(es) could not be evaluated"
-            {
-              echo "### Reconcile HOLD: inbox(es) not evaluated"
-              echo
-              echo "A hold is not a clean run. Nothing was measured here."
-              echo
-              echo '```'
-              cat holds.txt
-              echo '```'
-            } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
-          fi
+          # This reconciler's contract (operator/bin/reconcile-sends.py, EXIT_*):
+          # 0 clean, 1 findings (handled by the next step), 2 nothing measured.
+          # Anything else (argparse misuse, a missing interpreter) is the control
+          # itself breaking, and fails the run right here.
+          if [ "${STATUS}" -gt 2 ]; then exit "${STATUS}"; fi
+          # The hold lines are pulled out here and FAILED ON at the end of the
+          # job, after the issue step has had its turn: a run can hold on one
+          # inbox and find on another, and neither may swallow the other.
+          grep '^HOLD' reconcile.txt > holds.txt || true
 
       - name: Open an issue when a send has no audit record
         if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
@@ -186,3 +179,34 @@ jobs:
             --title "Unaudited send detected $(date -u +%Y-%m-%d)" \
             --label "prio:P1" --label "type:bug" \
             --body-file body.md
+
+      # A HOLD IS NOT A PASS (ss#2386 review). A hold still files no issue --
+      # ss#2258's rule that a control must not page on its own blips is intact --
+      # but it reddens the run, because an unevaluated control that reports green
+      # is indistinguishable from a healthy one, and that is precisely how a
+      # watchdog sits inert for weeks. Standardized with the sibling watchdogs
+      # (control-probes.py #2395, reconcile-outcomes.py #2399).
+      #
+      # Last, and `!cancelled()` rather than `success()`: this must still fire on
+      # a run that also found something, so a hold on one inbox is never
+      # swallowed by a finding on another.
+      - name: Fail the run when an inbox could not be evaluated
+        if: github.event_name != 'pull_request' && !cancelled()
+        run: |
+          set -u
+          if [ ! -s holds.txt ]; then
+            echo "Every inbox was evaluated."
+            exit 0
+          fi
+          echo "::error title=Reconcile hold::$(wc -l < holds.txt) inbox(es) could not be evaluated"
+          {
+            echo "### Reconcile HOLD: run failed because nothing was measured"
+            echo
+            echo "These inboxes were not evaluated, so this run proves nothing about them."
+            echo "No issue is filed for a hold: it is an instrument failure, not a finding."
+            echo
+            echo '```'
+            cat holds.txt
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          exit 1

@@ -92,15 +92,24 @@ describe('the reconcile step reports what the reconciler found (ss#2309)', () =>
     expect(run.failed).toBe(false)
   })
 
-  it('passes the report through untouched on a clean run or a hold', () => {
+  it('passes the report through untouched on a clean run', () => {
     const run = runStep(stepBody(), 0)
     expect(run.failed).toBe(false)
     expect(run.stdout).toContain('UNAUDITED: ops@smdurgan.com 1 send with no audit row')
     expect(run.outputs).toContain('status=0')
   })
 
-  it('still fails the run when the reconciler itself broke (exit 2)', () => {
+  it('records a hold (exit 2) and leaves the failing to the last step', () => {
+    // ss#2386 review: a hold reddens the run, but not HERE — the issue step must
+    // still get its turn on a run that both held and found. The hold lines are
+    // collected now and failed on at the end of the job.
     const run = runStep(stepBody(), 2)
+    expect(run.failed).toBe(false)
+    expect(run.outputs).toContain('status=2')
+  })
+
+  it('still fails the run when the reconciler itself broke (exit 3)', () => {
+    const run = runStep(stepBody(), 3)
     expect(run.failed).toBe(true)
     // Even a broken control must not be silent — the output still reaches the log.
     expect(run.stdout).toContain('UNAUDITED: ops@smdurgan.com 1 send with no audit row')
@@ -274,5 +283,85 @@ describe('the reconciler does not file the same finding twice (ss#2386)', () => 
       openIssues: [{ number: 2344, body: `reconcile-fingerprint: ${FINGERPRINT}` }],
     })
     expect(run.gh).toContain('issue create')
+  })
+})
+
+/**
+ * ss#2386 review. A hold files no issue — ss#2258's rule that a control must not
+ * page on its own blips is intact — but it must not report a pass either. An
+ * unevaluated control that goes green is indistinguishable from a healthy one,
+ * which is exactly the shape that let an inert period pass unnoticed for weeks.
+ * Standardized with the sibling watchdogs shipped the same session
+ * (control-probes.py #2395, reconcile-outcomes.py #2399).
+ */
+describe('a hold fails the run (ss#2386)', () => {
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  const holdStepBody = (): string => {
+    const source = readFileSync(WORKFLOW, 'utf8')
+    const start = source.indexOf('      - name: Fail the run when an inbox could not be evaluated')
+    expect(start).toBeGreaterThan(-1)
+    const body = source.slice(source.indexOf('run: |', start) + 'run: |\n'.length)
+    const lines: string[] = []
+    for (const line of body.split('\n')) {
+      if (line.trim() !== '' && !line.startsWith('          ')) break
+      lines.push(line.slice(10))
+    }
+    return lines.join('\n')
+  }
+
+  /** Run the final step against a given holds.txt (undefined = file absent). */
+  const runHoldStep = (holds: string | undefined) => {
+    dir = mkdtempSync(join(tmpdir(), 'step-2386-hold-'))
+    if (holds !== undefined) writeFileSync(join(dir, 'holds.txt'), holds)
+    const summary = join(dir, 'summary.md')
+    writeFileSync(summary, '')
+    writeFileSync(join(dir, 'step.sh'), holdStepBody())
+    let failed = false
+    let stdout: string
+    try {
+      stdout = execFileSync('bash', ['-e', join(dir, 'step.sh')], {
+        cwd: dir,
+        encoding: 'utf-8',
+        env: { ...process.env, GITHUB_STEP_SUMMARY: summary },
+      })
+    } catch (err) {
+      failed = true
+      stdout = String((err as { stdout?: string }).stdout ?? '')
+    }
+    return { failed, stdout, summary: readFileSync(summary, 'utf-8') }
+  }
+
+  it('fails the run when an inbox could not be evaluated', () => {
+    const run = runHoldStep(
+      'HOLD  pilot-smokeball@agentmail.to: audit_export read failed for pilot-smokeball\n'
+    )
+    expect(run.failed).toBe(true)
+    // Red is not enough on its own: the reason has to be readable without
+    // opening the log, and it must not read as a finding.
+    expect(run.summary).toContain('audit_export read failed')
+    expect(run.summary).toContain('No issue is filed for a hold')
+  })
+
+  it('fails on a missing-credential hold, the case the review named', () => {
+    const run = runHoldStep('HOLD: AGENTMAIL_API_KEY unset (run under infisical)\n')
+    expect(run.failed).toBe(true)
+    expect(run.summary).toContain('AGENTMAIL_API_KEY unset')
+  })
+
+  it('passes when every inbox was evaluated', () => {
+    const run = runHoldStep('')
+    expect(run.failed).toBe(false)
+    expect(run.stdout).toContain('Every inbox was evaluated')
+  })
+
+  it('does not itself break when the reconcile step never produced the file', () => {
+    const run = runHoldStep(undefined)
+    expect(run.failed).toBe(false)
   })
 })

@@ -365,6 +365,45 @@ def test_an_unowned_inbox_is_baselined_like_any_other():
 
 
 # ---------------------------------------------------------------------------
+# exit codes: a hold is not a pass
+#
+# ss#2258 said a control must not page on its own blips, and that stands -- a
+# hold files no issue. It does NOT mean a hold may report success: an
+# unevaluated control that goes green is indistinguishable from a healthy one,
+# which is how a watchdog sits inert for weeks. Standardized with the sibling
+# watchdogs (control-probes.py, reconcile-outcomes.py).
+# ---------------------------------------------------------------------------
+
+
+def test_a_hold_exits_non_zero():
+    held = rec.InboxReport(inbox=_CAPTURED_INBOX, slug="pilot-smokeball", held="seam unreachable")
+    assert rec.exit_code([held]) == rec.EXIT_HOLD
+    assert rec.EXIT_HOLD != rec.EXIT_CLEAN
+
+
+def test_a_clean_run_exits_zero():
+    clean = rec.InboxReport(inbox=_CAPTURED_INBOX, slug="pilot-smokeball", sent_total=3)
+    assert rec.exit_code([clean]) == rec.EXIT_CLEAN
+
+
+def test_a_finding_outranks_a_hold_so_the_issue_still_files():
+    """The workflow files an issue on exit 1 and reddens the run off the HOLD
+    lines in the report, so a run that holds on one inbox and finds on another
+    does both. Neither may swallow the other."""
+    held = rec.InboxReport(inbox="ashton-price@agentmail.to", slug="ashton-price", held="no seam")
+    found = _finding_report(_captured_sends())
+    assert rec.exit_code([held, found]) == rec.EXIT_FINDING
+    assert "HOLD  ashton-price@agentmail.to" in rec.render([held, found])
+
+
+def test_missing_credentials_exit_non_zero(monkeypatch):
+    """The case the review named: a scheduled run with no key measured nothing,
+    and must not be reported as a clean mailbox."""
+    monkeypatch.delenv("AGENTMAIL_API_KEY", raising=False)
+    assert rec.main([]) == rec.EXIT_HOLD
+
+
+# ---------------------------------------------------------------------------
 # the fingerprint the workflow dedupes on
 # ---------------------------------------------------------------------------
 
