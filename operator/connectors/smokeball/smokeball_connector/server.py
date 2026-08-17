@@ -364,6 +364,119 @@ def _attach_parties(client: Any, matter: Any) -> None:
         return
 
 
+# ---- Matter-party join on the ROLES reads (ADR 0086 / ss#2167) ------------
+#
+# ADR 0086 names ``get_roles_on_matter`` / ``get_relationships_on_matter`` the
+# canonical seeding sources for matter membership — they are the reads that
+# answer "who is on this matter". THE VENDOR PAYLOAD DOES NOT CARRY THE JOIN.
+# ``/matters/{id}/roles`` is a sub-resource: each record names its contact by id
+# and the matter appears only in the request path, so a role record carries
+# neither the party's ADDRESS (which is on the contact) nor the matter's NUMBER
+# (which is on the matter). Both halves of the (matterNumber, email) pair are one
+# fetch away and nothing was performing that fetch, so the reads that describe
+# matter membership taught the membership register nothing at all.
+#
+# So the connector attaches it, in the ``_attach_matter_ref`` fail-safe shape: an
+# unresolved contact, an unresolved matter, or an address-less party attaches
+# NOTHING to that record. A record with no ``party_of_matter`` key supplies no
+# membership, which is precisely the *unresolved* verdict the gate must reach
+# when it cannot see — never "not a party".
+#
+# The key is explicit and single-purpose (``party_of_matter``) rather than a bare
+# ``matterId``, because the overlay's capture walks every dict in a payload: an
+# inferred join ("this dict has a matter id and an email, so they must be
+# related") is exactly the cross-product inference that pair provenance exists to
+# refuse. This key is an assertion made in code from a resolved fetch.
+#
+# NOTE ON COMPLETENESS, deliberately absent: no ``*_complete`` flag is attached
+# here. Seeding from roles can only ADD proven parties, which makes the gate more
+# permissive and can never manufacture a mismatch. Closing a set is what enables a
+# withhold, and a roles listing is not provably the whole membership of a matter
+# (Smokeball pages it, and a party can exist with no role record). ss#2264's
+# contact axis and ``parties_complete`` remain the only two closers.
+_ROLE_PARTY_MAX_LOOKUPS = 40
+
+#: Where a role / relationship record can name its contact. Checked in order; an
+#: unrecognized shape resolves nothing and the record is left untouched.
+_ROLE_CONTACT_KEYS: tuple[str, ...] = ("contactId", "contact_id", "contact", "party")
+
+
+def _role_contact_id(record: Any) -> str:
+    """The contact id a role/relationship record refers to, or ``""``.
+
+    Deliberately does NOT fall back to the record's own ``id``: that is the ROLE
+    id, and resolving it as a contact would either 404 (harmless) or, worse,
+    collide with a real contact id and attach a WRONG address to a matter. A
+    wrong party is the one output this whole control exists to prevent.
+    """
+    if not isinstance(record, dict):
+        return ""
+    for key in _ROLE_CONTACT_KEYS:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            inner = value.get("id")
+            if isinstance(inner, str) and inner.strip():
+                return inner.strip()
+    return ""
+
+
+def _iter_role_records(resp: Any) -> list[dict]:
+    """The role/relationship records in a response envelope.
+
+    Handles the two shapes the connector sees elsewhere — a HATEOAS envelope
+    (``{"value": [...]}``) and a bare list — plus a single record. An
+    unrecognized shape yields nothing, which attaches nothing.
+    """
+    if isinstance(resp, dict):
+        items = resp.get("value")
+        if isinstance(items, list):
+            return [i for i in items if isinstance(i, dict)]
+        return [resp]
+    if isinstance(resp, list):
+        return [i for i in resp if isinstance(i, dict)]
+    return []
+
+
+def _attach_matter_party_join(client: Any, matter_id: str, resp: Any) -> None:
+    """Mutate a roles / relationships response in place, landing
+    ``(party_of_matter, matterNumber, email)`` on each record whose contact
+    resolves to an address.
+
+    Fail-safe in every direction: a failed contact fetch, a party with no email,
+    an exhausted lookup budget, or an unresolvable matter number all leave the
+    record exactly as the vendor returned it.
+    """
+    if not matter_id:
+        return
+    try:
+        records = _iter_role_records(resp)
+        if not records:
+            return
+        contact_cache: dict[str, dict | None] = {}
+        matter_cache: dict[str, dict[str, str] | None] = {}
+        budget = [_ROLE_PARTY_MAX_LOOKUPS]
+        ref = _resolve_matter_ref(client, matter_id, matter_cache, None)
+        number = (ref or {}).get("number")
+        for record in records:
+            contact_id = _role_contact_id(record)
+            if not contact_id:
+                continue
+            party = _resolve_party(client, contact_id, contact_cache, budget)
+            if party is None:
+                continue  # unresolved: attach nothing rather than a half-fact
+            email = party.get("email")
+            if not email:
+                continue  # a party we cannot address supplies no membership
+            record["party_of_matter"] = matter_id
+            record["email"] = email
+            if isinstance(number, str) and number:
+                record["matterNumber"] = number
+    except Exception:  # noqa: BLE001 — enrichment must never break the read path
+        return
+
+
 # ---- Matter-ref enrichment (tasks, events, memos, files) ------------------
 # A task or event carries its matter as ``matter: {href, id, rel}`` — a GUID and
 # nothing else. The human-readable number lives on the matter record. Rendering
@@ -1031,16 +1144,33 @@ def get_staff(staff_id: str) -> Any:
 # ---- Roles / relationships ------------------------------------------------
 @server.tool()
 def get_roles_on_matter(matter_id: str) -> Any:
-    """Get the roles (parties) on a matter."""
-    return _get_client().get(f"/matters/{matter_id}/roles")
+    """Get the roles (parties) on a matter.
+
+    Each record is enriched with ``party_of_matter``, ``matterNumber`` and the
+    party's ``email`` where they resolve (ADR 0086 / ss#2167) — this read is the
+    canonical "who is on this matter", and the outbound matter-identity gate
+    needs the ADDRESS to answer "is this recipient a party?". Fail-safe: an
+    unresolved contact or matter attaches nothing to that record."""
+    client = _get_client()
+    resp = client.get(f"/matters/{matter_id}/roles")
+    _attach_matter_party_join(client, matter_id, resp)
+    return resp
 
 
 @server.tool()
 def get_relationships_on_matter(matter_id: str, role_id: str) -> Any:
     """Get the relationships attached to a role on a matter. (The API nests
     relationships under a role, so role_id is required — a connect-step
-    refinement of the surface-doc single-arg signature.)"""
-    return _get_client().get(f"/matters/{matter_id}/roles/{role_id}/relationships")
+    refinement of the surface-doc single-arg signature.)
+
+    Enriched with the same ``(party_of_matter, matterNumber, email)`` join as
+    ``get_roles_on_matter``: a relationship is how opposing counsel and adjusters
+    attach to a matter, and those are exactly the OUTSIDE recipients ADR 0086
+    requires to pair."""
+    client = _get_client()
+    resp = client.get(f"/matters/{matter_id}/roles/{role_id}/relationships")
+    _attach_matter_party_join(client, matter_id, resp)
+    return resp
 
 
 # ---- Files / documents ----------------------------------------------------
