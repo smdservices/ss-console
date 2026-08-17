@@ -44,7 +44,7 @@ Reusable templates filled in per engagement. Top-level: `sow-template.md`. Subtr
 
 ### `docs/runbooks/` - Operational runbooks
 
-Step-by-step operational procedures. Currently one subtree, `runbooks/operator/`: `first-boot.md` (standing up a customer Machine end to end), `curator-supervised-consolidation.md`, and `ms-graph-azure-ad-setup.md`.
+Step-by-step operational procedures. Currently one subtree, `runbooks/operator/`: `first-boot.md` (standing up a customer Machine end to end), `curator-supervised-consolidation.md`, `ms-graph-azure-ad-setup.md`, and `enable-gate-checklist.md` (the per-routine promotion instrument: three rungs, one recorded artifact per rung, and the pre-committed demotion rule a SEV1 triggers). Nested under it, `runbooks/operator/incidents/` holds the dated post-incident notes mandated by [Incident Response](/admin/playbook/incident-response), plus `_TEMPLATE.md` and a `README.md` index.
 
 ### `docs/security/` - Security documents
 
