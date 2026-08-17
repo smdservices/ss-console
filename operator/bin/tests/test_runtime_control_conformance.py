@@ -7,9 +7,11 @@ let `sticky_stop` (a complete, tested circuit breaker) sit with zero callers and
 zero overlay references while every other test stayed green.
 
 This is the deterministic, offline, CI-time tier. It does NOT prove a control
-fires on a live turn — that is the live negative-fire probe (harness Component 3),
-which overlaps ADR 0050 B3 and folds into B3's design review (Captain decision
-2026-06-18). What this tier enforces against operator/contracts/runtime-controls.yaml:
+fires on a live turn: that is the negative-fire probe suite (harness Component 3,
+built 2026-08-17 in ss#2387), which lives at operator/bin/control-probes.py with
+its specs in operator/contracts/runtime-control-probes.yaml. What this tier adds
+is the LINKAGE, so a status cannot rest on a probe name that resolves to nothing.
+What it enforces against operator/contracts/runtime-controls.yaml:
 
   (a) completeness from the declared cross-repo surface — every safety-critical
       hook in overlay-hook-surface.json maps to >=1 registry entry (sees
@@ -20,7 +22,11 @@ which overlaps ADR 0050 B3 and folds into B3's design review (Captain decision
       unprobed/inert => owner + tracking + note;
   (d) tracking hygiene — references are well-formed and (once the referenced ADR
       is in-repo) actually resolve, so an inert control cannot point at a
-      vanished work item.
+      vanished work item;
+  (e) probe linkage — an `enforced` row names a probe that EXISTS in the probe
+      specs, every control is named by at least one probe, and every
+      unprobed/inert row carries a dated risk review. A status resting on a
+      string was the gap ss#2387 closed.
 
 Run::
 
@@ -37,6 +43,7 @@ import yaml
 
 _OP = Path(__file__).resolve().parents[2]
 _REGISTRY = _OP / "contracts" / "runtime-controls.yaml"
+_PROBE_SPECS = _OP / "contracts" / "runtime-control-probes.yaml"
 _HOOK_SURFACE = _OP / "contracts" / "overlay-hook-surface.json"
 _ADR_DIR = _OP.parent / "docs" / "adr"
 
@@ -65,6 +72,10 @@ def _registry() -> dict:
 
 def _controls() -> dict:
     return _registry().get("controls") or {}
+
+
+def _probes() -> dict:
+    return (yaml.safe_load(_PROBE_SPECS.read_text(encoding="utf-8")) or {}).get("probes") or {}
 
 
 def _hook_surface() -> dict:
@@ -144,6 +155,76 @@ def test_well_formed_by_status() -> None:
                 f"{key}: {status} => must carry a `tracking` work item (no silent dead control)"
             )
             assert spec.get("note"), f"{key}: {status} => must carry a `note` explaining why"
+
+
+# --------------------------------------------------------------------------- #
+# probe linkage (ss#2387)                                                      #
+# --------------------------------------------------------------------------- #
+
+
+def test_enforced_rows_name_a_probe_that_exists() -> None:
+    """`enforced` means a probe proves it fires. Before the probe suite existed,
+    `live_probe` was a name with nothing behind it, which is how a status came to
+    rest on a string. Now the name must resolve."""
+    probes = _probes()
+    for key, spec in _controls().items():
+        if spec.get("status") != "enforced":
+            continue
+        name = spec.get("live_probe")
+        assert name in probes, (
+            f"{key}: live_probe {name!r} has no entry in runtime-control-probes.yaml. "
+            "An enforced status must point at a probe that exists."
+        )
+        assert probes[name].get("control") == key, (
+            f"{key}: probe {name!r} declares control {probes[name].get('control')!r}"
+        )
+
+
+def test_candidate_probes_resolve_and_are_not_claimed_as_live() -> None:
+    """`candidate_probe` is deliberately a different field from `live_probe`:
+    naming a probe must never be mistakable for having passed one."""
+    probes = _probes()
+    for key, spec in _controls().items():
+        name = spec.get("candidate_probe")
+        if not name:
+            continue
+        assert spec.get("status") != "enforced", (
+            f"{key}: an enforced row must use live_probe, not candidate_probe"
+        )
+        assert name in probes, f"{key}: candidate_probe {name!r} has no entry in the probe specs"
+        assert probes[name].get("control") == key, f"{key}: candidate probe names another control"
+
+
+def test_every_control_is_named_by_at_least_one_probe() -> None:
+    """A control nobody wrote a probe for is a control whose status nobody can
+    ever challenge. New controls inherit the requirement automatically."""
+    claimed = {spec.get("control") for spec in _probes().values()}
+    missing = sorted(set(_controls()) - claimed)
+    assert not missing, (
+        f"control(s) {missing} have no probe in runtime-control-probes.yaml. Author one "
+        "(a seat probe with no driver is honest and holds; silence is not)."
+    )
+
+
+def test_every_probe_names_a_real_control() -> None:
+    controls = set(_controls())
+    for name, spec in _probes().items():
+        assert spec.get("control") in controls, (
+            f"probe {name!r} speaks for control {spec.get('control')!r}, which is not in the registry"
+        )
+
+
+def test_unprobed_and_inert_rows_carry_a_dated_risk_review() -> None:
+    """AC4 of ss#2387. An undated risk note is indistinguishable from one nobody
+    has looked at since the day it was written."""
+    for key, spec in _controls().items():
+        if spec.get("status") == "enforced":
+            continue
+        review = spec.get("risk_review") or ""
+        assert review, f"{key}: {spec.get('status')} => needs a dated risk_review"
+        assert re.match(r"^\d{4}-\d{2}-\d{2}\b", review.strip()), (
+            f"{key}: risk_review must open with an ISO date; got {review[:40]!r}"
+        )
 
 
 # --------------------------------------------------------------------------- #
