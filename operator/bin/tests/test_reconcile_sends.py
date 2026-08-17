@@ -9,7 +9,9 @@ everything and it measures nothing. Both are pinned here.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -230,6 +232,226 @@ def test_window_is_tight_enough_to_be_meaningful():
 
 
 # ---------------------------------------------------------------------------
+# the baseline (ss#2386): a watchdog that remembers what it already reported
+#
+# Every fixture below is CAPTURED, not authored: fixtures/unaudited-sends-
+# 2026-08-17.json is the verbatim --json output of this reconciler against the
+# live pilot inbox, and its 11 finds are the ones re-reported by #2344, #2373,
+# #2380, #2381 and #2382.
+# ---------------------------------------------------------------------------
+
+_CAPTURE = json.loads(
+    (Path(__file__).resolve().parent / "fixtures" / "unaudited-sends-2026-08-17.json").read_text()
+)
+_CAPTURED_INBOX = _CAPTURE["reports"][0]["inbox"]
+_CAPTURED_FINDS = _CAPTURE["reports"][0]["unaccounted"]
+
+
+def _captured_sends():
+    """The 11 real finds, shaped as AgentMail sent-message records."""
+    return [dict(m, labels=["sent"]) for m in _CAPTURED_FINDS]
+
+
+def _shipped_baseline():
+    return rec.load_baseline(rec.DEFAULT_BASELINE_PATH)
+
+
+def test_the_shipped_baseline_covers_every_historical_find():
+    """The 11 sends re-reported five times over are in the file, so the next
+    scheduled run has nothing to say about them."""
+    baseline = _shipped_baseline()
+    assert len(_CAPTURED_FINDS) == 11
+    missing = [
+        m["message_id"]
+        for m in _captured_sends()
+        if rec.fingerprint(_CAPTURED_INBOX, m) not in baseline
+    ]
+    assert missing == []
+
+
+def test_a_run_with_only_historical_finds_is_silent():
+    """The whole point: yesterday's report is not today's alert."""
+    fresh, already = rec.split_baselined(_CAPTURED_INBOX, _captured_sends(), _shipped_baseline())
+    assert (fresh, already) == ([], 11)
+
+
+def test_a_planted_send_absent_from_the_baseline_still_raises():
+    """THE FALSIFIER (Law 12). Quieting a watchdog is only safe if you have first
+    proven it can still fire. A new unaudited send, among 11 baselined ones, is
+    the entire report."""
+    planted = _msg(
+        "<planted-0100019fffffffff@email.amazonses.com>",
+        "2026-08-17T09:00:00.000Z",
+        to="client-principal@firm.example",
+        subject="[Deadlines] planted, absent from the baseline",
+    )
+    report = rec.reconcile_inbox(
+        _CAPTURED_INBOX,
+        ["pilot-smokeball"],
+        "key",
+        None,
+        opener=_fake_opener({"messages": _captured_sends() + [planted]}),
+        client_factory=lambda slug: _Rows([_reply_row("2026-01-01T00:00:00.000Z", "<unrelated>")]),
+        baseline=_shipped_baseline(),
+    )
+    assert report.is_finding is True
+    assert [m["message_id"] for m in report.unaccounted] == [planted["message_id"]]
+    assert report.baselined == 11
+
+
+def test_the_baseline_quiets_only_the_message_id_it_names():
+    """A baselined send does not silence its own routine. Same inbox, same
+    recipient, same subject, same second of the day -- a DIFFERENT message id is
+    a different send, and stays a finding."""
+    twin = dict(_captured_sends()[-1], message_id="<a-different-id@email.amazonses.com>")
+    fresh, already = rec.split_baselined(_CAPTURED_INBOX, [twin], _shipped_baseline())
+    assert already == 0
+    assert [m["message_id"] for m in fresh] == ["<a-different-id@email.amazonses.com>"]
+
+
+def test_the_baseline_cannot_reach_across_inboxes():
+    """An entry naming the pilot inbox says nothing about anyone else's mail."""
+    fresh, already = rec.split_baselined(
+        "ashton-price@agentmail.to", _captured_sends(), _shipped_baseline()
+    )
+    assert already == 0 and len(fresh) == 11
+
+
+def test_a_missing_or_corrupt_baseline_reports_everything():
+    """Fail LOUD. A deleted or malformed baseline must not read as 'all clear' --
+    that would make deleting a file the way to silence the control."""
+    assert rec.load_baseline("/nonexistent/reconcile-sends-baseline.json") == set()
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        handle.write("{ this is not json")
+    assert rec.load_baseline(handle.name) == set()
+    fresh, already = rec.split_baselined(_CAPTURED_INBOX, _captured_sends(), set())
+    assert already == 0 and len(fresh) == 11
+
+
+def test_a_hold_is_never_quieted_by_the_baseline():
+    """HOLD is not a finding, so 'already reported' can never apply to it. A seam
+    failure stays loud on every run, forever, which is the ss#2258 contract."""
+    report = rec.reconcile_inbox(
+        _CAPTURED_INBOX,
+        ["pilot-smokeball"],
+        "key",
+        None,
+        opener=_fake_opener({"messages": _captured_sends()}),
+        client_factory=lambda slug: _Boom(),
+        baseline=_shipped_baseline(),
+    )
+    assert report.held is not None
+    assert report.baselined == 0
+    assert report.is_finding is False
+    assert rec.render([report]).startswith("HOLD  ")
+
+
+def test_an_unowned_inbox_is_baselined_like_any_other():
+    """The unowned-mailbox path builds its finding separately, so it needs its
+    own proof that the memory applies there too."""
+    sends = _captured_sends()
+    report = rec.reconcile_inbox(
+        "mystery-inbox@agentmail.to",
+        ["pilot-smokeball"],
+        "key",
+        None,
+        opener=_fake_opener({"messages": sends}),
+        client_factory=lambda slug: _Empty(),
+        baseline={rec.fingerprint("mystery-inbox@agentmail.to", m) for m in sends[:-1]},
+    )
+    assert report.baselined == 10
+    assert report.is_finding is True
+    assert len(report.unaccounted) == 1
+
+
+# ---------------------------------------------------------------------------
+# exit codes: a hold is not a pass
+#
+# ss#2258 said a control must not page on its own blips, and that stands -- a
+# hold files no issue. It does NOT mean a hold may report success: an
+# unevaluated control that goes green is indistinguishable from a healthy one,
+# which is how a watchdog sits inert for weeks. Standardized with the sibling
+# watchdogs (control-probes.py, reconcile-outcomes.py).
+# ---------------------------------------------------------------------------
+
+
+def test_a_hold_exits_non_zero():
+    held = rec.InboxReport(inbox=_CAPTURED_INBOX, slug="pilot-smokeball", held="seam unreachable")
+    assert rec.exit_code([held]) == rec.EXIT_HOLD
+    assert rec.EXIT_HOLD != rec.EXIT_CLEAN
+
+
+def test_a_clean_run_exits_zero():
+    clean = rec.InboxReport(inbox=_CAPTURED_INBOX, slug="pilot-smokeball", sent_total=3)
+    assert rec.exit_code([clean]) == rec.EXIT_CLEAN
+
+
+def test_a_finding_outranks_a_hold_so_the_issue_still_files():
+    """The workflow files an issue on exit 1 and reddens the run off the HOLD
+    lines in the report, so a run that holds on one inbox and finds on another
+    does both. Neither may swallow the other."""
+    held = rec.InboxReport(inbox="ashton-price@agentmail.to", slug="ashton-price", held="no seam")
+    found = _finding_report(_captured_sends())
+    assert rec.exit_code([held, found]) == rec.EXIT_FINDING
+    assert "HOLD  ashton-price@agentmail.to" in rec.render([held, found])
+
+
+def test_missing_credentials_exit_non_zero(monkeypatch):
+    """The case the review named: a scheduled run with no key measured nothing,
+    and must not be reported as a clean mailbox."""
+    monkeypatch.delenv("AGENTMAIL_API_KEY", raising=False)
+    assert rec.main([]) == rec.EXIT_HOLD
+
+
+# ---------------------------------------------------------------------------
+# the fingerprint the workflow dedupes on
+# ---------------------------------------------------------------------------
+
+
+def _finding_report(messages):
+    return rec.InboxReport(
+        inbox=_CAPTURED_INBOX, slug="pilot-smokeball", sent_total=len(messages),
+        unaccounted=list(messages),
+    )
+
+
+def test_the_same_find_set_yields_the_same_fingerprint():
+    """This is what lets a run recognise its own already-open issue and decline
+    to file the second, third and fifth copy."""
+    first = rec.finding_digest([_finding_report(_captured_sends())])
+    second = rec.finding_digest([_finding_report(list(reversed(_captured_sends())))])
+    assert first and first == second
+
+
+def test_one_new_send_changes_the_fingerprint():
+    """The dedupe must not become the silence. A find set that grew is a
+    different find set, and files a new issue even while the old one is open."""
+    before = rec.finding_digest([_finding_report(_captured_sends())])
+    after = rec.finding_digest(
+        [_finding_report(_captured_sends() + [_msg("<new>", "2026-08-18T09:00:00.000Z")])]
+    )
+    assert after != before
+
+
+def test_a_clean_run_has_no_fingerprint_and_prints_none():
+    """No finding, nothing to dedupe -- and no fingerprint line in the report,
+    which is what the workflow treats as 'nothing to file'."""
+    clean = rec.InboxReport(inbox=_CAPTURED_INBOX, slug="pilot-smokeball", sent_total=3)
+    assert rec.finding_digest([clean]) == ""
+    assert "reconcile-fingerprint" not in rec.render([clean])
+
+
+def test_the_report_carries_the_fingerprint_and_paste_ready_baseline_rows():
+    """The workflow reads the fingerprint back out of this text, and a human
+    reads the rows: disposition is one copy-paste and a PR."""
+    rendered = rec.render([_finding_report(_captured_sends()[:1])])
+    digest = rec.finding_digest([_finding_report(_captured_sends()[:1])])
+    assert f"reconcile-fingerprint: {digest}" in rendered
+    assert "operator/bin/reconcile-sends-baseline.json" in rendered
+    assert _CAPTURED_FINDS[0]["message_id"] in rendered
+
+
+# ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
 
@@ -242,6 +464,17 @@ class _Boom:
 class _Empty:
     def read_all(self, _kind):
         return []
+
+
+class _Rows:
+    """A seam that reads fine and returns rows accounting for none of the sends
+    under test -- the shape of the real pilot ledger against these 11."""
+
+    def __init__(self, rows):
+        self._rows = rows
+
+    def read_all(self, _kind):
+        return self._rows
 
 
 def _fake_opener(payload):

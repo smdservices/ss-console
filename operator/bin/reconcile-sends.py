@@ -29,18 +29,43 @@ MATCHING, two passes:
 
 FAIL-CLOSED, THE OTHER WAY. A failed seam read must never read as "zero audit
 rows", which would mark every send unaccounted and mute this within a week. A
-transport failure HOLDS (exit 0, reported as unknown); only a successful read
-with unmatched sends is a finding. Same tri-state as connector_check: absence is
-a hold, corruption is a page.
+transport failure HOLDS: it accuses nobody and files no issue, and only a
+successful read with unmatched sends is a finding. Same tri-state as
+connector_check: absence is a hold, corruption is a page.
+
+A HOLD IS NOT A PASS (ss#2386 review). It exits 2 and reddens the run. The
+ss#2258 lesson is that a control must not page on its own blips, which is why a
+hold files no issue -- but a hold that exits 0 leaves an unevaluated control
+looking identical to a healthy one, and that is how a watchdog sits inert for
+weeks. Exit codes: 0 clean, 1 findings, 2 nothing measured, anything else the
+control itself broke. The sibling watchdogs hold the same posture
+(control-probes.py exits 2 on hold, reconcile-outcomes.py exits 3).
+
+MEMORY (ss#2386). A watchdog with no memory re-reports its own history: this one
+filed a fresh P1 every scheduled run for the same 11 finds until five copies of
+one finding were open at once, which trains the reader to skim exactly the report
+that will one day carry a new send. ``reconcile-sends-baseline.json`` is that
+memory -- fingerprints of sends already reported, so a run alerts only on what is
+absent from it. The file is COMMITTED and updated by PR because this repo takes
+no pushes to main, which also makes silencing a send a reviewed act rather than a
+side effect of a scheduled job. Two properties hold the safety:
+
+  * a missing or corrupt baseline yields the EMPTY set, so the failure mode is
+    over-reporting, never silence;
+  * the baseline can only ever quiet a send it NAMES BY MESSAGE ID, so a new
+    send from the same routine, to the same recipient, with the same subject is
+    still a finding.
 
 Usage:
     infisical run --env=prod --path=/ss -- python3 operator/bin/reconcile-sends.py
     ... --since 2026-08-01 --json
+    ... --no-baseline          # report everything, baseline ignored
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -87,6 +112,24 @@ KNOWN_NON_SEAT_INBOXES: dict[str, str] = {
     "smdcrane@agentmail.to": "Crane SMD Services mailbox, not an Operator seat",
 }
 
+#: Exit codes, and the whole contract of this script.
+#:
+#: EXIT_HOLD is NON-ZERO on purpose (ss#2386 review). A hold still never files an
+#: issue and still never accuses anyone -- that half of ss#2258 is unchanged --
+#: but it must not be reported as a pass, because an unevaluated control that
+#: looks green is how a control sits inert for weeks with nobody noticing. Same
+#: posture as the sibling watchdogs: control-probes.py exits 2 on hold,
+#: reconcile-outcomes.py exits 3.
+EXIT_CLEAN = 0
+EXIT_FINDING = 1
+EXIT_HOLD = 2
+
+#: Sends this control has already reported, so a scheduled run alerts only on
+#: what is new. Committed and PR-updated on purpose (ss#2386, see module header).
+DEFAULT_BASELINE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "reconcile-sends-baseline.json"
+)
+
 
 class ReconcileError(RuntimeError):
     """A transport or credential failure. Holds; never reported as a finding."""
@@ -100,6 +143,7 @@ class InboxReport:
     matched_exact: int = 0
     matched_tool_path: int = 0
     unaccounted: list[dict] = field(default_factory=list)
+    baselined: int = 0  # unaccounted, but already reported (ss#2386)
     held: str | None = None  # set when we could not evaluate
     non_seat_reason: str | None = None  # authored as seat-less on purpose
 
@@ -210,6 +254,109 @@ def reconcile(sent: list[dict], rows: list[dict]) -> tuple[int, int, list[dict]]
     return matched_exact, matched_tool, unaccounted
 
 
+def fingerprint(inbox: str, message: dict) -> str:
+    """Stable identity of one send.
+
+    The AgentMail message id is assigned by the sending infrastructure and is
+    never reused, so it alone would identify the send; the inbox rides along so a
+    baseline entry can never reach across mailboxes. Deliberately NOT derived
+    from subject, recipient or day: every one of those repeats on the next run of
+    the same routine, and a fingerprint that repeats is a fingerprint that
+    silences a new send.
+    """
+    message_id = message.get("message_id")
+    if message_id:
+        return f"{inbox}|{message_id}"
+    # No id at all has never been observed on a sent message. Fall back to the
+    # exact millisecond timestamp rather than to anything coarser, and keep the
+    # marker so the two key spaces can never collide.
+    return f"{inbox}|ts:{message.get('timestamp')}"
+
+
+def load_baseline(path: str | None = None) -> set[str]:
+    """Fingerprints of sends already reported.
+
+    A missing, unreadable or malformed baseline returns the EMPTY set ON PURPOSE.
+    This file's only failure mode must be over-reporting: a baseline that fails
+    open would turn a deleted or corrupted JSON file into a silent watchdog,
+    which is the exact failure ss#2258 exists to prevent.
+    """
+    try:
+        with open(path or DEFAULT_BASELINE_PATH, encoding="utf-8") as handle:
+            parsed = json.load(handle)
+    except (OSError, ValueError):
+        return set()
+    entries = parsed.get("dispositioned") if isinstance(parsed, dict) else parsed
+    if not isinstance(entries, list):
+        return set()
+    return {
+        fingerprint(entry["inbox"], entry)
+        for entry in entries
+        if isinstance(entry, dict)
+        and entry.get("inbox")
+        and (entry.get("message_id") or entry.get("timestamp"))
+    }
+
+
+def split_baselined(inbox: str, messages: list[dict], baseline: set[str]) -> tuple[list[dict], int]:
+    """Return (sends to report, count already reported)."""
+    if not baseline:
+        return list(messages), 0
+    fresh = [m for m in messages if fingerprint(inbox, m) not in baseline]
+    return fresh, len(messages) - len(fresh)
+
+
+def finding_digest(reports: list[InboxReport]) -> str:
+    """A stable key for THIS SET of findings, carried in the issue body so the
+    workflow can recognise its own report and decline to file it twice.
+
+    The baseline only quiets a find once its PR has merged; between the first
+    report and that merge, this is what keeps the second, third and fifth issue
+    from being opened. It is derived from the fingerprints themselves, so one
+    genuinely new send changes the digest and a new issue still opens.
+    """
+    keys = sorted(
+        fingerprint(report.inbox, message)
+        for report in reports
+        if report.is_finding
+        for message in report.unaccounted
+    )
+    if not keys:
+        return ""
+    return hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
+
+
+def exit_code(reports: list[InboxReport]) -> int:
+    """0 clean, 1 findings, 2 nothing measured.
+
+    A finding outranks a hold so the issue still gets filed when both are true;
+    the workflow reddens the run off the HOLD lines in the report, not off this
+    code, so a hold can never be lost behind a finding.
+    """
+    if any(report.is_finding for report in reports):
+        return EXIT_FINDING
+    if any(report.held for report in reports):
+        return EXIT_HOLD
+    return EXIT_CLEAN
+
+
+def baseline_entries(reports: list[InboxReport]) -> list[dict]:
+    """The findings, shaped as baseline rows a human can paste into a PR."""
+    return [
+        {
+            "inbox": report.inbox,
+            "message_id": message.get("message_id"),
+            "timestamp": message.get("timestamp"),
+            "to": ", ".join(message.get("to") or []),
+            "subject": str(message.get("subject") or ""),
+            "reported_in": None,
+        }
+        for report in reports
+        if report.is_finding
+        for message in sorted(report.unaccounted, key=lambda m: str(m.get("timestamp") or ""))
+    ]
+
+
 def slug_for_inbox(inbox: str, slugs: list[str]) -> str | None:
     """The seat that owns this inbox, by local part. None ⇒ nobody owns it, which
     is a finding in itself rather than a reason to skip the inbox."""
@@ -218,7 +365,8 @@ def slug_for_inbox(inbox: str, slugs: list[str]) -> str | None:
 
 
 def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener=None,
-                    client_factory=seam_pull.seam_client_from_env) -> InboxReport:
+                    client_factory=seam_pull.seam_client_from_env,
+                    baseline: set[str] | None = None) -> InboxReport:
     slug = slug_for_inbox(inbox, slugs)
     report = InboxReport(inbox=inbox, slug=slug)
     if slug is None:
@@ -244,7 +392,7 @@ def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener
         # account for its sends, and that is exactly the shape of a decommissioned
         # seat still sending, or a mailbox somebody stood up unrecorded. This is
         # the case a seat-side check could never represent, so it stays loud.
-        report.unaccounted = sent
+        report.unaccounted, report.baselined = split_baselined(inbox, sent, baseline or set())
         return report
 
     client = client_factory(slug)
@@ -265,7 +413,10 @@ def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener
     exact, tool_path, unaccounted = reconcile(sent, rows)
     report.matched_exact = exact
     report.matched_tool_path = tool_path
-    report.unaccounted = unaccounted
+    # Baselining is the LAST step, applied to sends the audit log genuinely does
+    # not account for. A held inbox returns above and can never be quieted by it:
+    # "already reported" is a statement about a finding, and a hold is not one.
+    report.unaccounted, report.baselined = split_baselined(inbox, unaccounted, baseline or set())
     return report
 
 
@@ -287,7 +438,8 @@ def render(reports: list[InboxReport]) -> str:
         lines.append(
             f"{'FIND' if report.is_finding else 'ok  '}  {report.inbox} [{owner}] "
             f"sent={report.sent_total} exact={report.matched_exact} "
-            f"tool={report.matched_tool_path} unaccounted={len(report.unaccounted)}"
+            f"tool={report.matched_tool_path} unaccounted={len(report.unaccounted)} "
+            f"already-reported={report.baselined}"
         )
         for message in sorted(report.unaccounted, key=lambda m: str(m.get("timestamp") or "")):
             lines.append(
@@ -297,8 +449,21 @@ def render(reports: list[InboxReport]) -> str:
     lines.append("")
     lines.append(
         f"{len(findings)} inbox(es) with unaccounted sends, {len(held)} held, "
-        f"{len(reports)} scanned"
+        f"{len(reports)} scanned, {sum(r.baselined for r in reports)} already reported "
+        f"(operator/bin/reconcile-sends-baseline.json)"
     )
+    digest = finding_digest(reports)
+    if digest:
+        # Printed so the workflow can read it back out of the report and carry it
+        # into the issue body: the key that keeps one find from filing five
+        # issues while its baseline PR is still open.
+        lines.append(f"reconcile-fingerprint: {digest}")
+        lines.append("")
+        lines.append(
+            "Once dispositioned, add these to operator/bin/reconcile-sends-baseline.json "
+            "in a PR (fill reported_in with the issue number) so this stops being re-reported:"
+        )
+        lines.append(json.dumps(baseline_entries(reports), indent=2))
     return "\n".join(lines)
 
 
@@ -308,12 +473,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--days", type=int, help="only consider sends in the last N days")
     parser.add_argument("--inbox", action="append", help="limit to these inboxes")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument(
+        "--baseline", help=f"path to the already-reported baseline (default {DEFAULT_BASELINE_PATH})"
+    )
+    parser.add_argument(
+        "--no-baseline",
+        action="store_true",
+        help="report every unaccounted send, including ones already reported",
+    )
     args = parser.parse_args(argv)
 
     api_key = os.environ.get("AGENTMAIL_API_KEY")
     if not api_key:
         print("HOLD: AGENTMAIL_API_KEY unset (run under infisical)", file=sys.stderr)
-        return 0  # hold, not a finding
+        # Not a finding, and still not a pass: nothing was measured.
+        return EXIT_HOLD
 
     since = None
     if args.days:
@@ -329,9 +503,11 @@ def main(argv: list[str] | None = None) -> int:
         inboxes = args.inbox or list_inboxes(api_key)
     except ReconcileError as exc:
         print(f"HOLD: {exc}", file=sys.stderr)
-        return 0
+        return EXIT_HOLD
 
-    reports = [reconcile_inbox(i, slugs, api_key, since) for i in inboxes]
+    baseline = set() if args.no_baseline else load_baseline(args.baseline)
+
+    reports = [reconcile_inbox(i, slugs, api_key, since, baseline=baseline) for i in inboxes]
 
     if args.json:
         print(
@@ -343,6 +519,7 @@ def main(argv: list[str] | None = None) -> int:
                         "sent_total": r.sent_total,
                         "matched_exact": r.matched_exact,
                         "matched_tool_path": r.matched_tool_path,
+                        "baselined": r.baselined,
                         "held": r.held,
                         "unaccounted": [
                             {
@@ -362,9 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(render(reports))
 
-    # Non-zero ONLY on a real finding. A hold exits 0 so a transport blip cannot
-    # page anyone -- the report still names it.
-    return 1 if any(r.is_finding for r in reports) else 0
+    return exit_code(reports)
 
 
 def _customers_dir() -> str:

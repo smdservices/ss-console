@@ -10,9 +10,27 @@
 # inbox belonging to a decommissioned seat -- or to no seat at all -- is exactly
 # what a seat-side check could never see. From here it is the loudest signal.
 #
-# HOLDS vs FINDS: a transport or credential failure exits 0 and is reported as a
-# hold. Only a successful read with unmatched sends exits non-zero. A control
-# that pages on its own blips gets muted within a week.
+# HOLDS vs FINDS: a transport or credential failure is a hold, and a hold files
+# no issue. Only a successful read with unmatched sends opens one. A control that
+# pages on its own blips gets muted within a week.
+#
+# A HOLD STILL FAILS THE RUN (ss#2386 review). Filing nothing is not the same as
+# reporting a pass: an unevaluated control that goes green looks exactly like a
+# healthy one, which is how a watchdog sits inert for weeks. Exit codes are
+# 0 clean / 1 findings / 2 nothing measured, and the last step in the job turns
+# any hold red. Standardized with control-probes.py (#2395) and
+# reconcile-outcomes.py (#2399).
+#
+# MEMORY (ss#2386). This job used to file a fresh P1 EVERY DAY re-reporting the
+# same 11 historical finds, until five copies of one finding were open at once.
+# Two layers of memory now sit between a find and an issue:
+#   1. operator/bin/reconcile-sends-baseline.json -- committed, PR-updated (this
+#      repo takes no pushes to main), so a dispositioned send stops being a find.
+#   2. the fingerprint below -- a stable key for THIS set of finds, carried in
+#      every issue body. Between the first report and the merge of its baseline
+#      PR, the run recognises its own open issue and declines to file a copy.
+# Neither can quiet a NEW send: the baseline names message ids, and one new send
+# changes the fingerprint, so a new issue still opens.
 
 name: unaudited-send-reconcile
 
@@ -29,7 +47,9 @@ on:
   pull_request:
     paths:
       - 'operator/bin/reconcile-sends.py'
+      - 'operator/bin/reconcile-sends-baseline.json'
       - 'operator/bin/tests/test_reconcile_sends.py'
+      - 'operator/bin/tests/fixtures/unaudited-sends-2026-08-17.json'
       - '.github/workflows/unaudited-send-reconcile.yml'
 
 permissions:
@@ -90,11 +110,15 @@ jobs:
           python3 operator/bin/reconcile-sends.py $ARGS > reconcile.txt 2>&1 || STATUS=$?
           cat reconcile.txt
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
-          # This reconciler's contract (operator/bin/reconcile-sends.py:367):
-          # 0 is clean OR a hold, 1 is a finding handled by the next step. There
-          # is no exit 2 — anything else that is not 0 or 1 (argparse misuse,
-          # a missing interpreter) is the control failing, and must fail the run.
-          if [ "${STATUS}" -ne 0 ] && [ "${STATUS}" -ne 1 ]; then exit "${STATUS}"; fi
+          # This reconciler's contract (operator/bin/reconcile-sends.py, EXIT_*):
+          # 0 clean, 1 findings (handled by the next step), 2 nothing measured.
+          # Anything else (argparse misuse, a missing interpreter) is the control
+          # itself breaking, and fails the run right here.
+          if [ "${STATUS}" -gt 2 ]; then exit "${STATUS}"; fi
+          # The hold lines are pulled out here and FAILED ON at the end of the
+          # job, after the issue step has had its turn: a run can hold on one
+          # inbox and find on another, and neither may swallow the other.
+          grep '^HOLD' reconcile.txt > holds.txt || true
 
       - name: Open an issue when a send has no audit record
         if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
@@ -105,6 +129,37 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          set -u
+          # The reconciler prints this for exactly this purpose (ss#2386). No
+          # fingerprint on a findings run means the report is not the shape this
+          # step was written against, and filing blind would restart the flood.
+          FINGERPRINT="$(sed -n 's/^reconcile-fingerprint: //p' reconcile.txt | tail -1)"
+          if [ -z "${FINGERPRINT}" ]; then
+            echo "findings reported with no reconcile-fingerprint line" >&2
+            exit 1
+          fi
+          # Search bodies, not titles: the title carries the date, so every day's
+          # copy had a different one and no title check could ever have caught
+          # this. Listed rather than searched because the search index lags by
+          # minutes and this job runs once a day.
+          gh issue list --repo "${REPO}" --state open --label "prio:P1" \
+            --limit 200 --json number,body > open-issues.json
+          DUPLICATE="$(FINGERPRINT="${FINGERPRINT}" python3 -c '
+          import json, os
+          fingerprint = os.environ["FINGERPRINT"]
+          issues = json.load(open("open-issues.json"))
+          print(next((str(i["number"]) for i in issues if fingerprint in (i.get("body") or "")), ""))
+          ')"
+          if [ -n "${DUPLICATE}" ]; then
+            echo "Same finding is already open as #${DUPLICATE} (${FINGERPRINT}). Not filing a copy."
+            {
+              echo "### Unaudited send: already reported"
+              echo
+              echo "Fingerprint \`${FINGERPRINT}\` is open as #${DUPLICATE}. No new issue filed."
+              echo "Disposition it in operator/bin/reconcile-sends-baseline.json to stop the report."
+            } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+            exit 0
+          fi
           {
             echo "A message left an Operator mailbox with no matching audit row."
             echo
@@ -116,6 +171,7 @@ jobs:
             echo '```'
             echo
             echo "Reconciler: \`operator/bin/reconcile-sends.py\` (ss#2258)."
+            echo "Dedupe key, do not edit: \`reconcile-fingerprint: ${FINGERPRINT}\`"
             echo "Run: ${RUN_URL}"
           } > body.md
           gh issue create \
@@ -123,3 +179,34 @@ jobs:
             --title "Unaudited send detected $(date -u +%Y-%m-%d)" \
             --label "prio:P1" --label "type:bug" \
             --body-file body.md
+
+      # A HOLD IS NOT A PASS (ss#2386 review). A hold still files no issue --
+      # ss#2258's rule that a control must not page on its own blips is intact --
+      # but it reddens the run, because an unevaluated control that reports green
+      # is indistinguishable from a healthy one, and that is precisely how a
+      # watchdog sits inert for weeks. Standardized with the sibling watchdogs
+      # (control-probes.py #2395, reconcile-outcomes.py #2399).
+      #
+      # Last, and `!cancelled()` rather than `success()`: this must still fire on
+      # a run that also found something, so a hold on one inbox is never
+      # swallowed by a finding on another.
+      - name: Fail the run when an inbox could not be evaluated
+        if: github.event_name != 'pull_request' && !cancelled()
+        run: |
+          set -u
+          if [ ! -s holds.txt ]; then
+            echo "Every inbox was evaluated."
+            exit 0
+          fi
+          echo "::error title=Reconcile hold::$(wc -l < holds.txt) inbox(es) could not be evaluated"
+          {
+            echo "### Reconcile HOLD: run failed because nothing was measured"
+            echo
+            echo "These inboxes were not evaluated, so this run proves nothing about them."
+            echo "No issue is filed for a hold: it is an instrument failure, not a finding."
+            echo
+            echo '```'
+            cat holds.txt
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          exit 1
