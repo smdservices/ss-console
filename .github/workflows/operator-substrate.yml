@@ -33,6 +33,10 @@ on:
       # bin/tests/test_ci_coverage_conformance.py pins filter <-> test-inventory
       # parity so the gap cannot silently reopen.
       - 'operator/contracts/**'
+      # ss#2389: the shadow firm. Its scope guard is the mechanism that keeps an
+      # adversarial scenario off a client seat, so a change to a scenario file
+      # must run the guard's tests, not only a change to the tests themselves.
+      - 'operator/rehearsal/**'
       - 'operator/templates/**'
       - 'operator/skills/**'
       - 'operator/verticals/**'
@@ -108,7 +112,7 @@ jobs:
         # per-connector venv conformance step further down.
         # bin/tests/test_ci_coverage_conformance.py asserts this invocation
         # covers every test_*.py under operator/ (connectors excepted).
-        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests workspace_broker/tests templates/tests templates/drafting/tests tests skills -q
+        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests rehearsal/tests workspace_broker/tests templates/tests templates/drafting/tests tests skills -q
 
       # SEC-32: overlay-RUNTIME side of the adapter <-> overlay drift gate.
       #
