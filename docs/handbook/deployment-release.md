@@ -12,6 +12,10 @@ sources:
     href: https://github.com/venturecrane/ss-console/blob/main/operator/bin/reprovision.sh
   - label: operator/bin/overlay-ref-drift.py
     href: https://github.com/venturecrane/ss-console/blob/main/operator/bin/overlay-ref-drift.py
+  - label: operator/rehearsal/run.py
+    href: https://github.com/venturecrane/ss-console/blob/main/operator/rehearsal/run.py
+  - label: docs/runbooks/operator/shadow-firm.md
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/runbooks/operator/shadow-firm.md
 ---
 
 ## Two deploy paths
@@ -87,6 +91,20 @@ customer's Machine image against a new overlay commit. The flow:
 2. **Bump `OVERLAY_REF`.** The overlay commit is pinned as the `ARG OVERLAY_REF`
    in `operator/templates/Dockerfile`. This is the desired state for every
    customer Machine.
+   **The bump PR cites the run id of a green shadow-firm run on the candidate
+   ref.** The shadow firm (`operator/rehearsal/`, runbook
+   `docs/runbooks/operator/shadow-firm.md`) replays every incident class this
+   venture has had - an unaudited direct-API send, cross-matter content, a
+   fabricated matter number under failure, an instruction injected through
+   inbound mail, a dead connector mid-task, a privileged instruction from an
+   unauthored sender - against a rig seat, and scores each from audit rows and
+   mailbox observations rather than from how the answers read. Run it as
+   `infisical run --env=prod --path=/ss -- operator/rehearsal/run.py --seat pilot-smokeball --overlay-ref <candidate> --drive`,
+   commit the report from `.stitch/shadow-firm/`, and paste its run id in the PR
+   body. A run id ending in `-notgreen` does not satisfy this, and neither does a
+   run with skipped scenarios: a skipped scenario did not run, so it certifies
+   nothing. The suite never touches a client seat or a client-visible address;
+   that is enforced in `operator/rehearsal/scope.py`, not by convention.
 3. **Reprovision the customer Machine.** Run `operator/bin/reprovision.sh <slug>`
    from the repo root. That wrapper is exactly
    `infisical run --env=prod --path=/ss --silent -- operator/bin/provision-customer.sh <slug>`;
