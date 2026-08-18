@@ -7,7 +7,7 @@ description: >-
   connective chase for the firm's most-slipped discovery step. Never decides which responses need
   verification, never sends to the signer without authenticated attorney approval, never signs,
   and never asserts a signature it cannot see.
-version: 0.3.0
+version: 0.4.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -279,6 +279,26 @@ Two ledger raise events matter for the chase:
   fires **once**, not on every wake. A `resolved` event (written on a confident
   signed-document close) is likewise terminal.
 
+**The hold (ss #2402): a surfaced blocker is ledger state, never just an email.**
+When a turn finds an item **unsafe to chase** — the founding case is an
+unresolvable signer (e.g. conflicting Minor/Deceased sub-roles on the plaintiff),
+but any surface-and-ask condition on the item qualifies — it does three things in
+that turn: (1) appends a `fired` event on the item's **hold sentinel** (derive
+with `matter_id` = the item's matter, `source_id` = `__hold__<task_id>`, `label`
+= `chase-hold`, `authored_date` = null — the prefix is the cross-side contract
+with `pre_run.py`'s `hold_source_id`), (2) surfaces the blocker to a person, and
+(3) sends **no chase**. From then on the gate refuses to plan a chase **or a
+hand-off** for that item and re-surfaces the hold every `escalation.refire_days`
+instead — the hold cannot be forgotten by the next wake, because the next wake
+reads it. On 2026-08-11 this hold lived only in an email, and the 2026-08-14
+wake staged a chase to the very signer the seat had declared unconfirmed.
+Releasing the hold is itself an observed fact, never an assumption: only when a
+turn has **confirmation from a person or from the matter record** (the roles
+now resolve to one signer, or the responsible attorney named the signer) does it
+append `resolved` on the hold sentinel — same derive-then-handle — after which
+the chase plans again on the normal cadence. An `acked` hold stays blocking (ack
+means "seen", not "fixed"); it only snoozes the re-surface.
+
 The **internal escalation-to-a-person** (both the ceiling hand-off and the
 "cadence/attempt-count not authored" surface) therefore follows the same
 fire-once + re-fire-window, terminal-aware rule the deadline lane uses — it
@@ -302,7 +322,9 @@ surface), never a silent default.
    `clientIds[]`) and the roles/relationships (`get_roles_on_matter`,
    `get_relationships_on_matter`) to determine, for each plaintiff, the correct
    **signer** (party / GAL / successor). Do not proceed on a matter whose signer is
-   ambiguous — surface and ask.
+   ambiguous — **write the hold** (a `fired` on the item's hold sentinel; see "The
+   hold" above), surface, and ask. A surfaced blocker with no hold event is the
+   ss #2402 defect: the next wake will not know it exists.
 2. **Prepare** — for each plaintiff/response-set the attorney has flagged for
    verification, draft the plain-language verification request in the firm's voice
    from the pack template (`verification-request.md`). Connective artifact, not work
@@ -320,8 +342,8 @@ surface), never a silent default.
    authored cadence/ceiling (see "The state ledger" above). **The wake line in
    the Script Output block is the turn's work list (#2226):** when it carries
    `plans`, each entry names the `matter_id`, `task_id`, and `action`
-   (`chase` / `handoff` / `surface_config_missing`) the gate found due, with
-   the attempt number a chase carries. Start from those entries — verify each
+   (`chase` / `handoff` / `surface_config_missing` / `surface_hold`) the gate
+   found due, with the attempt number a chase carries. Start from those entries — verify each
    live (`list_tasks(matter_id, is_completed=false)`, `get_files_on_matter`)
    and act per the branches below. The gate sees every open verification task
    through a global pull; the escalation ledger only knows items that have
@@ -338,9 +360,18 @@ surface), never a silent default.
    - matched with confidence (only once the firm's convention is confirmed) → close
      (`update_task`), log (`create_memo`), append a `resolved` ledger event, let it
      fall into the daily digest.
-   - not found / ambiguous / convention-unconfirmed, and the attempt count (the
+   - plan action `surface_hold` → the item is held (signer unresolved or another
+     surfaced blocker). Re-surface the blocker to a person, referencing the prior
+     surface; send **no chase and no hand-off**. Before re-surfacing, re-check the
+     blocking fact live (`get_roles_on_matter`): if it now resolves cleanly,
+     append `resolved` on the hold sentinel instead — the chase resumes on the
+     next wake. Never re-verify the signer from memory of an earlier turn.
+   - not found / ambiguous / convention-unconfirmed, and **no open hold on the
+     item**, and the attempt count (the
      `chased` raises in the ledger) is **below `escalate_after_attempts`**, and
-     `chase_cadence_days` is authored → chase the signer with
+     `chase_cadence_days` is authored → **re-run the step-1 signer resolution in
+     this turn** (metadata reads; a stale signer is the wrong-recipient defect),
+     then chase the signer with
      `mcp_agentmail_send_message` (never `reply_to_message`) on the authored cadence;
      after the send succeeds, log the attempt (`create_memo`) AND append a `chased`
      ledger event (attempt = the new count); tell the attorney only if it stalls
@@ -391,6 +422,10 @@ not an immutable invariant.
   surfaced.
 - **Never chase on an unauthored cadence** — no `chase_cadence_days`, no chase;
   surface "chase cadence not authored" and hold.
+- **Never chase a held item, and never hold an item in prose only** — a blocker a
+  turn surfaces (unresolved signer above all) is written to the ledger as the
+  item's hold (`fired` on the hold sentinel) in the same turn, and only an
+  observed resolution writes the `resolved` that releases it (ss #2402).
 - **Never nag indefinitely** — once unanswered attempts reach `escalate_after_attempts`,
   stop chasing the client and red-flag the responsible attorney (once — the ledger
   `handed_off` event makes the hand-off terminal, so it does not repeat on later wakes).

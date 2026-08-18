@@ -50,6 +50,8 @@ parse_pull = _pre_run.parse_pull
 ACTION_CHASE = _pre_run.ACTION_CHASE
 ACTION_HANDOFF = _pre_run.ACTION_HANDOFF
 ACTION_SURFACE_CONFIG = _pre_run.ACTION_SURFACE_CONFIG
+ACTION_SURFACE_HOLD = _pre_run.ACTION_SURFACE_HOLD
+hold_source_id = _pre_run.hold_source_id
 
 # The vendored ledger module the skill loads at runtime — used here to mint real
 # events so the tests exercise the true item_key/state join.
@@ -336,6 +338,108 @@ def test_unauthored_config_never_chases():
     item = _item(next_chase_due=TODAY - timedelta(days=30))
     d = _decide([item], [], config=ChaseConfig())
     assert d.plans[0].action == ACTION_SURFACE_CONFIG  # never ACTION_CHASE
+
+
+# ---------------------------------------------------------------------------
+# decide() — per-item hold (condition d, ss #2402): an open hold blocks chase
+# AND hand-off; it re-surfaces on the re-fire window; only a resolved hold
+# releases the chase. Founding case: signer unresolved (2026-08-11 the turn
+# surfaced the hold in an email only, and the 2026-08-14 wake planned a chase
+# to the unconfirmed signer).
+# ---------------------------------------------------------------------------
+
+
+def _hold_event(item, *, event="fired", ts, attempt=1):
+    key = _ledger.item_key(
+        item.matter_id, hold_source_id(item.task_id), "chase-hold", None
+    )
+    return _ledger.make_event(
+        skill="client-verification-tracker",
+        matter_id=item.matter_id,
+        item_key=key,
+        event=event,
+        attempt=attempt,
+        ts=ts,
+    )
+
+
+def test_hold_blocks_a_due_chase_and_resurfaces():
+    # Chase long overdue, but a hold fired 4 days ago (refire window 3) →
+    # the plan is a re-surface of the hold, never a chase.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [_hold_event(item, ts="2026-07-10T09:00:00.000Z")]
+    d = _decide([item], events)
+    assert d.wake is True
+    assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]
+    assert d.plans[0].attempt == 2  # second surface, numbered from the ledger
+    assert d.extra_metadata["hold_surface_due"] == 1
+
+
+def test_hold_quiet_within_refire_window_still_blocks_chase():
+    # Hold surfaced yesterday → nothing re-fires, and the due chase stays blocked.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [_hold_event(item, ts="2026-07-13T09:00:00.000Z")]
+    d = _decide([item], events)
+    assert d.wake is False
+    assert d.decision_basis == "no_verification_action_due"
+
+
+def test_acked_hold_snoozes_the_surface_but_still_blocks():
+    # Ack means "a person saw it", not "the signer is confirmed" → no chase.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-07-08T09:00:00.000Z"),
+        _hold_event(item, event="acked", ts="2026-07-13T09:00:00.000Z"),
+    ]
+    d = _decide([item], events)
+    assert d.wake is False
+
+
+def test_resolved_hold_releases_the_chase():
+    # The falsifier (Law 12): same item, hold resolved → the chase plans again.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-07-08T09:00:00.000Z"),
+        _hold_event(item, event="resolved", ts="2026-07-12T09:00:00.000Z"),
+    ]
+    d = _decide([item], events)
+    assert d.wake is True
+    assert [p.action for p in d.plans] == [ACTION_CHASE]
+
+
+def test_handed_off_hold_blocks_and_goes_quiet():
+    # A hold handed to a person: no chase, and no autonomous re-surface either.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-07-01T09:00:00.000Z"),
+        _hold_event(item, event="handed_off", ts="2026-07-02T09:00:00.000Z"),
+    ]
+    d = _decide([item], events)
+    assert d.wake is False
+
+
+def test_hold_blocks_the_ceiling_handoff_too():
+    # Attempts at ceiling AND a hold → the ambiguity precedes the count: no
+    # hand-off plan while the hold is open, only the hold surface.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _chased_event(item, ts="2026-06-20T09:00:00.000Z", attempt=1),
+        _chased_event(item, ts="2026-06-25T09:00:00.000Z", attempt=2),
+        _chased_event(item, ts="2026-06-30T09:00:00.000Z", attempt=3),
+        _hold_event(item, ts="2026-07-10T09:00:00.000Z"),
+    ]
+    d = _decide([item], events)
+    assert d.wake is True
+    assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]
+
+
+def test_hold_on_one_item_does_not_block_another():
+    held = _item(matter_id="m-1", task_id="task-1", next_chase_due=TODAY - timedelta(days=30))
+    free = _item(matter_id="m-2", task_id="task-2", next_chase_due=TODAY)
+    events = [_hold_event(held, ts="2026-07-13T09:00:00.000Z")]
+    d = _decide([held, free], events)
+    assert d.wake is True
+    assert {(p.matter_id, p.action) for p in d.plans} == {("m-2", ACTION_CHASE)}
 
 
 # ---------------------------------------------------------------------------

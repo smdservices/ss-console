@@ -26,6 +26,15 @@ For each open verification tracking item the skill maintains:
       the ledger holds no ``handed_off`` event yet: wake ONCE to stop chasing the
       client and hand the open item to the responsible attorney. A ``handed_off``
       item is terminal for autonomous wakes.
+  (d) HELD — the ledger carries an open per-item HOLD (a ``fired`` raise on the
+      item's hold sentinel; see ``hold_source_id``): the turn that inspected the
+      matter found it cannot chase safely (signer unresolved, or any other
+      surface-and-ask condition on the item). A held item NEVER plans a chase or
+      a hand-off; instead the hold re-surfaces to a person on the re-fire window
+      until a turn writes ``resolved`` on the hold sentinel (ss #2402 — on
+      2026-08-11 the turn surfaced "signer not confirmed" and three days later
+      the next wake planned a chase to the unconfirmed signer, because the hold
+      lived only in an email).
 
 Plus one seat-level condition:
 
@@ -92,6 +101,22 @@ SKILL_NAME = "client-verification-tracker"
 # (every refire_days until authored), never daily (#1899).
 _CONFIG_SENTINEL_SOURCE_ID = "__chase_config__"
 _CONFIG_SENTINEL_LABEL = "chase-config-missing"
+
+# Per-item hold sentinel (ss #2402). A turn that finds an item unsafe to chase
+# (signer unresolved is the founding case) appends a ``fired`` raise on the
+# item's HOLD identity — same matter, the source id below — via the broker
+# (derive-then-handle, ss #2304). ``decide()`` then refuses to plan a chase or
+# hand-off for the underlying item until a turn appends ``resolved`` on the
+# hold. The prefix is part of the cross-side contract: the turn and this gate
+# must derive the same key from the same components, so it is a module constant
+# here and cited verbatim in SKILL.md.
+_HOLD_SOURCE_PREFIX = "__hold__"
+_HOLD_LABEL = "chase-hold"
+
+
+def hold_source_id(task_id: str) -> str:
+    """The ledger ``source_id`` of the hold sentinel for one tracked item."""
+    return _HOLD_SOURCE_PREFIX + task_id
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +307,7 @@ def _load_ledger_module():
 ACTION_CHASE = "chase"  # a client nudge is due (attempt < ceiling)
 ACTION_HANDOFF = "handoff"  # ceiling reached; stop chasing, hand to the attorney (once)
 ACTION_SURFACE_CONFIG = "surface_config_missing"  # seat-level, on the refire window
+ACTION_SURFACE_HOLD = "surface_hold"  # item held (e.g. signer unresolved); re-surface, never chase
 ACTION_SUPPRESS = "suppress"  # nothing due for this item
 
 
@@ -304,6 +330,22 @@ class WakeDecision:
     pre_run_inputs_digest: bytes
     plans: tuple[ItemPlan, ...] = ()
     extra_metadata: dict = field(default_factory=dict)
+
+
+def _hold_active(hold_state) -> bool:
+    """True iff the item's hold sentinel blocks the chase.
+
+    A hold is open once it has any raise and is not ``resolved``. An ``acked``
+    hold stays BLOCKING — ack means "a person saw the surface", not "the
+    condition is fixed"; it only snoozes the re-surface (``should_fire``
+    handles that). ``handed_off`` likewise blocks and additionally ends
+    autonomous re-surfacing: a person owns the item. Only ``resolved`` —
+    written by the turn that confirmed the condition is fixed (e.g. the signer
+    is confirmed) — releases the chase.
+    """
+    if hold_state is None or hold_state.attempts == 0:
+        return False
+    return not hold_state.resolved
 
 
 def _chase_due(
@@ -392,6 +434,29 @@ def decide(
         # Terminal: resolved, or already handed off (a person owns it now).
         if state is not None and (state.resolved or state.handed_off):
             continue
+        # (d) HELD — an open hold on this item blocks chase AND hand-off (the
+        # ambiguity precedes the count). Re-surface on the re-fire window so a
+        # held item never goes permanently dark (#1899); release only on a
+        # ``resolved`` hold event (ss #2402).
+        if item.task_id is not None:
+            hold_key = ledger.item_key(
+                item.matter_id, hold_source_id(item.task_id), _HOLD_LABEL, None
+            )
+            hold_state = states.get(hold_key)
+            if _hold_active(hold_state):
+                if not hold_state.handed_off and ledger.should_fire(
+                    hold_state, today, refire_days=refire_days, ack_snooze_days=refire_days
+                ):
+                    plans.append(
+                        ItemPlan(
+                            matter_id=item.matter_id,
+                            task_id=item.task_id,
+                            item_key=hold_key,
+                            action=ACTION_SURFACE_HOLD,
+                            attempt=ledger.next_attempt(hold_state),
+                        )
+                    )
+                continue
         attempts = 0 if state is None else state.attempts
         if attempts >= ceiling:
             # (b) Ceiling reached, not yet handed off → wake once to hand off.
@@ -420,6 +485,7 @@ def decide(
     if actionable:
         chases = sum(1 for p in actionable if p.action == ACTION_CHASE)
         handoffs = sum(1 for p in actionable if p.action == ACTION_HANDOFF)
+        holds = sum(1 for p in actionable if p.action == ACTION_SURFACE_HOLD)
         return WakeDecision(
             wake=True,
             decision_basis="verification_action_due",
@@ -428,6 +494,7 @@ def decide(
             extra_metadata={
                 "chase_due": chases,
                 "handoff_due": handoffs,
+                "hold_surface_due": holds,
                 "open_item_count": len(items),
                 "items": [
                     {
