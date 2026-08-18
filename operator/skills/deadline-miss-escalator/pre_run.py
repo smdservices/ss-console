@@ -628,6 +628,29 @@ print(json.dumps(out, default=str))
 
 _TASK_DATE_KEYS = ("dueDate", "DueDate", "due_date")
 _EVENT_DATE_KEYS = ("startTime", "StartTime", "startDate", "start", "from")
+_SUBJECT_KEYS = ("subject", "Subject", "name", "Name", "title", "Title")
+
+# Rehearsal/self-test artifacts carry "[SMD-PROBE <stamp>]" at the start of the
+# subject (after the connector's "[Operator]" provenance stamp) — ss #2403: a
+# probe task outlived its test and became a live chase's tracking anchor. Probe
+# rows are never deadlines. Position-anchored on purpose: a real task QUOTING
+# the marker mid-subject must not be hidden (a deadline watcher that can be
+# silenced by subject text is the dangerous failure).
+_PROBE_MARK = "[SMD-PROBE"
+_PROVENANCE_MARK = "[Operator]"
+
+
+def _is_probe_item(item: dict) -> bool:
+    subject = ""
+    for key in _SUBJECT_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            subject = value
+            break
+    text = subject.lstrip()
+    if text.upper().startswith(_PROVENANCE_MARK.upper()):
+        text = text[len(_PROVENANCE_MARK) :].lstrip()
+    return text.upper().startswith(_PROBE_MARK.upper())
 _MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id", "id")
 # The Smokeball task/event id, extracted INDEPENDENTLY of matter id (a task's
 # own ``id`` is not its matter) — the anti-collision half of item identity.
@@ -717,6 +740,8 @@ def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
         for item in items:
             if not isinstance(item, dict):
                 continue
+            if _is_probe_item(item):
+                continue  # ss #2403: probe artifacts are never deadlines
             total_items += 1
             authored = _first_date(item, keys)
             if authored is None:

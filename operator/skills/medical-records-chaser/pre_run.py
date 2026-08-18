@@ -731,7 +731,24 @@ def _source_id_of(item: dict) -> str | None:
     return None
 
 
+# Rehearsal/self-test artifacts carry "[SMD-PROBE <stamp>]" at the start of
+# the subject (after the connector's "[Operator]" provenance stamp) — ss #2403.
+# Probe rows are never roster items. Position-anchored: a real task quoting
+# the marker mid-subject is not hidden.
+_PROBE_MARK = "[SMD-PROBE"
+_PROVENANCE_MARK = "[Operator]"
+
+
+def _is_probe_subject(subject: str) -> bool:
+    text = subject.lstrip()
+    if text.upper().startswith(_PROVENANCE_MARK.upper()):
+        text = text[len(_PROVENANCE_MARK) :].lstrip()
+    return text.upper().startswith(_PROBE_MARK.upper())
+
+
 def _is_roster_task(subject: str) -> bool:
+    if _is_probe_subject(subject):
+        return False
     return _ROSTER_SUBJECT_MARKER in subject.lower()
 
 

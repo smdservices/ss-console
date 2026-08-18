@@ -523,6 +523,23 @@ def test_parse_pull_subsets_roster_tasks_by_marker():
     assert pull.items[0].confirm_by == date(2026, 7, 11)
 
 
+def test_parse_pull_excludes_probe_artifacts():
+    # ss #2403: a probe task is never a roster item; a real roster task quoting
+    # the marker mid-subject is kept (position-anchored match).
+    raw = {
+        "tasks": [
+            _task(
+                "[Operator] [SMD-PROBE 2026-08-18T14:00Z] records (request roster)",
+                task_id="t-p",
+            ),
+            _task("Medical records outstanding - Valley Imaging Center (request roster)"),
+        ]
+    }
+    pull, problem = parse_pull(raw, today=TODAY)
+    assert problem is None
+    assert [i.task_id for i in pull.items] == ["t-1"]
+
+
 def test_parse_pull_dateless_roster_task_seeds_today():
     raw = {"tasks": [{"id": "t-1", "subject": "x (request roster)", "matter": {"id": "m-1"}}]}
     pull, problem = parse_pull(raw, today=TODAY)

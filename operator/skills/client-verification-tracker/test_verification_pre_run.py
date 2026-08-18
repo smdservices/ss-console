@@ -783,6 +783,33 @@ def test_parse_pull_filters_to_verification_tasks():
     assert items[0].next_chase_due == date(2026, 7, 20)
 
 
+def test_parse_pull_excludes_probe_artifacts():
+    # ss #2403: task 28745d01 was a rehearsal probe THIS skill ingested as its
+    # live tracking anchor. A probe-marked task is never a verification item;
+    # a real one quoting the marker mid-subject is kept (position-anchored).
+    raw = {
+        "tasks": {
+            "items": [
+                {
+                    "matterId": "m-1",
+                    "id": "t-p",
+                    "subject": "[Operator] [SMD-PROBE 2026-08-18T14:00Z] verification probe",
+                    "dueDate": "2026-07-20",
+                },
+                {
+                    "matterId": "m-1",
+                    "id": "t-r",
+                    "subject": "Verification chase: quote the [SMD-PROBE] marker",
+                    "dueDate": "2026-07-20",
+                },
+            ]
+        }
+    }
+    items, problem = parse_pull(raw, today=TODAY)
+    assert problem is None
+    assert [i.task_id for i in items] == ["t-r"]
+
+
 def test_parse_pull_dateless_verification_seeds_first_chase_today():
     raw = {"tasks": {"items": [{"matterId": "m-1", "id": "t-1", "subject": "verification tracking"}]}}
     items, problem = parse_pull(raw, today=TODAY)
