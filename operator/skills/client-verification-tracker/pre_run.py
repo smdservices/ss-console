@@ -26,6 +26,16 @@ For each open verification tracking item the skill maintains:
       the ledger holds no ``handed_off`` event yet: wake ONCE to stop chasing the
       client and hand the open item to the responsible attorney. A ``handed_off``
       item is terminal for autonomous wakes.
+  (d) HELD — the ledger carries an open per-MATTER hold (a ``fired`` raise on
+      the matter's hold sentinel; see ``HOLD_SOURCE_ID``): a turn that
+      inspected the matter found it cannot chase safely (signer unresolved, or
+      any other surface-and-ask condition). A held matter NEVER plans a chase
+      or a hand-off for any of its verification items; instead the hold
+      re-surfaces to a person on the re-fire window until a turn writes
+      ``resolved`` on the hold sentinel (ss #2402 — on 2026-08-11 the turn
+      surfaced "signer not confirmed" and three days later the next wake
+      planned a chase to the unconfirmed signer, because the hold lived only
+      in an email).
 
 Plus one seat-level condition:
 
@@ -92,6 +102,29 @@ SKILL_NAME = "client-verification-tracker"
 # (every refire_days until authored), never daily (#1899).
 _CONFIG_SENTINEL_SOURCE_ID = "__chase_config__"
 _CONFIG_SENTINEL_LABEL = "chase-config-missing"
+
+# Per-MATTER hold sentinel (ss #2402). A turn that finds a matter unsafe to
+# chase (signer unresolved is the founding case) appends a ``fired`` raise on
+# the matter's HOLD identity — the matter id plus the fixed source id below —
+# via the broker (derive-then-handle, ss #2304). ``decide()`` then refuses to
+# plan a chase or hand-off for ANY verification item on that matter until a
+# turn appends ``resolved`` on the hold.
+#
+# The identity is deliberately MATTER-level, not task-level: the founding
+# blocker (conflicting Minor/Deceased sub-roles on the plaintiff) is a fact
+# about the matter's roles, not about one tracking task. A task-keyed hold
+# would evaporate the moment the tracking task is completed, deleted, or
+# recreated — the first wake on a replacement task would plan a chase straight
+# past the still-unresolved blocker. Matter-level is also fail-closed for
+# multi-plaintiff matters: one unresolved signer holds every verification
+# chase on the matter, and the re-surface asks a person rather than guessing
+# which sibling items are safe.
+#
+# The constants are the cross-side contract: the turn and this gate must
+# derive the same key from the same components, so they live here and are
+# cited verbatim in SKILL.md.
+HOLD_SOURCE_ID = "__hold__"
+_HOLD_LABEL = "chase-hold"
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +315,7 @@ def _load_ledger_module():
 ACTION_CHASE = "chase"  # a client nudge is due (attempt < ceiling)
 ACTION_HANDOFF = "handoff"  # ceiling reached; stop chasing, hand to the attorney (once)
 ACTION_SURFACE_CONFIG = "surface_config_missing"  # seat-level, on the refire window
+ACTION_SURFACE_HOLD = "surface_hold"  # item held (e.g. signer unresolved); re-surface, never chase
 ACTION_SUPPRESS = "suppress"  # nothing due for this item
 
 
@@ -304,6 +338,22 @@ class WakeDecision:
     pre_run_inputs_digest: bytes
     plans: tuple[ItemPlan, ...] = ()
     extra_metadata: dict = field(default_factory=dict)
+
+
+def _hold_active(hold_state) -> bool:
+    """True iff the item's hold sentinel blocks the chase.
+
+    A hold is open once it has any raise and is not ``resolved``. An ``acked``
+    hold stays BLOCKING — ack means "a person saw the surface", not "the
+    condition is fixed"; it only snoozes the re-surface (``should_fire``
+    handles that). ``handed_off`` likewise blocks and additionally ends
+    autonomous re-surfacing: a person owns the item. Only ``resolved`` —
+    written by the turn that confirmed the condition is fixed (e.g. the signer
+    is confirmed) — releases the chase.
+    """
+    if hold_state is None or hold_state.attempts == 0:
+        return False
+    return not hold_state.resolved
 
 
 def _chase_due(
@@ -392,6 +442,34 @@ def decide(
         # Terminal: resolved, or already handed off (a person owns it now).
         if state is not None and (state.resolved or state.handed_off):
             continue
+        # (d) HELD — an open hold on this MATTER blocks chase AND hand-off for
+        # every verification item on it (the ambiguity precedes the count, and
+        # it is a fact about the matter, so a recreated tracking task cannot
+        # slip past it). Re-surface on the re-fire window so a held matter
+        # never goes permanently dark (#1899); release only on a ``resolved``
+        # hold event (ss #2402). One surface per held matter per wake, even
+        # with several tracked items on it.
+        hold_key = ledger.item_key(item.matter_id, HOLD_SOURCE_ID, _HOLD_LABEL, None)
+        hold_state = states.get(hold_key)
+        if _hold_active(hold_state):
+            already_surfacing = any(p.item_key == hold_key for p in plans)
+            if (
+                not already_surfacing
+                and not hold_state.handed_off
+                and ledger.should_fire(
+                    hold_state, today, refire_days=refire_days, ack_snooze_days=refire_days
+                )
+            ):
+                plans.append(
+                    ItemPlan(
+                        matter_id=item.matter_id,
+                        task_id=item.task_id,
+                        item_key=hold_key,
+                        action=ACTION_SURFACE_HOLD,
+                        attempt=ledger.next_attempt(hold_state),
+                    )
+                )
+            continue
         attempts = 0 if state is None else state.attempts
         if attempts >= ceiling:
             # (b) Ceiling reached, not yet handed off → wake once to hand off.
@@ -420,6 +498,7 @@ def decide(
     if actionable:
         chases = sum(1 for p in actionable if p.action == ACTION_CHASE)
         handoffs = sum(1 for p in actionable if p.action == ACTION_HANDOFF)
+        holds = sum(1 for p in actionable if p.action == ACTION_SURFACE_HOLD)
         return WakeDecision(
             wake=True,
             decision_basis="verification_action_due",
@@ -428,6 +507,7 @@ def decide(
             extra_metadata={
                 "chase_due": chases,
                 "handoff_due": handoffs,
+                "hold_surface_due": holds,
                 "open_item_count": len(items),
                 "items": [
                     {
