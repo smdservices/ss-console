@@ -652,8 +652,44 @@ stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base
 # overwrites a customer's own webhook secret with the global one and inbound email
 # silently stops verifying — the 2026-06-12 inbound failure, generalized to every
 # multi-customer AgentMail seat.
-if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
-    "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+
+# ---------- authored-connector facts: parse once, comments are not authoring ----
+# Every channel gate below used to `grep -qE` the RAW customer.yaml, which reads
+# COMMENTS as config. That fired live on 2026-08-18: ashton-price authors no
+# agentmail connector, but its history comment contains the literal string
+# `adapter: agentmail`, so every reprovision re-staged the org-wide AgentMail
+# key onto a seat with no AgentMail channel — the exact credential shape behind
+# the ss#2258 incident, resurrected by prose. Parse the yaml once and let every
+# gate consume the DERIVED facts; a comment cannot reach them.
+#
+# The heredoc body stays free of apostrophes (macOS bash 3.2 heredoc-in-$()
+# hazard — see the manifest-loop note below).
+# >>> authored-channel-facts
+_AUTHORED_CHANNELS="$(
+  uv run --quiet --with pyyaml python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+
+import yaml
+
+with open(sys.argv[1]) as f:
+    c = yaml.safe_load(f) or {}
+for conn in (c.get("connectors") or {}).values():
+    if not isinstance(conn, dict):
+        continue
+    for key in ("adapter", "backend", "webhook_url"):
+        value = str(conn.get(key) or "").strip()
+        if value:
+            print(f"{key}={value}")
+PY
+)"
+authored_channel() {
+  # authored_channel <ERE> — true iff a REAL connector field matches. Gates test
+  # this derived list, never the raw yaml.
+  printf '%s\n' "${_AUTHORED_CHANNELS}" | grep -qE "$1"
+}
+# <<< authored-channel-facts
+
+if authored_channel '^adapter=agentmail$|^backend=mcp:agentmail$'; then
   # PER-SEAT, and it has to be. Both keys are scoped to ONE inbox at the vendor
   # (ss#2258), so a single shared value is no longer merely untidy — staging one
   # seat's key onto another gives that seat a credential for a mailbox it does
@@ -693,8 +729,7 @@ fi
 # preferring the per-customer <NAME>__<CUSTOMER_ID> so a reprovision of one seat
 # never pulls another tenant's secret. The connector reads all four as env vars
 # (MSGRAPH_TENANT_ID / MSGRAPH_CLIENT_ID / MSGRAPH_CLIENT_SECRET / MSGRAPH_MAILBOX).
-if grep -qE 'adapter:[[:space:]]*msgraph|backend:[[:space:]]*mcp:msgraph-mail' \
-    "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+if authored_channel '^adapter=msgraph$|^backend=mcp:msgraph-mail$'; then
   MSG_PARSE_PY="
 import yaml
 with open('${CUSTOMER_YAML}') as f:
@@ -809,7 +844,7 @@ fi
 # bill is Anthropic" true). Staged ONLY for a customer whose customer.yaml binds a
 # native:brave-* backend. Missing at boot => the provider stays unavailable
 # (Hermes falls back / no web search), fail-closed, no crashloop.
-if grep -qE 'backend:[[:space:]]*.?native:brave' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+if authored_channel '^backend=native:brave'; then
   stage_secret_from_env BRAVE_SEARCH_API_KEY "${BRAVE_SEARCH_API_KEY:-}" "Brave Search API key (native brave-free provider; web search)"
 fi
 
@@ -845,7 +880,7 @@ stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON
 # directly. A prod seat whose SMOKEBALL_PROD_* creds are not yet in the operator env
 # simply warns+skips → the connector is unwired this boot (boot-before-token), and
 # wires once the creds land.
-if grep -qE 'backend:[[:space:]]*mcp:smokeball' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+if authored_channel '^backend=mcp:smokeball$'; then
   SB_PARSE_PY="
 import yaml
 with open('${CUSTOMER_YAML}') as f:
@@ -917,7 +952,7 @@ print(str(sb.get('account_id') or '').strip())
   #     ${_sb_cid}); a per-customer override exists only for the rare case the signing
   #     ClientId differs in byte form from the OAuth client id (confirm vs a real
   #     delivery). Without these the smokeball route fail-closes (gate 401).
-  if grep -qE 'webhook_url:.*/webhooks/smokeball' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  if authored_channel '^webhook_url=.*/webhooks/smokeball$'; then
     _SB_WH_KEY="WEBHOOK_SECRET_SMOKEBALL__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
     _SB_WH_SECRET="${!_SB_WH_KEY:-${WEBHOOK_SECRET_SMOKEBALL:-}}"
     stage_secret_from_env WEBHOOK_SECRET_SMOKEBALL "${_SB_WH_SECRET}" "Smokeball webhook HMAC key == subscription key, raw bytes (per-customer ${_SB_WH_KEY}, else global)"
