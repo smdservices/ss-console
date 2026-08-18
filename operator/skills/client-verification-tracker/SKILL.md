@@ -280,24 +280,31 @@ Two ledger raise events matter for the chase:
   signed-document close) is likewise terminal.
 
 **The hold (ss #2402): a surfaced blocker is ledger state, never just an email.**
-When a turn finds an item **unsafe to chase** — the founding case is an
+When a turn finds a matter **unsafe to chase** — the founding case is an
 unresolvable signer (e.g. conflicting Minor/Deceased sub-roles on the plaintiff),
-but any surface-and-ask condition on the item qualifies — it does three things in
-that turn: (1) appends a `fired` event on the item's **hold sentinel** (derive
-with `matter_id` = the item's matter, `source_id` = `__hold__<task_id>`, `label`
-= `chase-hold`, `authored_date` = null — the prefix is the cross-side contract
-with `pre_run.py`'s `hold_source_id`), (2) surfaces the blocker to a person, and
-(3) sends **no chase**. From then on the gate refuses to plan a chase **or a
-hand-off** for that item and re-surfaces the hold every `escalation.refire_days`
-instead — the hold cannot be forgotten by the next wake, because the next wake
-reads it. On 2026-08-11 this hold lived only in an email, and the 2026-08-14
-wake staged a chase to the very signer the seat had declared unconfirmed.
-Releasing the hold is itself an observed fact, never an assumption: only when a
-turn has **confirmation from a person or from the matter record** (the roles
-now resolve to one signer, or the responsible attorney named the signer) does it
-append `resolved` on the hold sentinel — same derive-then-handle — after which
-the chase plans again on the normal cadence. An `acked` hold stays blocking (ack
-means "seen", not "fixed"); it only snoozes the re-surface.
+but any surface-and-ask condition qualifies — it does three things in that turn:
+(1) appends a `fired` event on the **matter's hold sentinel** (derive with
+`matter_id` = the matter, `source_id` = the literal `__hold__`, `label` =
+`chase-hold`, `authored_date` = null — these literals are the cross-side
+contract with `pre_run.py`'s `HOLD_SOURCE_ID`), (2) surfaces the blocker to a
+person, and (3) sends **no chase**. The hold is **matter-level by design**: the
+blocker is a fact about the matter's roles, so it must survive the tracking
+task being completed, deleted, or recreated, and on a multi-plaintiff matter it
+holds every verification chase rather than guessing which siblings are safe.
+From then on the gate refuses to plan a chase **or a hand-off** for any item on
+that matter and re-surfaces the hold every `escalation.refire_days` instead —
+the hold cannot be forgotten by the next wake, because the next wake reads it.
+**Each re-surface turn appends a fresh `fired` on the hold sentinel in the same
+turn** — that raise is what starts the next quiet window; a re-surface without
+the raise would fire again on every wake. On 2026-08-11 this hold lived only in
+an email, and the 2026-08-14 wake staged a chase to the very signer the seat
+had declared unconfirmed. Releasing the hold is itself an observed fact, never
+an assumption: only when a turn has **confirmation from a person or from the
+matter record** (the roles now resolve to one signer, or the responsible
+attorney named the signer) does it append `resolved` on the hold sentinel —
+same derive-then-handle — after which the chase plans again on the normal
+cadence. An `acked` hold stays blocking (ack means "seen", not "fixed"); it
+only snoozes the re-surface.
 
 The **internal escalation-to-a-person** (both the ceiling hand-off and the
 "cadence/attempt-count not authored" surface) therefore follows the same
@@ -360,12 +367,14 @@ surface), never a silent default.
    - matched with confidence (only once the firm's convention is confirmed) → close
      (`update_task`), log (`create_memo`), append a `resolved` ledger event, let it
      fall into the daily digest.
-   - plan action `surface_hold` → the item is held (signer unresolved or another
-     surfaced blocker). Re-surface the blocker to a person, referencing the prior
-     surface; send **no chase and no hand-off**. Before re-surfacing, re-check the
-     blocking fact live (`get_roles_on_matter`): if it now resolves cleanly,
-     append `resolved` on the hold sentinel instead — the chase resumes on the
-     next wake. Never re-verify the signer from memory of an earlier turn.
+   - plan action `surface_hold` → the matter is held (signer unresolved or another
+     surfaced blocker). Before re-surfacing, re-check the blocking fact live
+     (`get_roles_on_matter`): if it now resolves cleanly, append `resolved` on the
+     hold sentinel instead — the chase resumes on the next wake. Still blocked →
+     re-surface the blocker to a person, referencing the prior surface, AND append
+     a fresh `fired` on the hold sentinel in the same turn (the raise starts the
+     next quiet window; without it the hold fires on every wake). Send **no chase
+     and no hand-off**. Never re-verify the signer from memory of an earlier turn.
    - not found / ambiguous / convention-unconfirmed, and **no open hold on the
      item**, and the attempt count (the
      `chased` raises in the ledger) is **below `escalate_after_attempts`**, and

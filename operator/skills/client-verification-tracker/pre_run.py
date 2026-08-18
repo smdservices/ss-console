@@ -26,15 +26,16 @@ For each open verification tracking item the skill maintains:
       the ledger holds no ``handed_off`` event yet: wake ONCE to stop chasing the
       client and hand the open item to the responsible attorney. A ``handed_off``
       item is terminal for autonomous wakes.
-  (d) HELD — the ledger carries an open per-item HOLD (a ``fired`` raise on the
-      item's hold sentinel; see ``hold_source_id``): the turn that inspected the
-      matter found it cannot chase safely (signer unresolved, or any other
-      surface-and-ask condition on the item). A held item NEVER plans a chase or
-      a hand-off; instead the hold re-surfaces to a person on the re-fire window
-      until a turn writes ``resolved`` on the hold sentinel (ss #2402 — on
-      2026-08-11 the turn surfaced "signer not confirmed" and three days later
-      the next wake planned a chase to the unconfirmed signer, because the hold
-      lived only in an email).
+  (d) HELD — the ledger carries an open per-MATTER hold (a ``fired`` raise on
+      the matter's hold sentinel; see ``HOLD_SOURCE_ID``): a turn that
+      inspected the matter found it cannot chase safely (signer unresolved, or
+      any other surface-and-ask condition). A held matter NEVER plans a chase
+      or a hand-off for any of its verification items; instead the hold
+      re-surfaces to a person on the re-fire window until a turn writes
+      ``resolved`` on the hold sentinel (ss #2402 — on 2026-08-11 the turn
+      surfaced "signer not confirmed" and three days later the next wake
+      planned a chase to the unconfirmed signer, because the hold lived only
+      in an email).
 
 Plus one seat-level condition:
 
@@ -102,21 +103,28 @@ SKILL_NAME = "client-verification-tracker"
 _CONFIG_SENTINEL_SOURCE_ID = "__chase_config__"
 _CONFIG_SENTINEL_LABEL = "chase-config-missing"
 
-# Per-item hold sentinel (ss #2402). A turn that finds an item unsafe to chase
-# (signer unresolved is the founding case) appends a ``fired`` raise on the
-# item's HOLD identity — same matter, the source id below — via the broker
-# (derive-then-handle, ss #2304). ``decide()`` then refuses to plan a chase or
-# hand-off for the underlying item until a turn appends ``resolved`` on the
-# hold. The prefix is part of the cross-side contract: the turn and this gate
-# must derive the same key from the same components, so it is a module constant
-# here and cited verbatim in SKILL.md.
-_HOLD_SOURCE_PREFIX = "__hold__"
+# Per-MATTER hold sentinel (ss #2402). A turn that finds a matter unsafe to
+# chase (signer unresolved is the founding case) appends a ``fired`` raise on
+# the matter's HOLD identity — the matter id plus the fixed source id below —
+# via the broker (derive-then-handle, ss #2304). ``decide()`` then refuses to
+# plan a chase or hand-off for ANY verification item on that matter until a
+# turn appends ``resolved`` on the hold.
+#
+# The identity is deliberately MATTER-level, not task-level: the founding
+# blocker (conflicting Minor/Deceased sub-roles on the plaintiff) is a fact
+# about the matter's roles, not about one tracking task. A task-keyed hold
+# would evaporate the moment the tracking task is completed, deleted, or
+# recreated — the first wake on a replacement task would plan a chase straight
+# past the still-unresolved blocker. Matter-level is also fail-closed for
+# multi-plaintiff matters: one unresolved signer holds every verification
+# chase on the matter, and the re-surface asks a person rather than guessing
+# which sibling items are safe.
+#
+# The constants are the cross-side contract: the turn and this gate must
+# derive the same key from the same components, so they live here and are
+# cited verbatim in SKILL.md.
+HOLD_SOURCE_ID = "__hold__"
 _HOLD_LABEL = "chase-hold"
-
-
-def hold_source_id(task_id: str) -> str:
-    """The ledger ``source_id`` of the hold sentinel for one tracked item."""
-    return _HOLD_SOURCE_PREFIX + task_id
 
 
 # ---------------------------------------------------------------------------
@@ -434,29 +442,34 @@ def decide(
         # Terminal: resolved, or already handed off (a person owns it now).
         if state is not None and (state.resolved or state.handed_off):
             continue
-        # (d) HELD — an open hold on this item blocks chase AND hand-off (the
-        # ambiguity precedes the count). Re-surface on the re-fire window so a
-        # held item never goes permanently dark (#1899); release only on a
-        # ``resolved`` hold event (ss #2402).
-        if item.task_id is not None:
-            hold_key = ledger.item_key(
-                item.matter_id, hold_source_id(item.task_id), _HOLD_LABEL, None
-            )
-            hold_state = states.get(hold_key)
-            if _hold_active(hold_state):
-                if not hold_state.handed_off and ledger.should_fire(
+        # (d) HELD — an open hold on this MATTER blocks chase AND hand-off for
+        # every verification item on it (the ambiguity precedes the count, and
+        # it is a fact about the matter, so a recreated tracking task cannot
+        # slip past it). Re-surface on the re-fire window so a held matter
+        # never goes permanently dark (#1899); release only on a ``resolved``
+        # hold event (ss #2402). One surface per held matter per wake, even
+        # with several tracked items on it.
+        hold_key = ledger.item_key(item.matter_id, HOLD_SOURCE_ID, _HOLD_LABEL, None)
+        hold_state = states.get(hold_key)
+        if _hold_active(hold_state):
+            already_surfacing = any(p.item_key == hold_key for p in plans)
+            if (
+                not already_surfacing
+                and not hold_state.handed_off
+                and ledger.should_fire(
                     hold_state, today, refire_days=refire_days, ack_snooze_days=refire_days
-                ):
-                    plans.append(
-                        ItemPlan(
-                            matter_id=item.matter_id,
-                            task_id=item.task_id,
-                            item_key=hold_key,
-                            action=ACTION_SURFACE_HOLD,
-                            attempt=ledger.next_attempt(hold_state),
-                        )
+                )
+            ):
+                plans.append(
+                    ItemPlan(
+                        matter_id=item.matter_id,
+                        task_id=item.task_id,
+                        item_key=hold_key,
+                        action=ACTION_SURFACE_HOLD,
+                        attempt=ledger.next_attempt(hold_state),
                     )
-                continue
+                )
+            continue
         attempts = 0 if state is None else state.attempts
         if attempts >= ceiling:
             # (b) Ceiling reached, not yet handed off → wake once to hand off.

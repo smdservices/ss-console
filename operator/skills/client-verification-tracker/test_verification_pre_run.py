@@ -51,7 +51,7 @@ ACTION_CHASE = _pre_run.ACTION_CHASE
 ACTION_HANDOFF = _pre_run.ACTION_HANDOFF
 ACTION_SURFACE_CONFIG = _pre_run.ACTION_SURFACE_CONFIG
 ACTION_SURFACE_HOLD = _pre_run.ACTION_SURFACE_HOLD
-hold_source_id = _pre_run.hold_source_id
+HOLD_SOURCE_ID = _pre_run.HOLD_SOURCE_ID
 
 # The vendored ledger module the skill loads at runtime — used here to mint real
 # events so the tests exercise the true item_key/state join.
@@ -341,18 +341,17 @@ def test_unauthored_config_never_chases():
 
 
 # ---------------------------------------------------------------------------
-# decide() — per-item hold (condition d, ss #2402): an open hold blocks chase
-# AND hand-off; it re-surfaces on the re-fire window; only a resolved hold
-# releases the chase. Founding case: signer unresolved (2026-08-11 the turn
-# surfaced the hold in an email only, and the 2026-08-14 wake planned a chase
-# to the unconfirmed signer).
+# decide() — per-MATTER hold (condition d, ss #2402): an open hold blocks
+# chase AND hand-off for every item on the matter; it re-surfaces on the
+# re-fire window; only a resolved hold releases the chase. Founding case:
+# signer unresolved (2026-08-11 the turn surfaced the hold in an email only,
+# and the 2026-08-14 wake planned a chase to the unconfirmed signer).
 # ---------------------------------------------------------------------------
 
 
 def _hold_event(item, *, event="fired", ts, attempt=1):
-    key = _ledger.item_key(
-        item.matter_id, hold_source_id(item.task_id), "chase-hold", None
-    )
+    # Matter-level identity: the hold names the MATTER, not the tracking task.
+    key = _ledger.item_key(item.matter_id, HOLD_SOURCE_ID, "chase-hold", None)
     return _ledger.make_event(
         skill="client-verification-tracker",
         matter_id=item.matter_id,
@@ -433,13 +432,34 @@ def test_hold_blocks_the_ceiling_handoff_too():
     assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]
 
 
-def test_hold_on_one_item_does_not_block_another():
+def test_hold_on_one_matter_does_not_block_another():
     held = _item(matter_id="m-1", task_id="task-1", next_chase_due=TODAY - timedelta(days=30))
     free = _item(matter_id="m-2", task_id="task-2", next_chase_due=TODAY)
     events = [_hold_event(held, ts="2026-07-13T09:00:00.000Z")]
     d = _decide([held, free], events)
     assert d.wake is True
     assert {(p.matter_id, p.action) for p in d.plans} == {("m-2", ACTION_CHASE)}
+
+
+def test_hold_survives_tracking_task_recreation():
+    # The blocker is a fact about the MATTER. A hold written while task-1 was
+    # the tracking task must still block a REPLACEMENT task-9 on the same
+    # matter — a task-keyed hold would evaporate here and the first wake on
+    # the new task would chase straight past the unresolved signer.
+    original = _item(matter_id="m-1", task_id="task-1", next_chase_due=TODAY)
+    events = [_hold_event(original, ts="2026-07-13T09:00:00.000Z")]
+    replacement = _item(matter_id="m-1", task_id="task-9", next_chase_due=TODAY)
+    d = _decide([replacement], events)
+    assert d.wake is False  # within the refire window: quiet, and no chase
+
+
+def test_held_matter_with_two_items_surfaces_once():
+    a = _item(matter_id="m-1", task_id="task-1", next_chase_due=TODAY - timedelta(days=30))
+    b = _item(matter_id="m-1", task_id="task-2", next_chase_due=TODAY - timedelta(days=30))
+    events = [_hold_event(a, ts="2026-07-10T09:00:00.000Z")]
+    d = _decide([a, b], events)
+    assert d.wake is True
+    assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]  # one, not two
 
 
 # ---------------------------------------------------------------------------
