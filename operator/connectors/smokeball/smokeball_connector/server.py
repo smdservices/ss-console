@@ -615,6 +615,69 @@ _MATTER_NUMBER_RE = re.compile(r"\b(?:\d{4}-[A-Z]{2}-\d{3,4}|[A-Z]{2}-\d{4}-\d{4
 
 _PROVENANCE_MARK = "[Operator]"
 
+# Rehearsal / self-test artifacts written into a tenant carry this subject
+# marker (ss #2403): ``[SMD-PROBE <ISO-8601 creation stamp>]``, at the start of
+# the subject (after the ``[Operator]`` provenance stamp create_task adds).
+# The 2026-08-14 incident: a rehearsal probe task outlived its test, the digest
+# itself flagged it as "a machine-authored probe task; its own note instructs
+# deletion after witnessing", and 37 minutes later the verification chase cited
+# it as its real tracking anchor. The marker is deliberately subject-visible —
+# firm staff reading the task list are the OTHER consumer that can mistake a
+# probe for real work; a note-only token would hide it from exactly them.
+#
+# ``list_tasks`` drops marked rows by default so the agent turn never ingests
+# a probe as work (``include_probe_artifacts=True`` is the census/teardown
+# opt-in), and the drop is COUNTED on the response envelope — a filter that
+# can hide rows silently is a suppression channel, and a deadline watcher that
+# goes quiet is the dangerous failure. The match is position-anchored (only a
+# subject that STARTS with the marker, provenance stamp aside, is a probe);
+# a mid-subject occurrence does not match, so real work cannot be hidden by
+# quoting the marker.
+_PROBE_MARK = "[SMD-PROBE"
+
+
+def _is_probe_subject(subject: Any) -> bool:
+    """True iff the subject is marked as a rehearsal/self-test probe artifact."""
+    if not isinstance(subject, str):
+        return False
+    text = subject.lstrip()
+    if text.upper().startswith(_PROVENANCE_MARK.upper()):
+        text = text[len(_PROVENANCE_MARK) :].lstrip()
+    return text.upper().startswith(_PROBE_MARK.upper())
+
+
+def _task_subject_of(item: Any) -> str:
+    if not isinstance(item, dict):
+        return ""
+    for key in ("subject", "Subject", "name", "Name", "title", "Title"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
+def _drop_probe_tasks(resp: Any) -> Any:
+    """Remove probe-marked rows from a /tasks response, loudly.
+
+    Only the dict (HATEOAS ``{"value": [...]}``) envelope gains the
+    ``probeArtifactsExcluded`` count key; a bare-list response is filtered in
+    place (its shape cannot carry a count without breaking consumers).
+    """
+    if isinstance(resp, dict):
+        for key in ("value", "items", "results", "tasks", "data"):
+            rows = resp.get(key)
+            if isinstance(rows, list):
+                kept = [r for r in rows if not _is_probe_subject(_task_subject_of(r))]
+                excluded = len(rows) - len(kept)
+                if excluded:
+                    resp[key] = kept
+                    resp["probeArtifactsExcluded"] = excluded
+                return resp
+        return resp
+    if isinstance(resp, list):
+        return [r for r in resp if not _is_probe_subject(_task_subject_of(r))]
+    return resp
+
 
 class MatterReferenceMismatch(RuntimeError):
     """Raised when composed text names a matter other than the one written to."""
@@ -871,9 +934,17 @@ def list_tasks(
     updated_since: str | None = None,
     limit: int = 500,
     offset: int = 0,
+    include_probe_artifacts: bool = False,
 ) -> Any:
     """List tasks (authored court/filing deadlines carry a due date). Filter by
     matter and completion state.
+
+    Rehearsal/self-test probe artifacts (subjects marked ``[SMD-PROBE ...]``)
+    are EXCLUDED by default and the exclusion is counted on the response as
+    ``probeArtifactsExcluded`` (ss #2403 — a probe task once outlived its test
+    and became a live chase's tracking anchor). Pass
+    ``include_probe_artifacts=True`` only for a probe census or teardown; probe
+    rows are never work.
 
     Each item is enriched with ``matterNumber`` and ``matterCaption`` resolved
     from its own ``matter.id`` (best-effort, bounded). Cite those fields — never
@@ -888,6 +959,8 @@ def list_tasks(
         Limit=limit,
         Offset=offset,
     )
+    if not include_probe_artifacts:
+        resp = _drop_probe_tasks(resp)
     _attach_matter_refs_to_list(client, resp)
     return resp
 

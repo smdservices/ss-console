@@ -411,6 +411,40 @@ def test_parse_pull_bare_list_envelope() -> None:
     assert len(deadlines) == 1
 
 
+def test_parse_pull_excludes_probe_artifacts() -> None:
+    # ss #2403: a rehearsal probe task is never a deadline, [Operator]-stamped
+    # or not. But a real task QUOTING the marker mid-subject is kept — the
+    # match is position-anchored so subject text cannot silence a deadline.
+    raw = {
+        "tasks": [
+            {
+                "id": "t-p",
+                "matterId": "m-1",
+                "subject": "[Operator] [SMD-PROBE 2026-08-18T14:00Z] drafting prove-out",
+                "dueDate": "2026-07-20",
+            },
+            {
+                "id": "t-p2",
+                "matterId": "m-1",
+                "subject": "[SMD-PROBE 2026-08-18T14:00Z] unstamped probe",
+                "dueDate": "2026-07-20",
+            },
+            {
+                "id": "t-r",
+                "matterId": "m-1",
+                "subject": "Review the [SMD-PROBE] cleanup contract",
+                "dueDate": "2026-07-21",
+            },
+        ],
+        "events": [],
+    }
+    deadlines, problem = parse_pull(raw)
+    assert problem is None
+    assert [(d.task_id, d.authored_date.isoformat()) for d in deadlines] == [
+        ("t-r", "2026-07-21")
+    ]
+
+
 def test_parse_pull_error_key_is_a_problem() -> None:
     raw = {"tasks": {"items": []}, "events": {"items": []}, "eventsError": "boom"}
     deadlines, problem = parse_pull(raw)
