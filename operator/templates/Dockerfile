@@ -563,7 +563,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # ss#2255). Files: plugins/hermes-smd-trust/outbound_send.py,
 # plugins/hermes-smd-reply/__init__.py + tests — NOT tracked pairs; every
 # overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="943b40c1b061206cd208b43f553cf0dfd04741a7"
+ARG OVERLAY_REF="8499256d64f7f4bc0886cc5f6c4a098e93573825"
 
 ARG CUSTOMER_SLUG=customer-zero
 
