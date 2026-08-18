@@ -955,13 +955,28 @@ import pathlib
 import sys
 import tomllib
 
-# Connectors whose operator-env credential NAMES differ from their runtime names
-# (a remap the flat loop cannot do) are staged by a dedicated block above; skip
-# them here so the loop does not warn that the runtime name is unset.
+# Connectors staged by a dedicated block above are SKIPPED here, for two
+# different reasons that end the same way:
+#   smokeball     the operator-env credential NAMES differ from the runtime
+#                 names (a remap this flat loop cannot do).
+#   msgraph-mail  the values are PER-CUSTOMER, sourced from msgraph_auth in
+#                 customer.yaml and the per-seat vault keys. This loop stages by
+#                 PLAIN NAME from the operator env, where /ss also carries
+#                 account-level MSGRAPH_CLIENT_ID / MSGRAPH_CLIENT_SECRET (the
+#                 smd-staging pair). Running msgraph-mail through the loop
+#                 OVERWROTE the correct per-customer staging with those globals
+#                 on the first client seat (ashton-price, 2026-08-18): the seat
+#                 booted with its own tenant + mailbox but the staging app id
+#                 and secret, and the poller 401ed (AADSTS7000229) every cycle.
+#                 The manifest itself says these four are per-customer; a flat
+#                 by-name loop structurally cannot honor that, so the dedicated
+#                 block is the only legal stager for this connector.
+# The loop must never stage a name whose value is per-customer. If a future
+# connector authors per-customer credentials, add it here in the same breath.
 # NOTE: keep this heredoc body free of apostrophes. macOS bash 3.2 mis-parses a
 # stray apostrophe inside a heredoc-in-command-substitution and consumes to EOF
 # (that aborted a reprovision on 2026-06-23).
-REMAP_HANDLED = {"smokeball"}
+REMAP_HANDLED = {"smokeball", "msgraph-mail"}
 root = pathlib.Path(sys.argv[1])
 for manifest in sorted(root.glob("*/manifest.toml")):
     if manifest.parent.name in REMAP_HANDLED:
