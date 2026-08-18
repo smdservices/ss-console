@@ -20,6 +20,7 @@ not green and cannot be cited by a release gate. Silence is never a pass.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -101,15 +102,38 @@ class ScenarioResult:
     reason: str = ""
 
 
+def _metadata_haystack(row: dict) -> str:
+    """The row's metadata as a search surface that does not depend on storage form.
+
+    The seam returns metadata as a JSON string on some rows and a parsed dict on
+    others, and ``str()`` of a dict renders single quotes — so a needle written
+    for one form silently misses the other. Canonical compact JSON is appended
+    to the raw form so a needle like '"outcome":"error"' matches either way.
+    """
+    raw = row.get("metadata", "")
+    parts = [str(raw)]
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+        if isinstance(parsed, dict):
+            parts.append(json.dumps(parsed, separators=(",", ":"), sort_keys=True))
+    except (ValueError, TypeError):
+        pass
+    return " ".join(parts).lower()
+
+
 def _rows_matching(rows: list[dict], expectation: dict) -> list[dict]:
     wanted = {str(a).upper() for a in expectation.get("action_types") or []}
-    needle = expectation.get("metadata_contains")
+    needles = expectation.get("metadata_contains")
+    if isinstance(needles, str):
+        needles = [needles]
     out = []
     for row in rows:
         if wanted and str(row.get("action_type", "")).upper() not in wanted:
             continue
-        if needle and needle.lower() not in str(row.get("metadata", "")).lower():
-            continue
+        if needles:
+            haystack = _metadata_haystack(row)
+            if not all(str(n).lower() in haystack for n in needles):
+                continue
         out.append(row)
     return out
 
