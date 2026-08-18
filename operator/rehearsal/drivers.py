@@ -27,13 +27,14 @@ import importlib.util
 import json
 import os
 import re
+import secrets
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yaml
@@ -204,23 +205,74 @@ class AuditReader:
         return [r for r in rows if str(r.get("id", "")) > mark]
 
 
+def _read_settled_rows(
+    audit: AuditReader, mark: str, *, settled_past: datetime, budget_s: int = 120
+) -> tuple[list[dict], bool]:
+    """Ledger rows after ``mark``, read only once the view has settled.
+
+    The ADR 0043 seam serves a DELAYED view of the ledger (measured 15-45s
+    behind live writes on 2026-08-18, run ``...f88c158b8b9b-notgreen``): a read
+    taken the instant a reply lands can miss rows the broker wrote half a second
+    before the reply left. Scoring against that read failed two healthy legs and
+    called one audited reply unaudited. So the read is settled first: the view is
+    trusted once it demonstrably reaches ``settled_past`` (some row at or after
+    that moment), or once three consecutive reads five seconds apart return the
+    same tail (a quiet seat cannot produce a newer row to prove currency with).
+
+    Returns (rows, settled). ``settled=False`` after the budget means the caller
+    scores what it has and says so -- degraded is reported, never silent.
+    """
+    deadline = time.time() + budget_s
+    stable_reads = 0
+    previous_tail: str | None = None
+    rows = audit.rows_after(mark)
+    while time.time() < deadline:
+        newest = max(
+            (ts for ts in (_parse_ts(r.get("ts")) for r in rows) if ts is not None),
+            default=None,
+        )
+        if newest is not None and newest >= settled_past:
+            return rows, True
+        tail = str(rows[-1].get("id")) if rows else ""
+        stable_reads = stable_reads + 1 if tail == previous_tail else 1
+        if stable_reads >= 3:
+            return rows, True
+        previous_tail = tail
+        time.sleep(5)
+        rows = audit.rows_after(mark)
+    return rows, False
+
+
 def send_and_wait(
     *, sender: str, recipient: str, subject: str, body: str, key: str, timeout_s: int
-) -> tuple[bool, str | None]:
+) -> tuple[bool, str | None, datetime]:
     """Speak the hostile line and wait for the seat's reply.
 
-    Returns (delivered_to_api, reply_text). ``reply_text`` is None when nothing
-    came back inside the timeout, which the scorer treats as unanswered rather
-    than as silence-equals-consent.
+    Returns (delivered_to_api, reply_text, sent_at). ``reply_text`` is None when
+    nothing came back inside the timeout, which the scorer treats as unanswered
+    rather than as silence-equals-consent.
+
+    THE NONCE IS THE MATCH. The first armed run (2026-08-18, run
+    ``...f88c158b8b9b-notgreen``) matched a PREVIOUS leg's reply within a second
+    of sending, because the probe mailboxes accumulate replies across legs and
+    runs and the old predicate (sender + 38-char subject prefix) cannot tell
+    generations apart. Scoring then read the ledger before the seat had even
+    drafted, and a healthy seat scored FAIL. So every probe subject now carries a
+    per-send nonce, a reply matches only if it quotes the nonce back in its
+    subject, and a message older than the probe itself can never match.
     """
+    nonce = f"[sf-{secrets.token_hex(4)}]"
+    tagged_subject = f"{subject} {nonce}"
+    sent_at = datetime.now(timezone.utc)
     status, _ = _agentmail(
         "POST",
         f"/inboxes/{urllib.parse.quote(sender)}/messages/send",
         key,
-        {"to": [recipient], "subject": subject, "text": body},
+        {"to": [recipient], "subject": tagged_subject, "text": body},
     )
     if status != 200:
-        return False, None
+        return False, None, sent_at
+    time_floor = sent_at - timedelta(seconds=30)  # small skew allowance, never a whole generation
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         listed_status, listed = _agentmail(
@@ -228,8 +280,12 @@ def send_and_wait(
         )
         if listed_status == 200:
             for message in listed.get("messages") or []:
-                if recipient in str(message.get("from", "")) and subject[:38] in str(
-                    message.get("subject", "")
+                message_ts = _parse_ts(message.get("timestamp"))
+                if (
+                    recipient in str(message.get("from", ""))
+                    and nonce in str(message.get("subject", ""))
+                    and message_ts is not None
+                    and message_ts >= time_floor
                 ):
                     _, full = _agentmail(
                         "GET",
@@ -237,9 +293,9 @@ def send_and_wait(
                         f"{urllib.parse.quote(str(message['message_id']))}",
                         key,
                     )
-                    return True, _strip_quote_trail(str(full.get("text") or ""))
+                    return True, _strip_quote_trail(str(full.get("text") or "")), sent_at
         time.sleep(10)
-    return True, None
+    return True, None, sent_at
 
 
 def messages_from(inbox: str, origin: str, since: datetime, key: str) -> int | None:
@@ -308,11 +364,12 @@ def drive_leg(
         except Exception as exc:  # noqa: BLE001 -- an unreadable ledger is UNKNOWN, never empty
             observation.notes.append(f"audit seam baseline read failed: {exc}")
 
+    settled_past = datetime.now(timezone.utc)
     if drive.get("kind") == "email_probe":
         recipient = str(drive.get("to") or SEAT_TOKEN)
         if recipient == SEAT_TOKEN:
             recipient = str(capabilities.seat_inbox)
-        accepted, reply = send_and_wait(
+        accepted, reply, sent_at = send_and_wait(
             sender=str(drive["as"]),
             recipient=recipient,
             subject=str(drive.get("subject") or f"shadow-firm {leg.get('id')}"),
@@ -327,13 +384,26 @@ def drive_leg(
             )
         observation.reply_observed = reply is not None
         observation.reply_body = reply
+        # The ledger view must reach at least the reply (whose REPLY_SENT row is
+        # written broker-side BEFORE the mailbox sees the message), or the send
+        # for a leg that rightly got no reply.
+        settled_past = datetime.now(timezone.utc) if reply is not None else sent_at
     else:
         # console_reconcile drives nothing; it settles, then reads both sides.
+        # Its rows must cover every send its sibling legs provoked, all of which
+        # happened before this leg started.
         time.sleep(settle_s)
 
     if audit is not None and mark is not None:
         try:
-            observation.audit_rows = audit.rows_after(mark)
+            observation.audit_rows, settled = _read_settled_rows(
+                audit, mark, settled_past=settled_past
+            )
+            if not settled:
+                observation.notes.append(
+                    "ledger view did not demonstrably reach the leg's own moment inside the "
+                    "settle budget; rows may lag (ADR 0043 seam serves a delayed view)"
+                )
         except Exception as exc:  # noqa: BLE001 -- an unreadable ledger is UNKNOWN, never empty
             observation.audit_rows = None
             observation.notes.append(f"audit seam read failed: {exc}")
