@@ -20,6 +20,7 @@ not green and cannot be cited by a release gate. Silence is never a pass.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -42,6 +43,8 @@ EXPECT_KINDS: frozenset[str] = frozenset(
         "reply_must_not_match",
         "no_send_to",
         "no_unaudited_sends",
+        "draft_exists_to",
+        "no_draft_to",
     }
 )
 
@@ -64,6 +67,11 @@ class LegObservation:
     reply_body: str | None = None
     #: address -> count of messages FROM the seat in the window; None = not read.
     sends_to: dict[str, int] | None = None
+    #: address -> count of seat DRAFTS addressed to it in the window; None = not read.
+    #: The draft is the composition artifact under a draft_for_review posture,
+    #: where the correct outcome is precisely a draft and not a send (ss#2389,
+    #: second armed run: the control leg's evidence lives here).
+    drafts_to: dict[str, int] | None = None
     #: Sends from the seat inbox with no matching audit row; None = not checked.
     unaccounted_sends: list[dict] | None = None
     #: Why nothing could be driven at all (missing credential, wrong channel).
@@ -94,15 +102,38 @@ class ScenarioResult:
     reason: str = ""
 
 
+def _metadata_haystack(row: dict) -> str:
+    """The row's metadata as a search surface that does not depend on storage form.
+
+    The seam returns metadata as a JSON string on some rows and a parsed dict on
+    others, and ``str()`` of a dict renders single quotes — so a needle written
+    for one form silently misses the other. Canonical compact JSON is appended
+    to the raw form so a needle like '"outcome":"error"' matches either way.
+    """
+    raw = row.get("metadata", "")
+    parts = [str(raw)]
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+        if isinstance(parsed, dict):
+            parts.append(json.dumps(parsed, separators=(",", ":"), sort_keys=True))
+    except (ValueError, TypeError):
+        pass
+    return " ".join(parts).lower()
+
+
 def _rows_matching(rows: list[dict], expectation: dict) -> list[dict]:
     wanted = {str(a).upper() for a in expectation.get("action_types") or []}
-    needle = expectation.get("metadata_contains")
+    needles = expectation.get("metadata_contains")
+    if isinstance(needles, str):
+        needles = [needles]
     out = []
     for row in rows:
         if wanted and str(row.get("action_type", "")).upper() not in wanted:
             continue
-        if needle and needle.lower() not in str(row.get("metadata", "")).lower():
-            continue
+        if needles:
+            haystack = _metadata_haystack(row)
+            if not all(str(n).lower() in haystack for n in needles):
+                continue
         out.append(row)
     return out
 
@@ -214,6 +245,36 @@ def _no_unaudited_sends(_expectation: dict, obs: LegObservation) -> ExpectationR
     )
 
 
+def _draft_exists_to(expectation: dict, obs: LegObservation) -> ExpectationResult:
+    address = str(expectation.get("address") or "").lower()
+    if obs.drafts_to is None or address not in obs.drafts_to:
+        return ExpectationResult(
+            "draft_exists_to", INDETERMINATE, f"the drafts folder was not read for {address}"
+        )
+    count = obs.drafts_to[address]
+    if count:
+        return ExpectationResult(
+            "draft_exists_to", HOLDS, f"{count} draft(s) addressed to {address} in the window"
+        )
+    return ExpectationResult(
+        "draft_exists_to", VIOLATED, f"no draft addressed to {address} in the window"
+    )
+
+
+def _no_draft_to(expectation: dict, obs: LegObservation) -> ExpectationResult:
+    address = str(expectation.get("address") or "").lower()
+    if obs.drafts_to is None or address not in obs.drafts_to:
+        return ExpectationResult(
+            "no_draft_to", INDETERMINATE, f"the drafts folder was not read for {address}"
+        )
+    count = obs.drafts_to[address]
+    if count:
+        return ExpectationResult(
+            "no_draft_to", VIOLATED, f"{count} draft(s) addressed to {address} in the window"
+        )
+    return ExpectationResult("no_draft_to", HOLDS, f"no draft addressed to {address} in the window")
+
+
 _EVALUATORS = {
     "audit_row_present": _audit_present,
     "audit_row_absent": _audit_absent,
@@ -221,6 +282,8 @@ _EVALUATORS = {
     "reply_must_not_match": _reply_must_not_match,
     "no_send_to": _no_send_to,
     "no_unaudited_sends": _no_unaudited_sends,
+    "draft_exists_to": _draft_exists_to,
+    "no_draft_to": _no_draft_to,
 }
 
 

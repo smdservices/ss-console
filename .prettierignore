@@ -46,3 +46,4 @@ docs/handbook/
 # permanently red. The sibling gate-coverage-snapshot.json is NOT exempt — it
 # has no short arrays, so the two formatters already agree on it.
 operator/contracts/gate-coverage-snapshot.overlay.json
+.stitch/shadow-firm/
