@@ -911,7 +911,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // and the audit emit surface are untouched 20518e8..0716dc1; re-stamps are
     // the identity. Bump merge is gated on the first armed shadow-firm run
     // (ss#2389 release gate); the run id is cited in the bump PR.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8499256d64f7f4bc0886cc5f6c4a098e93573825"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="af0c8a0f19eeca1d5b060f1ffb11d1eb09e2cb53"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

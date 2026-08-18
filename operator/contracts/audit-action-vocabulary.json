@@ -1,6 +1,6 @@
 {
   "$comment": "ss#2320. The overlay's ACCEPTED_ACTION_TYPES, snapshotted at the overlay commit a customer Machine actually ships. WHY THIS FILE EXISTS: the runtime validates rows against the OVERLAY's constant, the portal renders from THIS repo's constant, and nothing pinned the two together. shared/audit_contract.py performs no validation at all (agent_event_params + a raw INSERT accepts any string), so the path 'overlay adds an emitter -> declares it overlay-side -> overlay CI passes -> rows land in client ledgers -> portal renders nothing' had no gate anywhere on it. A type the overlay knows and this repo does not is invisible on the client feed and indistinguishable from a deliberate suppression. HOW TO MAINTAIN: when OVERLAY_REF moves in operator/templates/Dockerfile, re-extract overlayTypes from plugins/hermes-smd-audit/schemas.py at the new ref and update overlayRef here in the same PR. tests/audit-vocabulary-parity.test.ts fails when the two refs disagree, so a bump cannot silently skip the refresh.",
-  "overlayRef": "8499256d64f7f4bc0886cc5f6c4a098e93573825",
+  "overlayRef": "af0c8a0f19eeca1d5b060f1ffb11d1eb09e2cb53",
   "overlaySource": "plugins/hermes-smd-audit/schemas.py :: ACCEPTED_ACTION_TYPES",
   "overlayTypes": [
     "AGENT_RESUMED",
