@@ -78,3 +78,4 @@ __pycache__/
 scripts/.generated/
 node_modules
 .claude/read-log/
+.stitch/shadow-firm/
