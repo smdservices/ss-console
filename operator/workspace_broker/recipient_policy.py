@@ -148,6 +148,53 @@ def split_authored(entries: Any) -> tuple[set[str], set[str]]:
     return exact, domains
 
 
+def split_blocks(entries: Any) -> set[str]:
+    """Domains denied to this seat, parsed from ``scope.domain_blocks``.
+
+    Deliberately NOT ``split_authored``, because the allow list and the deny
+    list need OPPOSITE failure directions and one parser cannot have both:
+
+    * On an ALLOW list, an entry we cannot confidently read must be DROPPED. A
+      bare ``firm.example`` written where ``@firm.example`` was meant would
+      otherwise turn a typo into a whole-domain grant — a silent widening.
+    * On a DENY list, that same entry must BLOCK. Dropping it fails OPEN, the
+      one direction a deny control must never fail.
+
+    Sharing ``split_authored`` gave the deny list the allow list's failure
+    direction, and the consequence was live: ``domain_blocks: ['firm.example']``
+    parsed to nothing and fenced nobody, while ``authored_policy``'s own
+    docstring and ``tests/customer-yaml-validator.test.ts`` both presented the
+    bare form as the way to write one. Found 2026-08-18 while fencing the first
+    production client seat away from its own firm during bring-up; the config
+    would have looked correct, validated, and protected no one.
+
+    So every spelling an author might reasonably use resolves to a domain here:
+    ``@firm.example``, bare ``firm.example``, and ``someone@firm.example`` — a
+    full address blocks its whole domain, the conservative reading of a block
+    list and what this module has always promised.
+    """
+    blocked: set[str] = set()
+    for entry in entries or []:
+        if isinstance(entry, dict):
+            entry = entry.get("address")
+        if not isinstance(entry, str):
+            continue
+        raw = canonicalize(entry)
+        if not raw:
+            continue
+        if raw.startswith("@"):
+            candidate = raw[1:]
+        elif "@" in raw:
+            # A full address, possibly in display form. Block its domain.
+            candidate = domain_of(normalize_address(raw)) or domain_of(raw)
+        else:
+            # A bare domain. On this list — and ONLY this list — that blocks.
+            candidate = raw
+        if candidate:
+            blocked.add(candidate)
+    return blocked
+
+
 @dataclass(frozen=True)
 class RecipientPolicy:
     """The authored counterparty surface for one seat, read from customer.yaml."""
@@ -198,21 +245,24 @@ def authored_policy(customer_path: Path) -> RecipientPolicy:
     An **empty** authored surface yields a policy that permits nothing. That is
     deliberate: a seat whose config names no counterparty has no one to write to,
     and "unconfigured" must read as a safety state, never as permission.
+
+    The allow inputs and ``domain_blocks`` are parsed by DIFFERENT functions on
+    purpose — see ``split_blocks``. An ambiguous entry must be dropped from an
+    allow list and honoured on a deny list, and until 2026-08-18 both went
+    through ``split_authored``, so an authored bare-domain block silently fenced
+    nobody.
     """
     scope = _scope(customer_path)
     roster_exact, roster_domains = split_authored(scope.get("outbound_roster"))
     inbound_exact, inbound_domains = split_authored(scope.get("inbound_allow_from"))
     admin_exact, admin_domains = split_authored(scope.get("admins"))
-    blocked_exact, blocked_domains = split_authored(scope.get("domain_blocks"))
     return RecipientPolicy(
         exact=frozenset(roster_exact | inbound_exact | admin_exact),
         domains=frozenset(roster_domains | inbound_domains | admin_domains),
-        # A bare domain in domain_blocks ("evil.com") and an @-prefixed one both
-        # block the domain; a full address there blocks its domain too, which is
-        # the conservative reading of a block list.
-        blocked_domains=frozenset(
-            blocked_domains | {domain_of(a) for a in blocked_exact if domain_of(a)}
-        ),
+        # A bare domain in domain_blocks ("evil.com"), an @-prefixed one, and a
+        # full address all block the domain — the conservative reading of a
+        # block list.
+        blocked_domains=frozenset(split_blocks(scope.get("domain_blocks"))),
         reply_exact=frozenset(inbound_exact),
         reply_domains=frozenset(inbound_domains),
     )
@@ -225,4 +275,5 @@ __all__ = [
     "domain_of",
     "normalize_address",
     "split_authored",
+    "split_blocks",
 ]
