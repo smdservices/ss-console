@@ -12,6 +12,22 @@ The alert leads with the few items that genuinely need a person today, collapses
 the routine confirmations to per-matter counts, and carries a per-item ACK code
 so the reader can acknowledge one item without silencing the rest.
 
+**The structure and every count come from the wake line's projected `digest`
+(ss #2405), rendered verbatim.** Section membership, per-matter groups, code
+lists, section counts, and the subject line are all computed by the pre-run
+gate over the full item universe; the turn re-counts nothing and moves nothing
+across bands. Subject semantics changed with ss #2405: `<N>` counts ONLY the
+"Needs you today" band (the 2026-08-14 subject said "37 need you" when 5
+needed a person and 32 were routine confirms — earlier alerts' subjects
+counted everything, so do not read them as evidence of a count bug under the
+new scheme). Membership in the top band is deterministic: the up-to-5 most
+overdue firing items with stable identity; ordering within the band and each
+item's one-line consequence remain the turn's prose. The footer paragraph is a
+SIBLING of the lists, never nested inside one (the 2026-08-14 HTML rendered it
+as a list child). When the digest carries `probe_artifacts`, render one plain
+footer line naming the excluded count and any stale probe task ids awaiting
+teardown (ss #2403).
+
 **Every section below is conditional.** A section with nothing in it is OMITTED
 whole: its heading, its count, and its body all go. It is never rendered as a
 zero-count heading over the word "None". Only "Needs you today" is unconditional,
