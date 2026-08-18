@@ -30,6 +30,7 @@ VENDORED_SKILLS = (
     "deadline-miss-escalator",
     "daily-needs-you-digest",
     "client-verification-tracker",
+    "medical-records-chaser",
 )
 
 
