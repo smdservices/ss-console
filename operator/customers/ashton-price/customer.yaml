@@ -667,37 +667,53 @@ connectors:
     token_ref: 'infisical:/operator/ashton-price/practice-management/smokeball-oauth'
     webhook_url: 'https://hermes-ashton-price.fly.dev/webhooks/smokeball'
 
-  # NO Email connector is authored, deliberately (Captain, 2026-08-12).
+  # Email — the firm's own M365 Operator mailbox, via Microsoft Graph (Captain,
+  # 2026-08-18, reversing the deliberate 2026-08-12 absence now that every
+  # prerequisite that decision named is met).
   #
-  # This block used to author `adapter: agentmail` while the note directly below
-  # it said the firm runs M365 — a contradiction that made the file assert a
-  # channel this firm will never use. The authored field is what the system ACTS
-  # on, so provisioning staged an AgentMail credential onto the seat for a
-  # mailbox that does not exist: `mint-agentmail-keys.py ashton-price` exits 1,
-  # `inbox 'ashton-price@agentmail.to' does not exist`, and the account's 8
-  # inboxes contain no A&P seat (the two `ap-*-standin` boxes are rehearsal
-  # stand-ins, not this firm's mailbox).
+  # History, kept because each line was earned: this block once authored
+  # `adapter: agentmail` for a firm that runs M365 (F-002), which staged the
+  # org-wide AgentMail key onto this seat — the credential shape behind the
+  # ss#2258 incident. The Captain removed the authoring 2026-08-12 (PR #2336)
+  # rather than scope a key for a channel nobody would use, and the note here
+  # said msgraph would be authored "when Track E wires the firm's own M365
+  # Operator mailbox." That condition is now met: the firm created
+  # operator@ashtonandprice.com in its own tenant, its admin ran the two-app
+  # setup 2026-08-17/18 (letters 24/25 + the re-issue exchange), and the fence
+  # is proven live from Entra's own tokens — READ app 03c32f5c holds only
+  # Mail.ReadWrite and cannot transmit (vfy_01M0B1R1245T45E2727W1MXSNT), the
+  # SEND app 30d47c7a holds only Mail.Send (vfy_01M0B1JQMY6YP1WFZRNS6M07C9),
+  # and both are pinned to the one mailbox by Exchange ApplicationAccessPolicy:
+  # a control-mailbox read returns 403 "Blocked by tenant configured AppOnly
+  # AccessPolicy settings". The msgraph backend itself is runtime-wired and
+  # live on smd-staging (the "dropped by translate.py" note above this one
+  # described the pre-Track-E overlay and is obsolete).
   #
-  # The cost of leaving it was concrete, not cosmetic. `provision-customer.sh`
-  # stages the AgentMail keys only when this file names agentmail, and it falls
-  # back to the GLOBAL org-wide key when no per-seat key is vaulted. A&P has no
-  # per-seat key, so the seat was handed the org-wide credential — the one that
-  # can send as ANY inbox on the account, which is the exact credential shape
-  # behind the ss#2258 incident. Removing the authoring removes the credential at
-  # its source rather than scoping a key for a channel nobody will use.
+  # client_id is the READ registration, deliberately — the agent's own
+  # credential must not be able to transmit. The SEND registration's id and
+  # secret ride the broker-only MSGRAPH_SEND_* staging
+  # (provision-customer.sh msgraph-two-app-fence, which refuses a seat whose
+  # read and send apps are the same registration). Secrets are firm-custodied
+  # per ADR 0010: vaulted as MSGRAPH_CLIENT_SECRET__ASHTON_PRICE /
+  # MSGRAPH_SEND_CLIENT_SECRET__ASHTON_PRICE in /ss prod, never in this file.
+  Email:
+    adapter: msgraph
+    backend: mcp:msgraph-mail
+    enabled: true
+    msgraph_auth:
+      tenant_id: 'e4ad47eb-14d8-4131-9e13-9573a09a7d69'
+      client_id: '03c32f5c-bbbb-412c-bdf9-fc657f8c4c3a'
+      mailbox: operator@ashtonandprice.com
+      secret_ref: 'fly-secret:MSGRAPH_CLIENT_SECRET'
+    poll_seconds: 45
   #
-  # A&P's mail and calendar ride Microsoft Graph (F-002: the firm runs Outlook;
-  # Smokeball has no calendar API), and the firm is creating the Operator's own
-  # mailbox inside its own M365 tenant (letter 18, 2026-07-29 — name to follow
-  # from Christa). That backend is not yet runtime-wired (Track E), so the Email
-  # and Calendar connectors are authored at a later provision; authoring msgraph
-  # here now would be dropped by translate.py.
-  #
-  # CONSEQUENCE, stated so it is not discovered later: until Track E lands, this
-  # seat has NO inbound-mail lane. `matter-inbox-router` stays in the skill list
-  # but has no webhook source, so the PI skills described as "webhook-initiable
-  # via the matter-inbox-router spine" are person-invoked only. Nothing is lost
-  # that worked — without an inbox that lane was already inert.
+  # Still true until the firm's Calendar work is scoped: no Calendar connector.
+  # And the CONSEQUENCE note from 2026-08-12 still applies to skills: every
+  # authored skill on this seat is webhook: false, so wiring the mailbox gives
+  # the seat an inbound lane and an outbound broker path but initiates nothing
+  # by itself — mail arriving wakes no skill until a webhook_trigger and the
+  # per-skill initiation flags are deliberately re-authored (a separate Captain
+  # act, after the SMD-only shakeout).
   #
   # Documents ride the Smokeball Documents API (get_files_on_matter), not a
   # separate store.
@@ -753,7 +769,30 @@ scope:
     - Sent
   email_folders_blind: []
   email_keyword_blocks: []
-  domain_blocks: []
+  # BRING-UP FENCE (Captain, 2026-08-18) — TEMPORARY, remove when the Smokeball
+  # production 403 is resolved and the Captain opens the seat to the firm.
+  #
+  # The Captain's directive, verbatim in effect: while we test, the Operator
+  # mails ONLY SMD — not Chris or Christa — and opens to the firm when
+  # Smokeball is fixed. This entry is that directive as config. The broker's
+  # recipient fence subtracts blocked domains from the authored surface with
+  # deny-over-allow (workspace_broker/recipient_policy.py), so with the firm's
+  # own domain here, every send AND every reply to any @ashtonandprice.com
+  # address — including the two admins, who are named in `exact` — is refused
+  # with an audit row, while scott@smd.services (rostered below) still gets
+  # real answers. Driven against this very file pre-merge: chris/christa/any
+  # firm address REFUSE both ways, scott@smd.services ALLOW both ways,
+  # outsiders REFUSE (vfy_01M0B27GHTBHV8HBVMNTN9JH50).
+  #
+  # Written @-prefixed although the bare form also blocks (both spellings are
+  # driven by test_recipient_policy_blocks.py since the split_blocks fix —
+  # bare-domain blocks silently no-opped before it): the @ form matches how
+  # this file spells the domain grant above, so the pairing is visible.
+  #
+  # To open the seat to the firm: delete this entry, reprovision, and prove the
+  # flip with one observed send to an @ashtonandprice.com admin.
+  domain_blocks:
+    - '@ashtonandprice.com'
   # The organization roster (ADR 0055) — who the Operator may RESPOND to (not just
   # draft) when they email its inbox. The whole firm (@ashtonandprice.com) plus the
   # SMD operator; replies are recipient-locked to the verified sender. So Chris,
