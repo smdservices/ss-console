@@ -901,7 +901,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // snapshots were re-checked across the EXTENDED range: heartbeat.py and
     // hermes-smd-audit/schemas.py are untouched from d567cfb to 20518e8, so the
     // re-derivation recorded above still holds.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="20518e862f11d2f6401a34519c134d781165d029"')
+    // 20518e8 -> 0716dc1 (2026-08-18, hardening epic ss#2392 runtime pass):
+    // overlay#270 (reply path reads the money register; a delivery-path hold is
+    // appended to the draft tool's own result at transform_tool_result, ss#2367)
+    // and overlay#271 (ADR 0086 matter-party seeding for the matter gate,
+    // ss#2167). NO tracked twin moves in the range (compare API: reply plugin
+    // internals, shared/matter_binding.py, docs, tests only), so every
+    // overlaySha256 is unchanged. Both parity snapshots re-checked: heartbeat.py
+    // and the audit emit surface are untouched 20518e8..0716dc1; re-stamps are
+    // the identity. Bump merge is gated on the first armed shadow-firm run
+    // (ss#2389 release gate); the run id is cited in the bump PR.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0716dc174ca57a8eda44f8a2428c3349da621078"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
