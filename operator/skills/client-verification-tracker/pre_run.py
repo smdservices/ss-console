@@ -827,7 +827,25 @@ def _source_id_of(item: dict) -> str | None:
     return None
 
 
+# Rehearsal/self-test artifacts carry "[SMD-PROBE <stamp>]" at the start of
+# the subject (after the connector's "[Operator]" provenance stamp) — ss #2403:
+# a probe task outlived its test and became THIS skill's live tracking anchor
+# (task 28745d01, 2026-08-14). Probe rows are never tracked verifications.
+# Position-anchored: a real task quoting the marker mid-subject is not hidden.
+_PROBE_MARK = "[SMD-PROBE"
+_PROVENANCE_MARK = "[Operator]"
+
+
+def _is_probe_subject(subject: str) -> bool:
+    text = subject.lstrip()
+    if text.upper().startswith(_PROVENANCE_MARK.upper()):
+        text = text[len(_PROVENANCE_MARK) :].lstrip()
+    return text.upper().startswith(_PROBE_MARK.upper())
+
+
 def _is_verification_task(subject: str) -> bool:
+    if _is_probe_subject(subject):
+        return False
     return _VERIFICATION_SUBJECT_MARKER in subject.lower()
 
 

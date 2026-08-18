@@ -42,3 +42,30 @@ Load these ADRs before any Operator architectural work:
 Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `synthetic:` (no_pm substrate). Composio is dropped (ADR 0020, 2026-05-30 revision) — we connect to MCPs directly, and long-tail vendors with no first-party MCP get a `build:` adapter.
 
 The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. Author-built connectors we must write ourselves (no vendor/community MCP exists) are MCP servers living in `operator/connectors/` in this tree, per ADR 0053 — Smokeball is the first. The overlay repo (`venturecrane/hermes-smd-overlay`) stays substrate-only.
+
+## Probe artifacts in a tenant (ss #2403 — the 28745d01 lesson)
+
+Any rehearsal, self-test, or kill-test that writes an artifact into a customer
+or pilot tenant (a Smokeball task, memo, event, or file) follows this contract.
+It exists because a rehearsal probe task outlived its test on the pilot: the
+2026-08-14 digest flagged it as "a machine-authored probe task; its own note
+instructs deletion after witnessing", and 37 minutes later the verification
+chase cited that same task as its live tracking anchor.
+
+1. **Stamp at creation.** The subject starts with `[SMD-PROBE <ISO-8601 UTC
+creation stamp>]`, e.g. `[SMD-PROBE 2026-08-18T17:00Z] drafting prove-out`.
+   The connector's `[Operator]` provenance stamp may precede it. The stamp is
+   deliberately subject-visible: firm staff reading the task list are the other
+   consumer that can mistake a probe for real work. (Before first use on a new
+   tenant, create-and-read-back one stamped task — this vendor has form for
+   munging text, e.g. names truncate at the first period.)
+2. **Tear down in the same session.** A probe artifact is deleted — for tasks,
+   completed via `update_task(is_completed=True)`; the connector has no task
+   delete — before the session reports its test done, with a negative probe
+   (gone-means-gone rule 2). "Its note says to delete it later" is the
+   anti-pattern this contract replaces.
+3. **Ingestion is fenced either way.** `list_tasks` drops probe-marked rows by
+   default and counts the drop (`probeArtifactsExcluded`); the tracker/chaser
+   pre_run pulls exclude them too. The match is position-anchored — only a
+   subject that STARTS with the marker is a probe — so real work cannot be
+   hidden by quoting it. Never widen the match.

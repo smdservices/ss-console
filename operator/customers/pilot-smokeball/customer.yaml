@@ -451,6 +451,14 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
+        # PLACEHOLDER(christa): the chase cadence awaits the firm's answer. The
+        # 7 here is seed-authored, not invented: the pilot's roster-task note
+        # itself says "Chase cadence: weekly until the records land in the
+        # matter" (seed/seed_data.py, records-roster-alvarez). Unauthored is
+        # fail-closed: no cadence, no chase, a re-fired surface instead
+        # (ss #2404; same contract as client-verification-tracker's dials).
+        settings:
+          chase_cadence_days: 7 # PLACEHOLDER(christa): days between records chases
       - name: medical-chronology-maintainer # checks for newly landed records
         version: pending
         initiation:

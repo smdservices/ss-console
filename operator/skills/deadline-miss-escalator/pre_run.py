@@ -45,7 +45,7 @@ import os
 import socket
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -69,6 +69,13 @@ class MatterDeadline:
     matter_open: bool = True
     conflict_hold: bool = False
     acknowledged: bool = False  # a human already acked this escalation → stop re-firing
+    # Whether the quiet state is specifically an ACK-snooze (vs the re-fire
+    # window after the Operator's own recent raise). ``acknowledged`` collapses
+    # both for the wake decision; the digest projection (ss #2405) needs the
+    # distinction: an acked item is omitted (snoozed by a person), a
+    # recently-raised unacked item renders under "Under active escalation
+    # elsewhere" so it is not double-counted.
+    acked: bool = False
     # The stable Smokeball task/event id — the anti-collision half of item
     # identity (two same-day tasks on one matter differ only by this). ``None``
     # for an item with no stable id: it gets no per-item ack token and renders
@@ -256,6 +263,7 @@ def enrich_with_ledger(
                 matter_open=d.matter_open,
                 conflict_hold=d.conflict_hold,
                 acknowledged=not fire,
+                acked=False if state is None else bool(state.acked),
                 task_id=d.task_id,
                 last_raised=None if state is None else state.last_raised_ts,
             )
@@ -296,6 +304,126 @@ class WakeDecision:
     pre_run_inputs_digest: bytes
     plans: tuple[ItemPlan, ...] = ()
     extra_metadata: dict = field(default_factory=dict)
+    # The projected digest structure (ss #2405) — sections, per-matter groups,
+    # ACK codes, and every count, computed HERE so the email's numbers can never
+    # disagree with its lists. None when the ledger is unavailable (the turn
+    # composes without a projection and says so) or on a suppress.
+    digest: dict | None = None
+
+
+# The digest projection (ss #2405). The 2026-08-14 digest labeled matter
+# 2026-PI-106 "1 routine confirmation(s)" above TWO ack codes, and its subject
+# counted 32 routine confirms as "need you" — every count was model arithmetic.
+# This function computes the whole reader-facing structure from the enriched
+# universe: counts are list lengths BY CONSTRUCTION, and it runs over the FULL
+# item set ahead of the _MAX_SERIALIZED_PLANS cap, so a truncated plan list can
+# never produce confident counts over an incomplete universe (the /critique
+# finding). The turn renders it verbatim: it may order prose within a band and
+# write each item's one-line consequence, but it never moves an item across
+# bands and never re-counts.
+_NEEDS_YOU_MAX = 5  # output-format rule 2: three to five in the top block
+
+
+def _digest_item(d: MatterDeadline, today: date, ack_code: str | None) -> dict:
+    return {
+        "matter_id": d.matter_id,
+        "task_id": d.task_id,
+        "label": d.label,
+        "authored_date": d.authored_date.isoformat(),
+        "days_out": (d.authored_date - today).days,
+        "ack_code": ack_code,
+        "last_raised": d.last_raised,
+    }
+
+
+def project_digest(
+    deadlines: Sequence[MatterDeadline],
+    windows: EscalationWindows,
+    ledger,
+    *,
+    today: date,
+    probe_stats: dict | None = None,
+) -> dict:
+    """Project the reader-facing digest structure from the enriched universe.
+
+    Banding is deterministic, from authored signals only (output-format rule 1
+    as computable here): membership in "Needs you today" is the up-to-5 MOST
+    OVERDUE firing items with stable identity; every other stable firing item
+    collapses into the per-matter "Admin confirms" groups; firing items with no
+    stable id render blanket-ack-only; in-range conflict-held matters render
+    under clearance; in-range items quiet because the Operator RAISED them
+    recently (not because a person acked them) render under "elsewhere" so they
+    are not double-counted. Acked-and-snoozed items are omitted (a person
+    silenced them). Empty sections are omitted whole (rule 9). The subject
+    counts ONLY the needs-you band — the 08-14 subject said "37 need you" when
+    5 needed a person and 32 were routine confirms (Law 11).
+    """
+    in_range = [
+        d
+        for d in deadlines
+        if d.matter_open
+        and d.authored_date <= today + timedelta(days=windows.escalation_window_days)
+    ]
+    clearance = [d for d in in_range if d.conflict_hold]
+    firing = [d for d in in_range if not d.acknowledged and not d.conflict_hold]
+    elsewhere = [
+        d
+        for d in in_range
+        if d.acknowledged and not d.acked and d.last_raised and not d.conflict_hold
+    ]
+
+    def code_for(d: MatterDeadline) -> str | None:
+        if not ledger.has_stable_identity(d.task_id, d.matter_id):
+            return None
+        key = ledger.item_key(d.matter_id, d.task_id, d.label, d.authored_date)
+        return ledger.token_for(key)
+
+    stable = [d for d in firing if ledger.has_stable_identity(d.task_id, d.matter_id)]
+    blanket = [d for d in firing if not ledger.has_stable_identity(d.task_id, d.matter_id)]
+    stable.sort(key=lambda d: ((d.authored_date - today).days, d.matter_id, d.task_id or ""))
+    needs_you = stable[:_NEEDS_YOU_MAX]
+    admin = stable[_NEEDS_YOU_MAX:]
+
+    digest: dict = {
+        "subject": f"[Deadlines] {len(needs_you)} need you, {today.isoformat()}",
+        "needs_you": [_digest_item(d, today, code_for(d)) for d in needs_you],
+    }
+    if admin:
+        by_matter: dict[str, list[dict]] = {}
+        for d in admin:
+            by_matter.setdefault(d.matter_id, []).append(_digest_item(d, today, code_for(d)))
+        digest["admin_confirms"] = {
+            "total": len(admin),
+            "matter_count": len(by_matter),
+            "matters": [
+                {
+                    "matter_id": matter_id,
+                    "count": len(items),
+                    "ack_codes": [i["ack_code"] for i in items],
+                    "items": items,
+                }
+                for matter_id, items in sorted(by_matter.items())
+            ],
+        }
+    if elsewhere:
+        digest["under_active_escalation_elsewhere"] = [
+            _digest_item(d, today, None) for d in sorted(elsewhere, key=lambda d: d.matter_id)
+        ]
+    if clearance:
+        digest["awaiting_clearance"] = [
+            _digest_item(d, today, None) for d in sorted(clearance, key=lambda d: d.matter_id)
+        ]
+    if blanket:
+        digest["blanket_ack_only"] = [
+            _digest_item(d, today, None)
+            for d in sorted(blanket, key=lambda d: ((d.authored_date - today).days, d.matter_id))
+        ]
+    if probe_stats and (probe_stats.get("excluded") or probe_stats.get("stale")):
+        # ss #2403's daily loud channel: probe artifacts present on the tenant
+        # are stated in the digest (excluded from work, and stale ones named for
+        # teardown) rather than silently filtered.
+        digest["probe_artifacts"] = dict(probe_stats)
+    return digest
 
 
 def _in_escalation_range(d: MatterDeadline, today: date, windows: EscalationWindows) -> bool:
@@ -436,6 +564,11 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         payload["plans_total"] = len(decision.plans)
         payload["plans_emitted"] = len(emitted)
         payload["plans_truncated"] = len(emitted) < len(decision.plans)
+    if decision is not None and decision.digest is not None:
+        # ss #2405: the projected digest — computed over the FULL universe,
+        # deliberately NOT subject to the plan cap. The turn renders it
+        # verbatim; its counts are list lengths by construction.
+        payload["digest"] = decision.digest
     print(json.dumps(payload))
     return 0
 
@@ -447,14 +580,26 @@ def _plan_counts(decision: "WakeDecision") -> dict:
     disagree about how much was handed over — a discrepancy nobody would look
     for, in the one record kept to catch discrepancies.
     """
-    if not decision.plans:
-        return {}
-    emitted = len(decision.plans[:_MAX_SERIALIZED_PLANS])
-    return {
-        "plans_total": len(decision.plans),
-        "plans_emitted": emitted,
-        "plans_truncated": emitted < len(decision.plans),
-    }
+    counts: dict = {}
+    if decision.plans:
+        emitted = len(decision.plans[:_MAX_SERIALIZED_PLANS])
+        counts = {
+            "plans_total": len(decision.plans),
+            "plans_emitted": emitted,
+            "plans_truncated": emitted < len(decision.plans),
+        }
+    if decision.digest is not None:
+        # ss #2405: the projection's fingerprint + headline counts go on the
+        # EMITTED_WAKE row, so a post-hoc audit pass can diff the SENT digest
+        # against what the gate projected — the copy-verbatim contract's
+        # enforcement seam (a SKILL.md sentence alone is the mechanism that
+        # already failed).
+        canonical = json.dumps(decision.digest, sort_keys=True, separators=(",", ":"))
+        counts["digest_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        counts["digest_needs_you"] = len(decision.digest.get("needs_you") or [])
+        admin = decision.digest.get("admin_confirms") or {}
+        counts["digest_admin_total"] = int(admin.get("total") or 0)
+    return counts
 
 
 async def _try_write_emitted_wake(
@@ -566,6 +711,30 @@ async def run_once(
         today=today,
     )
     if decision.wake:
+        # ss #2405: project the digest from the FULL enriched universe (never
+        # the capped plan list). Ledger unavailable → no projection; the turn
+        # composes without one and states that the projection was unavailable.
+        ledger = _load_ledger_module()
+        if ledger is not None:
+            probe_stats: dict = {}
+            for source in sources:
+                stats = getattr(source, "probe_stats", None)
+                if isinstance(stats, dict):
+                    for k in ("excluded", "stale"):
+                        probe_stats[k] = probe_stats.get(k, 0) + int(stats.get(k) or 0)
+                    ids = stats.get("stale_task_ids") or []
+                    if ids:
+                        probe_stats.setdefault("stale_task_ids", []).extend(ids[:5])
+            decision = replace(
+                decision,
+                digest=project_digest(
+                    deadlines,
+                    windows,
+                    ledger,
+                    today=today,
+                    probe_stats=probe_stats or None,
+                ),
+            )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
         await _try_write_emitted_wake(
             audit_writer_factory, decision, skill_name=skill_name, now=now
@@ -628,6 +797,29 @@ print(json.dumps(out, default=str))
 
 _TASK_DATE_KEYS = ("dueDate", "DueDate", "due_date")
 _EVENT_DATE_KEYS = ("startTime", "StartTime", "startDate", "start", "from")
+_SUBJECT_KEYS = ("subject", "Subject", "name", "Name", "title", "Title")
+
+# Rehearsal/self-test artifacts carry "[SMD-PROBE <stamp>]" at the start of the
+# subject (after the connector's "[Operator]" provenance stamp) — ss #2403: a
+# probe task outlived its test and became a live chase's tracking anchor. Probe
+# rows are never deadlines. Position-anchored on purpose: a real task QUOTING
+# the marker mid-subject must not be hidden (a deadline watcher that can be
+# silenced by subject text is the dangerous failure).
+_PROBE_MARK = "[SMD-PROBE"
+_PROVENANCE_MARK = "[Operator]"
+
+
+def _is_probe_item(item: dict) -> bool:
+    subject = ""
+    for key in _SUBJECT_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            subject = value
+            break
+    text = subject.lstrip()
+    if text.upper().startswith(_PROVENANCE_MARK.upper()):
+        text = text[len(_PROVENANCE_MARK) :].lstrip()
+    return text.upper().startswith(_PROBE_MARK.upper())
 _MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id", "id")
 # The Smokeball task/event id, extracted INDEPENDENTLY of matter id (a task's
 # own ``id`` is not its matter) — the anti-collision half of item identity.
@@ -692,22 +884,57 @@ def _source_id_of(item: dict) -> str | None:
     return None
 
 
-def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
-    """Pure parse of the connector pull. Returns (deadlines, problem).
+# A probe artifact older than this is stale: its rehearsal is over and its
+# teardown never ran (ss #2403). Age comes from the ISO stamp INSIDE the
+# marker ("[SMD-PROBE 2026-08-18T14:00Z] ..."), not from an API field this
+# vendor may or may not serve; a marker with no parseable stamp is stale
+# immediately (a malformed probe is a probe someone must look at).
+_PROBE_STALE_HOURS = 24
+
+
+def _probe_stamp_of(item: dict) -> datetime | None:
+    subject = ""
+    for key in _SUBJECT_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            subject = value
+            break
+    text = subject.lstrip()
+    if text.upper().startswith(_PROVENANCE_MARK.upper()):
+        text = text[len(_PROVENANCE_MARK) :].lstrip()
+    rest = text[len(_PROBE_MARK) :].lstrip()
+    stamp = rest.split("]", 1)[0].strip()
+    try:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def parse_pull(
+    raw: dict, *, now: datetime | None = None
+) -> tuple[list[MatterDeadline], str | None, dict]:
+    """Pure parse of the connector pull. Returns (deadlines, problem, probe_stats).
 
     A non-None problem means the view is partial or unrecognizable and the
     caller MUST wake. Dateless items are skipped (a task without a due date
     is not an authored deadline) — but a non-empty pull yielding ZERO
     parseable dates is treated as an unrecognized wire shape, not an empty
     deadline book. Every date here was read, never computed.
+
+    ``probe_stats`` is the ss #2403 census: how many probe-marked artifacts the
+    pull excluded, and how many of those are STALE (marker stamp older than
+    ``_PROBE_STALE_HOURS``, or unparseable). Exclusion must never be silent —
+    the digest projection renders the census so a leftover probe is surfaced
+    daily instead of quietly filtered forever.
     """
+    probe_stats: dict = {"excluded": 0, "stale": 0, "stale_task_ids": []}
     for error_key in ("tasksError", "eventsError"):
         if raw.get(error_key):
-            return [], f"pull error: {error_key}={raw[error_key]}"
+            return [], f"pull error: {error_key}={raw[error_key]}", probe_stats
     tasks = _extract_items(raw.get("tasks"))
     events = _extract_items(raw.get("events"))
     if tasks is None or events is None:
-        return [], "unrecognized pull envelope"
+        return [], "unrecognized pull envelope", probe_stats
     deadlines: list[MatterDeadline] = []
     total_items = 0
     for items, keys, label in (
@@ -716,6 +943,21 @@ def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
     ):
         for item in items:
             if not isinstance(item, dict):
+                continue
+            if _is_probe_item(item):
+                # ss #2403: probe artifacts are never deadlines — counted, and
+                # aged off the stamp inside their own marker.
+                probe_stats["excluded"] += 1
+                stamp = _probe_stamp_of(item)
+                reference = now or datetime.now(timezone.utc)
+                if stamp is None or (
+                    reference - stamp
+                ) >= timedelta(hours=_PROBE_STALE_HOURS):
+                    probe_stats["stale"] += 1
+                    if len(probe_stats["stale_task_ids"]) < 5:
+                        sid = _source_id_of(item)
+                        if sid:
+                            probe_stats["stale_task_ids"].append(sid)
                 continue
             total_items += 1
             authored = _first_date(item, keys)
@@ -737,16 +979,21 @@ def parse_pull(raw: dict) -> tuple[list[MatterDeadline], str | None]:
                 )
             )
     if total_items > 0 and not deadlines:
-        return [], "non-empty pull with zero parseable dates"
-    return deadlines, None
+        return [], "non-empty pull with zero parseable dates", probe_stats
+    return deadlines, None, probe_stats
 
 
 class SmokeballSubprocessSource:
-    """DeadlineSource over a connector-venv subprocess pull."""
+    """DeadlineSource over a connector-venv subprocess pull.
+
+    ``probe_stats`` holds the last pull's ss #2403 probe census (read by
+    run_once after the pull; the DeadlineSource protocol itself stays a plain
+    deadlines pull)."""
 
     def __init__(self, windows: EscalationWindows, today: date) -> None:
         self._windows = windows
         self._today = today
+        self.probe_stats: dict | None = None
 
     def pull_deadlines(self) -> Sequence[MatterDeadline]:
         connector_python = os.environ.get(
@@ -767,7 +1014,8 @@ class SmokeballSubprocessSource:
                 f"{(result.stderr or '').strip()[:500]}"
             )
         raw = json.loads((result.stdout or "").strip().splitlines()[-1])
-        deadlines, problem = parse_pull(raw)
+        deadlines, problem, probe_stats = parse_pull(raw)
+        self.probe_stats = probe_stats
         if problem:
             raise RuntimeError(problem)
         return deadlines

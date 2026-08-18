@@ -83,6 +83,7 @@ def _dl(
     matter_open: bool = True,
     conflict_hold: bool = False,
     acknowledged: bool = False,
+    acked: bool = False,
     task_id: str | None = None,
     last_raised: str | None = None,
 ) -> MatterDeadline:
@@ -95,6 +96,7 @@ def _dl(
         matter_open=matter_open,
         conflict_hold=conflict_hold,
         acknowledged=acknowledged,
+        acked=acked,
         task_id=task_id,
         last_raised=last_raised,
     )
@@ -210,7 +212,9 @@ def test_run_once_wakes_on_in_range_no_audit_written():
     # The wake line carries the facts the gate computed (#2253). A bare
     # wakeAgent flag left the woken turn to source per-item facts itself, and
     # with the connector down it sourced them from nowhere.
-    assert json.loads(out) == {
+    payload = json.loads(out)
+    digest = payload.pop("digest")  # ss #2405: asserted separately below
+    assert payload == {
         "wakeAgent": True,
         "decision_basis": "deadline_in_escalation_range",
         "plans": [
@@ -229,6 +233,7 @@ def test_run_once_wakes_on_in_range_no_audit_written():
         "plans_emitted": 1,
         "plans_truncated": False,
     }
+    assert digest["subject"].startswith("[Deadlines] 1 need you")
     # The wake leaves a row too (#2253). Before this, the gate logged why it did
     # NOT act and logged nothing when it did — which is why the 2026-08-10
     # fabricated escalation email was findable only by reading the mailbox.
@@ -262,7 +267,9 @@ def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
         run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
     )
     assert code == 0
-    assert json.loads(out) == {
+    payload = json.loads(out)
+    payload.pop("digest")  # ss #2405: same digest as the succeeding case
+    assert payload == {
         "wakeAgent": True,
         "decision_basis": "deadline_in_escalation_range",
         "plans": [
@@ -375,7 +382,7 @@ def test_parse_pull_clean_tasks_and_events() -> None:
         "tasks": {"items": [{"matterId": "m-1", "dueDate": "2026-07-20T00:00:00Z"}]},
         "events": {"items": [{"matterId": "m-2", "startTime": "2026-07-09T09:00:00"}]},
     }
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert problem is None
     assert {(d.matter_id, d.label, d.authored_date.isoformat()) for d in deadlines} == {
         ("m-1", "task-deadline", "2026-07-20"),
@@ -399,26 +406,60 @@ def test_parse_pull_reads_nested_matter_link_object() -> None:
         },
         "events": [],
     }
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert problem is None
     assert deadlines[0].matter_id == "m-real"
 
 
 def test_parse_pull_bare_list_envelope() -> None:
     raw = {"tasks": [{"matterId": "m-1", "dueDate": "2026-07-20"}], "events": []}
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert problem is None
     assert len(deadlines) == 1
 
 
+def test_parse_pull_excludes_probe_artifacts() -> None:
+    # ss #2403: a rehearsal probe task is never a deadline, [Operator]-stamped
+    # or not. But a real task QUOTING the marker mid-subject is kept — the
+    # match is position-anchored so subject text cannot silence a deadline.
+    raw = {
+        "tasks": [
+            {
+                "id": "t-p",
+                "matterId": "m-1",
+                "subject": "[Operator] [SMD-PROBE 2026-08-18T14:00Z] drafting prove-out",
+                "dueDate": "2026-07-20",
+            },
+            {
+                "id": "t-p2",
+                "matterId": "m-1",
+                "subject": "[SMD-PROBE 2026-08-18T14:00Z] unstamped probe",
+                "dueDate": "2026-07-20",
+            },
+            {
+                "id": "t-r",
+                "matterId": "m-1",
+                "subject": "Review the [SMD-PROBE] cleanup contract",
+                "dueDate": "2026-07-21",
+            },
+        ],
+        "events": [],
+    }
+    deadlines, problem, _probe = parse_pull(raw)
+    assert problem is None
+    assert [(d.task_id, d.authored_date.isoformat()) for d in deadlines] == [
+        ("t-r", "2026-07-21")
+    ]
+
+
 def test_parse_pull_error_key_is_a_problem() -> None:
     raw = {"tasks": {"items": []}, "events": {"items": []}, "eventsError": "boom"}
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert deadlines == [] and problem is not None
 
 
 def test_parse_pull_unrecognized_envelope_is_a_problem() -> None:
-    deadlines, problem = parse_pull({"tasks": {"weird": 1}, "events": {"items": []}})
+    deadlines, problem, _probe = parse_pull({"tasks": {"weird": 1}, "events": {"items": []}})
     assert deadlines == [] and problem is not None
 
 
@@ -429,7 +470,7 @@ def test_parse_pull_nonempty_pull_with_zero_dates_is_a_problem() -> None:
         "tasks": {"items": [{"matterId": "m-1", "deadline_when": "2026-07-20"}]},
         "events": {"items": []},
     }
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert deadlines == [] and problem is not None
 
 
@@ -443,13 +484,13 @@ def test_parse_pull_dateless_items_skipped_when_others_parse() -> None:
         },
         "events": {"items": []},
     }
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert problem is None
     assert [d.matter_id for d in deadlines] == ["m-1"]
 
 
 def test_parse_pull_empty_pull_is_a_clean_empty_book() -> None:
-    deadlines, problem = parse_pull({"tasks": {"items": []}, "events": {"items": []}})
+    deadlines, problem, _probe = parse_pull({"tasks": {"items": []}, "events": {"items": []}})
     assert deadlines == [] and problem is None
 
 
@@ -458,7 +499,7 @@ def test_parse_pull_carries_stable_task_id() -> None:
         "tasks": {"items": [{"matterId": "m-1", "id": "task-77", "dueDate": "2026-07-20"}]},
         "events": {"items": []},
     }
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert problem is None
     assert deadlines[0].task_id == "task-77"
 
@@ -469,7 +510,7 @@ def test_parse_pull_idless_item_has_no_task_id() -> None:
         "tasks": {"items": []},
         "events": {"items": [{"matterId": "m-2", "startTime": "2026-07-09T09:00:00"}]},
     }
-    deadlines, problem = parse_pull(raw)
+    deadlines, problem, _probe = parse_pull(raw)
     assert problem is None
     assert deadlines[0].task_id is None
 
@@ -768,3 +809,181 @@ def test_load_escalation_config_defaults_on_unparseable(tmp_path, monkeypatch) -
     monkeypatch.setenv("SMD_CUSTOMER_YAML_PATH", str(bad))
     _windows, policy = load_escalation_config()
     assert policy == FirePolicy()  # never crash, never silent-suppress
+
+
+# ---------------------------------------------------------------------------
+# Digest projection (ss #2405) — counts are list lengths by construction; the
+# 2026-08-14 defect ("1 routine confirmation(s)" above two ack codes, subject
+# counting 32 routine confirms as "need you") is structurally impossible here.
+# ---------------------------------------------------------------------------
+
+project_digest = _pre_run.project_digest
+parse_pull = _pre_run.parse_pull
+
+
+def _project(deadlines, *, windows=None):
+    return project_digest(deadlines, windows or EscalationWindows(), _ledger, today=TODAY)
+
+
+def test_digest_counts_equal_list_lengths_per_matter():
+    # 7 firing stable items: 5 most-overdue go to needs_you, 2 to admin —
+    # and each admin matter's count equals its code-list length (the PI-106
+    # falsifier: two items on one matter can never render as "1").
+    items = [
+        _dl(matter_id="m-a", days_out=-40 + i, task_id=f"t-{i}") for i in range(5)
+    ] + [
+        _dl(matter_id="m-b", days_out=-2, task_id="t-b1"),
+        _dl(matter_id="m-b", days_out=-1, task_id="t-b2"),
+    ]
+    d = _project(items)
+    assert len(d["needs_you"]) == 5
+    assert d["subject"] == "[Deadlines] 5 need you, 2026-06-08"
+    admin = d["admin_confirms"]
+    assert admin["total"] == 2
+    assert admin["matter_count"] == 1
+    (matter,) = admin["matters"]
+    assert matter["matter_id"] == "m-b"
+    assert matter["count"] == 2
+    assert matter["count"] == len(matter["ack_codes"]) == len(matter["items"])
+    assert all(code and code.startswith("ACK-") for code in matter["ack_codes"])
+
+
+def test_digest_needs_you_is_most_overdue_first_and_subject_counts_only_it():
+    items = [
+        _dl(matter_id="m-1", days_out=5, task_id="t-near"),
+        _dl(matter_id="m-2", days_out=-30, task_id="t-overdue"),
+    ]
+    d = _project(items)
+    assert [i["task_id"] for i in d["needs_you"]] == ["t-overdue", "t-near"]
+    assert d["subject"].startswith("[Deadlines] 2 need you")
+    assert "admin_confirms" not in d  # empty sections omitted whole (rule 9)
+
+
+def test_digest_recently_raised_items_band_as_elsewhere_not_admin():
+    quiet = _dl(
+        matter_id="m-1",
+        days_out=2,
+        task_id="t-raised",
+        acknowledged=True,
+        last_raised="2026-06-07T09:00:00.000Z",
+    )
+    d = _project([quiet, _dl(matter_id="m-2", days_out=1, task_id="t-live")])
+    assert [i["task_id"] for i in d["under_active_escalation_elsewhere"]] == ["t-raised"]
+    assert [i["task_id"] for i in d["needs_you"]] == ["t-live"]
+
+
+def test_digest_acked_items_are_omitted_entirely():
+    acked = _dl(
+        matter_id="m-1",
+        days_out=2,
+        task_id="t-acked",
+        acknowledged=True,
+        acked=True,
+        last_raised="2026-06-01T09:00:00.000Z",
+    )
+    d = _project([acked, _dl(matter_id="m-2", days_out=1, task_id="t-live")])
+    assert "under_active_escalation_elsewhere" not in d
+    assert [i["task_id"] for i in d["needs_you"]] == ["t-live"]
+
+
+def test_digest_clearance_and_blanket_bands():
+    held = _dl(matter_id="m-h", days_out=2, task_id="t-h", conflict_hold=True)
+    idless = _dl(matter_id="m-b", days_out=-3, task_id=None)
+    d = _project([held, idless])
+    assert [i["task_id"] for i in d["awaiting_clearance"]] == ["t-h"]
+    assert [i["matter_id"] for i in d["blanket_ack_only"]] == ["m-b"]
+    assert d["blanket_ack_only"][0]["ack_code"] is None
+    assert d["needs_you"] == []
+
+
+def test_digest_is_computed_over_the_full_universe_not_the_plan_cap():
+    # 60 firing items — beyond _MAX_SERIALIZED_PLANS. The projection's totals
+    # must cover all of them (the /critique finding: a projection built from a
+    # truncated plan list reproduces confident-wrong counts).
+    items = [_dl(matter_id=f"m-{i}", days_out=-i, task_id=f"t-{i}") for i in range(1, 61)]
+    d = _project(items)
+    assert len(d["needs_you"]) == 5
+    assert d["admin_confirms"]["total"] == 55
+
+
+def test_digest_out_of_range_and_closed_matters_are_excluded():
+    d = _project(
+        [
+            _dl(matter_id="m-far", days_out=40, task_id="t-far"),
+            _dl(matter_id="m-closed", days_out=1, task_id="t-c", matter_open=False),
+            _dl(matter_id="m-live", days_out=1, task_id="t-live"),
+        ]
+    )
+    assert [i["task_id"] for i in d["needs_you"]] == ["t-live"]
+    assert "admin_confirms" not in d
+
+
+def test_digest_probe_stats_render_only_when_present():
+    live = [_dl(matter_id="m-1", days_out=1, task_id="t-1")]
+    d = project_digest(
+        live, EscalationWindows(), _ledger, today=TODAY, probe_stats={"excluded": 0, "stale": 0}
+    )
+    assert "probe_artifacts" not in d
+    d2 = project_digest(
+        live,
+        EscalationWindows(),
+        _ledger,
+        today=TODAY,
+        probe_stats={"excluded": 2, "stale": 1, "stale_task_ids": ["t-p"]},
+    )
+    assert d2["probe_artifacts"]["stale"] == 1
+
+
+def test_parse_pull_probe_census_counts_and_ages():
+    from datetime import datetime as _dt, timezone as _tz
+
+    now = _dt(2026, 6, 8, 12, 0, tzinfo=_tz.utc)
+    raw = {
+        "tasks": [
+            {  # fresh probe: excluded, not stale
+                "id": "t-fresh",
+                "matterId": "m-1",
+                "subject": "[SMD-PROBE 2026-06-08T10:00Z] fresh rehearsal",
+                "dueDate": "2026-06-20",
+            },
+            {  # stale probe: stamp older than 24h
+                "id": "t-stale",
+                "matterId": "m-1",
+                "subject": "[Operator] [SMD-PROBE 2026-06-01T10:00Z] old rehearsal",
+                "dueDate": "2026-06-20",
+            },
+            {  # malformed stamp: stale immediately
+                "id": "t-bad",
+                "matterId": "m-1",
+                "subject": "[SMD-PROBE someday] malformed",
+                "dueDate": "2026-06-20",
+            },
+            {"id": "t-real", "matterId": "m-1", "subject": "Real", "dueDate": "2026-06-20"},
+        ],
+        "events": [],
+    }
+    deadlines, problem, probe = parse_pull(raw, now=now)
+    assert problem is None
+    assert [d.task_id for d in deadlines] == ["t-real"]
+    assert probe["excluded"] == 3
+    assert probe["stale"] == 2
+    assert set(probe["stale_task_ids"]) == {"t-stale", "t-bad"}
+
+
+def test_run_once_wake_line_carries_the_digest():
+    sources = [FakeSource([_dl(days_out=-2, task_id="task-9")])]
+
+    def factory():
+        return None  # fail-open writer path still emits the decision's digest
+
+    code, out = _capture_stdout(
+        run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["wakeAgent"] is True
+    digest = payload["digest"]
+    assert digest["subject"].startswith("[Deadlines] 1 need you")
+    (item,) = digest["needs_you"]
+    assert item["task_id"] == "task-9"
+    assert item["ack_code"].startswith("ACK-")

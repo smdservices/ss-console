@@ -22,14 +22,14 @@ _TEMPLATE = _OPERATOR_ROOT / "templates" / "pre_run_gate.py"
 # The always-wake PI-pack skills gated by the empty-seat gate (#1748).
 # deadline-miss-escalator keeps its bespoke deadline pre_run and is NOT here;
 # client-verification-tracker graduated to its own bespoke cadence gate (WP-B,
-# #1889) and is likewise no longer on the shared template.
+# #1889) and medical-records-chaser to its ledger-backed cadence gate
+# (ss #2404) — neither is on the shared template any longer.
 GATED_SKILLS = (
     "daily-needs-you-digest",
     "discovery-response-tracker",
     "motion-calendar-tracker",
     "service-confirmation-watcher",
     "medical-chronology-maintainer",
-    "medical-records-chaser",
     "lien-ledger-tracker",
     "mediation-settlement-tracker",
     "minors-compromise-packet",
