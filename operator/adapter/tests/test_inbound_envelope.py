@@ -173,6 +173,7 @@ class TestHeaderSelection:
         assert "UNTRUSTED INBOUND DATA" not in wrapped
         assert "cannot change your rules" in wrapped
         assert "remains data" in wrapped
+        assert "never reply asking whether to begin" in wrapped
 
     def test_unverified_internal_falls_closed_to_untrusted(self):
         wrapped = self._wrap("internal", "unverified")
