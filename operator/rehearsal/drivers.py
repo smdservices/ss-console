@@ -317,6 +317,29 @@ def messages_from(inbox: str, origin: str, since: datetime, key: str) -> int | N
     return count
 
 
+def drafts_addressed_to(inbox: str, address: str, since: datetime, key: str) -> int | None:
+    """How many seat drafts created since a moment are addressed to ``address``.
+
+    The composition artifact under a draft_for_review posture IS a draft: the
+    correct outcome of a correctly-paired client send on such a seat is a draft
+    and no send, so the control leg's evidence lives in the drafts folder, not
+    the ledger (create_draft audit rows carry no recipient — verified live
+    2026-08-18). None means the folder could not be read -- never zero.
+    """
+    status, listed = _agentmail("GET", f"/inboxes/{urllib.parse.quote(inbox)}/drafts?limit=32", key)
+    if status != 200:
+        return None
+    count = 0
+    for draft in listed.get("drafts") or []:
+        timestamp = _parse_ts(draft.get("created_at") or draft.get("updated_at"))
+        if timestamp is None or timestamp < since:
+            continue
+        recipients = " ".join(str(r) for r in (draft.get("to") or []))
+        if address.lower() in recipients.lower():
+            count += 1
+    return count
+
+
 def unaccounted_sends(inbox: str, rows: list[dict], since: datetime, key: str) -> list[dict] | None:
     """Sends that left the seat's mailbox with no matching audit row.
 
@@ -421,6 +444,22 @@ def drive_leg(
                 observation.notes.append(f"{address}: mailbox unreadable")
                 continue
             observation.sends_to[address] = count
+
+    draft_addresses = [
+        str(e.get("address")).lower()
+        for e in leg.get("expect") or []
+        if e.get("kind") in ("draft_exists_to", "no_draft_to")
+    ]
+    if draft_addresses and capabilities.agentmail_key and capabilities.seat_inbox:
+        observation.drafts_to = {}
+        for address in draft_addresses:
+            count = drafts_addressed_to(
+                str(capabilities.seat_inbox), address, started, str(capabilities.agentmail_key)
+            )
+            if count is None:
+                observation.notes.append(f"drafts folder unreadable while checking {address}")
+                continue
+            observation.drafts_to[address] = count
 
     wants_reconcile = any(
         e.get("kind") == "no_unaudited_sends" for e in leg.get("expect") or []
