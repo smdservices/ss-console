@@ -737,7 +737,25 @@ connectors:
 # webhook_reconcile.py: an empty desired is a SKIP, never a delete), so any
 # vendor-side subscription that exists stays registered and its deliveries are
 # absorbed at the gate with nothing to fire.
-webhook_triggers: []
+# INBOUND EMAIL OPENED FOR THE SMD PHASE (Captain, 2026-08-19, Option A —
+# "receive a request from us and respond, but only to us"). Mail arriving at
+# operator@ now wakes matter-inbox-router through the VERIFIED route: the
+# delta poller re-injects each message to /webhooks/msgraph, where sender
+# identity is authenticated before any turn fires. The walls this rides
+# inside, all unchanged: replies auto-deliver ONLY to the organization roster
+# (scope.inbound_allow_from), every @ashtonandprice.com address stays
+# unreachable both directions (scope.domain_blocks above — the SMD-only
+# fence), non-roster senders get drafts-held-for-review, and the taint gate
+# still bounds every turn. Authored after the 2026-08-19 Lane-0 finding that
+# with this list empty the seat could read mail but never transmit a reply
+# to anyone (tool-read mail is unverifiable by design; verification lives on
+# this route). The firm flip later ADDS nothing here — it only removes the
+# domain_blocks entry.
+webhook_triggers:
+  - source: msgraph
+    event_type: message.received
+    skill: matter-inbox-router
+    persona: operator
 # The flagship: a Smokeball matter change drives the internal supervision memo.
 # - source: smokeball
 #   event_type: matter.updated
