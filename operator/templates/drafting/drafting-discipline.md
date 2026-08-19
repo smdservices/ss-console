@@ -182,9 +182,48 @@ premises, holding inadmissibility traps, no self-contradicting dates). Mechanica
 transcription sub-steps may run lighter, but the draft itself is never delegated
 below the seat's work-product model. The premium is ~$0.50 per document.
 
-## Part IV — Skeletons
+## Part IV — Skeletons and format
 
 Default skeletons ship in `operator/templates/drafting/skeletons/`. They are SMD
 defaults for rehearsal and demonstration; at onboarding the firm's own skeletons
 replace them per matter type. A skill invoked without a skeleton for its artifact
 class uses its default and says so in the delivery note.
+
+### Format: the firm's template, code's typography, your content (ADR 0083)
+
+A draft is filed as a real Word document through `mcp_smokeball_render_docx_draft`
+with a `document_class` (`discovery_set`, `discovery_response`, `demand_letter`,
+`mediation_brief`, `memo`, `letter`). The tool renders your content INTO the
+firm's own Word template for that class when one is authored in the firm's
+Document Library (it resolves the template itself, the same way every time; you
+never pick one), else onto the SMD starter base. The firm's template carries the
+typography: letterhead, fonts, spacing, the named styles `SMD Body`, `SMD Item
+Label`, `SMD Item Text`, `SMD Heading 1-3`, `SMD Caption`, `SMD Signature`. A
+style the firm edits in Word takes effect on the next draft. Nothing you write
+chooses a font, a margin, or a spacing.
+
+**What you write** is the content grammar, and only this:
+
+| You write                                                                                                                                             | The renderer does                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `#` / `##` / `###` headings, numeral included (`## I. Introduction`, `### A. Parties`)                                                                | styles the level per class (centered bold roman, indented bold-underlined letters); never renumbers                                |
+| paragraphs, `**bold**`, `*italic*`                                                                                                                    | body style                                                                                                                         |
+| a SHORT line that starts with an item label (`**SPECIAL INTERROGATORY NO. 7:**`, `REQUEST FOR PRODUCTION NO. 3:`), the number from the propounded set | label style (all-caps bold underlined), then the paragraphs after it as item text (first-line indent, the "between items" spacing) |
+| `-` bullets; literal `1.` numbered items                                                                                                              | list formatting; the number is content                                                                                             |
+| pipe tables (`\| a \| b \|`; a `\| --- \|` row after the first marks a header row); the FIRST table of a court document is the caption                | real tables; a caption table gets the caption look                                                                                 |
+| `---` on its own line                                                                                                                                 | a horizontal rule                                                                                                                  |
+| `{{FILL: … \| source}}`, `{{NOT IN RECORD: …}}`, `{{ATTORNEY: …}}`                                                                                    | emitted verbatim, unstyled, render-visible; markers survive inside table cells and bold spans                                      |
+
+Everything else renders as plain text with its characters intact, never
+dropped. Write the caption, the signature block, and the proof of service as
+content, exactly as the skeleton shows; the renderer adds NO text of its own,
+no count, no declaration, no label. Those are record and judgment, not
+typography.
+
+**The delivery note states `formatApplied` honestly:** which template was used
+(or the starter), `templateExpected` (the library is authored but the class
+template did not resolve: say so, and why), the fallbacks (named styles the
+template lacks), and the template's own header/footer text (it bypasses every
+content gate, so the attorney sees it named). A `formatApplied.notes` entry
+that says the firm's template was not used is a sentence in your note, not a
+detail to omit.

@@ -26,7 +26,7 @@ def extract_text(blob: bytes, *, file_name: str = "", file_extension: str = "") 
     ext = (file_extension or "").lower().lstrip(".")
     if blob.startswith(_PDF_MAGIC) or ext == "pdf":
         return _pdf_text(blob)
-    if blob.startswith(_ZIP_MAGIC) and (ext in ("docx", "") or _looks_like_docx(blob)):
+    if blob.startswith(_ZIP_MAGIC) and (ext in ("docx", "dotx", "docm", "dotm", "") or _looks_like_docx(blob)):
         return _docx_text(blob)
     if ext in ("txt", "text", "md", "csv", "log", "eml"):
         return blob.decode("utf-8", "replace")
@@ -59,6 +59,14 @@ def _pdf_text(blob: bytes) -> str:
 def _docx_text(blob: bytes) -> str:
     from docx import Document
 
+    from .docx_base import _dotx_to_docx_bytes, _is_dotx
+
+    # A Word TEMPLATE (.dotx/.dotm) is a .docx with one content-type string
+    # changed; python-docx refuses it as-is. A firm's letterhead template filed
+    # on a matter must extract like any other document, not poison every
+    # record check on that matter.
+    if _is_dotx(blob):
+        blob = _dotx_to_docx_bytes(blob)
     try:
         doc = Document(io.BytesIO(blob))
     except Exception as exc:  # noqa: BLE001 - malformed DOCX must fail closed, not crash the server
