@@ -16,6 +16,15 @@ the credential holder writes rather than the caller.
   addresses — and would do it carrying a clean audit row, which is worse than no
   row at all.
 
+TWO CREDENTIALS, ONE VERB (overlay#280). Under the two-app fence the send app
+holds ``Mail.Send`` only, so the sender-verification GET above can never succeed
+on the send credential — 403 by construction, observed live on the first
+production two-app seat. The GET therefore runs on the READ app's credential
+(the same registration the agent already holds; reading is the lower privilege)
+from a second broker-store file, and the POST stays on the send credential.
+Absent read credential ⇒ the reply fails closed: verifying the sender is the
+load-bearing step and must not be skipped or delegated to the caller.
+
 WHY THE BROKER SPEAKS GRAPH ITSELF rather than importing the overlay's client:
 the overlay runs in the agent's address space and this process exists to be
 outside it. A shared import would be a shared dependency across the boundary the
@@ -169,17 +178,22 @@ class MsGraphOps:
         credential_path: Path,
         customer_path: Path,
         *,
+        read_credential_path: Path | None = None,
         graph_base: str = GRAPH_BASE,
         token_host: str = TOKEN_HOST,
         opener: Any | None = None,
     ) -> None:
         self._credential_path = credential_path
+        self._read_credential_path = read_credential_path
         self._customer_path = customer_path
         self._graph_base = graph_base.rstrip("/")
         self._token_host = token_host.rstrip("/")
         self._opener = opener
-        self._token: str | None = None
-        self._token_deadline = 0.0
+        # One token cache PER CREDENTIAL FILE. A shared cache would let reply()'s
+        # read-token mint (the GET runs first) leak onto the send POST — the
+        # send would then carry a token that cannot send, failing at Graph with
+        # a confusing 403 that looks like the fence misfiring.
+        self._tokens: dict[str, tuple[str, float]] = {}
 
     # -- identity ----------------------------------------------------------
 
@@ -201,13 +215,16 @@ class MsGraphOps:
 
     # -- transport ---------------------------------------------------------
 
-    def _bearer(self) -> str:
-        if self._token and time.monotonic() < self._token_deadline:
-            return self._token
-        credential = load_credential(self._credential_path)
+    def _bearer(self, credential_path: Path | None = None, *, role: str = "send") -> str:
+        path = credential_path or self._credential_path
+        cache_key = str(path)
+        cached = self._tokens.get(cache_key)
+        if cached and time.monotonic() < cached[1]:
+            return cached[0]
+        credential = load_credential(path)
         if not credential:
             raise MsGraphTransportError(
-                "no msgraph send credential in the broker store; refusing to send"
+                f"no msgraph {role} credential in the broker store; refusing to {role}"
             )
         data = urllib.parse.urlencode(
             {
@@ -249,18 +266,26 @@ class MsGraphOps:
             raise MsGraphTransportError("msgraph token response carried no access_token")
         expires_in = parsed.get("expires_in")
         lifetime = expires_in if isinstance(expires_in, int) else 3600
-        self._token = token
-        self._token_deadline = time.monotonic() + max(lifetime - _TOKEN_SKEW_S, 0)
+        deadline = time.monotonic() + max(lifetime - _TOKEN_SKEW_S, 0)
+        self._tokens[cache_key] = (token, deadline)
         return token
 
-    def _request(self, path: str, method: str, body: dict[str, Any] | None) -> dict[str, Any]:
+    def _request(
+        self,
+        path: str,
+        method: str,
+        body: dict[str, Any] | None,
+        *,
+        credential_path: Path | None = None,
+        role: str = "send",
+    ) -> dict[str, Any]:
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(
             self._graph_base + path,
             data=data,
             method=method,
             headers={
-                "Authorization": f"Bearer {self._bearer()}",
+                "Authorization": f"Bearer {self._bearer(credential_path, role=role)}",
                 "Accept": "application/json",
                 **({"Content-Type": "application/json"} if data else {}),
             },
@@ -376,6 +401,14 @@ class MsGraphOps:
         so the check that matters is on the ORIGINAL SENDER, fetched here rather
         than taken from the caller. A caller that could name the sender could name
         any sender.
+
+        The fetch runs on the READ credential: under the two-app fence the send
+        app cannot read (overlay#280), and skipping or delegating the fetch is
+        not an option — it is the load-bearing check. No read credential means
+        no reply, fail-closed. Scope honesty: this GET defends against a caller
+        naming the sender; it does not defend against an agent that PATCHes the
+        stored message's from/replyTo with its own Mail.ReadWrite — that is a
+        pre-existing property of replying to mutable message objects.
         """
         message_id = str(payload.get("message_id") or "").strip()
         if not message_id:
@@ -383,7 +416,19 @@ class MsGraphOps:
         comment = str(payload.get("comment") or "").strip()
         if not comment:
             raise MsGraphRefused("refusing to send an empty reply")
-        source = self._request(self._mail_path("messages", message_id), "GET", None)
+        if self._read_credential_path is None:
+            raise MsGraphTransportError(
+                "reply requires the broker read credential to verify the sender "
+                "under the two-app fence (overlay#280); this seat staged none — "
+                "reprovision materializes it"
+            )
+        source = self._request(
+            self._mail_path("messages", message_id),
+            "GET",
+            None,
+            credential_path=self._read_credential_path,
+            role="read",
+        )
         sender = normalize_address(source.get("from") or source.get("sender"))
         if not sender:
             raise MsGraphRefused(

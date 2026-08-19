@@ -30,6 +30,7 @@ from .establishment import EstablishmentStore
 from .google_auth import materialize_credential
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
 from .msgraph_auth import materialize_credential as materialize_msgraph_credential
+from .msgraph_auth import materialize_read_credential as materialize_msgraph_read_credential
 from .msgraph_ops import MsGraphOps, MsGraphRefused, MsGraphTransportError
 from .msgraph_ops import collect_recipients as collect_msgraph_recipients
 from .operations import WorkspaceOperations
@@ -208,7 +209,20 @@ class Broker:
         if msgraph_credential and self.ledger is not None:
             graph_credential = Path(msgraph_credential)
             materialize_msgraph_credential(graph_credential)
-            self.msgraph = MsGraphOps(graph_credential, self.customer_path)
+            # overlay#280: the reply verb's sender-verification GET cannot run on
+            # the send app under the two-app fence, so the broker also carries the
+            # read app's credential in a second file. The ROOT entrypoint is the
+            # only real writer (this process runs under env -i without secrets, so
+            # the materialize call below is a shape-parity no-op); the file on
+            # disk is what survives respawns.
+            read_credential_env = os.environ.get("SMD_MSGRAPH_READ_CREDENTIAL_PATH")
+            read_credential: Path | None = None
+            if read_credential_env:
+                read_credential = Path(read_credential_env)
+                materialize_msgraph_read_credential(read_credential)
+            self.msgraph = MsGraphOps(
+                graph_credential, self.customer_path, read_credential_path=read_credential
+            )
         else:
             self.msgraph = None
 

@@ -325,6 +325,29 @@ else
   log "MSGRAPH_SEND_CLIENT_SECRET unset; broker msgraph verbs stay fail-closed"
 fi
 
+# overlay#280: the broker ALSO carries the READ app's credential (the same
+# registration the gateway keeps — Mail.ReadWrite, no Mail.Send), because the
+# reply verb's sender-verification GET is 403 on the send app under the two-app
+# fence. Reading is the lower privilege and the agent already holds this exact
+# credential, so nothing widens; without this file no reply can ever transmit
+# on a two-app seat. Export is unconditional so launch_broker()'s env -i
+# allowlist line below always references a set variable.
+export SMD_MSGRAPH_READ_CREDENTIAL_PATH="${BROKER_DIR}/msgraph-read.json"
+if [ -n "${MSGRAPH_CLIENT_SECRET:-}" ]; then
+  PYTHONPATH="/opt/workspace-broker" \
+    /opt/workspace-broker/.venv/bin/python -c \
+    'import os; from pathlib import Path; from workspace_broker.msgraph_auth import materialize_read_credential; materialize_read_credential(Path(os.environ["SMD_MSGRAPH_READ_CREDENTIAL_PATH"]))'
+  [ -f "${SMD_MSGRAPH_READ_CREDENTIAL_PATH}" ] || {
+    log "FATAL: msgraph read credential was staged but not materialized"
+    exit 1
+  }
+  chown workspace-broker:workspace-broker "${SMD_MSGRAPH_READ_CREDENTIAL_PATH}"
+  chmod 0600 "${SMD_MSGRAPH_READ_CREDENTIAL_PATH}"
+  log "msgraph read credential materialized to the broker store (reply sender-verification)"
+else
+  log "MSGRAPH_CLIENT_SECRET unset; broker msgraph reply verb stays fail-closed"
+fi
+
 # The broker is the SECOND principal that BOTH the Google capability path AND the
 # OP-P1-4 audit_append path depend on. Define its launch ONCE; the supervisor
 # below uses it for the first start and every respawn. env -i with a fixed
@@ -351,6 +374,7 @@ launch_broker() {
     SMD_ESTABLISH_SPOOL_DIR="${SMD_ESTABLISH_SPOOL_DIR}" \
     SMD_AGENTMAIL_CREDENTIAL_PATH="${SMD_AGENTMAIL_CREDENTIAL_PATH}" \
     SMD_MSGRAPH_CREDENTIAL_PATH="${SMD_MSGRAPH_CREDENTIAL_PATH}" \
+    SMD_MSGRAPH_READ_CREDENTIAL_PATH="${SMD_MSGRAPH_READ_CREDENTIAL_PATH}" \
     /opt/workspace-broker/.venv/bin/python \
     -m workspace_broker.server
 }

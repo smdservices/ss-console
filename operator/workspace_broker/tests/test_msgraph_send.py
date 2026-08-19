@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -131,6 +132,9 @@ class FakeGraph:
 
     def __init__(self, *, source_from: str | None = None) -> None:
         self.calls: list[tuple[str, str, dict | None]] = []
+        #: (url, Authorization header) per Graph call — how the two-credential
+        #: tests see WHICH app's token each request actually carried.
+        self.auths: list[tuple[str, str]] = []
         self._source_from = source_from
 
     def __call__(self, request, timeout=None):  # noqa: ANN001 - urllib signature
@@ -143,7 +147,15 @@ class FakeGraph:
             body = json.loads(raw.decode())
         self.calls.append((request.method, url, body))
         if url.endswith("/token"):
-            return _Response(json.dumps({"access_token": "tok", "expires_in": 3600}))
+            # The token is DERIVED FROM THE CLIENT_ID so a cache that leaks one
+            # credential's token onto the other credential's request is visible
+            # in the Authorization header rather than invisibly "working".
+            form = urllib.parse.parse_qs((raw or b"").decode())
+            client_id = (form.get("client_id") or ["?"])[0]
+            return _Response(
+                json.dumps({"access_token": f"tok-{client_id}", "expires_in": 3600})
+            )
+        self.auths.append((url, request.get_header("Authorization") or ""))
         if request.method == "GET" and "/messages/" in url:
             return _Response(
                 json.dumps({"from": {"emailAddress": {"address": self._source_from or ""}}})
@@ -154,20 +166,44 @@ class FakeGraph:
     def graph_posts(self) -> list[tuple[str, str, dict | None]]:
         return [c for c in self.calls if c[0] == "POST" and not c[1].endswith("/token")]
 
+    def token_client_ids(self) -> list[str]:
+        return [
+            urllib.parse.parse_qs(c[2]["form"]).get("client_id", ["?"])[0]
+            for c in self.calls
+            if c[1].endswith("/token") and c[2]
+        ]
 
-def _seat(tmp_path: Path, yaml_text: str = STAGING_YAML) -> tuple[Path, Path]:
+
+def _seat(tmp_path: Path, yaml_text: str = STAGING_YAML) -> tuple[Path, Path, Path]:
     customer = tmp_path / "customer.yaml"
     customer.write_text(yaml_text)
     credential = tmp_path / "msgraph.json"
     credential.write_text(
-        json.dumps({"tenant_id": "tid", "client_id": "cid", "client_secret": "shh"})
+        json.dumps({"tenant_id": "tid", "client_id": "cid-send", "client_secret": "shh"})
     )
-    return customer, credential
+    # The two-app fence's second file: the READ app's credential, distinct
+    # client_id so token routing is observable (overlay#280).
+    read_credential = tmp_path / "msgraph-read.json"
+    read_credential.write_text(
+        json.dumps({"tenant_id": "tid", "client_id": "cid-read", "client_secret": "shh2"})
+    )
+    return customer, credential, read_credential
 
 
-def _ops(tmp_path: Path, http: FakeGraph, yaml_text: str = STAGING_YAML) -> MsGraphOps:
-    customer, credential = _seat(tmp_path, yaml_text)
-    return MsGraphOps(credential, customer, opener=http)
+def _ops(
+    tmp_path: Path,
+    http: FakeGraph,
+    yaml_text: str = STAGING_YAML,
+    *,
+    with_read_credential: bool = True,
+) -> MsGraphOps:
+    customer, credential, read_credential = _seat(tmp_path, yaml_text)
+    return MsGraphOps(
+        credential,
+        customer,
+        read_credential_path=read_credential if with_read_credential else None,
+        opener=http,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -392,6 +428,55 @@ def test_reply_refuses_when_the_sender_cannot_be_determined(tmp_path: Path) -> N
         ops.reply({"message_id": "AAMk123", "comment": "sure"})
 
 
+# ---------------------------------------------------------------------------
+# Two credentials, one verb (overlay#280) — the GET reads, the POST sends
+# ---------------------------------------------------------------------------
+
+
+def test_reply_fetches_with_the_read_token_and_posts_with_the_send_token(
+    tmp_path: Path,
+) -> None:
+    """The incident: on a two-app seat the send app cannot read, so a reply whose
+    sender-verification GET rides the send token 403s forever. The GET must carry
+    the READ app's token and the POST the SEND app's — asserted from the actual
+    Authorization headers, so a shared token cache (the GET mints first and would
+    poison the POST) cannot pass."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    auth_by_kind = {("GET" if "/messages/" in url and not url.endswith("/reply") else "POST"): auth
+                    for url, auth in http.auths}
+    assert auth_by_kind["GET"] == "Bearer tok-cid-read"
+    assert auth_by_kind["POST"] == "Bearer tok-cid-send"
+
+
+def test_reply_mints_two_distinct_tokens(tmp_path: Path) -> None:
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    assert sorted(http.token_client_ids()) == ["cid-read", "cid-send"]
+
+
+def test_send_mints_exactly_one_token_and_it_is_the_send_apps(tmp_path: Path) -> None:
+    """send() is untouched by the two-credential split: one mint, the send app's."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert http.token_client_ids() == ["cid-send"]
+    assert http.auths[0][1] == "Bearer tok-cid-send"
+
+
+def test_reply_fails_closed_without_a_read_credential(tmp_path: Path) -> None:
+    """No read credential means the sender cannot be verified, and an unverified
+    reply lane is an exfiltration primitive — so nothing is attempted at all."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http, with_read_credential=False)
+    with pytest.raises(MsGraphTransportError) as exc:
+        ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    assert "read credential" in str(exc.value)
+    assert http.calls == []  # not even a token mint
+
+
 @pytest.mark.parametrize(
     "message_id",
     [
@@ -511,7 +596,7 @@ def test_the_client_secret_never_appears_in_a_token_error(tmp_path: Path) -> Non
     def _reject(request, timeout=None):  # noqa: ANN001
         raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, None)
 
-    customer, credential = _seat(tmp_path)
+    customer, credential, _read = _seat(tmp_path)
     ops = MsGraphOps(credential, customer, opener=_reject)
     with pytest.raises(MsGraphTransportError) as exc:
         ops.send({"to": ["scott@smd.services"], "body_text": "x"})
@@ -606,7 +691,7 @@ def test_a_transport_failure_is_not_recorded_as_a_refusal(tmp_path: Path) -> Non
             return _Response(json.dumps({"access_token": "tok", "expires_in": 3600}))
         raise urllib.error.HTTPError(request.full_url, 503, "nope", {}, None)
 
-    customer, credential = _seat(tmp_path)
+    customer, credential, _read = _seat(tmp_path)
     broker = Broker.__new__(Broker)
     broker.customer_slug = SEAT
     broker.gateway_pid = GATEWAY_PID
