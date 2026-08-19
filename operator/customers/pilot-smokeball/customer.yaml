@@ -530,6 +530,10 @@ personas:
           # fail-closed class: unauthored, stall flags are simply withheld and
           # the register says so, while tracking and chasing continue.
           stall_days: 60 # PLACEHOLDER(rehearsal)
+          # How often the standing register is produced on its own. Also NOT
+          # fail-closed: unauthored, there is no periodic run and the register
+          # rides along with other wakes, saying so on its own face.
+          register_days: 7 # PLACEHOLDER(rehearsal)
       - name: settlement-statement-feeder # person-invoked; figures from authored data only
         version: pending
         initiation:

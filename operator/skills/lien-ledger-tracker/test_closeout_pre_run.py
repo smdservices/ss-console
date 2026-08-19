@@ -54,13 +54,21 @@ def _obligation(matter: str, key: str, display: str, balance: float, **kw) -> ob
     )
 
 
-def _pull(obligations, *, cohort=10, deep=10, unreadable=0, name_keyed=0):
+def _pull(obligations, *, cohort=10, deep=10, unreadable=0, name_keyed=0, rows=()):
     return gate.ObligationPull(
         obligations=tuple(obligations),
         cohort_size=cohort,
         deep_read=deep,
         unreadable=unreadable,
         name_keyed=name_keyed,
+        cohort=tuple(rows),
+    )
+
+
+def _row(matter, number, opened, client="A Client", responsible="R. Attorney"):
+    return gate.CohortRow(
+        matter_id=matter, number=number, title=f"{number} - {client}",
+        clients=client, responsible=responsible, opened=opened,
     )
 
 
@@ -422,3 +430,172 @@ def test_targeting_ignores_another_skills_events():
 def test_targeting_rejects_a_matter_id_that_is_not_id_shaped():
     bad = _event("../../etc/passwd", "sct:x", "sct-obligation", "fired", "2026-08-01T00:00:00Z")
     assert gate.matters_with_open_obligations([bad]) == []
+
+
+# ------------------------------------------------------------------- register
+
+
+REGISTERED = gate.CloseoutConfig(
+    trigger_status="Pending", chase_cadence_days=14, stall_days=60, register_days=7
+)
+
+
+def _register(obligations, rows, config=REGISTERED, cohort=None):
+    pull = _pull(obligations, cohort=cohort if cohort is not None else len(rows), rows=rows)
+    return gate.build_register(pull, config, TODAY)
+
+
+def test_a_matter_whose_detail_was_not_read_shows_blank_never_zero():
+    """The single most dangerous rounding in this feature: an unread matter that
+    reports 0.00 reads as a cleared file."""
+    reg = _register([], [_row(MATTER_A, "2026-SC-202", "2007-06-11")])
+    row = reg["oldest"][0]
+    assert row["detail"] == "not read"
+    assert row["outstanding"] is None and row["obligations"] is None
+
+
+def test_a_read_matter_with_nothing_owed_shows_a_real_zero():
+    reg = _register(
+        [_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 0.0)],
+        [_row(MATTER_A, "2026-SC-206", "2024-02-05")],
+    )
+    row = reg["oldest"][0]
+    assert row["detail"] == "read"
+    assert row["outstanding"] == 0.0, "read-and-clear is a zero, not a blank"
+
+
+def test_the_cohort_is_ranked_oldest_first_and_says_so():
+    reg = _register([], [
+        _row(MATTER_A, "new", "2024-01-01"),
+        _row(MATTER_B, "old", "2007-06-11"),
+    ])
+    assert [r["matter"] for r in reg["oldest"]] == ["old", "new"]
+    assert "oldest opened first" in reg["ranking_rule"]
+
+
+def test_coverage_states_how_much_of_the_set_was_actually_opened():
+    reg = _register(
+        [_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 100.0)],
+        [_row(MATTER_A, "read", "2020-01-01"), _row(MATTER_B, "unread", "2019-01-01")],
+        cohort=165,
+    )
+    cov = reg["coverage"]
+    assert cov["matters_at_status"] == 165
+    assert cov["detail_read"] == 1
+    assert cov["detail_not_read"] == 164
+
+
+def test_the_register_names_what_it_could_not_see():
+    reg = _register([], [_row(MATTER_A, "m", "2020-01-01")])
+    joined = " | ".join(reg["unavailable"])
+    assert "quiet time" in joined, "the matter record carries no last-activity field"
+    assert "trust ledger" in joined, "trust balances are not in the practice-management system"
+
+
+def test_an_unauthored_stall_threshold_is_declared_not_defaulted():
+    config = gate.CloseoutConfig(trigger_status="Pending", chase_cadence_days=14)
+    reg = _register([], [_row(MATTER_A, "m", "2020-01-01")], config=config)
+    assert any("stall" in u for u in reg["unavailable"])
+
+
+def test_an_unauthored_register_cadence_is_declared_and_the_register_still_appears():
+    config = gate.CloseoutConfig(trigger_status="Pending", chase_cadence_days=14)
+    reg = _register([], [_row(MATTER_A, "m", "2020-01-01")], config=config)
+    assert any("periodic cadence" in u for u in reg["unavailable"])
+    assert reg["oldest"], "the register still renders; only its cadence is unauthored"
+
+
+def test_providers_are_ranked_by_exposure_across_matters():
+    reg = _register([
+        _obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 21400.0),
+        _obligation(MATTER_B, ENTITY_1, "Valley Health Plan", 8900.0),
+        _obligation(MATTER_A, "id-c", "Cedar Ridge Orthopedics", 18400.0),
+    ], [_row(MATTER_A, "a", "2021-01-01"), _row(MATTER_B, "b", "2022-01-01")])
+    top = reg["providers_by_exposure"][0]
+    assert top["provider"] == "Valley Health Plan"
+    assert top["matters"] == 2 and top["outstanding"] == 30300.0
+
+
+def test_a_cleared_provider_does_not_occupy_the_exposure_ranking():
+    reg = _register(
+        [_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 0.0)],
+        [_row(MATTER_A, "a", "2021-01-01")],
+    )
+    assert reg["providers_by_exposure"] == []
+
+
+def test_the_recorded_total_counts_only_what_was_read():
+    reg = _register(
+        [_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 1234.56)],
+        [_row(MATTER_A, "read", "2021-01-01"), _row(MATTER_B, "unread", "2020-01-01")],
+    )
+    assert reg["recorded_outstanding_total"] == 1234.56
+
+
+def test_the_register_slices_are_bounded():
+    rows = [_row(f"m-{i}", f"n-{i}", "2020-01-01") for i in range(60)]
+    reg = _register([], rows)
+    assert len(reg["oldest"]) == gate.REGISTER_TOP_N
+
+
+def test_a_periodic_register_wakes_on_its_own_cadence():
+    decision = _decide(_pull([], cohort=0, deep=0), config=REGISTERED)
+    assert decision.wake is True
+    assert any(p.action == gate.ACTION_EMIT_REGISTER for p in decision.plans)
+
+
+def test_the_periodic_register_does_not_re_fire_inside_its_window():
+    events = [_event("", gate.REGISTER_SOURCE_ID, "sct-register", "fired", "2026-08-18T00:00:00Z")]
+    decision = _decide(_pull([], cohort=0, deep=0), events=events, config=REGISTERED)
+    assert decision.wake is False
+
+
+def test_without_an_authored_cadence_there_is_no_periodic_register_wake():
+    config = gate.CloseoutConfig(trigger_status="Pending", chase_cadence_days=14)
+    decision = _decide(_pull([], cohort=0, deep=0), config=config)
+    assert decision.wake is False, "no invented reporting cadence"
+
+
+def test_a_waking_decision_carries_the_register_payload():
+    decision = _decide(
+        _pull([_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 100.0)],
+              rows=[_row(MATTER_A, "2026-SC-201", "2021-03-15")]),
+        config=REGISTERED,
+    )
+    assert decision.wake is True
+    assert decision.register is not None
+    assert decision.register["coverage"]["detail_read"] == 1
+
+
+def test_names_are_taken_from_the_record_never_composed():
+    assert gate._names([{"displayName": "Dean Halverson"}]) == "Dean Halverson"
+    assert gate._names([{"id": "x"}]) == "", "an unnamed entry contributes nothing"
+    assert gate._names([{"name": "A"}, {"displayName": "B"}]) == "A, B"
+
+
+def test_the_register_reads_the_committed_wire_fixtures_end_to_end():
+    raw = {
+        "cohort": [
+            {"id": "m-201", "number": "2026-SC-201", "title": "t",
+             "clients": [{"displayName": "Dean Halverson"}],
+             "personResponsible": [{"displayName": "R. Attorney"}],
+             "openedDate": "2021-03-15"},
+            {"id": "m-202", "number": "2026-SC-202", "title": "t",
+             "clients": [{"displayName": "Adaeze Okonkwo"}],
+             "personResponsible": [{"displayName": "R. Attorney"}],
+             "openedDate": "2007-06-11"},
+        ],
+        "layouts": {"m-201": _wire("2026-SC-201")},
+        "layoutErrors": {},
+    }
+    pull, problem = gate.parse_pull(raw)
+    assert problem is None
+    reg = gate.build_register(pull, REGISTERED, TODAY)
+    assert reg["coverage"] == {
+        "matters_at_status": 2, "detail_read": 1, "detail_not_read": 1,
+        "unreadable": 0, "obligations": 4, "name_keyed_obligations": 0,
+    }
+    oldest = reg["oldest"][0]
+    assert oldest["matter"] == "2026-SC-202" and oldest["detail"] == "not read"
+    assert oldest["client"] == "Adaeze Okonkwo"
+    assert reg["largest_recorded_exposure"][0]["matter"] == "2026-SC-201"
