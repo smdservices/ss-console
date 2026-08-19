@@ -105,6 +105,56 @@ system, so grouping falls back to a normalized display name. That grouping is a
 **proposal** - the register shows both raw spellings and a person confirms. Two contact
 records are never silently merged into one.
 
+## The register - the standing picture, and what it refuses to imply
+
+The chase moves individual files; the register is how a person sees the whole
+position at once. It is assembled by the same pass that plans the chases, from the
+same reads, so the two can never tell different stories about the same week.
+
+It carries: the set ranked oldest-first, the largest recorded exposures, providers
+ranked by what they hold across matters, the coverage counts, and a plain list of
+what could not be seen.
+
+Four disciplines, and each of them is the difference between a register a firm can
+act on and one that quietly overstates:
+
+1. **Blank is never zero.** A matter whose settlement detail has not been read this
+   cycle shows no figure and is labelled `not read`. A matter that WAS read and owes
+   nothing shows a real 0.00. Those are different facts and the register never
+   collapses them. This is the single most dangerous rounding available here: a
+   0.00 on an unread file reads as a cleared file.
+2. **Coverage is a count, on the face.** Every register states how many matters are
+   at the trigger status, how many had their detail opened, and how many did not.
+   Silence about coverage reads as completeness.
+3. **Every ranking names its rule.** "Oldest opened first; recorded exposure shown
+   only where the detail has been read this cycle." Nobody should have to infer why
+   a row is at the top.
+4. **What is missing is named, with the reason.** Quiet time is not available: the
+   matter record carries no last-activity field, so the set is ranked by age
+   instead, and the register says exactly that rather than passing age off as
+   activity. The client trust ledger is not held in the practice-management system,
+   so no balance appears and no file is ever called closed on its strength.
+
+Closure is never asserted from the register. A matter whose obligations all read
+zero is a **closure candidate** for a person to confirm against the trust ledger,
+not a closed file.
+
+### Cadence
+
+`register_days` sets how often the standing picture is produced on its own. It is
+not in the fail-closed class: unauthored, there is no periodic run and the register
+simply rides along whenever the Operator wakes for other work, and it says that
+about itself. An invented reporting cadence would be a commitment nobody made.
+
+### Delivery
+
+The register goes in the body of what the Operator sends, top slices first, with
+the coverage counts. It is deliberately not filed as one cross-matter document:
+a memo naming matters other than the one it is filed on is refused by the write
+path, and pointing the reader at a memo on a housekeeping matter puts two clicks
+in front of the person the report is for. When file attachment reaches this
+channel, the full set becomes an attachment and the body keeps the top slices.
+
 ## The attorney owns the number - the skill logs it (the line that keeps this safe)
 
 Whether a lien can be reduced, and to what figure, is a **legal and factual

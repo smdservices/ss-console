@@ -142,6 +142,11 @@ _HOLD_LABEL = "sct-chase-hold"
 # "chase N" numerator the outreach copies.
 STALL_SOURCE_PREFIX = "__sct_stall__"
 
+# The periodic register. Its own sentinel so "when did the firm last get the
+# standing picture" is a fact rather than an inference from chase activity.
+REGISTER_SOURCE_ID = "__sct_register__"
+_REGISTER_LABEL = "sct-register"
+
 # Provider-chase family. The group's cadence and attempt count live here.
 PROVIDER_SOURCE_PREFIX = "__sct_provider__"
 _PROVIDER_LABEL = "sct-provider-chase"
@@ -181,6 +186,24 @@ class Obligation:
         return self.balance > 0
 
 
+@dataclass(frozen=True)
+class CohortRow:
+    """One matter at the trigger status, from the bulk pass.
+
+    The matter record carries NO last-activity field (only opened/closed dates,
+    vfy_01M0E061XAJRNB2194NC6KM0R1), so the register ranks the cohort by AGE and
+    says plainly that quiet time is not available at this altitude. It is not
+    silently substituted with the opened date wearing another label.
+    """
+
+    matter_id: str
+    number: str
+    title: str
+    clients: str
+    responsible: str
+    opened: str
+
+
 class ObligationSource(Protocol):
     def pull_obligations(self) -> "ObligationPull":
         ...
@@ -201,6 +224,7 @@ class ObligationPull:
     deep_read: int
     unreadable: int = 0
     name_keyed: int = 0  # obligations that fell back to a name-derived key
+    cohort: tuple[CohortRow, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +239,7 @@ class CloseoutConfig:
     trigger_status: str | None = None
     chase_cadence_days: int | None = None
     stall_days: int | None = None
+    register_days: int | None = None
 
     @property
     def authored(self) -> bool:
@@ -299,6 +324,7 @@ def load_closeout_config(customer_yaml_path: str | None = None) -> tuple[Closeou
         trigger_status=_status_or_none(settings.get("trigger_status")),
         chase_cadence_days=_pos_int_or_none(settings.get("chase_cadence_days")),
         stall_days=_pos_int_or_none(settings.get("stall_days")),
+        register_days=_pos_int_or_none(settings.get("register_days")),
     )
     esc = data.get("escalation") if isinstance(data, dict) else None
     refire_days = _pos_int(
@@ -370,6 +396,7 @@ ACTION_SURFACE_CONFIG = "surface_config_missing"
 ACTION_SURFACE_NO_OBLIGATIONS = "surface_no_obligations_read"
 ACTION_SURFACE_HOLD = "surface_hold"
 ACTION_SURFACE_STALL = "surface_stall"
+ACTION_EMIT_REGISTER = "emit_register"
 ACTION_SUPPRESS = "suppress"
 
 
@@ -399,6 +426,7 @@ class WakeDecision:
     pre_run_inputs_digest: bytes
     plans: tuple[ChasePlan, ...] = ()
     extra_metadata: dict = field(default_factory=dict)
+    register: dict | None = None
 
 
 def _hold_active(hold_state) -> bool:
@@ -459,6 +487,119 @@ def obligation_key(ledger, obligation: Obligation) -> str:
 
 def provider_key(ledger, group: str) -> str:
     return ledger.item_key("", PROVIDER_SOURCE_PREFIX + group, _PROVIDER_LABEL, "")
+
+
+REGISTER_TOP_N = 20
+
+
+def _age_days(opened: str, today: date) -> int | None:
+    try:
+        return (today - date.fromisoformat(opened[:10])).days
+    except (TypeError, ValueError):
+        return None
+
+
+def build_register(
+    pull: ObligationPull, config: CloseoutConfig, today: date
+) -> dict:
+    """The standing picture, bounded and honest about its own edges.
+
+    Three disciplines, all of them the difference between a register a firm can
+    act on and one that quietly overstates:
+
+    * Blank is never zero. A matter whose settlement detail has not been read
+      carries ``outstanding: None`` and ``detail: "not read"``, never 0.00.
+    * Every ranking names its rule on the artifact, so nobody has to infer why a
+      row is at the top.
+    * What we could not see is listed, with the reason. A register that omits
+      its own gaps reads as complete.
+    """
+    by_matter: dict[str, list[Obligation]] = {}
+    for obligation in pull.obligations:
+        by_matter.setdefault(obligation.matter_id, []).append(obligation)
+
+    rows = []
+    for row in pull.cohort:
+        members = by_matter.get(row.matter_id)
+        outstanding = (
+            round(sum(m.balance for m in members), 2) if members is not None else None
+        )
+        rows.append(
+            {
+                "matter": row.number,
+                "client": row.clients,
+                "responsible": row.responsible,
+                "opened": row.opened,
+                "age_days": _age_days(row.opened, today),
+                "obligations": len(members) if members is not None else None,
+                "outstanding": outstanding,
+                "detail": "read" if members is not None else "not read",
+            }
+        )
+
+    read_rows = [r for r in rows if r["detail"] == "read"]
+    groups: dict[str, dict] = {}
+    for obligation in pull.obligations:
+        if not obligation.outstanding:
+            continue
+        group = groups.setdefault(
+            normalize_provider_name(obligation.provider_display),
+            {"provider": obligation.provider_display, "matters": set(), "outstanding": 0.0},
+        )
+        group["matters"].add(obligation.matter_id)
+        group["outstanding"] = round(group["outstanding"] + obligation.balance, 2)
+
+    providers = sorted(
+        (
+            {
+                "provider": g["provider"],
+                "matters": len(g["matters"]),
+                "outstanding": g["outstanding"],
+            }
+            for g in groups.values()
+        ),
+        key=lambda g: -g["outstanding"],
+    )
+
+    unavailable = [
+        "quiet time: the matter record carries no last-activity field, so the "
+        "cohort is ranked by age instead",
+        "client trust ledger balance: not held in the practice-management system",
+    ]
+    if config.stall_days is None:
+        unavailable.append("stall flags: no stall threshold is authored for this firm")
+    if config.register_days is None:
+        unavailable.append(
+            "a periodic cadence for this register: none is authored, so it appears "
+            "only when the Operator wakes for other work"
+        )
+
+    return {
+        "as_of": today.isoformat(),
+        "ranking_rule": (
+            "oldest opened first across the whole set; recorded exposure shown only "
+            "where the settlement detail has been read this cycle"
+        ),
+        "coverage": {
+            "matters_at_status": pull.cohort_size,
+            "detail_read": len(read_rows),
+            "detail_not_read": max(0, pull.cohort_size - len(read_rows)),
+            "unreadable": pull.unreadable,
+            "obligations": len(pull.obligations),
+            "name_keyed_obligations": pull.name_keyed,
+        },
+        "recorded_outstanding_total": round(
+            sum(r["outstanding"] or 0.0 for r in read_rows), 2
+        ),
+        "oldest": sorted(
+            rows, key=lambda r: (r["age_days"] is None, -(r["age_days"] or 0))
+        )[:REGISTER_TOP_N],
+        "largest_recorded_exposure": sorted(
+            read_rows, key=lambda r: -(r["outstanding"] or 0.0)
+        )[:REGISTER_TOP_N],
+        "providers_by_exposure": providers[:REGISTER_TOP_N],
+        "unavailable": unavailable,
+    }
 
 
 def decide(
@@ -572,6 +713,28 @@ def decide(
             )
         )
 
+    # The periodic register. Its own sentinel and its own cadence, because "the
+    # firm last saw the standing picture on X" must not be inferred from whether
+    # a chase happened to fall due. Unauthored cadence degrades: no periodic
+    # wake, and the register still rides along whenever the turn wakes.
+    if config.register_days is not None:
+        register_key = ledger.item_key("", REGISTER_SOURCE_ID, _REGISTER_LABEL, "")
+        register_state = states.get(register_key)
+        if _chase_due(register_state, today, cadence_days=config.register_days):
+            plans.append(
+                ChasePlan(
+                    item_key=register_key,
+                    action=ACTION_EMIT_REGISTER,
+                    attempt=ledger.next_attempt(register_state),
+                    last_chased=(
+                        register_state.last_raised_date.isoformat()
+                        if register_state is not None
+                        and register_state.last_raised_date is not None
+                        else None
+                    ),
+                )
+            )
+
     coverage = {
         "cohort_size": pull.cohort_size,
         "deep_read": pull.deep_read,
@@ -587,6 +750,7 @@ def decide(
             decision_basis="closeout_chase_due",
             pre_run_inputs_digest=raw_inputs_for_digest,
             plans=tuple(plans),
+            register=build_register(pull, config, today),
             extra_metadata={
                 **coverage,
                 "provider_chases_due": len(chases),
@@ -638,6 +802,8 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
             payload["plans"] = [_plan_to_dict(p) for p in decision.plans]
         if decision.extra_metadata:
             payload["coverage"] = decision.extra_metadata
+        if decision.register is not None:
+            payload["register"] = decision.register
     print(json.dumps(payload))
     return 0
 
@@ -717,11 +883,13 @@ async def run_once(
         ledger_events = ledger.read_ledger()
 
     obligations: list[Obligation] = []
+    cohort_rows: list[CohortRow] = []
     cohort = deep = unreadable = name_keyed = 0
     raw_input_blob: bytes = b""
     for source in sources:
         pulled = source.pull_obligations()
         obligations.extend(pulled.obligations)
+        cohort_rows.extend(pulled.cohort)
         cohort += pulled.cohort_size
         deep += pulled.deep_read
         unreadable += pulled.unreadable
@@ -737,6 +905,7 @@ async def run_once(
             deep_read=deep,
             unreadable=unreadable,
             name_keyed=name_keyed,
+            cohort=tuple(cohort_rows),
         ),
         config,
         ledger,
@@ -858,6 +1027,27 @@ def _listing(payload) -> list:
     return []
 
 
+def _names(value) -> str:
+    """Join a person/entity collection into a display string, taking whatever
+    name field the record actually carries. Never composed from parts we did not
+    read; an unnamed entry contributes nothing rather than a placeholder."""
+    if isinstance(value, str):
+        return value.strip()
+    if not isinstance(value, list):
+        return ""
+    out = []
+    for entry in value:
+        if isinstance(entry, str) and entry.strip():
+            out.append(entry.strip())
+        elif isinstance(entry, dict):
+            for key in ("displayName", "DisplayName", "name", "Name", "fullName"):
+                candidate = entry.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    out.append(candidate.strip())
+                    break
+    return ", ".join(out)
+
+
 def _as_float(value) -> float:
     try:
         return float(str(value).replace(",", ""))
@@ -909,6 +1099,21 @@ def parse_pull(raw: dict) -> tuple[ObligationPull, str | None]:
         return ObligationPull((), len(rows), 0), "unrecognized layouts envelope"
     errors = raw.get("layoutErrors") if isinstance(raw.get("layoutErrors"), dict) else {}
 
+    cohort: list[CohortRow] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        cohort.append(
+            CohortRow(
+                matter_id=str(row.get("id") or ""),
+                number=str(row.get("number") or ""),
+                title=str(row.get("title") or row.get("description") or ""),
+                clients=_names(row.get("clients")),
+                responsible=_names(row.get("personResponsible")),
+                opened=str(row.get("openedDate") or "")[:10],
+            )
+        )
+
     obligations: list[Obligation] = []
     name_keyed = 0
     for matter_id, payload in layouts.items():
@@ -948,6 +1153,7 @@ def parse_pull(raw: dict) -> tuple[ObligationPull, str | None]:
             deep_read=len(layouts),
             unreadable=len(errors),
             name_keyed=name_keyed,
+            cohort=tuple(cohort),
         ),
         None,
     )
