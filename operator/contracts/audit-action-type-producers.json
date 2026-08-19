@@ -157,9 +157,10 @@
       "reason": "one row per untrusted inbound item is written by the runtime webhook router as it lands."
     },
     "RBAC_EVENT": {
-      "side": "deferred",
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-corrections (post_llm_call, ss#2429 / overlay#277)",
       "producerIntent": "src/lib/portal/operator/rbac-audit.ts",
-      "reason": "rbac-audit.ts builds structured audit:rbac_event events for user-management actions, but the audit_log PERSISTENCE path (the writer that stamps action='RBAC_EVENT' onto a row) is gated on #821/#891 and not yet wired. The value is in the closed vocabulary and the viewer can filter on it, so it is currently consumed-but-never-produced \u2014 surfaced here deliberately rather than hidden. Flip to side=ss-console with producerFile once #821 lands the persistence path that writes the literal RBAC_EVENT row."
+      "reason": "the corrections plugin writes RBAC_EVENT refusal rows (metadata subAction=correction_capture_refused) when a rostered NON-admin's message would have been captured as a standing correction \u2014 capture is server-gated on sender_is_admin from the session-keyed verified origin (ss#2429). The ss-console portal writer intent (rbac-audit.ts, user-management actions) remains gated on #821/#891 and unwired; producerIntent is kept so that half is not forgotten."
     },
     "COMPLIANCE_PACKET_EXPORTED": {
       "side": "ss-console",
