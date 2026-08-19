@@ -911,7 +911,18 @@ describe('Operator customer Machine Dockerfile', () => {
     // and the audit emit surface are untouched 20518e8..0716dc1; re-stamps are
     // the identity. Bump merge is gated on the first armed shadow-firm run
     // (ss#2389 release gate); the run id is cited in the bump PR.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="af0c8a0f19eeca1d5b060f1ffb11d1eb09e2cb53"')
+    // af0c8a0 -> 0088352 (2026-08-18f, overlay#275 / ss#2258 A&P bring-up):
+    // overlay#278 — the msgraph delta poller holds its cursor on per-item
+    // failure instead of orphaning the mail (the observed A&P first-boot loss),
+    // with poison-vs-systemic dead-letter discrimination, a resync watermark,
+    // Sentry page signals, and shared/msgraph_replay.py as the recovery path.
+    // Single-commit range, msgraph poller/replay/consumes/tests only: NO
+    // tracked twin moves, heartbeat.py and the audit emit surface untouched,
+    // re-stamps are the identity. Shadow-firm gate note: the rehearsal
+    // scenarios ride AgentMail, so the green run is whole-overlay regression
+    // evidence — the revised poller's own runtime proof happens on the A&P
+    // seat per the overlay#275 contract ACs.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0088352a7a833bdef17406bfbed407a707128a21"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
