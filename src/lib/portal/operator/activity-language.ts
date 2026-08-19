@@ -204,7 +204,7 @@ export const SUPPRESSED_ACTION_REASONS: Readonly<Record<string, string>> = {
   HONCHO_CONCLUSION_DISMISSED:
     'INTERNAL. Captain dismissed a memory-mirror conclusion in the admin console (ADR 0016). An admin action on our tooling.',
   RBAC_EVENT:
-    'INTERNAL. Access-control bookkeeping. Note: no producer writes this row yet (manifest side "deferred"), so it is structurally absent as well as suppressed.',
+    'INTERNAL. Access-control bookkeeping. Produced since ss#2429 by the overlay corrections plugin: a refusal row (subAction correction_capture_refused) when a non-admin message would have installed a standing correction. Suppressed from the client feed; the portal RBAC writer (rbac-audit.ts) remains gated on #821/#891.',
   DECOMMISSION_INITIATED: 'INTERNAL. Decommission pipeline boundary, run by us.',
   DECOMMISSION_DRAIN_COMPLETE: 'INTERNAL. Decommission pipeline boundary, run by us.',
   DECOMMISSION_STEP_BEGIN: 'INTERNAL. Per-step decommission marker for the compliance trail.',
