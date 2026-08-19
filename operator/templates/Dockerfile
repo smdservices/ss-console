@@ -665,8 +665,22 @@ COPY --from=hermes_source /src/HERMES_SHA /opt/hermes/HERMES_SHA
 
 # ---------- Layer-cached Hermes deps install ----------
 ENV npm_config_install_links=false
+# The playwright install is wrapped in timeout+retry (Hermes v0.20.4 promotion,
+# ss-console#2444): at v2026.8.18 `npx playwright install --with-deps chromium
+# --only-shell` deterministically WEDGED on the Depot builder right after the
+# chromium-headless-shell download hit 100% (two independent builds, one silent
+# for 59 minutes). Upstream's own Dockerfile at this tag wraps the identical
+# command in a 3-attempt retry loop (their Dockerfile:201-202) — they hit it
+# too — but a bare retry loop cannot recover from a hang, so each attempt also
+# gets a hard 15-minute timeout (the download itself takes ~70s; 15m is
+# generous for extract+apt). A build step that can wedge for an hour is
+# unacceptable in the seat-rebuild path: rollback-by-rebuild depends on this
+# Dockerfile finishing.
 RUN npm install --prefer-offline --no-audit \
- && npx playwright install --with-deps chromium --only-shell \
+ && for i in 1 2 3; do \
+      timeout 900 npx playwright install --with-deps chromium --only-shell && break || \
+      { [ "$i" = 3 ] && exit 1; echo "playwright install failed/wedged (attempt $i); retrying in 10s" >&2; sleep 10; }; \
+    done \
  && (cd web && npm install --prefer-offline --no-audit) \
  && (cd ui-tui && npm install --prefer-offline --no-audit) \
  && npm cache clean --force
