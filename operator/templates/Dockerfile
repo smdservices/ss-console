@@ -723,7 +723,10 @@ RUN npm install --prefer-offline --no-audit \
 # Slack/Discord channels the productized Operator will offer. See ADR 0033.
 RUN uv sync --frozen --no-install-project --extra all --extra messaging
 RUN cd web && npm run build && cd ../ui-tui && npm run build
-RUN uv pip install --no-cache-dir --no-deps -e "."
+# --python is explicit because ENV UV_PYTHON (above) would otherwise aim this
+# bare `uv pip` at the SYSTEM interpreter (PEP 668 refusal on Debian); an
+# explicit flag outranks the env var and targets the project venv uv sync made.
+RUN uv pip install --no-cache-dir --no-deps --python /opt/hermes/.venv/bin/python -e "."
 
 # ---------- Honcho: deferred to Phase 2 (ADR 0016, revised 2026-05-30) ----------
 # No in-container Honcho server is installed. The prior `honcho-ai` pip install
@@ -738,7 +741,7 @@ RUN uv pip install --no-cache-dir --no-deps -e "."
 # bootstrap translator and customer-sync sidecar) and then register the
 # plugin pack with Hermes. Plugins land under ~/.hermes/plugins/ where the
 # Hermes plugin loader discovers them at runtime.
-RUN uv pip install --no-cache-dir \
+RUN uv pip install --no-cache-dir --python /opt/hermes/.venv/bin/python \
       "git+${OVERLAY_REPO}@${OVERLAY_REF}"
 
 # ---------- Workspace capability broker ----------
