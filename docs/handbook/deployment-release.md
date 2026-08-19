@@ -100,8 +100,11 @@ customer's Machine image against a new overlay commit. The flow:
    unauthored sender - against a rig seat, and scores each from audit rows and
    mailbox observations rather than from how the answers read. Run it as
    `infisical run --env=prod --path=/ss -- operator/rehearsal/run.py --seat pilot-smokeball --overlay-ref <candidate> --drive`,
-   commit the report from `.stitch/shadow-firm/`, and paste its run id in the PR
-   body. A run id ending in `-notgreen` does not satisfy this, and neither does a
+   and cite the run id (with the report's evidence table) in a PR comment -
+   `.stitch/shadow-firm/` is gitignored (PR #2407: the provision-source guard
+   refuses a dirty tree), so the report is NOT committed; the digest-shaped run
+   id is recomputable from the pasted report body, which is what makes the
+   citation auditable. A run id ending in `-notgreen` does not satisfy this, and neither does a
    run with skipped scenarios: a skipped scenario did not run, so it certifies
    nothing. The suite never touches a client seat or a client-visible address;
    that is enforced in `operator/rehearsal/scope.py`, not by convention.

@@ -21,7 +21,7 @@
     "re-reads build_payload at the new ref and re-stamps this file. Read the",
     "limits of that in the test's header before trusting it further than it goes."
   ],
-  "overlay_ref": "af0c8a0f19eeca1d5b060f1ffb11d1eb09e2cb53",
+  "overlay_ref": "0088352a7a833bdef17406bfbed407a707128a21",
   "fields": [
     {
       "name": "heartbeat_ts",
@@ -126,5 +126,5 @@
       "sample": 1
     }
   ],
-  "note": "2026-08-18 re-stamp 20518e86 -> 0716dc17: heartbeat.py untouched in the range (compare API file list), build_payload unchanged, field set re-read as identical."
+  "note": "2026-08-18 re-stamp 20518e86 -> 0716dc17: heartbeat.py untouched in the range (compare API file list), build_payload unchanged, field set re-read as identical. 2026-08-18 re-stamp af0c8a0f -> 0088352a: heartbeat.py untouched in the range (single commit, msgraph poller/replay/consumes/tests only), build_payload unchanged, field set re-read as identical."
 }
