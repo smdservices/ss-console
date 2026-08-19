@@ -233,7 +233,13 @@ ssh_exec "activation-handler-not-agent-writable" "setpriv --reuid=hermes --regid
 # the running Machine. Runs as root (reads agent-uid /proc/environ); the probe
 # excludes root processes (PID 1 + the config applier legitimately keep the key)
 # and never echoes the value.
-ssh_exec "r2-account-key-stripped-from-agent" "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py"
+# --wait-gateway-s: on a cold boot this step lands ~75s after boot, before the
+# gateway has spawned, and the probe's vacuous-zero fail-closed rule (exit 3)
+# FATALed a healthy deploy (ss#2420, seen on both 2026-08-18 reprovisions). The
+# wait retries ONLY the no-agent-process verdict; a real offender still fails
+# the instant a scan sees it. Later strip probes need no wait — once this one
+# passes, the gateway is up.
+ssh_exec "r2-account-key-stripped-from-agent" "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py --wait-gateway-s 120"
 
 # ss#2258, the same proof for the AgentMail SEND credential. This is the one
 # check that would have caught the incident class before a client ever saw it:
