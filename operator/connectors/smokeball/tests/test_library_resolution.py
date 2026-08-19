@@ -139,6 +139,54 @@ def test_missing_matter_folder_and_file_each_name_their_reason() -> None:
     assert "folder 'Document Library' not found" in resolve_template(no_folder, _CFG, "memo").reason
 
 
+_LIVE_ENTRY_IN_FOLDER = {
+    # Pinned to the wire shape observed on the pilot tenant 2026-08-19
+    # (vfy_01M0DTM2EGQZP9FZTM53S17CJ7). Not a guess.
+    "href": "https://stagingapi.smokeball.com/matters/3c19.../documents/files/1410...",
+    "id": "14105616-27d2-45f3-b212-40a12714060a",
+    "versionId": "14105616-27d2-45f3-b212-40a12714060a36F5...",
+    "folder": {"id": "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8", "href": "https://stagingapi.smokeball.com/matters/3c19.../documents/folders/9898..."},
+    "matter": {"id": "3c191bed-cdda-48b9-a6ed-a51a349f3f94", "href": "https://stagingapi.smokeball.com/matters/3c19..."},
+    "name": "Template - Demand Letter (Policy Limits)",
+    "fileExtension": ".docx",
+    "dateCreated": "2026-08-11T20:11:06.264423Z",
+    "sizeBytes": 39150,
+    "additionalData": {},
+    "isUploaded": True,
+    "isDeleted": False,
+}
+_LIVE_ENTRY_AT_ROOT = {
+    "id": "df59b111-1bb2-4af0-b7e0-69454ff080be",
+    "matter": {"id": "3c191bed-cdda-48b9-a6ed-a51a349f3f94"},
+    "name": "Operator Self-Test Report 2026-08-11",
+    "fileExtension": ".docx",
+    "dateCreated": "2026-08-11T18:53:04.899418Z",
+}
+
+
+def test_observed_wire_shape_folder_object_is_read_and_root_files_have_none() -> None:
+    from smokeball_connector.library import _entry_folder_id
+
+    assert _entry_folder_id(_LIVE_ENTRY_IN_FOLDER) == "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8"
+    assert _entry_folder_id(_LIVE_ENTRY_AT_ROOT) is None
+    cfg = LibraryConfig(authored=True, matter_number="2026-OPS-001", folder_name="Document Library", source="t")
+    assert is_library_file(_LIVE_ENTRY_IN_FOLDER, cfg, "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8")
+    assert not is_library_file(_LIVE_ENTRY_AT_ROOT, cfg, "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8")
+
+
+def test_resolver_prefers_the_folder_copy_using_the_observed_folder_object_shape() -> None:
+    root_copy = dict(_LIVE_ENTRY_IN_FOLDER, id="root", name="Template - Demand Letter.docx", dateCreated="2026-09-01")
+    root_copy.pop("folder")
+    in_folder = dict(_LIVE_ENTRY_IN_FOLDER, id="lib", name="Template - Demand Letter.docx", dateCreated="2026-01-01")
+    client = _FakeClient(
+        matters=[{"id": "m-ops", "number": "2026-OPS-001"}],
+        folders=[{"id": "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8", "name": "Document Library"}],
+        files=[root_copy, in_folder],
+    )
+    out = resolve_template(client, _CFG, "demand_letter")
+    assert isinstance(out, ResolvedTemplate) and out.file_id == "lib"
+
+
 def test_library_files_are_recognized_by_name_and_by_folder() -> None:
     assert is_library_file({"name": "Template - Memo.docx"}, _CFG, None)
     assert is_library_file({"name": "template - anything.docx"}, _CFG, None)

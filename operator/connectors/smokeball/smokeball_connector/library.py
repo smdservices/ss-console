@@ -176,6 +176,15 @@ def list_matter_files(client: Any, matter_id: str) -> list[dict[str, Any]]:
 
 
 def _entry_folder_id(entry: dict[str, Any]) -> str | None:
+    """The folder a file entry sits in. Observed live on the pilot tenant
+    (2026-08-19, vfy_01M0DTM2EGQZP9FZTM53S17CJ7): a file inside a folder
+    carries ``folder: {id, href}`` and a root file carries no ``folder`` key at
+    all; ``folderId`` never appears. Both spellings are read so the resolver
+    survives either shape; the matter-level ``/documents/files`` listing does
+    include files inside folders."""
+    folder = entry.get("folder")
+    if isinstance(folder, dict) and folder.get("id"):
+        return str(folder["id"])
     for key in ("folderId", "folder_id", "parentFolderId"):
         if entry.get(key):
             return str(entry[key])
