@@ -213,6 +213,7 @@ chooses a font, a margin, or a spacing.
 | pipe tables (`\| a \| b \|`; a `\| --- \|` row after the first marks a header row); the FIRST table of a court document is the caption                | real tables; a caption table gets the caption look                                                                                 |
 | `---` on its own line                                                                                                                                 | a horizontal rule                                                                                                                  |
 | `{{FILL: … \| source}}`, `{{NOT IN RECORD: …}}`, `{{ATTORNEY: …}}`                                                                                    | emitted verbatim, unstyled, render-visible; markers survive inside table cells and bold spans                                      |
+| `` `backticked text` `` (the skeletons wrap markers this way for human readers)                                                                       | the backticks are syntax and are dropped; the text inside renders plain, a marker inside stays a marker                            |
 
 Everything else renders as plain text with its characters intact, never
 dropped. Write the caption, the signature block, and the proof of service as

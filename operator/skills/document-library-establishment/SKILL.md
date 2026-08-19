@@ -9,7 +9,7 @@ description: >-
   template per blessed item, structure only, with every case-specific value left as a visible
   marker, and it reports a template delivered only after reading the filed document back.
   Firm-level establishment is refused for anyone who is not an Operator admin.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -174,6 +174,22 @@ Two or three exemplars of one type is better than one, because a structure deriv
 single document cannot tell what is invariant from what that document happened to do. Say how
 many you have per type; one is workable and the admin should know it is one.
 
+**The format half of each template (#2448).** Every template you file is also the firm's
+FORMAT template for its document class: when a drafter later files a draft of that class,
+the renderer opens the library template as the base document and writes the draft into it,
+so the template's fonts, spacing, indents, letterhead and named styles (`SMD Body`,
+`SMD Item Label`, `SMD Item Text`, `SMD Heading 1-3`, `SMD Caption`, `SMD Signature`) become
+the draft's. Typography lives only in that .docx; a style the firm edits in Word takes
+effect on the next draft. So, per proposed template, name its **document class** (one of
+`discovery_set`, `discovery_response`, `demand_letter`, `mediation_brief`, `memo`, `letter`),
+and say which of two provenances it will have: **the firm's own file**, if the admin points
+you at a template or letterhead already in the folder (or drops one in under the class's file
+name), which you leave exactly as it is; or **the starter**, a Times New Roman 12 base with the
+named styles defined, which you file for the firm to open and adjust in Word. Say plainly
+which it is. Where you observed the firm's own typography in the exemplars (font, spacing,
+heading look), report it as an observation for the admin, never as something you will impose:
+the starter is a starting point, the firm's Word edit is the authority.
+
 **The storage location.** Propose a new folder, suggested name **"Document Library"**, on a
 matter you name from the survey.
 
@@ -248,10 +264,19 @@ exemplars do not establish, that is a marker, never a plausible sentence.
 
 ### 6. Render each template, and respect the gate
 
-`mcp_smokeball_render_docx_template(matter_id, file_name, skeleton_markdown, folder_id)`. You
-pass the skeleton's **text**; the .docx bytes are built in tool code from bytes you never saw.
-`file_name` gains a `.docx` suffix if it lacks one, and the returned `fileName` is the name
-actually filed.
+`mcp_smokeball_render_docx_template(matter_id, file_name, skeleton_markdown, folder_id,
+document_class)`. You pass the skeleton's **text** and the template's **document class**; the
+.docx bytes are built in tool code from bytes you never saw. With the class the tool renders
+the skeleton onto the class starter (the named styles defined, Times New Roman 12, a page
+number in the footer) or, when the library already holds a template for that class, INTO
+that file, keeping its letterhead and styles; the return carries `formatApplied` saying
+which. `file_name` gains a `.docx` suffix if it lacks one, and the returned `fileName` is the
+name actually filed. **Name each template by the convention `Template - <Class>.docx`**
+(`Template - Discovery Set.docx`, `Template - Demand Letter.docx`, and so on) unless the
+blessing named it otherwise; the renderer finds a class's template by that name, and a
+differently named one is authored into `self_initiation.document_library.templates` by PR
+after the blessing, so say the name you filed under in the report. Never upload bytes
+yourself and never rename a file the firm placed in the folder.
 
 **The content gate refuses; it never repairs.** Before anything is rendered or uploaded the
 markdown is checked, and the whole violation list comes back in `refusals` with `fileId` null.
@@ -310,6 +335,9 @@ Per template, in the admin's own terms:
 - the **fileId**,
 - the **sha256** and **sizeBytes** the tool returned,
 - **where it is**: the matter and folder it was filed into,
+- **its document class and format provenance**, from the tool's `formatApplied`: rendered
+  onto the starter (tell the admin: open it in Word, adjust the styles, and every future
+  draft of that class follows), or rendered into the firm's own file (name it),
 - **confirmed by read-back**, or **filed and awaiting materialization**, in those words.
 
 Then the things that did not work, plainly and not at the bottom:
