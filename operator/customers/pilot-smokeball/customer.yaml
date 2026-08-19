@@ -965,6 +965,17 @@ self_initiation:
   document_library:
     matter_hint: '2026-OPS-001 (the internal operations matter)'
     folder_name: 'Document Library'
+    # The Smokeball connector's renderer resolves the firm's per-class Word
+    # template from here, deterministically, the same way every time (#2448):
+    # this matter (by its number) -> this folder -> the file named
+    # templates[<class>] or the convention "Template - <Class>.docx". Read off
+    # the live customer.yaml by the connector at render time (config-as-data;
+    # no translate step). Typography lives ONLY in those .docx files: a style
+    # edited in Word takes effect on the next draft.
+    matter_number: '2026-OPS-001'
+    templates:
+      demand_letter: 'Template - Demand Letter (Policy Limits)'
+      discovery_response: 'Template - Discovery Responses (RFP and FROG Combined)'
 
 # ---- VOICE COHORTS ----
 # The audience classes this seat's voice profiles are partitioned by. An

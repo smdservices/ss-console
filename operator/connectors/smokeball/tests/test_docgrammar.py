@@ -80,9 +80,19 @@ def test_bullets_numbered_and_rules() -> None:
 
 
 def test_four_or_deeper_hashes_and_unknown_syntax_degrade_to_paragraphs() -> None:
-    blocks = parse_document("#### too deep\n> quote\n`code`")
+    blocks = parse_document("#### too deep\n> quote")
     assert all(isinstance(b, Paragraph) for b in blocks)
-    assert [b.text for b in blocks] == ["#### too deep", "> quote", "`code`"]
+    assert [b.text for b in blocks] == ["#### too deep", "> quote"]
+
+
+def test_code_spans_render_as_plain_text_without_backticks() -> None:
+    """The shipped skeletons wrap markers in backticks for human readers; a Word
+    document must not carry them, and the marker inside stays a marker."""
+    runs = inline_runs("Dated: `{{FILL: date | service date}}` and `plain`.")
+    assert _texts(runs) == ["Dated: ", "{{FILL: date | service date}}", " and ", "plain", "."]
+    assert runs[1].marker and not runs[3].marker and not runs[3].bold
+    (table,) = parse_document("| Set served | `{{FILL: date | proof of service}}` |")
+    assert table.rows[0][1][0].text == "{{FILL: date | proof of service}}"
 
 
 def test_blank_lines_separate_and_are_dropped() -> None:

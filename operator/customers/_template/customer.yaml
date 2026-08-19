@@ -259,6 +259,18 @@ escalation:
 #   document_library:
 #     matter_hint: '[the ops matter the library lives on — authored after the blessing]'
 #     folder_name: 'Document Library'
+#     # Format templates (#2448). The Smokeball connector's renderer resolves the
+#     # firm's per-class Word template from here at render time: matter_number
+#     # (the library matter's NUMBER, a stable human key) -> folder_name -> the
+#     # file named templates[<class>], else "Template - <Class>.docx". Classes:
+#     # discovery_set, discovery_response, demand_letter, mediation_brief, memo,
+#     # letter. Typography lives ONLY in those .docx files (the firm edits them in
+#     # Word; no config change, no reboot). Either provenance: the firm's own
+#     # template/letterhead dropped into the folder under that name, or the
+#     # starter the establishment turn files for the firm to edit.
+#     matter_number: '[the library matter number, e.g. 2026-OPS-001]'
+#     templates:
+#       letter: '[optional: the firm letterhead file name in the folder]'
 
 # ---- VOICE LIBRARY ----
 voice_library:

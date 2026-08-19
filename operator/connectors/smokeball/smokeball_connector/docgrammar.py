@@ -43,7 +43,11 @@ _BULLET_RE = re.compile(r"^[-*]\s+(.*)$")
 _NUMBERED_RE = re.compile(r"^(\d+[.)])\s+(.*)$")
 _HRULE_RE = re.compile(r"^-{3,}$")
 _TABLE_SEP_RE = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")
-_EMPHASIS_RE = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*)")
+# Emphasis and code spans. Backticks are markdown SYNTAX, like ``**``: the shipped
+# skeletons wrap markers in them (`` `{{FILL: ...}}` ``) for human readers, and a
+# Word document must not carry literal backticks. A code span renders as its
+# plain text; nothing inside it is styled.
+_EMPHASIS_RE = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)")
 
 # Private-use placeholders stand in for markers while cells/emphasis are split.
 _PLACEHOLDER = "{}"
@@ -146,6 +150,8 @@ def _emphasis_runs(text: str) -> list[Run]:
             runs.append(Run(part[2:-2], bold=True))
         elif part.startswith("*") and part.endswith("*") and len(part) > 2:
             runs.append(Run(part[1:-1], italic=True))
+        elif part.startswith("`") and part.endswith("`") and len(part) > 2:
+            runs.append(Run(part[1:-1]))
         else:
             runs.append(Run(part))
     return runs
