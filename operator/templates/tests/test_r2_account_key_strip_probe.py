@@ -114,3 +114,106 @@ def test_unreadable_proc_root_raises_for_main_to_fail_closed(tmp_path):
     missing = tmp_path / "no-such-proc"
     with pytest.raises(OSError):
         probe.scan(str(missing), _AGENT_UID, _KEYS, uid_of=_uid_map({}))
+
+
+# ---- the cold-boot wait (ss#2420) -----------------------------------------
+#
+# wait_scan retries ONLY the "no agent process yet" verdict. The three cases
+# that matter: a real offender ends the wait instantly (the retry must not
+# swallow the signal), a gateway that comes up mid-wait turns a false FATAL
+# into a pass, and a gateway that never comes up still fails loud at the
+# deadline. Time is injected; no test sleeps.
+
+
+class _FakeClock:
+    def __init__(self):
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, s: float) -> None:
+        self.sleeps.append(s)
+        self.now += s
+
+
+def test_wait_never_swallows_a_real_offender(tmp_path):
+    # Offender present from the first scan: exit path must be immediate — zero
+    # sleeps — even with a generous wait budget.
+    _mkproc(tmp_path, 100, {"R2_ACCESS_KEY_ID": _FAKE_VALUE}, comm="hermes")
+    clock = _FakeClock()
+    count, offenders = probe.wait_scan(
+        str(tmp_path),
+        _AGENT_UID,
+        _KEYS,
+        wait_s=120.0,
+        uid_of=_uid_map({100: _AGENT_UID}),
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+    assert count == 1
+    assert len(offenders) == 1
+    assert clock.sleeps == []
+
+
+def test_gateway_arriving_mid_wait_turns_into_a_pass(tmp_path):
+    # No agent process for the first two scans, then the gateway appears clean.
+    _mkproc(tmp_path, 100, {"PATH": "/usr/bin"}, comm="hermes")
+    clock = _FakeClock()
+    calls = {"n": 0}
+
+    def uid_of(_proc_root: str, pid: str):
+        # The process exists on disk the whole time; ownership resolves to the
+        # agent uid only from the third scan on — the cold-boot shape.
+        calls["n"] += 1
+        return _AGENT_UID if calls["n"] >= 3 else None
+
+    count, offenders = probe.wait_scan(
+        str(tmp_path),
+        _AGENT_UID,
+        _KEYS,
+        wait_s=120.0,
+        uid_of=uid_of,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+    assert count == 1
+    assert offenders == []
+    assert len(clock.sleeps) == 2
+
+
+def test_gateway_never_arriving_still_fails_loud_at_the_deadline(tmp_path):
+    # Nothing but root processes, forever: the wait must END, returning the
+    # zero-count verdict main() turns into exit 3 — never spin, never pass.
+    _mkproc(tmp_path, 1, {"R2_ACCESS_KEY_ID": _FAKE_VALUE}, comm="entrypoint")
+    clock = _FakeClock()
+    count, offenders = probe.wait_scan(
+        str(tmp_path),
+        _AGENT_UID,
+        _KEYS,
+        wait_s=30.0,
+        uid_of=_uid_map({1: _ROOT_UID}),
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+    assert count == 0
+    assert offenders == []
+    assert clock.now >= 30.0
+
+
+def test_zero_wait_keeps_the_original_single_scan_behavior(tmp_path):
+    # Direct calls without the flag are unchanged: one scan, immediate verdict.
+    clock = _FakeClock()
+    count, offenders = probe.wait_scan(
+        str(tmp_path),
+        _AGENT_UID,
+        _KEYS,
+        wait_s=0.0,
+        uid_of=_uid_map({}),
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+    assert count == 0
+    assert offenders == []
+    assert clock.sleeps == []
