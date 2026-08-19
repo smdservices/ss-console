@@ -625,7 +625,7 @@ ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/17/bin:${PATH}"
 # curl + ca-certificates: R2 fetch + general TLS.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      build-essential curl python3 python3-pip python3-venv \
+      build-essential curl unzip python3 python3-pip python3-venv \
       ripgrep ffmpeg gcc python3-dev libffi-dev procps git openssh-client \
       docker-cli tini ca-certificates util-linux \
       postgresql-17 postgresql-client-17 redis-server awscli \
@@ -665,22 +665,39 @@ COPY --from=hermes_source /src/HERMES_SHA /opt/hermes/HERMES_SHA
 
 # ---------- Layer-cached Hermes deps install ----------
 ENV npm_config_install_links=false
-# The playwright install is wrapped in timeout+retry (Hermes v0.20.4 promotion,
-# ss-console#2444): at v2026.8.18 `npx playwright install --with-deps chromium
-# --only-shell` deterministically WEDGED on the Depot builder right after the
-# chromium-headless-shell download hit 100% (two independent builds, one silent
-# for 59 minutes). Upstream's own Dockerfile at this tag wraps the identical
-# command in a 3-attempt retry loop (their Dockerfile:201-202) — they hit it
-# too — but a bare retry loop cannot recover from a hang, so each attempt also
-# gets a hard 15-minute timeout (the download itself takes ~70s; 15m is
-# generous for extract+apt). A build step that can wedge for an hour is
-# unacceptable in the seat-rebuild path: rollback-by-rebuild depends on this
-# Dockerfile finishing.
+# Playwright browsers are PREFETCHED with curl, then `playwright install` runs
+# against the already-populated cache (Hermes v0.20.4 promotion, ss-console#2444).
+# WHY: at v2026.8.18 `npx playwright install --with-deps chromium --only-shell`
+# deterministically WEDGED on the Depot builder — the chromium-headless-shell
+# download hit 100% and Node's downloader never observed the socket close (three
+# independent builds; one sat silent for 59 minutes). Upstream's own Dockerfile
+# wraps the same command in a 3-attempt retry loop (their :201-202) — they hit
+# it too — but a retry cannot rescue a hang, and every retry re-enters the same
+# downloader. So: `--dry-run` prints each browser's install location + download
+# url; curl (hard --max-time, --retry, immune to the close-hang) fetches each
+# zip; unzip + the INSTALLATION_COMPLETE marker reproduce playwright's own
+# on-disk layout; the real install then finds every browser present, downloads
+# nothing, and only installs apt deps. The timeout+retry loop stays as the
+# backstop so NO variant of this step can wedge the seat-rebuild path:
+# rollback-by-rebuild depends on this Dockerfile finishing.
 RUN npm install --prefer-offline --no-audit \
+ && npx playwright install --dry-run chromium --only-shell > /tmp/pw-plan.txt \
+ && cat /tmp/pw-plan.txt \
+ && awk '/Install location:/{loc=$3} /Download url:/{print loc" "$3}' /tmp/pw-plan.txt > /tmp/pw-pairs.txt \
+ && [ -s /tmp/pw-pairs.txt ] \
+ && while read -r loc url; do \
+      echo "prefetch: $url -> $loc"; \
+      curl -fL --retry 3 --retry-delay 5 --max-time 900 -o /tmp/pw-browser.zip "$url"; \
+      mkdir -p "$loc"; \
+      unzip -q /tmp/pw-browser.zip -d "$loc"; \
+      rm -f /tmp/pw-browser.zip; \
+      touch "$loc/INSTALLATION_COMPLETE"; \
+    done < /tmp/pw-pairs.txt \
  && for i in 1 2 3; do \
       timeout 900 npx playwright install --with-deps chromium --only-shell && break || \
       { [ "$i" = 3 ] && exit 1; echo "playwright install failed/wedged (attempt $i); retrying in 10s" >&2; sleep 10; }; \
     done \
+ && rm -f /tmp/pw-plan.txt /tmp/pw-pairs.txt \
  && (cd web && npm install --prefer-offline --no-audit) \
  && (cd ui-tui && npm install --prefer-offline --no-audit) \
  && npm cache clean --force
