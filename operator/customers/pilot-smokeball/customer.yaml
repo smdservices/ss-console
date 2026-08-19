@@ -511,13 +511,25 @@ personas:
           scheduled: true
           webhook: false
         enabled: true
-      - name: lien-ledger-tracker # weekly open-payoff chase
+      - name: lien-ledger-tracker # weekly obligation sweep + provider chase
         version: pending
         initiation:
           manual: true
           scheduled: true
           webhook: false
         enabled: true
+        settings:
+          # Which matter status means "settled, money still in trust" is a FIRM
+          # fact with no pack default: unauthored, the gate refuses and surfaces
+          # rather than guessing at a vendor-global enum value (ss #2455).
+          trigger_status: Pending # PLACEHOLDER(rehearsal) - staging sandbox value
+          # How often one provider may be contacted. Also a firm fact, also
+          # fail-closed: a cadence we picked is a commitment nobody made.
+          chase_cadence_days: 14 # PLACEHOLDER(rehearsal)
+          # How long an obligation may go quiet before it is flagged. NOT in the
+          # fail-closed class: unauthored, stall flags are simply withheld and
+          # the register says so, while tracking and chasing continue.
+          stall_days: 60 # PLACEHOLDER(rehearsal)
       - name: settlement-statement-feeder # person-invoked; figures from authored data only
         version: pending
         initiation:

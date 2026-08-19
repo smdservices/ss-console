@@ -31,6 +31,7 @@ VENDORED_SKILLS = (
     "daily-needs-you-digest",
     "client-verification-tracker",
     "medical-records-chaser",
+    "lien-ledger-tracker",
 )
 
 
