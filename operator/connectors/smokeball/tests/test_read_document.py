@@ -150,3 +150,14 @@ def test_extract_text_unsupported_binary_fails_closed() -> None:
 def test_extract_text_malformed_pdf_fails_closed() -> None:
     with pytest.raises(UnsupportedDocumentError, match="PDF could not be parsed"):
         extract_text(b"%PDF-1.4 not actually a pdf", file_extension=".pdf")
+
+
+def test_extract_text_accepts_a_word_template_dotx() -> None:
+    """A firm's letterhead TEMPLATE (.dotx) filed on a matter must extract like
+    any other document; python-docx rejects the template content type as-is,
+    and before this a single .dotx on a matter refused every draft on it."""
+    from .test_render_document import make_firm_template
+
+    blob = make_firm_template(dotx=True, body_text="FIRM TEMPLATE BODY")
+    text = extract_text(blob, file_extension=".dotx")
+    assert "FIRM TEMPLATE BODY" in text

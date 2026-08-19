@@ -1449,12 +1449,50 @@ def file_attachment_to_matter(
     return client.add_file(matter_id, file_name, blob, folder_id=folder_id)
 
 
+def _render_with_format(markdown: str, document_class: str | None) -> tuple[bytes, dict[str, Any] | None, str | None]:
+    """Shared by both render tools. Returns ``(bytes, formatApplied, refusal)``;
+    on a refusal ``bytes`` is empty and nothing must be uploaded."""
+    from .docx_format import DOCUMENT_CLASSES, FormatRefused, FormatReport, render_document
+    from .library import NotResolved, load_library_config, resolve_template
+    from .render import render_markdown_to_docx
+
+    if not document_class:
+        return render_markdown_to_docx(markdown), None, None
+    if document_class not in DOCUMENT_CLASSES:
+        return b"", None, (
+            f"unknown document_class {document_class!r}; one of: {', '.join(DOCUMENT_CLASSES)}"
+        )
+    report = FormatReport(document_class=document_class)
+    cfg = load_library_config()
+    report.template_expected = cfg.authored
+    base: bytes | None = None
+    try:
+        resolved = resolve_template(_get_client(), cfg, document_class)
+    except Exception as exc:  # noqa: BLE001 - a found template that would not download: say so, render on the starter
+        resolved = NotResolved(f"template found but could not be downloaded: {exc.__class__.__name__}")
+    if isinstance(resolved, NotResolved):
+        report.notes.append(f"firm template not used: {resolved.reason}")
+    else:
+        base = resolved.bytes
+        report.template_used = {
+            "name": resolved.name,
+            "fileId": resolved.file_id,
+            "sha256": hashlib.sha256(resolved.bytes).hexdigest(),
+        }
+    try:
+        data, report = render_document(markdown, document_class, base, report)
+    except FormatRefused as exc:
+        return b"", report.to_dict(), f"format refused: {exc}"
+    return data, report.to_dict(), None
+
+
 @server.tool()
 def render_docx_template(
     matter_id: str,
     file_name: str,
     skeleton_markdown: str,
     folder_id: str | None = None,
+    document_class: str | None = None,
 ) -> Any:
     """Render a document TEMPLATE (markdown skeleton) to a real Word .docx and
     file it on a matter. This is the only path that produces a .docx: the
@@ -1501,13 +1539,35 @@ def render_docx_template(
     tool does not poll: confirm the file exists with ``get_file``, and confirm
     it is the document with ``read_document``, before reporting it delivered.
 
+
+
+    **Firm format (``document_class``).** Pass ``document_class`` (one of
+    ``discovery_set``, ``discovery_response``, ``demand_letter``,
+    ``mediation_brief``, ``memo``, ``letter``) and the .docx is rendered INTO the
+    firm's own Word template for that class when one is authored in the firm's
+    Document Library (resolved here, deterministically, from the seat's
+    customer.yaml: you never pick a template), else onto the SMD starter base
+    (Times New Roman 12, the named styles defined). Code owns typography; you
+    write content only. The grammar you write is small: ``#``/``##``/``###``
+    headings (write the numeral yourself, ``## I. Introduction``; the renderer
+    styles the level and never renumbers), paragraphs with ``**bold**``/
+    ``*italic*``, ``-`` bullets, literal ``1.`` numbered items, pipe tables
+    (``| a | b |``, a ``| --- |`` row after the first makes it a header row;
+    the FIRST table in a court document is styled as the caption), ``---`` as a
+    horizontal rule, and ``{{...}}`` markers kept verbatim. A SHORT line that
+    starts with an item label (``**SPECIAL INTERROGATORY NO. 7:**``, ``REQUEST
+    FOR PRODUCTION NO. 3:``) is styled as a label and the paragraphs after it as
+    item text; write the label and its NUMBER yourself, from the propounded
+    set. Write the caption, signature block, and proof of service as content
+    exactly as the skeleton shows; nothing is added by code, including any
+    declaration or count. The return carries ``formatApplied`` (template used
+    or starter, ``templateExpected``, fallbacks, the template's header/footer
+    text): state it honestly in the delivery note. Omit ``document_class`` for
+    the legacy stock render, unchanged.
+
     Classified INTERNAL_WRITE at the overlay: the Operator writing a template
     into the firm's own record. Nothing leaves the firm."""
-    from .render import (
-        TemplateContentRefused,
-        check_template_content,
-        render_markdown_to_docx,
-    )
+    from .render import TemplateContentRefused, check_template_content
 
     if not file_name.lower().endswith(".docx"):
         file_name = f"{file_name}.docx"
@@ -1522,7 +1582,17 @@ def render_docx_template(
             "sizeBytes": None,
             "refusals": [str(v) for v in exc.violations],
         }
-    data = render_markdown_to_docx(skeleton_markdown)
+    data, format_applied, refusal = _render_with_format(skeleton_markdown, document_class)
+    if refusal:
+        return {
+            "matterId": matter_id,
+            "fileName": file_name,
+            "fileId": None,
+            "sha256": None,
+            "sizeBytes": None,
+            "refusals": [refusal],
+            "formatApplied": format_applied,
+        }
     result = add_file(
         matter_id,
         file_name,
@@ -1533,6 +1603,8 @@ def render_docx_template(
     out["sha256"] = hashlib.sha256(data).hexdigest()
     out["sizeBytes"] = len(data)
     out["refusals"] = []
+    if format_applied is not None:
+        out["formatApplied"] = format_applied
     return out
 
 
@@ -1544,13 +1616,21 @@ def _collect_matter_sources(matter_id: str) -> tuple[list[tuple[str, str]], list
     correctly quoted passage look fabricated to gate 2a, so the caller REFUSES
     on it rather than checking against a partial record."""
     from .extract import extract_text
+    from .library import find_folder_id, is_library_file, load_library_config
 
     client = _get_client()
     listing = client.get(f"/matters/{matter_id}/documents/files", Limit=500, Offset=0)
     entries = listing.get("value") if isinstance(listing, dict) else listing
+    # Templates are not record. A firm's letterhead template (header-only, so
+    # it extracts to nothing) or a .dotx filed in the Document Library would
+    # otherwise land in ``unextractable`` and refuse every draft on the matter.
+    lib_cfg = load_library_config()
+    lib_folder = find_folder_id(client, matter_id, lib_cfg.folder_name) if lib_cfg.folder_name else None
     sources: list[tuple[str, str]] = []
     unextractable: list[str] = []
     for entry in entries or []:
+        if is_library_file(entry, lib_cfg, lib_folder):
+            continue
         name = str(entry.get("name") or entry.get("id") or "document")
         try:
             _meta, blob = client.download_file(matter_id, entry["id"])
@@ -1574,6 +1654,7 @@ def render_docx_draft(
     draft_markdown: str,
     folder_id: str | None = None,
     held_out_file_names: list[str] | None = None,
+    document_class: str | None = None,
 ) -> Any:
     """Render a FILLED DRAFT (markdown) to a real Word .docx and file it on a
     matter, for attorney review. The sibling of ``render_docx_template``, and the
@@ -1622,16 +1703,35 @@ def render_docx_draft(
     tool does not poll: confirm with ``get_file``, and confirm it is the document
     with ``read_document``, before reporting it delivered.
 
+    **Firm format (``document_class``).** Pass ``document_class`` (one of
+    ``discovery_set``, ``discovery_response``, ``demand_letter``,
+    ``mediation_brief``, ``memo``, ``letter``) and the .docx is rendered INTO the
+    firm's own Word template for that class when one is authored in the firm's
+    Document Library (resolved here, deterministically, from the seat's
+    customer.yaml: you never pick a template), else onto the SMD starter base
+    (Times New Roman 12, the named styles defined). Code owns typography; you
+    write content only. The grammar you write is small: ``#``/``##``/``###``
+    headings (write the numeral yourself, ``## I. Introduction``; the renderer
+    styles the level and never renumbers), paragraphs with ``**bold**``/
+    ``*italic*``, ``-`` bullets, literal ``1.`` numbered items, pipe tables
+    (``| a | b |``, a ``| --- |`` row after the first makes it a header row;
+    the FIRST table in a court document is styled as the caption), ``---`` as a
+    horizontal rule, and ``{{...}}`` markers kept verbatim. A SHORT line that
+    starts with an item label (``**SPECIAL INTERROGATORY NO. 7:**``, ``REQUEST
+    FOR PRODUCTION NO. 3:``) is styled as a label and the paragraphs after it as
+    item text; write the label and its NUMBER yourself, from the propounded
+    set. Write the caption, signature block, and proof of service as content
+    exactly as the skeleton shows; nothing is added by code, including any
+    declaration or count. The return carries ``formatApplied`` (template used
+    or starter, ``templateExpected``, fallbacks, the template's header/footer
+    text): state it honestly in the delivery note. Omit ``document_class`` for
+    the legacy stock render, unchanged.
+
     Classified INTERNAL_WRITE at the overlay: the Operator saving its own work
     product into the firm's record. Nothing leaves the firm; delivery to anyone
     outside is a separate, separately-gated act."""
-    from .render import (
-        TemplateContentRefused,
-        check_draft_content,
-        render_markdown_to_docx,
-    )
-
     from .record_check import run_record_check
+    from .render import TemplateContentRefused, check_draft_content
 
     if not file_name.lower().endswith(".docx"):
         file_name = f"{file_name}.docx"
@@ -1671,7 +1771,17 @@ def render_docx_draft(
             "checkedSources": verdict.checked_sources,
         }
 
-    data = render_markdown_to_docx(draft_markdown)
+    data, format_applied, refusal = _render_with_format(draft_markdown, document_class)
+    if refusal:
+        return {
+            "matterId": matter_id,
+            "fileName": file_name,
+            "fileId": None,
+            "sha256": None,
+            "sizeBytes": None,
+            "refusals": [refusal],
+            "formatApplied": format_applied,
+        }
     result = add_file(
         matter_id,
         file_name,
@@ -1682,6 +1792,8 @@ def render_docx_draft(
     out["sha256"] = hashlib.sha256(data).hexdigest()
     out["sizeBytes"] = len(data)
     out["refusals"] = []
+    if format_applied is not None:
+        out["formatApplied"] = format_applied
     return out
 
 
