@@ -615,6 +615,19 @@ ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data
 ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/17/bin:${PATH}"
+# Pin every uv invocation to the SYSTEM interpreter (Hermes v0.20.4 promotion,
+# ss-console#2444). The v2026.8.18 tree ships `.python-version: 3.11`; because
+# this Dockerfile copies the WHOLE tree before `uv sync` (upstream copies only
+# pyproject.toml + uv.lock, so their image never sees the pin), every bare
+# `uv sync` / `uv venv` — the Hermes venv, the workspace-broker venv, the
+# per-connector venvs — resolved that pin, downloaded a managed CPython into
+# /root/.local/share/uv (mode 0700), and symlinked venv pythons into it. The
+# non-root broker uid then got `Permission denied` executing its own venv
+# python (rc=126 crash-loop; the pilot seat went down and was restored by
+# image-ref rollback). UV_PYTHON outranks .python-version, so this keeps all
+# venvs on Debian 13's python3 (3.13 — inside requires-python >=3.11,<3.14),
+# exactly what the v0.18 seats ran and what upstream's published image runs.
+ENV UV_PYTHON=/usr/bin/python3
 
 # ---------- System packages ----------
 # tini: PID 1 zombie reaper (signals + orphaned MCP stdio subprocesses).
