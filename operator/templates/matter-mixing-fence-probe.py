@@ -30,6 +30,24 @@ read — which is not a safe fence, it is a bricked Operator that the firm would
 switch off within a day. Asserting only (2) would pass against a fence that was
 entirely open. Both, or this has measured nothing.
 
+WHAT THIS PROBE DOES NOT COVER — the boundary, stated so nobody mistakes it
+--------------------------------------------------------------------------
+The fence lives at the MCP TOOL SEAM (``enforce.evaluate_tool_call``). It sees a
+matter-content read only when that read arrives as a tool call. Anything that
+reaches matter content by another route is outside it:
+
+* a script or probe on the seat calling the connector client directly
+  (``client.get()`` / ``download_file``) rather than through the tool layer;
+* any future in-process path that fetches document or memo content without a
+  tool call.
+
+That is not a defect in the fence, and widening it to a process-level control is
+not proposed — the AGENT acts through the tool layer, and the direct-client paths
+that exist today are Captain-driven and read-only (``execute_code`` is
+taint-gated, so the agent cannot open one). But "every matter-content read is
+fenced" is a **tool-layer** claim, and writing it without that qualifier is how a
+boundary gets forgotten and later mistaken for coverage.
+
 Exit 0 when the fence behaves. Non-zero, loudly, otherwise.
 """
 
