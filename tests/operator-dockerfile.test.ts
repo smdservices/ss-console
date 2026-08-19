@@ -922,7 +922,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // scenarios ride AgentMail, so the green run is whole-overlay regression
     // evidence — the revised poller's own runtime proof happens on the A&P
     // seat per the overlay#275 contract ACs.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0088352a7a833bdef17406bfbed407a707128a21"')
+    // overlay#281 (ss#2444, Hermes v0.18.0 -> v0.20.4 promotion PR-1): translate.py
+    // pins the v0.18 behaviours that v2026.8.18 defaults flip (approvals.mode
+    // manual, agent.max_turns 90, tools.tool_search off, delegation fan-out 3,
+    // display.show_reasoning false) + the tests. Single-commit range, NO tracked
+    // twin moves; overlaySha256 unchanged, only overlayRef.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="eeeac283ff122fd864f3f16a8978b4762352cc14"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

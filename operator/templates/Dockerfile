@@ -563,7 +563,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # ss#2255). Files: plugins/hermes-smd-trust/outbound_send.py,
 # plugins/hermes-smd-reply/__init__.py + tests — NOT tracked pairs; every
 # overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="0088352a7a833bdef17406bfbed407a707128a21"
+ARG OVERLAY_REF="eeeac283ff122fd864f3f16a8978b4762352cc14"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -586,6 +586,20 @@ RUN git clone --depth 1 --branch ${HERMES_UPSTREAM_TAG} \
 
 # ---------- Stage 2: runtime image ----------
 FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie AS uv_source
+# Node 26 source stage (Hermes v2026.8.18 / 0.20.4 promotion, ss-console#2444).
+# Debian 13 trixie's apt `nodejs` is 20.19.x, EOL April 2026. Upstream Hermes
+# pins its toolchain to Node 26 everywhere and, as of v2026.8.18, ships
+# `.npmrc engine-strict=true` with `engines.node >=22.22.0` — so `npm install`
+# over the Hermes tree hard-fails on the apt Node (vfy_01M0DP257XDYJ0Z04V1ZF57G2X:
+# seat had v20.19.2 / npm 9.2.0). We copy node + npm from the official image
+# exactly the way upstream's own Dockerfile does at that tag (its `node_source`
+# stage, same digest), so the runtime matches what Hermes is built and tested
+# against. The `engines.npm` range (`<11.10.0 || >=11.17.0`) is satisfied by
+# construction: upstream builds its published image from this digest under
+# engine-strict. Bumping the Node major is a one-line change to this FROM; the
+# next digest bump re-checks that npm range. Node is needed at RUNTIME too:
+# `@oktopeak/clio-mcp` (below) is a Node stdio MCP server the gateway launches.
+FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f4f3e7e454d9634bf73 AS node_source
 FROM debian:13.4
 
 ARG CUSTOMER_SLUG
@@ -611,7 +625,7 @@ ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/17/bin:${PATH}"
 # curl + ca-certificates: R2 fetch + general TLS.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      build-essential curl nodejs npm python3 python3-pip python3-venv \
+      build-essential curl python3 python3-pip python3-venv \
       ripgrep ffmpeg gcc python3-dev libffi-dev procps git openssh-client \
       docker-cli tini ca-certificates util-linux \
       postgresql-17 postgresql-client-17 redis-server awscli \
@@ -633,6 +647,15 @@ RUN groupadd -r workspace-connectors \
  && usermod -a -G audit-readers hermes \
  && usermod -a -G audit-readers workspace-broker
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
+
+# Node 26 + npm from the node_source stage (see the stage comment above). npm
+# and npx are recreated as symlinks into the bundled npm install, mirroring
+# upstream's Dockerfile; no corepack (unbundled upstream; nothing here needs it).
+COPY --chmod=0755 --from=node_source /usr/local/bin/node /usr/local/bin/
+COPY --from=node_source /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+ && node --version && npm --version
 
 WORKDIR /opt/hermes
 
@@ -692,7 +715,15 @@ RUN uv venv /opt/workspace-broker/.venv \
 # PATH for the gateway to launch. Pinned to 2.0.0 — the version the connector
 # reality-check and live loop test ran against. It reads its OAuth token from
 # ~/.clio-mcp/tokens.enc (seeded by bootstrap.sh) under ENCRYPTION_KEY.
-RUN npm install -g @oktopeak/clio-mcp@2.0.0
+# Run from a neutral cwd (npm ignores a project .npmrc in -g mode, but the
+# Hermes tree's npm policy should never govern a third-party global install),
+# then prove the bin resolves on PATH and the package landed under the Node 26
+# global prefix (/usr/local/lib/node_modules) so a regression fails the BUILD,
+# not a seat. Presence checks only: it is a stdio MCP server, so invoking it
+# here would block on stdin.
+RUN cd /tmp && npm install -g @oktopeak/clio-mcp@2.0.0 \
+ && test -x "$(command -v clio-mcp)" \
+ && test -f /usr/local/lib/node_modules/@oktopeak/clio-mcp/package.json
 
 # NOTE: web search needs NO installed binary. It is Hermes' NATIVE brave-free
 # provider (plugins/web/brave_free, bundled in the pinned Hermes), selected by
@@ -701,21 +732,35 @@ RUN npm install -g @oktopeak/clio-mcp@2.0.0
 # was removed with the ADR 0070 native cut (2026-07-08) — MCP-wrapping a native
 # feature was the redundant layer.
 
-# Register the plugin pack with Hermes' loader. `hermes plugins install` clones
-# the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
-# hermes_cli/plugins_cmd.py `_install_plugin_core` does `git clone --depth 1`
-# with no ref argument, so the plugin surface cannot be pinned through this
-# command (tracked follow-up; for a tagged-release build, default branch == the
-# tag). The pip install above IS pinned and provides the importable `shared`
-# policy core, which is what the runtime plugins actually `import`.
+# Register the plugin pack with Hermes' loader. As of Hermes v2026.8.18
+# `hermes plugins install` accepts `--ref`, so the install is pinned to the same
+# OVERLAY_REF the pack below is staged at (the old "cannot be pinned through
+# this command" caveat is retired). The pip install above is also pinned and
+# provides the importable `shared` policy core the runtime plugins `import`.
+#
+# Build-step scan opt-out (Hermes 0.20.4 promotion, ss-console#2444): v2026.8.18
+# security-scans a plugin tree at install (hermes_cli/plugins_cmd.py
+# `_scan_plugin_tree`, tools/plugin_guard.py); a `dangerous` verdict is a hard
+# fail that `--force` does NOT override. The overlay is OUR plugin, and its own
+# security TEST fixtures (prompt-injection strings, fake keys, /etc/passwd in
+# gate tests, an AGENTS.md filename) trip the pattern set. So the scan is
+# disabled in the build-time root $HERMES_HOME/config.yaml (the install then
+# merges its `plugins.enabled` record into that same file, exactly as before).
+# At runtime /opt/data is the volume mount and shadows this file on every
+# persisted seat; on a fresh volume Fly's empty-volume copy carries it over,
+# where it also covers bootstrap.sh's rare runtime-install fallback (which
+# would otherwise hit the same scan). The pack is pinned and import-gated two
+# steps below; that is the real integrity check for our own code.
 #
 # FAIL-CLOSED: the prior `|| echo "WARN ...; continuing"` swallowed an install
 # failure and booted a silently harness-less Machine — the exact fail-open
 # defect the venture forbids. Both the install and the policy-core import below
-# are now hard build gates: a Machine whose trust/inbound plugins cannot load
+# are hard build gates: a Machine whose trust/inbound plugins cannot load
 # their own policy core MUST NOT build green.
-RUN /opt/hermes/.venv/bin/hermes plugins install \
-      venturecrane/hermes-smd-overlay --enable
+RUN mkdir -p "${HERMES_HOME}" \
+ && printf 'plugins:\n  scan_on_install: false\n' > "${HERMES_HOME}/config.yaml" \
+ && /opt/hermes/.venv/bin/hermes plugins install \
+      venturecrane/hermes-smd-overlay --enable --ref "${OVERLAY_REF}"
 
 # Stage a PINNED copy of the overlay at a NON-VOLUME path (/app/overlay-pack) so
 # bootstrap.sh can refresh the per-customer volume's overlay to this exact
