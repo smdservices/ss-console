@@ -182,6 +182,21 @@ ssh_exec "curator-disabled" "/opt/hermes/.venv/bin/python3 /app/ensure-curator-d
 # credential, exactly what ADR 0045 closes). No-op when no skills_disabled authored.
 ssh_exec "disabled-skills-pruned" "/opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py --check /var/lib/smd-config/customer.yaml /opt/data"
 
+# ---------- Step 8c: the matter-mixing READ fence discriminates (ss#2167) ----------
+# The fence refuses a session holding one matter's substance from reading a
+# second matter's. It is what stops a draft containing two clients' facts from
+# ever being COMPOSED — every other matter control fires when a send is
+# attempted, by which point that draft exists and is in a paralegal's queue, and
+# the firm finding it there is the event the engagement does not survive whether
+# or not it was sent.
+#
+# The probe asserts BOTH directions on purpose: a second matter is refused, AND
+# the same matter is still readable. Asserting only the refusal would pass
+# against a fence that refused every content read — not a safe fence, a bricked
+# Operator the firm switches off. It also fails the boot if the overlay pin
+# predates ss#2167, which is the cross-repo drift this catches.
+ssh_exec "matter-mixing-fence" "/opt/hermes/.venv/bin/python3 /app/matter-mixing-fence-probe.py"
+
 # ---------- Step 9: audit ledger is broker-owned and NOT agent-writable (OP-P1-4) ----------
 # The immutable ledger must be owned by the broker uid (workspace-broker), the
 # dir setgid 2750, and the agent uid (hermes) must be physically unable to write

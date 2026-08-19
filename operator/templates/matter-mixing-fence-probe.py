@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Boot-smoke probe: the matter-mixing read fence is installed and DISCRIMINATES
+(ss#2167).
+
+Run at boot with the Hermes venv python, where the overlay is pip-installed so
+``shared.matter_gate`` is importable.
+
+WHY THIS EXISTS, and why it asserts both directions
+---------------------------------------------------
+The fence refuses a session that already holds one matter's substance from
+reading a second matter's. It is the control that stops a draft containing two
+clients' facts from ever being COMPOSED — every other matter control on the seat
+fires when a send is attempted, by which point that draft exists and is sitting
+in a paralegal's queue, and the firm finding it there is the event the engagement
+does not survive whether or not it was ever sent.
+
+The capture path it depends on (``matter_binding.record_from_read``) swallows
+every exception by contract, because a hook must never raise into the tool path.
+That is correct and it means a broken fence is INDISTINGUISHABLE FROM A CLEAN
+FLEET: no error, no alert, every send simply stops being checked. So the fence
+needs a probe that runs the real code and fails the boot when it stops working.
+
+Two assertions, and the second matters as much as the first:
+
+  1. A second matter's memo read is REFUSED.
+  2. Re-reading the SAME matter is ALLOWED.
+
+A probe asserting only (1) would pass against a fence that refused every content
+read — which is not a safe fence, it is a bricked Operator that the firm would
+switch off within a day. Asserting only (2) would pass against a fence that was
+entirely open. Both, or this has measured nothing.
+
+Exit 0 when the fence behaves. Non-zero, loudly, otherwise.
+"""
+
+from __future__ import annotations
+
+import sys
+
+SESSION = "boot-smoke-matter-mixing"
+MATTER_A = "aaaaaaaa-0000-0000-0000-boot0000000a"
+MATTER_B = "bbbbbbbb-0000-0000-0000-boot0000000b"
+MEMOS = "mcp_smokeball_get_memos_on_matter"
+
+
+def fail(message: str) -> None:
+    print(f"FAIL: matter-mixing fence: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def main() -> None:
+    try:
+        from shared import matter_binding, matter_gate
+    except Exception as exc:  # noqa: BLE001
+        fail(f"cannot import the fence at all ({exc!r}) — the overlay pin predates ss#2167")
+
+    mode = matter_gate.multi_matter_mode()
+    if mode != "block":
+        # Not a failure: `report` and `off` are authorable operator states. But it
+        # must be VISIBLE in the boot log, because in either state a mixed draft
+        # can be composed and nothing downstream will say so.
+        print(f"SKIP: SMD_MULTI_MATTER_MODE={mode} — the read fence is open by configuration")
+        return
+
+    # Clean any residue so the probe measures itself, not a previous run.
+    matter_binding.drop(SESSION)
+
+    # The session reads matter A's memos.
+    matter_binding.record_from_read(
+        SESSION, "{}", tool_name=MEMOS, args={"matter_id": MATTER_A}
+    )
+
+    held = matter_binding.membership_for(SESSION).content_read_matters()
+    if MATTER_A not in held:
+        fail(
+            "the content read was not captured, so the fence has nothing to compare "
+            "against and would never refuse anything (record_from_read is failing "
+            "silently — its exception handler is by design, which is exactly why "
+            "this probe exists)"
+        )
+
+    # 1. The second matter must be refused.
+    refusal = matter_gate.content_read_refusal(SESSION, MEMOS, {"matter_id": MATTER_B})
+    if refusal is None:
+        fail(
+            "a SECOND matter's memo read was permitted — a draft mixing two clients' "
+            "matters can be composed on this seat"
+        )
+
+    # 2. The same matter must still be readable, or the Operator cannot work.
+    same = matter_gate.content_read_refusal(SESSION, MEMOS, {"matter_id": MATTER_A})
+    if same is not None:
+        fail(
+            "re-reading the SAME matter was refused — the fence is not discriminating, "
+            f"it is refusing everything ({same})"
+        )
+
+    matter_binding.drop(SESSION)
+    print("PASS: matter-mixing fence refuses a second matter and allows the same one")
+
+
+if __name__ == "__main__":
+    main()
