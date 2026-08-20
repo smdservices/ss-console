@@ -8,17 +8,27 @@ Tenant: **smokeball-staging** (staging). Seat: `pilot-smokeball`.
 These are permanent fixture matters in a tenant SMD controls, not probe
 artifacts in a client tenant, so no probe stamp or teardown applies.
 
-`layouts/write` is not a granted scope, so the Medicals and Settlement
-Details tab cannot be populated through the API by any path. That is why
-this is keyed by hand.
+## The matters already exist. Only the provider rows need you.
+
+`seed_closeout.py` created all six matters and their clients by script, at
+the right status and dates, and `verify_closeout.py` checked each field
+against this same source. **Do not create them again.**
+
+What no script can do is the **Medicals & Settlement Details** tab. Those are
+layout values, and `layouts/write` is in no app's grant: not the seat's
+connector, and not the much broader staging seeder that holds `firm/write`
+and `invoices/write`. Two independent identities lacking it is why this part
+is by hand.
 
 ## What to do
 
-For each matter below: create it with the number, title, status, dates and
-responsible staff shown, then open **Medicals & Settlement Details** and add
-one provider row per line in its table. Leave every field marked `(blank)`
-actually empty rather than zero: blank and zero mean different things to the
-register, and the reconciliation probe checks which one is there.
+Open each matter below by its number, go to **Medicals & Settlement Details**,
+and add one provider row per line in its table. Everything above the table on
+each matter is shown only so you can confirm you have the right file open.
+
+Leave every field marked `(blank)` actually empty rather than zero: blank and
+zero mean different things to the register, and the reconciliation probe
+checks which one is there.
 
 When you are done, tell the session and it runs the read-back probe, which
 reports per-field differences so a mismatch says whether the tool misread or
@@ -28,12 +38,12 @@ a value slipped during entry.
 
 _the modal case - several providers, all outstanding, single plaintiff._
 
+Already created. Confirm you have the right file open:
+
 - Title: 2026-SC-201 - HALVERSON, DEAN - Motor Vehicle Accident - Plaintiff
 - Status: **Pending**
 - Client(s): Dean Halverson
 - Opened: 2021-03-15   Closed: 2023-08-02
-- Responsible staff: `staff-042`
-- Intended last activity: 2026-07-28 (add a memo dated that day)
 
 **Settlement details**
 
@@ -52,12 +62,12 @@ Settlement amount: 100000.00   Firm fee: 33333.33
 
 _the 62% case - Medicals section never filled in, old and quiet._
 
+Already created. Confirm you have the right file open:
+
 - Title: 2026-SC-202 - OKONKWO, ADAEZE - Personal Injury - Plaintiff
 - Status: **Pending**
 - Client(s): Adaeze Okonkwo
 - Opened: 2007-06-11   Closed: (blank - leave the closed date empty)
-- Responsible staff: `staff-042`
-- Intended last activity: 2018-04-09 (add a memo dated that day)
 
 **Settlement details**
 
@@ -67,12 +77,12 @@ _the 62% case - Medicals section never filled in, old and quiet._
 
 _two plaintiffs, providers split across them._
 
+Already created. Confirm you have the right file open:
+
 - Title: 2026-SC-203 - REYES, MARISOL and REYES, TOMAS - Motor Vehicle Accident - Plaintiff
 - Status: **Pending**
 - Client(s): Marisol Reyes, Tomas Reyes
 - Opened: 2022-09-01   Closed: 2024-11-19
-- Responsible staff: `staff-017`
-- Intended last activity: 2026-05-30 (add a memo dated that day)
 
 **Plaintiff 1**
 
@@ -94,12 +104,12 @@ Settlement amount: 45000.00   Firm fee: 15000.00
 
 _shares one payer with S-05 - SAME entity id._
 
+Already created. Confirm you have the right file open:
+
 - Title: 2026-SC-204 - BRANNIGAN, PHILIP - Motor Vehicle Accident - Plaintiff
 - Status: **Pending**
 - Client(s): Philip Brannigan
 - Opened: 2023-01-30   Closed: 2025-04-14
-- Responsible staff: `staff-017`
-- Intended last activity: 2026-02-11 (add a memo dated that day)
 
 > **Read before keying.** Valley Health Plan here and on S-05 must be the SAME contact record picked twice, not two contacts with the same name. The rollup proof depends on it.
 
@@ -115,12 +125,12 @@ Settlement amount: 75000.00   Firm fee: 25000.00
 
 _shares the S-04 payer, and is the recently-active false-positive guard._
 
+Already created. Confirm you have the right file open:
+
 - Title: 2026-SC-205 - DELACROIX, YVETTE - Personal Injury - Plaintiff
 - Status: **Pending**
 - Client(s): Yvette Delacroix
 - Opened: 2023-07-22   Closed: 2025-09-30
-- Responsible staff: `staff-042`
-- Intended last activity: 2026-08-14 (add a memo dated that day)
 
 > **Read before keying.** Pick the SAME Valley Health Plan contact used on S-04. Open Sierra Imaging on S-06 and Sierra Imaging here are two DIFFERENT businesses; keep them separate.
 
@@ -137,12 +147,12 @@ Settlement amount: 50000.00   Firm fee: 16666.67
 
 _every provider balance is zero, and one is a genuinely distinct near-name._
 
+Already created. Confirm you have the right file open:
+
 - Title: 2026-SC-206 - VANTERPOOL, GRACE - Motor Vehicle Accident - Plaintiff
 - Status: **Pending**
 - Client(s): Grace Vanterpool
 - Opened: 2024-02-05   Closed: 2026-01-08
-- Responsible staff: `staff-017`
-- Intended last activity: 2026-06-19 (add a memo dated that day)
 
 > **Read before keying.** Open Sierra Imaging is a different business from the Sierra Imaging on S-05. Create it as its own contact. Both balances here are a real zero, not blank.
 
