@@ -85,12 +85,11 @@ _CUSTOMER_EXACT: frozenset[str] = frozenset(
         "SMOKEBALL_CLIENT_SECRET",
         "SMOKEBALL_API_KEY",
         "SMOKEBALL_REFRESH_TOKEN",
-        # SMOKEBALL_VISION_ANTHROPIC_KEY (the connector's scanned-document
-        # transcription key, ss#2464) is classified by env-consumption.yaml
-        # rather than here — it is a declared mcp-subprocess consumer row, and
-        # source 1 wins in `classify`. Its per-seat override form
-        # SMOKEBALL_VISION_ANTHROPIC_KEY__<CID> is covered by the
-        # SMOKEBALL_VISION_ prefix below.
+        # The connector's scanned-document transcription (ss#2464) adds NO
+        # credential name here: it reuses the seat's own ANTHROPIC_API_KEY,
+        # already classified via env-consumption.yaml, delivered to the
+        # subprocess by the overlay registry. Its SMOKEBALL_VISION_* tuning vars
+        # are non-secret and classified in that same contract.
         # Smokeball webhook ingress (provision-customer.sh:611-616).
         "WEBHOOK_SECRET_SMOKEBALL",
         "WEBHOOK_SMOKEBALL_CLIENT_ID",
@@ -124,8 +123,6 @@ _CUSTOMER_PREFIX: tuple[str, ...] = (
     "CLIO_",
     "SMOKEBALL_STAGING_",
     "SMOKEBALL_PROD_",
-    # Per-seat override form SMOKEBALL_VISION_ANTHROPIC_KEY__<CID> (ss#2464).
-    "SMOKEBALL_VISION_",
     # Per-seat override form MSGRAPH_CLIENT_SECRET__<CID> (provision-customer.sh
     # msgraph branch) + any future family member.
     "MSGRAPH_",

@@ -55,7 +55,7 @@ What SMD _does_ store, on isolated per-customer infrastructure, is limited to: t
   - never written to logs or shared storage,
   - never accessible to other customers or to SMD personnel in plaintext,
   - encrypted at rest (Fly.io platform volume encryption; AES-256-GCM application-layer encryption for connector tokens).
-- **Function-scoped credentials.** Where a component needs a credential of its own, it gets a separate one scoped to that function rather than a copy of a broader key. The Smokeball integration's document-transcription path, for example, holds its own spend-limited LLM key, not the Operator's model credential.
+- **Per-customer LLM credentials.** Each customer's Operator runs on its own LLM workspace key rather than a shared account-wide key, so spend limits, revocation, and cost attribution are per customer. Every component of that customer's Operator — including the path that reads scanned documents — uses that same per-customer credential; no component holds a broader one.
 - **SMD-side secrets** (e.g. the LLM API key) are held in a dedicated secrets-management system (Infisical), accessible only to named principals, and pushed to each customer Machine's secret store at provisioning time. Encryption keys are managed there and are not shared with sub-contractors.
 
 ---

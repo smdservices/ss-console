@@ -30,10 +30,12 @@ WHAT IT REFUSES TO DO, and why each one is load-bearing:
 COST AND CONCURRENCY. ``read_document`` is a sync tool on FastMCP's thread
 pool and parallel tool calls are on by default, so N concurrent scans would be
 N concurrent long-context requests on a 1 vCPU / 1 GB seat. A module-level
-semaphore serialises them. The caps (pages, bytes) are the spend fence, and the
-key itself is a separate, spend-limited credential — never the seat's own
-``ANTHROPIC_API_KEY`` — because the overlay materialises connector env values
-onto the per-seat volume in plaintext (ADR 0010).
+semaphore serialises them. The caps (pages, bytes) are the spend fence. The
+credential is the seat's OWN ``ANTHROPIC_API_KEY``, delivered to this subprocess
+by the overlay registry: ADR 0062 §2 makes that a per-customer Anthropic
+WORKSPACE key, so a transcription bills, caps, and revokes exactly like every
+other model call this seat makes. Absent, this module refuses with
+``no_credential`` and the connector falls back to pypdf-only.
 """
 
 from __future__ import annotations

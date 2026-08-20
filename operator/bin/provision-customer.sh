@@ -918,17 +918,12 @@ print(str(sb.get('account_id') or '').strip())
   stage_secret_from_env SMOKEBALL_CLIENT_ID     "${_sb_cid}" "Smokeball OAuth client id (from ${_sb_src}_CLIENT_ID)"
   stage_secret_from_env SMOKEBALL_CLIENT_SECRET "${_sb_sec}" "Smokeball OAuth client secret (from ${_sb_src}_CLIENT_SECRET)"
   stage_secret_from_env SMOKEBALL_API_KEY       "${_sb_key}" "Smokeball x-api-key per-request app key (from ${_sb_src}_API_KEY)"
-  # Scanned-document vision read (ss#2464). OPTIONAL: absent => the connector
-  # fail-safes to pypdf-only and marks scanned files explicitly unreadable, so a
-  # seat without it is degraded, never broken. It is a SEPARATE, spend-limited
-  # Anthropic key, never the seat's ANTHROPIC_API_KEY: the overlay materializes
-  # every connector env value onto the per-seat volume in plaintext (ADR 0010),
-  # and the registry remaps this name to ANTHROPIC_API_KEY inside the connector
-  # subprocess only. Per-seat override first, then the shared /ss value.
-  _SB_VISION_KEY_NAME="SMOKEBALL_VISION_ANTHROPIC_KEY__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
-  stage_secret_from_env SMOKEBALL_VISION_ANTHROPIC_KEY \
-    "${!_SB_VISION_KEY_NAME:-${SMOKEBALL_VISION_ANTHROPIC_KEY:-}}" \
-    "scoped, spend-limited Anthropic key for the connector's scanned-document transcription (per-customer ${_SB_VISION_KEY_NAME}, else global)"
+  # Scanned-document vision read (ss#2464) stages NOTHING here: the connector
+  # transcribes with the seat's OWN per-seat Anthropic workspace key, already
+  # staged above as ANTHROPIC_API_KEY (ADR 0062 §2 — per-customer workspaces are
+  # the cost-attribution and revocation boundary). The overlay registry delivers
+  # that same name into the connector subprocess. No second credential exists to
+  # stage, rotate, or forget.
   # Required per-seat — value is always present (default staging), never silently prod-as-staging.
   stage_secret_from_env SMOKEBALL_ENVIRONMENT   "${SB_ENV}"  "Smokeball host environment (staging|production)"
   # Optional per-seat. client_credentials is the connector default, so stage AUTH_MODE

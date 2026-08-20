@@ -68,12 +68,16 @@ vars:
     custody: customer
     note: >-
       the gateway's model credential (per-seat Anthropic workspace key or BYO
-      key). THIS ROW IS THE AGENT PROCESS ONLY. The Smokeball connector
-      subprocess also reads a var of this name for its scanned-document vision
-      read, but the overlay registry remaps it from
-      SMOKEBALL_VISION_ANTHROPIC_KEY (its own row below) — a separate,
-      spend-limited key, because a connector env value is materialized to the
-      per-seat volume in plaintext. This key is never handed to a connector.
+      key). TWO CONSUMERS, one value (ss#2464): the long-running gateway, and —
+      on a Smokeball seat — the smokeball MCP subprocess, which needs a model
+      credential to transcribe scanned documents. The overlay registry delivers
+      it under the same name (a remap-from-same-name optional row), so no second
+      credential exists. Deliberate: ADR 0062 §2 already makes this a per-seat
+      Anthropic WORKSPACE key, so spend limits, revocation, and cost attribution
+      are per client seat, and it is already at rest on that seat's volume
+      (profile auth.json) — a separate connector key would add a credential to
+      rotate without narrowing any blast radius. Absent from the subprocess =>
+      the connector fail-safes to pypdf-only with explicit unreadable marking.
   SMD_D1_AUDIT_BINDING:
     stage: agent
     requirement: required
@@ -294,28 +298,15 @@ vars:
       reject every attempt. Infra custody: derived from an SMD-owned master.
 
   # ---- Smokeball connector: scanned-document vision read (ss#2464) ----
-  # A no-text-layer PDF is a photograph of paper. The connector transcribes one
-  # by sending it to the Messages API, which means the connector subprocess
-  # needs an Anthropic credential — and it must NOT be the seat's own
-  # ANTHROPIC_API_KEY. Registry env values are MATERIALIZED onto the per-seat
-  # volume in plaintext (overlay bootstrap/translate.py, ADR 0010), so the value
-  # that lands there is a SEPARATE, spend-limited key. The overlay registry
-  # remaps it: the subprocess sees it as ANTHROPIC_API_KEY (the name every
-  # Anthropic client library reads), sourced from SMOKEBALL_VISION_ANTHROPIC_KEY
-  # — the same remap shape as the clio ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY row.
-  # Absent => the connector fail-safes to pypdf-only and marks scanned files
-  # explicitly unreadable; it never crashloops and never fails open.
-  SMOKEBALL_VISION_ANTHROPIC_KEY:
-    stage: mcp-subprocess
-    requirement: optional
-    agent_env: held
-    custody: customer
-    note: >-
-      Scoped, spend-limited Anthropic key for the Smokeball connector's
-      scanned-document transcription. Remapped to ANTHROPIC_API_KEY inside the
-      connector subprocess ONLY (overlay mcp_registry env_secrets_optional).
-      Never the seat's own model key: this value is materialized to the per-seat
-      volume in plaintext.
+  # A no-text-layer PDF is a photograph of paper, so the connector transcribes
+  # it through the Messages API. The credential for that is NOT declared here:
+  # it is the seat's own ANTHROPIC_API_KEY (see that row above), delivered into
+  # the subprocess by the overlay registry under the same name. Per-seat
+  # workspace keys (ADR 0062 §2) already bound spend and attribute cost per
+  # client, and the value is already at rest on the seat volume, so a second
+  # key would be one more thing to rotate for no narrowing of exposure.
+  # What IS declared here is the tuning surface — model, the two cost fences,
+  # the kill switch, and the transcription cache.
   SMOKEBALL_VISION_MODEL:
     stage: mcp-subprocess
     requirement: optional
