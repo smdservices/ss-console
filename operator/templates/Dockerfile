@@ -563,7 +563,21 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # ss#2255). Files: plugins/hermes-smd-trust/outbound_send.py,
 # plugins/hermes-smd-reply/__init__.py + tests — NOT tracked pairs; every
 # overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="ab352d5b758eac9c67231214bcb9c3574e338230"
+# ab352d5b -> 88f6daa (2026-08-20, ss#2444 PR-2 + ss#2464): three commits, and the
+# third is why the pin goes to overlay main rather than to an intermediate.
+# overlay#284 proves the ss#2167 matter-mixing fence survives the v0.19 tool
+# rename — the BINDING was already tested, the wire NAME was not, and the rename
+# is exactly what silently unbound every connector tool on the first v0.20 build
+# (overlay#283). overlay#285 added a purpose-made SMOKEBALL_VISION_ANTHROPIC_KEY
+# for the scanned-document read path; the Captain's review found that premise
+# false and overlay#286 RETIRES it back to the seat's own ANTHROPIC_API_KEY,
+# which provisioning already stages per seat. So pinning main means no new secret
+# to stage for any seat, and pinning #285 alone would wire a seat to a credential
+# nobody stages. Containment checked before writing this pin:
+# `git merge-base --is-ancestor ab352d5b 88f6daa` — a fast-forward, no divergence.
+# Files: plugins/hermes-smd-trust tests, connectors/registry — NOT tracked pairs;
+# every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="88f6daab6e034fa306ddde5e554317203c316066"
 
 ARG CUSTOMER_SLUG=customer-zero
 
