@@ -147,13 +147,39 @@ def find_matter_id(client: Any, matter_number: str) -> str | None:
         offset += 500
 
 
+def _walk_folders(nodes: Any) -> list[dict[str, Any]]:
+    """Every folder in a folder listing, at any depth.
+
+    OBSERVED SHAPE (pilot tenant, 2026-08-20): the response is a TREE, not a
+    flat list. ``value`` holds one root node carrying ``folders: [...]`` and
+    ``files: [...]``; the root itself has no ``name``. A flat read finds
+    nothing, which is exactly how the firm's template silently failed to
+    resolve on the first live run (every draft fell back to the starter and
+    said so). Walk it, and treat a node with a name and an id as a folder at
+    any depth.
+    """
+    out: list[dict[str, Any]] = []
+    stack = list(nodes) if isinstance(nodes, list) else [nodes]
+    while stack:
+        node = stack.pop()
+        if not isinstance(node, dict):
+            continue
+        if node.get("id") and node.get("name"):
+            out.append(node)
+        for key in ("folders", "children", "subFolders"):
+            child = node.get(key)
+            if isinstance(child, list):
+                stack.extend(child)
+    return out
+
+
 def find_folder_id(client: Any, matter_id: str, folder_name: str) -> str | None:
     try:
         resp = client.get(f"/matters/{matter_id}/documents/folders", Limit=500, Offset=0)
     except Exception:  # noqa: BLE001
         return None
     want = _norm(folder_name)
-    for f in _listing(resp):
+    for f in _walk_folders(_listing(resp)):
         if _norm(f.get("name")) == want:
             return str(f.get("id"))
     return None
