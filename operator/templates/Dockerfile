@@ -721,7 +721,14 @@ RUN npm install --prefer-offline --no-audit \
 # inert (TELEGRAM_AVAILABLE=False), so a TELEGRAM_BOT_TOKEN env would silently do
 # nothing. We add it explicitly: lock-governed (frozen) and forward-aligned with the
 # Slack/Discord channels the productized Operator will offer. See ADR 0033.
-RUN uv sync --frozen --no-install-project --extra all --extra messaging
+# `--extra anthropic` (Hermes v0.20.4 promotion, ss-console#2444): v2026.8.18
+# moved the anthropic SDK out of `[all]` into its own extra (pinned
+# anthropic==0.87.0 for CVE-2026-34450/34452; upstream's own Dockerfile passes
+# it too). Without it the gateway boots but EVERY turn dies at
+# build_anthropic_client with ImportError — observed live on the pilot seat's
+# first 0.20.4 rehearsal turn. bedrock/azure/matrix/otlp/hindsight stay out:
+# no seat consumes them.
+RUN uv sync --frozen --no-install-project --extra all --extra messaging --extra anthropic
 RUN cd web && npm run build && cd ../ui-tui && npm run build
 # --python is explicit because ENV UV_PYTHON (above) would otherwise aim this
 # bare `uv pip` at the SYSTEM interpreter (PEP 668 refusal on Debian); an
