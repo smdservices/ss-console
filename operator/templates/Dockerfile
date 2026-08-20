@@ -577,7 +577,31 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # `git merge-base --is-ancestor ab352d5b 88f6daa` — a fast-forward, no divergence.
 # Files: plugins/hermes-smd-trust tests, connectors/registry — NOT tracked pairs;
 # every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="88f6daab6e034fa306ddde5e554317203c316066"
+# 88f6daa -> 78c2544 (2026-08-20, ss#2444 PR-2 follow-up): one commit, and it is a
+# LIVE DEFECT found on the paying client's seat 17 minutes after promoting it.
+# Hermes v0.20.4 inverted the order two hooks fire in --
+# v0.18 was pre_tool_call -> post_tool_call -> transform_tool_result;
+# v0.20.4 is pre_tool_call -> transform_tool_result -> post_tool_call,
+# observed on five consecutive tool calls on hermes-ashton-price's own log
+# (vfy_01M0G7DYTBHAGDRQYXX02DKMZJ). hermes-smd-inbound fences at
+# transform_tool_result, so hermes-smd-establishment's on_post_tool_call stopped
+# receiving the connector's raw text and started receiving the FENCE. json.loads
+# died at char 1 ("[" then "U" of UNTRUSTED) on 100% of document reads -- 0.18: 3
+# reads / 0 failures, 0.20.4: 2 reads / 2 failures -- so read_capture never
+# recorded, and voice-establishment and document-library-establishment, the first
+# two things a new firm is asked to run, would have refused in front of the
+# client. overlay#287 adds shared.inbound.unwrap_inbound (nonce matched as a
+# BACKREFERENCE so a forged inner sentinel cannot terminate the real fence) and
+# parses through it. Pass-through on unfenced input is deliberate: correct under
+# BOTH hook orders, so the ordering never becomes an invariant again. Falsifier
+# run: reverting only the unwrap call reproduces the identical production
+# traceback while the other 46 tests in that file still pass.
+# STILL AT RISK, unconfirmed, deliberately not swept in: hermes-smd-audit:117
+# (output_digest), hermes-smd-reply relay.py:180, hermes-smd-trust:348/:359 all
+# consume kwargs["result"] the same way. Files: shared/inbound.py,
+# plugins/hermes-smd-establishment + tests -- NOT tracked pairs; every
+# overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="78c25442d21a521527f68947a197ada0b7590b57"
 
 ARG CUSTOMER_SLUG=customer-zero
 
