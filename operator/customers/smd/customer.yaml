@@ -46,9 +46,10 @@ fly_region: lax # "We're in Phoenix" → closest Fly region
 # not Opus — the interview's sensitive-tier intent is traded for the cost test.
 model: claude-sonnet-4-6
 escalation_model: claude-opus-4-8
-# Hermes v0.14.0 → v0.18.0 (Crane, SMD-own production seat, promoted LAST after
-# staging/pilot/scott proven). Rollback pin: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0.
-hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
+# Hermes v0.18.0 → v0.20.4 promotion (Step 4: Crane, SMD-own production seat,
+# last of the SMD-own four before the A&P checkpoint, ss#2444).
+# Rollback pin: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b. See docs/runbooks/operator/hermes-v0.20-upgrade-plan.md.
+hermes_ref: v2026.8.18@e624e9fde561e1add9388384012b295fde669ade
 
 machine:
   size: shared-cpu-1x

@@ -72,10 +72,11 @@ fly_region: lax
 
 # ---- RUNTIME ----
 model: claude-opus-4-8
-# Hermes v0.14.0 → v0.18.0 upgrade (staging leads the fleet). Rollback pin:
-# v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0 (uv.lock + uv sync --frozen
-# make the Python rebuild reproducible). See docs/runbooks/operator/hermes-v0.18-upgrade-plan.md.
-hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
+# Hermes v0.18.0 → v0.20.4 promotion (staging leads the fleet, ss#2444). Rollback
+# pin: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b (uv.lock + uv sync --frozen
+# make the Python rebuild reproducible; proven to build on the Node-26 image by
+# the staging rollback rehearsal). See docs/runbooks/operator/hermes-v0.20-upgrade-plan.md.
+hermes_ref: v2026.8.18@e624e9fde561e1add9388384012b295fde669ade
 
 machine:
   size: shared-cpu-1x

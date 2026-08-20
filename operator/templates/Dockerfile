@@ -563,7 +563,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # ss#2255). Files: plugins/hermes-smd-trust/outbound_send.py,
 # plugins/hermes-smd-reply/__init__.py + tests — NOT tracked pairs; every
 # overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="0088352a7a833bdef17406bfbed407a707128a21"
+ARG OVERLAY_REF="ab352d5b758eac9c67231214bcb9c3574e338230"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -586,6 +586,20 @@ RUN git clone --depth 1 --branch ${HERMES_UPSTREAM_TAG} \
 
 # ---------- Stage 2: runtime image ----------
 FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie AS uv_source
+# Node 26 source stage (Hermes v2026.8.18 / 0.20.4 promotion, ss-console#2444).
+# Debian 13 trixie's apt `nodejs` is 20.19.x, EOL April 2026. Upstream Hermes
+# pins its toolchain to Node 26 everywhere and, as of v2026.8.18, ships
+# `.npmrc engine-strict=true` with `engines.node >=22.22.0` — so `npm install`
+# over the Hermes tree hard-fails on the apt Node (vfy_01M0DP257XDYJ0Z04V1ZF57G2X:
+# seat had v20.19.2 / npm 9.2.0). We copy node + npm from the official image
+# exactly the way upstream's own Dockerfile does at that tag (its `node_source`
+# stage, same digest), so the runtime matches what Hermes is built and tested
+# against. The `engines.npm` range (`<11.10.0 || >=11.17.0`) is satisfied by
+# construction: upstream builds its published image from this digest under
+# engine-strict. Bumping the Node major is a one-line change to this FROM; the
+# next digest bump re-checks that npm range. Node is needed at RUNTIME too:
+# `@oktopeak/clio-mcp` (below) is a Node stdio MCP server the gateway launches.
+FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f4f3e7e454d9634bf73 AS node_source
 FROM debian:13.4
 
 ARG CUSTOMER_SLUG
@@ -601,6 +615,19 @@ ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data
 ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/17/bin:${PATH}"
+# Pin every uv invocation to the SYSTEM interpreter (Hermes v0.20.4 promotion,
+# ss-console#2444). The v2026.8.18 tree ships `.python-version: 3.11`; because
+# this Dockerfile copies the WHOLE tree before `uv sync` (upstream copies only
+# pyproject.toml + uv.lock, so their image never sees the pin), every bare
+# `uv sync` / `uv venv` — the Hermes venv, the workspace-broker venv, the
+# per-connector venvs — resolved that pin, downloaded a managed CPython into
+# /root/.local/share/uv (mode 0700), and symlinked venv pythons into it. The
+# non-root broker uid then got `Permission denied` executing its own venv
+# python (rc=126 crash-loop; the pilot seat went down and was restored by
+# image-ref rollback). UV_PYTHON outranks .python-version, so this keeps all
+# venvs on Debian 13's python3 (3.13 — inside requires-python >=3.11,<3.14),
+# exactly what the v0.18 seats ran and what upstream's published image runs.
+ENV UV_PYTHON=/usr/bin/python3
 
 # ---------- System packages ----------
 # tini: PID 1 zombie reaper (signals + orphaned MCP stdio subprocesses).
@@ -611,7 +638,7 @@ ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/17/bin:${PATH}"
 # curl + ca-certificates: R2 fetch + general TLS.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      build-essential curl nodejs npm python3 python3-pip python3-venv \
+      build-essential curl unzip python3 python3-pip python3-venv \
       ripgrep ffmpeg gcc python3-dev libffi-dev procps git openssh-client \
       docker-cli tini ca-certificates util-linux \
       postgresql-17 postgresql-client-17 redis-server awscli \
@@ -634,6 +661,15 @@ RUN groupadd -r workspace-connectors \
  && usermod -a -G audit-readers workspace-broker
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
+# Node 26 + npm from the node_source stage (see the stage comment above). npm
+# and npx are recreated as symlinks into the bundled npm install, mirroring
+# upstream's Dockerfile; no corepack (unbundled upstream; nothing here needs it).
+COPY --chmod=0755 --from=node_source /usr/local/bin/node /usr/local/bin/
+COPY --from=node_source /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+ && node --version && npm --version
+
 WORKDIR /opt/hermes
 
 # ---------- Pull Hermes source from stage 1 ----------
@@ -642,8 +678,39 @@ COPY --from=hermes_source /src/HERMES_SHA /opt/hermes/HERMES_SHA
 
 # ---------- Layer-cached Hermes deps install ----------
 ENV npm_config_install_links=false
+# Playwright browsers are PREFETCHED with curl, then `playwright install` runs
+# against the already-populated cache (Hermes v0.20.4 promotion, ss-console#2444).
+# WHY: at v2026.8.18 `npx playwright install --with-deps chromium --only-shell`
+# deterministically WEDGED on the Depot builder — the chromium-headless-shell
+# download hit 100% and Node's downloader never observed the socket close (three
+# independent builds; one sat silent for 59 minutes). Upstream's own Dockerfile
+# wraps the same command in a 3-attempt retry loop (their :201-202) — they hit
+# it too — but a retry cannot rescue a hang, and every retry re-enters the same
+# downloader. So: `--dry-run` prints each browser's install location + download
+# url; curl (hard --max-time, --retry, immune to the close-hang) fetches each
+# zip; unzip + the INSTALLATION_COMPLETE marker reproduce playwright's own
+# on-disk layout; the real install then finds every browser present, downloads
+# nothing, and only installs apt deps. The timeout+retry loop stays as the
+# backstop so NO variant of this step can wedge the seat-rebuild path:
+# rollback-by-rebuild depends on this Dockerfile finishing.
 RUN npm install --prefer-offline --no-audit \
- && npx playwright install --with-deps chromium --only-shell \
+ && npx playwright install --dry-run chromium --only-shell > /tmp/pw-plan.txt \
+ && cat /tmp/pw-plan.txt \
+ && awk '/Install location:/{loc=$3} /Download url:/{print loc" "$3}' /tmp/pw-plan.txt > /tmp/pw-pairs.txt \
+ && [ -s /tmp/pw-pairs.txt ] \
+ && while read -r loc url; do \
+      echo "prefetch: $url -> $loc"; \
+      curl -fL --retry 3 --retry-delay 5 --max-time 900 -o /tmp/pw-browser.zip "$url"; \
+      mkdir -p "$loc"; \
+      unzip -q /tmp/pw-browser.zip -d "$loc"; \
+      rm -f /tmp/pw-browser.zip; \
+      touch "$loc/INSTALLATION_COMPLETE"; \
+    done < /tmp/pw-pairs.txt \
+ && for i in 1 2 3; do \
+      timeout 900 npx playwright install --with-deps chromium --only-shell && break || \
+      { [ "$i" = 3 ] && exit 1; echo "playwright install failed/wedged (attempt $i); retrying in 10s" >&2; sleep 10; }; \
+    done \
+ && rm -f /tmp/pw-plan.txt /tmp/pw-pairs.txt \
  && (cd web && npm install --prefer-offline --no-audit) \
  && (cd ui-tui && npm install --prefer-offline --no-audit) \
  && npm cache clean --force
@@ -654,9 +721,19 @@ RUN npm install --prefer-offline --no-audit \
 # inert (TELEGRAM_AVAILABLE=False), so a TELEGRAM_BOT_TOKEN env would silently do
 # nothing. We add it explicitly: lock-governed (frozen) and forward-aligned with the
 # Slack/Discord channels the productized Operator will offer. See ADR 0033.
-RUN uv sync --frozen --no-install-project --extra all --extra messaging
+# `--extra anthropic` (Hermes v0.20.4 promotion, ss-console#2444): v2026.8.18
+# moved the anthropic SDK out of `[all]` into its own extra (pinned
+# anthropic==0.87.0 for CVE-2026-34450/34452; upstream's own Dockerfile passes
+# it too). Without it the gateway boots but EVERY turn dies at
+# build_anthropic_client with ImportError — observed live on the pilot seat's
+# first 0.20.4 rehearsal turn. bedrock/azure/matrix/otlp/hindsight stay out:
+# no seat consumes them.
+RUN uv sync --frozen --no-install-project --extra all --extra messaging --extra anthropic
 RUN cd web && npm run build && cd ../ui-tui && npm run build
-RUN uv pip install --no-cache-dir --no-deps -e "."
+# --python is explicit because ENV UV_PYTHON (above) would otherwise aim this
+# bare `uv pip` at the SYSTEM interpreter (PEP 668 refusal on Debian); an
+# explicit flag outranks the env var and targets the project venv uv sync made.
+RUN uv pip install --no-cache-dir --no-deps --python /opt/hermes/.venv/bin/python -e "."
 
 # ---------- Honcho: deferred to Phase 2 (ADR 0016, revised 2026-05-30) ----------
 # No in-container Honcho server is installed. The prior `honcho-ai` pip install
@@ -671,7 +748,7 @@ RUN uv pip install --no-cache-dir --no-deps -e "."
 # bootstrap translator and customer-sync sidecar) and then register the
 # plugin pack with Hermes. Plugins land under ~/.hermes/plugins/ where the
 # Hermes plugin loader discovers them at runtime.
-RUN uv pip install --no-cache-dir \
+RUN uv pip install --no-cache-dir --python /opt/hermes/.venv/bin/python \
       "git+${OVERLAY_REPO}@${OVERLAY_REF}"
 
 # ---------- Workspace capability broker ----------
@@ -692,7 +769,15 @@ RUN uv venv /opt/workspace-broker/.venv \
 # PATH for the gateway to launch. Pinned to 2.0.0 — the version the connector
 # reality-check and live loop test ran against. It reads its OAuth token from
 # ~/.clio-mcp/tokens.enc (seeded by bootstrap.sh) under ENCRYPTION_KEY.
-RUN npm install -g @oktopeak/clio-mcp@2.0.0
+# Run from a neutral cwd (npm ignores a project .npmrc in -g mode, but the
+# Hermes tree's npm policy should never govern a third-party global install),
+# then prove the bin resolves on PATH and the package landed under the Node 26
+# global prefix (/usr/local/lib/node_modules) so a regression fails the BUILD,
+# not a seat. Presence checks only: it is a stdio MCP server, so invoking it
+# here would block on stdin.
+RUN cd /tmp && npm install -g @oktopeak/clio-mcp@2.0.0 \
+ && test -x "$(command -v clio-mcp)" \
+ && test -f /usr/local/lib/node_modules/@oktopeak/clio-mcp/package.json
 
 # NOTE: web search needs NO installed binary. It is Hermes' NATIVE brave-free
 # provider (plugins/web/brave_free, bundled in the pinned Hermes), selected by
@@ -701,21 +786,35 @@ RUN npm install -g @oktopeak/clio-mcp@2.0.0
 # was removed with the ADR 0070 native cut (2026-07-08) — MCP-wrapping a native
 # feature was the redundant layer.
 
-# Register the plugin pack with Hermes' loader. `hermes plugins install` clones
-# the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
-# hermes_cli/plugins_cmd.py `_install_plugin_core` does `git clone --depth 1`
-# with no ref argument, so the plugin surface cannot be pinned through this
-# command (tracked follow-up; for a tagged-release build, default branch == the
-# tag). The pip install above IS pinned and provides the importable `shared`
-# policy core, which is what the runtime plugins actually `import`.
+# Register the plugin pack with Hermes' loader. As of Hermes v2026.8.18
+# `hermes plugins install` accepts `--ref`, so the install is pinned to the same
+# OVERLAY_REF the pack below is staged at (the old "cannot be pinned through
+# this command" caveat is retired). The pip install above is also pinned and
+# provides the importable `shared` policy core the runtime plugins `import`.
+#
+# Build-step scan opt-out (Hermes 0.20.4 promotion, ss-console#2444): v2026.8.18
+# security-scans a plugin tree at install (hermes_cli/plugins_cmd.py
+# `_scan_plugin_tree`, tools/plugin_guard.py); a `dangerous` verdict is a hard
+# fail that `--force` does NOT override. The overlay is OUR plugin, and its own
+# security TEST fixtures (prompt-injection strings, fake keys, /etc/passwd in
+# gate tests, an AGENTS.md filename) trip the pattern set. So the scan is
+# disabled in the build-time root $HERMES_HOME/config.yaml (the install then
+# merges its `plugins.enabled` record into that same file, exactly as before).
+# At runtime /opt/data is the volume mount and shadows this file on every
+# persisted seat; on a fresh volume Fly's empty-volume copy carries it over,
+# where it also covers bootstrap.sh's rare runtime-install fallback (which
+# would otherwise hit the same scan). The pack is pinned and import-gated two
+# steps below; that is the real integrity check for our own code.
 #
 # FAIL-CLOSED: the prior `|| echo "WARN ...; continuing"` swallowed an install
 # failure and booted a silently harness-less Machine — the exact fail-open
 # defect the venture forbids. Both the install and the policy-core import below
-# are now hard build gates: a Machine whose trust/inbound plugins cannot load
+# are hard build gates: a Machine whose trust/inbound plugins cannot load
 # their own policy core MUST NOT build green.
-RUN /opt/hermes/.venv/bin/hermes plugins install \
-      venturecrane/hermes-smd-overlay --enable
+RUN mkdir -p "${HERMES_HOME}" \
+ && printf 'plugins:\n  scan_on_install: false\n' > "${HERMES_HOME}/config.yaml" \
+ && /opt/hermes/.venv/bin/hermes plugins install \
+      venturecrane/hermes-smd-overlay --enable --ref "${OVERLAY_REF}"
 
 # Stage a PINNED copy of the overlay at a NON-VOLUME path (/app/overlay-pack) so
 # bootstrap.sh can refresh the per-customer volume's overlay to this exact
@@ -911,6 +1010,12 @@ COPY operator/templates/r2-account-key-strip-probe.py /app/r2-account-key-strip-
 # manifest<=map check, run where both the baked manifest and the installed overlay
 # are present).
 COPY operator/templates/connector-classification-probe.py /app/connector-classification-probe.py
+# ss#2167: boot-smoke asserts the matter-mixing READ fence is installed and
+# discriminates (refuses a second matter, allows the same one). The capture path
+# it depends on swallows exceptions by contract, so a broken fence is otherwise
+# indistinguishable from a clean fleet — no error, no alert, sends simply stop
+# being checked.
+COPY operator/templates/matter-mixing-fence-probe.py /app/matter-mixing-fence-probe.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on

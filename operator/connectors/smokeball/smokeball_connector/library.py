@@ -147,13 +147,39 @@ def find_matter_id(client: Any, matter_number: str) -> str | None:
         offset += 500
 
 
+def _walk_folders(nodes: Any) -> list[dict[str, Any]]:
+    """Every folder in a folder listing, at any depth.
+
+    OBSERVED SHAPE (pilot tenant, 2026-08-20): the response is a TREE, not a
+    flat list. ``value`` holds one root node carrying ``folders: [...]`` and
+    ``files: [...]``; the root itself has no ``name``. A flat read finds
+    nothing, which is exactly how the firm's template silently failed to
+    resolve on the first live run (every draft fell back to the starter and
+    said so). Walk it, and treat a node with a name and an id as a folder at
+    any depth.
+    """
+    out: list[dict[str, Any]] = []
+    stack = list(nodes) if isinstance(nodes, list) else [nodes]
+    while stack:
+        node = stack.pop()
+        if not isinstance(node, dict):
+            continue
+        if node.get("id") and node.get("name"):
+            out.append(node)
+        for key in ("folders", "children", "subFolders"):
+            child = node.get(key)
+            if isinstance(child, list):
+                stack.extend(child)
+    return out
+
+
 def find_folder_id(client: Any, matter_id: str, folder_name: str) -> str | None:
     try:
         resp = client.get(f"/matters/{matter_id}/documents/folders", Limit=500, Offset=0)
     except Exception:  # noqa: BLE001
         return None
     want = _norm(folder_name)
-    for f in _listing(resp):
+    for f in _walk_folders(_listing(resp)):
         if _norm(f.get("name")) == want:
             return str(f.get("id"))
     return None
@@ -173,6 +199,32 @@ def list_matter_files(client: Any, matter_id: str) -> list[dict[str, Any]]:
             break
         offset += 500
     return files
+
+
+def _strip_ext(name: str) -> str:
+    for ext in (".docx", ".dotx", ".docm", ".dotm"):
+        if name.endswith(ext):
+            return name[: -len(ext)]
+    return name
+
+
+def name_matches(entry: dict[str, Any], wanted: str) -> bool:
+    """Does this file entry carry the wanted file name?
+
+    OBSERVED (pilot tenant, 2026-08-20, probe H): Smokeball stores ``name``
+    WITHOUT the extension and carries ``fileExtension`` separately, so a file
+    uploaded as "Template - Discovery Set.docx" lists as
+    ``{"name": "Template - Discovery Set", "fileExtension": ".docx"}``. An
+    exact match on the full file name therefore never matches anything, which
+    is how the firm's template stayed unresolvable even once the folder was
+    found. Compare with and without the extension, on both sides, so an
+    authored ``templates`` entry works whether or not the firm typed ".docx".
+    """
+    name = str(entry.get("name") or "")
+    ext = str(entry.get("fileExtension") or "")
+    have = {_norm(name), _norm(name + ext), _norm(_strip_ext(name))}
+    want = {_norm(wanted), _norm(_strip_ext(wanted))}
+    return bool(have & want)
 
 
 def _entry_folder_id(entry: dict[str, Any]) -> str | None:
@@ -202,8 +254,8 @@ def resolve_template(client: Any, cfg: LibraryConfig, document_class: str) -> Re
     if not matter_id:
         return NotResolved(f"library matter {cfg.matter_number!r} not found")
     folder_id = find_folder_id(client, matter_id, cfg.folder_name or "")
-    want = _norm(cfg.template_name(document_class))
-    candidates = [e for e in list_matter_files(client, matter_id) if _norm(e.get("name")) == want]
+    want = cfg.template_name(document_class)
+    candidates = [e for e in list_matter_files(client, matter_id) if name_matches(e, want)]
     if folder_id:
         in_folder = [e for e in candidates if _entry_folder_id(e) == folder_id]
         if in_folder:
@@ -224,10 +276,9 @@ def is_library_file(entry: dict[str, Any], cfg: LibraryConfig, library_folder_id
     source (a header-only letterhead extracts to nothing and would refuse the
     whole draft). Match by the class-template naming convention, and by folder
     when the listing carries a folder id and the library folder is known."""
-    name = _norm(entry.get("name"))
-    if any(name == _norm(cfg.template_name(cls)) for cls in CLASS_TITLES):
+    if any(name_matches(entry, cfg.template_name(cls)) for cls in CLASS_TITLES):
         return True
-    if name.startswith("template - ") and name.endswith(".docx"):
+    if _norm(entry.get("name")).startswith("template - "):
         return True
     folder = _entry_folder_id(entry)
     return bool(library_folder_id and folder and folder == library_folder_id)

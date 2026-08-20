@@ -164,6 +164,120 @@ _LIVE_ENTRY_AT_ROOT = {
 }
 
 
+# The folder listing is a TREE, pinned to the payload observed on the pilot
+# tenant 2026-08-20 (probe F). ``value`` holds one root node with `folders` and
+# `files`; the root has no name. A flat read finds nothing, and that is exactly
+# how the firm's template silently failed to resolve on the first live run.
+_LIVE_FOLDER_LISTING = {
+    "href": "https://stagingapi.smokeball.com/matters/3c19.../documents/folders",
+    "offset": 0,
+    "limit": 50,
+    "size": 2,
+    "value": [
+        {
+            "folders": [
+                {
+                    "href": "https://stagingapi.smokeball.com/matters/3c19.../documents/folders/9898...",
+                    "id": "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8",
+                    "name": "Document Library",
+                }
+            ],
+            "files": [
+                {
+                    "id": "df59b111-1bb2-4af0-b7e0-69454ff080be",
+                    "name": "Operator Self-Test Report 2026-08-11",
+                }
+            ],
+        }
+    ],
+}
+
+
+class _TreeClient(_FakeClient):
+    """A client whose folder listing is the observed tree."""
+
+    def get(self, path: str, **params):
+        if path.endswith("/documents/folders"):
+            return _LIVE_FOLDER_LISTING
+        return super().get(path, **params)
+
+
+def test_stored_name_carries_no_extension_so_the_match_is_extension_agnostic() -> None:
+    """OBSERVED (probe H, 2026-08-20): Smokeball stores `name` WITHOUT the
+    extension and `fileExtension` separately. An exact full-name match never
+    matches anything, which is how the firm's template stayed unresolvable
+    even after the folder was found."""
+    from smokeball_connector.library import name_matches
+
+    stored = {"name": "Template - Discovery Set", "fileExtension": ".docx"}
+    assert name_matches(stored, "Template - Discovery Set.docx")
+    assert name_matches(stored, "Template - Discovery Set")
+    assert not name_matches(stored, "Template - Demand Letter.docx")
+    # an authored override typed either way resolves
+    authored = {"name": "Template - Demand Letter (Policy Limits)", "fileExtension": ".docx"}
+    assert name_matches(authored, "Template - Demand Letter (Policy Limits).docx")
+    assert name_matches(authored, "Template - Demand Letter (Policy Limits)")
+    # a file whose name really does carry the extension still matches
+    assert name_matches({"name": "Template - Memo.docx"}, "Template - Memo.docx")
+
+
+def test_resolution_against_the_stored_name_shape() -> None:
+    client = _TreeClient(
+        matters=[{"id": "m-ops", "number": "2026-OPS-001"}],
+        folders=[],
+        files=[
+            {
+                "id": "tpl",
+                "name": "Template - Discovery Set",
+                "fileExtension": ".docx",
+                "folder": {"id": "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8"},
+                "dateCreated": "2026-08-20",
+            }
+        ],
+        blob=b"PK-firm-template",
+    )
+    out = resolve_template(client, _CFG, "discovery_set")
+    assert isinstance(out, ResolvedTemplate) and out.file_id == "tpl"
+
+
+def test_folder_listing_tree_is_walked_not_read_flat() -> None:
+    from smokeball_connector.library import find_folder_id
+
+    client = _TreeClient(matters=[], folders=[], files=[])
+    assert find_folder_id(client, "m-ops", "Document Library") == "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8"
+    assert find_folder_id(client, "m-ops", "document library") == "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8"
+    assert find_folder_id(client, "m-ops", "Nope") is None
+
+
+def test_nested_subfolders_are_reachable() -> None:
+    from smokeball_connector.library import _walk_folders
+
+    tree = [{"folders": [{"id": "a", "name": "A", "folders": [{"id": "b", "name": "B"}]}]}]
+    assert {f["id"] for f in _walk_folders(tree)} == {"a", "b"}
+
+
+def test_resolution_end_to_end_against_the_observed_tree_and_entry_shapes() -> None:
+    """The whole chain on the shapes the tenant actually returns: matter by
+    number, folder by name out of the tree, file by convention inside it."""
+    client = _TreeClient(
+        matters=[{"id": "m-ops", "number": "2026-OPS-001"}],
+        folders=[],
+        files=[
+            {
+                "id": "tpl",
+                "name": "Template - Discovery Set.docx",
+                "folder": {"id": "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8"},
+                "dateCreated": "2026-08-20",
+            }
+        ],
+        blob=b"PK-firm-template",
+    )
+    out = resolve_template(client, _CFG, "discovery_set")
+    assert isinstance(out, ResolvedTemplate)
+    assert out.file_id == "tpl" and out.folder_id == "9898f74a-3ad9-4b79-b209-a2f0f0c3d7d8"
+    assert out.bytes == b"PK-firm-template"
+
+
 def test_observed_wire_shape_folder_object_is_read_and_root_files_have_none() -> None:
     from smokeball_connector.library import _entry_folder_id
 
