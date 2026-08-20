@@ -85,6 +85,11 @@ _CUSTOMER_EXACT: frozenset[str] = frozenset(
         "SMOKEBALL_CLIENT_SECRET",
         "SMOKEBALL_API_KEY",
         "SMOKEBALL_REFRESH_TOKEN",
+        # The connector's scanned-document transcription (ss#2464) adds NO
+        # credential name here: it reuses the seat's own ANTHROPIC_API_KEY,
+        # already classified via env-consumption.yaml, delivered to the
+        # subprocess by the overlay registry. Its SMOKEBALL_VISION_* tuning vars
+        # are non-secret and classified in that same contract.
         # Smokeball webhook ingress (provision-customer.sh:611-616).
         "WEBHOOK_SECRET_SMOKEBALL",
         "WEBHOOK_SMOKEBALL_CLIENT_ID",
