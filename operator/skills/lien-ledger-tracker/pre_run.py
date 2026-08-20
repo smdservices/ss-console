@@ -744,17 +744,33 @@ def decide(
         "stall_days_authored": config.stall_days is not None,
     }
     if plans:
+        # Count each action for itself. Deriving one count by subtracting another
+        # from the total was wrong the moment a third action existed: a
+        # register-only wake reported itself as a held matter, which is a metric
+        # asserting something that did not happen, in a row the audit keeps.
         chases = [p for p in plans if p.action == ACTION_CHASE_PROVIDER]
+        holds = [p for p in plans if p.action == ACTION_SURFACE_HOLD]
+        registers = [p for p in plans if p.action == ACTION_EMIT_REGISTER]
+        # The basis names what is actually due, most actionable first. A wake
+        # that says "chase due" when only the periodic register came around
+        # misdescribes the run to anyone reading the heartbeat afterwards.
+        if chases:
+            basis = "closeout_chase_due"
+        elif holds:
+            basis = "closeout_hold_surface_due"
+        else:
+            basis = "closeout_register_due"
         return WakeDecision(
             wake=True,
-            decision_basis="closeout_chase_due",
+            decision_basis=basis,
             pre_run_inputs_digest=raw_inputs_for_digest,
             plans=tuple(plans),
             register=build_register(pull, config, today),
             extra_metadata={
                 **coverage,
                 "provider_chases_due": len(chases),
-                "hold_surface_due": len(plans) - len(chases),
+                "hold_surface_due": len(holds),
+                "register_due": len(registers),
                 "matters_in_chases": sorted({m for p in chases for m in p.matters}),
             },
         )

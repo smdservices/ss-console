@@ -599,3 +599,57 @@ def test_the_register_reads_the_committed_wire_fixtures_end_to_end():
     assert oldest["matter"] == "2026-SC-202" and oldest["detail"] == "not read"
     assert oldest["client"] == "Adaeze Okonkwo"
     assert reg["largest_recorded_exposure"][0]["matter"] == "2026-SC-201"
+
+
+# ------------------------------------------- decision summary (found on seat)
+
+
+def test_a_register_only_wake_is_not_reported_as_a_held_matter():
+    """Found by running the gate on the real seat: the hold count was derived by
+    subtracting chases from the total, so the periodic register counted itself as
+    a held matter, in a number the audit heartbeat keeps."""
+    decision = _decide(_pull([], cohort=0, deep=0), config=REGISTERED)
+    assert decision.wake is True
+    assert decision.extra_metadata["hold_surface_due"] == 0
+    assert decision.extra_metadata["register_due"] == 1
+    assert decision.extra_metadata["provider_chases_due"] == 0
+
+
+def test_a_register_only_wake_says_so_in_its_basis():
+    decision = _decide(_pull([], cohort=0, deep=0), config=REGISTERED)
+    assert decision.decision_basis == "closeout_register_due"
+
+
+def test_a_hold_only_wake_says_so_in_its_basis():
+    events = [_event(MATTER_A, gate.HOLD_SOURCE_ID, "sct-chase-hold", "fired", "2026-08-01T00:00:00Z")]
+    config = gate.CloseoutConfig(trigger_status="Pending", chase_cadence_days=14, stall_days=60)
+    decision = _decide(
+        _pull([_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 100.0)]),
+        events=events, config=config,
+    )
+    assert decision.decision_basis == "closeout_hold_surface_due"
+    assert decision.extra_metadata["hold_surface_due"] == 1
+
+
+def test_a_chase_takes_precedence_in_the_basis():
+    decision = _decide(
+        _pull([_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 100.0)]),
+        config=REGISTERED,
+    )
+    assert decision.decision_basis == "closeout_chase_due"
+    assert decision.extra_metadata["provider_chases_due"] == 1
+    assert decision.extra_metadata["register_due"] == 1, (
+        "the register still rides along; it simply is not what the wake is called after"
+    )
+
+
+def test_every_plan_action_is_counted_by_itself():
+    """No count is derived by subtracting another from the total."""
+    events = [_event(MATTER_B, gate.HOLD_SOURCE_ID, "sct-chase-hold", "fired", "2026-08-01T00:00:00Z")]
+    decision = _decide(_pull([
+        _obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 100.0),
+        _obligation(MATTER_B, "id-b", "Cedar Ridge Orthopedics", 200.0),
+    ]), events=events, config=REGISTERED)
+    meta = decision.extra_metadata
+    counted = meta["provider_chases_due"] + meta["hold_surface_due"] + meta["register_due"]
+    assert counted == len(decision.plans), "every plan is accounted for by its own action"
