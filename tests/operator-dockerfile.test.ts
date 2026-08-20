@@ -922,12 +922,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // scenarios ride AgentMail, so the green run is whole-overlay regression
     // evidence — the revised poller's own runtime proof happens on the A&P
     // seat per the overlay#275 contract ACs.
-    // overlay#281 (ss#2444, Hermes v0.18.0 -> v0.20.4 promotion PR-1): translate.py
+    // overlay#281 + #282 + #283 (ss#2444, Hermes v0.18.0 -> v0.20.4 promotion PR-1): translate.py
     // pins the v0.18 behaviours that v2026.8.18 defaults flip (approvals.mode
     // manual, agent.max_turns 90, tools.tool_search off, delegation fan-out 3,
     // display.show_reasoning false) + the tests. Single-commit range, NO tracked
-    // twin moves; overlaySha256 unchanged, only overlayRef.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="eeeac283ff122fd864f3f16a8978b4762352cc14"')
+    // twin moves; overlaySha256 unchanged, only overlayRef. #283 canonicalizes the
+    // v0.19 mcp__server__tool rename at the fan-out (without it a v0.20 seat refuses
+    // every connector tool); #282 is the matter-mixing read fence, carried along
+    // because it merged to overlay main between the two bumps.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ab352d5b758eac9c67231214bcb9c3574e338230"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
