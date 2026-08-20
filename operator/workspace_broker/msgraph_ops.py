@@ -414,7 +414,8 @@ class MsGraphOps:
         if not message_id:
             raise MsGraphRefused("reply requires the source message_id")
         comment = str(payload.get("comment") or "").strip()
-        if not comment:
+        html = str(payload.get("html") or "").strip()
+        if not (comment or html):
             raise MsGraphRefused("refusing to send an empty reply")
         if self._read_credential_path is None:
             raise MsGraphTransportError(
@@ -442,6 +443,42 @@ class MsGraphOps:
                 "authored senders get replies (ss#2258)"
             )
         self._request(
-            self._mail_path("messages", message_id, "reply"), "POST", {"comment": comment}
+            self._mail_path("messages", message_id, "reply"),
+            "POST",
+            self._reply_body(comment, html),
         )
         return {"message_id": "", "recipients": [sender], "mailbox": self.mailbox()}
+
+    @staticmethod
+    def _reply_body(comment: str, html: str) -> dict[str, Any]:
+        """The ``/reply`` request body: an HTML body when one was rendered,
+        otherwise today's bare comment.
+
+        ss#2489 — WHY THIS IS NOT COSMETIC. Graph composes the reply message IN
+        HTML (its own reference says so where it explains ``Prefer:
+        outlook.timezone``), so a plain-text ``comment`` is dropped into an HTML
+        body and every newline in it collapses. Live on hermes-ashton-price
+        2026-08-20: four replies reached the firm as one unbroken block. The raw
+        MIME named the cause — the text/html part carried the text inline with
+        ZERO ``<br>``, and text/plain was that HTML with the tags stripped.
+
+        ``comment`` and ``message.body`` are mutually exclusive: Graph answers
+        400 when both are present, so this returns one or the other and never
+        merges them.
+
+        WHAT WE GIVE UP, STATED RATHER THAN DISCOVERED LATER. The ``comment``
+        form produces a reply that carries the quoted original beneath it.
+        Whether Graph still appends that quote when the caller supplies
+        ``message.body`` is not documented, and this code does not assume either
+        way — the first live reply settles it. If the quote is gone and the firm
+        wants it, the fallback is ``createReply`` + ``PATCH`` + ``send``, which
+        prepends to the draft Graph already built. That was not taken here
+        because it is three calls where one will do, and a partial failure
+        strands a half-written draft in the client's own Drafts folder.
+
+        The recipient lock is untouched either way: Graph derives the recipients
+        from the source message and this body sets none.
+        """
+        if html:
+            return {"message": {"body": {"contentType": "HTML", "content": html}}}
+        return {"comment": comment}
