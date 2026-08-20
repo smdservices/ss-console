@@ -1,6 +1,6 @@
 # Hermes v0.18.0 → v0.20.4 Fleet Upgrade Plan
 
-**Status:** 🟡 Executing (PR-1: build + SMD-own seats). The A&P seat is promoted only after the Captain's explicit go (PR-2).
+**Status:** 🟡 PR-1 executed 2026-08-20 — pilot-smokeball, scott and smd/Crane on v0.20.4 (PR #2453, main `6281d080`). **Step 1 (staging) NEVER RAN**: smd-staging dies at the msgraph two-app gate before any build (ss#2467), so the rollback rehearsal it carried never happened either — see the step for what replaced it. A&P is PR-2, on the Captain's explicit go; assigned 2026-08-20 to the ap-golive-christa session, where the promotion is the first move of a larger arc (promotion, then the Christa mail flip).
 **Date:** 2026-08-19
 **Author:** agent session (Captain: Scott Durgan)
 **Governs:** the second deliberate blessed-version promotion under [ADR 0024](../../adr/0024-hermes-consumption-and-update-cadence.md); supersedes the procedure in [hermes-v0.18-upgrade-plan.md](hermes-v0.18-upgrade-plan.md) where the two differ
@@ -80,11 +80,27 @@ Ordering constraints that shape the steps: the provisioner builds from the invok
 
 **Step 0 — baseline.** Capture hook-probe `kwargs_seen` per hook on pilot-smokeball (v0.18) from `/opt/data/profiles/<slug>/logs/agent.log` + `gateway.log`; if rotated, the 07-07 run's recorded set is the baseline.
 
-**Step 1 — staging.** `operator/bin/reprovision-staging.sh` (isolated creds; boot-smoke automatic, including the new sha check). Then on the seat, as the hermes uid with the profile:
-`setpriv --reuid=hermes --regid=hermes --init-groups /opt/hermes/.venv/bin/hermes -p <slug> config get <key>` for `approvals.mode`, `agent.max_turns`, `tools.tool_search.enabled`, `delegation.max_concurrent_children`, `display.show_reasoning` (without `-p` it reads the bare default profile; without setpriv it touches root-owned files in the profile home); the gateway log line `Agent budget: max_iterations=90 (agent.max_turns from config.yaml, …)`; no `tool_search activated` line after the boot self-check turn; `node --version` ≥ 22.22 and `ldd /usr/local/bin/node` clean; `command -v clio-mcp` → `/usr/local/bin/clio-mcp`; `hermes plugins list` shows the overlay and the heartbeat `version` = `eeeac283`; the gateway log `MCP: N tool(s) from M server(s)` (the mcp 2.0 client ↔ 1.x `_reference` connector handshake); hook-probe `kwargs_seen` ⊇ Step 0.
-**Rollback rehearsal:** flip staging's pin back to `v2026.7.1@7c1a…`, reprovision on the new Dockerfile (proves v2026.7.1 still builds under Node 26), boot-smoke + sha green, flip forward, reprovision again. Both runs timed; that is the window quoted for A&P (the "~18 minute" figure in `provision-customer.sh` describes the 2026-06-11 secrets-ordering incident, not a reprovision).
+**Step 1 — staging. NOT RUN — the seat cannot be built.** `operator/bin/reprovision-staging.sh` exits before the build: `provision-customer.sh`'s two-app msgraph gate refuses smd-staging because `MSGRAPH_SEND_CLIENT_ID__SMD_STAGING` / `_SECRET__SMD_STAGING` are absent from the vault (ss#2467, `vfy_01M0DWJMC0RNS9ZYR3Y907AJVY`). **pilot-smokeball served as the proving seat instead**, at higher fidelity: real connector credentials rather than a sandbox. Every observation below was made there (Step 2). Kept as written so the intended staging procedure survives for whoever unblocks ss#2467.
 
-**Step 2 — pilot-smokeball.** `seat-readiness.py` first; `yes s | operator/bin/reprovision.sh pilot-smokeball`; boot-smoke green; then `rehearse-card.py pilot-smokeball --as <authored admin> --only N` for a card command that calls Smokeball, and assert post-upgrade audit rows: `TOOL_CALL_COMPLETED` for an `mcp_smokeball_*` tool (mcp 2.0 ↔ 1.x with real creds), the inbound/`WEBHOOK_ROUTED` row for the same turn (`pre_gateway_dispatch` fired), a usage row (`post_api_request`), the voice plugin's line for the reply (`transform_llm_output`). `subagent_stop` is not exercised and is reported as source-compat only.
+The original text: `operator/bin/reprovision-staging.sh` (isolated creds; boot-smoke automatic, including the new sha check). Then on the seat, as the hermes uid with the profile:
+`setpriv --reuid=hermes --regid=hermes --init-groups /opt/hermes/.venv/bin/hermes -p <slug> config get <key>` for `approvals.mode`, `agent.max_turns`, `tools.tool_search.enabled`, `delegation.max_concurrent_children`, `display.show_reasoning` (without `-p` it reads the bare default profile; without setpriv it touches root-owned files in the profile home); the gateway log line `Agent budget: max_iterations=90 (agent.max_turns from config.yaml, …)`; no `tool_search activated` line after the boot self-check turn; `node --version` ≥ 22.22 and `ldd /usr/local/bin/node` clean; `command -v clio-mcp` → `/usr/local/bin/clio-mcp`; `hermes plugins list` shows the overlay and the heartbeat `version` = `eeeac283`; the gateway log `MCP: N tool(s) from M server(s)` (the mcp 2.0 client ↔ 1.x `_reference` connector handshake); hook-probe `kwargs_seen` ⊇ Step 0.
+**Rollback rehearsal — NEVER PERFORMED.** It was planned here and could not run: staging never built (above). Nobody has proven that `v2026.7.1` still builds on the Node-26 Dockerfile, so the pin-flip rollback is UNTESTED and must not be quoted as a measured lever.
+
+What replaced it, unplanned: the **image-ref rollback was exercised for real** on pilot-smokeball at 2026-08-20T00:2x UTC, when the `.python-version` defect crash-looped the workspace broker and the seat went down. `fly machine update <id> --image <previous .config.image> -a hermes-pilot-smokeball -y` followed by `fly machine start` restored it (`broker-up`, `gateway:200`). It was not stopwatched: minutes, not tens of minutes, and no rebuild. **Capture `.config.image` before every reprovision** — that is the lever that has actually been used.
+
+Measured reprovision windows (start → boot-smoke green), all from the same branch, three seats:
+
+| Seat            | Start     | Green     | Elapsed |
+| --------------- | --------- | --------- | ------- |
+| pilot-smokeball | 01:24:08Z | 01:36:42Z | 12m34s  |
+| scott           | 02:38:49Z | 02:51:10Z | 12m21s  |
+| smd/Crane       | 02:52:19Z | 03:05:15Z | 12m56s  |
+
+Inside that window the Machine reaches `started` ≈11.5 min in (the remote build dominates) and boot-smoke takes ≈63 s. The old Machine serves throughout the build, so the seat is down only for the tail. The "~18 minute" figure in `provision-customer.sh` describes the 2026-06-11 secrets-ordering incident, not a reprovision.
+
+**Step 2 — pilot-smokeball (the seat this promotion was actually proven on).** `seat-readiness.py` first; then `for _ in $(seq 200); do echo s; done | operator/bin/reprovision.sh pilot-smokeball` — **never `yes s |`**: an unexpected prompt ate an unbounded feed on 2026-08-20 and the log reached 50 GB before anyone noticed; boot-smoke green; then `rehearse-card.py pilot-smokeball --as <authored admin> --only N` for a card command that calls Smokeball, and assert post-upgrade audit rows: `TOOL_CALL_COMPLETED` for an `mcp_smokeball_*` tool (mcp 2.0 ↔ 1.x with real creds), the inbound/`WEBHOOK_ROUTED` row for the same turn (`pre_gateway_dispatch` fired), a usage row (`post_api_request`), the voice plugin's line for the reply (`transform_llm_output`). `subagent_stop` is not exercised and is reported as source-compat only.
+
+**A boot-smoke check that passes vacuously.** `msgraph-send-credential-stripped-from-agent` asserts the send credential is absent from the agent env. On pilot, scott and smd — none of which author msgraph — that is trivially true, so its PASS on those seats measured nothing. **hermes-ashton-price is the first seat where it is a real assertion on v0.20.4.** A failure there is a finding, not flakiness. Same shape as Law 12: a check that cannot fail has measured nothing.
 
 **Step 3 — scott.** Reprovision; boot-smoke; the Captain sends one Telegram message and gets a reply (liveness of a Telegram seat on 0.20.4).
 
