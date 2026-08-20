@@ -233,7 +233,7 @@ def _handler(captured: list[httpx.Request], *, template: bytes | None = None, li
 def _stub_record_check(monkeypatch) -> None:
     from smokeball_connector import record_check as rc
 
-    monkeypatch.setattr(server, "_collect_matter_sources", lambda _m: ([("Src", "text")], []))
+    monkeypatch.setattr(server, "_collect_matter_sources", lambda _m: ([("Src", "text")], [], []))
     monkeypatch.setattr(rc, "run_record_check", lambda *a, **k: rc.RecordCheckResult(passed=True, disposition="pass", refusals=[], checked_sources=1))
 
 
@@ -369,7 +369,7 @@ def test_collect_matter_sources_skips_library_templates(monkeypatch, tmp_path) -
         return httpx.Response(200, json={"ok": True})
 
     monkeypatch.setattr(server, "_get_client", lambda: _mock_client(handler))
-    sources, unextractable = server._collect_matter_sources("m-ops")
+    sources, _vision, unextractable = server._collect_matter_sources("m-ops")
     assert sources == [("Police Report.txt", "REPORT TEXT")]
     assert unextractable == []
     downloaded = [r.url.path for r in captured if r.url.path.endswith("/download")]

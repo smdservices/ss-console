@@ -1300,16 +1300,32 @@ def read_document(
     ``matterId`` in code, because the skills that read documents are the ones
     that go on to quote them in a draft, and the number in that draft must come
     from the read rather than from the document's own text (a served pleading
-    names ITS matter, which is not always this one)."""
-    from .extract import UnsupportedDocumentError, extract_text
+    names ITS matter, which is not always this one).
+
+    **``extraction`` names the road the text came from, and it is part of the
+    read.** ``pypdf``/``docx``/``plain`` is the document's own text layer.
+    ``vision``/``vision_cached`` is a MACHINE TRANSCRIPTION of a scan that no
+    human has read: cite it as a transcription, never as the document verbatim
+    in anything filed, and check any passage you quote against the scan itself.
+    ``[illegible]`` in that text means the transcriber could not read a token —
+    it is a gap for a person to fill, never something to infer. ``none_scanned``
+    means the file is paper this tool could not read at all; ``extractionReason``
+    says why (``no_credential``, ``over_page_cap``, ``over_byte_cap``,
+    ``api_error``, ``truncated``, ``incomplete_transcription``, ``disabled``)
+    and ``needsHumanRead`` is true. That is never an empty document — say so
+    rather than treating silence as content."""
+    from .extract import METHOD_NONE_SCANNED, UnsupportedDocumentError, extract_text_ex
 
     client = _get_client()
     info, blob = client.download_file(matter_id, file_id)
     try:
-        text = extract_text(
+        result = extract_text_ex(
             blob,
             file_name=str(info.get("name") or ""),
             file_extension=str(info.get("fileExtension") or ""),
+            # The ONLY place vision is initiated: a deliberate read of one named
+            # document. The record-check path consumes the cache and never bills.
+            allow_vision=True,
         )
     except UnsupportedDocumentError as exc:
         unsupported = {
@@ -1321,6 +1337,7 @@ def read_document(
         }
         _attach_matter_ref(client, unsupported)
         return unsupported
+    text = result.text
     window = text[offset : offset + max_chars]
     read = {
         "fileId": file_id,
@@ -1332,7 +1349,17 @@ def read_document(
         "offset": offset,
         "truncated": offset + max_chars < len(text),
         "text": window,
+        "extraction": result.method,
     }
+    if result.pages is not None:
+        read["pageCount"] = result.pages
+    if result.reason is not None:
+        read["extractionReason"] = result.reason
+    if result.method == METHOD_NONE_SCANNED:
+        # A scan we could not read is NOT an empty document. Before this the
+        # response was total_chars: 0 with no error and a skill could not tell
+        # the two apart (ss#2464).
+        read["needsHumanRead"] = True
     _attach_matter_ref(client, read)
     return read
 
@@ -1608,15 +1635,34 @@ def render_docx_template(
     return out
 
 
-def _collect_matter_sources(matter_id: str) -> tuple[list[tuple[str, str]], list[str]]:
-    """Every readable document on the matter as ``(name, extracted_text)``, plus
-    the names of the ones that would not extract.
+def _collect_matter_sources(
+    matter_id: str,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[str]]:
+    """Every readable document on the matter as ``(name, extracted_text)``, the
+    ones whose text is a MACHINE TRANSCRIPTION of a scan, and the names of the
+    ones that would not extract.
 
-    The second list is not diagnostics. A source that did not extract makes a
+    The third list is not diagnostics. A source that did not extract makes a
     correctly quoted passage look fabricated to gate 2a, so the caller REFUSES
-    on it rather than checking against a partial record."""
-    from .extract import extract_text
+    on it rather than checking against a partial record.
+
+    THIS PATH NEVER INITIATES A TRANSCRIPTION (ss#2464). It reads the vision
+    cache — a transcription somebody already paid for through ``read_document``
+    — and nothing more. Two reasons, and the second is the important one.
+    Billing: this runs over every document on the matter on every render.
+    Discipline: a scanned matter's draft path opens only after a person
+    deliberately read each scan, so an uncached scan still lands in
+    ``unextractable`` and still hard-refuses the draft, exactly as before."""
+    from .extract import (
+        METHOD_DOCX,
+        METHOD_PLAIN,
+        METHOD_PYPDF,
+        METHOD_VISION_CACHED,
+        extract_text_ex,
+    )
     from .library import find_folder_id, is_library_file, load_library_config
+
+    mechanical = (METHOD_PYPDF, METHOD_DOCX, METHOD_PLAIN)
 
     client = _get_client()
     listing = client.get(f"/matters/{matter_id}/documents/files", Limit=500, Offset=0)
@@ -1627,6 +1673,7 @@ def _collect_matter_sources(matter_id: str) -> tuple[list[tuple[str, str]], list
     lib_cfg = load_library_config()
     lib_folder = find_folder_id(client, matter_id, lib_cfg.folder_name) if lib_cfg.folder_name else None
     sources: list[tuple[str, str]] = []
+    vision_sources: list[tuple[str, str]] = []
     unextractable: list[str] = []
     for entry in entries or []:
         if is_library_file(entry, lib_cfg, lib_folder):
@@ -1634,17 +1681,24 @@ def _collect_matter_sources(matter_id: str) -> tuple[list[tuple[str, str]], list
         name = str(entry.get("name") or entry.get("id") or "document")
         try:
             _meta, blob = client.download_file(matter_id, entry["id"])
-            text = extract_text(
-                blob, file_name=name, file_extension=str(entry.get("fileExtension") or "")
+            result = extract_text_ex(
+                blob,
+                file_name=name,
+                file_extension=str(entry.get("fileExtension") or ""),
+                allow_vision=False,  # cache-read-only; see the docstring
             )
         except Exception:  # noqa: BLE001 — one unreadable document refuses the whole check
             unextractable.append(name)
             continue
-        if text and text.strip():
-            sources.append((name, text))
+        # Branch on the METHOD, never on whether the text is truthy: which road
+        # the text came from is what decides how it may be used.
+        if result.method == METHOD_VISION_CACHED:
+            vision_sources.append((name, result.text))
+        elif result.method in mechanical and result.text.strip():
+            sources.append((name, result.text))
         else:
             unextractable.append(name)
-    return sources, unextractable
+    return sources, vision_sources, unextractable
 
 
 @server.tool()
@@ -1750,12 +1804,13 @@ def render_docx_draft(
     # The ten mechanical gates, against this matter's own record. Nothing is
     # rendered or uploaded until they pass — see record_check.py for the
     # disposition table and for why exit 2 refuses.
-    sources, unextractable = _collect_matter_sources(matter_id)
+    sources, vision_sources, unextractable = _collect_matter_sources(matter_id)
     verdict = run_record_check(
         draft_markdown,
         sources,
         held_out_names=set(held_out_file_names or ()),
         unextractable=unextractable,
+        vision_sources=vision_sources,
     )
     if not verdict.passed:
         return {

@@ -66,7 +66,14 @@ vars:
     requirement: required
     agent_env: held
     custody: customer
-    note: the gateway's model credential (per-seat Anthropic workspace key or BYO key)
+    note: >-
+      the gateway's model credential (per-seat Anthropic workspace key or BYO
+      key). THIS ROW IS THE AGENT PROCESS ONLY. The Smokeball connector
+      subprocess also reads a var of this name for its scanned-document vision
+      read, but the overlay registry remaps it from
+      SMOKEBALL_VISION_ANTHROPIC_KEY (its own row below) — a separate,
+      spend-limited key, because a connector env value is materialized to the
+      per-seat volume in plaintext. This key is never handed to a connector.
   SMD_D1_AUDIT_BINDING:
     stage: agent
     requirement: required
@@ -285,6 +292,83 @@ vars:
       connector var — the Machine uses it to verify the state parameter that
       connect-smokeball.sh signs, so an unstaged key makes the connect callback
       reject every attempt. Infra custody: derived from an SMD-owned master.
+
+  # ---- Smokeball connector: scanned-document vision read (ss#2464) ----
+  # A no-text-layer PDF is a photograph of paper. The connector transcribes one
+  # by sending it to the Messages API, which means the connector subprocess
+  # needs an Anthropic credential — and it must NOT be the seat's own
+  # ANTHROPIC_API_KEY. Registry env values are MATERIALIZED onto the per-seat
+  # volume in plaintext (overlay bootstrap/translate.py, ADR 0010), so the value
+  # that lands there is a SEPARATE, spend-limited key. The overlay registry
+  # remaps it: the subprocess sees it as ANTHROPIC_API_KEY (the name every
+  # Anthropic client library reads), sourced from SMOKEBALL_VISION_ANTHROPIC_KEY
+  # — the same remap shape as the clio ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY row.
+  # Absent => the connector fail-safes to pypdf-only and marks scanned files
+  # explicitly unreadable; it never crashloops and never fails open.
+  SMOKEBALL_VISION_ANTHROPIC_KEY:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: customer
+    note: >-
+      Scoped, spend-limited Anthropic key for the Smokeball connector's
+      scanned-document transcription. Remapped to ANTHROPIC_API_KEY inside the
+      connector subprocess ONLY (overlay mcp_registry env_secrets_optional).
+      Never the seat's own model key: this value is materialized to the per-seat
+      volume in plaintext.
+  SMOKEBALL_VISION_MODEL:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Transcription model override; defaults to claude-opus-5 in the connector.
+      Non-secret SMD deployment choice, like SMOKEBALL_ENVIRONMENT.
+  SMOKEBALL_VISION_PAGE_CAP:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Per-file page ceiling for a transcription (default 40). A file above it is
+      refused EXPLICITLY (extraction none_scanned / over_page_cap), never read
+      partially. The cost fence.
+  SMOKEBALL_VISION_MAX_BYTES:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Per-file byte ceiling (default 8MB), checked BEFORE base64. The connector
+      clamps it to a hard 23MB because base64 inflates by 4/3 against the API's
+      32MB request cap.
+  SMOKEBALL_VISION_DISABLED:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Kill switch. Set => scanned files are marked unreadable
+      (none_scanned / disabled) with no API call. Reads in the safe direction.
+  SMOKEBALL_EXTRACT_CACHE_DIR:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Where transcriptions are cached, default
+      /opt/data/smokeball-extract-cache (0700, files 0600). Deliberately OUTSIDE
+      .smokeball-mcp/, which holds the OAuth refresh token. On the Fly volume,
+      so it SURVIVES REPROVISION — it is on the gone-means-gone layer list.
+  SMOKEBALL_EXTRACT_CACHE_MAX_BYTES:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    custody: infra
+    note: >-
+      Cache ceiling in bytes (default 256MB), LRU-evicted on write; entries
+      expire after 30 days. The volume is small and an unbounded cache becomes a
+      disk-full incident.
 
   # ---- Telegram approval channel ----
   # The confirm round-trip's transport. The bot token is a hand-set Fly secret,
