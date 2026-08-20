@@ -1010,6 +1010,12 @@ COPY operator/templates/r2-account-key-strip-probe.py /app/r2-account-key-strip-
 # manifest<=map check, run where both the baked manifest and the installed overlay
 # are present).
 COPY operator/templates/connector-classification-probe.py /app/connector-classification-probe.py
+# ss#2167: boot-smoke asserts the matter-mixing READ fence is installed and
+# discriminates (refuses a second matter, allows the same one). The capture path
+# it depends on swallows exceptions by contract, so a broken fence is otherwise
+# indistinguishable from a clean fleet — no error, no alert, sends simply stop
+# being checked.
+COPY operator/templates/matter-mixing-fence-probe.py /app/matter-mixing-fence-probe.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on
