@@ -113,8 +113,48 @@ def main() -> None:
             f"it is refusing everything ({same})"
         )
 
+    # 3. The WIRE spelling must reach the fence too.
+    #
+    # This assertion exists because the probe above could not have caught the
+    # ss#2444 regression. Hermes v0.19 renamed MCP tools
+    # ``mcp_<server>_<tool>`` -> ``mcp__<server>__<tool>``. The fence's tool set
+    # is keyed on the legacy spelling, so on a v0.20 seat without the boundary
+    # translation ``is_content_read()`` returns False and the fence silently
+    # ISN'T THERE — no refusal, no error. Every assertion above uses the
+    # canonical spelling directly, so all of them would have passed while the
+    # real read path was unfenced. The instrument could not observe its own
+    # layer.
+    #
+    # So drive the wire form through the same canonicalizer the fan-out uses.
+    # If a future Hermes rename escapes that translation, this fails the boot
+    # instead of leaving the fence quietly inert.
     matter_binding.drop(SESSION)
-    print("PASS: matter-mixing fence refuses a second matter and allows the same one")
+    try:
+        from shared.mcp_tool_names import canonical_tool_name
+    except Exception as exc:  # noqa: BLE001
+        fail(f"cannot import the tool-name canonicalizer ({exc!r}) — overlay predates ss#2444")
+
+    wire_memos = "mcp__smokeball__get_memos_on_matter"
+    if not matter_binding.is_content_read(canonical_tool_name(wire_memos)):
+        fail(
+            f"the wire tool name {wire_memos} does not canonicalize into the content-read "
+            "set — the fence is inert for every real read on this seat (ss#2444 class)"
+        )
+
+    matter_binding.record_from_read(
+        SESSION, "{}", tool_name=canonical_tool_name(wire_memos), args={"matter_id": MATTER_A}
+    )
+    if matter_gate.content_read_refusal(SESSION, canonical_tool_name(wire_memos), {"matter_id": MATTER_B}) is None:
+        fail(
+            "a second matter read under the WIRE tool spelling was permitted — the fence "
+            "does not cover the names this Hermes version actually sends"
+        )
+
+    matter_binding.drop(SESSION)
+    print(
+        "PASS: matter-mixing fence refuses a second matter, allows the same one, "
+        "and covers the v0.19+ wire tool spelling"
+    )
 
 
 if __name__ == "__main__":
