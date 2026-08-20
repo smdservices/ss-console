@@ -601,7 +601,30 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # consume kwargs["result"] the same way. Files: shared/inbound.py,
 # plugins/hermes-smd-establishment + tests -- NOT tracked pairs; every
 # overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="78c25442d21a521527f68947a197ada0b7590b57"
+# 78c2544 -> 16770d3 (2026-08-20, ss#2489): one commit, and it is the second
+# live defect this evening on the paying client's seat. Four Operator replies
+# reached the firm as ONE UNBROKEN BLOCK -- sections, lists and paragraphs all
+# collapsed. Graph's /reply action composes the reply message IN HTML (its own
+# reference says so where it explains `Prefer: outlook.timezone`), and this
+# transport hands it a plain-text `comment`, so every newline dies to HTML
+# whitespace collapsing before the message leaves the tenant. Proven from the
+# wire, not inferred: the raw MIME of message 1a020fe88536d941 is
+# multipart/alternative whose text/html part carries the model's text inline in
+# <body> with ZERO <br>, and whose text/plain half is that same HTML with the
+# tags stripped -- which is why both halves were equally unreadable and no mail
+# client could rescue it. Second half of the cause: shared/report_render.py is
+# escape-by-default, purity-tested and live-proven (vfy_01KXMVRX1C2NAMYKH6JSQWTJEV),
+# but hermes-smd-trust injects it as args["html"], a field only the AgentMail
+# transport reads, so it had never once run on an msgraph seat. overlay#288
+# renders the body in `_send_msgraph_reply` and passes it beside the plain text;
+# the broker half (operator/workspace_broker/msgraph_ops.py, this same PR) posts
+# message.body instead of comment. Both sides treat the html as OPTIONAL on the
+# wire, so the two repos deploy in either order. Falsifier run: reverting only
+# the render call fails exactly the three new structure/escaping tests while the
+# other 14 in that file pass. Files: plugins/hermes-smd-reply,
+# shared/msgraph_broker.py + tests -- NOT tracked pairs; every overlaySha256
+# unchanged, only overlayRef.
+ARG OVERLAY_REF="16770d33148670f2535aabc3592147b469d52dfe"
 
 ARG CUSTOMER_SLUG=customer-zero
 

@@ -521,6 +521,73 @@ def test_reply_refuses_without_a_message_id_or_a_comment(tmp_path: Path) -> None
         ops.reply({"message_id": "AAMk123", "comment": "   "})
 
 
+# ---------------------------------------------------------------------------
+# ss#2489 — the reply body reaches the firm with its line structure intact
+#
+# The incident: Graph composes the /reply message IN HTML, so a plain-text
+# comment lands in an HTML body and every newline collapses. Four replies
+# reached hermes-ashton-price's principal as one unbroken block on 2026-08-20.
+# ---------------------------------------------------------------------------
+
+
+_MULTILINE = "Line one.\n\nLine two."
+_RENDERED = "<div><p>Line one.</p><p>Line two.</p></div>"
+
+
+def test_reply_sends_an_html_body_when_one_was_rendered(tmp_path: Path) -> None:
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": _MULTILINE, "html": _RENDERED})
+    body = http.graph_posts()[0][2]
+    assert body == {"message": {"body": {"contentType": "HTML", "content": _RENDERED}}}
+
+
+def test_reply_never_sends_comment_and_body_together(tmp_path: Path) -> None:
+    """Graph answers 400 when both are present, so the two are exclusive. This is
+    the falsifier for the test above: an implementation that merely ADDED the
+    html alongside the comment would satisfy that assertion's spirit and 400 on
+    the wire."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": _MULTILINE, "html": _RENDERED})
+    body = http.graph_posts()[0][2] or {}
+    assert "comment" not in body
+
+
+def test_reply_without_html_is_byte_identical_to_today(tmp_path: Path) -> None:
+    """The blast radius stays at zero for a caller that sends no html — an older
+    overlay against a newer broker replies exactly as it does now."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    assert http.graph_posts()[0][2] == {"comment": "sure"}
+
+
+def test_reply_accepts_an_html_only_body(tmp_path: Path) -> None:
+    """An html body IS a body: the empty-reply refusal must not fire on it."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "html": _RENDERED})
+    assert http.graph_posts()[0][2] == {
+        "message": {"body": {"contentType": "HTML", "content": _RENDERED}}
+    }
+
+
+def test_reply_still_refuses_when_both_halves_are_empty(tmp_path: Path) -> None:
+    ops = _ops(tmp_path, FakeGraph(source_from="scott@smd.services"))
+    with pytest.raises(MsGraphRefused):
+        ops.reply({"message_id": "AAMk123", "comment": "   ", "html": "  "})
+
+
+def test_the_html_reply_is_still_sender_fenced(tmp_path: Path) -> None:
+    """The new body shape must not route around the check that matters."""
+    http = FakeGraph(source_from=UNAUTHORED)
+    ops = _ops(tmp_path, http)
+    with pytest.raises(MsGraphRefused):
+        ops.reply({"message_id": "AAMk123", "comment": _MULTILINE, "html": _RENDERED})
+    assert http.graph_posts() == []
+
+
 def test_the_reply_lane_is_narrower_than_the_send_lane(tmp_path: Path) -> None:
     """``admins`` may be written to; only ``inbound_allow_from`` may be answered.
 
