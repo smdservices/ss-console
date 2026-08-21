@@ -312,4 +312,29 @@ describe('Operator customer Machine entrypoint — gateway liveness supervisor (
       'a pid file would prove a number was written once, not that the loop turns'
     ).toBe(false)
   })
+
+  it('publishes its state machine as one word the webhook gate can read (part 2)', () => {
+    // The gate is the hermes uid and the one process that survives a wedge; it
+    // ships these on the control-plane heartbeat so a refusing or never-armed
+    // supervisor reaches an inbox instead of only `fly logs`. Read-only for the
+    // agent is the whole security property: root-owned dirs with no group/other
+    // write bit, so the agent can neither forge, edit nor unlink a line.
+    expect(ENTRYPOINT_CODE).toMatch(
+      /install -d -o root -g root -m 0755 "\$\{GATEWAY_LIVENESS_RUN_DIR\}"/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(
+      /install -d -o root -g root -m 0755 "\$\{GATEWAY_LIVENESS_LEDGER_DIR\}"/
+    )
+    expect(
+      /install -d -o root -g root -m 0700 "\$\{GATEWAY_LIVENESS_(RUN|LEDGER)_DIR\}"/.test(
+        ENTRYPOINT_CODE
+      ),
+      'a 0700 dir would make every gate-derived heartbeat field NULL forever, and NULL is a hold'
+    ).toBe(false)
+    for (const word of ['not-armed', 'armed', 'inert', 'not-watching', 'refusing']) {
+      expect(ENTRYPOINT_CODE, `state transition "${word}" must be written`).toMatch(
+        new RegExp(`gateway_liveness_state ${word}\\b`)
+      )
+    }
+  })
 })
