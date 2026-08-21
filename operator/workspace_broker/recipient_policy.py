@@ -36,6 +36,7 @@ on none of them, so all four are refused.
 
 from __future__ import annotations
 
+import hashlib
 import unicodedata
 from dataclasses import dataclass
 from email.utils import parseaddr
@@ -107,6 +108,32 @@ def normalize_address(value: Any) -> str:
     # the raw string would let an unparseable value be compared against the
     # roster, and the only safe comparison for garbage is one that fails.
     return canonicalize(parsed) if parsed else ""
+
+
+def sender_key(value: Any) -> str | None:
+    """The audit row's answer to "which person" — ``sha256`` of the canonical
+    address, or ``None`` when there is no address (ss#2497).
+
+    HASHED, NOT STORED. The audit record is a file a firm exports and forwards,
+    and the issue's non-goal is explicit: no row carries a raw address. A firm
+    that holds its own people's addresses reproduces the key and finds every row
+    that person caused; a reader who does not already know the address learns
+    nothing. A rostered display name may ride alongside as a LABEL and is never
+    the identity, because a display name is attacker-controlled text in every
+    mail system.
+
+    Built on :func:`normalize_address` and therefore on :func:`canonicalize`,
+    which is the whole reason it lives in THIS module rather than beside a
+    writer. A key is only a join if both ends reduce the same human to the same
+    bytes, and the overlay's twin (``shared/audit_contract.sender_key``) applies
+    the identical NFC + strip + lower before hashing. Hashing the raw string
+    instead would give the same person two identities the day one mail client
+    sends a decomposed ``é``.
+    """
+    address = normalize_address(value)
+    if not address:
+        return None
+    return hashlib.sha256(address.encode("utf-8")).hexdigest()
 
 
 def domain_of(address: str) -> str:
