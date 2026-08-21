@@ -21,6 +21,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -241,6 +242,101 @@ def test_the_archive_key_and_digest_are_reproducible(tmp_path):
     # And the digest is over the bytes on the wire, so an auditor reproduces it
     # by hashing the object they downloaded.
     assert first.sha256 == __import__("hashlib").sha256(uploaded[0][0].read_bytes()).hexdigest()
+
+
+def test_the_archive_key_names_the_day_the_time_and_the_chain_tip():
+    """``audit/<slug>/<date>/<HHMMSS>Z-<head12>.json.gz``.
+
+    The date is a path segment so a day's copies list together; the head rides
+    in the name so a reader sees which tip a copy carries without fetching it.
+    """
+    when = datetime(2026, 8, 21, 13, 39, 7, tzinfo=timezone.utc)
+    head = "a1b2c3d4e5f6" + "0" * 52
+    assert watch.archive_key("seat", head, now=when) == (
+        "audit/seat/2026-08-21/133907Z-a1b2c3d4e5f6.json.gz"
+    )
+
+
+def test_a_headless_export_says_nohead_rather_than_inventing_a_tip():
+    """An export with no chained rows has no tip, and the key must say so."""
+    when = datetime(2026, 8, 21, 8, 0, 0, tzinfo=timezone.utc)
+    for head in (None, ""):
+        assert watch.archive_key("seat", head, now=when) == (
+            "audit/seat/2026-08-21/080000Z-nohead.json.gz"
+        )
+
+
+def test_two_runs_in_one_utc_day_write_two_different_keys(tmp_path):
+    """The 2026-08-21 defect, as an assertion.
+
+    The 08:00Z run wrote the day's object; the audit-7y bucket lock over the
+    audit/ prefix then correctly refused the 13:39Z overwrite with
+    ObjectLockedByBucketPolicy, which HELD every seat and masked a clean
+    verdict. An object-locked prefix and a once-per-day key cannot both stand.
+    """
+    rows = _chain(4)
+    uploaded: list[str] = []
+
+    def uploader(local: Path, destination: str) -> None:
+        uploaded.append(destination)
+
+    morning = watch.archive_export(
+        "seat", rows, bucket="b", uploader=uploader, work_dir=tmp_path / "am",
+        now=datetime(2026, 8, 21, 8, 0, 0, tzinfo=timezone.utc),
+    )
+    afternoon = watch.archive_export(
+        "seat", rows, bucket="b", uploader=uploader, work_dir=tmp_path / "pm",
+        now=datetime(2026, 8, 21, 13, 39, 7, tzinfo=timezone.utc),
+    )
+    assert morning.key != afternoon.key
+    assert uploaded[0] != uploaded[1]
+    # Same UTC day, so they list together under one prefix.
+    assert morning.key.startswith("audit/seat/2026-08-21/")
+    assert afternoon.key.startswith("audit/seat/2026-08-21/")
+    # Same rows, so the digest is still reproducible across the two copies.
+    assert morning.sha256 == afternoon.sha256
+
+
+def test_the_chain_verdict_survives_an_upload_that_raises(tmp_path, monkeypatch):
+    """Verify first, archive second, and never let the copy hide the verdict.
+
+    On 2026-08-21 the archive hold REPLACED the outcome, so a run that had just
+    proven a 1,585-row chain intact reported only that an upload failed.
+    """
+    rows = _chain(6)
+    pin = {"audit_head": rows[-1]["row_hash"], "audit_rows": len(rows)}
+
+    class _Console:
+        def newest_pin(self, slug):
+            return pin
+
+    def explode(*a, **kw):
+        raise RuntimeError("An error occurred (ObjectLockedByBucketPolicy)")
+
+    monkeypatch.setattr(watch, "archive_export", explode)
+    monkeypatch.setattr(watch, "seam_client_from_env", lambda slug: _Reader(rows))
+
+    outcome = watch.process_seat("seat", _Console(), bucket="b", archive=True)
+
+    # The run is still a hold -- the copy is half the issue.
+    assert outcome.state == watch.HOLD
+    assert "ObjectLockedByBucketPolicy" in outcome.headline
+
+    # ...and the verdict is reported, ahead of the hold line.
+    text = "\n".join(watch.summary_lines([outcome], "lock note"))
+    verdict_line = "chain intact, 6 chained rows"
+    assert verdict_line in text
+    assert text.index(verdict_line) < text.index("could not be written")
+    assert outcome.details["chain_verdict"]["state"] == watch.CLEAN
+
+
+class _Reader:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def read_all(self, table):
+        return list(self._rows)
+
 
 
 # The rule body the LIVE bucket answered with on 2026-08-21. Pinned to the

@@ -17,8 +17,10 @@
 # AND THE COPY. The only copy of the ledger off the broker's file was Fly's daily
 # volume snapshot on 5-DAY retention. The A&P ledger already lost its
 # pre-2026-07-29 rows once when the seat was rebuilt on a new volume. This job
-# writes audit/<slug>/<date>.json.gz to R2 and records the key and sha256 in the
-# run summary, so the record survives loss of the Machine.
+# writes audit/<slug>/<date>/<HHMMSS>Z-<head12>.json.gz to R2 and records the
+# key and sha256 in the run summary, so the record survives loss of the Machine.
+# The key is unique per RUN because the audit/ prefix is object-locked and a
+# repeated key cannot be overwritten inside its retention window.
 #
 # HOLDS vs FINDS, and a hold is loud (#2395, the control-probes contract). Exit 1
 # is a finding (an alert row is written to the shared sink, source
