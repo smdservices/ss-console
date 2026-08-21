@@ -5,14 +5,18 @@ WHY A HARNESS AND NOT A UNIT TEST. Every assertion in
 ``operator/bin/tests/test_reconcile_sends.py`` is made against a fake Graph this
 repo also wrote, so all of them together prove the matcher agrees with our model
 of a mailbox. None of them can prove the model is the mailbox. The only thing
-that settles that is a real message, sent around the broker, into a real Sent
-Items folder, found by a real scheduled run. That is what this script sends.
+that settles that is a real message, put around the broker into a real Sent
+Items folder and found by a real scheduled run. That is what this script puts
+there -- by transmitting one in ``--mode send``, or by creating one in
+``--mode plant`` on a seat where transmitting is not available.
 
-WHAT IT DELIBERATELY DOES WRONG. It transmits with the SEND app credential
-directly, bypassing the workspace broker entirely -- so no audit row is written
-and no ``X-SMD-Audit-Row`` header is stamped. That is precisely the shape of the
-event this control exists for: a message that left the Operator's mailbox with
-nothing in the ledger to account for it. The AgentMail twin of this test is on
+WHAT IT DELIBERATELY DOES WRONG. It goes around the workspace broker entirely --
+so no audit row is written and no ``X-SMD-Audit-Row`` header is stamped. That is
+precisely the shape of the event this control exists for: an item in the
+Operator's Sent Items with nothing in the ledger to account for it. In send mode
+that item also left the mailbox; in plant mode it never did, and the reconciler
+cannot tell the difference, which is what makes plant a usable falsifier at all.
+The AgentMail twin of this test is on
 record: ``[UNAUDITED-KILLTEST-2258]``, 2026-08-13, reported and then baselined
 (``operator/bin/reconcile-sends-baseline.json``).
 
