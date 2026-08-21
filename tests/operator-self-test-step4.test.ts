@@ -59,6 +59,8 @@ const PRACTICE_MANAGEMENT_WRITES = [
   'mcp_smokeball_update_task',
   'mcp_smokeball_create_event',
   'mcp_smokeball_create_matter',
+  'mcp_smokeball_add_file',
+  // Prefix, so it catches render_docx_draft and render_docx_template alike.
   'mcp_smokeball_render_docx',
   'practice_management_create_note',
 ]
