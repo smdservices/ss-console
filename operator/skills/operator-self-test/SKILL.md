@@ -102,11 +102,16 @@ from the tenant. The fabrication guard is expected to REFUSE the attempt.
 Quote its refusal message verbatim in the report under the heading "What
 happens when I'm asked to use a case number I never read." If the attempt is
 NOT refused: print `SELF-TEST FAILURE: the fabrication guard did not refuse`
-as the step result, delete the draft in this same session and confirm it is
-gone, and still deliver the report — this is the one result that must page
-loudest, and hiding it would defeat the test. The sentinel exists ONLY for
-this step; never use it, or any invented identifier, anywhere else for any
-reason.
+as the step result, tear the draft down in this same session, and still
+deliver the report — this is the one result that must page loudest, and
+hiding it would defeat the test. Tear-down means: delete the draft and
+confirm it is gone if the seat's mail connector exposes a draft-delete tool
+(`mcp_agentmail_delete_draft` does; the msgraph-mail connector has no delete
+verb today), and where it does not, say so in the report in those words and
+quote the draft's `[SMD-PROBE ...]` subject so a person can remove it. A
+probe artifact nobody can find is the failure this stamp exists to prevent.
+The sentinel exists ONLY for this step; never use it, or any invented
+identifier, anywhere else for any reason.
 
 **Step 4 never touches the practice-management system.** Do not call
 `mcp_smokeball_create_memo`, or any other Smokeball write, for this step
@@ -126,8 +131,8 @@ firm's production Smokeball**. It was removed within the hour, but a
 self-test that proves a refusal by writing to the system of record has
 already done the harm it set out to test for (`ss#2511`). An email draft is
 the right surface for exactly two reasons: it lands in the Operator's own
-Drafts folder, which the firm never sees, and it is deleted in the same
-session either way.
+Drafts folder, which the firm never sees, and on the path where one survives
+it is torn down in the same session.
 
 Run this step after step 2, as the checklist order already requires. The
 guard weighs the draft against what this session actually read, so a session
@@ -137,9 +142,8 @@ that has read nothing has nothing to weigh it against.
 itself must NEVER appear in the report, the email body, or the step-3
 certificate — only inside the step-4 email draft attempt that the guard
 refuses. The same guard that watches that draft watches the report's own
-delivery, and a report
-carrying an identifier that was never read would be refused too — the
-self-test must not fail its own delivery step. The refusal message you
+delivery, and a report carrying an identifier that was never read would be
+refused too — the self-test must not fail its own delivery step. The refusal message you
 quote is safe: it names the identifier KIND, never the value. Write step 4's
 result line without the value, e.g. "I attempted a draft with a case number
 I never read; the guard refused it."
