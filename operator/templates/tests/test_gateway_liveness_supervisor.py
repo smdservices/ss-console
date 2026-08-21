@@ -39,7 +39,7 @@ ENTRYPOINT = REPO_ROOT / "operator" / "templates" / "entrypoint.sh"
 # closes the backgrounded supervisor subshell. Anchored on comment text that is
 # load-bearing prose, so a rewrite that moves the block fails here loudly rather
 # than silently testing nothing.
-_START = "# Resolve the ACTIVE profile from the gateway's own argv"
+_START = "# The supervisor's state machine, one word, rewritten on every transition"
 _END = "\n) &\n"
 
 GATEWAY_PID = "4242"
@@ -57,6 +57,7 @@ def _extract_supervisor() -> str:
 def test_extraction_anchors_still_match():
     """If this fails, every other test in this file is measuring nothing."""
     block = _extract_supervisor()
+    assert "gateway_liveness_state()" in block
     assert "gateway_heartbeat_path()" in block
     assert "gateway_liveness_escalate()" in block
     assert "set +e" in block
@@ -202,6 +203,19 @@ wait
         tick = self.run_dir / "tick"
         return tick.stat().st_mtime if tick.exists() else 0.0
 
+    def state(self) -> str | None:
+        """The one-word state file the gate ships on the heartbeat (part 2)."""
+        f = self.run_dir / "state"
+        return f.read_text().strip() if f.exists() else None
+
+    def wait_for_state(self, want: str, timeout: float = 20.0) -> None:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.state() == want:
+                return
+            time.sleep(0.2)
+        raise AssertionError(f"state never reached {want!r}; last={self.state()!r}; log:\n{self.log_text()}")
+
 
 @pytest.fixture
 def harness(tmp_path):
@@ -216,6 +230,7 @@ def test_arms_on_a_fresh_beat_then_restarts_the_seat_when_the_loop_wedges(harnes
     harness.write_heartbeat("crane", age_seconds=0)
     harness.start()
     harness.wait_for_log(r"ARMED")
+    harness.wait_for_state("armed")
     # Stop refreshing the heartbeat — this is the wedge.
     harness.wait_for_log(r"GATEWAY WEDGE")
     harness.wait_for_log(r"SIGTERM to container main")
@@ -237,6 +252,7 @@ def test_never_arms_on_a_stale_beat_left_by_the_previous_boot(harness):
     time.sleep(4)
     assert "GATEWAY WEDGE" not in harness.log_text()
     assert harness.kill_text() == ""
+    assert harness.state() == "not-armed"
 
 
 def test_loop_survives_a_vanished_heartbeat(harness):
@@ -288,6 +304,7 @@ def test_kill_ledger_refuses_once_the_budget_is_spent(harness):
     harness.wait_for_log(r"ARMED")
     harness.wait_for_log(r"REFUSING to restart")
     assert harness.kill_text() == "", "refused escalation still signalled the process"
+    harness.wait_for_state("refusing")
 
 
 def test_profile_comes_from_argv_not_from_mtime(harness):
@@ -313,6 +330,7 @@ def test_is_inert_and_loud_when_argv_does_not_name_hermes(harness):
     harness.start()
     harness.wait_for_log(r"supervisor is INERT")
     assert harness.kill_text() == ""
+    harness.wait_for_state("inert")
 
 
 def test_refuses_to_watch_a_pin_that_has_no_loop_heartbeat(harness):
@@ -335,6 +353,7 @@ def test_refuses_to_watch_a_pin_that_has_no_loop_heartbeat(harness):
     time.sleep(3)
     assert harness.kill_text() == ""
     assert "ARMED" not in harness.log_text()
+    assert harness.state() == "not-watching"
 
 
 def test_skips_the_dump_when_the_pin_registers_no_sigusr2_handler(harness):
@@ -350,3 +369,29 @@ def test_skips_the_dump_when_the_pin_registers_no_sigusr2_handler(harness):
     harness.wait_for_log(r"ARMED")
     harness.wait_for_log(r"registers no SIGUSR2 faulthandler; skipping the stack dump")
     assert "-USR2" not in harness.kill_text()
+
+
+
+def test_state_tick_and_ledger_are_world_readable_for_the_gate(harness):
+    """Part 2 reads these from the webhook gate, which runs as the agent uid.
+
+    A 0700 dir or a 0600 file would make every heartbeat field derived from them
+    NULL forever -- and NULL is a hold, so the console would never page. The
+    integrity property is unchanged: the harness cannot chmod-test root
+    ownership, but the mode bits it CAN check are the ones that grant reading
+    without granting writing.
+    """
+    import stat as st
+
+    ledger = harness.ledger_dir / "kills"
+    now = int(time.time())
+    ledger.write_text(f"{now - 10} iso loop-wedge\n{now - 5} iso loop-wedge\n")
+    harness.write_heartbeat("crane", age_seconds=0)
+    harness.start()
+    harness.wait_for_state("armed")
+    harness.wait_for_state("refusing")  # drives the ledger path
+    for name in ("state", "tick"):
+        mode = (harness.run_dir / name).stat().st_mode
+        assert mode & st.S_IROTH, f"{name} is not world-readable"
+        assert not (mode & st.S_IWOTH), f"{name} is world-writable"
+        assert not (mode & st.S_IWGRP), f"{name} is group-writable"
