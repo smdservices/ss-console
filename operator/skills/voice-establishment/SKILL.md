@@ -159,6 +159,13 @@ my documents and establish my voice", "read what we have and learn how we write"
    grouped by cohort), what you excluded and why, what you could not read, and how each
    classification was made. Then STOP. Stage nothing, submit nothing.
 
+   The survey **proposes candidates and asks the admin to point at examples**. It never
+   describes the documents it sampled on its own as the corpus. What you found is a list you
+   are asking about; what they bless is the corpus, and the sentence you write has to keep
+   those two apart. The three reply rules in `operator-self-initiation` apply here: write for
+   the firm, not the machinery; one considered redraft, then send; "compared with", never
+   vs/v./versus between capitalized names.
+
 **Turn two - the blessing.** The admin approves the list, corrects it, or narrows it, in
 their own turn. The blessed list is the named corpus: from here, run step 1's remaining
 checks (which output class; exemplary labels - absent labels still mean every document is
@@ -285,6 +292,13 @@ gates are the safety. So the reply is the only thing standing between the firm a
 did not understand.
 
 ### 6. Report, including everything that went wrong
+
+The three reply rules in `operator-self-initiation` apply to this report as written: write for
+the firm, not the machinery; one considered redraft, then send; "compared with", never
+vs/v./versus between capitalized names. Note that this report is the one place the machinery
+rule bends, and only this far: the demotions and the refused documents below ARE the firm's
+business, because only they can act on them, so name those in their own terms. Everything
+else about how the specification was checked stays out.
 
 Cover all five, in the admin's own terms:
 
