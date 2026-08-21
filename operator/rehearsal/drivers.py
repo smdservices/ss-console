@@ -67,6 +67,17 @@ def _load_bin_module(module_name: str, filename: str):
     return module
 
 
+def load_overlay_ref_drift():
+    """``overlay-ref-drift.py`` as a module, for its read of a seat's RUNNING ref.
+
+    Same reason as the reconciler above: the runner's release gate has to read a
+    Machine's running overlay ref exactly the way the drift report reads it. Two
+    implementations of "what is this seat running" would drift, and the drifted
+    one would be the one nobody watched.
+    """
+    return _load_bin_module("overlay_ref_drift", "overlay-ref-drift.py")
+
+
 def load_seat_config(slug: str) -> dict:
     path = CUSTOMERS / slug / "customer.yaml"
     if not path.is_file():

@@ -29,10 +29,21 @@ USAGE
     --drive                actually perform the hostile acts; without it, plan only
     --list                 print the registry and exit; drives nothing
     --only ID[,ID...]      run a subset
-    --overlay-ref REF      the candidate ref this run certifies
+    --overlay-ref REF      the candidate ref this run certifies; the rig must
+                           already be RUNNING it or the run is refused
                            (default: ARG OVERLAY_REF in operator/templates/Dockerfile)
     --inject NAME          declare a fault you have already injected on the rig
     --out DIR              where the report lands (default .stitch/shadow-firm/)
+
+THE RIG MUST ALREADY BE RUNNING THE CANDIDATE. A run stamps the candidate ref
+into its own id (report.py), so before ss#2531 an id reading "green against ref
+X" could have been produced by a rig sitting on the previous release: the ref
+was a label the runner was handed, never a fact it checked. With --drive the
+runner now reads the rig's RUNNING overlay ref off the same runtime seam
+``operator/bin/overlay-ref-drift.py`` uses, and refuses unless it equals the
+candidate. A ref it cannot read refuses too, because "cannot evaluate" must not
+read as "permitted". The consequence for the release order is that the rig is
+reprovisioned onto the candidate BEFORE the suite runs, not after.
 
 EXIT CODES
     0  green: every scenario PASSED. Only this run may be cited by a release gate.
@@ -40,7 +51,8 @@ EXIT CODES
     3  nothing failed but something was SKIPPED, so the suite is incomplete.
        Deliberately not 0: a skipped scenario proves nothing and must never
        read as a pass.
-    2  refused before driving anything (scope violation, bad registry, no seat).
+    2  refused before driving anything (scope violation, bad registry, no seat,
+       or the rig is not running the candidate ref).
 """
 
 from __future__ import annotations
@@ -72,6 +84,50 @@ def pinned_overlay_ref() -> str:
         return "unknown"
     match = re.search(r"^ARG\s+OVERLAY_REF=([^\s#]+)", text, re.MULTILINE)
     return match.group(1).strip('"\'') if match else "unknown"
+
+
+def make_seam_client(slug: str):
+    """The live runtime-read seam factory for one seat.
+
+    A module-level seam on purpose. It is the single line of the running-ref
+    gate that touches a network, so a test can substitute a fake client and
+    still exercise the real gate rather than a copy of it.
+    """
+    return drivers.load_overlay_ref_drift().seam_pull.seam_client_from_env(slug)
+
+
+def rig_running_ref(seat: str, candidate: str) -> str | None:
+    """Refuse unless the rig is RUNNING the ref this run claims to certify.
+
+    Returns the observed running ref, or None when the run must be refused. The
+    refusal is printed here, in the caller's words, because the person who
+    typed --drive is the person who has to act on it.
+
+    Fail-closed in both directions. A mismatch refuses, and so does a ref that
+    cannot be read at all: an unreachable seat is not an excuse to assume the
+    seat is current, it is the absence of the only evidence this gate exists to
+    collect.
+    """
+    drift = drivers.load_overlay_ref_drift()
+    observed = drift.read_running_ref(seat, make_seam_client)
+    if observed.status != "read" or not observed.value:
+        print(
+            f"REFUSED: cannot read the overlay ref `{seat}` is running "
+            f"({observed.status}: {observed.detail or 'no detail'}). Driving now would "
+            f"stamp {candidate[:12]} into a run id with no evidence the rig is on it, "
+            "so nothing was driven.",
+            file=sys.stderr,
+        )
+        return None
+    if not drift.refs_match(candidate, observed.value):
+        print(
+            f"REFUSED: `{seat}` is running {observed.value[:12]}, and this run would "
+            f"certify {candidate[:12]}. reprovision {seat} onto {candidate[:12]} first: "
+            f"yes s | operator/bin/reprovision.sh {seat}",
+            file=sys.stderr,
+        )
+        return None
+    return observed.value
 
 
 def _print_registry(scenarios: list[dict]) -> None:
@@ -119,7 +175,16 @@ def run_suite(args: argparse.Namespace) -> int:
     if not args.drive:
         print(f"PLAN ONLY. Nothing sent. Target seat: {args.seat} (seat.kind={scope.seat_kind(config)})")
         _print_registry(scenarios)
+        print(
+            "Rig running-ref check: not performed in plan mode (it reads the live seam). "
+            "With --drive the runner refuses unless the rig is already running the candidate ref."
+        )
         print("Re-run with --drive to perform these acts against the seat.")
+        return EXIT_REFUSED
+
+    candidate = args.overlay_ref or pinned_overlay_ref()
+    running_ref = rig_running_ref(args.seat, candidate)
+    if running_ref is None:
         return EXIT_REFUSED
 
     capabilities = drivers.probe_capabilities(args.seat, config, inject=args.inject)
@@ -127,7 +192,8 @@ def run_suite(args: argparse.Namespace) -> int:
 
     run = report.Run(
         seat=args.seat,
-        overlay_ref=args.overlay_ref or pinned_overlay_ref(),
+        overlay_ref=candidate,
+        running_ref=running_ref,
         started_at=report.now_stamp(),
     )
     for name, reason in sorted(capabilities.reasons.items()):

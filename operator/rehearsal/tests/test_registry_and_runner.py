@@ -65,15 +65,34 @@ def test_the_connector_outage_scenario_requires_a_declared_fault() -> None:
     assert "fault_injection" in scenario["requires"]
 
 
+class _RigOnTheCandidate:
+    """A rig seam that answers with whatever ref the run is certifying.
+
+    Lets the ss#2531 running-ref gate pass so the check below can be about the
+    thing it was written for. The gate's own refusals are pinned in
+    test_running_ref_gate.py.
+    """
+
+    def __init__(self, ref: str) -> None:
+        self._ref = ref
+
+    def read_config(self) -> dict:
+        return {"schema": "x", "overlay_ref": {"value": self._ref, "source": "direct_url"}}
+
+
 def test_running_without_credentials_skips_and_exits_non_zero(tmp_path, monkeypatch) -> None:
     """The honest-degradation contract, exercised end to end.
 
-    No AgentMail key, no seam: every scenario must report SKIPPED with a reason,
-    the report must say NOT GREEN, and the process must not exit 0. A suite that
-    exits 0 here would let a release gate cite a run that touched nothing.
+    No AgentMail key, no audit seam: every scenario must report SKIPPED with a
+    reason, the report must say NOT GREEN, and the process must not exit 0. A
+    suite that exits 0 here would let a release gate cite a run that touched
+    nothing.
     """
     for variable in ("AGENTMAIL_API_KEY", "OPERATOR_RUNTIME_READ_SECRET", "OPERATOR_RUNTIME_READ_URL"):
         monkeypatch.delenv(variable, raising=False)
+    monkeypatch.setattr(
+        runner, "make_seam_client", lambda slug: _RigOnTheCandidate(runner.pinned_overlay_ref())
+    )
     code = runner.main(["--seat", "pilot-smokeball", "--drive", "--out", str(tmp_path)])
     assert code == runner.EXIT_INCOMPLETE
     reports = sorted(tmp_path.glob("*.md"))
