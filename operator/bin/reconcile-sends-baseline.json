@@ -93,6 +93,15 @@
       "to": "scott@smd.services",
       "subject": "[UNAUDITED-KILLTEST-2258] deliberate unaudited send — reconciler kill test",
       "reported_in": 2344
+    },
+    {
+      "inbox": "operator@smdopslab.onmicrosoft.com",
+      "channel": "msgraph",
+      "message_id": "<PH0PR03MB7160198B9C993AE58D51BACC97A32@PH0PR03MB7160.namprd03.prod.outlook.com>",
+      "timestamp": "2026-08-21T09:46:57Z",
+      "to": "operator@smdopslab.onmicrosoft.com",
+      "subject": "[UNAUDITED-KILLTEST-2258] 2026-08-21T09:46Z mode=plant deliberate unaudited send, reconciler kill test",
+      "reported_in": 2499
     }
   ]
 }
