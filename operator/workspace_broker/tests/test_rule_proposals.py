@@ -1068,3 +1068,71 @@ def test_ensure_schema_is_idempotent_over_an_already_migrated_table(tmp_path):
     broker.establishment.pending.ensure_schema()
     result = _act_propose(broker)
     assert result["ok"] is True
+
+
+# ---- the shape the overlay hook actually sends (hermes-smd-overlay#303/#305) ----
+#
+# The hook sends the authored block WHOLE as ``payload`` (identifiers and the
+# two display names together) and nothing at the request top level. Found on
+# 2026-08-21 by reading both halves after they merged: the broker accepted four
+# payload keys and required the names top-level, so every live proposal would
+# have been refused. These pin the contract from the hook's side.
+
+AUTHORED_YAML_WITH_NAMES = AUTHORED_YAML + f"""\
+      client_contact_name: '{CONTACT_NAME}'
+      matter_type_name: '{TYPE_NAME}'
+"""
+
+HOOK_PAYLOAD = {
+    **AUTHORED_PAYLOAD,
+    "client_contact_name": CONTACT_NAME,
+    "matter_type_name": TYPE_NAME,
+}
+
+
+def _hook_propose(broker: Broker, payload: dict):
+    """Exactly the hook's request: six-key payload, no top-level names."""
+    return _call(
+        broker,
+        action="act_propose",
+        tool=ACT_TOOL,
+        payload=payload,
+        instructed_by=ADMIN,
+        source_ref="msg-77",
+    )
+
+
+def test_the_hooks_six_key_payload_proposes_and_renders_the_authored_names(tmp_path):
+    broker = _act_broker(tmp_path, AUTHORED_YAML_WITH_NAMES)
+    result = _hook_propose(broker, dict(HOOK_PAYLOAD))
+    assert result["ok"] is True
+    assert CONTACT_NAME in result["readback"] and TYPE_NAME in result["readback"]
+    assert ACT_CONTACT_ID not in result["readback"]
+
+
+def test_names_authored_in_the_block_suffice_when_the_payload_carries_only_identifiers(tmp_path):
+    broker = _act_broker(tmp_path, AUTHORED_YAML_WITH_NAMES)
+    result = _hook_propose(broker, dict(AUTHORED_PAYLOAD))
+    assert result["ok"] is True
+    assert CONTACT_NAME in result["readback"]
+
+
+def test_no_names_anywhere_is_refused_by_name(tmp_path):
+    broker = _act_broker(tmp_path)  # block without names
+    with pytest.raises(EstablishmentValidationError, match="client_contact_name"):
+        _hook_propose(broker, dict(AUTHORED_PAYLOAD))
+
+
+def test_a_payload_name_that_differs_from_the_authored_name_is_refused(tmp_path):
+    broker = _act_broker(tmp_path, AUTHORED_YAML_WITH_NAMES)
+    payload = dict(HOOK_PAYLOAD)
+    payload["client_contact_name"] = "Somebody Else LLP"
+    with pytest.raises(EstablishmentValidationError, match="client_contact_name"):
+        _hook_propose(broker, payload)
+
+
+def test_the_hooks_six_key_payload_commits_against_the_four_key_row(tmp_path):
+    broker = _act_broker(tmp_path, AUTHORED_YAML_WITH_NAMES)
+    proposal_id = _hook_propose(broker, dict(HOOK_PAYLOAD))["proposal_id"]
+    result = _act_commit(broker, proposal_id, payload=dict(HOOK_PAYLOAD))
+    assert result["ok"] is True
