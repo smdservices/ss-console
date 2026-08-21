@@ -302,3 +302,143 @@ def test_report_round_trips_template_used_and_expected_flags() -> None:
 
 def test_class_rules_cover_every_class() -> None:
     assert set(CLASS_RULES) == set(DOCUMENT_CLASSES)
+
+
+# --- Heading delegation to the firm's own styles (ss#2448) ---------------------
+#
+# The promise is "the firm edits its Word template and the next draft follows".
+# For a firm template that never heard of our SMD names, the shipped renderer
+# formatted headings INLINE, so the typography was frozen into each draft and a
+# later template edit moved nothing (observed on pilot,
+# vfy_01M0GK1SS4CZKGHMV8R1CFAZSG). Delegating the heading roles to Word's own
+# Heading 1-3 makes the promise true by construction.
+#
+# Deliberately narrow. Body and item text are NOT delegated: a plain paragraph
+# already resolves to Normal, so font follows the firm today, and the inline
+# branch is carrying the class's court-required LAYOUT.
+
+
+def test_a_heading_delegates_to_the_bases_own_heading_style() -> None:
+    """The base defines Heading 2 but not SMD Heading 2: use theirs."""
+    base = make_firm_template(drop_styles=("List Bullet", "Table Grid"))  # keeps Heading 1-3
+    report = FormatReport(document_class="mediation_brief")
+    blob, report = render_document("## II. Argument\n\nText.\n", "mediation_brief", base, report)
+    d = report.to_dict()
+    assert d["stylesDelegated"] == {"SMD Heading 2": "Heading 2"}
+    assert "SMD Heading 2" not in d["fallbacks"]
+    doc = Document(io.BytesIO(blob))
+    para = next(p for p in doc.paragraphs if "Argument" in p.text)
+    assert para.style.name == "Heading 2"
+
+
+def test_a_delegated_heading_still_carries_the_classs_required_layout() -> None:
+    """The firm's style supplies font; the COURT expects a centered level-1
+    heading on a mediation brief and a firm's built-in Heading 1 is left."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    base = make_firm_template(drop_styles=("List Bullet", "Table Grid"))
+    report = FormatReport(document_class="mediation_brief")
+    blob, _ = render_document("# I. Introduction\n\nText.\n", "mediation_brief", base, report)
+    doc = Document(io.BytesIO(blob))
+    para = next(p for p in doc.paragraphs if "Introduction" in p.text)
+    assert para.style.name == "Heading 1"
+    assert para.alignment == WD_ALIGN_PARAGRAPH.CENTER
+    # ...and emphasis is left to the firm's style rather than forced over it.
+    assert not any(r.bold for r in para.runs)
+
+
+def test_a_base_defining_neither_still_goes_inline_and_says_what_to_add() -> None:
+    base = make_firm_template()  # drops Heading 1-3 by default
+    report = FormatReport(document_class="mediation_brief")
+    _blob, report = render_document("## II. Argument\n\nText.\n", "mediation_brief", base, report)
+    d = report.to_dict()
+    assert d["stylesDelegated"] == {}
+    assert "SMD Heading 2" in d["fallbacks"]
+    assert any("add 'Heading 2' in Word" in n for n in d["notes"])
+
+
+def test_item_text_is_never_delegated_so_a_served_set_keeps_its_double_spacing() -> None:
+    """THE REGRESSION A WIDER LADDER WOULD HAVE SHIPPED. Delegating SMD Item
+    Text to Normal suppresses the inline branch that carries the authored
+    double-spacing between requests, and a discovery set is SERVED."""
+    base = make_firm_template(drop_styles=("List Bullet", "Table Grid"))
+    report = FormatReport(document_class="discovery_set")
+    blob, report = render_document(DISCOVERY_MD, "discovery_set", base, report)
+    assert "SMD Item Text" not in report.to_dict()["stylesDelegated"]
+    doc = Document(io.BytesIO(blob))
+    answers = [p for p in doc.paragraphs if p.text.startswith("Identify each person")]
+    assert answers, "expected the item text paragraph"
+    assert answers[0].paragraph_format.line_spacing == 2.0
+
+
+def test_a_character_style_named_like_a_heading_does_not_kill_the_render() -> None:
+    """python-docx raises ValueError (not KeyError) assigning a character style
+    to a paragraph, and has_style catches only KeyError."""
+    doc = Document()
+    for name in ("Heading 1", "Heading 2", "Heading 3"):
+        doc.styles[name].element.getparent().remove(doc.styles[name].element)
+    doc.styles.add_style("Heading 2", WD_STYLE_TYPE.CHARACTER)
+    buf = io.BytesIO()
+    doc.save(buf)
+    report = FormatReport(document_class="mediation_brief")
+    blob, report = render_document("## II. Argument\n\nText.\n", "mediation_brief", buf.getvalue(), report)
+    d = report.to_dict()
+    assert d["stylesDelegated"] == {}
+    assert "SMD Heading 2" in d["fallbacks"]
+    assert blob
+
+
+def test_an_outline_numbered_heading_is_not_delegated_to() -> None:
+    """The model writes the numeral itself ("## I. Introduction"), so a firm's
+    multilevel-list Heading 2 would render "1.1 I. Introduction"."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    doc = Document()
+    style = doc.styles["Heading 2"]
+    ppr = style.element.get_or_add_pPr()
+    num_pr = OxmlElement("w:numPr")
+    num_id = OxmlElement("w:numId")
+    num_id.set(qn("w:val"), "1")
+    num_pr.append(num_id)
+    ppr.append(num_pr)
+    buf = io.BytesIO()
+    doc.save(buf)
+    report = FormatReport(document_class="mediation_brief")
+    _blob, report = render_document("## II. Argument\n\nText.\n", "mediation_brief", buf.getvalue(), report)
+    d = report.to_dict()
+    assert d["stylesDelegated"] == {}, "a numbered base style must not be delegated to"
+    assert "SMD Heading 2" in d["fallbacks"]
+
+
+def test_numbering_inherited_through_the_base_style_chain_is_also_refused() -> None:
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    doc = Document()
+    parent = doc.styles.add_style("Numbered Parent", WD_STYLE_TYPE.PARAGRAPH)
+    ppr = parent.element.get_or_add_pPr()
+    num_pr = OxmlElement("w:numPr")
+    num_id = OxmlElement("w:numId")
+    num_id.set(qn("w:val"), "1")
+    num_pr.append(num_id)
+    ppr.append(num_pr)
+    doc.styles["Heading 2"].base_style = parent
+    buf = io.BytesIO()
+    doc.save(buf)
+    report = FormatReport(document_class="mediation_brief")
+    _blob, report = render_document("## II. Argument\n\nText.\n", "mediation_brief", buf.getvalue(), report)
+    assert report.to_dict()["stylesDelegated"] == {}
+
+
+def test_our_own_named_style_still_wins_over_the_bases_equivalent() -> None:
+    base = make_firm_template(
+        drop_styles=("List Bullet", "Table Grid"),
+        named_styles={"SMD Heading 2": {"font": "Courier New", "size": 15}},
+    )
+    report = FormatReport(document_class="mediation_brief")
+    blob, report = render_document("## II. Argument\n\nText.\n", "mediation_brief", base, report)
+    d = report.to_dict()
+    assert d["stylesDelegated"] == {} and "SMD Heading 2" in d["stylesHonored"]
+    doc = Document(io.BytesIO(blob))
+    assert next(p for p in doc.paragraphs if "Argument" in p.text).style.name == "SMD Heading 2"

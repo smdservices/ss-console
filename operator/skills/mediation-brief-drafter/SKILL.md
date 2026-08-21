@@ -12,7 +12,7 @@ description: >-
   the edge of the record and stopped. Every quotation is verified verbatim, contiguous, and paired
   with the question it actually answered; every factual sentence carries a record cite; a fact the
   record does not establish stays a visible NOT IN RECORD marker and is never filled.
-version: 0.2.0
+version: 0.2.1
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -417,8 +417,9 @@ held_out_file_names, document_class="mediation_brief")`: the tool runs the recor
 7. **Deliver** to the requesting attorney, internal only: where the brief lives, the
    itemized what-was-done report, the held-out list, the flagged-characterizations
    list, the NOT IN RECORD list, the ATTORNEY-marker list, and one honest sentence
-   from the tool's `formatApplied` (the firm's template, or the starter and why; any
-   named styles the template lacks). Log the run with `create_memo` and confirm the
+   from the tool's `formatApplied` (the firm's template, or the starter and why; which
+   roles took the template's own styles, and which were formatted inline and so will
+   not follow a later edit to the template). Log the run with `create_memo` and confirm the
    write by read-back per the pack write posture. The draft is staged for the
    attorney; it is not filed with any tribunal, not submitted, and not exchanged.
 

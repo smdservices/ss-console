@@ -10,7 +10,7 @@ description: >-
   deficient, never serves or files anything, never writes a request that asserts a
   fact the record does not establish, and never self-authorizes discovery past the
   statutory numerical limits.
-version: 0.2.0
+version: 0.2.1
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -315,7 +315,8 @@ held_out_file_names, document_class="discovery_set")`: the tool gates, then
    (`create_draft` on the Operator's own inbox, internal) is a citation-free pointer:
    the matter number, what was drafted, where it lives, the specific decision points
    waiting on the attorney, and one honest sentence from the tool's `formatApplied`
-   (the firm's template, or the starter and why; any named styles the template lacks).
+   (the firm's template, or the starter and why; which roles took the template's own
+   styles, and which were formatted inline and so will not follow a later template edit).
    Open a tracked item with `create_task` assigned to the requesting attorney so the
    draft does not sit. **Nothing is served, filed, or sent outside the firm.**
 

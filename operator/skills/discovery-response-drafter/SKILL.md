@@ -10,7 +10,7 @@ description: >-
   supplying one, and reports a coverage diff showing that every propounded item received a
   response. It never serves, never files, never signs or fills a client verification, never
   decides objection strategy, and is never routine-initiated.
-version: 0.2.0
+version: 0.2.1
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -328,8 +328,9 @@ held_out_file_names, document_class="discovery_response")`. The tool runs the
   number, the sets drafted, where the draft lives, and the plain-words state of the
   coverage diff, the held-out list, and any unresolved markers, plus one honest
   sentence from the tool's `formatApplied` (the firm's template, or the starter and
-  why; any named styles the template lacks). No section numbers, no rule-format
-  strings.
+  why; which roles took the template's own styles, and which were formatted inline
+  and so will not follow a later edit to the template). No section numbers, no
+  rule-format strings.
 
 Delivered with the draft, always:
 

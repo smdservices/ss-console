@@ -1,7 +1,7 @@
 ---
 name: meet-and-confer-drafter
 description: Drafts a meet-and-confer letter on discovery responses. For internal review, it covers deficiencies the responsible attorney has flagged in the opposing side's responses (interrogatories, RFP, RFA), and notes the window to move to compel further responses. It never sends to opposing counsel on its own. Because the firm sometimes handles meet-and-confer informally first, it brings the go/no-go decision to the attorney rather than firing off a letter. Never identifies or adjudicates the deficiencies itself, never computes the compel deadline as final, and never asserts a fact it cannot see in the record.
-version: 0.2.0
+version: 0.2.1
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -197,7 +197,8 @@ draft_markdown, folder_id, held_out_file_names, document_class="letter")`, which
    letter: plain words naming the matter, the set, where the draft lives (the
    matter file), the proposed dates flagged as needing confirmation, one honest
    sentence from the tool's `formatApplied` (the firm's template, or the starter and
-   why), and the explicit choice — send now, informal-first, or not yet. Emailing
+   why; which roles took the template's own styles and which were formatted inline),
+   and the explicit choice — send now, informal-first, or not yet. Emailing
    the letter body itself fights the mail channel's citation gate by construction (7+
    refused attempts observed live, 2026-07-05, L2 finding F6) and violates the
    redraft-once rule; the pointer email passes on the first try because it

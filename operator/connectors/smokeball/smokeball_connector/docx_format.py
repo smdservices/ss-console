@@ -41,11 +41,12 @@ import re
 from dataclasses import dataclass
 
 from . import docgrammar as g
-from .docx_base import has_style, open_as_base
+from .docx_base import has_style, open_as_base, usable_paragraph_style
 from .docx_format_types import (
     DEFAULT_FONT,
     DEFAULT_SIZE_PT,
     NAMED_STYLES,
+    ROLE_FALLBACK,
     FormatRefused,
     FormatReport,
 )
@@ -162,14 +163,51 @@ class _Writer:
 
     # -- style application ------------------------------------------------------
 
+    def _resolve_style(self, role: str) -> tuple[str | None, bool]:
+        """``(style to apply, delegated?)`` for a role, or ``(None, False)`` to
+        format inline.
+
+        Three states, in order. Our named style if the base defines it. Else the
+        base's OWN conventional equivalent, when the role has one — that is what
+        makes "edit the style in Word and the next draft follows" true for a
+        firm template that never heard of our names. Else inline.
+        """
+        if usable_paragraph_style(self.doc, role):
+            self.report.styles_honored.append(role)
+            return role, False
+        alt = ROLE_FALLBACK.get(role)
+        if alt and usable_paragraph_style(self.doc, alt):
+            self.report.styles_delegated[role] = alt
+            return alt, True
+        self.report.fallbacks.append(role)
+        if alt:
+            # An instruction the firm can act on, not a diagnostic string.
+            note = f"the base defines neither {role!r} nor {alt!r}; add {alt!r} in Word to control this level"
+            if note not in self.report.notes:
+                self.report.notes.append(note)
+        return None, False
+
     def _para(self, style_name: str):
-        """Add a paragraph in ``style_name`` if the base defines it; otherwise a
-        plain paragraph the caller formats inline (and the fallback is logged)."""
-        if has_style(self.doc, style_name):
-            self.report.styles_honored.append(style_name)
-            return self.doc.add_paragraph(style=style_name), True
-        self.report.fallbacks.append(style_name)
-        return self.doc.add_paragraph(), False
+        """Add a paragraph for ``style_name``.
+
+        Returns ``(paragraph, styled)`` where ``styled`` is True only when our
+        OWN named style carried it. A delegated paragraph reports ``False`` on
+        purpose: the firm's style supplies font and colour, but the class's
+        layout (indents, the double-spacing between discovery items, a centered
+        pleading heading) is a court requirement code still owns, so the caller
+        must keep applying it. See ``_heading``.
+        """
+        applied, delegated = self._resolve_style(style_name)
+        if applied is None:
+            return self.doc.add_paragraph(), False
+        try:
+            return self.doc.add_paragraph(style=applied), not delegated
+        except (KeyError, ValueError):
+            # A style that resolved but will not apply degrades to inline; it
+            # never kills the render.
+            self.report.fallbacks.append(style_name)
+            self.report.styles_delegated.pop(style_name, None)
+            return self.doc.add_paragraph(), False
 
     def _runs(self, para, runs: tuple[g.Run, ...], *, caps: bool = False, bold: bool = False, underline: bool = False) -> None:
         for r in runs:
@@ -208,15 +246,27 @@ class _Writer:
         self.in_item = False
         self.report.blocks_styled["headings"] += 1
         level = block.level
-        para, styled = self._para(f"SMD Heading {level}")
+        role = f"SMD Heading {level}"
+        para, styled = self._para(role)
         if styled:
             self._runs(para, block.runs)
             return
+        delegated = role in self.report.styles_delegated
+        # Layout stays ours even when the firm's own heading style carries the
+        # typography: a mediation brief's level-1 heading is CENTERED because
+        # the court expects it there, and a firm's built-in Heading 1 is
+        # left-aligned. Font, size and colour come from their style; placement
+        # does not.
         align = self.rules.heading_align[level - 1]
         para.alignment = {"center": WD_ALIGN_PARAGRAPH.CENTER, "left": WD_ALIGN_PARAGRAPH.LEFT}[align]
         para.paragraph_format.left_indent = Inches(self.rules.heading_indent_in[level - 1])
-        para.paragraph_format.space_before = Pt(12 if level == 1 else 6)
         para.paragraph_format.keep_with_next = True
+        if delegated:
+            # Emphasis is the firm style's business; forcing bold/underline over
+            # it would defeat the edit we just made possible.
+            self._runs(para, block.runs)
+            return
+        para.paragraph_format.space_before = Pt(12 if level == 1 else 6)
         self._runs(para, block.runs, bold=True, underline=self.rules.heading_underline[level - 1])
 
     def _is_label(self, text: str) -> bool:
@@ -256,10 +306,14 @@ class _Writer:
     def _bullet(self, block: g.Bullet) -> None:
         from docx.shared import Inches
 
-        if has_style(self.doc, "List Bullet"):
-            para = self.doc.add_paragraph(style="List Bullet")
-            self._runs(para, block.runs)
-            return
+        if usable_paragraph_style(self.doc, "List Bullet"):
+            try:
+                para = self.doc.add_paragraph(style="List Bullet")
+                self.report.styles_honored.append("List Bullet")
+                self._runs(para, block.runs)
+                return
+            except (KeyError, ValueError):
+                self.report.fallbacks.append("List Bullet")
         para = self.doc.add_paragraph()
         para.paragraph_format.left_indent = Inches(0.5)
         para.paragraph_format.first_line_indent = Inches(-0.25)
@@ -288,9 +342,12 @@ class _Writer:
                 cell = table.cell(r_idx, c_idx)
                 runs = row[c_idx] if c_idx < len(row) else ()
                 para = cell.paragraphs[0]
-                if caption and has_style(self.doc, "SMD Caption"):
-                    para.style = self.doc.styles["SMD Caption"]
-                    self.report.styles_honored.append("SMD Caption")
+                if caption and usable_paragraph_style(self.doc, "SMD Caption"):
+                    try:
+                        para.style = self.doc.styles["SMD Caption"]
+                        self.report.styles_honored.append("SMD Caption")
+                    except (KeyError, ValueError):
+                        self.report.fallbacks.append("SMD Caption")
                 self._runs(para, runs, bold=(block.header and r_idx == 0))
         # Breathing room after a table: an empty body paragraph.
         self.doc.add_paragraph()
@@ -376,10 +433,12 @@ __all__ = [
     "DEFAULT_SIZE_PT",
     "DOCUMENT_CLASSES",
     "NAMED_STYLES",
+    "ROLE_FALLBACK",
     "ClassRules",
     "FormatRefused",
     "FormatReport",
     "has_style",
     "open_as_base",
     "render_document",
+    "usable_paragraph_style",
 ]
