@@ -37,6 +37,10 @@ function row(overrides: Partial<FleetStatusRow>): FleetStatusRow {
     spec_control_ok: null,
     webhook_surface_json: null,
     webhook_surface_ok: null,
+    gateway_loop_ok: null,
+    gateway_loop_age_seconds: null,
+    gateway_supervisor_state: null,
+    gateway_restarts_last_hour: null,
     ...overrides,
   }
 }
@@ -1282,5 +1286,127 @@ describe('webhook_surface (ss#2287 — the ss#2222 warn tier)', () => {
       customer_slug: 'pilot-smokeball',
       condition: 'webhook_surface_missing:operator_seat_facts',
     })
+  })
+})
+
+describe('gateway loop + supervisor (ss#2488 part 2)', () => {
+  const loopStates = (r: FleetStatusRow, red = 120) =>
+    evaluateConditions([r], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+      gatewayLoopRedSeconds: red,
+    }).filter((c) => c.condition.startsWith('gateway_'))
+  const one = (r: FleetStatusRow, cond: string, red = 120) =>
+    loopStates(r, red).filter((c) => c.condition === cond)
+
+  it('all four fields NULL push nothing (hold)', () => {
+    // A pre-part-2 overlay, a Hermes pin with no loop heartbeat, a seat without
+    // the supervisor. None of those is a recovery and none is a page.
+    expect(loopStates(row({}))).toHaveLength(0)
+  })
+
+  it('a row missing the columns entirely (undefined, pre-0107 read) pushes nothing', () => {
+    // The critique's case: `undefined !== null` is TRUE, so a strict-null guard
+    // would fall through to `=== 0` (false) and push active:false -- a false
+    // RECOVERED. The guards use `== null` precisely so this holds.
+    const r = row({}) as unknown as Record<string, unknown>
+    delete r.gateway_loop_ok
+    delete r.gateway_loop_age_seconds
+    delete r.gateway_supervisor_state
+    delete r.gateway_restarts_last_hour
+    expect(loopStates(r as unknown as FleetStatusRow)).toHaveLength(0)
+  })
+
+  // -- gateway_loop_wedged ---------------------------------------------------
+  it('ok=1, age past threshold opens wedged', () => {
+    const out = one(
+      row({ gateway_loop_ok: 1, gateway_loop_age_seconds: 400 }),
+      'gateway_loop_wedged'
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].active).toBe(true)
+    expect(out[0].detail).toContain('400s')
+  })
+
+  it('ok=1, age under threshold resolves wedged', () => {
+    const out = one(
+      row({ gateway_loop_ok: 1, gateway_loop_age_seconds: 10 }),
+      'gateway_loop_wedged'
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].active).toBe(false)
+  })
+
+  it('ok=1 with a NULL age holds wedged (arming latch / boot suppression is not a verdict)', () => {
+    // `null > 120` is false in JS. Without the both-present guard this would
+    // RESOLVE an open wedge on a number nobody measured.
+    expect(
+      one(row({ gateway_loop_ok: 1, gateway_loop_age_seconds: null }), 'gateway_loop_wedged')
+    ).toHaveLength(0)
+  })
+
+  it('ok=0 holds wedged and opens unprovable -- never resolves an open wedge on disowned data', () => {
+    const out = loopStates(row({ gateway_loop_ok: 0, gateway_loop_age_seconds: 5 }))
+    expect(out.filter((c) => c.condition === 'gateway_loop_wedged')).toHaveLength(0)
+    const unp = out.filter((c) => c.condition === 'gateway_loop_unprovable')
+    expect(unp).toHaveLength(1)
+    expect(unp[0].active).toBe(true)
+  })
+
+  it('ok=1 resolves unprovable', () => {
+    const out = one(
+      row({ gateway_loop_ok: 1, gateway_loop_age_seconds: 5 }),
+      'gateway_loop_unprovable'
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].active).toBe(false)
+  })
+
+  it('threshold is honoured from options', () => {
+    const r = row({ gateway_loop_ok: 1, gateway_loop_age_seconds: 200 })
+    expect(one(r, 'gateway_loop_wedged', 300)[0].active).toBe(false)
+    expect(one(r, 'gateway_loop_wedged', 120)[0].active).toBe(true)
+  })
+
+  // -- gateway_restarted -----------------------------------------------------
+  it('restarts >= 1 opens restarted; 0 resolves it; NULL holds', () => {
+    expect(one(row({ gateway_restarts_last_hour: 1 }), 'gateway_restarted')[0].active).toBe(true)
+    expect(one(row({ gateway_restarts_last_hour: 3 }), 'gateway_restarted')[0].active).toBe(true)
+    expect(one(row({ gateway_restarts_last_hour: 0 }), 'gateway_restarted')[0].active).toBe(false)
+    expect(one(row({ gateway_restarts_last_hour: null }), 'gateway_restarted')).toHaveLength(0)
+  })
+
+  // -- supervisor state --------------------------------------------------------
+  it('refusing opens refusing and resolves inert', () => {
+    const out = loopStates(row({ gateway_supervisor_state: 'refusing' }))
+    expect(out.find((c) => c.condition === 'gateway_supervisor_refusing')!.active).toBe(true)
+    expect(out.find((c) => c.condition === 'gateway_supervisor_inert')!.active).toBe(false)
+  })
+
+  it('inert and not-watching both open inert, with distinct detail', () => {
+    const a = one(row({ gateway_supervisor_state: 'inert' }), 'gateway_supervisor_inert')[0]
+    const b = one(row({ gateway_supervisor_state: 'not-watching' }), 'gateway_supervisor_inert')[0]
+    expect(a.active).toBe(true)
+    expect(b.active).toBe(true)
+    expect(a.detail).toContain('argv')
+    expect(b.detail).toContain('no loop heartbeat')
+  })
+
+  it('armed and not-armed resolve both supervisor conditions; NULL holds both', () => {
+    for (const s of ['armed', 'not-armed']) {
+      const out = loopStates(row({ gateway_supervisor_state: s }))
+      expect(out.find((c) => c.condition === 'gateway_supervisor_refusing')!.active).toBe(false)
+      expect(out.find((c) => c.condition === 'gateway_supervisor_inert')!.active).toBe(false)
+    }
+    expect(
+      loopStates(row({ gateway_supervisor_state: null })).filter((c) =>
+        c.condition.startsWith('gateway_supervisor')
+      )
+    ).toHaveLength(0)
+  })
+
+  it('labels are human, not identifiers', () => {
+    expect(conditionLabel('gateway_loop_wedged')).toMatch(/wedged/i)
+    expect(conditionLabel('gateway_supervisor_refusing')).toMatch(/human/i)
+    expect(conditionLabel('gateway_supervisor_inert')).toMatch(/cannot act/i)
   })
 })

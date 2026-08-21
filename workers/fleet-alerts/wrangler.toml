@@ -36,6 +36,15 @@ HEARTBEAT_RED_SECONDS = "300"
 # roster and this worker are separate packages; the shared 900 default is a
 # documented contract, not a cross-package import).
 WORK_OVERDUE_RED_SECONDS = "900"
+# ss#2488 part 2: seconds the gateway loop heartbeat may be stale before
+# gateway_loop_wedged fires. MUST stay BELOW the seat supervisor's kill point --
+# SMD_GATEWAY_LIVENESS_STALE_SECONDS x 2 samples + the dump and TERM graces,
+# ~270s at defaults (operator/templates/entrypoint.sh) -- or the page lands after
+# the restart it was meant to precede. With a 60s heartbeat period and up to 120s
+# of cron lag, the D1 row must be red by ~T+150 for the worst-case sample to land
+# in time; 120 does that. Floor 60 in the parser. Same sentence lives in
+# entrypoint.sh; nothing enforces the pair across the two repos.
+GATEWAY_LOOP_RED_SECONDS = "120"
 # Minimum writer-side failure-run age before the conn-class connector_down
 # path fires (ADR 0080). MUST match src/lib/admin/fleet-status.ts
 # CONNECTOR_DOWN_RUN_AGE_SECONDS (same documented-contract shape as above).

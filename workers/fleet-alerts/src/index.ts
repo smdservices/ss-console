@@ -60,19 +60,16 @@
  * verification, plus GET /health.
  */
 
-import {
-  CONNECTOR_DOWN_PREFIX,
-  CONNECTOR_TOKEN_EXPIRING_PREFIX,
-  SPEC_CONTROL_BROKEN_PREFIX,
-  WEBHOOK_SURFACE_MISSING_PREFIX,
-  conditionPayload,
-} from './conditions'
+import { CONNECTOR_DOWN_PREFIX } from './conditions'
 import { escapeHtml } from './html'
 import { notifySinkAlerts, type SinkNotification } from './sink-notify'
 import { getOpenSpecControlKeys, specControlConditions } from './spec-control'
 import { getStaleHolds } from './stale-holds'
 import { tokenExpiryConditions } from './token-expiry'
 import { getOpenWebhookSurfaceKeys, webhookSurfaceConditions } from './webhook-surface'
+import { gatewayLoopConditions, gatewayLoopRedSeconds } from './gateway-loop'
+import { conditionLabel } from './conditions'
+export { conditionLabel } from './conditions'
 
 export type { SinkNotification }
 
@@ -89,6 +86,15 @@ export interface Env {
    * packages, so the shared literal is a documented contract, not an import.
    */
   WORK_OVERDUE_RED_SECONDS?: string
+  /**
+   * Seconds the gateway loop heartbeat may be stale before gateway_loop_wedged
+   * fires (ss#2488 part 2). Default 120, floor 60. MUST stay BELOW the seat's
+   * kill point -- SMD_GATEWAY_LIVENESS_STALE_SECONDS x 2 samples + the dump and
+   * TERM graces, ~270s at defaults (operator/templates/entrypoint.sh) -- or the
+   * page lands after the restart it was meant to precede. A documented
+   * cross-repo contract, not an import, like WORK_OVERDUE_RED_SECONDS.
+   */
+  GATEWAY_LOOP_RED_SECONDS?: string
   /**
    * Minimum writer-side run age (seconds) before the conn-class connector_down
    * path fires. Default 300 — a failure burst that self-heals inside Hermes'
@@ -126,6 +132,11 @@ export type FleetCondition =
   | 'connector_check_error'
   | 'spec_control_unprovable'
   | 'webhook_surface_unprovable'
+  | 'gateway_loop_wedged'
+  | 'gateway_loop_unprovable'
+  | 'gateway_restarted'
+  | 'gateway_supervisor_refusing'
+  | 'gateway_supervisor_inert'
   | `connector_down:${string}`
   | `connector_token_expiring:${string}`
   | `spec_control_broken:${string}`
@@ -144,6 +155,10 @@ export interface FleetStatusRow {
   spec_control_ok: number | null
   webhook_surface_json: string | null
   webhook_surface_ok: number | null
+  gateway_loop_ok: number | null
+  gateway_loop_age_seconds: number | null
+  gateway_supervisor_state: string | null
+  gateway_restarts_last_hour: number | null
 }
 
 /** One per-server entry from the seat's connectors map (writer-side ages). */
@@ -324,6 +339,8 @@ export interface EvaluateOptions {
    * from the seat's map and nothing would ever close the alert.
    */
   openWebhookSurfaceKeys?: Record<string, string[]>
+  /** gateway_loop_wedged threshold (ss#2488 part 2). See Env.GATEWAY_LOOP_RED_SECONDS. */
+  gatewayLoopRedSeconds?: number
 }
 
 export function evaluateConditions(
@@ -339,6 +356,7 @@ export function evaluateConditions(
     tokenWarnDays = DEFAULT_TOKEN_EXPIRY_WARN_DAYS,
     openSpecControlKeys = {},
     openWebhookSurfaceKeys = {},
+    gatewayLoopRedSeconds: loopRed = gatewayLoopRedSeconds(undefined),
   } = options
   const out: ConditionState[] = []
   for (const row of rows) {
@@ -396,6 +414,7 @@ export function evaluateConditions(
     // ceiling once the ss#2287 condition joined.
     out.push(...specControlConditions(row, openSpecControlKeys[row.customer_slug]))
     out.push(...webhookSurfaceConditions(row, openWebhookSurfaceKeys[row.customer_slug]))
+    out.push(...gatewayLoopConditions(row, loopRed))
   }
   return out
 }
@@ -470,7 +489,9 @@ async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
               scheduler_ok, scheduler_max_overdue_seconds,
               connectors_json, connector_check_ok, connector_token_age_json,
               spec_control_json, spec_control_ok,
-              webhook_surface_json, webhook_surface_ok
+              webhook_surface_json, webhook_surface_ok,
+              gateway_loop_ok, gateway_loop_age_seconds,
+              gateway_supervisor_state, gateway_restarts_last_hour
          FROM fleet_status`
     )
     .all<FleetStatusRow>()
@@ -510,29 +531,6 @@ async function markResolved(db: D1Database, s: ConditionState): Promise<void> {
     )
     .bind(s.customer_slug, s.condition)
     .run()
-}
-
-const CONDITION_LABEL: Record<string, string> = {
-  heartbeat_red: 'Machine not heartbeating',
-  hard_stop: 'Cost breaker HARD_STOP',
-  scheduler_error: 'Cron scheduler broken/unreadable',
-  work_overdue: 'Scheduled work not firing',
-  connector_check_error: 'Connector health check broken (outages not counted)',
-  spec_control_unprovable: 'Authored-spec manifest unreadable (spec health unknown)',
-  webhook_surface_unprovable: 'Webhook tool surface unresolvable (warn-tier health unknown)',
-}
-
-/** Label lookup with the per-connector prefix form (ADR 0080). */
-export function conditionLabel(condition: FleetCondition): string {
-  const down = conditionPayload(condition, CONNECTOR_DOWN_PREFIX)
-  if (down !== null) return `Connector failing: ${down}`
-  const expiring = conditionPayload(condition, CONNECTOR_TOKEN_EXPIRING_PREFIX)
-  if (expiring !== null) return `Connector credential expiring: ${expiring}`
-  const spec = conditionPayload(condition, SPEC_CONTROL_BROKEN_PREFIX)
-  if (spec !== null) return `Authored spec declared but not installed: ${spec}`
-  const tool = conditionPayload(condition, WEBHOOK_SURFACE_MISSING_PREFIX)
-  if (tool !== null) return `Webhook tool expected but not offered: ${tool}`
-  return CONDITION_LABEL[condition] ?? condition
 }
 
 async function sendTransitionEmail(
@@ -647,6 +645,7 @@ export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<Run
     tokenWarnDays: tokenWarnDays(env),
     openSpecControlKeys: await getOpenSpecControlKeys(env.DB),
     openWebhookSurfaceKeys: await getOpenWebhookSurfaceKeys(env.DB),
+    gatewayLoopRedSeconds: gatewayLoopRedSeconds(env.GATEWAY_LOOP_RED_SECONDS),
   })
   const transitions: Transition[] = []
 

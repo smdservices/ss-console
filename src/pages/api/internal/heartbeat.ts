@@ -86,11 +86,31 @@ interface HeartbeatBody {
   audit_write_failures?: unknown
   audit_head?: unknown
   audit_rows?: unknown
+  gateway_loop_ok?: unknown
+  gateway_loop_age_seconds?: unknown
+  gateway_supervisor_state?: unknown
+  gateway_restarts_last_hour?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
 // Anything else is stored as NULL — never guess a level from junk input.
 const STICKY_STOP_LEVELS = new Set(['OK', 'WARN', 'SOFT_STOP', 'HARD_STOP', 'unknown'])
+
+// The part-1 supervisor's state machine (operator/templates/entrypoint.sh,
+// gateway_liveness_state). Closed vocabulary for the same reason as the breaker
+// ladder: a word we do not know is a writer we do not understand, and it must
+// not become a state the alerter acts on. Stored as NULL (hold), never guessed.
+const GATEWAY_SUPERVISOR_STATES = new Set([
+  'armed',
+  'not-armed',
+  'inert',
+  'not-watching',
+  'refusing',
+])
+
+function parseGatewaySupervisorState(value: unknown): string | null {
+  return typeof value === 'string' && GATEWAY_SUPERVISOR_STATES.has(value) ? value : null
+}
 
 // Coerce the overlay's scheduler_ok signal to 1/0/NULL. Accepts a boolean or a
 // literal 0/1 (JSON booleans and small-int flags are both idiomatic in the
@@ -294,6 +314,17 @@ function parseObservability(body: HeartbeatBody) {
     auditWriteFailures: parseNonNegInt(body.audit_write_failures),
     auditHead: parseAuditHead(body.audit_head),
     auditRows: parseNonNegInt(body.audit_rows),
+    // ss#2488 part 2: the gateway's loop pulse and the part-1 supervisor's own
+    // state, shipped by the webhook gate because it is the one process that
+    // survives a wedge. ok=0 is the seat saying it could not LOOK (our
+    // blindness, paged as gateway_loop_unprovable); age NULL is a hold -- the
+    // seat's arming latch, a Hermes pin with no heartbeat, or boot suppression
+    // -- never a verdict. restarts_last_hour is the field a restart cannot
+    // race: the kill-ledger line is on the volume before the container dies.
+    gatewayLoopOk: parseSchedulerOk(body.gateway_loop_ok),
+    gatewayLoopAgeSeconds: parseNonNegInt(body.gateway_loop_age_seconds),
+    gatewaySupervisorState: parseGatewaySupervisorState(body.gateway_supervisor_state),
+    gatewayRestartsLastHour: parseNonNegInt(body.gateway_restarts_last_hour),
   }
 }
 
@@ -328,50 +359,26 @@ export const POST: APIRoute = async ({ request }) => {
       ? body.sticky_stop_level
       : null
 
-  const {
-    schedulerOk,
-    schedulerJobCount,
-    schedulerMaxOverdueSeconds,
-    connectorCheckOk,
-    connectorsJson,
-    connectorTokenAgeJson,
-    specControlOk,
-    specControlJson,
-    webhookSurfaceOk,
-    webhookSurfaceJson,
-    cronContainment,
-    auditWriteFailures,
-    auditHead,
-    auditRows,
-  } = parseObservability(body)
+  const obs = parseObservability(body)
 
   // #2498: read the prior count BEFORE the upsert overwrites it. A rise means
   // the seat lost audit rows since the last beat — the state that is otherwise
   // indistinguishable from a seat with nothing to record. Raised as a Sentry
   // event rather than a fleet_alert_state condition: this is a moment-in-time
   // observation, not a standing condition to open and resolve.
-  await reportAuditWriteFailureDelta(auth.slug, auditWriteFailures)
+  await reportAuditWriteFailureDelta(auth.slug, obs.auditWriteFailures)
 
+  // One parsed beat, spread into the upsert: every alert-driving field in
+  // parseObservability reaches the row by name, and a field added there
+  // cannot be forgotten here (the merge of ss#2498 and ss#2488 part 2 pushed
+  // the hand-copied list past the function ceiling, which is the tell).
   await upsertFleetStatus({
     entityId: auth.entityId,
     slug: auth.slug,
     body,
     heartbeatStatus,
     stickyStopLevel,
-    schedulerOk,
-    schedulerJobCount,
-    schedulerMaxOverdueSeconds,
-    connectorsJson,
-    connectorCheckOk,
-    connectorTokenAgeJson,
-    specControlJson,
-    specControlOk,
-    webhookSurfaceJson,
-    webhookSurfaceOk,
-    cronContainment,
-    auditWriteFailures,
-    auditHead,
-    auditRows,
+    ...obs,
   })
 
   // ss#2500. Appended, not upserted: this is the off-Machine pin history, and a
@@ -387,8 +394,8 @@ export const POST: APIRoute = async ({ request }) => {
     entityId: auth.entityId,
     slug: auth.slug,
     heartbeatTs: body.heartbeat_ts,
-    auditHead,
-    auditRows,
+    auditHead: obs.auditHead,
+    auditRows: obs.auditRows,
   })
 
   return jsonResponse(200, { ok: true, heartbeat_status: heartbeatStatus })
@@ -456,6 +463,10 @@ interface FleetStatusUpsert {
   auditWriteFailures: number | null
   auditHead: string | null
   auditRows: number | null
+  gatewayLoopOk: 0 | 1 | null
+  gatewayLoopAgeSeconds: number | null
+  gatewaySupervisorState: string | null
+  gatewayRestartsLastHour: number | null
 }
 
 /**
@@ -478,8 +489,10 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        connectors_json, connector_check_ok, connector_token_age_json,
        spec_control_json, spec_control_ok,
        webhook_surface_json, webhook_surface_ok, cron_containment,
-       audit_write_failures, audit_head, audit_rows, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       audit_write_failures, audit_head, audit_rows,
+       gateway_loop_ok, gateway_loop_age_seconds, gateway_supervisor_state,
+       gateway_restarts_last_hour, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -503,6 +516,10 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        audit_write_failures    = COALESCE(excluded.audit_write_failures, fleet_status.audit_write_failures),
        audit_head              = COALESCE(excluded.audit_head, fleet_status.audit_head),
        audit_rows              = COALESCE(excluded.audit_rows, fleet_status.audit_rows),
+       gateway_loop_ok            = excluded.gateway_loop_ok,
+       gateway_loop_age_seconds   = excluded.gateway_loop_age_seconds,
+       gateway_supervisor_state   = excluded.gateway_supervisor_state,
+       gateway_restarts_last_hour = excluded.gateway_restarts_last_hour,
        updated_at              = datetime('now')`
   )
     .bind(
@@ -528,7 +545,11 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
       u.cronContainment,
       u.auditWriteFailures,
       u.auditHead,
-      u.auditRows
+      u.auditRows,
+      u.gatewayLoopOk,
+      u.gatewayLoopAgeSeconds,
+      u.gatewaySupervisorState,
+      u.gatewayRestartsLastHour
     )
     .run()
 }
