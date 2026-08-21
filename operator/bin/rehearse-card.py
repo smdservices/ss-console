@@ -272,10 +272,17 @@ def msgraph_secret_env_names(slug: str, email: dict) -> tuple[str, str]:
 
 
 def _open(req: urllib.request.Request, timeout: int = 45) -> tuple[int, str]:
-    """One HTTP round trip, returning (status, truncated body).
+    """One HTTP round trip, returning (status, body).
 
     Errors are returned rather than raised so a caller decides what a non-2xx
     means. No request header is ever echoed, so a bearer cannot reach a log.
+
+    A 2xx body is returned WHOLE. The first live run against the paying seat
+    crashed because this cap was 400 characters on every path: a token grant
+    is about 1,500 characters and its access_token string opens near character
+    78, so the truncated JSON was unterminated and the harness died before the
+    first poll. The mocked tests never saw a wire-sized body. Only the error
+    body is capped, since that is the one a caller may echo.
     """
     try:
         # Every URL here is one of this module's own constants concatenated with
@@ -284,7 +291,7 @@ def _open(req: urllib.request.Request, timeout: int = 45) -> tuple[int, str]:
         # reasoning as `api` above.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, r.read().decode()[:400]
+            return r.status, r.read().decode()
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode()[:400]
 
