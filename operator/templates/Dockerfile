@@ -664,7 +664,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # admin roster. Files: shared/gateway_loop_check.py (new), shared/heartbeat.py,
 # contracts/consumes.yaml, tests -- NOT tracked pairs; every overlaySha256
 # unchanged, only overlayRef.
-ARG OVERLAY_REF="4dbf415adfb63dfd78707192cdcd9ff09efea5f8"
+ARG OVERLAY_REF="4ca6682b6944a1b54c15c03f858fa11a3130d74c"
 
 ARG CUSTOMER_SLUG=customer-zero
 
