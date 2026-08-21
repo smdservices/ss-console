@@ -84,9 +84,22 @@ fly_region: sjc # Fair Oaks (Sacramento), CA — San Jose is the nearest Fly reg
 # instruction translate.py renders when escalation_model is set.
 model: claude-sonnet-4-6
 escalation_model: claude-opus-4-8
-# CONFIRM: bump to the OVERLAY_REF carrying the smokeball authorization_code +
-# per-seat-env change before reprovision.sh (matches pilot at provision time).
-hermes_ref: v2026.7.1@7c1a029553d87c43ecff8a3821336bc95872213b
+# Promoted to the blessed v0.20 line 2026-08-20 (ss#2444 PR-2, Captain go). The
+# four SMD-own seats moved on PR-1 (#2453) and this seat, the paying client,
+# moves last and alone — the staged order the upgrade plan exists to enforce
+# (docs/runbooks/operator/hermes-v0.20-upgrade-plan.md). The prior CONFIRM note
+# here asked for an OVERLAY_REF carrying the smokeball authorization_code +
+# per-seat-env change; that condition was met long before this bump and the note
+# outlived it.
+#
+# Two properties of THIS seat that pilot could not prove, both first exercised
+# by this promotion: `msgraph-send-credential-stripped-from-agent` asserts
+# something real here for the first time (it passed vacuously on all four
+# SMD-own seats, none of which author msgraph), and the msgraph delta POLLER
+# has never run on v0.20 anywhere — pilot is inbound-by-webhook, this seat is
+# inbound-by-poll. Cursor resume is proven by delta-state.json's post-boot mtime
+# plus zero duplicate inbound rows, not by boot-smoke.
+hermes_ref: v2026.8.18@e624e9fde561e1add9388384012b295fde669ade
 
 machine:
   size: shared-cpu-1x

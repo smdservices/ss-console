@@ -238,7 +238,7 @@ def _stub_record_check(monkeypatch, *, passed: bool = True, disposition: str = "
     """
     from smokeball_connector import record_check as rc
 
-    monkeypatch.setattr(server, "_collect_matter_sources", lambda _m: ([("Src", "text")], []))
+    monkeypatch.setattr(server, "_collect_matter_sources", lambda _m: ([("Src", "text")], [], []))
     # Patch the MODULE attribute, not a name on `server`. render_docx_draft does
     # `from .record_check import run_record_check` inside the function body, so
     # the binding is resolved from the module on every call — a stub set on
@@ -340,7 +340,7 @@ def test_the_content_gate_runs_BEFORE_the_record_check(monkeypatch) -> None:
     """
     called: list[str] = []
     monkeypatch.setattr(
-        server, "_collect_matter_sources", lambda _m: called.append("collected") or ([], [])
+        server, "_collect_matter_sources", lambda _m: called.append("collected") or ([], [], [])
     )
     out = server.render_docx_draft("m-104", "Bad", "Body — dash.\n")
     assert out["fileId"] is None

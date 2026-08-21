@@ -563,7 +563,92 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # ss#2255). Files: plugins/hermes-smd-trust/outbound_send.py,
 # plugins/hermes-smd-reply/__init__.py + tests — NOT tracked pairs; every
 # overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="ab352d5b758eac9c67231214bcb9c3574e338230"
+# ab352d5b -> 88f6daa (2026-08-20, ss#2444 PR-2 + ss#2464): three commits, and the
+# third is why the pin goes to overlay main rather than to an intermediate.
+# overlay#284 proves the ss#2167 matter-mixing fence survives the v0.19 tool
+# rename — the BINDING was already tested, the wire NAME was not, and the rename
+# is exactly what silently unbound every connector tool on the first v0.20 build
+# (overlay#283). overlay#285 added a purpose-made SMOKEBALL_VISION_ANTHROPIC_KEY
+# for the scanned-document read path; the Captain's review found that premise
+# false and overlay#286 RETIRES it back to the seat's own ANTHROPIC_API_KEY,
+# which provisioning already stages per seat. So pinning main means no new secret
+# to stage for any seat, and pinning #285 alone would wire a seat to a credential
+# nobody stages. Containment checked before writing this pin:
+# `git merge-base --is-ancestor ab352d5b 88f6daa` — a fast-forward, no divergence.
+# Files: plugins/hermes-smd-trust tests, connectors/registry — NOT tracked pairs;
+# every overlaySha256 unchanged, only overlayRef.
+# 88f6daa -> 78c2544 (2026-08-20, ss#2444 PR-2 follow-up): one commit, and it is a
+# LIVE DEFECT found on the paying client's seat 17 minutes after promoting it.
+# Hermes v0.20.4 inverted the order two hooks fire in --
+# v0.18 was pre_tool_call -> post_tool_call -> transform_tool_result;
+# v0.20.4 is pre_tool_call -> transform_tool_result -> post_tool_call,
+# observed on five consecutive tool calls on hermes-ashton-price's own log
+# (vfy_01M0G7DYTBHAGDRQYXX02DKMZJ). hermes-smd-inbound fences at
+# transform_tool_result, so hermes-smd-establishment's on_post_tool_call stopped
+# receiving the connector's raw text and started receiving the FENCE. json.loads
+# died at char 1 ("[" then "U" of UNTRUSTED) on 100% of document reads -- 0.18: 3
+# reads / 0 failures, 0.20.4: 2 reads / 2 failures -- so read_capture never
+# recorded, and voice-establishment and document-library-establishment, the first
+# two things a new firm is asked to run, would have refused in front of the
+# client. overlay#287 adds shared.inbound.unwrap_inbound (nonce matched as a
+# BACKREFERENCE so a forged inner sentinel cannot terminate the real fence) and
+# parses through it. Pass-through on unfenced input is deliberate: correct under
+# BOTH hook orders, so the ordering never becomes an invariant again. Falsifier
+# run: reverting only the unwrap call reproduces the identical production
+# traceback while the other 46 tests in that file still pass.
+# STILL AT RISK, unconfirmed, deliberately not swept in: hermes-smd-audit:117
+# (output_digest), hermes-smd-reply relay.py:180, hermes-smd-trust:348/:359 all
+# consume kwargs["result"] the same way. Files: shared/inbound.py,
+# plugins/hermes-smd-establishment + tests -- NOT tracked pairs; every
+# overlaySha256 unchanged, only overlayRef.
+# 78c2544 -> 16770d3 (2026-08-20, ss#2489): one commit, and it is the second
+# live defect this evening on the paying client's seat. Four Operator replies
+# reached the firm as ONE UNBROKEN BLOCK -- sections, lists and paragraphs all
+# collapsed. Graph's /reply action composes the reply message IN HTML (its own
+# reference says so where it explains `Prefer: outlook.timezone`), and this
+# transport hands it a plain-text `comment`, so every newline dies to HTML
+# whitespace collapsing before the message leaves the tenant. Proven from the
+# wire, not inferred: the raw MIME of message 1a020fe88536d941 is
+# multipart/alternative whose text/html part carries the model's text inline in
+# <body> with ZERO <br>, and whose text/plain half is that same HTML with the
+# tags stripped -- which is why both halves were equally unreadable and no mail
+# client could rescue it. Second half of the cause: shared/report_render.py is
+# escape-by-default, purity-tested and live-proven (vfy_01KXMVRX1C2NAMYKH6JSQWTJEV),
+# but hermes-smd-trust injects it as args["html"], a field only the AgentMail
+# transport reads, so it had never once run on an msgraph seat. overlay#288
+# renders the body in `_send_msgraph_reply` and passes it beside the plain text;
+# the broker half (operator/workspace_broker/msgraph_ops.py, this same PR) posts
+# message.body instead of comment. Both sides treat the html as OPTIONAL on the
+# wire, so the two repos deploy in either order. Falsifier run: reverting only
+# the render call fails exactly the three new structure/escaping tests while the
+# other 14 in that file pass. Files: plugins/hermes-smd-reply,
+# shared/msgraph_broker.py + tests -- NOT tracked pairs; every overlaySha256
+# unchanged, only overlayRef.
+# 16770d3 -> 7a8ba42 (2026-08-20, ss#2489 follow-on): one commit, found by
+# reading the wire on the reply the previous bump had just made readable. The
+# formatting fix worked -- real <p>/<ul>/<li> reached the firm -- and the same
+# MIME showed report_render emitting INVALID HTML underneath it. The <ul> opened
+# at the introduction's first section was never closed, so three following
+# paragraphs rendered INSIDE the list and the second bullet group joined the
+# first list instead of opening its own; </li> outnumbered <li> 7 to 4.
+# Reproduced offline at the old ref against the same source shape, and the
+# counts invert at the new one (2 uls, 4/4 items, 0 trapped paragraphs).
+# TWO CAUSES REMOVED, NOT PATCHED: _flush_paragraph emitted a <p> without
+# closing the list (three sibling block handlers each remembered to; the rule
+# now lives with the emitter, so a caller cannot forget it), and
+# _close_open_item decided item state by sniffing parts[-1].endswith("</li>"),
+# which is false both for a genuinely open item and for a paragraph emitted
+# inside a list -- replaced with an explicit flag. NOT INTRODUCED BY overlay#288:
+# this renderer has shipped in AgentMail report emails since 2026-07-16
+# (vfy_01KXMVRX1C2NAMYKH6JSQWTJEV), so any report mixing a list with a following
+# paragraph has been malformed there too; #288 only made it visible on a channel
+# someone was reading closely. Nine green tests missed it because neither corpus
+# in that file had a paragraph after a list item -- the live A&P shape is now a
+# third corpus and joins the purity parametrize. Falsifier run: reverting only
+# the close_list line fails exactly 3 of the 6 new tests while the other 13 pass.
+# Files: shared/report_render.py, tests/test_report_render.py -- NOT tracked
+# pairs; every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="7a8ba42f11515e1856fc1ef13ab2f93a949d15b6"
 
 ARG CUSTOMER_SLUG=customer-zero
 
