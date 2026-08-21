@@ -8,6 +8,11 @@ scenario ids and their outcomes, so an id that ends in ``-green`` cannot have
 been produced by a run with a FAIL or a SKIP in it, and the digest can be
 recomputed from the report body by anyone who doubts it.
 
+The report also prints the ref the rig was OBSERVED running. The runner
+refuses to drive unless that equals the candidate, so the two lines always
+agree; printing both is what lets a reader tell an id produced against the
+candidate from one produced by a rig still sitting on the previous release.
+
 The report always prints SKIPPED as its own outcome. A suite that folded
 SKIPPED into PASS would certify a release on scenarios that never ran, which is
 the exact shape of the built-not-wired failure this program exists to close.
@@ -31,6 +36,13 @@ class Run:
     seat: str
     overlay_ref: str
     started_at: str
+    #: The ref the rig was OBSERVED running when the gate in run.py read its
+    #: seam. Not part of the digest below: the gate refuses to drive unless it
+    #: equals ``overlay_ref``, so it adds no entropy. It is carried and rendered
+    #: so a reader of the report can see that the equality was observed rather
+    #: than assumed, which is the whole difference between this id and the ones
+    #: three earlier bumps could not produce at all.
+    running_ref: str | None = None
     results: list[ScenarioResult] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
@@ -72,6 +84,7 @@ def to_json(run: Run) -> dict:
         "run_id": run.run_id,
         "seat": run.seat,
         "overlay_ref": run.overlay_ref,
+        "running_ref": run.running_ref,
         "started_at": run.started_at,
         "green": run.is_green,
         "counts": run.counts,
@@ -106,6 +119,7 @@ def to_markdown(run: Run, scenarios_by_id: dict[str, dict]) -> str:
         "",
         f"- Seat: `{run.seat}`",
         f"- Candidate overlay ref: `{run.overlay_ref}`",
+        f"- Rig running overlay ref (observed): `{run.running_ref or 'not observed'}`",
         f"- Started: {run.started_at}",
         f"- Result: **{'GREEN' if run.is_green else 'NOT GREEN'}** "
         f"({counts.get(PASS, 0)} pass, {counts.get(FAIL, 0)} fail, {counts.get(SKIPPED, 0)} skipped)",
