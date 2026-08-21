@@ -62,6 +62,15 @@ export interface FleetStatusRow {
   connector_check_ok: number | null
   /** ss#2276: 1 = crons deliberately contained (volume sentinel), 0 normal, NULL unreported. */
   cron_containment: number | null
+  /**
+   * #2498: audit rows this seat has failed to persist, cumulative and monotonic
+   * across reboots. 0 is a REAL value — the writer is up and has lost nothing —
+   * and NULL means the seat cannot answer. Rendered beside `last_audit_ts`
+   * because the two only mean anything together: a stale `last_audit_ts` with 0
+   * failures is a quiet seat, the same timestamp with a non-zero count is a
+   * broken one, and before this column they looked identical.
+   */
+  audit_write_failures: number | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -74,6 +83,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
               process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
               scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
               connectors_json, connector_check_ok, cron_containment,
+              audit_write_failures,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`
@@ -147,6 +157,42 @@ export function heartbeatColorClass(color: 'green' | 'yellow' | 'red' | 'gray'):
       return 'text-[color:var(--ss-color-error)]'
     case 'gray':
       return 'text-[color:var(--ss-color-text-muted)]'
+  }
+}
+
+export interface AuditWriteFailureDisplay {
+  label: string
+  colorClass: string
+}
+
+/**
+ * Render the audit-write-failure counter for the lifecycle page (#2498).
+ *
+ * Three states, and keeping them apart IS the feature. Before this column, a
+ * seat that had sent nothing for days and a seat whose audit writer had been
+ * failing silently produced the same page, because every audit hook on the
+ * Machine swallows a write failure by design and `last_audit_ts` alone cannot
+ * tell a gap from a quiet week.
+ *
+ *   - null → "not reported". The seat has no opinion (the audit plugin has
+ *     never registered, so the volume tally has no home). NEVER rendered as
+ *     "none" — a reassuring answer we did not receive is the failure this
+ *     whole issue is about.
+ *   - 0    → "none". A real, load-bearing zero: the writer is up and has lost
+ *     nothing, so a stale `last_audit_ts` next to it means a quiet seat.
+ *   - n>0  → "N lost", in the error color. The ledger has gaps and the beside
+ *     -it timestamp cannot be trusted as "nothing happened".
+ */
+export function auditWriteFailureDisplay(count: number | null): AuditWriteFailureDisplay {
+  if (count === null || !Number.isFinite(count) || count < 0) {
+    return { label: 'not reported', colorClass: 'text-[color:var(--ss-color-text-muted)]' }
+  }
+  if (count === 0) {
+    return { label: 'none', colorClass: 'text-[color:var(--ss-color-text-primary)]' }
+  }
+  return {
+    label: `${count} lost`,
+    colorClass: 'text-[color:var(--ss-color-error)]',
   }
 }
 

@@ -69,6 +69,12 @@ export const AUDIT_ACTION_TYPES = [
   // Skill activation
   'SKILL_ENABLED',
   'SKILL_DISABLED',
+  // Routine scheduling (#2498). Deliberately distinct from the two above:
+  // SKILL_ENABLED is whether the Operator is ALLOWED to do a thing, these are
+  // whether it is SCHEDULED to. A seat can have every skill enabled and
+  // initiate nothing, and conflating them would report it as fully armed.
+  'ROUTINE_ENABLED',
+  'ROUTINE_DISABLED',
   // Agent lifecycle
   'AGENT_STOPPED',
   'AGENT_RESUMED',
