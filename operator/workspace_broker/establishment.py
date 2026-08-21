@@ -199,6 +199,18 @@ ACT_TOOLS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# The two display names the read-back shows the administrator, authored beside
+# the identifiers in the same block so the sentence a person says yes to and the
+# bytes the act carries come from one file. The overlay hook sends the block
+# whole (identifiers and names together, hermes-smd-overlay#303/#305); the tool
+# itself takes only ACT_TOOLS' fields. Names are accepted in the payload, at the
+# request top level (``contact_name`` / ``matter_type_name``), or from the
+# authored block, in that order of precedence, and must agree with the block
+# when both are present.
+ACT_NAME_KEYS: dict[str, tuple[str, ...]] = {
+    "mcp_smokeball_create_matter": ("client_contact_name", "matter_type_name"),
+}
+
 # Where the authored act payload is read from on a live seat. The broker holds
 # its own handle on this file (``SMD_CUSTOMER_YAML``, server.py) and re-reads it
 # per proposal rather than caching: the file is root-owned and can be re-applied
@@ -1248,15 +1260,33 @@ class EstablishmentStore:
                 + f" block is missing {sorted(missing)}; every field the readback "
                 "names has to be authored before the act can be proposed"
             )
-        extra = sorted(set(block) - set(fields))
+        names = ACT_NAME_KEYS.get(tool, ())
+        extra = sorted(set(block) - set(fields) - set(names))
         if extra:
             raise EstablishmentValidationError(
                 "the authored "
                 + ".".join(ACT_CONFIG_KEYS)
                 + f" block carries unknown keys {extra}; the act carries exactly "
-                f"{sorted(fields)} and nothing else"
+                f"{sorted(fields)} plus the display names {sorted(names)} and nothing else"
             )
         return {f: block[f].strip() for f in fields}
+
+    def _authored_act_names(self, tool: str) -> dict[str, str]:
+        """The authored display names beside the act payload, if the block
+        carries them. Empty when it does not; the caller then needs them from
+        the request, and refuses by name when nobody supplied them."""
+        data = self._seat_config()
+        block: Any = data
+        for key in ACT_CONFIG_KEYS:
+            block = block.get(key) if isinstance(block, dict) else None
+        if not isinstance(block, dict):
+            return {}
+        out: dict[str, str] = {}
+        for key in ACT_NAME_KEYS.get(tool, ()):
+            value = block.get(key)
+            if isinstance(value, str) and value.strip():
+                out[key] = value.strip()
+        return out
 
     @staticmethod
     def _require_act_tool(value: Any) -> str:
@@ -1278,13 +1308,26 @@ class EstablishmentStore:
         if not isinstance(value, dict):
             raise EstablishmentValidationError("payload must be an object")
         fields = ACT_TOOLS[tool]
-        unknown = sorted(set(value) - set(fields))
+        names = ACT_NAME_KEYS.get(tool, ())
+        unknown = sorted(set(value) - set(fields) - set(names))
         if unknown:
             raise EstablishmentValidationError(
                 f"payload carries fields {unknown} that {tool} does not take; "
-                f"it takes exactly {sorted(fields)}"
+                f"it takes exactly {sorted(fields)} (plus the display names {sorted(names)})"
             )
         return {f: _require_text(value.get(f), f"payload.{f}", _MAX_SHORT_TEXT) for f in fields}
+
+    @staticmethod
+    def _payload_names(value: Any, tool: str) -> dict[str, str]:
+        """The display names riding in a payload, if any (the hook sends the
+        authored block whole). Shape-checked like every other caller string."""
+        if not isinstance(value, dict):
+            return {}
+        out: dict[str, str] = {}
+        for key in ACT_NAME_KEYS.get(tool, ()):
+            if value.get(key) is not None:
+                out[key] = _require_text(value.get(key), f"payload.{key}", _MAX_SHORT_TEXT)
+        return out
 
     def act_propose(self, request: dict[str, Any]) -> dict[str, Any]:
         """Record one TOOL CALL as pending and return the line to send.
@@ -1303,12 +1346,31 @@ class EstablishmentStore:
         payload = self._require_act_payload(request.get("payload"), tool)
         instructed_by = require_address(request.get("instructed_by"), "instructed_by")
         source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
-        contact_name = _require_display_name(request.get("contact_name"), "contact_name")
-        matter_type_name = _require_display_name(
-            request.get("matter_type_name"), "matter_type_name"
-        )
-
         authored = self._authored_act_payload(tool)
+        authored_names = self._authored_act_names(tool)
+        payload_names = self._payload_names(request.get("payload"), tool)
+        # Names in the payload must be the authored names: the read-back the
+        # administrator says yes to is rendered from them, so a caller-composed
+        # name is the one fabrication this verb exists to refuse.
+        for key, value in payload_names.items():
+            if key in authored_names and value != authored_names[key]:
+                raise EstablishmentValidationError(
+                    f"the proposed payload's {key} does not match the authored "
+                    + ".".join(ACT_CONFIG_KEYS)
+                    + " block; the read-back carries the authored name"
+                )
+        contact_name = _require_display_name(
+            request.get("contact_name")
+            or payload_names.get("client_contact_name")
+            or authored_names.get("client_contact_name"),
+            "contact_name (or an authored client_contact_name)",
+        )
+        matter_type_name = _require_display_name(
+            request.get("matter_type_name")
+            or payload_names.get("matter_type_name")
+            or authored_names.get("matter_type_name"),
+            "matter_type_name (or an authored matter_type_name)",
+        )
         if payload != authored:
             # The refusal names the FIELDS, never the two values: a refusal that
             # printed both sides would put a caller-supplied string into the
