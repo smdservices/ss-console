@@ -992,7 +992,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // below the untrusted delimiter, with tests rendered from the real template.
     // #303 and #305 are the operator-own-matter commitment confirm (a peer
     // session's work, carried so the seats take one bump, not two). No tracked twin moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="07ed486fcbc388b2f4e906078bc6818e168804bb"')
+    // 07ed486 -> b782926c (2026-08-21, overlay#306, ss#2537 follow-up): the pilot
+    // seat crash-looped at boot at 22:57Z because ss#2537 authored `commitment:
+    // confirm` on pilot-smokeball and ashton-price while the on-box config
+    // validator still refused `confirm` on every non-send class. The enforce
+    // branch that gives it meaning shipped in #303, carried into the 07ed486
+    // bump; the validator had not moved with it. #306 accepts it on `commitment`
+    // in a persona's `exposure` and nowhere else, never on `exposure_ceiling`,
+    // so it still cannot be authored where it would do nothing. This PR un-parks
+    // both seat lines in the same change. No tracked twin moves: bootstrap/
+    // validate.py and tests/test_customer_config.py are the whole range.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b782926c3466bf298ec2f19643037d57e269dc13"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

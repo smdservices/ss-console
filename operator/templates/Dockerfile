@@ -685,7 +685,22 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # other. Files: shared/citation_filter.py (a TRACKED pair; overlaySha256
 # re-recorded one-sided in overlay-pairs.json), shared/outbound_gate.py,
 # shared/provenance.py, tests.
-ARG OVERLAY_REF="07ed486fcbc388b2f4e906078bc6818e168804bb"
+#
+# 07ed486 -> b782926c (overlay#306, ss#2537 follow-up). The pilot seat
+# crash-looped at boot on 2026-08-21 22:57Z because ss#2537 authored
+# `commitment: confirm` on pilot-smokeball and ashton-price while the on-box
+# config validator still refused `confirm` on every non-send class. The
+# enforce branch that gives it meaning landed in overlay#303, carried into the
+# 07ed486 bump; the validator had not moved with it, so the seat rejected the
+# config the runtime was ready to honor. #306 accepts `confirm` on
+# `commitment` in a persona's `exposure` and nowhere else: never on
+# `exposure_ceiling` (the runtime entitlement dial derives that from send
+# tiers) and never on another class, so it still cannot be authored where it
+# would do nothing. This PR un-parks both seat lines in the same change, so
+# the config and the validator that accepts it land together. Files:
+# bootstrap/validate.py, tests/test_customer_config.py -- NOT tracked pairs;
+# every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="b782926c3466bf298ec2f19643037d57e269dc13"
 
 ARG CUSTOMER_SLUG=customer-zero
 
