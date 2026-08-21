@@ -76,6 +76,12 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'REPLY_FAILED',
         'REPLY_HELD',
         'REPLY_SENT',
+        // #2498: a routine crossing the scheduled line. Deliberately separate
+        // from SKILL_ENABLED/SKILL_DISABLED below — a skill being on is
+        // permission, a routine being on is a schedule, and a seat can have
+        // every skill enabled while initiating nothing.
+        'ROUTINE_DISABLED',
+        'ROUTINE_ENABLED',
         'SCOPE_CHANGED',
         'SKILL_DISABLED',
         'SKILL_ENABLED',

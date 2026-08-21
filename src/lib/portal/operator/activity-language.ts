@@ -81,6 +81,8 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
     actions: [
       'SKILL_ENABLED',
       'SKILL_DISABLED',
+      'ROUTINE_ENABLED',
+      'ROUTINE_DISABLED',
       'TRUST_PROMOTED',
       'TRUST_DEMOTED',
       'ENTITLEMENT_CHANGED',
@@ -274,6 +276,12 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
       : "A routine's autonomy level was changed",
   SKILL_ENABLED: withSkill('A skill was turned on'),
   SKILL_DISABLED: withSkill('A skill was turned off'),
+  // #2498. Distinct from the two above in the client's terms too, not just
+  // ours: a skill being on is permission, a routine being on is a schedule. A
+  // Named Administrator reading a silent week needs to see which one changed,
+  // and "no routines are scheduled" is the sentence the record could not say.
+  ROUTINE_ENABLED: withSkill('A routine was scheduled'),
+  ROUTINE_DISABLED: withSkill('A routine was unscheduled'),
   TRUST_PROMOTED: withSkill('An approval level was raised'),
   TRUST_DEMOTED: withSkill('An approval level was lowered'),
   CONNECTOR_BOUND: (e) => (e.target ? `Connected ${e.target}` : 'Connected a system'),

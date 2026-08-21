@@ -96,6 +96,16 @@
       "overlayProducer": "plugins/hermes-smd-audit (skill_manage disable)",
       "reason": "skill enable/disable is a Machine-local skill-catalog mutation."
     },
+    "ROUTINE_ENABLED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit register() -> _drain_routine_changes_to_ledger (hermes-smd-overlay#292)",
+      "reason": "A routine is turned on by an authored customer.yaml cron entry, materialized at boot by bootstrap/cron_materialize.py. That runs in `hermes-smd bootstrap`, which is NOT the gateway, and the broker gates the generic audit_append on peer_pid == SMD_GATEWAY_PID (operator/workspace_broker/server.py:440) -- so bootstrap spools the change to $HERMES_HOME/.smd/routine_changes.jsonl (shared/routine_change_spool.py) and the audit plugin drains it into rows at registration, inside the one process authorized to write the ledger. Emitted on the DELTA only: the materializer recreates every managed job on every boot, so a row per created job would claim a change nobody made at every restart. Actor is `customer.yaml` with actor_role=operator -- the seat sees only the materialized config and must not invent a named person it cannot verify."
+    },
+    "ROUTINE_DISABLED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit register() -> _drain_routine_changes_to_ledger (hermes-smd-overlay#292)",
+      "reason": "The disable half of the same delta, and the half #2498 was filed for: ashton-price has shipped with `cron: []` since #2332 and the ledger never said so, leaving a deliberately quiet seat indistinguishable from a broken one. Also fires when the ss#2276 cron-containment sentinel converges a seat to zero managed jobs -- that IS a disable, and hiding it would recreate the same confusion."
+    },
     "AGENT_STOPPED": {
       "side": "ss-console",
       "producerFile": "operator/safety-substrate/sticky_stop.py",
@@ -275,7 +285,7 @@
     "EMITTED_WAKE": {
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/server.py",
-      "note": "The wake half of the cron gate (#2253). Broker-stamped via the uid-gated emitted_wake_append verb; the producers are the four gated skills' pre_run.py — operator/skills/deadline-miss-escalator/pre_run.py, client-verification-tracker/pre_run.py, paid-media-anomaly-watcher/pre_run.py, retainer-hours-reconciler/pre_run.py — each attempting the row on the real-decision wake path BEFORE printing {wakeAgent:true}. Written best-effort: unlike SUPPRESSED_WAKE, a write failure must NOT change the decision, so a wake is never gated on its own audit row. The adapter SuppressedWakeWriter.write_emitted_wake (operator/adapter/audit_log.py) remains the dev/test writer."
+      "note": "The wake half of the cron gate (#2253). Broker-stamped via the uid-gated emitted_wake_append verb; the producers are the pre_run.py scripts, each attempting the row on the real-decision wake path BEFORE printing {wakeAgent:true}. Written best-effort: unlike SUPPRESSED_WAKE, a write failure must NOT change the decision, so a wake is never gated on its own audit row. The adapter SuppressedWakeWriter.write_emitted_wake (operator/adapter/audit_log.py) remains the dev/test writer. 2026-08-20 (#2498) CORRECTION + WIDENING. The prior note named four producers — deadline-miss-escalator, client-verification-tracker, paid-media-anomaly-watcher, retainer-hours-reconciler — and two of those were wrong: paid-media-anomaly-watcher and retainer-hours-reconciler have no pre_run.py at all, while lien-ledger-tracker and medical-records-chaser (both of which graduated to bespoke gates after the note was written) do produce. Probed, not assumed: `grep -l emitted_wake_append operator/skills/*/pre_run.py` returns exactly client-verification-tracker, deadline-miss-escalator, lien-ledger-tracker, medical-records-chaser. #2498 also carries the wake half to the SHARED gate template (operator/templates/pre_run_gate.py -> write_emitted_wake_heartbeat), which stamps into the eight skills pinned in operator/tests/test_pre_run_gate.py GATED_SKILLS — those eight wrote a row on every quiet tick and nothing on the ticks they fired, so the one tick that mattered was the one tick with no row. Producer count is therefore 12, not 4."
     },
     "REPLY_SENT": {
       "side": "overlay",
