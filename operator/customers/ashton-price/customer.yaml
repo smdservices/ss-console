@@ -756,14 +756,12 @@ connectors:
 # delta poller re-injects each message to /webhooks/msgraph, where sender
 # identity is authenticated before any turn fires. The walls this rides
 # inside, all unchanged: replies auto-deliver ONLY to the organization roster
-# (scope.inbound_allow_from), every @ashtonandprice.com address stays
-# unreachable both directions (scope.domain_blocks above — the SMD-only
-# fence), non-roster senders get drafts-held-for-review, and the taint gate
-# still bounds every turn. Authored after the 2026-08-19 Lane-0 finding that
-# with this list empty the seat could read mail but never transmit a reply
-# to anyone (tool-read mail is unverifiable by design; verification lives on
-# this route). The firm flip later ADDS nothing here — it only removes the
-# domain_blocks entry.
+# (scope.inbound_allow_from), non-roster senders get drafts-held-for-review,
+# and the taint gate still bounds every turn. Authored after the 2026-08-19
+# Lane-0 finding that with this list empty the seat could read mail but never
+# transmit a reply to anyone (tool-read mail is unverifiable by design;
+# verification lives on this route). The 2026-08-21 firm flip changed nothing
+# here — it only emptied scope.domain_blocks.
 webhook_triggers:
   - source: msgraph
     event_type: message.received
@@ -800,30 +798,11 @@ scope:
     - Sent
   email_folders_blind: []
   email_keyword_blocks: []
-  # BRING-UP FENCE (Captain, 2026-08-18) — TEMPORARY, remove when the Smokeball
-  # production 403 is resolved and the Captain opens the seat to the firm.
-  #
-  # The Captain's directive, verbatim in effect: while we test, the Operator
-  # mails ONLY SMD — not Chris or Christa — and opens to the firm when
-  # Smokeball is fixed. This entry is that directive as config. The broker's
-  # recipient fence subtracts blocked domains from the authored surface with
-  # deny-over-allow (workspace_broker/recipient_policy.py), so with the firm's
-  # own domain here, every send AND every reply to any @ashtonandprice.com
-  # address — including the two admins, who are named in `exact` — is refused
-  # with an audit row, while scott@smd.services (rostered below) still gets
-  # real answers. Driven against this very file pre-merge: chris/christa/any
-  # firm address REFUSE both ways, scott@smd.services ALLOW both ways,
-  # outsiders REFUSE (vfy_01M0B27GHTBHV8HBVMNTN9JH50).
-  #
-  # Written @-prefixed although the bare form also blocks (both spellings are
-  # driven by test_recipient_policy_blocks.py since the split_blocks fix —
-  # bare-domain blocks silently no-opped before it): the @ form matches how
-  # this file spells the domain grant above, so the pairing is visible.
-  #
-  # To open the seat to the firm: delete this entry, reprovision, and prove the
-  # flip with one observed send to an @ashtonandprice.com admin.
-  domain_blocks:
-    - '@ashtonandprice.com'
+  # The firm is reachable (Captain, 2026-08-21). The 2026-08-18 bring-up fence
+  # (domain_blocks: '@ashtonandprice.com', SMD-only while the test batch ran)
+  # was removed the day the Captain approved the Operator's welcome to the firm;
+  # the flip is proven by that one observed send to an @ashtonandprice.com admin.
+  domain_blocks: []
   # The organization roster (ADR 0055) — who the Operator may RESPOND to (not just
   # draft) when they email its inbox. The whole firm (@ashtonandprice.com) plus the
   # SMD operator; replies are recipient-locked to the verified sender. So Chris,
