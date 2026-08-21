@@ -39,6 +39,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from workspace_broker.audit_ledger import LedgerWriter
 from workspace_broker.establishment import (
+    ACT_COMMITTED_ACTION_TYPE,
+    ACT_PROPOSED_ACTION_TYPE,
     ESTABLISHMENT_SUBMITTED_ACTION_TYPE,
     MAX_RULE_TEXT_BYTES,
     PROPOSAL_TTL_SECONDS,
@@ -588,3 +590,481 @@ def test_readback_is_the_tag_then_the_sentence():
 
 def test_normalize_rule_text_folds_every_line_break():
     assert normalize_rule_text("a\r\nb\rc\n\nd") == "a b c d"
+
+
+# ---------------------------------------------------------------------------
+# act_propose / act_commit  (ss-console#2536)
+# ---------------------------------------------------------------------------
+#
+# WHAT AN ACT PROPOSAL IS WORTH, and therefore what these tests are about. A
+# rule proposal asks a person to agree to a sentence. An act proposal asks them
+# to agree to a CHANGE IN THEIR OWN RECORD, and the only thing that makes that
+# safe is that the model contributes nothing to it: every value comes out of the
+# seat's authored config, the sentence the person reads is rendered from those
+# values by this uid, and a payload that differs from the authored one by a
+# single character is refused rather than committed.
+#
+# So the load-bearing assertions are: the payload is the authored block or the
+# proposal does not happen; the readback names every value and is rendered here;
+# a seat with nothing authored can propose nothing; the act commits exactly once
+# and only under its own tag; and no row this path writes carries the firm's
+# values, only their digest.
+
+ACT_TOOL = "mcp_smokeball_create_matter"
+ACT_NUMBER = "OPS-OPERATOR-LIBRARY"
+ACT_DESCRIPTION = "Operator Library"
+ACT_CONTACT_ID = "11111111-2222-3333-4444-555555555555"
+ACT_TYPE_ID = "66666666-7777-8888-9999-aaaaaaaaaaaa_CA"
+CONTACT_NAME = "Example and Partners"
+TYPE_NAME = "Personal Injury Plaintiff"
+
+# The exposure half of an authored seat. The broker refuses to write an act row
+# for a seat that authorizes no confirmable act at all, so the fixture has to
+# carry it; the test below removes it and asserts the refusal.
+AUTHORED_EXPOSURE = """\
+personas:
+  - slug: operator
+    entitlements:
+      exposure:
+        internal_write: autonomous
+        commitment: confirm
+"""
+
+AUTHORED_MATTER_BLOCK = f"""\
+self_initiation:
+  document_library:
+    operator_matter:
+      number: '{ACT_NUMBER}'
+      description: '{ACT_DESCRIPTION}'
+      client_contact_id: '{ACT_CONTACT_ID}'
+      matter_type_id: '{ACT_TYPE_ID}'
+"""
+
+AUTHORED_YAML = AUTHORED_EXPOSURE + f"""\
+self_initiation:
+  sequence:
+    - operator-self-test
+  document_library:
+    folder_name: 'Document Library'
+    operator_matter:
+      number: '{ACT_NUMBER}'
+      description: '{ACT_DESCRIPTION}'
+      client_contact_id: '{ACT_CONTACT_ID}'
+      matter_type_id: '{ACT_TYPE_ID}'
+"""
+
+AUTHORED_PAYLOAD = {
+    "description": ACT_DESCRIPTION,
+    "matter_type_id": ACT_TYPE_ID,
+    "client_contact_id": ACT_CONTACT_ID,
+    "number": ACT_NUMBER,
+}
+
+
+def _act_broker(tmp_path: Path, customer_yaml: str | None = AUTHORED_YAML) -> Broker:
+    """A broker whose establishment store can read a seat config.
+
+    Separate from ``_broker`` on purpose: the rule path has never needed the
+    seat's config and must keep working without one, so the two fixtures differ only
+    in the handle the act path requires.
+    """
+    broker = _broker(tmp_path)
+    if customer_yaml is None:
+        broker.establishment.customer_path = None
+        return broker
+    path = tmp_path / "customer.yaml"
+    path.write_text(customer_yaml, encoding="utf-8")
+    broker.establishment.customer_path = path
+    return broker
+
+
+def _act_propose(broker: Broker, **over):
+    request = {
+        "action": "act_propose",
+        "tool": ACT_TOOL,
+        "payload": dict(AUTHORED_PAYLOAD),
+        "instructed_by": ADMIN,
+        "source_ref": "msg-77",
+        "contact_name": CONTACT_NAME,
+        "matter_type_name": TYPE_NAME,
+    }
+    request.update(over)
+    return _call(broker, **request)
+
+
+def _act_commit(broker: Broker, proposal_id: str, **over):
+    request = {
+        "action": "act_commit",
+        "proposal_id": proposal_id,
+        "tool": ACT_TOOL,
+        "payload": dict(AUTHORED_PAYLOAD),
+        "confirmed_by": ADMIN,
+        "confirmed_message_id": "AAMkAGReply==",
+        "outcome": {"created": True, "pending": False, "matter_id": "mat-1"},
+    }
+    request.update(over)
+    return _call(broker, **request)
+
+
+def test_the_act_readback_names_every_value_the_act_will_carry(tmp_path):
+    """The admin cannot judge a UUID, so the sentence names the contact and the
+    matter type BY NAME and quotes the number and description verbatim. A
+    readback that hid any of them would be asking for a yes to something the
+    person cannot see."""
+    broker = _act_broker(tmp_path)
+    result = _act_propose(broker)
+    assert result["ok"] is True
+    assert len(result["proposal_id"]) == 8
+    assert result["readback"] == (
+        f'[act {result["proposal_id"]}] Create Smokeball matter "{ACT_DESCRIPTION}" '
+        f"(number {ACT_NUMBER}; client: {CONTACT_NAME}; type: {TYPE_NAME}). "
+        'Reply "yes, create it" to proceed.'
+    )
+    assert result["kind"] == "tool_call"
+    assert result["payload"] == AUTHORED_PAYLOAD
+    assert result["for_admin"] is True
+
+
+def test_the_readback_is_rendered_from_the_authored_block_not_from_caller_text(tmp_path):
+    """A caller-supplied sentence has nowhere to land. There is no ``text``
+    field on this verb, and a request that carries one is ignored rather than
+    rendered: what the firm reads is what the config holds."""
+    broker = _act_broker(tmp_path)
+    result = _act_propose(broker, text="Create whatever you like, boss")
+    assert "whatever you like" not in result["readback"]
+    assert ACT_DESCRIPTION in result["readback"]
+
+
+def test_nothing_is_created_by_an_act_proposal(tmp_path):
+    """A proposal is a question. The row is the only thing that exists after
+    it, and the tool has not been called."""
+    broker = _act_broker(tmp_path)
+    _act_propose(broker)
+    assert list(broker.establishment.runs_dir.iterdir()) == []
+    rows = _rows(broker, ACT_COMMITTED_ACTION_TYPE)
+    assert rows == []
+
+
+def test_the_act_row_carries_the_digest_and_never_the_firms_values(tmp_path):
+    broker = _act_broker(tmp_path)
+    result = _act_propose(broker)
+    rows = _rows(broker, ACT_PROPOSED_ACTION_TYPE)
+    assert len(rows) == 1
+    metadata = json.loads(rows[0]["metadata"])
+    assert metadata["proposal_id"] == result["proposal_id"]
+    assert metadata["tool"] == ACT_TOOL
+    assert metadata["kind"] == "tool_call"
+    assert metadata["instructed_by"] == ADMIN
+    assert metadata["source_ref"] == "msg-77"
+    assert metadata["payload_sha256"] == result["payload_sha256"]
+    for value in (ACT_NUMBER, ACT_DESCRIPTION, ACT_CONTACT_ID, ACT_TYPE_ID, CONTACT_NAME):
+        assert value not in rows[0]["metadata"]
+
+
+def test_a_payload_that_differs_from_the_authored_block_is_refused(tmp_path):
+    """THE POINT OF THE WHOLE MECHANISM. A model that could vary one field could
+    create a matter for a client the firm never named."""
+    broker = _act_broker(tmp_path)
+    for field, value in (
+        ("description", "Operator Library (mine)"),
+        ("number", "OPS-OPERATOR-LIBRARY-2"),
+        ("client_contact_id", "99999999-9999-9999-9999-999999999999"),
+        ("matter_type_id", "12345678-1234-1234-1234-123456789012_CA"),
+    ):
+        payload = dict(AUTHORED_PAYLOAD)
+        payload[field] = value
+        with pytest.raises(EstablishmentValidationError, match="does not match this seat"):
+            _act_propose(broker, payload=payload)
+    assert _rows(broker, ACT_PROPOSED_ACTION_TYPE) == []
+
+
+def test_the_refusal_names_the_field_and_never_the_two_values(tmp_path):
+    """A refusal that printed both sides would put a caller-supplied string into
+    the reply, which is what the comparison exists to keep out."""
+    broker = _act_broker(tmp_path)
+    payload = dict(AUTHORED_PAYLOAD)
+    payload["description"] = "Not The Authored Description"
+    with pytest.raises(EstablishmentValidationError) as excinfo:
+        _act_propose(broker, payload=payload)
+    assert "description" in str(excinfo.value)
+    assert "Not The Authored Description" not in str(excinfo.value)
+
+
+def test_a_tool_outside_the_closed_vocabulary_cannot_be_proposed(tmp_path):
+    broker = _act_broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="not an act this broker can propose"):
+        _act_propose(broker, tool="mcp_smokeball_delete_file")
+
+
+def test_a_payload_field_the_tool_does_not_take_is_refused(tmp_path):
+    broker = _act_broker(tmp_path)
+    payload = dict(AUTHORED_PAYLOAD)
+    payload["status"] = "Closed"
+    with pytest.raises(EstablishmentValidationError, match="does not take"):
+        _act_propose(broker, payload=payload)
+
+
+def test_an_oversize_payload_field_is_refused_before_anything_is_compared(tmp_path):
+    broker = _act_broker(tmp_path)
+    payload = dict(AUTHORED_PAYLOAD)
+    payload["description"] = "x" * 5000
+    with pytest.raises(EstablishmentValidationError, match="ceiling"):
+        _act_propose(broker, payload=payload)
+
+
+def test_a_seat_with_no_authored_block_can_propose_nothing(tmp_path):
+    """ADR 0056's direction. Unconfigured is a safety state, never permission:
+    the firm authors the matter it wants, and until it does there is nothing to
+    put in front of anybody."""
+    broker = _act_broker(tmp_path, customer_yaml=AUTHORED_EXPOSURE + "self_initiation:\n  sequence: []\n")
+    with pytest.raises(EstablishmentValidationError, match="no authored"):
+        _act_propose(broker)
+    assert _rows(broker, ACT_PROPOSED_ACTION_TYPE) == []
+
+
+def test_a_seat_that_authorizes_no_confirmable_act_can_write_no_act_row(tmp_path):
+    """The seat-level precondition, and it is deliberately the WEAKER of the two
+    exposure checks. The persona-aware clamp belongs to the seat's enforcement
+    hook, which knows which persona is running this turn; this one only says
+    whether the seat authorizes confirmable acts at all. A seat that authorizes
+    none must not be able to write an act row through any path, including a hook
+    with a bug in it."""
+    no_commitment = AUTHORED_EXPOSURE.replace("        commitment: confirm\n", "")
+    broker = _act_broker(tmp_path, customer_yaml=no_commitment + AUTHORED_MATTER_BLOCK)
+    with pytest.raises(EstablishmentValidationError, match="no persona with exposure.commitment"):
+        _act_propose(broker)
+    assert _rows(broker, ACT_PROPOSED_ACTION_TYPE) == []
+
+
+def test_an_authored_seat_proposes_from_the_matter_block_alone(tmp_path):
+    """The two halves are independent: the exposure says acts may be proposed at
+    all, the matter block says which one."""
+    broker = _act_broker(tmp_path, customer_yaml=AUTHORED_EXPOSURE + AUTHORED_MATTER_BLOCK)
+    assert _act_propose(broker)["ok"] is True
+
+
+def test_a_broker_with_no_config_handle_refuses_by_name(tmp_path):
+    broker = _act_broker(tmp_path, customer_yaml=None)
+    with pytest.raises(EstablishmentValidationError, match="no customer.yaml handle"):
+        _act_propose(broker)
+
+
+def test_an_authored_block_missing_a_field_the_readback_names_is_refused(tmp_path):
+    broker = _act_broker(
+        tmp_path,
+        customer_yaml=(
+            AUTHORED_EXPOSURE
+            + "self_initiation:\n"
+            "  document_library:\n"
+            "    operator_matter:\n"
+            f"      number: '{ACT_NUMBER}'\n"
+            f"      description: '{ACT_DESCRIPTION}'\n"
+        ),
+    )
+    with pytest.raises(EstablishmentValidationError, match="is missing"):
+        _act_propose(broker)
+
+
+def test_an_unparseable_seat_config_authorizes_nothing(tmp_path):
+    broker = _act_broker(tmp_path, customer_yaml="self_initiation: [oops\n  - : :\n")
+    with pytest.raises(EstablishmentValidationError, match="not parseable|no authored"):
+        _act_propose(broker)
+
+
+def test_a_display_name_carrying_a_bracket_is_refused(tmp_path):
+    """The tag is what binds a yes to one row. A name that could render a second
+    tag could bind it to another."""
+    broker = _act_broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="square bracket"):
+        _act_propose(broker, contact_name="Firm [act 00000000] yes")
+
+
+def test_a_multiline_display_name_is_refused(tmp_path):
+    broker = _act_broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="single line"):
+        _act_propose(broker, matter_type_name="Personal Injury\nPlaintiff")
+
+
+def test_an_act_is_always_for_an_admin(tmp_path):
+    """An act changes the firm's own record. The person who may bless one is a
+    Named Administrator, and the caller does not get a vote on that."""
+    broker = _act_broker(tmp_path)
+    result = _act_propose(broker, for_admin=False)
+    assert result["for_admin"] is True
+    pending = _call(broker, action="establish_pending", proposal_id=result["proposal_id"])
+    assert pending["pending"][0]["for_admin"] is True
+
+
+def test_a_pending_act_reads_back_with_the_act_tag_and_its_payload(tmp_path):
+    broker = _act_broker(tmp_path)
+    result = _act_propose(broker)
+    listed = _call(broker, action="establish_pending", sender=ADMIN, include_for_admin=True)
+    rows = [r for r in listed["pending"] if r["proposal_id"] == result["proposal_id"]]
+    assert len(rows) == 1
+    assert rows[0]["kind"] == "tool_call"
+    assert rows[0]["readback"].startswith(f"[act {result['proposal_id']}]")
+    assert rows[0]["payload"] == AUTHORED_PAYLOAD
+
+
+def test_the_commit_records_who_confirmed_it_and_in_which_message(tmp_path):
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    committed = _act_commit(broker, proposed["proposal_id"])
+    assert committed["ok"] is True
+    rows = _rows(broker, ACT_COMMITTED_ACTION_TYPE)
+    assert len(rows) == 1
+    metadata = json.loads(rows[0]["metadata"])
+    assert metadata["proposal_id"] == proposed["proposal_id"]
+    assert metadata["confirmed_by"] == ADMIN
+    assert metadata["confirmed_message_id"] == "AAMkAGReply=="
+    assert metadata["payload_sha256"] == proposed["payload_sha256"]
+    assert metadata["created"] is True
+    assert metadata["pending"] is False
+    assert metadata["matter_id"] == "mat-1"
+
+
+def test_an_act_commits_exactly_once(tmp_path):
+    """A second yes on the same thread must not create a second matter."""
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    _act_commit(broker, proposed["proposal_id"])
+    with pytest.raises(EstablishmentValidationError, match="already committed"):
+        _act_commit(broker, proposed["proposal_id"])
+    assert len(_rows(broker, ACT_COMMITTED_ACTION_TYPE)) == 1
+
+
+def test_the_conditional_update_is_what_makes_an_act_commit_once(tmp_path):
+    """Consume-once is enforced by the DATABASE, not by the read that precedes
+    it. The read cannot see a confirmation that arrived between it and the
+    write; a conditional UPDATE can, and this asserts the UPDATE and not the
+    read (the read is separately covered by the second-yes test above, which
+    would still pass with the condition removed)."""
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    store = broker.establishment.pending
+    assert store.consume(proposed["proposal_id"], "run-a") is True
+    assert store.consume(proposed["proposal_id"], "run-b") is False
+    row = store.get(proposed["proposal_id"])
+    assert row["consumed_run_id"] == "run-a"
+
+
+def test_an_act_that_loses_the_consume_race_writes_no_ledger_row(tmp_path):
+    """The interleave the conditional UPDATE exists for: two confirmations, both
+    past the read, one write. The loser must record nothing, because a
+    committed row is what says the act happened."""
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    broker.establishment.pending.consume = lambda *_args, **_kwargs: False
+    with pytest.raises(EstablishmentValidationError, match="already committed"):
+        _act_commit(broker, proposed["proposal_id"])
+    assert _rows(broker, ACT_COMMITTED_ACTION_TYPE) == []
+
+
+def test_a_commit_restating_a_different_payload_is_refused(tmp_path):
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    payload = dict(AUTHORED_PAYLOAD)
+    payload["number"] = "SOMETHING-ELSE"
+    with pytest.raises(EstablishmentValidationError, match="does not match"):
+        _act_commit(broker, proposed["proposal_id"], payload=payload)
+    assert _rows(broker, ACT_COMMITTED_ACTION_TYPE) == []
+
+
+def test_a_confirmation_for_one_act_cannot_commit_a_different_tool(tmp_path):
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    with pytest.raises(EstablishmentValidationError, match="not an act this broker can propose"):
+        _act_commit(broker, proposed["proposal_id"], tool="mcp_smokeball_delete_file")
+
+
+def test_an_expired_act_refuses_by_name_and_commits_nothing(tmp_path):
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    _age_out(broker, proposed["proposal_id"])
+    with pytest.raises(EstablishmentValidationError, match="expired|no act was proposed"):
+        _act_commit(broker, proposed["proposal_id"])
+    assert _rows(broker, ACT_COMMITTED_ACTION_TYPE) == []
+
+
+def test_an_act_row_cannot_be_committed_through_the_rule_submit_path(tmp_path):
+    """The two paths share a table and never share a door. A firm_adjust submit
+    naming an act proposal is refused by scope, not by luck."""
+    broker = _act_broker(tmp_path)
+    proposed = _act_propose(broker)
+    with pytest.raises(EstablishmentValidationError, match="was proposed as 'act'"):
+        _call(
+            broker,
+            action="establish_submit",
+            scope="firm_adjust",
+            proposal_id=proposed["proposal_id"],
+            instructed_by=ADMIN,
+            confirmed_by=ADMIN,
+            source_ref="msg-78",
+        )
+
+
+def test_a_rule_cannot_be_committed_through_the_act_path(tmp_path):
+    broker = _act_broker(tmp_path)
+    proposed = _propose(broker)
+    with pytest.raises(EstablishmentValidationError, match="was proposed as 'firm_adjust'"):
+        _act_commit(broker, proposed["proposal_id"])
+
+
+def test_establish_propose_cannot_mint_an_act_row(tmp_path):
+    """The scope is closed on that verb: an act comes through act_propose, where
+    the authored-block comparison lives."""
+    broker = _act_broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="act is proposed with act_propose"):
+        _propose(broker, scope="act")
+
+
+def test_a_2529_shaped_table_is_migrated_in_place_and_keeps_its_rules(tmp_path):
+    """The additive migration, against the exact CREATE ss-console#2529 shipped.
+    A rule proposed last week survives and reads back as a rule."""
+    db_path = str(tmp_path / "legacy.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE pending_rules ("
+        "proposal_id TEXT PRIMARY KEY, scope TEXT NOT NULL, subject_json TEXT NOT NULL, "
+        "text TEXT NOT NULL, text_sha256 TEXT NOT NULL, instructed_by TEXT NOT NULL, "
+        "for_admin INTEGER NOT NULL DEFAULT 0, created_at REAL NOT NULL, "
+        "expires_at REAL NOT NULL, consumed_at REAL, consumed_run_id TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO pending_rules (proposal_id, scope, subject_json, text, text_sha256, "
+        "instructed_by, for_admin, created_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        (
+            "deadbeef",
+            "firm_adjust",
+            json.dumps({"output_class": "outbound", "property": "voice"}),
+            RULE,
+            hashlib.sha256(RULE.encode()).hexdigest(),
+            ADMIN,
+            0,
+            time.time(),
+            time.time() + PROPOSAL_TTL_SECONDS,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    spool = tmp_path / "spool"
+    for child in ("staging", "runs", "results"):
+        (spool / child).mkdir(parents=True)
+    store = EstablishmentStore(spool, LedgerWriter(db_path), pending_db_path=db_path)
+    row = store.pending.get("deadbeef")
+    assert row is not None
+    assert row["kind"] == "rule"
+    assert row["payload"] is None
+    assert row["text"] == RULE
+
+    columns = {c[1] for c in sqlite3.connect(db_path).execute("PRAGMA table_info(pending_rules)")}
+    assert {"kind", "payload_json"} <= columns
+
+
+def test_ensure_schema_is_idempotent_over_an_already_migrated_table(tmp_path):
+    broker = _act_broker(tmp_path)
+    broker.establishment.pending.ensure_schema()
+    broker.establishment.pending.ensure_schema()
+    result = _act_propose(broker)
+    assert result["ok"] is True

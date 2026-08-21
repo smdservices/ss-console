@@ -294,6 +294,11 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "RULE_PROPOSED",
         "ESTABLISHMENT_SUBMITTED",
         "ESTABLISHMENT_RESULT",
+        # ss#2536: the same broker-side channel carrying a TOOL CALL. Proposed
+        # when the Operator states one act back for an admin to confirm;
+        # committed after that act succeeded, naming the confirmer.
+        "ACT_PROPOSED",
+        "ACT_COMMITTED",
     }
 )
 

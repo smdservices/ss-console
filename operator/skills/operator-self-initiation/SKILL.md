@@ -90,9 +90,12 @@ the top-level `self_initiation:` block:
   skill (for example `operator-self-test`, `voice-establishment`,
   `document-library-establishment`). The sequence is the firm's authored list — run exactly
   these, in exactly this order, and nothing else.
-- `document_library:` — where the library lives (`matter_hint`, `folder_name`), used by the
-  status probe below. `folder_name` is the proposed default; the admin may fix a different
-  one at the blessing, and the blessed location governs.
+- `document_library:` — where the library lives (`matter_hint`, `matter_number`,
+  `folder_name`), used by the status probe below. `folder_name` is the proposed default; the
+  admin may fix a different one at the blessing, and the blessed location governs. An
+  `operator_matter:` sub-block, when the firm authored one, is the internal matter the
+  Operator may offer to create for its own templates: four authored values, offered to an
+  admin and created only on their confirmation, never chosen by you.
 
 **If the block is absent, say so and stop.** An unauthored sequence is fail-closed: report
 plainly that this seat has no authored initiation sequence and that authoring one is a
@@ -112,12 +115,17 @@ observation; these probes are:
   reported as **partial**, naming the classes still open — never as established. An
   unreadable manifest is reported as **unreadable**, in those words; "not established" and
   "I could not read it" are different sentences.
-- **document-library-establishment** — resolve `document_library.matter_hint` against
-  `mcp_smokeball_list_matters`, then `mcp_smokeball_get_files_on_matter` on that matter and
-  look for the authored `folder_name`. Folder present with files: **established** (report
-  the template count). Folder absent: **not started**. If the config names no location and
-  no folder is found, report **"unknown — ask the admin where the library lives"**, never a
-  false "absent."
+- **document-library-establishment** — resolve the library matter against
+  `mcp_smokeball_list_matters`, taking the first of `document_library.matter_hint`,
+  `document_library.matter_number`, `document_library.operator_matter.number`, and the
+  convention number `OPS-OPERATOR-LIBRARY` that resolves. Then
+  `mcp_smokeball_get_files_on_matter` on that matter and look for the authored
+  `folder_name`. Folder present with files: **established** (report the template count).
+  Folder absent: **not started**. If none of those numbers resolves to a matter and the seat
+  authored an `operator_matter` block, report **not started** and say the Operator can create
+  its own library matter once an admin asks for the library and confirms it. If nothing is
+  authored and no folder is found, report **"unknown, ask the admin where the library lives"**,
+  never a false "absent."
 
 ## Procedure
 

@@ -202,6 +202,21 @@ top_level:
       Drift-gated by tests/self-initiation-sequence.test.ts: every sequence
       act is a skill bound+enabled on that seat, and any seat binding the
       conductor authors a sequence.
+
+      `document_library.operator_matter` (ss#2536) is the one internal matter
+      the Operator may offer to create for its own template library, and it is
+      the ONLY source of the values that act carries: `number`, `description`,
+      `client_contact_id` (the firm's own contact, so the firm is its own
+      client on the matter), `matter_type_id`. Two runtime consumers, both
+      reading the seat's own /var/lib/smd-config/customer.yaml. The workspace
+      broker (operator/workspace_broker/establishment.py act_propose) refuses
+      any proposal whose payload is not byte-equal to this block, so a seat
+      that authors nothing here can propose nothing at all; the Smokeball
+      connector's library resolver (smokeball_connector/library.py) falls back
+      to `operator_matter.number`, and then to the convention number
+      OPS-OPERATOR-LIBRARY, when no `matter_number` is authored. Changing which
+      matter the Operator would create is an edit HERE, in a PR, never a value
+      taken from an email.
   voice_library:
     status: implemented
     materializer: bootstrap Step 2a (R2 voice-vault sync) + translate _persona_config (config.yaml)

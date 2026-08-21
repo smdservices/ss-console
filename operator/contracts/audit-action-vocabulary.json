@@ -88,6 +88,8 @@
     "DECOMMISSION_STEP_FAILED": "Decommission pipeline runs from the console.",
     "EMITTED_WAKE": "Wake dispatch is console-side.",
     "SUPPRESSED_WAKE": "Wake dispatch is console-side.",
-    "HONCHO_CONCLUSION_DISMISSED": "Captain action in the admin console (ADR 0016)."
+    "HONCHO_CONCLUSION_DISMISSED": "Captain action in the admin console (ADR 0016).",
+    "ACT_PROPOSED": "ss#2536. Written by operator/workspace_broker/establishment.py under the broker uid, same reason RULE_PROPOSED carried before the 991044a8 bump: console-owned source running on the seat, not overlay runtime, so the overlay's hermes-smd-audit vocabulary does not gate the write. The overlay declares neither type at any ref yet; both move into overlayTypes at the bump that ships the ss#2536 confirm path.",
+    "ACT_COMMITTED": "ss#2536. Broker-written, same reason as ACT_PROPOSED."
   }
 }

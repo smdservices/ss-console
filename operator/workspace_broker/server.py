@@ -213,7 +213,13 @@ class Broker:
             # TTL, because a rule proposed on Friday is confirmed on Monday and
             # every inbound email is its own session.
             self.establishment = EstablishmentStore(
-                establish_spool, self.ledger, pending_db_path=audit_db_path
+                establish_spool,
+                self.ledger,
+                pending_db_path=audit_db_path,
+                # ss-console#2536: an ACT is proposed only with the values the
+                # firm authored, so the broker reads them itself, from the same
+                # trusted customer.yaml it already holds for the mail identity.
+                customer_path=self.customer_path,
             )
         else:
             self.establishment = None
@@ -418,6 +424,12 @@ class Broker:
             "establish_pending",
             "establish_submit",
             "establish_status",
+            # ss-console#2536: the same channel carrying a TOOL CALL instead of
+            # a sentence. Same uid gate, same lock, same sweep, and the same
+            # one-pinned-action_type-per-writing-verb discipline (ACT_PROPOSED
+            # on propose, ACT_COMMITTED on commit).
+            "act_propose",
+            "act_commit",
         ):
             if self.ledger is None:
                 raise ValueError("audit ledger not configured on this broker")
@@ -444,6 +456,10 @@ class Broker:
                     return self.establishment.pending_rules(request)
                 if action == "establish_submit":
                     return self.establishment.submit(request)
+                if action == "act_propose":
+                    return self.establishment.act_propose(request)
+                if action == "act_commit":
+                    return self.establishment.act_commit(request)
                 return self.establishment.status(request)
         # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
         # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the

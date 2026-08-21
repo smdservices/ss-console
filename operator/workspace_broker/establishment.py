@@ -83,6 +83,11 @@ from .audit_ledger import _iso_utc
 ESTABLISHMENT_SUBMITTED_ACTION_TYPE = "ESTABLISHMENT_SUBMITTED"
 ESTABLISHMENT_RESULT_ACTION_TYPE = "ESTABLISHMENT_RESULT"
 RULE_PROPOSED_ACTION_TYPE = "RULE_PROPOSED"
+# ss-console#2536. The same propose-read-back-confirm channel, carrying a TOOL
+# CALL instead of a sentence. One pinned type per verb, exactly as above:
+# ``act_propose`` appends only ACT_PROPOSED, ``act_commit`` only ACT_COMMITTED.
+ACT_PROPOSED_ACTION_TYPE = "ACT_PROPOSED"
+ACT_COMMITTED_ACTION_TYPE = "ACT_COMMITTED"
 
 # The two spec properties an output class carries (ADR 0083 §2-3). Mirrors
 # SPEC_PROPERTIES in corrections.py and src/lib/operator/output-class-specs.ts.
@@ -139,7 +144,16 @@ _NAME_SLUG_KEEP = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
 # how a kind of firm output reads; ``person`` is one about the speaker's own
 # work. There is deliberately no third: a rule about somebody ELSE's work is a
 # firm rule, and it should be said as one.
-PROPOSAL_SCOPES: frozenset[str] = frozenset({"person", "firm_adjust"})
+PROPOSAL_SCOPES: frozenset[str] = frozenset({"person", "firm_adjust", "act"})
+
+# ``act`` is the third, and it is not a rule at all: it is one tool call the
+# firm is shown before it happens. It shares this table because the thing that
+# has to survive from the proposing turn to the confirming one is identical (a
+# tag, a sentence, a 24-hour memory, a consume-once commit), and a second store
+# would be a second set of the same bugs. It never shares the SUBMIT path: an
+# act row's scope is ``act``, and every establish_submit scope check compares
+# against ``person`` / ``firm_adjust``, so a submit naming an act proposal is
+# refused by name rather than by luck.
 
 # A proposal id is eight lowercase hex characters: short enough for a person to
 # quote back in an email, long enough that a second live proposal is not going
@@ -163,6 +177,45 @@ CONSUMED_RETENTION_SECONDS = 86_400
 # the identical bound, so a rule this accepts is one the seat can render.
 MAX_RULE_TEXT_BYTES = 2000
 
+# --- proposed ACTS (ss-console#2536) ---------------------------------------
+
+# The row kinds this table holds. ``rule`` is a sentence about how the firm's
+# work reads; ``tool_call`` is one act the Operator is asking to perform. The
+# default is ``rule`` so a table written before this change reads back as what
+# it holds.
+PROPOSAL_KINDS: frozenset[str] = frozenset({"rule", "tool_call"})
+
+# THE CLOSED VOCABULARY OF ACTS. A tool absent from this map cannot be
+# proposed, whatever the caller says, and each entry pins the EXACT field set
+# its payload carries. There is deliberately no wildcard and no "extra fields
+# are fine" branch: the readback the firm reads is rendered from these fields,
+# so a field the readback does not render is a field the firm did not agree to.
+ACT_TOOLS: dict[str, tuple[str, ...]] = {
+    "mcp_smokeball_create_matter": (
+        "description",
+        "matter_type_id",
+        "client_contact_id",
+        "number",
+    ),
+}
+
+# Where the authored act payload is read from on a live seat. The broker holds
+# its own handle on this file (``SMD_CUSTOMER_YAML``, server.py) and re-reads it
+# per proposal rather than caching: the file is root-owned and can be re-applied
+# under a running broker, and a cached copy would let a config the firm has
+# already changed keep authorizing acts.
+ACT_CONFIG_KEYS: tuple[str, ...] = (
+    "self_initiation",
+    "document_library",
+    "operator_matter",
+)
+
+# A display name resolved by the seat and rendered into the readback. Bounded,
+# and refused rather than sanitized when it carries a bracket or a line break:
+# the tag ``[act 1234abcd]`` is what binds a person's "yes" to one row, so a
+# name that could contain a second tag could bind it to another row.
+_MAX_ACT_DISPLAY_NAME = 120
+
 CREATE_PENDING_RULES_SQL = (
     "CREATE TABLE IF NOT EXISTS pending_rules ("
     "proposal_id TEXT PRIMARY KEY, "
@@ -175,8 +228,18 @@ CREATE_PENDING_RULES_SQL = (
     "created_at REAL NOT NULL, "
     "expires_at REAL NOT NULL, "
     "consumed_at REAL, "
-    "consumed_run_id TEXT"
+    "consumed_run_id TEXT, "
+    "kind TEXT NOT NULL DEFAULT 'rule', "
+    "payload_json TEXT"
     ")"
+)
+# Additive upgrade for a table created by ss-console#2529, applied at
+# ensure_schema and each tolerated when the column already exists (the
+# audit_ledger CHAIN_COLUMN_ALTERS shape). A seat that proposed a rule last
+# week keeps that row, and reads it back as kind ``rule``.
+PENDING_RULES_COLUMN_ALTERS: tuple[str, ...] = (
+    "ALTER TABLE pending_rules ADD COLUMN kind TEXT NOT NULL DEFAULT 'rule'",
+    "ALTER TABLE pending_rules ADD COLUMN payload_json TEXT",
 )
 CREATE_PENDING_RULES_INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS idx_pending_rules_open "
@@ -286,7 +349,7 @@ def normalize_rule_text(value: Any) -> str:
     return text
 
 
-def readback_for(proposal_id: str, text: str) -> str:
+def readback_for(proposal_id: str, text: str, kind: str = "rule") -> str:
     """The canonical block the seat must send verbatim, rendered broker-side.
 
     Rendered HERE rather than composed by the model, and returned from
@@ -295,8 +358,55 @@ def readback_for(proposal_id: str, text: str) -> str:
     proposing turn unless this appears in the outgoing body (overlay PR 2), and
     that is what makes "you confirmed exactly this" checkable rather than
     asserted.
+
+    Two tags, one shape. ``[rule XXXX]`` marks a sentence about how the firm's
+    work reads; ``[act XXXX]`` marks one act the Operator is asking to perform.
+    They are distinct words because the person answering them is agreeing to
+    two different things, and the confirming matcher binds the tag to the row
+    it came from.
     """
-    return f"[rule {proposal_id}] {text}"
+    tag = "act" if kind == "tool_call" else "rule"
+    return f"[{tag} {proposal_id}] {text}"
+
+
+def _require_display_name(value: Any, field: str) -> str:
+    """One resolved NAME the readback renders, refused rather than repaired.
+
+    The seat resolves the client contact and the matter type to names before
+    proposing, because the admin reading the sentence cannot judge a UUID and
+    an agreement to a UUID is not an agreement. The identity in the row is
+    still the authored id; this is the human-legible half of the same fact, so
+    it is bounded, single-line, and bracket-free (a name carrying ``[`` could
+    render a second tag into the readback and bind a "yes" to the wrong row).
+    """
+    name = _require_text(value, field, _MAX_ACT_DISPLAY_NAME)
+    if "\n" in name or "\r" in name:
+        raise EstablishmentValidationError(f"{field} must be a single line")
+    if "[" in name or "]" in name:
+        raise EstablishmentValidationError(
+            f"{field} must not contain a square bracket; the readback tag is what "
+            "binds a confirmation to one proposal"
+        )
+    return name
+
+
+def act_readback_text(
+    tool: str, payload: dict[str, Any], *, contact_name: str, matter_type_name: str
+) -> str:
+    """The act, as one sentence a person can answer, rendered broker-side.
+
+    Rendered from the STORED payload and the resolved names, never from caller
+    prose: what the firm reads is what the row holds. Every value the act will
+    carry appears in it, which is the whole test of a readback worth asking
+    somebody to say yes to.
+    """
+    if tool != "mcp_smokeball_create_matter":
+        raise EstablishmentValidationError(f"no readback is defined for {tool!r}")
+    return (
+        f'Create Smokeball matter "{payload["description"]}" '
+        f'(number {payload["number"]}; client: {contact_name}; type: {matter_type_name}). '
+        'Reply "yes, create it" to proceed.'
+    )
 
 
 def safe_slug(name: Any) -> str:
@@ -434,6 +544,16 @@ class PendingRuleStore:
         conn = self._connect()
         try:
             conn.execute(CREATE_PENDING_RULES_SQL)
+            # ss-console#2536: a table created by #2529 predates the two act
+            # columns. Add them, tolerate the ones already there, and leave the
+            # rows alone; ``kind`` defaults to 'rule', which is what those rows
+            # are.
+            for alter_sql in PENDING_RULES_COLUMN_ALTERS:
+                try:
+                    conn.execute(alter_sql)
+                except sqlite3.OperationalError as err:
+                    if "duplicate column" not in str(err):
+                        raise
             conn.execute(CREATE_PENDING_RULES_INDEX_SQL)
             conn.commit()
         finally:
@@ -469,11 +589,23 @@ class PendingRuleStore:
         text: str,
         instructed_by: str,
         for_admin: bool,
+        kind: str = "rule",
+        payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Store one proposal and return it. The id and both times are minted
-        here; the digest is computed here over the stored text."""
+        here; the digest is computed here over the stored text.
+
+        ``kind`` and ``payload`` carry an ACT (ss-console#2536): the payload is
+        the exact field set the confirmed tool call will be made with, stored so
+        the commit replays the row rather than the wire.
+        """
         now = time.time()
         digest = _hash_text(text)
+        payload_json = (
+            None
+            if payload is None
+            else json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        )
         conn = self._connect()
         try:
             for _attempt in range(8):
@@ -482,8 +614,9 @@ class PendingRuleStore:
                     conn.execute(
                         "INSERT INTO pending_rules ("
                         "proposal_id, scope, subject_json, text, text_sha256, "
-                        "instructed_by, for_admin, created_at, expires_at"
-                        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "instructed_by, for_admin, created_at, expires_at, "
+                        "kind, payload_json"
+                        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             proposal_id,
                             scope,
@@ -494,6 +627,8 @@ class PendingRuleStore:
                             1 if for_admin else 0,
                             now,
                             now + PROPOSAL_TTL_SECONDS,
+                            kind,
+                            payload_json,
                         ),
                     )
                     conn.commit()
@@ -519,6 +654,8 @@ class PendingRuleStore:
             "for_admin": for_admin,
             "created_at": now,
             "expires_at": now + PROPOSAL_TTL_SECONDS,
+            "kind": kind,
+            "payload": payload,
         }
 
     def get(self, proposal_id: str) -> dict[str, Any] | None:
@@ -591,6 +728,14 @@ class PendingRuleStore:
             subject = json.loads(row["subject_json"])
         except ValueError:
             subject = {}
+        payload: dict[str, Any] | None = None
+        raw_payload = row["payload_json"] if "payload_json" in row.keys() else None
+        if raw_payload:
+            try:
+                decoded = json.loads(raw_payload)
+            except ValueError:
+                decoded = None
+            payload = decoded if isinstance(decoded, dict) else None
         return {
             "proposal_id": row["proposal_id"],
             "scope": row["scope"],
@@ -603,6 +748,10 @@ class PendingRuleStore:
             "expires_at": row["expires_at"],
             "consumed_at": row["consumed_at"],
             "consumed_run_id": row["consumed_run_id"],
+            # A row written before #2536 has neither column; it is a rule, and
+            # reading it as one is the migration working rather than failing.
+            "kind": (row["kind"] if "kind" in row.keys() else None) or "rule",
+            "payload": payload,
         }
 
 
@@ -634,7 +783,11 @@ class EstablishmentStore:
     """
 
     def __init__(
-        self, spool_root: str | Path, ledger: Any, pending_db_path: str | Path | None = None
+        self,
+        spool_root: str | Path,
+        ledger: Any,
+        pending_db_path: str | Path | None = None,
+        customer_path: str | Path | None = None,
     ) -> None:
         self.root = Path(spool_root)
         self.staging_dir = self.root / "staging"
@@ -647,6 +800,12 @@ class EstablishmentStore:
         # confirm, and committing one without the readback is the thing this
         # whole path exists to avoid.
         self.pending = PendingRuleStore(pending_db_path) if pending_db_path else None
+        # ss-console#2536. The seat's own authored config, read by THIS uid and
+        # never taken off the wire: an act may only be proposed with the values
+        # the firm authored, so the broker has to be able to read them itself.
+        # Absent (a broker built with no config handle) means no act can be
+        # proposed, which is the fail-closed direction.
+        self.customer_path = Path(customer_path) if customer_path else None
 
     # ------------------------------------------------------------------
     # TTL sweep
@@ -853,9 +1012,10 @@ class EstablishmentStore:
         """
         pending = self._require_pending()
         scope = request.get("scope")
-        if scope not in PROPOSAL_SCOPES:
+        if scope not in PROPOSAL_SCOPES or scope == "act":
             raise EstablishmentValidationError(
-                f"scope must be one of {sorted(PROPOSAL_SCOPES)}; got {scope!r}"
+                "scope must be one of ['firm_adjust', 'person']; "
+                f"got {scope!r} (an act is proposed with act_propose)"
             )
         instructed_by = require_address(request.get("instructed_by"), "instructed_by")
         source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
@@ -978,13 +1138,338 @@ class EstablishmentStore:
         return {
             "proposal_id": row["proposal_id"],
             "scope": row["scope"],
+            "kind": row["kind"],
             "subject": row["subject"],
             "text": row["text"],
-            "readback": readback_for(row["proposal_id"], row["text"]),
+            "readback": readback_for(row["proposal_id"], row["text"], row["kind"]),
+            "payload": row["payload"],
             "instructed_by": row["instructed_by"],
             "for_admin": row["for_admin"],
             "created_at": row["created_at"],
             "expires_at": row["expires_at"],
+        }
+
+    # ------------------------------------------------------------------
+    # act_propose / act_commit  (ss-console#2536)
+    # ------------------------------------------------------------------
+
+    def _seat_config(self) -> dict[str, Any]:
+        """The seat's own customer.yaml, re-read per call.
+
+        Never cached: the file is root-owned and can be re-applied under a
+        running broker, and a cached copy would let a config the firm has
+        already changed keep authorizing acts.
+        """
+        if self.customer_path is None:
+            raise EstablishmentValidationError(
+                "this broker has no customer.yaml handle; no act can be proposed"
+            )
+        try:
+            import yaml
+
+            data = yaml.safe_load(self.customer_path.read_text(encoding="utf-8")) or {}
+        except OSError as exc:
+            raise EstablishmentValidationError(
+                f"the seat config is not readable ({exc.__class__.__name__}); "
+                "no act can be proposed"
+            ) from exc
+        except Exception as exc:  # noqa: BLE001 - an unparseable config authorizes nothing
+            raise EstablishmentValidationError(
+                f"the seat config is not parseable ({exc.__class__.__name__}); "
+                "no act can be proposed"
+            ) from exc
+        return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _require_act_exposure(data: dict[str, Any], tool: str) -> None:
+        """Refuse unless SOME persona on this seat authors ``commitment: confirm``.
+
+        WHAT THIS IS AND IS NOT. The persona-aware gate is the seat's
+        enforcement hook, which knows which persona is running this turn and
+        clamps the act against that persona's authored exposure. This check
+        cannot: the broker is not told the persona. What it CAN say is whether
+        the seat authorizes confirmable acts at all, and a seat that authorizes
+        none must not be able to write an act row through any path, including a
+        hook with a bug in it. So it is deliberately the weaker of the two
+        checks and it fails in the safe direction: a seat with no
+        ``commitment: confirm`` anywhere proposes nothing.
+        """
+        personas = data.get("personas")
+        if not isinstance(personas, list):
+            personas = []
+        for persona in personas:
+            if not isinstance(persona, dict):
+                continue
+            entitlements = persona.get("entitlements")
+            if not isinstance(entitlements, dict):
+                continue
+            exposure = entitlements.get("exposure")
+            if isinstance(exposure, dict) and exposure.get("commitment") == "confirm":
+                return
+        raise EstablishmentValidationError(
+            f"this seat authors no persona with exposure.commitment set to 'confirm', so "
+            f"{tool} cannot be proposed to anybody. Authoring it is a config change the "
+            "firm agrees to, not something this turn can do"
+        )
+
+    def _authored_act_payload(self, tool: str) -> dict[str, Any]:
+        """The one payload this seat may propose for this tool, from its own
+        authored config. Refused by name when there is none.
+
+        THE MODEL'S ONLY ROLE IN AN ACT IS TO ASK FOR IT. Every value the act
+        carries is read here, out of the file the firm authored and a PR
+        changed, so "the Operator created a different matter than the one we
+        agreed" has no route into the system: a payload that is not byte-equal
+        to this is refused, and a seat with nothing authored can propose
+        nothing at all.
+        """
+        if tool != "mcp_smokeball_create_matter":
+            raise EstablishmentValidationError(
+                f"no authored act payload is defined for {tool!r}"
+            )
+        data = self._seat_config()
+        self._require_act_exposure(data, tool)
+        block: Any = data
+        for key in ACT_CONFIG_KEYS:
+            block = block.get(key) if isinstance(block, dict) else None
+        if not isinstance(block, dict):
+            raise EstablishmentValidationError(
+                "this seat has no authored "
+                + ".".join(ACT_CONFIG_KEYS)
+                + " block; the firm authors the matter to create, and until it "
+                "does there is nothing to propose"
+            )
+        fields = ACT_TOOLS[tool]
+        missing = [f for f in fields if not isinstance(block.get(f), str) or not block[f].strip()]
+        if missing:
+            raise EstablishmentValidationError(
+                "the authored "
+                + ".".join(ACT_CONFIG_KEYS)
+                + f" block is missing {sorted(missing)}; every field the readback "
+                "names has to be authored before the act can be proposed"
+            )
+        extra = sorted(set(block) - set(fields))
+        if extra:
+            raise EstablishmentValidationError(
+                "the authored "
+                + ".".join(ACT_CONFIG_KEYS)
+                + f" block carries unknown keys {extra}; the act carries exactly "
+                f"{sorted(fields)} and nothing else"
+            )
+        return {f: block[f].strip() for f in fields}
+
+    @staticmethod
+    def _require_act_tool(value: Any) -> str:
+        tool = _require_text(value, "tool", _MAX_SHORT_TEXT)
+        if tool not in ACT_TOOLS:
+            raise EstablishmentValidationError(
+                f"{tool!r} is not an act this broker can propose; "
+                f"the closed vocabulary is {sorted(ACT_TOOLS)}"
+            )
+        return tool
+
+    @staticmethod
+    def _require_act_payload(value: Any, tool: str) -> dict[str, Any]:
+        """The caller's payload, shape-checked before it is compared.
+
+        Shape first, then equality, so an oversize or wrong-typed field is a
+        named refusal rather than a mismatch that reads like a config problem.
+        """
+        if not isinstance(value, dict):
+            raise EstablishmentValidationError("payload must be an object")
+        fields = ACT_TOOLS[tool]
+        unknown = sorted(set(value) - set(fields))
+        if unknown:
+            raise EstablishmentValidationError(
+                f"payload carries fields {unknown} that {tool} does not take; "
+                f"it takes exactly {sorted(fields)}"
+            )
+        return {f: _require_text(value.get(f), f"payload.{f}", _MAX_SHORT_TEXT) for f in fields}
+
+    def act_propose(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Record one TOOL CALL as pending and return the line to send.
+
+        Nothing is created here. What comes back is the exact sentence to put in
+        front of an administrator, naming every value the act will carry, and
+        the tag they quote when they answer. The act happens on the confirming
+        turn, through the tool, under the overlay's own gate.
+
+        NOT A TOOL. This verb is reachable only from the seat's enforcement hook
+        (overlay PR 2); no agent-callable tool maps to it. The model can ask for
+        the authored matter and cannot compose one.
+        """
+        pending = self._require_pending()
+        tool = self._require_act_tool(request.get("tool"))
+        payload = self._require_act_payload(request.get("payload"), tool)
+        instructed_by = require_address(request.get("instructed_by"), "instructed_by")
+        source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
+        contact_name = _require_display_name(request.get("contact_name"), "contact_name")
+        matter_type_name = _require_display_name(
+            request.get("matter_type_name"), "matter_type_name"
+        )
+
+        authored = self._authored_act_payload(tool)
+        if payload != authored:
+            # The refusal names the FIELDS, never the two values: a refusal that
+            # printed both sides would put a caller-supplied string into the
+            # ledger and the reply, which is the one thing this comparison
+            # exists to keep out.
+            differing = sorted(f for f in authored if payload.get(f) != authored[f])
+            raise EstablishmentValidationError(
+                f"the proposed {tool} payload does not match this seat's authored "
+                + ".".join(ACT_CONFIG_KEYS)
+                + f" block on {differing}; the act carries the authored values, "
+                "and changing them is a config change the firm makes"
+            )
+        # The hook may pass the block it read as well. It has to agree with the
+        # copy THIS uid read, or the two are looking at different files.
+        supplied_authored = request.get("authored")
+        if supplied_authored is not None:
+            if not isinstance(supplied_authored, dict) or {
+                k: v for k, v in supplied_authored.items()
+            } != authored:
+                raise EstablishmentValidationError(
+                    "the authored block supplied with this proposal disagrees with the "
+                    "one the broker read from the seat config; refusing to choose "
+                    "between two configs"
+                )
+
+        text = normalize_rule_text(
+            act_readback_text(
+                tool, authored, contact_name=contact_name, matter_type_name=matter_type_name
+            )
+        )
+        payload_sha256 = _hash_text(
+            json.dumps(authored, sort_keys=True, separators=(",", ":"))
+        )
+        row = pending.create(
+            scope="act",
+            subject={"tool": tool, "payload_sha256": payload_sha256},
+            text=text,
+            instructed_by=instructed_by,
+            # ALWAYS for an admin. An act is the firm's own record changing;
+            # the person who may bless it is a Named Administrator, and the
+            # seat-side gate decides who that is.
+            for_admin=True,
+            kind="tool_call",
+            payload=authored,
+        )
+        self._ledger.append(
+            {
+                "action_type": ACT_PROPOSED_ACTION_TYPE,
+                "actor": "operator",
+                "actor_role": "agent",
+                "metadata": json.dumps(
+                    {
+                        "proposal_id": row["proposal_id"],
+                        "kind": "tool_call",
+                        "tool": tool,
+                        "instructed_by": instructed_by,
+                        "source_ref": source_ref,
+                        # The payload's DIGEST, not the payload. The commit row
+                        # carries the same digest, so the two together prove the
+                        # act performed is the act proposed without either row
+                        # holding a second copy of the firm's values.
+                        "payload_sha256": payload_sha256,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            }
+        )
+        return {
+            "ok": True,
+            "proposal_id": row["proposal_id"],
+            "kind": "tool_call",
+            "tool": tool,
+            "payload": authored,
+            "payload_sha256": payload_sha256,
+            "for_admin": True,
+            "expires_at": row["expires_at"],
+            "readback": readback_for(row["proposal_id"], text, "tool_call"),
+        }
+
+    def act_commit(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Record that a proposed act was performed. Consumes the row exactly once.
+
+        Called AFTER the tool succeeded, by the seat's post-tool hook. A failed
+        tool call does not reach here: the row stays open for its TTL so the
+        person's "yes" survives one transport failure rather than being spent by
+        it.
+        """
+        pending = self._require_pending()
+        row = self._claim_proposal(request, "act")
+        tool = self._require_act_tool(request.get("tool"))
+        stored_tool = row["subject"].get("tool")
+        if tool != stored_tool:
+            raise EstablishmentValidationError(
+                f"act {row['proposal_id']} was proposed for {stored_tool!r}, not {tool!r}; "
+                "refusing to commit a different act under a confirmation for this one"
+            )
+        stored_payload = row["payload"]
+        if not isinstance(stored_payload, dict):
+            raise EstablishmentValidationError(
+                f"act {row['proposal_id']} holds no payload; nothing can be committed under it"
+            )
+        supplied = request.get("payload")
+        if supplied is not None:
+            if self._require_act_payload(supplied, tool) != stored_payload:
+                raise EstablishmentValidationError(
+                    f"payload does not match act {row['proposal_id']} as it was proposed "
+                    "and confirmed; the act carries the proposal's values, not this "
+                    "request's"
+                )
+        confirmed_by = require_address(request.get("confirmed_by"), "confirmed_by")
+        confirmed_message_id = _require_text(
+            request.get("confirmed_message_id"), "confirmed_message_id", _MAX_SHORT_TEXT
+        )
+        outcome_raw = request.get("outcome")
+        if outcome_raw is not None and not isinstance(outcome_raw, dict):
+            raise EstablishmentValidationError("outcome must be an object when present")
+        outcome = outcome_raw or {}
+
+        run_id = secrets.token_hex(16)
+        if not pending.consume(row["proposal_id"], run_id):
+            raise EstablishmentValidationError(
+                f"act {row['proposal_id']} was already committed; it has been done"
+            )
+
+        payload_sha256 = _hash_text(
+            json.dumps(stored_payload, sort_keys=True, separators=(",", ":"))
+        )
+        metadata = {
+            "proposal_id": row["proposal_id"],
+            "run_id": run_id,
+            "kind": "tool_call",
+            "tool": tool,
+            "instructed_by": row["instructed_by"],
+            # WHO said yes and IN WHICH MESSAGE. The pair is what makes the
+            # confirmation joinable to the inbound row that carried it
+            # (ss#2497), so "an admin approved this" is checkable rather than
+            # asserted.
+            "confirmed_by": confirmed_by,
+            "confirmed_message_id": confirmed_message_id,
+            "payload_sha256": payload_sha256,
+            # A bounded rebuild of the tool's own result. Three fields, each
+            # read for its type: what the vendor returned is not forwarded.
+            "created": bool(outcome.get("created")),
+            "pending": bool(outcome.get("pending")),
+            "matter_id": _bounded_str(outcome.get("matter_id")),
+        }
+        self._ledger.append(
+            {
+                "action_type": ACT_COMMITTED_ACTION_TYPE,
+                "actor": "operator",
+                "actor_role": "agent",
+                "metadata": json.dumps(metadata, sort_keys=True, separators=(",", ":")),
+            }
+        )
+        return {
+            "ok": True,
+            "proposal_id": row["proposal_id"],
+            "run_id": run_id,
+            "tool": tool,
+            "payload_sha256": payload_sha256,
         }
 
     def _claim_proposal(self, request: dict[str, Any], scope: str) -> dict[str, Any]:
@@ -998,22 +1483,29 @@ class EstablishmentStore:
         """
         pending = self._require_pending()
         proposal_id = _require_proposal_id(request.get("proposal_id"))
+        # The noun follows the SCOPE BEING CLAIMED, not the row: a person who
+        # said yes to an act should not be told their rule expired, and the
+        # refusals below are read by that person through the reply.
+        noun = "act" if scope == "act" else "rule"
+        restate = "ask again" if scope == "act" else "state it again"
+        unknown_tail = "ask again" if scope == "act" else "state the rule again"
         row = pending.get(proposal_id)
         if row is None:
             raise EstablishmentValidationError(
-                f"no rule was proposed under {proposal_id}; state the rule again"
+                f"no {noun} was proposed under {proposal_id}; {unknown_tail}"
             )
         if row["consumed_at"] is not None:
             raise EstablishmentValidationError(
-                f"rule {proposal_id} was already committed; it is in effect"
+                f"{noun} {proposal_id} was already committed; "
+                + ("it has been done" if scope == "act" else "it is in effect")
             )
         if row["expires_at"] < time.time():
             raise EstablishmentValidationError(
-                f"rule {proposal_id} expired; state it again"
+                f"{noun} {proposal_id} expired; {restate}"
             )
         if row["scope"] != scope:
             raise EstablishmentValidationError(
-                f"rule {proposal_id} was proposed as {row['scope']!r}, "
+                f"{noun} {proposal_id} was proposed as {row['scope']!r}, "
                 f"not {scope!r}; refusing to change what it applies to"
             )
         return row
@@ -1590,6 +2082,10 @@ class EstablishmentStore:
 
 
 __all__ = [
+    "ACT_COMMITTED_ACTION_TYPE",
+    "ACT_CONFIG_KEYS",
+    "ACT_PROPOSED_ACTION_TYPE",
+    "ACT_TOOLS",
     "CONSUMED_RETENTION_SECONDS",
     "ESTABLISHMENT_RESULT_ACTION_TYPE",
     "ESTABLISHMENT_SUBMITTED_ACTION_TYPE",
@@ -1598,6 +2094,8 @@ __all__ = [
     "MAX_RULE_TEXT_BYTES",
     "MAX_SET_BYTES",
     "MAX_SPEC_BODY_BYTES",
+    "PENDING_RULES_COLUMN_ALTERS",
+    "PROPOSAL_KINDS",
     "PROPOSAL_SCOPES",
     "PROPOSAL_TTL_SECONDS",
     "RESULT_TTL_SECONDS",
@@ -1608,6 +2106,7 @@ __all__ = [
     "EstablishmentStore",
     "EstablishmentValidationError",
     "PendingRuleStore",
+    "act_readback_text",
     "build_result_row",
     "normalize_lf",
     "normalize_rule_text",
