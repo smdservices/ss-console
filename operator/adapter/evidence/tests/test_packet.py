@@ -941,3 +941,146 @@ def test_readme_and_pdf_state_the_same_coverage_wording(tmp_path):
         # The PDF wraps at 88 chars, so check the token's first word
         # survives rather than the whole phrase.
         assert token.split()[0] in pdf
+
+
+# ---------------------------------------------------------------------------
+# Pinned chain head (ss#2500)
+#
+# The packet could always say a mutated or deleted MIDDLE row would show. It
+# could never say anything about rows cut off the END, because what survives
+# such a cut is itself a valid chain. A head recorded off the Machine is the
+# only input that closes that, and these tests hold the three outcomes apart:
+# checked and present, checked and gone (halt), and not checked (disclosed).
+# ---------------------------------------------------------------------------
+
+_CHAIN_SCHEMA_EXTRA = (
+    "ALTER TABLE audit_log ADD COLUMN prev_hash TEXT;"
+    "ALTER TABLE audit_log ADD COLUMN row_hash TEXT;"
+)
+
+_PIN_A = "a" * 64
+_PIN_B = "b" * 64
+
+
+def _build_pair_with_chain_columns(tmp_path: Path):
+    """A read source shaped like a real ledger: audit_log plus the link columns."""
+    builder, conn = _build_pair(tmp_path)
+    conn.executescript(_CHAIN_SCHEMA_EXTRA)
+    conn.commit()
+    return builder, conn
+
+
+def _seed_chained_row(conn: sqlite3.Connection, *, id_: str, ts: str, row_hash: str) -> None:
+    _seed_audit_row(conn, id=id_, ts=ts, action_type="DRAFT_CREATED", matter_ref="m-1")
+    conn.execute("UPDATE audit_log SET row_hash = ? WHERE id = ?", [row_hash, id_])
+    conn.commit()
+
+
+def test_a_present_pinned_head_is_stated_in_the_readme(tmp_path):
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P1", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_A
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+
+    assert result.chain_pin.present is True
+    assert result.chain_pin.was_checked is True
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "Whether the log itself is complete" in readme
+    assert _PIN_A in readme
+    # The pin's SOURCE is named, so a reader can go and ask for it.
+    assert "audit_head_history" in readme
+    # And the limit is stated in the same breath, not omitted.
+    assert "Rows written" in readme
+
+
+def test_a_missing_pinned_head_halts_the_build(tmp_path):
+    """THE falsifier for the packet half.
+
+    The ledger holds a different head; the one recorded off the Machine is gone.
+    Before ss#2500 this built a clean packet asserting a complete record.
+    """
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P2", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_B
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+    assert "is NOT present in this ledger" in str(exc.value)
+    # No partial artifact: the halt happens before anything is rendered.
+    assert not (tmp_path / "out" / "evidence.tar.gz").exists()
+
+
+def test_the_same_ledger_builds_cleanly_when_the_pin_is_omitted(tmp_path):
+    """The negative control for the test above.
+
+    Same ledger, same rows. The only difference is whether a pin was supplied,
+    which is what makes the halt attributable to the pin check and not to
+    something else about the fixture.
+    """
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P3", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_B
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml)))
+
+    assert result.chain_pin.was_checked is False
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "checked for internal consistency only" in readme
+    assert "removed from the END" in readme
+
+
+def test_a_malformed_pin_is_refused_before_any_read(tmp_path):
+    """A junk pin matches nothing, so carrying it forward would print
+    "the record was truncated" on a packet about a healthy ledger."""
+    builder, _ = _build_pair_with_chain_columns(tmp_path)
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, pinned_head="not-a-hash")))
+    assert "sha256 hexdigest" in str(exc.value)
+
+
+def test_a_source_without_chain_columns_halts_rather_than_reporting_a_break(tmp_path):
+    """"Could not look" must never be reported as "looked and it is gone"."""
+    builder, conn = _build_pair(tmp_path)  # no prev_hash / row_hash columns
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000P4",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+    message = str(exc.value)
+    assert "carries no hash-chain columns" in message
+    assert "NOT present" not in message
+
+
+def test_the_pin_is_recorded_on_the_chain_of_custody_row(tmp_path):
+    """The pin travels INSIDE the chain it attests to, so a later reader can
+    take this row's own hash as the next pin without a new mechanism."""
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P5", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_A
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+
+    row = conn.execute(
+        "SELECT metadata FROM audit_log WHERE action_type = 'COMPLIANCE_PACKET_EXPORTED'"
+    ).fetchone()
+    metadata = json.loads(row["metadata"])
+    assert metadata["chain_pin"]["pinned_head"] == _PIN_A
+    assert metadata["chain_pin"]["present"] is True
+    manifest = _manifest_of(tmp_path / "out" / "evidence.tar.gz")
+    assert manifest["extra"]["chain_pin"]["checked"] is True
+    assert manifest["extra"]["chain_pin"]["present"] is True

@@ -179,6 +179,19 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         ),
     )
     p.add_argument(
+        "--pinned-head",
+        default=None,
+        help=(
+            "A chain head recorded off the Machine before this export -- the "
+            "newest audit_head_history row for this seat on the control plane. "
+            "The ledger must still contain it; if it does not, rows that existed "
+            "when it was recorded are gone and the build HALTS (exit 3). There "
+            "is no acknowledge flag for that case. Without this flag the packet "
+            "states on its face that its audit section was not checked for "
+            "truncation."
+        ),
+    )
+    p.add_argument(
         "--customer-yaml",
         type=Path,
         default=None,
@@ -276,6 +289,7 @@ async def _run(args: argparse.Namespace) -> int:
         actor=args.actor,
         actor_role=PacketActor(args.actor_role),
         acknowledge_unattributed_gap=args.acknowledge_unattributed_gap,
+        pinned_head=args.pinned_head,
     )
 
     try:
@@ -306,6 +320,7 @@ async def _run(args: argparse.Namespace) -> int:
         "bytes_written": result.bytes_written,
         "counts": dict(result.counts),
         "coverage": result.coverage.to_dict(),
+        "chain_pin": result.chain_pin.to_dict(),
     }
     print(json.dumps(summary, sort_keys=True, indent=2))
 
@@ -315,6 +330,13 @@ async def _run(args: argparse.Namespace) -> int:
     if result.coverage.has_unattributed_rows or not result.coverage.table_present:
         for line in result.coverage.narrative_lines():
             print(f"[coverage] {line}", file=sys.stderr)
+
+    # Same reason, one layer down. A packet built without a pin cannot speak to
+    # truncation, and the operator forwarding it should see that before they
+    # send it, not discover it in the README afterwards.
+    if not result.chain_pin.was_checked:
+        for line in result.chain_pin.narrative_lines():
+            print(f"[chain] {line}", file=sys.stderr)
     return 0
 
 

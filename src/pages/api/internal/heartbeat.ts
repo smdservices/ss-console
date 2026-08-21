@@ -32,6 +32,11 @@
  *     "audit_rows":              <integer>         // optional (ss#2500 chain pin)
  *   }
  *
+ * `audit_head` / `audit_rows` are the one pair here that does NOT land only in
+ * `fleet_status`. They are also appended to `audit_head_history` (migration
+ * 0108) as an off-Machine pin, because tail truncation of the seat's hash chain
+ * is undetectable from an export alone -- see `src/lib/operator/audit-head.ts`.
+ *
  * The authoritative list of fields the pinned overlay can emit is
  * `operator/observability/heartbeat-fields.json`, enforced by
  * `tests/heartbeat-field-parity.test.ts` — a field the seat sends that this
@@ -55,6 +60,7 @@ import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { verifyMachineRequest } from '../../../lib/auth/machine-key'
 import { captureError, captureWarning } from '../../../lib/observability/sentry'
+import { recordAuditHead } from '../../../lib/operator/audit-head'
 
 const DEFAULT_PERIOD_SECONDS = 60
 const DEFAULT_GRACE_MINUTES = 5
@@ -364,6 +370,23 @@ export const POST: APIRoute = async ({ request }) => {
     webhookSurfaceOk,
     cronContainment,
     auditWriteFailures,
+    auditHead,
+    auditRows,
+  })
+
+  // ss#2500. Appended, not upserted: this is the off-Machine pin history, and a
+  // pin a later beat could overwrite would not be a pin. Deliberately AFTER the
+  // fleet_status upsert so a failure here cannot cost the health projection --
+  // the Machine retries the whole beat, and the append is idempotent for an
+  // unchanged head.
+  // The values come from `parseObservability` above, NOT from a second parse of
+  // the body. One intake, two destinations: the fleet_status projection ss#2498
+  // writes and this pin history read the identical parsed beat, so the
+  // dashboard and the pin can never disagree about what the seat said.
+  await recordAuditHead(env.DB, {
+    entityId: auth.entityId,
+    slug: auth.slug,
+    heartbeatTs: body.heartbeat_ts,
     auditHead,
     auditRows,
   })
