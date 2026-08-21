@@ -2,8 +2,10 @@
 
 A standing adversarial rehearsal suite (ss#2389). It plays the client hostile
 against a rig seat, replays every incident class this venture has actually had,
-scores each scenario mechanically, and emits a run id an `OVERLAY_REF` bump PR
-cites.
+scores each scenario mechanically, and emits a run id that stands as the proof of
+an `OVERLAY_REF` bump's runtime AC. The run happens after the rig has been
+reprovisioned onto the candidate ref, and the runner refuses to drive unless the
+rig is already running it.
 
 Operating instructions, the exit-code table, and the release-gate procedure live
 in `docs/runbooks/operator/shadow-firm.md`. This file is the map of the code.
@@ -22,9 +24,9 @@ tenant. Enforced in `scope.py` at load time, not in a comment. See the runbook.
 | `scoring.py`  | Pure predicates over an observation bundle. No I/O, no judgement of prose. PASS / FAIL / SKIPPED.                                                 |
 | `drivers.py`  | The I/O half: AgentMail probe sends, the ADR 0043 audit read seam, mailbox reads, and the ss#2258 send reconciliation.                            |
 | `report.py`   | The run artifact and the run id, which is a digest over seat, candidate ref, and outcomes.                                                        |
-| `run.py`      | The CLI.                                                                                                                                          |
+| `run.py`      | The CLI, and the gate that refuses to drive unless the rig's running overlay ref equals the candidate this run would certify.                     |
 | `scenarios/`  | One YAML file per incident class.                                                                                                                 |
-| `tests/`      | The Law 12 falsifier and the scope-guard tests.                                                                                                   |
+| `tests/`      | The Law 12 falsifier, the scope-guard tests, and the running-ref gate's own refusals.                                                             |
 
 ## Why the split between `scoring.py` and `drivers.py`
 
