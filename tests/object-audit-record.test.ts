@@ -51,6 +51,8 @@ function row(over: Partial<ObjectAuditRow> = {}): ObjectAuditRow {
     objectId: null,
     objectKind: null,
     writtenBodySha256: null,
+    bodyDigestAuthored: null,
+    bodyDigestAuthoredHtml: null,
     ...over,
   }
 }
@@ -177,6 +179,8 @@ describe('parseObjectAuditRows', () => {
       objectId: null,
       objectKind: null,
       writtenBodySha256: null,
+      bodyDigestAuthored: null,
+      bodyDigestAuthoredHtml: null,
     })
     expect(describeObject(parsed[0])).toBe('Not recorded')
   })
@@ -353,6 +357,8 @@ describe('toObjectAuditCsv', () => {
       'object_kind',
       'object_id',
       'written_body_sha256',
+      'body_digest_authored',
+      'body_digest_authored_html',
     ])
 
     const rec = scopeToRef(
@@ -371,7 +377,7 @@ describe('toObjectAuditCsv', () => {
     const dataLine = toObjectAuditCsv(rec).trimEnd().split('\n')[1]
     const cells = dataLine.split(',')
     expect(cells).toHaveLength(OBJECT_AUDIT_CSV_COLUMNS.length)
-    expect(cells.slice(-6)).toEqual([
+    expect(cells.slice(-8, -2)).toEqual([
       'sess-1',
       'd'.repeat(64),
       'am-msg-77',
@@ -379,6 +385,60 @@ describe('toObjectAuditCsv', () => {
       'memo-9',
       'e'.repeat(64),
     ])
+  })
+
+  it('exports the digests a firm can recompute from its own copy of the email', () => {
+    // ss#2501. These two are what make a send row checkable by someone who does
+    // not trust us: they cover exactly the bytes handed to the mail system,
+    // where `body_digest` folds in a subject the wire never carries. Appended
+    // at the very end for the same diff-stability reason as the ss#2497 joins.
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'REPLY_SENT',
+          actor: 'agent',
+          matter_ref: 'M-1',
+          metadata: JSON.stringify({
+            body_digest: '9'.repeat(64),
+            body_digest_authored: 'a'.repeat(64),
+            body_digest_authored_html: 'b'.repeat(64),
+          }),
+        },
+      ],
+    })
+    expect(parsed[0]).toMatchObject({
+      bodyDigestAuthored: 'a'.repeat(64),
+      bodyDigestAuthoredHtml: 'b'.repeat(64),
+    })
+    const rec = scopeToRef(parsed, { ref: 'M-1', from: null, to: null })
+    const cells = toObjectAuditCsv(rec).trimEnd().split('\n')[1].split(',')
+    expect(cells.slice(-2)).toEqual(['a'.repeat(64), 'b'.repeat(64)])
+    // The internal scan digest is deliberately NOT a column: publishing a hash
+    // nobody outside can reproduce invites an auditor to chase it.
+    expect(OBJECT_AUDIT_CSV_COLUMNS).not.toContain('body_digest')
+  })
+
+  it('leaves the digest columns empty for a reply sent with no html body', () => {
+    // Absent, not the sha256 of the empty string. A reader must be able to tell
+    // "no html was sent" from "html whose content was empty".
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'REPLY_SENT',
+          actor: 'agent',
+          matter_ref: 'M-1',
+          metadata: JSON.stringify({ body_digest_authored: 'c'.repeat(64) }),
+        },
+      ],
+    })
+    expect(parsed[0].bodyDigestAuthoredHtml).toBeNull()
+    const rec = scopeToRef(parsed, { ref: 'M-1', from: null, to: null })
+    const cells = toObjectAuditCsv(rec).trimEnd().split('\n')[1].split(',')
+    expect(cells.slice(-2)).toEqual(['c'.repeat(64), ''])
   })
 
   it('never exports a raw email address', () => {

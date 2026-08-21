@@ -118,6 +118,31 @@ export interface ObjectAuditRow {
   objectId: string | null
   objectKind: 'document' | 'memo' | 'draft' | null
   writtenBodySha256: string | null
+  /**
+   * The message-body digests a firm can recompute from its OWN copy of the
+   * email (ss#2501). Same null-on-older-rows story as the joins above.
+   *
+   * `metadata.body_digest` (not surfaced here) covers subject + body joined,
+   * which is what the content checks read. The subject is never on the wire for
+   * a reply, so nobody outside the Operator can reproduce that input. These two
+   * cover exactly the bytes handed to the mail system, so they can be checked
+   * without trusting us.
+   *
+   * The check differs by what the mail system did with the body, and the
+   * difference is structural rather than a caveat: where it stores the bytes it
+   * was handed, the test is equality; where it COMPOSES the stored message, as
+   * Graph does for a reply (its wrapper plus the quoted original), the test is
+   * containment of the authored bytes inside the stored body. The evidence
+   * packet README carries the worked commands.
+   *
+   * Coverage, so a reader of this type does not assume more than it holds:
+   * these ride REPLY rows. A proactively sent message records `input_digest`
+   * over the whole send request, not over the body bytes, so its row carries
+   * neither of these and the packet says so rather than letting an auditor
+   * find an empty column.
+   */
+  bodyDigestAuthored: string | null
+  bodyDigestAuthoredHtml: string | null
 }
 
 /**
@@ -280,6 +305,8 @@ function metadataFields(
   | 'objectId'
   | 'objectKind'
   | 'writtenBodySha256'
+  | 'bodyDigestAuthored'
+  | 'bodyDigestAuthoredHtml'
 > {
   const metadata = parseMetadata(raw)
   const object = objectFromMetadata(metadata)
@@ -291,6 +318,9 @@ function metadataFields(
     objectId: object === null ? null : object.id,
     objectKind: object === null ? null : object.kind,
     writtenBodySha256: metadata === null ? null : optString(metadata['written_body_sha256']),
+    bodyDigestAuthored: metadata === null ? null : optString(metadata['body_digest_authored']),
+    bodyDigestAuthoredHtml:
+      metadata === null ? null : optString(metadata['body_digest_authored_html']),
   }
 }
 
@@ -400,6 +430,7 @@ export function scopeToRef(rows: ObjectAuditRow[], query: ObjectAuditQuery): Obj
  * The ss#2497 join columns are APPENDED rather than interleaved, for that
  * reason: a firm diffing this month's export against last month's must see new
  * columns arrive at the end, not every existing column shift one place right.
+ * The ss#2501 body digests follow the same rule, at the end again.
  */
 export const OBJECT_AUDIT_CSV_COLUMNS = [
   'id',
@@ -424,6 +455,8 @@ export const OBJECT_AUDIT_CSV_COLUMNS = [
   'object_kind',
   'object_id',
   'written_body_sha256',
+  'body_digest_authored',
+  'body_digest_authored_html',
 ] as const
 
 function csvCell(value: string | null): string {
@@ -465,6 +498,8 @@ export function toObjectAuditCsv(record: ObjectAuditRecord): string {
         csvCell(row.objectKind),
         csvCell(row.objectId),
         csvCell(row.writtenBodySha256),
+        csvCell(row.bodyDigestAuthored),
+        csvCell(row.bodyDigestAuthoredHtml),
       ].join(',')
     )
   }
