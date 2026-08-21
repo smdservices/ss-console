@@ -1084,3 +1084,61 @@ def test_the_pin_is_recorded_on_the_chain_of_custody_row(tmp_path):
     manifest = _manifest_of(tmp_path / "out" / "evidence.tar.gz")
     assert manifest["extra"]["chain_pin"]["checked"] is True
     assert manifest["extra"]["chain_pin"]["present"] is True
+
+
+def test_readme_publishes_a_recipe_the_firm_can_run_without_us(tmp_path):
+    """ss-console#2501. The packet must tell counsel how to check a message
+    body against the copy their own mail system stored, in commands they can
+    run, and must not offer one recipe where the two transports need two.
+
+    The falsifier this guards against is a plausible-looking instruction that
+    cannot work: byte equality on a Graph reply fails every time, because Graph
+    composes the stored message. A README that published equality alone would
+    read as thorough and send an auditor after a hash that can never match.
+    """
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000R1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="REPLY_SENT",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="m-1")))
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+
+    assert "## Checking a message against your own copy" in readme
+    # Both field names, so a reader can find them in the CSV.
+    assert "body_digest_authored" in readme
+    assert "body_digest_authored_html" in readme
+    # Runnable commands, not a description of a check.
+    assert "openssl dgst -sha256 stored.txt" in readme
+    assert "grep -F -f candidate.txt stored.txt" in readme
+    # The firm holds the STORED message, not our authored text, so the
+    # instruction has to start from what they have. A recipe that says
+    # "save the authored text" is a recipe nobody can run.
+    assert "you take to be what the Operator wrote" in readme
+    # And the outcome is described as a fact about their mail system rather
+    # than promised. Whether Graph embeds our bytes unchanged inside its
+    # wrapper is Microsoft's behavior, and it is not probed anywhere in
+    # this repo; promising a match would be asserting an unverified vendor
+    # shape to a client.
+    assert "not a promise from us" in readme
+    # Both recipes, each named, and the reply case explained rather than
+    # asserted: an auditor who is told only "containment" will assume we are
+    # hedging.
+    assert "the test is EQUALITY" in readme
+    assert "the test is CONTAINMENT" in readme
+    assert "the quoted original appended" in readme
+    # The claim must not outrun the fields. Only reply rows carry these today,
+    # and a README that implied every sent message could be checked this way
+    # would be a fabricated capability in a client-facing artifact.
+    assert "sent as a REPLY carry these" in readme
+    assert "on its own initiative records" in readme
+    # And a reader who cannot tell which transport sent a given message is
+    # given a check that is correct either way rather than a coin flip.
+    assert "run the containment check: it holds in both" in readme
+    # And the internal digest is fenced off rather than left to be attempted.
+    assert "`body_digest` is internal" in readme

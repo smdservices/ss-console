@@ -108,6 +108,24 @@ def _ulid() -> str:
     return _encode_crockford(ts, 10) + _encode_crockford(secrets.randbits(80), 16)
 
 
+def new_row_token() -> str:
+    """A ULID minted for a row that does not exist yet (ss#2499).
+
+    ``append`` mints a row's own id at write time, and a transmit row is written
+    AFTER the send it records. So a header that has to travel WITH the message —
+    ``X-SMD-Audit-Row``, the exact key the console-side reconciler joins on —
+    cannot carry the row id: the row does not have one yet. Pre-minting the id
+    instead would mean teaching ``append`` to accept a caller-supplied id, which
+    is the hash-chain seam (``chain.py`` is a byte-identical overlay twin) and
+    not a place to spend risk for a naming convenience.
+
+    This is that id in every way that matters to the join: the same generator,
+    the same alphabet, minted once per transmit, and written onto the row it
+    belongs to as ``audit_row_token``. One token, one row, both directions.
+    """
+    return _ulid()
+
+
 def _iso_utc() -> str:
     dt = datetime.now(UTC)
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
