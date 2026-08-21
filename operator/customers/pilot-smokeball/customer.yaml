@@ -177,7 +177,11 @@ personas:
         # A&P posture: an admin-confirmed act proposal is the only path, never
         # autonomous. No exposure_ceiling entry, so the entitlement dial cannot
         # raise it.
-        commitment: confirm
+        # commitment: confirm
+        # PARKED 2026-08-21: the on-box validator at overlay 07ed486 refuses 'confirm' on a
+        # non-send class and the seat crash-loops at boot (pilot, 22:57Z). Re-enabled by the
+        # PR that bumps to the overlay whose validator accepts it. Parked means the
+        # commitment class is unauthored, so it is REFUSED, fail-closed.
       # Letter-commitment bounds for the runtime entitlement dial (ss#2003
       # Q7), mirroring the A&P seat (this seat rehearses that grid). Derived
       # from routine-grid.yaml ceiling_tier per send class; the Machine clamps
