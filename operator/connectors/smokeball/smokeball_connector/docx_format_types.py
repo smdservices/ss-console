@@ -36,6 +36,7 @@ class FormatReport:
     document_class: str
     template_used: dict[str, Any] | None = None
     template_expected: bool = False
+    class_template_name: str | None = None
     base_header_footer_text: list[str] = field(default_factory=list)
     styles_honored: list[str] = field(default_factory=list)
     fallbacks: list[str] = field(default_factory=list)
@@ -48,6 +49,7 @@ class FormatReport:
             "class": d["document_class"],
             "templateUsed": d["template_used"],
             "templateExpected": d["template_expected"],
+            "classTemplateName": d["class_template_name"],
             "baseHeaderFooterText": d["base_header_footer_text"],
             "stylesHonored": sorted(set(d["styles_honored"])),
             "fallbacks": sorted(set(d["fallbacks"])),

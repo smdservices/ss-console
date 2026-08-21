@@ -498,3 +498,85 @@ def test_every_class_files_on_the_starter(monkeypatch, tmp_path, cls: str) -> No
     _stub_record_check(monkeypatch)
     out = server.render_docx_draft("m-1", "Draft", DISCOVERY_MD, document_class=cls)
     assert out["fileId"] == "file-88" and out["formatApplied"]["class"] == cls
+
+
+# --- One naming authority (ss#2490) -------------------------------------------
+#
+# The renderer resolves a class's template BY NAME, so a template filed under any
+# other name is inert while the delivery note still reads as if the format were
+# live. Found on pilot 2026-08-20: three templates filed, one live
+# (vfy_01M0GHR4T1V6HG46BVX3S61BCC). The skill body said "name it by the
+# convention unless the blessing named it otherwise", which assumed no override
+# existed yet — an ordering assumption that is false on any seat configured in an
+# earlier cycle. Prose could not close it; these pin the mechanical check.
+
+
+def _authored_with_override(tmp_path, monkeypatch) -> None:
+    path = _write_yaml(
+        tmp_path,
+        "self_initiation:\n"
+        "  document_library:\n"
+        "    matter_number: '2026-OPS-001'\n"
+        "    folder_name: 'Document Library'\n"
+        "    templates:\n"
+        "      demand_letter: 'Firm Demand Shell'\n",
+    )
+    monkeypatch.setenv(CUSTOMER_YAML_ENV, path)
+
+
+def test_names_agree_ignores_case_space_and_extension() -> None:
+    from smokeball_connector.library import names_agree
+
+    assert names_agree("Template - Letter.docx", "Template - Letter")
+    assert names_agree(" template - letter ", "Template - Letter.docx")
+    assert not names_agree("Template - Letter.docx", "Template - Demand Letter.docx")
+
+
+def test_class_template_name_is_reported_so_the_skill_need_not_guess(monkeypatch, tmp_path) -> None:
+    _authored_with_override(tmp_path, monkeypatch)
+    captured: list[httpx.Request] = []
+    monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    out = server.render_docx_template("m-1", "Firm Demand Shell.docx", "# Shell\n", document_class="demand_letter")
+    assert out["formatApplied"]["classTemplateName"] == "Firm Demand Shell.docx"
+    assert out["refusals"] == []
+
+
+def test_filing_a_class_template_under_a_name_the_renderer_will_not_open_is_refused(monkeypatch, tmp_path) -> None:
+    """THE ss#2490 REGRESSION. The convention name looks right and is wrong here,
+    because this seat authors an override. Refused, not filed-and-warned."""
+    _authored_with_override(tmp_path, monkeypatch)
+    captured: list[httpx.Request] = []
+    monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    out = server.render_docx_template("m-1", "Template - Demand Letter.docx", "# Shell\n", document_class="demand_letter")
+    assert out["fileId"] is None
+    assert out["refusals"] and "Firm Demand Shell.docx" in out["refusals"][0]
+    # The falsifier that matters: NOTHING was uploaded. A warning-only fix would
+    # still have PUT the bytes, which is exactly the state that shipped.
+    assert not [r for r in captured if r.method == "PUT"]
+
+
+def test_the_convention_name_is_accepted_when_no_override_is_authored(monkeypatch, tmp_path) -> None:
+    _authored(tmp_path, monkeypatch)
+    captured: list[httpx.Request] = []
+    monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    out = server.render_docx_template("m-1", "Template - Demand Letter.docx", "# Shell\n", document_class="demand_letter")
+    assert out["refusals"] == [] and out["fileId"] == "file-88"
+
+
+def test_a_draft_is_never_subject_to_the_class_template_name(monkeypatch, tmp_path) -> None:
+    """The guard is for templates only. A DRAFT is named for the matter and must
+    keep its own name, or every drafting lane breaks."""
+    _authored_with_override(tmp_path, monkeypatch)
+    captured: list[httpx.Request] = []
+    monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    _stub_record_check(monkeypatch)
+    out = server.render_docx_draft("m-1", "DRAFT Demand - Alvarez", DISCOVERY_MD, document_class="demand_letter")
+    assert out["refusals"] == [] and out["fileId"] == "file-88"
+
+
+def test_no_document_class_means_no_name_opinion(monkeypatch, tmp_path) -> None:
+    _authored_with_override(tmp_path, monkeypatch)
+    captured: list[httpx.Request] = []
+    monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
+    out = server.render_docx_template("m-1", "Anything At All.docx", "# Shell\n")
+    assert out["refusals"] == [] and "formatApplied" not in out
