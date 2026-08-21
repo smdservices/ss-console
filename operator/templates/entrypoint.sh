@@ -660,8 +660,31 @@ SMD_GATEWAY_LIVENESS_KILL_VERIFY_SECONDS="${SMD_GATEWAY_LIVENESS_KILL_VERIFY_SEC
 # it and buy itself unlimited restarts. That is why the authoritative record of
 # every kill and every refusal is the log line, which reaches `fly logs` and
 # which the agent cannot reach at all.
-install -d -o root -g root -m 0700 "${GATEWAY_LIVENESS_RUN_DIR}"
-install -d -o root -g root -m 0700 "${GATEWAY_LIVENESS_LEDGER_DIR}"
+#
+# 0755 / 0644, NOT 0700 (ss#2488 part 2). The webhook gate -- hermes uid, and
+# the one process that survives a wedge -- reads the tick, the state line and
+# the ledger below and puts them on the control-plane heartbeat, so a stale
+# pulse, a restart, a refusing supervisor or one that never armed reaches an
+# inbox instead of only `fly logs`. Read-only for the agent is still the whole
+# security property: root is the sole writer, and under a root-owned directory
+# with no group/other write bit the agent uid can neither forge, edit, nor
+# unlink a line. (The unlink caveat in the paragraph above is about the PARENT
+# /opt/data, and is unchanged by this.) The cross-repo threshold contract lives
+# here too: fleet-alerts' GATEWAY_LOOP_RED_SECONDS must stay BELOW
+# SMD_GATEWAY_LIVENESS_STALE_SECONDS x 2 samples + the dump and TERM graces
+# (~270s at defaults), or the page lands after the restart it was meant to
+# precede. wrangler.toml carries the same sentence.
+install -d -o root -g root -m 0755 "${GATEWAY_LIVENESS_RUN_DIR}"
+install -d -o root -g root -m 0755 "${GATEWAY_LIVENESS_LEDGER_DIR}"
+# The supervisor's state machine, one word, rewritten on every transition so the
+# gate (and boot-smoke) can tell an ARMED supervisor from one that is inert,
+# not-watching this pin, or refusing further restarts. Same loud-not-silent
+# discipline as the log lines; this is the copy that leaves the Machine.
+gateway_liveness_state() {
+  printf '%s\n' "$1" > "${GATEWAY_LIVENESS_RUN_DIR}/state.tmp" \
+    && chmod 0644 "${GATEWAY_LIVENESS_RUN_DIR}/state.tmp" \
+    && mv -f "${GATEWAY_LIVENESS_RUN_DIR}/state.tmp" "${GATEWAY_LIVENESS_RUN_DIR}/state"
+}
 
 # Resolve the ACTIVE profile from the gateway's own argv, not by mtime-ordering
 # /opt/data/profiles/*. A seat may carry several persona homes (ADR 0011;
@@ -693,6 +716,8 @@ gateway_heartbeat_path() {
 
 # Epoch first so the window comparison is integer arithmetic, no date parsing.
 gateway_liveness_record_kill() {
+  [ -f "${GATEWAY_LIVENESS_LEDGER_DIR}/kills" ] \
+    || install -m 0644 -o root -g root /dev/null "${GATEWAY_LIVENESS_LEDGER_DIR}/kills"
   printf '%s %s %s\n' "$(date -u +%s)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" \
     >> "${GATEWAY_LIVENESS_LEDGER_DIR}/kills"
 }
@@ -758,6 +783,7 @@ gateway_liveness_escalate() {
     # destroys in-flight work each cycle. Stop, and keep saying so, so that the
     # next thing to touch this Machine is a human.
     gateway_liveness_nag "REFUSING to restart (${reason}): ${SMD_GATEWAY_LIVENESS_MAX_KILLS} kill(s) already inside ${SMD_GATEWAY_LIVENESS_KILL_WINDOW_SECONDS}s. This seat is flapping and needs a human."
+    gateway_liveness_state refusing
     return 0
   fi
   gateway_liveness_record_kill "${reason}"
@@ -815,12 +841,14 @@ gateway_liveness_escalate() {
   if [ ! -f "${GATEWAY_LIVENESS_HEARTBEAT_WRITER}" ] || \
      ! grep -q 'loop_heartbeat_forever' "${GATEWAY_LIVENESS_HEARTBEAT_WRITER}"; then
     log "GATEWAY LIVENESS: NOT watching — this Hermes pin has no loop heartbeat (${GATEWAY_LIVENESS_HEARTBEAT_WRITER} absent or without loop_heartbeat_forever). A wedged gateway on this seat will NOT self-recover."
+    gateway_liveness_state not-watching
     exit 0
   fi
   armed=0
   stale_streak=0
   last_nag=0
   boot_epoch="$(date -u +%s)"
+  gateway_liveness_state not-armed
   while true; do
     # Tick FIRST, every iteration. This file is the supervisor's own liveness
     # proof and boot-smoke asserts its freshness. A pid file would only prove a
@@ -828,12 +856,14 @@ gateway_liveness_escalate() {
     # than that it WORKED" shape boot-smoke-test.sh warns about after the
     # 2026-07-16 scheduler outage ran eight days green on exactly that.
     touch "${GATEWAY_LIVENESS_RUN_DIR}/tick"
+    chmod 0644 "${GATEWAY_LIVENESS_RUN_DIR}/tick" 2>/dev/null
     sleep "${SMD_GATEWAY_LIVENESS_POLL_SECONDS}"
     now="$(date -u +%s)"
 
     hb="$(gateway_heartbeat_path)"
     if [ -z "${hb}" ]; then
       gateway_liveness_nag "cannot resolve the gateway profile from ${GATEWAY_LIVENESS_PROC_DIR}/${SMD_GATEWAY_PID}/cmdline; supervisor is INERT and this seat has no automatic recovery"
+      gateway_liveness_state inert
       continue
     fi
 
@@ -859,6 +889,7 @@ gateway_liveness_escalate() {
 
     if [ "${age}" -le "${SMD_GATEWAY_LIVENESS_STALE_SECONDS}" ]; then
       [ "${armed}" -eq 0 ] && log "Gateway liveness supervisor ARMED (loop heartbeat ${hb} is ${age}s fresh)"
+      [ "${armed}" -eq 0 ] && gateway_liveness_state armed
       armed=1
       stale_streak=0
       continue
@@ -888,6 +919,7 @@ gateway_liveness_escalate() {
     # here.
     if ! gateway_liveness_kill_budget_ok; then
       gateway_liveness_nag "REFUSING to restart (loop-wedge, heartbeat ${age}s stale): ${SMD_GATEWAY_LIVENESS_MAX_KILLS} kill(s) already inside ${SMD_GATEWAY_LIVENESS_KILL_WINDOW_SECONDS}s. This seat is flapping and needs a human."
+      gateway_liveness_state refusing
       stale_streak=0
       continue
     fi

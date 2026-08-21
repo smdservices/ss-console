@@ -941,3 +941,204 @@ def test_readme_and_pdf_state_the_same_coverage_wording(tmp_path):
         # The PDF wraps at 88 chars, so check the token's first word
         # survives rather than the whole phrase.
         assert token.split()[0] in pdf
+
+
+# ---------------------------------------------------------------------------
+# Pinned chain head (ss#2500)
+#
+# The packet could always say a mutated or deleted MIDDLE row would show. It
+# could never say anything about rows cut off the END, because what survives
+# such a cut is itself a valid chain. A head recorded off the Machine is the
+# only input that closes that, and these tests hold the three outcomes apart:
+# checked and present, checked and gone (halt), and not checked (disclosed).
+# ---------------------------------------------------------------------------
+
+_CHAIN_SCHEMA_EXTRA = (
+    "ALTER TABLE audit_log ADD COLUMN prev_hash TEXT;"
+    "ALTER TABLE audit_log ADD COLUMN row_hash TEXT;"
+)
+
+_PIN_A = "a" * 64
+_PIN_B = "b" * 64
+
+
+def _build_pair_with_chain_columns(tmp_path: Path):
+    """A read source shaped like a real ledger: audit_log plus the link columns."""
+    builder, conn = _build_pair(tmp_path)
+    conn.executescript(_CHAIN_SCHEMA_EXTRA)
+    conn.commit()
+    return builder, conn
+
+
+def _seed_chained_row(conn: sqlite3.Connection, *, id_: str, ts: str, row_hash: str) -> None:
+    _seed_audit_row(conn, id=id_, ts=ts, action_type="DRAFT_CREATED", matter_ref="m-1")
+    conn.execute("UPDATE audit_log SET row_hash = ? WHERE id = ?", [row_hash, id_])
+    conn.commit()
+
+
+def test_a_present_pinned_head_is_stated_in_the_readme(tmp_path):
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P1", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_A
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+
+    assert result.chain_pin.present is True
+    assert result.chain_pin.was_checked is True
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "Whether the log itself is complete" in readme
+    assert _PIN_A in readme
+    # The pin's SOURCE is named, so a reader can go and ask for it.
+    assert "audit_head_history" in readme
+    # And the limit is stated in the same breath, not omitted.
+    assert "Rows written" in readme
+
+
+def test_a_missing_pinned_head_halts_the_build(tmp_path):
+    """THE falsifier for the packet half.
+
+    The ledger holds a different head; the one recorded off the Machine is gone.
+    Before ss#2500 this built a clean packet asserting a complete record.
+    """
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P2", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_B
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+    assert "is NOT present in this ledger" in str(exc.value)
+    # No partial artifact: the halt happens before anything is rendered.
+    assert not (tmp_path / "out" / "evidence.tar.gz").exists()
+
+
+def test_the_same_ledger_builds_cleanly_when_the_pin_is_omitted(tmp_path):
+    """The negative control for the test above.
+
+    Same ledger, same rows. The only difference is whether a pin was supplied,
+    which is what makes the halt attributable to the pin check and not to
+    something else about the fixture.
+    """
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P3", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_B
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml)))
+
+    assert result.chain_pin.was_checked is False
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+    assert "checked for internal consistency only" in readme
+    assert "removed from the END" in readme
+
+
+def test_a_malformed_pin_is_refused_before_any_read(tmp_path):
+    """A junk pin matches nothing, so carrying it forward would print
+    "the record was truncated" on a packet about a healthy ledger."""
+    builder, _ = _build_pair_with_chain_columns(tmp_path)
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, pinned_head="not-a-hash")))
+    assert "sha256 hexdigest" in str(exc.value)
+
+
+def test_a_source_without_chain_columns_halts_rather_than_reporting_a_break(tmp_path):
+    """"Could not look" must never be reported as "looked and it is gone"."""
+    builder, conn = _build_pair(tmp_path)  # no prev_hash / row_hash columns
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000P4",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="DRAFT_CREATED",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+    with pytest.raises(EvidencePacketError) as exc:
+        _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+    message = str(exc.value)
+    assert "carries no hash-chain columns" in message
+    assert "NOT present" not in message
+
+
+def test_the_pin_is_recorded_on_the_chain_of_custody_row(tmp_path):
+    """The pin travels INSIDE the chain it attests to, so a later reader can
+    take this row's own hash as the next pin without a new mechanism."""
+    builder, conn = _build_pair_with_chain_columns(tmp_path)
+    _seed_chained_row(
+        conn, id_="01HZZ00000000000000000P5", ts="2026-04-10T09:00:00.000Z", row_hash=_PIN_A
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    _run(builder.build(_request(tmp_path, customer_yaml, pinned_head=_PIN_A)))
+
+    row = conn.execute(
+        "SELECT metadata FROM audit_log WHERE action_type = 'COMPLIANCE_PACKET_EXPORTED'"
+    ).fetchone()
+    metadata = json.loads(row["metadata"])
+    assert metadata["chain_pin"]["pinned_head"] == _PIN_A
+    assert metadata["chain_pin"]["present"] is True
+    manifest = _manifest_of(tmp_path / "out" / "evidence.tar.gz")
+    assert manifest["extra"]["chain_pin"]["checked"] is True
+    assert manifest["extra"]["chain_pin"]["present"] is True
+
+
+def test_readme_publishes_a_recipe_the_firm_can_run_without_us(tmp_path):
+    """ss-console#2501. The packet must tell counsel how to check a message
+    body against the copy their own mail system stored, in commands they can
+    run, and must not offer one recipe where the two transports need two.
+
+    The falsifier this guards against is a plausible-looking instruction that
+    cannot work: byte equality on a Graph reply fails every time, because Graph
+    composes the stored message. A README that published equality alone would
+    read as thorough and send an auditor after a hash that can never match.
+    """
+    builder, conn = _build_pair(tmp_path)
+    _seed_audit_row(
+        conn,
+        id="01HZZ00000000000000000R1",
+        ts="2026-04-10T09:00:00.000Z",
+        action_type="REPLY_SENT",
+        matter_ref="m-1",
+    )
+    customer_yaml = _write_customer_yaml(tmp_path, {"customer_name": "Acme"})
+
+    result = _run(builder.build(_request(tmp_path, customer_yaml, matter="m-1")))
+    readme = _member_bytes(result.output_path, "00-README.md").decode("utf-8")
+
+    assert "## Checking a message against your own copy" in readme
+    # Both field names, so a reader can find them in the CSV.
+    assert "body_digest_authored" in readme
+    assert "body_digest_authored_html" in readme
+    # Runnable commands, not a description of a check.
+    assert "openssl dgst -sha256 stored.txt" in readme
+    assert "grep -F -f candidate.txt stored.txt" in readme
+    # The firm holds the STORED message, not our authored text, so the
+    # instruction has to start from what they have. A recipe that says
+    # "save the authored text" is a recipe nobody can run.
+    assert "you take to be what the Operator wrote" in readme
+    # And the outcome is described as a fact about their mail system rather
+    # than promised. Whether Graph embeds our bytes unchanged inside its
+    # wrapper is Microsoft's behavior, and it is not probed anywhere in
+    # this repo; promising a match would be asserting an unverified vendor
+    # shape to a client.
+    assert "not a promise from us" in readme
+    # Both recipes, each named, and the reply case explained rather than
+    # asserted: an auditor who is told only "containment" will assume we are
+    # hedging.
+    assert "the test is EQUALITY" in readme
+    assert "the test is CONTAINMENT" in readme
+    assert "the quoted original appended" in readme
+    # The claim must not outrun the fields. Only reply rows carry these today,
+    # and a README that implied every sent message could be checked this way
+    # would be a fabricated capability in a client-facing artifact.
+    assert "sent as a REPLY carry these" in readme
+    assert "on its own initiative records" in readme
+    # And a reader who cannot tell which transport sent a given message is
+    # given a check that is correct either way rather than a coin flip.
+    assert "run the containment check: it holds in both" in readme
+    # And the internal digest is fenced off rather than left to be attempted.
+    assert "`body_digest` is internal" in readme

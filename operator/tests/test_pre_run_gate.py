@@ -238,3 +238,92 @@ def test_heartbeat_without_socket_env_returns_false(monkeypatch) -> None:
     monkeypatch.delenv("SMD_AUDIT_BROKER_SOCKET", raising=False)
     monkeypatch.delenv("SMD_WORKSPACE_BROKER_SOCKET", raising=False)
     assert gate.write_suppressed_wake_heartbeat("x") is False
+
+
+# ---------------------------------------------------------------------------
+# The wake half of the gate (ss-console #2253 carried to the shared template,
+# #2498). Before this, the eight routines on this template left a row on every
+# quiet tick and NOTHING on the ticks they fired: the one tick that mattered
+# was the one tick with no row.
+# ---------------------------------------------------------------------------
+
+
+def test_hydrated_seat_writes_an_emitted_wake_row(dummy_broker, capsys) -> None:
+    gate = _load_gate()
+    gate.decide_and_emit(3, "discovery-response-tracker")
+    assert _emitted(capsys) == {"wakeAgent": True}
+    (request,) = dummy_broker.received
+    assert request["action"] == "emitted_wake_append"
+    row = request["row"]
+    assert row["action_type"] == "EMITTED_WAKE"
+    assert row["skill_name"] == "discovery-response-tracker"
+    metadata = json.loads(row["metadata"])
+    assert metadata["decision_basis"] == "hydrated_seat:open_matters_present"
+    # Same field set as the suppress row, so a reader can diff the two.
+    assert metadata["platform"] == "cron-pre-run"
+    assert metadata["customer"] == "pilot-smokeball"
+
+
+def test_an_unprobeable_seat_is_a_different_wake_reason(dummy_broker, capsys) -> None:
+    """A hydrated seat and a seat we could not probe both wake, and only one of
+    them is healthy. One basis for both would erase the difference."""
+    gate = _load_gate()
+    gate.decide_and_emit(None, "motion-calendar-tracker")
+    assert _emitted(capsys) == {"wakeAgent": True}
+    (request,) = dummy_broker.received
+    metadata = json.loads(request["row"]["metadata"])
+    assert metadata["decision_basis"] == "probe_unavailable:open_matter_count_unknown"
+
+
+def test_a_quiet_tick_still_writes_only_the_suppress_row(dummy_broker, capsys) -> None:
+    """The falsifier for the two above: if the wake row were written
+    unconditionally, this would see two requests instead of one."""
+    gate = _load_gate()
+    gate.decide_and_emit(0, "trial-binder-assembler")
+    assert _emitted(capsys) == {"wakeAgent": False}
+    (request,) = dummy_broker.received
+    assert request["action"] == "suppressed_wake_append"
+
+
+def test_a_refused_wake_row_never_changes_the_wake(dummy_broker, capsys) -> None:
+    """Best-effort inverts the suppress path's contract on purpose: the wake is
+    already the decision, so a wake that a failed audit write could suppress or
+    delay would be a gate made of observability."""
+    gate = _load_gate()
+    dummy_broker.reply = {"ok": False, "error": "PermissionError"}
+    gate.decide_and_emit(5, "medical-chronology-maintainer")
+    assert _emitted(capsys) == {"wakeAgent": True}
+
+
+def test_no_broker_at_all_never_changes_the_wake(monkeypatch, capsys) -> None:
+    gate = _load_gate()
+    monkeypatch.delenv("SMD_AUDIT_BROKER_SOCKET", raising=False)
+    monkeypatch.delenv("SMD_WORKSPACE_BROKER_SOCKET", raising=False)
+    gate.decide_and_emit(5, "minors-compromise-packet")
+    assert _emitted(capsys) == {"wakeAgent": True}
+
+
+def test_a_failed_suppress_heartbeat_does_not_then_try_the_wake_row(dummy_broker, capsys) -> None:
+    """Matching deadline-miss-escalator's `suppress_heartbeat_failed_fail_open`:
+    a write to this very writer just failed, so a second one is a delay, not a
+    record. Exactly one request reaches the broker."""
+    gate = _load_gate()
+    dummy_broker.reply = {"ok": False, "error": "PermissionError"}
+    gate.decide_and_emit(0, "mediation-settlement-tracker")
+    assert _emitted(capsys) == {"wakeAgent": True}
+    assert len(dummy_broker.received) == 1
+    assert dummy_broker.received[0]["action"] == "suppressed_wake_append"
+
+
+def test_both_verbs_carry_the_same_metadata_keys(dummy_broker) -> None:
+    """One writer for both halves, so the fields cannot drift apart."""
+    gate = _load_gate()
+    gate.write_suppressed_wake_heartbeat("trial-binder-assembler")
+    gate.write_emitted_wake_heartbeat(
+        "trial-binder-assembler", "hydrated_seat:open_matters_present"
+    )
+    suppress, emitted = dummy_broker.received
+    assert set(suppress["row"]) == set(emitted["row"])
+    assert set(json.loads(suppress["row"]["metadata"])) == set(
+        json.loads(emitted["row"]["metadata"])
+    )

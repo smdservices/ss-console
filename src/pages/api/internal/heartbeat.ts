@@ -27,7 +27,15 @@
  *     "cron_containment":        <boolean | 0/1>,  // optional (ss#2276 sentinel)
  *     "webhook_surface_ok":      <boolean | 0/1>,  // optional (ss#2222 warn tier)
  *     "webhook_surface":         <map tool → entry> // optional (ss#2222 warn tier)
+ *     "audit_write_failures":    <integer>,        // optional (ss#2498 lost rows, cumulative)
+ *     "audit_head":              <64 hex chars>,   // optional (ss#2500 chain pin)
+ *     "audit_rows":              <integer>         // optional (ss#2500 chain pin)
  *   }
+ *
+ * `audit_head` / `audit_rows` are the one pair here that does NOT land only in
+ * `fleet_status`. They are also appended to `audit_head_history` (migration
+ * 0108) as an off-Machine pin, because tail truncation of the seat's hash chain
+ * is undetectable from an export alone -- see `src/lib/operator/audit-head.ts`.
  *
  * The authoritative list of fields the pinned overlay can emit is
  * `operator/observability/heartbeat-fields.json`, enforced by
@@ -51,6 +59,8 @@ import { jsonResponse } from '../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { verifyMachineRequest } from '../../../lib/auth/machine-key'
+import { captureError, captureWarning } from '../../../lib/observability/sentry'
+import { recordAuditHead } from '../../../lib/operator/audit-head'
 
 const DEFAULT_PERIOD_SECONDS = 60
 const DEFAULT_GRACE_MINUTES = 5
@@ -73,6 +83,9 @@ interface HeartbeatBody {
   webhook_surface_ok?: unknown
   webhook_surface?: unknown
   cron_containment?: unknown
+  audit_write_failures?: unknown
+  audit_head?: unknown
+  audit_rows?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
@@ -93,6 +106,17 @@ function parseSchedulerOk(value: unknown): 0 | 1 | null {
 // float, a negative, a string, a missing field — is stored NULL.
 function parseNonNegInt(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+// The audit chain head (#2500): a sha-256 hexdigest from the overlay's
+// `compute_row_hash`. Parsed, never cast — this value is stored as the pinned
+// head an integrity check later compares against, and junk pinned as a head
+// would make every subsequent verification fail against a value that never was
+// a hash. Anything not exactly 64 lowercase hex characters is stored NULL,
+// which reads as "nothing to pin", never as "the chain broke".
+const AUDIT_HEAD_RE = /^[0-9a-f]{64}$/
+function parseAuditHead(value: unknown): string | null {
+  return typeof value === 'string' && AUDIT_HEAD_RE.test(value) ? value : null
 }
 
 // Per-connector map guardrails (ADR 0080). The overlay writer caps at 32
@@ -261,6 +285,15 @@ function parseObservability(body: HeartbeatBody) {
     // ss#2276: 1 = the CRON_CONTAINMENT volume sentinel is present (all managed
     // crons deliberately off, surviving boots), 0 = normal, NULL = unreported.
     cronContainment: parseSchedulerOk(body.cron_containment),
+    // ss#2498 + ss#2500: what the ledger says about itself. `0` failures is a
+    // REAL value and the load-bearing one — it is what distinguishes a quiet
+    // ledger from a broken one. NULL means the seat cannot answer, and these
+    // three are stored with COALESCE for that reason: overwriting a known
+    // failure count with an absence would erase the record and silently reset
+    // the delta baseline to zero.
+    auditWriteFailures: parseNonNegInt(body.audit_write_failures),
+    auditHead: parseAuditHead(body.audit_head),
+    auditRows: parseNonNegInt(body.audit_rows),
   }
 }
 
@@ -307,7 +340,17 @@ export const POST: APIRoute = async ({ request }) => {
     webhookSurfaceOk,
     webhookSurfaceJson,
     cronContainment,
+    auditWriteFailures,
+    auditHead,
+    auditRows,
   } = parseObservability(body)
+
+  // #2498: read the prior count BEFORE the upsert overwrites it. A rise means
+  // the seat lost audit rows since the last beat — the state that is otherwise
+  // indistinguishable from a seat with nothing to record. Raised as a Sentry
+  // event rather than a fleet_alert_state condition: this is a moment-in-time
+  // observation, not a standing condition to open and resolve.
+  await reportAuditWriteFailureDelta(auth.slug, auditWriteFailures)
 
   await upsertFleetStatus({
     entityId: auth.entityId,
@@ -326,9 +369,71 @@ export const POST: APIRoute = async ({ request }) => {
     webhookSurfaceJson,
     webhookSurfaceOk,
     cronContainment,
+    auditWriteFailures,
+    auditHead,
+    auditRows,
+  })
+
+  // ss#2500. Appended, not upserted: this is the off-Machine pin history, and a
+  // pin a later beat could overwrite would not be a pin. Deliberately AFTER the
+  // fleet_status upsert so a failure here cannot cost the health projection --
+  // the Machine retries the whole beat, and the append is idempotent for an
+  // unchanged head.
+  // The values come from `parseObservability` above, NOT from a second parse of
+  // the body. One intake, two destinations: the fleet_status projection ss#2498
+  // writes and this pin history read the identical parsed beat, so the
+  // dashboard and the pin can never disagree about what the seat said.
+  await recordAuditHead(env.DB, {
+    entityId: auth.entityId,
+    slug: auth.slug,
+    heartbeatTs: body.heartbeat_ts,
+    auditHead,
+    auditRows,
   })
 
   return jsonResponse(200, { ok: true, heartbeat_status: heartbeatStatus })
+}
+
+/**
+ * Raise a Sentry event when a seat's cumulative audit-write-failure count rises
+ * (#2498).
+ *
+ * The count is monotonic on the Fly volume and survives reboots, so a rise
+ * means new rows were lost since the previous beat. Three cases the comparison
+ * deliberately distinguishes:
+ *
+ *   - `reported` NULL — the seat cannot answer (no `.smd` directory; the audit
+ *     plugin has never registered). Nothing to compare. Silence, not zero.
+ *   - `prior` NULL and `reported` > 0 — the first beat that carries a count,
+ *     and it is not zero. We have just LEARNED of failures; that is a rise.
+ *   - `reported` < `prior` — the tally file was removed or the volume replaced.
+ *     Not a rise; report nothing rather than an alarming negative.
+ *
+ * Best-effort. A failure to read the prior value must never 500 the heartbeat:
+ * losing liveness reporting to protect an alert would trade a big signal for a
+ * small one.
+ */
+async function reportAuditWriteFailureDelta(slug: string, reported: number | null): Promise<void> {
+  if (reported === null) return
+  let prior: number | null
+  try {
+    const row = await env.DB.prepare(
+      'SELECT audit_write_failures FROM fleet_status WHERE customer_slug = ?'
+    )
+      .bind(slug)
+      .first<{ audit_write_failures: number | null }>()
+    prior = row?.audit_write_failures ?? null
+  } catch (err) {
+    captureError(err, 'heartbeat-audit-failure-delta')
+    return
+  }
+  const lost = reported - (prior ?? 0)
+  if (lost <= 0) return
+  captureWarning(
+    `Operator seat ${slug} lost ${lost} audit row(s) since the last heartbeat`,
+    'operator-audit-write-failure',
+    { customer_slug: slug, lost, reported_total: reported, prior_total: prior }
+  )
 }
 
 interface FleetStatusUpsert {
@@ -348,6 +453,9 @@ interface FleetStatusUpsert {
   webhookSurfaceJson: string | null
   webhookSurfaceOk: 0 | 1 | null
   cronContainment: 0 | 1 | null
+  auditWriteFailures: number | null
+  auditHead: string | null
+  auditRows: number | null
 }
 
 /**
@@ -369,8 +477,9 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
        connectors_json, connector_check_ok, connector_token_age_json,
        spec_control_json, spec_control_ok,
-       webhook_surface_json, webhook_surface_ok, cron_containment, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       webhook_surface_json, webhook_surface_ok, cron_containment,
+       audit_write_failures, audit_head, audit_rows, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -391,6 +500,9 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        webhook_surface_json    = excluded.webhook_surface_json,
        webhook_surface_ok      = excluded.webhook_surface_ok,
        cron_containment        = excluded.cron_containment,
+       audit_write_failures    = COALESCE(excluded.audit_write_failures, fleet_status.audit_write_failures),
+       audit_head              = COALESCE(excluded.audit_head, fleet_status.audit_head),
+       audit_rows              = COALESCE(excluded.audit_rows, fleet_status.audit_rows),
        updated_at              = datetime('now')`
   )
     .bind(
@@ -413,7 +525,10 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
       u.specControlOk,
       u.webhookSurfaceJson,
       u.webhookSurfaceOk,
-      u.cronContainment
+      u.cronContainment,
+      u.auditWriteFailures,
+      u.auditHead,
+      u.auditRows
     )
     .run()
 }

@@ -100,6 +100,15 @@ ACCEPTED_ACTION_TYPES = frozenset(
         # Skill activation
         "SKILL_ENABLED",
         "SKILL_DISABLED",
+        # Routine scheduling (#2498). DELIBERATELY NOT the two above.
+        # SKILL_ENABLED is a skill-catalog mutation — whether the Operator is
+        # ALLOWED to do a thing. These are whether it is SCHEDULED to. A seat
+        # can have every skill enabled and initiate nothing (ashton-price since
+        # #2332), and a ledger that conflated the two would report that seat as
+        # fully armed. Written by the overlay's audit plugin at registration
+        # from the bootstrap cron-reconcile spool, on the DELTA only.
+        "ROUTINE_ENABLED",
+        "ROUTINE_DISABLED",
         # Agent lifecycle
         "AGENT_STOPPED",
         "AGENT_RESUMED",
