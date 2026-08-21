@@ -664,7 +664,28 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # admin roster. Files: shared/gateway_loop_check.py (new), shared/heartbeat.py,
 # contracts/consumes.yaml, tests -- NOT tracked pairs; every overlaySha256
 # unchanged, only overlayRef.
-ARG OVERLAY_REF="4ca6682b6944a1b54c15c03f858fa11a3130d74c"
+#
+# 4ca6682 -> 349d86b (overlay#299 + #300, ss welcome rehearsal): two commits, and
+# what they exist for is what the A&P Operator did with the old refusal. Drafting
+# the setup reply to the firm's administrator, the Tier-2 citation gate fired
+# four to six times in one turn on ordinary comparison prose; the refusal said
+# only "content matching legal-citation patterns", naming neither the shape nor a
+# fix, so the model retried blind and then shipped a trimmed reply that told the
+# client a gate had blocked it. #299 gives the refusal a per-pattern hint that
+# names the kind that hit and the remedy for it, and that never echoes the
+# matched text (a refusal quoting the cite hands it back to the drafter). It also
+# closes the hole those retries were finding: "Palsgraf versus Long Island
+# Railroad" was caught by nothing, because CASE_NAME_RE folds only "v" and "vs".
+# The new CASE_NAME_VERSUS_RE keeps its parties case-SENSITIVE, unlike
+# CASE_NAME_RE, so "apples versus oranges" still passes while the capitalized
+# form blocks, and provenance harvests versus-form captions so a caption the
+# record spells in longhand registers as the same caption. #300 puts the same
+# "versus" fold in canonical_caption on both sides of the repo boundary, so an
+# allowlist entry registered by one copy still matches a hit canonicalized by the
+# other. Files: shared/citation_filter.py (a TRACKED pair; overlaySha256
+# re-recorded one-sided in overlay-pairs.json), shared/outbound_gate.py,
+# shared/provenance.py, tests.
+ARG OVERLAY_REF="349d86b370b10e209f1bd3430dc4e8fac77894a5"
 
 ARG CUSTOMER_SLUG=customer-zero
 

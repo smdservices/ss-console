@@ -948,7 +948,21 @@ describe('Operator customer Machine Dockerfile', () => {
     // the memo and the email). render_docx_draft leaves the report-only carve and
     // blocks like every other draft tool; add_file stays report-only until a lane
     // exercises it. Single-commit range, NO tracked twin moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4ca6682b6944a1b54c15c03f858fa11a3130d74c"')
+    // 4ca6682 -> 349d86b (2026-08-21, overlay#299 + #300): the A&P Operator's setup
+    // reply to the firm's administrator hit the Tier-2 citation gate four to six
+    // times in one turn on ordinary comparison prose, and the refusal named neither
+    // the shape it saw nor a fix, so the model retried blind and then shipped a
+    // trimmed reply that told the client a gate had blocked it. #299 gives the
+    // refusal a per-pattern hint carrying the kind and the remedy, never the matched
+    // text, and closes the hole the retries were finding: "Palsgraf versus Long
+    // Island Railroad" matched nothing, because CASE_NAME_RE folds only "v" and
+    // "vs". CASE_NAME_VERSUS_RE keeps its parties case-SENSITIVE so "apples versus
+    // oranges" still passes, and provenance harvests versus-form captions. #300
+    // folds "versus" in canonical_caption on both sides of the repo boundary so an
+    // allowlist entry registered by one copy matches a hit canonicalized by the
+    // other. ONE tracked twin moves: shared/citation_filter.py, re-recorded
+    // one-sided in overlay-pairs.json (behaviour identical, prose and wrapping not).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="349d86b370b10e209f1bd3430dc4e8fac77894a5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
