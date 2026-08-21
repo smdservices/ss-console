@@ -9,7 +9,7 @@ description: >-
   template per blessed item, structure only, with every case-specific value left as a visible
   marker, and it reports a template delivered only after reading the filed document back.
   Firm-level establishment is refused for anyone who is not an Operator admin.
-version: 0.2.0
+version: 0.3.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -271,12 +271,26 @@ the skeleton onto the class starter (the named styles defined, Times New Roman 1
 number in the footer) or, when the library already holds a template for that class, INTO
 that file, keeping its letterhead and styles; the return carries `formatApplied` saying
 which. `file_name` gains a `.docx` suffix if it lacks one, and the returned `fileName` is the
-name actually filed. **Name each template by the convention `Template - <Class>.docx`**
-(`Template - Discovery Set.docx`, `Template - Demand Letter.docx`, and so on) unless the
-blessing named it otherwise; the renderer finds a class's template by that name, and a
-differently named one is authored into `self_initiation.document_library.templates` by PR
-after the blessing, so say the name you filed under in the report. Never upload bytes
-yourself and never rename a file the firm placed in the folder.
+name actually filed.
+
+**The class's template has exactly one name, and the tool tells you what it is.** The
+return carries `formatApplied.classTemplateName` — the name the renderer will look for
+when it drafts this class. File under that name. Filing under any other name is refused,
+not filed-with-a-warning, because a template the renderer never opens is worse than no
+template at all: the firm edits it in Word, nothing changes in any draft, and nothing
+anywhere says why. That is ss#2490, found live on 2026-08-20 with three templates filed
+and one live.
+
+So: **read `classTemplateName` off the return and use it.** Do not assume the convention
+`Template - <Class>.docx` — a seat whose firm keeps templates under their own names has
+`self_initiation.document_library.templates` authored, and then the authored name is the
+one name. If the blessing asks for a name that is neither, that mapping is authored by PR
+**first**; you file afterwards, under the authored name. Say in the report the name you
+filed under.
+
+Never upload bytes yourself and never rename a file the firm placed in the folder. If a
+class already has a template and the firm wants it rebuilt, filing under the same name is
+the rebuild: the resolver takes the newest, and nothing is destroyed.
 
 **The content gate refuses; it never repairs.** Before anything is rendered or uploaded the
 markdown is checked, and the whole violation list comes back in `refusals` with `fileId` null.

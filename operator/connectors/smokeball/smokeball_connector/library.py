@@ -208,6 +208,18 @@ def _strip_ext(name: str) -> str:
     return name
 
 
+def names_agree(a: str, b: str) -> bool:
+    """Do two file names name the same file, ignoring case, surrounding space,
+    and the extension?
+
+    The renderer resolves a class's template by NAME, so a template filed under
+    any other name is inert. This is the comparison the write path uses to
+    refuse that outcome (#2490), and it normalizes exactly the way
+    ``name_matches`` does so the check and the lookup can never disagree.
+    """
+    return _norm(_strip_ext(a)) == _norm(_strip_ext(b))
+
+
 def name_matches(entry: dict[str, Any], wanted: str) -> bool:
     """Does this file entry carry the wanted file name?
 

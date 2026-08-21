@@ -1492,6 +1492,7 @@ def _render_with_format(markdown: str, document_class: str | None) -> tuple[byte
     report = FormatReport(document_class=document_class)
     cfg = load_library_config()
     report.template_expected = cfg.authored
+    report.class_template_name = cfg.template_name(document_class)
     base: bytes | None = None
     try:
         resolved = resolve_template(_get_client(), cfg, document_class)
@@ -1592,6 +1593,17 @@ def render_docx_template(
     text): state it honestly in the delivery note. Omit ``document_class`` for
     the legacy stock render, unchanged.
 
+    **The class's template has ONE name, and this tool enforces it.** With a
+    ``document_class``, ``formatApplied.classTemplateName`` is the name the
+    renderer will look for, and filing under any other name is REFUSED rather
+    than filed-and-warned: a template the renderer never opens is worse than no
+    template, because the delivery note reads as if the format were live. If
+    the firm wants a different name, the mapping is authored in
+    ``self_initiation.document_library.templates`` by PR FIRST, and the tool
+    then insists on that authored name. A file the firm placed itself is never
+    renamed and never overwritten; re-filing under the same name supersedes,
+    because the resolver takes the newest.
+
     Classified INTERNAL_WRITE at the overlay: the Operator writing a template
     into the firm's own record. Nothing leaves the firm."""
     from .render import TemplateContentRefused, check_template_content
@@ -1610,6 +1622,23 @@ def render_docx_template(
             "refusals": [str(v) for v in exc.violations],
         }
     data, format_applied, refusal = _render_with_format(skeleton_markdown, document_class)
+    if not refusal and document_class and format_applied:
+        # ONE NAMING AUTHORITY (#2490). The renderer finds a class's template by
+        # the name `LibraryConfig.template_name` returns; a template filed under
+        # any other name is never opened, and the delivery note would still call
+        # it live. Prose in the skill body is what let those two drift apart, so
+        # the check is mechanical here. This is a file WE are creating, so its
+        # name is ours to insist on; a file the firm placed is never renamed.
+        from .library import names_agree
+
+        wanted = format_applied.get("classTemplateName")
+        if wanted and not names_agree(file_name, str(wanted)):
+            refusal = (
+                f"filed name {file_name!r} is not this class's template name {wanted!r}, so the "
+                "renderer would never open it. File it as that name — or, if the firm wants a "
+                "different one, have self_initiation.document_library.templates authored by PR "
+                "FIRST and then file under the authored name."
+            )
     if refusal:
         return {
             "matterId": matter_id,
