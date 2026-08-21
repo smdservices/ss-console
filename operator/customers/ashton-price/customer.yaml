@@ -199,7 +199,11 @@ personas:
         # answers in their own words, and only then does the act happen. There
         # is deliberately no exposure_ceiling entry for this class, so the
         # runtime entitlement dial cannot raise it at all.
-        commitment: confirm
+        # commitment: confirm
+        # PARKED 2026-08-21: the on-box validator at overlay 07ed486 refuses 'confirm' on a
+        # non-send class and the seat crash-loops at boot (pilot, 22:57Z). Re-enabled by the
+        # PR that bumps to the overlay whose validator accepts it. Parked means the
+        # commitment class is unauthored, so it is REFUSED, fail-closed.
       # Letter-commitment bounds for the runtime entitlement dial (ss#2003
       # Q7). Derived from routine-grid.yaml ceiling_tier per send class
       # (auto-handle -> autonomous, prepare-and-route -> draft_for_review),
