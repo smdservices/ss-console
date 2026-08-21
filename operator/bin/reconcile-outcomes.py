@@ -543,6 +543,12 @@ def customers_dir() -> Path:
 
 
 def seat_slugs() -> list[str]:
+    # Authored dirs, not provisioned seats. audit-chain-watch.py intersects this
+    # same enumeration against `fleet_status` (`partition_seats` /
+    # `ConsoleD1.provisioned_slugs`, ss#2500) because an authored-but-never-
+    # provisioned slug made every run of it red; this reconciler has no D1
+    # credentials to do that with, and an unreachable seat only sets that seat's
+    # `held` here rather than failing the run, so it is left as-is deliberately.
     return sorted(
         d.name
         for d in customers_dir().iterdir()

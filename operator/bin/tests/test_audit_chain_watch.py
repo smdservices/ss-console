@@ -243,24 +243,133 @@ def test_the_archive_key_and_digest_are_reproducible(tmp_path):
     assert first.sha256 == __import__("hashlib").sha256(uploaded[0][0].read_bytes()).hexdigest()
 
 
-def test_an_unconfirmed_bucket_lock_is_not_treated_as_configured():
-    def denied(cmd):
-        return subprocess.CompletedProcess(cmd, 255, "", "An error occurred (NotImplemented)")
+# The rule body the LIVE bucket answered with on 2026-08-21. Pinned to the
+# observed wire shape, not to a shape this file invented: the previous probe
+# asked S3 get-object-lock-configuration and got ObjectLockConfigurationNotFound
+# even with credentials, because R2's bucket lock is a Cloudflare API resource
+# and not S3 object lock at all.
+_OBSERVED_RULE = {
+    "id": "audit-7y",
+    "enabled": True,
+    "prefix": "audit/",
+    "condition": {"type": "Age", "maxAgeSeconds": 220752000},
+}
 
-    ok, note = watch.probe_bucket_lock("smd-audit-archive", runner=denied)
+
+def _lock_body(*rules) -> dict:
+    return {"success": True, "result": {"rules": list(rules)}}
+
+
+def test_the_lock_probe_asks_the_r2_bucket_lock_endpoint(monkeypatch):
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a" * 32)
+    asked: list[str] = []
+
+    def fetch(url):
+        asked.append(url)
+        return _lock_body(_OBSERVED_RULE)
+
+    ok, note = watch.probe_bucket_lock("smd-audit-archive", fetch=fetch)
+    assert ok is True
+    assert asked == [
+        f"https://api.cloudflare.com/client/v4/accounts/{'a' * 32}"
+        "/r2/buckets/smd-audit-archive/lock"
+    ]
+    assert "audit-7y" in note
+
+
+def test_the_observed_seven_year_age_rule_confirms_the_lock():
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(_OBSERVED_RULE))
+    assert ok is True
+    assert "220752000" in note
+
+
+def test_an_indefinite_rule_confirms_the_lock():
+    rule = dict(_OBSERVED_RULE, condition={"type": "Indefinite"})
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(rule))
+    assert ok is True
+    assert "indefinitely" in note
+
+
+def test_a_date_rule_in_the_future_confirms_the_lock():
+    rule = dict(_OBSERVED_RULE, condition={"type": "Date", "date": "2099-01-01T00:00:00Z"})
+    ok, _ = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(rule))
+    assert ok is True
+
+
+def test_a_date_rule_already_past_does_not_confirm_the_lock():
+    rule = dict(_OBSERVED_RULE, condition={"type": "Date", "date": "2020-01-01T00:00:00Z"})
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(rule))
     assert ok is False
+    assert "has passed" in note
+
+
+def test_a_disabled_rule_does_not_confirm_the_lock():
+    rule = dict(_OBSERVED_RULE, enabled=False)
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(rule))
+    assert ok is False
+    assert "not enabled" in note
     assert "immutability is unproven" in note
 
 
-def test_a_configured_bucket_lock_is_recognized():
-    def allowed(cmd):
-        return subprocess.CompletedProcess(
-            cmd, 0, json.dumps({"ObjectLockConfiguration": {"ObjectLockEnabled": "Enabled"}}), ""
-        )
+def test_a_rule_scoped_below_the_archive_prefix_does_not_confirm_the_lock():
+    """A per-seat rule locks one seat's objects and leaves every other seat's loose."""
+    rule = dict(_OBSERVED_RULE, prefix="audit/ashton-price/")
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(rule))
+    assert ok is False
+    assert "does not cover" in note
 
-    ok, note = watch.probe_bucket_lock("smd-audit-archive", runner=allowed)
+
+def test_a_rule_covering_the_whole_bucket_does_confirm_the_lock():
+    """The other side of the prefix check: broader than audit/ still covers audit/."""
+    ok, _ = watch.evaluate_lock_payload(
+        "smd-audit-archive", _lock_body(dict(_OBSERVED_RULE, prefix=""))
+    )
     assert ok is True
-    assert "configured" in note
+
+
+def test_an_age_shorter_than_the_retention_commitment_does_not_confirm_the_lock():
+    rule = dict(_OBSERVED_RULE, condition={"type": "Age", "maxAgeSeconds": 604800})
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body(rule))
+    assert ok is False
+    assert "short of the" in note
+
+
+def test_a_success_false_body_does_not_confirm_the_lock():
+    payload = {"success": False, "errors": [{"code": 10006, "message": "Bucket not found"}]}
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", payload)
+    assert ok is False
+    assert "success=false" in note
+    assert "Bucket not found" in note
+
+
+def test_no_rules_at_all_does_not_confirm_the_lock():
+    ok, note = watch.evaluate_lock_payload("smd-audit-archive", _lock_body())
+    assert ok is False
+    assert "no lock rules at all" in note
+
+
+def test_an_api_error_is_reported_verbatim_and_does_not_confirm_the_lock(monkeypatch):
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a" * 32)
+
+    def fetch(url):
+        raise RuntimeError("HTTP Error 403: Forbidden")
+
+    ok, note = watch.probe_bucket_lock("smd-audit-archive", fetch=fetch)
+    assert ok is False
+    assert "HTTP Error 403: Forbidden" in note
+    assert "immutability is unproven" in note
+
+
+def test_an_unsafe_account_id_never_reaches_a_url(monkeypatch):
+    """The only interpolation into an api.cloudflare.com URL is charset-gated."""
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "abc/../../evil")
+
+    def fetch(url):  # pragma: no cover - reaching this is the failure
+        raise AssertionError(f"a URL was built from an unsafe account id: {url}")
+
+    ok, note = watch.probe_bucket_lock("smd-audit-archive", fetch=fetch)
+    assert ok is False
+    assert "unsafe CLOUDFLARE_ACCOUNT_ID" in note
 
 
 # ---------------------------------------------------------------------------
@@ -306,3 +415,80 @@ def test_authored_seats_skips_template_dirs(tmp_path):
     for name in ("_template", "real-seat"):
         (base / name / "customer.yaml").write_text("slug: x\n")
     assert watch.authored_seats(tmp_path) == ["real-seat"]
+
+
+# ---------------------------------------------------------------------------
+# Seat roster: authored config is not the same question as "the seat exists"
+# ---------------------------------------------------------------------------
+
+
+def test_a_seat_that_is_both_authored_and_provisioned_is_probed():
+    roster = watch.partition_seats(["live-seat"], ["live-seat"])
+    assert roster.probed == ["live-seat"]
+    assert roster.skipped == []
+    assert roster.orphaned == []
+
+
+def test_an_authored_seat_with_no_fleet_status_row_is_skipped_by_name():
+    """The pilot-law shape: a config authored 2026-06-05 and never provisioned.
+
+    Enumerating from the filesystem made the first live run red forever on a
+    connection error to a machine that was never stood up.
+    """
+    roster = watch.partition_seats(["live-seat", "never-provisioned"], ["live-seat"])
+    assert roster.probed == ["live-seat"]
+    assert roster.skipped == ["never-provisioned"]
+
+    notices = watch.roster_notices(roster)
+    assert [(n.slug, n.state) for n in notices] == [("never-provisioned", watch.SKIP)]
+    # Named in the report, never silent (#2366): the denominator has to be visible.
+    line = "\n".join(watch.summary_lines(notices, "lock note"))
+    assert "SKIP" in line
+    assert "never-provisioned: authored but never provisioned (no fleet_status row)." in line
+
+
+def test_a_skipped_seat_does_not_redden_the_run():
+    """A seat that does not exist has no audit record to be wrong about."""
+    skip = watch.SeatOutcome("never-provisioned", watch.SKIP, "headline", {})
+    assert watch.resolve_exit([_outcome(watch.CLEAN), skip], [], True) == watch.EXIT_CLEAN
+
+
+def test_a_provisioned_seat_with_no_authored_config_is_a_hold():
+    """Drift the other way, and that direction IS a finding worth waking up to.
+
+    A fleet_status row with no customer.yaml means a live seat's ledger is
+    outside this control's reach entirely. Silently narrowing to the
+    intersection would hide exactly that.
+    """
+    roster = watch.partition_seats(["live-seat"], ["live-seat", "unauthored-seat"])
+    assert roster.probed == ["live-seat"]
+    assert roster.orphaned == ["unauthored-seat"]
+
+    notices = watch.roster_notices(roster)
+    assert [(n.slug, n.state) for n in notices] == [("unauthored-seat", watch.HOLD)]
+    assert watch.resolve_exit(notices, [], True) == watch.EXIT_HOLD
+
+
+def test_main_holds_when_the_seat_roster_cannot_be_read(monkeypatch, tmp_path, capsys):
+    """An unreadable D1 must not read as "no seats", which would be a quiet green."""
+    base = tmp_path / "operator" / "customers" / "live-seat"
+    base.mkdir(parents=True)
+    (base / "customer.yaml").write_text("slug: live-seat\n")
+    monkeypatch.setattr(watch, "_REPO", tmp_path)
+
+    def explode(self):
+        raise RuntimeError("d1 execute failed: unauthorized")
+
+    monkeypatch.setattr(watch.ConsoleD1, "provisioned_slugs", explode)
+    assert watch.main([]) == watch.EXIT_HOLD
+    assert "seat roster could not be read" in capsys.readouterr().out
+
+
+def test_main_holds_when_no_authored_seat_is_provisioned(monkeypatch, tmp_path, capsys):
+    base = tmp_path / "operator" / "customers" / "never-provisioned"
+    base.mkdir(parents=True)
+    (base / "customer.yaml").write_text("slug: never-provisioned\n")
+    monkeypatch.setattr(watch, "_REPO", tmp_path)
+    monkeypatch.setattr(watch.ConsoleD1, "provisioned_slugs", lambda self: [])
+    assert watch.main([]) == watch.EXIT_HOLD
+    assert "measured nothing" in capsys.readouterr().out
