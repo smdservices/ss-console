@@ -577,7 +577,13 @@ class Broker:
     # -- ss#2258 transmit --------------------------------------------------
 
     def _append_send_row(
-        self, action_type: str, verb: str, metadata: dict[str, Any]
+        self,
+        action_type: str,
+        verb: str,
+        metadata: dict[str, Any],
+        *,
+        session_id: str = "",
+        matter_ref: str | None = None,
     ) -> None:
         """Record a transmit attempt. Body digests only — never the body.
 
@@ -585,21 +591,45 @@ class Broker:
         unaudited messages of 2026-08 were possible because emission lived in
         plugin code that returned early whenever its audit client was unset; a
         row written here has no such branch.
+
+        THE TWO JOINS (ss#2497). Measured on the live A&P ledger 2026-08-21
+        (``vfy_01M0H8DR6JAPYVHFMNJZXQZ517``): ``session_id`` appeared on 0 of 9
+        CONFIRM_SEND_DISPATCHED rows and ``matter_ref`` on none of them, so a
+        send could not be tied to the turn that composed it or to the matter it
+        concerned. Neither is knowable HERE — this process has no session and
+        does not read matters — so both travel on the request beside the payload
+        and are written straight through, unexamined. That is deliberate: they
+        are attribution the agent asserts about its own turn, not authorization,
+        and the broker's authority is over WHO may be written to, which it still
+        decides for itself from the seat's own config.
+
+        ``matter_ref`` goes to its COLUMN (``LedgerWriter`` accepts it as an
+        agent column) rather than into metadata, because the column is what the
+        portal audit record filters and indexes on. Empty values are omitted
+        rather than written as ``""``, which the hash chain canonicalizes
+        distinctly from NULL and which reads as a reference that is present and
+        blank.
         """
         if self.ledger is None:
             return
-        self.ledger.append(
-            {
-                "action_type": action_type,
-                "actor": "operator",
-                "actor_role": "agent",
-                "metadata": json.dumps(
-                    {"customer": self.customer_slug, "verb": verb, **metadata},
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
-            }
-        )
+        row: dict[str, Any] = {
+            "action_type": action_type,
+            "actor": "operator",
+            "actor_role": "agent",
+            "metadata": json.dumps(
+                {
+                    "customer": self.customer_slug,
+                    "verb": verb,
+                    **({"session_id": session_id} if session_id else {}),
+                    **metadata,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        }
+        if matter_ref:
+            row["matter_ref"] = matter_ref
+        self.ledger.append(row)
 
     def _dispatch_transmit(
         self,
@@ -625,6 +655,16 @@ class Broker:
         payload = request.get("payload")
         if not isinstance(payload, dict):
             raise ValueError(f"{action} requires a 'payload' object")
+        # ss#2497 — the audit joins, read from the REQUEST and never from the
+        # payload. The payload is what reaches the vendor and is rebuilt from a
+        # closed allowlist, so an audit field placed there would be dropped
+        # silently. Both are optional: a caller that predates them writes exactly
+        # the row it writes today, which is what lets the overlay and this
+        # process be deployed in either order.
+        session_id = request.get("session_id")
+        session_id = session_id.strip() if isinstance(session_id, str) else ""
+        matter_ref = request.get("matter_ref")
+        matter_ref = matter_ref.strip() if isinstance(matter_ref, str) else ""
         # Digest what the caller asked to send, computed here, so the row proves
         # which content went out without the ledger ever holding the content.
         digest = hashlib.sha256(_canonical(payload)).hexdigest()
@@ -644,6 +684,8 @@ class Broker:
                     "recipients": attempted,
                     "input_digest": digest,
                 },
+                session_id=session_id,
+                matter_ref=matter_ref,
             )
             raise
         except transport as exc:
@@ -660,6 +702,8 @@ class Broker:
                     "recipients": attempted,
                     "input_digest": digest,
                 },
+                session_id=session_id,
+                matter_ref=matter_ref,
             )
             raise
         self._append_send_row(
@@ -671,9 +715,25 @@ class Broker:
                 "message_id": result.get("message_id") or "",
                 identity_key: result.get(identity_key) or "",
                 "input_digest": digest,
+                # ss#2497 — on a REPLY the ops verb resolved the original sender
+                # itself (it had to: a caller naming the sender could name any
+                # sender), so the row can name the person it answered without an
+                # address entering the ledger. A send names no such person and
+                # contributes no key.
+                **(
+                    {"sender_key": result["sender_key"]}
+                    if isinstance(result.get("sender_key"), str) and result["sender_key"]
+                    else {}
+                ),
             },
+            session_id=session_id,
+            matter_ref=matter_ref,
         )
-        return {"ok": True, **result}
+        # ``sender_key`` is audit provenance, not a transmit result: it stays in
+        # the row and does not travel back to the agent, which has no use for it
+        # and which the fence deliberately does not tell who it just wrote to
+        # beyond what it already knew.
+        return {"ok": True, **{k: v for k, v in result.items() if k != "sender_key"}}
 
     def _handle_agentmail(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
         if self.agentmail is None or self.ledger is None:

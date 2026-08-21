@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   authorizationOf,
   describeAuthorization,
+  describeObject,
   loadObjectAuditRecord,
   objectAuditCsvFilename,
   OBJECT_AUDIT_CSV_COLUMNS,
@@ -44,6 +45,12 @@ function row(over: Partial<ObjectAuditRow> = {}): ObjectAuditRow {
     prevHash: null,
     rowHash: null,
     routine: null,
+    sessionId: null,
+    senderKey: null,
+    vendorMessageId: null,
+    objectId: null,
+    objectKind: null,
+    writtenBodySha256: null,
     ...over,
   }
 }
@@ -110,6 +117,107 @@ describe('parseObjectAuditRows', () => {
     })
     expect(parsed).toHaveLength(1)
     expect(parsed[0].routine).toBeNull()
+  })
+
+  /**
+   * The joins (ss#2497). Measured on the live A&P ledger 2026-08-21
+   * (vfy_01M0H8DR6JAPYVHFMNJZXQZ517), every one of these was absent: the record
+   * could not name the person behind an action, the message it answered, or the
+   * object it touched, so a Named Administrator reading this page saw a list of
+   * verbs. The parser is where they become readable.
+   */
+  it('lifts the session, the sender key, the vendor message id and the object', () => {
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'TOOL_CALL_COMPLETED',
+          actor: 'agent',
+          metadata: JSON.stringify({
+            session_id: '20260820_195837_68d654ce',
+            sender_key: 'a'.repeat(64),
+            vendor_message_id: 'am-msg-77',
+            memo_id: 'memo-9',
+            written_body_sha256: 'b'.repeat(64),
+          }),
+        },
+      ],
+    })
+    expect(parsed[0]).toMatchObject({
+      sessionId: '20260820_195837_68d654ce',
+      senderKey: 'a'.repeat(64),
+      vendorMessageId: 'am-msg-77',
+      objectId: 'memo-9',
+      objectKind: 'memo',
+      writtenBodySha256: 'b'.repeat(64),
+    })
+  })
+
+  it('reports the joins as absent on a row written before the writers emitted them', () => {
+    // A real state of the ledger, not a parse failure: the overlay gained these
+    // fields after seats had begun writing, exactly as matter_ref and
+    // trust_ceiling did. Rows written before them carry NULL forever, and
+    // naming that state is the whole point.
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'REPLY_SENT',
+          actor: 'agent',
+          metadata: JSON.stringify({ reply_channel: true }),
+        },
+      ],
+    })
+    expect(parsed[0]).toMatchObject({
+      sessionId: null,
+      senderKey: null,
+      vendorMessageId: null,
+      objectId: null,
+      objectKind: null,
+      writtenBodySha256: null,
+    })
+    expect(describeObject(parsed[0])).toBe('Not recorded')
+  })
+
+  it('names one object per row, in a stable order, and never folds in a listing', () => {
+    // A file LISTING carries document_ids (plural) and names many objects. The
+    // single-object column would have to pick one, which reads as "this is the
+    // only one it touched" -- the same failure the matter column avoids by
+    // staying null.
+    const parsed = parseObjectAuditRows({
+      entries: [
+        {
+          id: 'A',
+          ts: '2026-08-01T00:00:00.000Z',
+          action_type: 'TOOL_CALL_COMPLETED',
+          actor: 'agent',
+          metadata: JSON.stringify({ document_ids: ['f1', 'f2'] }),
+        },
+      ],
+    })
+    expect(parsed[0].objectId).toBeNull()
+    expect(parsed[0].objectKind).toBeNull()
+  })
+})
+
+describe('describeObject', () => {
+  it('names the object and a checkable prefix of the content digest', () => {
+    const line = describeObject(
+      row({ objectId: 'memo-9', objectKind: 'memo', writtenBodySha256: 'c'.repeat(64) })
+    )
+    expect(line).toBe('memo memo-9, content cccccccccccc')
+    // House style: no em dashes reach a client-facing surface.
+    expect(line).not.toContain('\u2014')
+  })
+
+  it('falls back to the vendor message when there is no object', () => {
+    expect(describeObject(row({ vendorMessageId: 'am-msg-77' }))).toBe('message am-msg-77')
+  })
+
+  it('says Not recorded rather than describing a row it cannot describe', () => {
+    expect(describeObject(row())).toBe('Not recorded')
   })
 })
 
@@ -213,6 +321,76 @@ describe('toObjectAuditCsv', () => {
       to: null,
     })
     expect(toObjectAuditCsv(rec)).toContain('"a,""b"""')
+  })
+
+  it('exports the joins, appended so an existing column never shifts', () => {
+    // ss#2497. A firm diffing this month's export against last month's must see
+    // new columns arrive at the END; interleaving them would move every existing
+    // column one place right and make the diff unreadable.
+    const before = [
+      'id',
+      'ts',
+      'action_type',
+      'matter_ref',
+      'authorized_by',
+      'authorization_basis',
+      'trust_ceiling',
+      'actor',
+      'actor_role',
+      'routine',
+      'skill_name',
+      'input_digest',
+      'output_digest',
+      'diff_digest',
+      'prev_hash',
+      'row_hash',
+    ]
+    expect(OBJECT_AUDIT_CSV_COLUMNS.slice(0, before.length)).toEqual(before)
+    expect(OBJECT_AUDIT_CSV_COLUMNS.slice(before.length)).toEqual([
+      'session_id',
+      'sender_key',
+      'vendor_message_id',
+      'object_kind',
+      'object_id',
+      'written_body_sha256',
+    ])
+
+    const rec = scopeToRef(
+      [
+        row({
+          sessionId: 'sess-1',
+          senderKey: 'd'.repeat(64),
+          vendorMessageId: 'am-msg-77',
+          objectId: 'memo-9',
+          objectKind: 'memo',
+          writtenBodySha256: 'e'.repeat(64),
+        }),
+      ],
+      { ref: 'M-1', from: null, to: null }
+    )
+    const dataLine = toObjectAuditCsv(rec).trimEnd().split('\n')[1]
+    const cells = dataLine.split(',')
+    expect(cells).toHaveLength(OBJECT_AUDIT_CSV_COLUMNS.length)
+    expect(cells.slice(-6)).toEqual([
+      'sess-1',
+      'd'.repeat(64),
+      'am-msg-77',
+      'memo',
+      'memo-9',
+      'e'.repeat(64),
+    ])
+  })
+
+  it('never exports a raw email address', () => {
+    // The issue's non-goal, enforced where it matters: this file leaves the
+    // Machine. The sender is a KEY, and there is no column that could carry an
+    // address for it to hide in.
+    const rec = scopeToRef([row({ senderKey: 'f'.repeat(64) })], {
+      ref: 'M-1',
+      from: null,
+      to: null,
+    })
+    expect(toObjectAuditCsv(rec)).not.toContain('@')
   })
 })
 

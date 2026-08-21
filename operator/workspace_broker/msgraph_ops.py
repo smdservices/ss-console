@@ -49,7 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from .msgraph_auth import load_credential, seat_mailbox
-from .recipient_policy import RecipientPolicy, authored_policy, normalize_address
+from .recipient_policy import RecipientPolicy, authored_policy, normalize_address, sender_key
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 TOKEN_HOST = "https://login.microsoftonline.com"
@@ -447,7 +447,17 @@ class MsGraphOps:
             "POST",
             self._reply_body(comment, html),
         )
-        return {"message_id": "", "recipients": [sender], "mailbox": self.mailbox()}
+        return {
+            "message_id": "",
+            "recipients": [sender],
+            "mailbox": self.mailbox(),
+            # ss#2497. The broker is the ONLY party that knows who this answered:
+            # it fetched the source message itself precisely because a caller
+            # naming the sender could name any sender. So the row's join to the
+            # INBOUND_RECEIVED row is minted here, from the verified sender, and
+            # hashed because the ledger must not hold an address.
+            "sender_key": sender_key(sender),
+        }
 
     @staticmethod
     def _reply_body(comment: str, html: str) -> dict[str, Any]:
