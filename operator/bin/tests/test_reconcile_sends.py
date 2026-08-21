@@ -13,7 +13,7 @@ import json
 import sys
 import tempfile
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -56,7 +56,7 @@ def _tool_row(ts, outcome="ok", action_class="external_send"):
 def test_exact_match_on_recorded_message_id():
     sent = [_msg("<a>", "2026-08-01T10:00:00.000Z")]
     rows = [_reply_row("2026-08-01T10:00:00.100Z", "<a>")]
-    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    exact, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert (exact, tool, unaccounted) == (1, 0, [])
 
 
@@ -65,7 +65,7 @@ def test_exact_match_ignores_clock_skew_entirely():
     still matches. This is why pass 1 is preferred over pass 2."""
     sent = [_msg("<a>", "2026-08-01T10:00:00.000Z")]
     rows = [_reply_row("2026-08-01T10:47:00.000Z", "<a>")]
-    exact, _, unaccounted = rec.reconcile(sent, rows)
+    exact, _, _broker, unaccounted = rec.reconcile(sent, rows)
     assert exact == 1 and unaccounted == []
 
 
@@ -78,14 +78,14 @@ def test_tool_path_matches_within_the_window():
     """Real observed skew was 341ms (2026-08-01)."""
     sent = [_msg("<a>", "2026-08-01T10:00:00.285Z")]
     rows = [_tool_row("2026-08-01T10:00:00.626Z")]
-    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    exact, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert (exact, tool, unaccounted) == (0, 1, [])
 
 
 def test_tool_path_does_not_match_outside_the_window():
     sent = [_msg("<a>", "2026-08-01T10:00:00.000Z")]
     rows = [_tool_row("2026-08-01T10:00:30.000Z")]  # 30s -> way outside
-    _, tool, unaccounted = rec.reconcile(sent, rows)
+    _, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert tool == 0 and len(unaccounted) == 1
 
 
@@ -95,7 +95,7 @@ def test_one_audit_row_cannot_cover_two_messages():
     launders every neighbouring unaudited send."""
     sent = [_msg("<a>", "2026-08-01T10:00:00.000Z"), _msg("<b>", "2026-08-01T10:00:01.000Z")]
     rows = [_tool_row("2026-08-01T10:00:00.500Z")]
-    _, tool, unaccounted = rec.reconcile(sent, rows)
+    _, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert tool == 1
     assert len(unaccounted) == 1
 
@@ -105,14 +105,14 @@ def test_errored_tool_call_does_not_cover_a_send():
     message that demonstrably left the mailbox."""
     sent = [_msg("<a>", "2026-08-01T10:00:00.000Z")]
     rows = [_tool_row("2026-08-01T10:00:00.100Z", outcome="error")]
-    _, tool, unaccounted = rec.reconcile(sent, rows)
+    _, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert tool == 0 and len(unaccounted) == 1
 
 
 def test_non_send_tool_call_does_not_cover_a_send():
     sent = [_msg("<a>", "2026-08-01T10:00:00.000Z")]
     rows = [_tool_row("2026-08-01T10:00:00.100Z", action_class="read")]
-    _, tool, unaccounted = rec.reconcile(sent, rows)
+    _, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert tool == 0 and len(unaccounted) == 1
 
 
@@ -129,7 +129,7 @@ def test_the_2026_08_11_incident_is_reported():
         _msg("<incident>", "2026-08-11T14:03:14.543Z", subject="Escalator woke but..."),
     ]
     rows = [_reply_row("2026-08-11T14:00:00.100Z", "<legit>")]
-    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    exact, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert exact == 1 and tool == 0
     assert [m["message_id"] for m in unaccounted] == ["<incident>"]
 
@@ -140,7 +140,7 @@ def test_a_busy_legitimate_mailbox_produces_no_finding():
     sent += [_msg(f"<t{i}>", f"2026-08-01T11:0{i}:00.000Z") for i in range(4)]
     rows = [_reply_row(f"2026-08-01T10:0{i}:00.200Z", f"<r{i}>") for i in range(5)]
     rows += [_tool_row(f"2026-08-01T11:0{i}:00.300Z") for i in range(4)]
-    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    exact, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert (exact, tool, unaccounted) == (5, 4, [])
 
 
@@ -464,7 +464,7 @@ def test_the_audit_header_is_an_exact_match(tmp_path):
     the broker could not read its own vendor id back after the 202."""
     sent = [rec.normalize_graph_message(_graph_message(token="01ABC"))]
     rows = [_audited_row("2026-08-20T10:00:05Z", audit_row_token="01ABC")]
-    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    exact, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert (exact, tool, unaccounted) == (1, 0, [])
 
 
@@ -473,7 +473,7 @@ def test_the_vendor_id_is_also_an_exact_match(tmp_path):
     and this joins on that alone -- so a run is not hostage to the header."""
     sent = [rec.normalize_graph_message(_graph_message(mid="<b@firm.example>"))]
     rows = [_audited_row("2026-08-20T10:00:05Z", vendor_message_id="<b@firm.example>")]
-    exact, _tool, unaccounted = rec.reconcile(sent, rows)
+    exact, _tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert exact == 1 and unaccounted == []
 
 
@@ -482,7 +482,7 @@ def test_a_send_with_no_header_and_no_row_is_the_finding(tmp_path):
     Sent Items that did not come through the broker."""
     sent = [rec.normalize_graph_message(_graph_message(subject="[UNAUDITED-KILLTEST-2258] x"))]
     rows = [_audited_row("2026-08-20T10:00:05Z", audit_row_token="SOMETHINGELSE")]
-    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    exact, tool, _broker, unaccounted = rec.reconcile(sent, rows)
     assert (exact, tool) == (0, 0)
     assert unaccounted[0]["subject"].startswith("[UNAUDITED-KILLTEST-2258]")
 
@@ -538,6 +538,198 @@ def test_the_baseline_quiets_a_reported_msgraph_send_and_only_that_one(tmp_path)
     remaining, quieted = rec.split_baselined(_MSG_MAILBOX, [reported, fresh], baseline)
     assert quieted == 1
     assert [m["message_id"] for m in remaining] == ["<new@firm.example>"]
+
+
+# --- pass 3: broker dispatch, the second-live-run fix ------------------------
+#
+# The first live msgraph run reported 14 of 14 sends on the paying seat as
+# unaudited, and all 14 were the Operator's own audited replies: the seat
+# predates the audit header, so its rows carry no id at all, and msgraph sends
+# are broker-dispatched and never produce a TOOL_CALL_COMPLETED row. The control
+# was accusing the Operator of everything it did.
+
+#: What the overlay writes on a msgraph REPLY_SENT row when Graph's 202 returned
+#: no id to record -- 8 of 8 rows on the live seat before the header landed.
+_NO_ID_NOTE = "(sent via msgraph, id unavailable)"
+
+
+def _confirm_row(ts, **meta):
+    """The broker's dispatch row as the live seat writes it, pre-header: the
+    outcome, and an EMPTY message_id because Graph's 202 carries none."""
+    return {
+        "ts": ts,
+        "action_type": "CONFIRM_SEND_DISPATCHED",
+        "metadata": {"outcome": "sent", "message_id": "", "input_digest": "d", **meta},
+    }
+
+
+def _msgraph_reply_row(ts, sent_message_id=_NO_ID_NOTE):
+    """The reply plugin's row as the live seat writes it, carrying the note."""
+    return {
+        "ts": ts,
+        "action_type": "REPLY_SENT",
+        "metadata": {"adapter": "msgraph", "sent_message_id": sent_message_id},
+    }
+
+
+def _idless_pair(sent_ts, confirm_offset=0.2, reply_offset=0.4):
+    """The two rows one msgraph reply writes, seconds apart: the broker's confirm
+    and the reply plugin's own row."""
+    base = datetime.fromisoformat(sent_ts.replace("Z", "+00:00"))
+
+    def at(offset):
+        return (base + timedelta(seconds=offset)).isoformat().replace("+00:00", "Z")
+
+    return [_confirm_row(at(confirm_offset)), _msgraph_reply_row(at(reply_offset))]
+
+
+def _graph_sent(mid, ts):
+    return rec.normalize_graph_message(_graph_message(mid=mid, ts=ts))
+
+
+def test_an_audited_msgraph_send_with_no_id_anywhere_is_accounted_for():
+    """The defect, pinned. Three sends, three audited dispatches, no ids on
+    either side -- and before pass 3 all three were reported unaudited.
+
+    FALSIFIER: delete the ``_is_broker_dispatch`` branch in ``index_audit`` and
+    this goes red with broker == 0 and three unaccounted."""
+    stamps = ["2026-08-21T09:00:00Z", "2026-08-21T09:10:00Z", "2026-08-21T09:20:00Z"]
+    sent = [_graph_sent(f"<m{i}@firm.example>", t) for i, t in enumerate(stamps)]
+    rows = [row for t in stamps for row in _idless_pair(t)]
+    exact, tool, broker, unaccounted = rec.reconcile(sent, rows)
+    assert (exact, tool, broker, unaccounted) == (0, 0, 3, [])
+
+
+def test_a_send_whose_dispatch_row_is_missing_is_still_the_finding():
+    """The same ledger minus one pair. Pass 3 must not become a blanket amnesty:
+    a send the broker never recorded stays a find."""
+    stamps = ["2026-08-21T09:00:00Z", "2026-08-21T09:10:00Z", "2026-08-21T09:20:00Z"]
+    sent = [_graph_sent(f"<m{i}@firm.example>", t) for i, t in enumerate(stamps)]
+    rows = [row for t in stamps[:2] for row in _idless_pair(t)]
+    _exact, _tool, broker, unaccounted = rec.reconcile(sent, rows)
+    assert broker == 2
+    assert [m["message_id"] for m in unaccounted] == ["<m2@firm.example>"]
+
+
+def test_the_staging_plant_is_still_a_finding_beside_audited_sends():
+    """THE CANONICAL CASE, from the live run of 2026-08-21: the kill-test plant
+    was correctly reported while the 14 legitimate replies beside it were not.
+    Pass 3 must keep the first half of that sentence true. The plant carries the
+    ids the real run observed, so this fixture is captured, not invented."""
+    plant = _graph_sent(
+        "<PH0PR03MB7160198B9C993AE58D51BACC97A32@PH0PR03MB7160.namprd03.prod.outlook.com>",
+        "2026-08-21T09:46:57Z",
+    )
+    plant["subject"] = "[UNAUDITED-KILLTEST-2258] reconciler kill test mode=plant"
+    audited = _graph_sent("<legit@firm.example>", "2026-08-21T09:40:00Z")
+    rows = _idless_pair("2026-08-21T09:40:00Z")
+    _exact, _tool, broker, unaccounted = rec.reconcile([audited, plant], rows)
+    assert broker == 1
+    assert [m["message_id"] for m in unaccounted] == [plant["message_id"]]
+    assert unaccounted[0]["subject"].startswith("[UNAUDITED-KILLTEST-2258]")
+
+
+def test_one_broker_row_cannot_cover_two_messages():
+    """The absorption failure, on the new pass. Two sends ten seconds apart with
+    one dispatch row: the second is still a find."""
+    sent = [
+        _graph_sent("<a@f.example>", "2026-08-21T09:00:00Z"),
+        _graph_sent("<b@f.example>", "2026-08-21T09:00:10Z"),
+    ]
+    _exact, _tool, broker, unaccounted = rec.reconcile(sent, _idless_pair("2026-08-21T09:00:00Z"))
+    assert broker == 1
+    assert [m["message_id"] for m in unaccounted] == ["<b@f.example>"]
+
+
+def test_one_broker_row_cannot_cover_two_messages_inside_the_window():
+    """The ten-second case above is also outside the window, so it would pass on
+    windowing alone. Here both sends are within reach of the single row, and
+    CONSUMPTION is the only thing that separates them."""
+    sent = [
+        _graph_sent("<a@f.example>", "2026-08-21T09:00:00Z"),
+        _graph_sent("<b@f.example>", "2026-08-21T09:00:02Z"),
+    ]
+    _exact, _tool, broker, unaccounted = rec.reconcile(sent, _idless_pair("2026-08-21T09:00:01Z"))
+    assert broker == 1
+    assert [m["message_id"] for m in unaccounted] == ["<b@f.example>"]
+
+
+def test_a_confirm_and_its_reply_row_are_one_candidate_not_two():
+    """The pair fold. One reply writes TWO rows seconds apart; unfolded they
+    would account for two messages, and the send beside the reply would be
+    laundered by a row describing the reply itself.
+
+    FALSIFIER: return the candidates unfolded from ``index_audit`` and this goes
+    red with broker == 2 and nothing unaccounted."""
+    sent = [
+        _graph_sent("<a@f.example>", "2026-08-21T09:00:00Z"),
+        _graph_sent("<b@f.example>", "2026-08-21T09:00:01Z"),
+    ]
+    _exact, _tool, broker, unaccounted = rec.reconcile(sent, _idless_pair("2026-08-21T09:00:00Z"))
+    assert broker == 1
+    assert [m["message_id"] for m in unaccounted] == ["<b@f.example>"]
+
+
+def test_two_confirms_in_the_same_second_stay_two_candidates():
+    """Folding is CROSS-TYPE only. Two sends dispatched a second apart write two
+    confirm rows, and collapsing them would turn a real second send into a find."""
+    sent = [
+        _graph_sent("<a@f.example>", "2026-08-21T09:00:00Z"),
+        _graph_sent("<b@f.example>", "2026-08-21T09:00:01Z"),
+    ]
+    rows = [_confirm_row("2026-08-21T09:00:00.200Z"), _confirm_row("2026-08-21T09:00:01.200Z")]
+    _exact, _tool, broker, unaccounted = rec.reconcile(sent, rows)
+    assert (broker, unaccounted) == (2, [])
+
+
+@pytest.mark.parametrize("outcome", ["refused", "transport_error", "failed"])
+def test_a_dispatch_row_that_did_not_send_cannot_account_for_a_message(outcome):
+    """A refusal and a transport error exist precisely because nothing went out.
+    Reading either as a send would let the ledger's record of NOT sending account
+    for a message that demonstrably left the mailbox."""
+    sent = [_graph_sent("<a@f.example>", "2026-08-21T09:00:00Z")]
+    rows = [_confirm_row("2026-08-21T09:00:00.200Z", outcome=outcome)]
+    _exact, _tool, broker, unaccounted = rec.reconcile(sent, rows)
+    assert broker == 0 and len(unaccounted) == 1
+
+
+def test_a_dispatch_row_carrying_a_real_id_is_never_a_time_candidate():
+    """What keeps pass 3 from weakening pass 1. An AgentMail dispatch records a
+    real vendor id, so it is joinable by identity; letting it ALSO be claimed by
+    proximity would let a legitimate send launder an unaudited neighbour -- which
+    is the 2026-08-11 incident's own shape."""
+    sent = [
+        _msg("<legit>", "2026-08-11T14:00:00.000Z"),
+        _msg("<incident>", "2026-08-11T14:00:01.000Z"),
+    ]
+    rows = [_reply_row("2026-08-11T14:00:00.100Z", "<legit>")]
+    exact, _tool, broker, unaccounted = rec.reconcile(sent, rows)
+    assert (exact, broker) == (1, 0)
+    assert [m["message_id"] for m in unaccounted] == ["<incident>"]
+
+
+def test_the_no_id_note_is_not_read_as_an_id():
+    """``(sent via msgraph, id unavailable)`` is a note, not a key. Treated as an
+    id it would make a row with no id look like a row that has one, which is
+    exactly the row pass 3 exists to reach."""
+    known, _tool, broker_rows = rec.index_audit([_msgraph_reply_row("2026-08-21T09:00:00Z")])
+    assert known == set()
+    assert len(broker_rows) == 1
+
+
+def test_the_report_names_how_many_sends_were_matched_by_time():
+    """``broker=N`` is the count of sends matched by proximity rather than
+    identity. It is expected to fall to zero as seats pick up the audit header,
+    and a reader cannot watch a number the report does not print."""
+    rendered = rec.render(
+        [
+            rec.InboxReport(
+                inbox=_MSG_MAILBOX, slug="a-seat", channel="msgraph",
+                sent_total=3, matched_broker=3,
+            )
+        ]
+    )
+    assert "broker=3" in rendered
 
 
 # --- the Graph read itself --------------------------------------------------
