@@ -15,8 +15,11 @@ WHAT THIS DOES, per seat, once a day:
      (``audit_head_history``, migration 0108) to still appear in that export.
      That is the only check that can see tail truncation; see
      ``bin/lib/chain_pin.py`` for why, with the falsification that proves it.
-  4. Copies the export to R2 under ``audit/<slug>/<date>.json.gz`` and records
-     the object key and its sha256 in the run summary.
+  4. Copies the export to R2 under
+     ``audit/<slug>/<date>/<HHMMSS>Z-<head12>.json.gz`` and records the object
+     key and its sha256 in the run summary. The key is unique per RUN, not per
+     day: the ``audit/`` prefix is object-locked for seven years, so a key that
+     repeats inside that window cannot be written twice. See ``archive_key``.
   5. Writes an ``audit_integrity`` row into ``cost_anomaly_alerts`` on any
      finding, so it lands on the same dashboard banner and the same alert-sink
      notifier as every other observability source.
@@ -428,8 +431,12 @@ def first_result_set(stdout: str) -> list[dict]:
     return [r for r in results if isinstance(r, dict)]
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def utc_date() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return utc_now().strftime("%Y-%m-%d")
 
 
 # ---------------------------------------------------------------------------
@@ -501,6 +508,33 @@ def _aws_upload(local: Path, destination: str) -> None:
 Uploader = Callable[[Path, str], None]
 
 
+#: The slot the key carries when an export has no chained row to name a tip.
+NO_HEAD = "nohead"
+
+
+def archive_key(slug: str, head: Optional[str], *, now: Optional[datetime] = None) -> str:
+    """``audit/<slug>/<YYYY-MM-DD>/<HHMMSS>Z-<head12>.json.gz`` -- unique per RUN.
+
+    The key was ``audit/<slug>/<date>.json.gz`` until 2026-08-21, when the
+    second run of a UTC day proved that shape unwritable. The ``audit-7y``
+    bucket lock covers the ``audit/`` prefix for seven years, so the 08:00Z
+    run's object could not be overwritten at 13:39Z: ``PutObject ...
+    ObjectLockedByBucketPolicy``. Correct refusal, wrong key. Every re-run --
+    including the workflow_dispatch a person reaches for precisely when they
+    want a second look -- turned into a HOLD on every seat, and the hold
+    replaced chain verdicts that were in fact clean. An immutable prefix and a
+    key that repeats inside its retention window cannot both be right.
+
+    The date is a path SEGMENT so a day's copies list together, and the first
+    12 characters of the chain head ride in the name so a reader can see which
+    tip a copy carries without downloading and un-gzipping it. An export with
+    no chained rows has no tip to name and gets ``nohead``.
+    """
+    stamp = (now or utc_now()).strftime("%Y-%m-%d/%H%M%SZ")
+    tip = (head or "")[:12] or NO_HEAD
+    return f"audit/{slug}/{stamp}-{tip}.json.gz"
+
+
 def archive_export(
     slug: str,
     rows: Sequence[dict],
@@ -508,8 +542,14 @@ def archive_export(
     bucket: str,
     uploader: Uploader = _aws_upload,
     work_dir: Optional[Path] = None,
+    head: Optional[str] = None,
+    now: Optional[datetime] = None,
 ) -> ArchiveResult:
-    """Write one gzipped export to ``audit/<slug>/<date>.json.gz``.
+    """Write one gzipped export to the key ``archive_key`` builds.
+
+    ``head`` is the chain tip the caller already verified; when it is not
+    supplied it is recomputed here, so this function names the right tip no
+    matter who calls it.
 
     The sha256 is taken over the GZIPPED BYTES that are uploaded, not over the
     JSON, so the recorded digest is one an auditor reproduces by hashing the
@@ -517,7 +557,8 @@ def archive_export(
     identical exports produce identical bytes; a gzip header timestamp would
     make every archive's digest unique for no reason and defeat that.
     """
-    key = f"audit/{slug}/{utc_date()}.json.gz"
+    tip = head if head is not None else verify_chain(rows)["head"]
+    key = archive_key(slug, tip, now=now)
     tmp_dir = Path(work_dir) if work_dir else Path(tempfile.mkdtemp(prefix="audit-archive-"))
     tmp_dir.mkdir(parents=True, exist_ok=True)
     local = tmp_dir / f"{slug}.json.gz"
@@ -719,14 +760,26 @@ def process_seat(slug: str, console: ConsoleD1, *, bucket: str, archive: bool) -
         return outcome
 
     try:
-        result = archive_export(slug, rows, bucket=bucket)
+        result = archive_export(slug, rows, bucket=bucket, head=outcome.details.get("head"))
     except Exception as exc:  # noqa: BLE001
         # The copy is half the issue, so failing to write it is a hold on its
         # own. It must not DOWNGRADE a finding that was already found, though:
         # a truncated ledger stays the headline and carries the note.
+        #
+        # And it must never HIDE the verdict. Verify first, archive second is
+        # already the order here, but on 2026-08-21 the hold REPLACED the
+        # outcome, so a run that had just proven ashton-price's chain intact
+        # over 1,585 rows said only that an upload failed. The verdict is
+        # carried on the hold and reported ahead of it.
         outcome.details["archive_error"] = str(exc)
         if outcome.state == CLEAN:
-            return _hold(slug, f"the off-box copy could not be written ({exc}).")
+            held = _hold(slug, f"the off-box copy could not be written ({exc}).")
+            held.details = dict(outcome.details)
+            held.details["chain_verdict"] = {
+                "state": outcome.state,
+                "headline": outcome.headline,
+            }
+            return held
         return outcome
 
     outcome.details["archive_key"] = result.key
@@ -779,6 +832,11 @@ def emit_alert(console: ConsoleD1, outcome: SeatOutcome) -> Optional[str]:
 def summary_lines(outcomes: Sequence[SeatOutcome], lock_note: str) -> list[str]:
     lines = ["", "-- audit chain watch summary --"]
     for o in outcomes:
+        # The verdict first, then whatever happened to the copy. A ledger this
+        # run verified gets said out loud even when the archive failed.
+        verdict = o.details.get("chain_verdict")
+        if verdict:
+            lines.append(f"{str(verdict['state']).upper():>7}  {verdict['headline']}")
         lines.append(f"{o.state.upper():>7}  {o.headline}")
         key = o.details.get("archive_key")
         if key:
@@ -799,8 +857,10 @@ def write_step_summary(outcomes: Sequence[SeatOutcome], lock_note: str) -> None:
         "|---|---|---|---|",
     ]
     for o in outcomes:
+        verdict = o.details.get("chain_verdict")
+        state = f"{o.state} (chain {verdict['state']})" if verdict else o.state
         lines.append(
-            f"| {o.slug} | {o.state} | {o.details.get('archive_key', '-')} | "
+            f"| {o.slug} | {state} | {o.details.get('archive_key', '-')} | "
             f"{o.details.get('archive_sha256', '-')} |"
         )
     lines += ["", lock_note, ""]
