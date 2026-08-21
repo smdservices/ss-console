@@ -285,6 +285,15 @@ ACCEPTED_ACTION_TYPES = frozenset(
         # Client-correction capture appended broker-side (ss#2091,
         # operator/workspace_broker/corrections.py):
         "CORRECTION_PROPOSED",
+        # Conversational establishment, appended broker-side (ADR 0085;
+        # operator/workspace_broker/establishment.py). The two ESTABLISHMENT
+        # types have been written to client ledgers since ss#2161 and were never
+        # declared here, so the portal rendered them as nothing and the silence
+        # was indistinguishable from a deliberate suppression (ss#2316's third
+        # state). RULE_PROPOSED is the ss#2529 propose-read-back-confirm path.
+        "RULE_PROPOSED",
+        "ESTABLISHMENT_SUBMITTED",
+        "ESTABLISHMENT_RESULT",
     }
 )
 

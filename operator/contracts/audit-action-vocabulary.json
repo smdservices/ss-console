@@ -85,6 +85,9 @@
     "DECOMMISSION_STEP_FAILED": "Decommission pipeline runs from the console.",
     "EMITTED_WAKE": "Wake dispatch is console-side.",
     "SUPPRESSED_WAKE": "Wake dispatch is console-side.",
-    "HONCHO_CONCLUSION_DISMISSED": "Captain action in the admin console (ADR 0016)."
+    "HONCHO_CONCLUSION_DISMISSED": "Captain action in the admin console (ADR 0016).",
+    "RULE_PROPOSED": "ss#2529. Written by operator/workspace_broker/establishment.py, which is console-owned source running on the seat under the broker uid, not overlay runtime. Overlay PR 2 adds the same three types to plugins/hermes-smd-audit/schemas.py so the overlay's own validator knows them; at the OVERLAY_REF bump that ships it, these three move out of consoleOnly into overlayTypes and this note goes with them.",
+    "ESTABLISHMENT_SUBMITTED": "ss#2161. Broker-written, same reason as RULE_PROPOSED. It has been landing in client ledgers since establishment shipped while this repo had never declared it, so the portal rendered it as nothing; declaring it here and mapping it in activity-language.ts closes that.",
+    "ESTABLISHMENT_RESULT": "ss#2161. Broker-written on the one-shot result read, same reason and same history as ESTABLISHMENT_SUBMITTED."
   }
 }

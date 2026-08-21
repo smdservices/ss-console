@@ -207,7 +207,14 @@ class Broker:
         # audit-disabled broker keeps the verbs fail-closed.
         establish_spool = os.environ.get("SMD_ESTABLISH_SPOOL_DIR")
         if establish_spool and self.ledger is not None:
-            self.establishment = EstablishmentStore(establish_spool, self.ledger)
+            # ss-console#2529: the pending-rules table rides the SAME
+            # broker-owned DB file the audit log and the job ledger use — one
+            # mount, one uid boundary. It has to outlive the spool's 30-minute
+            # TTL, because a rule proposed on Friday is confirmed on Monday and
+            # every inbound email is its own session.
+            self.establishment = EstablishmentStore(
+                establish_spool, self.ledger, pending_db_path=audit_db_path
+            )
         else:
             self.establishment = None
         # ss#2258: AgentMail transmit moves behind this uid boundary. The gateway
@@ -390,13 +397,15 @@ class Broker:
             row = build_correction_row(request.get("proposal"))
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id, "status": PROPOSED_STATUS}
-        # ADR 0085 (ss#2161/#2162): conversational establishment. Three narrow
-        # verbs by which an admin-instructed voice/shape submission crosses the
-        # agent -> broker trust boundary into the root intake's spool. Same
-        # caller shape as correction_propose (agent uid, non-gateway PID — an
-        # execute_code turn), same fail-closed uid gate, and the same
-        # one-pinned-action_type discipline per writing verb (SUBMITTED on
-        # submit, RESULT on status) so neither can forge any other row.
+        # ADR 0085 (ss#2161/#2162, extended by ss-console#2529): conversational
+        # establishment. Five narrow verbs by which an instructed voice/shape
+        # submission crosses the agent -> broker trust boundary into the root
+        # intake's spool. Same caller shape as correction_propose (agent uid,
+        # non-gateway PID — an execute_code turn), same fail-closed uid gate,
+        # and the same one-pinned-action_type discipline per WRITING verb
+        # (RULE_PROPOSED on propose, SUBMITTED on submit, RESULT on status) so
+        # none can forge any other row. establish_pending is a read and writes
+        # no row at all.
         #
         # EVERYTHING STORED IS REBUILT. establishment.py reads a bounded field
         # set off each request, computes every hash server-side, and refuses —
@@ -405,6 +414,8 @@ class Broker:
         # intake independently re-verifies uid and hashes on the other side.
         if action in (
             "establish_stage_document",
+            "establish_propose",
+            "establish_pending",
             "establish_submit",
             "establish_status",
         ):
@@ -421,9 +432,16 @@ class Broker:
                 # Opportunistic TTL sweep on every establishment call: the
                 # broker is the only principal that can expire staging sets
                 # and unread results (the intake owns only run dirs).
+                # ss-console#2529 folds the pending-rules TTL into the same
+                # sweep: expired proposals and long-committed ones go on every
+                # establishment call, so the table stays bounded with no timer.
                 self.establishment.sweep()
                 if action == "establish_stage_document":
                     return self.establishment.stage_document(request)
+                if action == "establish_propose":
+                    return self.establishment.propose(request)
+                if action == "establish_pending":
+                    return self.establishment.pending_rules(request)
                 if action == "establish_submit":
                     return self.establishment.submit(request)
                 return self.establishment.status(request)

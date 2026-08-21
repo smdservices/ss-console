@@ -92,6 +92,9 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'OUTPUT_SPEC_AUTHORED',
       'OUTPUT_SPEC_REJECTED',
       'CORRECTION_PROPOSED',
+      'RULE_PROPOSED',
+      'ESTABLISHMENT_SUBMITTED',
+      'ESTABLISHMENT_RESULT',
     ],
   },
   {
@@ -266,6 +269,15 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   CONFIRM_SEND_DISPATCHED: () => 'Sent a confirmed message',
   CONFIRM_SEND_FAILED: () => 'A confirmed message could not be sent',
   CORRECTION_PROPOSED: () => 'Captured your correction',
+  // ADR 0085 / ss#2529. Three lines for three different things, because a
+  // client reading their feed needs to tell them apart: a rule waiting on
+  // someone, a rule that was agreed to, and the rule taking effect on the work.
+  // Deliberately no timing promise on the middle one (Pattern A): "committed"
+  // is a fact about the record, "applied" is the one that says the next
+  // document of that kind is written to it.
+  RULE_PROPOSED: () => 'Stated a rule back for confirmation',
+  ESTABLISHMENT_SUBMITTED: () => 'Committed a rule you confirmed',
+  ESTABLISHMENT_RESULT: () => 'Applied a rule to how work is written',
   ESCALATION_FIRED: (e) => e.reason ?? 'Flagged something for your attention',
   ESCALATION_ACKNOWLEDGED: () => 'An escalation was acknowledged',
   AGENT_STOPPED: () => 'Your operator was paused',

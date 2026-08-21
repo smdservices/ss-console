@@ -8,7 +8,7 @@
     "evidence packet CONSUME these values (audit viewer filters, compliance.ts roll-ups,",
     "evidence/packet.py _count(...) buckets). But nothing asserted that each consumed",
     "value has a RUNTIME PRODUCER. An action_type can sit in the enum, be mirrored to TS,",
-    "be counted by the compliance packet, and be emitted by NOBODY \u2014 a dashboard column or",
+    "be counted by the compliance packet, and be emitted by NOBODY — a dashboard column or",
     "compliance metric that is structurally always-zero. That is the inert-control class:",
     "a consumer with no producer reads as 'feature present, value 0' indistinguishable from",
     "'genuinely zero events'.",
@@ -19,17 +19,17 @@
     "                 named producerFile exists and contains the token in code).",
     "  'overlay'    = it is emitted by the venturecrane/hermes-smd-overlay runtime that ships",
     "                 on customer Machines (a separate, pinned repo not checked out in this",
-    "                 CI; we record overlayProducer + reason \u2014 the same cross-repo",
+    "                 CI; we record overlayProducer + reason — the same cross-repo",
     "                 human-decision shape operator/contracts/overlay-pairs.json uses).",
     "  'deferred'   = in the closed vocabulary and CONSUMED (viewer filter / compliance),",
-    "                 but NO producer writes the literal row yet \u2014 persistence is gated on a",
+    "                 but NO producer writes the literal row yet — persistence is gated on a",
     "                 tracked issue. This is the live inert-control instance the guard found;",
     "                 it carries producerIntent + reason naming the gap and the unblocking",
     "                 work, so the always-zero metric is documented loudly, not hidden.",
     "",
     "ENFORCEMENT (tests/operator-audit-producers.test.ts):",
     "  1. COVERAGE: manifest keys == ACCEPTED_ACTION_TYPES exactly. A new action_type with",
-    "     no manifest entry fails CI, forcing a conscious producer classification \u2014 the gate",
+    "     no manifest entry fails CI, forcing a conscious producer classification — the gate",
     "     that would have caught a consumed-but-never-produced type.",
     "  2. ss-console PRODUCERS ARE REAL: each 'ss-console' entry's producerFile exists and",
     "     contains the token in code. Deleting the only producer of a still-consumed type",
@@ -170,7 +170,7 @@
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-corrections (post_llm_call, ss#2429 / overlay#277)",
       "producerIntent": "src/lib/portal/operator/rbac-audit.ts",
-      "reason": "the corrections plugin writes RBAC_EVENT refusal rows (metadata subAction=correction_capture_refused) when a rostered NON-admin's message would have been captured as a standing correction \u2014 capture is server-gated on sender_is_admin from the session-keyed verified origin (ss#2429). The ss-console portal writer intent (rbac-audit.ts, user-management actions) remains gated on #821/#891 and unwired; producerIntent is kept so that half is not forgotten."
+      "reason": "the corrections plugin writes RBAC_EVENT refusal rows (metadata subAction=correction_capture_refused) when a rostered NON-admin's message would have been captured as a standing correction — capture is server-gated on sender_is_admin from the session-keyed verified origin (ss#2429). The ss-console portal writer intent (rbac-audit.ts, user-management actions) remains gated on #821/#891 and unwired; producerIntent is kept so that half is not forgotten."
     },
     "COMPLIANCE_PACKET_EXPORTED": {
       "side": "ss-console",
@@ -366,6 +366,21 @@
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/corrections.py",
       "reason": "the workspace broker appends the client-correction capture row directly to the Machine ledger (ss#2091); declared in both vocabularies 2026-08-02 (#2122) so ledger contents are never outside the closed set."
+    },
+    "RULE_PROPOSED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2529. The workspace broker appends one row per rule the Operator states back for confirmation. Nothing is installed by it: the row records that a sentence was put in front of a person with a tag, carrying the proposal id and the text digest and never the text. The confirming turn writes ESTABLISHMENT_SUBMITTED under the same digest, so the two rows together prove the committed rule is the proposed one without either of them holding a copy of it."
+    },
+    "ESTABLISHMENT_SUBMITTED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2161 (ADR 0085). The broker appends this when an establishment run is materialized into the root intake spool, on all three scopes (firm, person, firm_adjust). Declared in this repo 2026-08-21 (ss#2529): it had been landing in client ledgers since establishment shipped while AUDIT_ACTION_TYPES had never heard of it, so the portal rendered it as nothing."
+    },
+    "ESTABLISHMENT_RESULT": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2161 (ADR 0085). The broker appends the bounded verdict row on the one-shot result read, before deleting the result file, so the retained trace outlives the payload. Declared in this repo 2026-08-21 (ss#2529), same history as ESTABLISHMENT_SUBMITTED."
     }
   }
 }
