@@ -251,6 +251,35 @@ ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | 
 # entrypoint's SOCKET_PATH ever moves, this line moves with it.
 ssh_exec_script "broker-socket-answers-health" "setpriv --reuid=hermes --regid=hermes --init-groups /opt/hermes/.venv/bin/python3 -c \"import socket,os,json,sys; p=os.environ.get('SMD_WORKSPACE_BROKER_SOCKET') or '/run/smd-workspace-broker/broker.sock'; s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.settimeout(5); s.connect(p); s.sendall(b'{\\\"action\\\":\\\"health\\\"}'+bytes([10])); r=json.loads(s.recv(65536).decode()); sys.exit(0 if r.get('ok') and r.get('credential_ready') and r.get('customer_ready') else 1)\""
 
+# ---------- Step 11c: the GATEWAY is supervised, and its loop is beating (P0 ss#2488) ----------
+# On 2026-08-20 the paying client's seat wedged for 33 minutes: Hermes' own
+# loop-liveness watchdog logged that it was exiting so a supervisor could restart
+# it, then did not exit, and nothing at any layer noticed. entrypoint.sh EXECS the
+# gateway as the container's main process, the respawner above covers the BROKER,
+# and Fly does not restart a Machine on a failing health check.
+#
+# Deliberately NOT a pid check. The broker note above already says why: a check
+# that "confirmed a process EXISTED rather than that it WORKED" is how the
+# 2026-07-16 scheduler outage ran eight days green. The supervisor touches
+# ${RUN_DIR}/tick at the top of EVERY iteration, so tick freshness fails if the
+# loop stops turning for any reason — including the one that would otherwise be
+# invisible, an inherited `set -e` killing the subshell on its first failed probe.
+ssh_exec "gateway-liveness-supervisor-ticking" "t=/run/smd-gateway-liveness/tick; [ -f \$t ] && [ \$(( \$(date -u +%s) - \$(stat -c %Y \$t) )) -lt 90 ]"
+
+# The supervisor is only as good as the signal it reads, and that signal is
+# UPSTREAM's: an asyncio task on the gateway loop rewrites this file every 30s.
+# This check is the tripwire for the whole mechanism rotting silently. The path
+# is not where the Hermes source implies — _process_hermes_home() reads
+# HERMES_HOME (/opt/data), but the file lands under the PROFILE home, which is
+# why the supervisor derives it from the gateway's argv. If a future pin drops
+# the heartbeat, moves it again, or disables it via `gateway.loop_watchdog`, the
+# supervisor would go quietly inert; this fails the provision instead.
+#
+# Bounded wait rather than a single shot: boot smoke is fail-fast and on a 1 vCPU
+# box the first beat can land well after this step runs. Same idea as the
+# --wait-gateway-s flag the R2 strip probe below uses.
+ssh_exec "gateway-loop-heartbeat-fresh" "n=0; while [ \$n -lt 36 ]; do for f in /opt/data/profiles/*/state/gateway.heartbeat; do [ -f \$f ] || continue; [ \$(( \$(date -u +%s) - \$(stat -c %Y \$f) )) -lt 120 ] && exit 0; done; n=\$((n+1)); sleep 5; done; exit 1"
+
 # ---------- Step 12: /app governance artifacts are root-owned, not agent-writable (SEC-31) ----------
 # The activation-gate source the gateway:startup hook force-loads
 # (/app/overlay-pack, incl. hooks/smd-overlay-activation/handler.py) must be owned
