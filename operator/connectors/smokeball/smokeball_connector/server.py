@@ -29,11 +29,13 @@ import base64
 import hashlib
 import os
 import re
+import time
 from typing import Any
 
 from operator_connector_sdk.server import ConnectorServer
 
-from .client import SmokeballClient, build_client_from_env
+from .client import SmokeballApiError, SmokeballClient, build_client_from_env
+from .library import LOOKUP_FAILED, lookup_matter
 
 server = ConnectorServer("smokeball")
 
@@ -1391,6 +1393,140 @@ def create_folder(
         f"/matters/{matter_id}/documents/folders",
         json=_body(name=name, parentFolderId=parent_folder_id),
     )
+
+
+# ---- the Operator's own matter (ss-console#2536) ----------------------------
+#
+# OBSERVED WIRE SHAPE, probed live on the pilot's sandbox tenant 2026-08-21
+# (vfy_01M0K2CMQBTMZCXZWKBTESSV5A), and every number below is from that probe
+# rather than from the vendor's documentation:
+#
+#   POST /matters {description, matterTypeId, clientIds:[id], number, status}
+#     -> 202 {id, href}, where ``id`` is the FINAL matter id
+#   ``status`` is REQUIRED. Without it the API answers 400 "Must provide a
+#     valid Status"; the published docs list it optional, and they are wrong.
+#   GET /matters/{id} answers 404 WHILE THE MATTER MATERIALIZES and the full
+#     record afterwards: 404 at 0.6s, 2.8s, 4.9s, 7.2s, then 200 at 9.6s.
+#   The supplied ``number`` is honored verbatim, and /matters?Search=<number>
+#     finds the matter immediately once it materializes.
+#
+# So the poll below treats a 404 as "not yet" and anything else as an answer,
+# and running out of polls is reported as CREATED AND PENDING rather than as a
+# failure. A created-but-slow matter that looked like a failure would invite a
+# second create, which is the duplicate this tool exists to prevent.
+_CREATE_MATTER_POLL_ATTEMPTS = 15
+_CREATE_MATTER_POLL_SECONDS = 2.0
+_CREATE_MATTER_STATUS = "Open"
+
+
+def _require_arg(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"create_matter: {name} is required and must be a non-empty string")
+    return value.strip()
+
+
+@server.tool()
+def create_matter(
+    description: str, matter_type_id: str, client_contact_id: str, number: str
+) -> Any:
+    """Create the Operator's OWN internal matter, and only that.
+
+    Classified COMMITMENT at the overlay: it changes the firm's system of
+    record, it is never autonomous, and it happens only after a Named
+    Administrator has been shown exactly what will be created and has said yes
+    to it in their own words. The proposal, the read-back sentence, and the
+    confirmation live in the trust layer; this tool is the hand, never the
+    decision.
+
+    THIS IS NOT A TOOL FOR OPENING A CLIENT'S CASE. The only matter it exists
+    to create is the firm's internal Operator Library, the non-client matter the
+    document library and the self-test file into, and every value it takes comes
+    from the seat's authored configuration rather than from anything a person
+    wrote in an email. Opening a real matter is the firm's own act in their own
+    system, with their own intake, and it always will be.
+
+    ``number`` is REQUIRED. It is the key this seat's library resolves on and
+    the key the duplicate check below uses, and a matter created without one
+    could be created again tomorrow.
+
+    THE DUPLICATE CHECK FAILS CLOSED. Before anything is posted, the tenant is
+    searched for a matter carrying this number, and for one carrying this
+    description on this client contact. A match refuses. A lookup that could not
+    complete ALSO refuses, because "I could not check" and "there is nothing
+    there" are different facts and only one of them makes it safe to write.
+
+    Returns ``{created, readback, accepted}`` once the matter is readable, or
+    ``{created, pending, matter_id, accepted, readback: null}`` when it was
+    accepted but has not materialized yet. The second is a success: Smokeball
+    has the matter, and it can be read back on the next turn.
+    """
+    description = _require_arg(description, "description")
+    matter_type_id = _require_arg(matter_type_id, "matter_type_id")
+    client_contact_id = _require_arg(client_contact_id, "client_contact_id")
+    number = _require_arg(number, "number")
+
+    client = _get_client()
+    existing = lookup_matter(
+        client,
+        number=number,
+        description=description,
+        client_contact_id=client_contact_id,
+    )
+    if existing.state == LOOKUP_FAILED:
+        raise ValueError(
+            "create_matter: refusing to create because the existing-matter check could "
+            f"not complete ({existing.reason}). Nothing was created. Try again once the "
+            "case system is reachable."
+        )
+    if existing.found:
+        raise ValueError(
+            f"create_matter: a matter matching this one already exists (matched on "
+            f"{existing.matched_on}; id {existing.matter_id}). Nothing was created. "
+            "Use that matter."
+        )
+
+    accepted = client.request(
+        "POST",
+        "/matters",
+        json=_body(
+            description=description,
+            matterTypeId=matter_type_id,
+            clientIds=[client_contact_id],
+            number=number,
+            # REQUIRED by the API despite the docs (see the note above).
+            status=_CREATE_MATTER_STATUS,
+        ),
+    )
+    matter_id = None
+    if isinstance(accepted, dict):
+        matter_id = accepted.get("id") or accepted.get("matterId")
+    if not matter_id:
+        raise ValueError(
+            "create_matter: Smokeball accepted the request but returned no matter id, so "
+            f"the result cannot be read back or de-duplicated. Response: {accepted!r}"
+        )
+    matter_id = str(matter_id)
+
+    for attempt in range(_CREATE_MATTER_POLL_ATTEMPTS):
+        try:
+            record = client.get(f"/matters/{matter_id}")
+        except SmokeballApiError as exc:
+            # A 404 is "still materializing". Anything else is an answer, and a
+            # wrong answer here must not be swallowed into a pending result.
+            if exc.status != 404:
+                raise
+        else:
+            if record:
+                return {"created": True, "readback": record, "accepted": accepted}
+        if attempt < _CREATE_MATTER_POLL_ATTEMPTS - 1:
+            time.sleep(_CREATE_MATTER_POLL_SECONDS)
+    return {
+        "created": True,
+        "pending": True,
+        "matter_id": matter_id,
+        "accepted": accepted,
+        "readback": None,
+    }
 
 
 @server.tool()

@@ -19,11 +19,17 @@ from docx import Document
 from smokeball_connector import server
 from smokeball_connector.library import (
     CUSTOMER_YAML_ENV,
+    DEFAULT_FOLDER_NAME,
+    LOOKUP_FAILED,
+    LOOKUP_FOUND,
+    LOOKUP_NOT_FOUND,
+    OPERATOR_LIBRARY_NUMBER,
     LibraryConfig,
     NotResolved,
     ResolvedTemplate,
     is_library_file,
     load_library_config,
+    lookup_matter,
     resolve_template,
 )
 from smokeball_connector.render import render_markdown_to_docx
@@ -49,7 +55,14 @@ def test_missing_customer_yaml_is_not_authored_with_a_reason(tmp_path) -> None:
     assert "not readable" in cfg.source
 
 
-def test_block_without_matter_number_is_not_authored(tmp_path) -> None:
+def test_block_without_a_number_falls_back_to_the_operator_library_convention(tmp_path) -> None:
+    """CHANGED by ss-console#2536, deliberately. Before the Operator could create
+    its own matter, a block with no ``matter_number`` resolved to nothing and the
+    report said "not authored". Now the number the Operator would create under is
+    the last fallback, so a seat resolves its library before anybody has authored
+    a number, and ``fallback_number`` carries the distinction into the report:
+    "the firm's library matter is missing" and "the matter we would have created
+    is not there yet" are different sentences to an admin."""
     path = _write_yaml(tmp_path, """
         self_initiation:
           document_library:
@@ -57,8 +70,66 @@ def test_block_without_matter_number_is_not_authored(tmp_path) -> None:
             folder_name: 'Document Library'
     """)
     cfg = load_library_config(path)
-    assert cfg.authored is False
+    assert cfg.authored is True
+    assert cfg.matter_number == OPERATOR_LIBRARY_NUMBER
+    assert cfg.fallback_number is True
+    assert OPERATOR_LIBRARY_NUMBER in cfg.source
     assert cfg.folder_name == "Document Library"
+
+
+def test_the_authored_operator_matter_number_wins_over_the_convention(tmp_path) -> None:
+    path = _write_yaml(tmp_path, """
+        self_initiation:
+          document_library:
+            folder_name: 'Document Library'
+            operator_matter:
+              number: '2026-OPS-LIBRARY'
+              description: 'Operator Library'
+              client_contact_id: 'c-1'
+              matter_type_id: 't-1'
+    """)
+    cfg = load_library_config(path)
+    assert cfg.matter_number == "2026-OPS-LIBRARY"
+    assert cfg.fallback_number is False
+
+
+def test_an_authored_matter_number_wins_over_the_operator_matter_block(tmp_path) -> None:
+    """The firm's own library matter is the first answer, always. A seat that
+    already keeps templates somewhere does not get moved by this feature."""
+    path = _write_yaml(tmp_path, """
+        self_initiation:
+          document_library:
+            matter_number: '2026-OPS-001'
+            folder_name: 'Document Library'
+            operator_matter:
+              number: 'OPS-OPERATOR-LIBRARY'
+              description: 'Operator Library'
+              client_contact_id: 'c-1'
+              matter_type_id: 't-1'
+    """)
+    cfg = load_library_config(path)
+    assert cfg.matter_number == "2026-OPS-001"
+    assert cfg.fallback_number is False
+
+
+def test_an_absent_block_is_still_not_authored(tmp_path) -> None:
+    """The fallback fills a MISSING FIELD in a block the firm wrote. It does not
+    invent a library for a seat that never asked for one."""
+    path = _write_yaml(tmp_path, "self_initiation:\n  sequence: []\n")
+    cfg = load_library_config(path)
+    assert cfg.authored is False
+    assert cfg.matter_number is None
+    assert "not authored" in cfg.source
+
+
+def test_a_block_without_a_folder_name_uses_the_proposed_default(tmp_path) -> None:
+    path = _write_yaml(tmp_path, """
+        self_initiation:
+          document_library:
+            matter_number: '2026-OPS-001'
+    """)
+    cfg = load_library_config(path)
+    assert cfg.folder_name == DEFAULT_FOLDER_NAME
 
 
 def test_authored_block_and_template_name_convention_and_override(tmp_path) -> None:
@@ -580,3 +651,95 @@ def test_no_document_class_means_no_name_opinion(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
     out = server.render_docx_template("m-1", "Anything At All.docx", "# Shell\n")
     assert out["refusals"] == [] and "formatApplied" not in out
+
+# ---- the three-state matter lookup (ss-console#2536) ---------------------------------
+#
+# ``find_matter_id`` answers "the id, or None", which is right for template
+# resolution: a draft still files on the starter and the note says the template
+# did not resolve. It is WRONG for deduping a create, where None conflates "there
+# is no such matter" with "I could not look", and only one of those makes it safe
+# to write. These pin the third state.
+
+
+class _ListClient:
+    def __init__(self, matters, *, list_error=None, search_error=None) -> None:
+        self.matters, self.list_error, self.search_error = matters, list_error, search_error
+
+    def get(self, path: str, **params):
+        assert path == "/matters"
+        if "Search" in params:
+            if self.search_error:
+                raise self.search_error
+            return {"value": self.matters}
+        if self.list_error:
+            raise self.list_error
+        return {"value": self.matters}
+
+
+def test_lookup_reports_found_with_what_it_matched_on() -> None:
+    client = _ListClient([{"id": "m-9", "number": "OPS-1"}])
+    result = lookup_matter(client, number="OPS-1")
+    assert (result.state, result.matter_id, result.matched_on) == (LOOKUP_FOUND, "m-9", "number")
+    assert result.found is True
+
+
+def test_lookup_reports_not_found_when_the_enumeration_completed() -> None:
+    result = lookup_matter(_ListClient([{"id": "m-9", "number": "OTHER"}]), number="OPS-1")
+    assert result.state == LOOKUP_NOT_FOUND
+    assert result.found is False and result.failed is False
+
+
+def test_an_incomplete_enumeration_is_a_failure_and_not_an_empty_answer() -> None:
+    result = lookup_matter(_ListClient([], list_error=RuntimeError("boom")), number="OPS-1")
+    assert result.state == LOOKUP_FAILED
+    assert result.failed is True
+    assert "could not be read" in result.reason
+
+
+def test_lookup_matches_the_description_and_client_pair_too() -> None:
+    client = _ListClient(
+        [{"id": "m-4", "number": "OTHER", "description": "Operator Library", "clientIds": ["c-1"]}]
+    )
+    result = lookup_matter(
+        client, number="OPS-1", description="Operator Library", client_contact_id="c-1"
+    )
+    assert result.matter_id == "m-4"
+    assert result.matched_on == "description and client"
+
+
+def test_the_description_pair_needs_both_halves() -> None:
+    client = _ListClient(
+        [{"id": "m-4", "number": "OTHER", "description": "Operator Library", "clientIds": ["c-2"]}]
+    )
+    result = lookup_matter(
+        client, number="OPS-1", description="Operator Library", client_contact_id="c-1"
+    )
+    assert result.state == LOOKUP_NOT_FOUND
+
+
+def test_client_ids_are_read_across_the_shapes_the_api_uses() -> None:
+    for shape in (
+        {"clientIds": ["c-1"]},
+        {"clientIds": [{"id": "c-1"}]},
+        {"clients": [{"id": "c-1"}]},
+        {"clientId": "c-1"},
+    ):
+        matter = {"id": "m-4", "number": "OTHER", "description": "Operator Library", **shape}
+        result = lookup_matter(
+            _ListClient([matter]),
+            number="OPS-1",
+            description="Operator Library",
+            client_contact_id="c-1",
+        )
+        assert result.found is True, shape
+
+
+def test_find_matter_id_keeps_its_two_state_answer_for_template_resolution() -> None:
+    """The old signature and the old semantics, unchanged: resolution treats a
+    failed lookup and an absent matter the same way, because both end in a draft
+    on the starter base with the reason reported."""
+    from smokeball_connector.library import find_matter_id
+
+    assert find_matter_id(_ListClient([{"id": "m-9", "number": "OPS-1"}]), "OPS-1") == "m-9"
+    assert find_matter_id(_ListClient([]), "OPS-1") is None
+    assert find_matter_id(_ListClient([], list_error=RuntimeError("boom")), "OPS-1") is None

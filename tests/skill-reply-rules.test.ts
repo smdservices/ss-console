@@ -121,6 +121,36 @@ describe('setup-turn reply rules are pinned in skill prose', () => {
         'a matter typed "Internal Affairs" is a client\'s case until the firm says otherwise'
       ).not.toContain('an administrative or internal matter is a better home')
     })
+
+    // ss-console#2536. The old branch ended the conversation: it told the admin
+    // the Operator cannot create a matter and to go make one by hand. It can
+    // now offer to create ONE matter, the firm's authored internal one, and the
+    // admin's own words are the authority. Two strings are pinned because both
+    // are load-bearing at runtime: the phrase the admin is asked to reply with
+    // (it is what the confirming matcher binds on), and the convention number
+    // the library and the self-test fall back to.
+    it('offers to create the authored internal matter and names the confirming words', () => {
+      expect(
+        flat('document-library-establishment'),
+        'the storage-location section must ask the admin for these exact words, because ' +
+          'that is the phrase the readback tells them to reply with'
+      ).toContain('yes, create it')
+    })
+
+    it('names the convention number the library falls back to', () => {
+      expect(
+        flat('document-library-establishment'),
+        'the skill must name OPS-OPERATOR-LIBRARY, the number the Operator library uses ' +
+          'when the firm authored none, so the skill and the resolver agree on one key'
+      ).toContain('OPS-OPERATOR-LIBRARY')
+    })
+
+    it('still refuses to create anything on the proposal turn', () => {
+      expect(
+        flat('document-library-establishment'),
+        'the offer is a proposal like any other: the turn that makes it creates nothing'
+      ).toContain('Nothing is created on this turn')
+    })
   })
 
   describe('operator-self-initiation status board speaks to the firm', () => {

@@ -47,6 +47,12 @@ describe('activity-language exhaustiveness (writer parity)', () => {
   it('the mapped vocabulary is a deliberate snapshot (additions require editing this test)', () => {
     expect([...MAPPED_ACTIONS].sort()).toEqual(
       [
+        // ss#2536. The two halves of an act the firm was asked to confirm: one
+        // row for the question, one for the act. Both are broker-written and
+        // both must render, because an unmapped type shows the client nothing
+        // and reads exactly like a suppression.
+        'ACT_COMMITTED',
+        'ACT_PROPOSED',
         'AGENT_RESUMED',
         'AGENT_STOPPED',
         'COMPLIANCE_PACKET_EXPORTED',
@@ -126,6 +132,11 @@ describe('failure outcomes are visible to the client (ss#2320)', () => {
     ['RULE_PROPOSED', 'Stated a rule back for confirmation'],
     ['ESTABLISHMENT_SUBMITTED', 'Committed a rule you confirmed'],
     ['ESTABLISHMENT_RESULT', 'Applied a rule to how work is written'],
+    // ss#2536, and the first line has to read as a QUESTION: at ACT_PROPOSED
+    // nothing has happened and somebody has been asked. A client scanning the
+    // feed must be able to tell the asking from the doing.
+    ['ACT_PROPOSED', 'Asked you to confirm something before doing it'],
+    ['ACT_COMMITTED', 'Did what you confirmed'],
   ]
 
   for (const [action, copy] of outcomes) {

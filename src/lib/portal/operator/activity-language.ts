@@ -95,6 +95,8 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'RULE_PROPOSED',
       'ESTABLISHMENT_SUBMITTED',
       'ESTABLISHMENT_RESULT',
+      'ACT_PROPOSED',
+      'ACT_COMMITTED',
     ],
   },
   {
@@ -278,6 +280,12 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   RULE_PROPOSED: () => 'Stated a rule back for confirmation',
   ESTABLISHMENT_SUBMITTED: () => 'Committed a rule you confirmed',
   ESTABLISHMENT_RESULT: () => 'Applied a rule to how work is written',
+  // ss#2536. Two lines for the two halves of an act, and the first one has to
+  // read as a QUESTION: nothing happened, somebody was asked. The second says
+  // the thing was done, which is a fact about the firm's own records and the
+  // sentence a client should be able to find later.
+  ACT_PROPOSED: () => 'Asked you to confirm something before doing it',
+  ACT_COMMITTED: () => 'Did what you confirmed',
   ESCALATION_FIRED: (e) => e.reason ?? 'Flagged something for your attention',
   ESCALATION_ACKNOWLEDGED: () => 'An escalation was acknowledged',
   AGENT_STOPPED: () => 'Your operator was paused',

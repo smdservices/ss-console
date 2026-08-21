@@ -381,6 +381,16 @@
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/establishment.py",
       "reason": "ss#2161 (ADR 0085). The broker appends the bounded verdict row on the one-shot result read, before deleting the result file, so the retained trace outlives the payload. Declared in this repo 2026-08-21 (ss#2529), same history as ESTABLISHMENT_SUBMITTED."
+    },
+    "ACT_PROPOSED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2536. The workspace broker appends one row per ACT the Operator states back for confirmation. Nothing happens by it: the row records that one tool call was put in front of a Named Administrator with a tag, carrying the proposal id, the tool name, and the payload digest, and never the payload. The confirming turn writes ACT_COMMITTED under the same digest, so the two rows together prove the act performed is the act proposed without either of them holding a second copy of the firm's values."
+    },
+    "ACT_COMMITTED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2536. Appended after the confirmed tool call succeeded, naming who confirmed it and the message id their confirmation arrived in, so an admin approval is joinable to the inbound row that carried it (the ss#2497 joins) rather than merely asserted. A tool call that failed writes no row: the proposal stays open for its TTL, so a transport failure does not spend a person's yes."
     }
   }
 }

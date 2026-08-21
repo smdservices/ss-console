@@ -164,6 +164,8 @@ export const AUDIT_ACTION_TYPES = [
   'RULE_PROPOSED',
   'ESTABLISHMENT_SUBMITTED',
   'ESTABLISHMENT_RESULT',
+  'ACT_PROPOSED',
+  'ACT_COMMITTED',
 ] as const
 
 export type AuditActionType = (typeof AUDIT_ACTION_TYPES)[number]

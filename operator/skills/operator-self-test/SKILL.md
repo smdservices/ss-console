@@ -69,14 +69,27 @@ has no .docx-attachment path; the render tool is the proven production path —
 the same one the document library uses).
 
 - **Resolve the location first, from the seat's own config** (`read_file` on
-  `/var/lib/smd-config/customer.yaml`): the `self_initiation.document_library`
-  location (resolve `matter_hint` against `mcp_smokeball_list_matters`, find
-  the authored `folder_name` with `mcp_smokeball_list_folders`); if that block
-  names no matter, fall back to `digest.home_matter_id`. If NEITHER is
-  authored, this step is FAILED with exactly that reason ("no authored ops
-  location for document production") — never render into a client matter, and
-  never pick a matter yourself. An honest FAILED here beats a document filed
-  where nobody chose.
+  `/var/lib/smd-config/customer.yaml`), taking the first of these that
+  resolves against `mcp_smokeball_list_matters`, and stopping at the first
+  one that does:
+
+  1. `self_initiation.document_library.matter_hint`
+  2. `self_initiation.document_library.matter_number`
+  3. `self_initiation.document_library.operator_matter.number`
+  4. the convention number `OPS-OPERATOR-LIBRARY`, which is what the
+     Operator's own library matter is called on a seat that authored no
+     number of its own
+  5. `digest.home_matter_id`
+
+  Then find the authored `folder_name` with `mcp_smokeball_list_folders`. If
+  NONE of them resolves, this step is FAILED with exactly that reason ("no
+  authored ops location for document production, and no Operator library
+  matter exists yet"), and the reason says what would fix it: an Operator
+  admin asks for the document library to be established, and the Operator
+  offers to create the matter for them to confirm with "yes, create it".
+  Never render into a client matter, and never pick a matter yourself. An
+  honest FAILED here beats a document filed where nobody chose.
+
 - **The certificate is dateless and content-free by design.** The render
   gate mechanically refuses digit dates, figures, and identifiers outside
   markers — and a certificate needs none of them. Write the checklist's step
