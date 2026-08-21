@@ -52,6 +52,12 @@ The correction-capture invariant (#2091 / overlay#214: the agent records, never 
 
 Correction capture is unchanged for everyone else: a non-admin statement is captured as `proposed`; **promotion authority is the same Operator-admin role**, exercisable conversationally ("apply Sarah's correction") or from the portal's review view.
 
+**Amendment, 2026-08-21 (Captain decision; ss-console#2529).** The clause above assumes the instruction arrives as designated content. A firm also establishes by talking: an admin writes one sentence about how a kind of output should read, and any person writes one about their own work. That sentence has no corpus, and every compiler named above refuses an empty one, so the write gates cannot apply to it. Rather than refuse the act, this ADR names a second, narrower authorization for it: **an admin's confirmed one-sentence adjustment installs on authority, attribution, an untainted turn, and a readback, not on the compilers.** Personal preferences (§6) install on the same footing, with the person's own identity as the authority.
+
+**The readback is the control.** The Operator states the rule back in a canonical block rendered server-side, carrying a short tag; the person answers; only then does it commit, and the committed bytes are the bytes from that block, taken from the stored proposal and never from the confirming request. A request that carries a different sentence is refused, not substituted. What replaces four compiler gates is therefore not nothing: it is a human confirming a specific sentence, and a mechanism in which that confirmation is checkable rather than asserted.
+
+**What is given up, stated plainly.** A confirmed adjustment is not checked for retained client prose, for asserted numbers, or against the firm's own writing. The bound on the damage is that it is one sentence, capped in length and in count per property, attributed to a named person on both ends (who instructed it, who applied it), rendered into the spec file where the firm can read it, superseded by any later contradicting sentence, and reversible by re-establishing the property from documents. Corpus-fed establishment keeps all four gates unchanged; nothing here weakens that path.
+
 ### 5. Channel trust rides the mailbox custody model
 
 Admin authority is an email identity, so sender attribution matters per channel:

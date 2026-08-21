@@ -64,6 +64,14 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'CONNECTOR_UNBOUND',
         'CORRECTION_PROPOSED',
         'DRAFT_APPROVED',
+        // ss#2529 / ADR 0085. The conversational establishment path, in the
+        // three beats a client can tell apart: a rule stated back and waiting,
+        // a rule they confirmed, and the rule reaching the work. The last two
+        // have been written to client ledgers since establishment shipped and
+        // rendered as nothing for want of a decision here.
+        'ESTABLISHMENT_RESULT',
+        'ESTABLISHMENT_SUBMITTED',
+        'RULE_PROPOSED',
         'DRAFT_CREATED',
         'DRAFT_EXPIRED',
         'DRAFT_REJECTED',
@@ -111,6 +119,13 @@ describe('failure outcomes are visible to the client (ss#2320)', () => {
     ['CONFIRM_SEND_DISPATCHED', 'Sent a confirmed message'],
     ['CONFIRM_SEND_FAILED', 'A confirmed message could not be sent'],
     ['CORRECTION_PROPOSED', 'Captured your correction'],
+    // ss#2529. Asserted as RENDERING, not membership: the two ESTABLISHMENT
+    // types were already reaching client ledgers and showing nothing, and a
+    // membership check would pass on an entry mapped to an empty string, which
+    // is the same silence in a different place.
+    ['RULE_PROPOSED', 'Stated a rule back for confirmation'],
+    ['ESTABLISHMENT_SUBMITTED', 'Committed a rule you confirmed'],
+    ['ESTABLISHMENT_RESULT', 'Applied a rule to how work is written'],
   ]
 
   for (const [action, copy] of outcomes) {
