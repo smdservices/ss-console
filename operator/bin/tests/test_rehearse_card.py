@@ -481,3 +481,43 @@ def test_the_reply_comes_back_from_the_seats_sent_items(monkeypatch: pytest.Monk
     assert out == "The matter is open."
     assert urls[0] == rc.RESEND_URL
     assert "/users/operator%40example.test/mailFolders/SentItems/messages" in urls[1]
+
+
+def test_a_wire_sized_token_grant_survives_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first live run against the paying seat died before its first poll.
+
+    `_open` capped every body at 400 characters. A real client-credentials grant
+    is about 1,500 characters and its access_token string opens near character
+    78, so the JSON came back unterminated and `graph_token` raised instead of
+    returning a bearer. The mocked bodies in this file were all short, which is
+    how the cap passed 35 tests and failed on the wire. A 2xx body must come
+    back whole; only an error body is capped.
+    """
+    jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9." + "a" * 1400 + ".sig"
+    grant = json.dumps(
+        {"token_type": "Bearer", "expires_in": 3599, "ext_expires_in": 3599, "access_token": jwt}
+    )
+    assert grant.index('"access_token"') < 400 < len(grant)
+
+    def fake(req: object, timeout: int = 45) -> _FakeResponse:
+        return _FakeResponse(200, grant)
+
+    monkeypatch.setattr(rc.urllib.request, "urlopen", fake)
+    token, ttl = rc.graph_token("tenant", "client", "secret")
+    assert token == jwt
+    assert ttl == 3599
+
+
+def test_an_error_body_is_still_capped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The cap exists so a caller that echoes a non-2xx body cannot spill a
+    page of it into a log. Lifting it from success bodies must not lift it
+    from error bodies."""
+    import urllib.error
+
+    def fake(req: object, timeout: int = 45) -> _FakeResponse:
+        raise urllib.error.HTTPError("https://x", 500, "boom", None, io.BytesIO(b"e" * 1000))  # type: ignore[arg-type]
+
+    monkeypatch.setattr(rc.urllib.request, "urlopen", fake)
+    status, body = rc._open(rc.urllib.request.Request("https://graph.microsoft.com/v1.0/x"))
+    assert status == 500
+    assert len(body) == 400

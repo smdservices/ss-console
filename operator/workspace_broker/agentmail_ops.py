@@ -34,6 +34,7 @@ from .agentmail_auth import (
     load_send_key,
     normalize_address,
     seat_inbox_address,
+    sender_key,
 )
 
 API_BASE = "https://api.agentmail.to/v0"
@@ -249,4 +250,9 @@ class AgentMailOps:
             "message_id": _message_id(response),
             "recipients": [sender],
             "inbox_id": self.inbox_id(),
+            # ss#2497 — the twin of the msgraph verb. The broker is the only
+            # party that knows who this answered, because it fetched the source
+            # message rather than trusting a caller to name the sender. Hashed,
+            # so the join exists and the address does not.
+            "sender_key": sender_key(sender),
         }

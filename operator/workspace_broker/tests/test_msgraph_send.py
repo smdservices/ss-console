@@ -47,6 +47,7 @@ from workspace_broker.msgraph_ops import (  # noqa: E402
     MsGraphRefused,
     MsGraphTransportError,
 )
+from workspace_broker.recipient_policy import sender_key  # noqa: E402
 from workspace_broker.server import Broker  # noqa: E402
 
 GATEWAY_PID = 42
@@ -816,3 +817,156 @@ def test_the_reply_verb_writes_its_own_row(tmp_path: Path) -> None:
     meta = _meta(broker)
     assert meta["verb"] == "msgraph_reply"
     assert meta["recipients"] == ["scott@smd.services"]
+
+
+# ---------------------------------------------------------------------------
+# The audit joins (ss#2497)
+#
+# Measured on the live ashton-price ledger 2026-08-21
+# (vfy_01M0H8DR6JAPYVHFMNJZXQZ517): session_id appeared on 0 of 9
+# CONFIRM_SEND_DISPATCHED rows and matter_ref on none of them. A send row that
+# cannot say which turn composed it or which matter it concerned is what the
+# cross-matter question (ss#2167) falls into: the ledger shows the reads and the
+# sends and cannot connect them, and that silence reads as innocence.
+# ---------------------------------------------------------------------------
+
+
+def test_the_send_row_carries_the_session_and_the_matter(tmp_path: Path) -> None:
+    """FALSIFIER: drop the two kwargs from the _append_send_row call and both
+    assertions fail while every other row assertion in this file stays green,
+    which is exactly how the gap survived."""
+    broker = _broker(tmp_path, FakeGraph())
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+            "session_id": "20260820_195837_68d654ce",
+            "matter_ref": "matter-uuid-1",
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    row = broker.ledger.rows[0]
+    # matter_ref goes to the COLUMN, which is what the portal record filters on.
+    assert row["matter_ref"] == "matter-uuid-1"
+    assert _meta(broker)["session_id"] == "20260820_195837_68d654ce"
+
+
+def test_a_refusal_row_carries_them_too(tmp_path: Path) -> None:
+    """A refused send is the row an investigator most wants to place in a
+    session. FALSIFIER: thread the joins only through the success path."""
+    broker = _broker(tmp_path, FakeGraph())
+    with pytest.raises(MsGraphRefused):
+        broker.handle(
+            {
+                "action": "msgraph_send",
+                "payload": {"to": [UNAUTHORED], "body_text": "x"},
+                "session_id": "sess-2",
+                "matter_ref": "matter-uuid-2",
+            },
+            peer_pid=GATEWAY_PID,
+            peer_uid=AGENT_UID,
+        )
+    assert broker.ledger.rows[0]["matter_ref"] == "matter-uuid-2"
+    assert _meta(broker)["session_id"] == "sess-2"
+
+
+def test_a_caller_that_sends_no_joins_writes_the_row_it_writes_today(tmp_path: Path) -> None:
+    """The deployment-order property. An overlay that predates this change sends
+    neither field, and the row must be exactly what it was, with no empty
+    strings: the chain canonicalizes "" distinctly from NULL, and an empty
+    matter_ref reads as a reference that is present and blank."""
+    broker = _broker(tmp_path, FakeGraph())
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    assert "matter_ref" not in broker.ledger.rows[0]
+    assert "session_id" not in _meta(broker)
+
+
+def test_the_joins_never_reach_the_vendor(tmp_path: Path) -> None:
+    """They are audit attribution, not content. The Graph message is built from a
+    closed allowlist, so this also proves the fields were read from the REQUEST
+    and not smuggled through the payload."""
+    http = FakeGraph()
+    broker = _broker(tmp_path, http)
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+            "session_id": "sess-3",
+            "matter_ref": "matter-uuid-3",
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    wire = json.dumps(http.graph_posts()[0][2])
+    assert "sess-3" not in wire
+    assert "matter-uuid-3" not in wire
+
+
+def test_a_reply_row_names_the_person_it_answered_without_an_address(tmp_path: Path) -> None:
+    """The broker is the ONLY party that can do this: it fetched the source
+    message itself precisely because a caller naming the sender could name any
+    sender. Hashed, because this row is exported.
+
+    FALSIFIER: return the sender address instead of its key and the last
+    assertion fails; drop the field and the first two do.
+    """
+    broker = _broker(tmp_path, FakeGraph(source_from="scott@smd.services"))
+    response = broker.handle(
+        {
+            "action": "msgraph_reply",
+            "payload": {"message_id": "AAMk123", "comment": "sure"},
+            "session_id": "sess-4",
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    meta = _meta(broker)
+    assert meta["sender_key"] == sender_key("scott@smd.services")
+    assert "@" not in meta["sender_key"]
+    assert "scott@smd.services" not in json.dumps(meta["sender_key"])
+    # Audit provenance stays in the row: the agent is told nothing new about who
+    # it just wrote to beyond what it already knew.
+    assert "sender_key" not in response
+
+
+def test_a_plain_send_contributes_no_sender_key(tmp_path: Path) -> None:
+    """Law 12 control for the test above: a send names no inbound person, so a
+    key on that row would be invented rather than resolved."""
+    broker = _broker(tmp_path, FakeGraph())
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    assert "sender_key" not in _meta(broker)
+
+
+def test_the_sender_key_matches_the_overlay_recipe(tmp_path: Path) -> None:
+    """A key is only a join if both ends reduce the same human to the same bytes.
+    The overlay hashes NFC + strip + lower of the address
+    (``shared/audit_contract.sender_key``); this pins the identical recipe on
+    the broker side, so the two ends meet.
+
+    FALSIFIER: hash the raw string here and the case/spacing variants below stop
+    matching, which is a person appearing in the ledger as three people.
+    """
+    import hashlib
+
+    assert sender_key("scott@smd.services") == hashlib.sha256(
+        b"scott@smd.services"
+    ).hexdigest()
+    assert sender_key("  Scott@SMD.Services  ") == sender_key("scott@smd.services")
+    assert sender_key("Scott Durgan <scott@smd.services>") == sender_key("scott@smd.services")
+    assert sender_key("") is None
+    assert sender_key(None) is None
