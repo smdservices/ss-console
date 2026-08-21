@@ -198,9 +198,18 @@ firm's own Word template for that class when one is authored in the firm's
 Document Library (it resolves the template itself, the same way every time; you
 never pick one), else onto the SMD starter base. The firm's template carries the
 typography: letterhead, fonts, spacing, the named styles `SMD Body`, `SMD Item
-Label`, `SMD Item Text`, `SMD Heading 1-3`, `SMD Caption`, `SMD Signature`. A
-style the firm edits in Word takes effect on the next draft. Nothing you write
-chooses a font, a margin, or a spacing.
+Label`, `SMD Item Text`, `SMD Heading 1-3`, `SMD Caption`, `SMD Signature`.
+Nothing you write chooses a font, a margin, or a spacing.
+
+**Which of the firm's edits reach the next draft is per-element, and
+`formatApplied` reports it rather than promising it.** Three states. A role the
+template styles by name (`stylesHonored`) follows that style. A heading the
+template does not name falls to the template's OWN `Heading 1-3`
+(`stylesDelegated`), so a firm that edits those in Word still moves the next
+draft. Anything else is formatted inline (`fallbacks`), which means its
+typography is fixed in that document and a later template edit will not move it.
+Say which, from the report; do not tell a firm that editing a style will change
+their drafts when the report says that element was inline.
 
 **What you write** is the content grammar, and only this:
 
@@ -223,8 +232,9 @@ typography.
 
 **The delivery note states `formatApplied` honestly:** which template was used
 (or the starter), `templateExpected` (the library is authored but the class
-template did not resolve: say so, and why), the fallbacks (named styles the
-template lacks), and the template's own header/footer text (it bypasses every
-content gate, so the attorney sees it named). A `formatApplied.notes` entry
-that says the firm's template was not used is a sentence in your note, not a
-detail to omit.
+template did not resolve: say so, and why), `stylesDelegated` (roles that took
+the template's own style), the fallbacks (roles formatted inline), and the
+template's own header/footer text (it bypasses every content gate, so the
+attorney sees it named). A `formatApplied.notes` entry that says the firm's
+template was not used, or that names a style the firm could add in Word to
+control a level, is a sentence in your note, not a detail to omit.
