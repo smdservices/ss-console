@@ -176,6 +176,50 @@ def has_style(doc, name: str) -> bool:
         return False
 
 
+def usable_paragraph_style(doc, name: str) -> str | None:
+    """The name if the base defines it as a paragraph style we can safely apply,
+    else None with nothing raised.
+
+    ``has_style`` alone is not enough once we delegate to a FIRM's own style
+    names, because three real shapes make a present style unusable:
+
+    1. **Not a paragraph style.** python-docx raises ``ValueError`` (not
+       ``KeyError``) when a character or table style is assigned to a paragraph,
+       so a firm with a character style named "Heading 2" would kill the whole
+       render rather than degrade. The hazard predates delegation: ``_bullet``
+       and ``_table`` test ``has_style`` and assign directly.
+    2. **Outline numbering.** Firms routinely link Heading 1/2 to a multilevel
+       list. Our drafting grammar has the model write the numeral itself
+       ("## I. Introduction"), so a numbered base style yields "1.1 I.
+       Introduction" on a filed document. Numbering is inherited, so the
+       ``base_style`` chain is walked, not just the style itself.
+    3. **Latent styles.** A .docx saved by Word carries ``w:style`` elements
+       only for styles in use; the rest live in ``w:latentStyles`` and are
+       invisible to ``doc.styles``. Nothing to do about it here beyond not
+       claiming the style exists — which is why the caller reports the gap as
+       something the firm can fix in Word.
+    """
+    from docx.enum.style import WD_STYLE_TYPE
+    from docx.oxml.ns import qn
+
+    try:
+        style = doc.styles[name]
+    except KeyError:
+        return None
+    if getattr(style, "type", None) != WD_STYLE_TYPE.PARAGRAPH:
+        return None
+    seen: set[int] = set()
+    node = style
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        element = getattr(node, "element", None)
+        if element is not None and element.find(qn("w:pPr")) is not None:
+            if element.find(qn("w:pPr")).find(qn("w:numPr")) is not None:
+                return None
+        node = getattr(node, "base_style", None)
+    return name
+
+
 def _ensure_named_styles(doc, report: FormatReport) -> None:
     """Define the named-style contract in a document WE own (the stock base /
     a starter). Never called on a firm's file: their styles are theirs."""

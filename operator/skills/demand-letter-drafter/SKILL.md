@@ -13,7 +13,7 @@ description: >-
   never rounds or smooths a number. Time-limited demand mechanics under Code of Civil Procedure
   section 999 are surfaced as attorney decision points, never as a final acceptance deadline. It
   never sends the letter to a carrier or to anyone outside the firm by any path.
-version: 0.2.0
+version: 0.2.1
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -387,8 +387,9 @@ The itemized report and the held-out list go into the **matter memo**
 (`agentmail`) is a **citation-free pointer**, not the letter: plain words naming the
 matter by number, that the demand draft is ready, where it lives, what is reserved for
 the attorney, what the record does not establish, and one honest sentence from the
-tool's `formatApplied` (the firm's template, or the starter and why; any named styles
-the template lacks). The letter's own RE line references a statute by section, so
+tool's `formatApplied` (the firm's template, or the starter and why; which roles took
+the template's own styles, and which were formatted inline and so will not follow a
+later edit to the template). The letter's own RE line references a statute by section, so
 emailing the body would fight the mail channel's citation gate by construction. Write
 the pointer citation-free on the first draft.
 
