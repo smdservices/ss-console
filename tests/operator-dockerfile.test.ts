@@ -930,7 +930,19 @@ describe('Operator customer Machine Dockerfile', () => {
     // v0.19 mcp__server__tool rename at the fan-out (without it a v0.20 seat refuses
     // every connector tool); #282 is the matter-mixing read fence, carried along
     // because it merged to overlay main between the two bumps.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d35e0b09bd49c4eab949b932508e5b17205d87c6"')
+    // d35e0b0 -> 4dbf415 (2026-08-21): five overlay merges. #296 is the ss#2511
+    // fix after the A&P self-test wrote a sentinel case number onto a real
+    // matter: the seat's own skill text, memory and scored drafts stop seeding
+    // the identifier register (allowlist of tenant-source reads), identifiers
+    // seen in the seat's own text block even with an empty register, add_file /
+    // render_docx_draft are scanned report-only per tool, and the enforce reason
+    // for an executed internal write no longer reads "routed to draft folder".
+    // Riding along: #294 (ss#2497 audit joins), #292 (ss#2498 routine on/off
+    // rows: ROUTINE_ENABLED/ROUTINE_DISABLED join the vocabulary), #295
+    // (ss#2501 sent-reply digest), #297 (ss#2499 msgraph message identity).
+    // ONE tracked twin moves: plugins/hermes-smd-audit/emit.py, re-recorded
+    // one-sided in overlay-pairs.json.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4dbf415adfb63dfd78707192cdcd9ff09efea5f8"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
