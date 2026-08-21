@@ -156,7 +156,7 @@ report says so in one line.
 ## The report (fixed shape — a page, not a novel)
 
 ```
-OPERATOR SELF-TEST — [seat display name] — [date, time, timezone]
+OPERATOR SELF-TEST | [seat display name] | [date, time, timezone]
 
 1. Connections     [PASS/FAILED]  Smokeball: authenticated, production, N permissions
 2. Read            [PASS/FAILED]  I can see N matters

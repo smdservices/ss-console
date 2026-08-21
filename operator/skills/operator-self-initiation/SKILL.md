@@ -171,17 +171,17 @@ proposal, because the firm blesses what it sees. Never approximate to fit the tu
 One reply, to the requester only:
 
 ```
-OPERATOR SELF-INITIATION — [seat display name] — [date, time, timezone]
+OPERATOR SELF-INITIATION | [seat display name] | [date, time, timezone]
 
 1. Self-test          [ran this turn / see results below]
-2. Voice              [established / partial (open classes named) / proposal below — awaiting your blessing / not started]
-3. Document library   [established, N templates at <location> / proposal below — awaiting your blessing / not started / unknown — ask the admin]
+2. Voice              [established / partial (open classes named) / proposal below | awaiting your blessing / not started]
+3. Document library   [established, N templates at <location> / proposal below | awaiting your blessing / not started / unknown | ask the admin]
 
 [the self-test report, if it ran]
 [the voice survey proposal, if one was produced]
 [the document library proposal, if one was produced]
 
-To continue: [exactly what to reply, per open item — e.g. "reply approving or
+To continue: [exactly what to reply, per open item | e.g. "reply approving or
 amending the voice corpus", "reply approving or amending the template list",
 "reply 'continue initiation'"]
 ```
