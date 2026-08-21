@@ -624,7 +624,31 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # other 14 in that file pass. Files: plugins/hermes-smd-reply,
 # shared/msgraph_broker.py + tests -- NOT tracked pairs; every overlaySha256
 # unchanged, only overlayRef.
-ARG OVERLAY_REF="16770d33148670f2535aabc3592147b469d52dfe"
+# 16770d3 -> 7a8ba42 (2026-08-20, ss#2489 follow-on): one commit, found by
+# reading the wire on the reply the previous bump had just made readable. The
+# formatting fix worked -- real <p>/<ul>/<li> reached the firm -- and the same
+# MIME showed report_render emitting INVALID HTML underneath it. The <ul> opened
+# at the introduction's first section was never closed, so three following
+# paragraphs rendered INSIDE the list and the second bullet group joined the
+# first list instead of opening its own; </li> outnumbered <li> 7 to 4.
+# Reproduced offline at the old ref against the same source shape, and the
+# counts invert at the new one (2 uls, 4/4 items, 0 trapped paragraphs).
+# TWO CAUSES REMOVED, NOT PATCHED: _flush_paragraph emitted a <p> without
+# closing the list (three sibling block handlers each remembered to; the rule
+# now lives with the emitter, so a caller cannot forget it), and
+# _close_open_item decided item state by sniffing parts[-1].endswith("</li>"),
+# which is false both for a genuinely open item and for a paragraph emitted
+# inside a list -- replaced with an explicit flag. NOT INTRODUCED BY overlay#288:
+# this renderer has shipped in AgentMail report emails since 2026-07-16
+# (vfy_01KXMVRX1C2NAMYKH6JSQWTJEV), so any report mixing a list with a following
+# paragraph has been malformed there too; #288 only made it visible on a channel
+# someone was reading closely. Nine green tests missed it because neither corpus
+# in that file had a paragraph after a list item -- the live A&P shape is now a
+# third corpus and joins the purity parametrize. Falsifier run: reverting only
+# the close_list line fails exactly 3 of the 6 new tests while the other 13 pass.
+# Files: shared/report_render.py, tests/test_report_render.py -- NOT tracked
+# pairs; every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="7a8ba42f11515e1856fc1ef13ab2f93a949d15b6"
 
 ARG CUSTOMER_SLUG=customer-zero
 
