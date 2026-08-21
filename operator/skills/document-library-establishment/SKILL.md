@@ -190,16 +190,32 @@ which it is. Where you observed the firm's own typography in the exemplars (font
 heading look), report it as an observation for the admin, never as something you will impose:
 the starter is a starting point, the firm's Word edit is the authority.
 
-**The storage location.** Propose a new folder, suggested name **"Document Library"**, on a
-matter you name from the survey.
+**The storage location.** Propose a new folder, suggested name **"Document Library"**. Where it
+lives has exactly two answers, and which one you are in is decided by the seat's configuration,
+never by your judgment about a matter.
 
-Be plain about the constraint rather than hiding it: **the connector can create folders on a
-matter and cannot create a matter.** So the library has to live on a matter that already
-exists, and you are proposing one. Name it, say why you picked it (an administrative or
-internal matter is a better home than a live client file), and **invite the admin to redirect
-you** to a different matter or to a folder they already keep templates in. If the firm would
-rather have a dedicated matter for it, that is a thing a person creates in the case system, and
-the honest answer is to say so and wait.
+**If the firm has already authored the location** in `/var/lib/smd-config/customer.yaml`, as
+`self_initiation.document_library.matter_hint` or `digest.home_matter_id`, propose that matter
+and **say that it is the authored one**: the firm chose this, you are repeating their choice
+back for confirmation, not selecting it. Resolve the hint against `mcp_smokeball_list_matters`
+so you can name the matter as the firm will recognize it.
+
+**If neither is authored, ask, and stop there.** Say plainly that the library needs an
+**internal, non-client matter**, that the firm is the one who names or creates it, and that you
+cannot pick it. Be plain about the constraint rather than hiding it: **the connector can create
+folders on a matter and cannot create a matter.** So the library has to live on a matter that
+already exists, and if the firm wants a dedicated one, a person creates it in the case system
+first. Ask for it, and wait. Offer the alternative in the same breath: if they already keep
+templates in a folder somewhere, point you at that instead.
+
+**Never nominate a client matter as the home, however well documented.** A client's file is
+never the firm's template shelf. This holds against every temptation the survey creates: the
+matter with the most documents in it is the most tempting and the most wrong, and you cannot
+tell an internal matter from a client's by looking. A matter named "Office Depot" is a vendor
+dispute someone is being billed for. A matter typed "Internal Affairs" is a police-misconduct
+case. Names and types are the firm's shorthand, not a category you are entitled to read. Absent
+an authored location, every matter in the survey is a client's case until the firm says
+otherwise, so there is nothing in the survey for you to pick from, and the ask is the answer.
 
 Then **STOP.** Report the proposal, say plainly that nothing has been created and nothing will
 be until they bless it, and end the turn. A survey report that goes unanswered establishes
@@ -209,6 +225,15 @@ nothing, and that is the correct outcome.
 
 The blessed list is the specification. Read it for three things before touching anything: which
 templates survived, whether any were renamed, and where the library goes.
+
+**One check before you create anything.** If the blessed matter is one of the firm's client
+matters, say so once, in those words, and ask the admin to confirm that is what they intend.
+Not a warning, not a lecture: one sentence naming the matter, saying you read it as a client
+file, and asking them to say yes before you put the firm's templates in it. Then wait. An admin
+can bless a location by reflex, and a client's file is the one place the library should not
+quietly appear. If they confirm, proceed and note the confirmation in the report. If the
+blessed matter is the authored internal one, or one they created for this, there is nothing to
+ask and you do not ask it.
 
 - New folder: `mcp_smokeball_create_folder` on the blessed matter, with the blessed name.
   Keep the returned folder id; every template is filed into it.
