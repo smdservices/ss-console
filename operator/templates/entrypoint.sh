@@ -676,6 +676,16 @@ SMD_GATEWAY_LIVENESS_KILL_VERIFY_SECONDS="${SMD_GATEWAY_LIVENESS_KILL_VERIFY_SEC
 # precede. wrangler.toml carries the same sentence.
 install -d -o root -g root -m 0755 "${GATEWAY_LIVENESS_RUN_DIR}"
 install -d -o root -g root -m 0755 "${GATEWAY_LIVENESS_LEDGER_DIR}"
+# Converge the ledger FILE's mode every boot, not only at creation. The volume
+# persists, so a seat that restarted under the 0700/umask-027 first cut carries
+# a 0640 `kills` forever; `install -m 0644` on creation never re-runs for it.
+# Found live on hermes-scott 2026-08-21: the gate read "Permission denied" and
+# shipped gateway_restarts_last_hour as absent -- a hold, so not dangerous, but
+# the one field a restart cannot race was silently missing. A reconciler, not a
+# sweep (CLAUDE.md "prefer structural fixes"): every boot makes the layer
+# converge on authored state. `|| true` because a missing file is the normal
+# first-boot case and `set -e` is live here.
+chmod 0644 "${GATEWAY_LIVENESS_LEDGER_DIR}/kills" 2>/dev/null || true
 # The supervisor's state machine, one word, rewritten on every transition so the
 # gate (and boot-smoke) can tell an ARMED supervisor from one that is inert,
 # not-watching this pin, or refusing further restarts. Same loud-not-silent

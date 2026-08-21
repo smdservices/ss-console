@@ -373,3 +373,88 @@ describe('connector health signals (ADR 0080)', () => {
     expect(health.color).toBe('red')
   })
 })
+
+describe('gateway loop + supervisor signals (ss#2488 part 2)', () => {
+  const base = { ok: 1, maxOverdueSeconds: null, connectorCheckOk: 1, cronContainment: 0 }
+
+  it('a wedged loop is red and outranks every other note, including the breaker', () => {
+    // The Operator is not answering on any channel. That is worse than a
+    // breaker stop, which at least leaves a seat that can explain itself.
+    const health = rosterHealth('green', '20s ago', null, 'HARD_STOP', {
+      ...base,
+      gatewayLoopOk: 1,
+      gatewayLoopAgeSeconds: 400,
+    })
+    expect(health.color).toBe('red')
+    expect(health.note).toBe('gateway loop wedged (Operator not answering)')
+  })
+
+  it('ok=1 with a NULL age is NOT a wedge (arming latch / boot suppression)', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ...base,
+      gatewayLoopOk: 1,
+      gatewayLoopAgeSeconds: null,
+    })
+    expect(health.color).toBe('green')
+    expect(health.note).toBeNull()
+  })
+
+  it('a fresh beat leaves the dot green', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ...base,
+      gatewayLoopOk: 1,
+      gatewayLoopAgeSeconds: 7,
+    })
+    expect(health.color).toBe('green')
+  })
+
+  it('ok=0 is attention-yellow, named as unreadable, never as a wedge', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ...base,
+      gatewayLoopOk: 0,
+      gatewayLoopAgeSeconds: 5,
+    })
+    expect(health.color).toBe('yellow')
+    expect(health.note).toBe('gateway loop heartbeat unreadable')
+  })
+
+  it('a refusing supervisor is red and names the human', () => {
+    const health = rosterHealth('green', '20s ago', null, null, {
+      ...base,
+      gatewaySupervisorState: 'refusing',
+    })
+    expect(health.color).toBe('red')
+    expect(health.note).toBe('seat supervisor stopped restarting (needs a human)')
+  })
+
+  it('inert and not-watching are attention-yellow: self-recovery is silently absent', () => {
+    for (const state of ['inert', 'not-watching']) {
+      const health = rosterHealth('green', '20s ago', null, null, {
+        ...base,
+        gatewaySupervisorState: state,
+      })
+      expect(health.color, state).toBe('yellow')
+      expect(health.note, state).toBe('seat supervisor cannot act (a wedge would not self-recover)')
+    }
+  })
+
+  it('armed / not-armed / NULL participate in nothing', () => {
+    for (const state of ['armed', 'not-armed', null]) {
+      const health = rosterHealth('green', '20s ago', null, null, {
+        ...base,
+        gatewaySupervisorState: state,
+      })
+      expect(health.color, String(state)).toBe('green')
+      expect(health.note, String(state)).toBeNull()
+    }
+  })
+
+  it('escalate-only: a wedge cannot be calmed, and NULL cannot calm a red seat', () => {
+    const red = rosterHealth('red', 'stale 12m', null, null, {
+      ...base,
+      gatewayLoopOk: 1,
+      gatewayLoopAgeSeconds: 7,
+    })
+    expect(red.color).toBe('red')
+  })
+})

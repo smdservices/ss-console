@@ -16,6 +16,8 @@
  * and derives the offset with `length(?) + 1`. There is no third place to update.
  */
 
+import type { FleetCondition } from './index'
+
 /** Per-MCP-server outage (ADR 0080 / ss#1990). Payload: the server name. */
 export const CONNECTOR_DOWN_PREFIX = 'connector_down:'
 
@@ -45,4 +47,38 @@ export const CONDITION_PREFIXES = [
  */
 export function conditionPayload(condition: string, prefix: string): string | null {
   return condition.startsWith(prefix) ? condition.slice(prefix.length) : null
+}
+
+/**
+ * Human labels for the unprefixed conditions; the prefixed classes are labelled
+ * in conditionLabel() from their payload. Moved here from index.ts when that
+ * file crossed the 500-line ceiling (ss#2488 part 2) -- the labels depend on
+ * the prefix constants above, so this is where they belong anyway.
+ */
+const CONDITION_LABEL: Record<string, string> = {
+  heartbeat_red: 'Machine not heartbeating',
+  hard_stop: 'Cost breaker HARD_STOP',
+  scheduler_error: 'Cron scheduler broken/unreadable',
+  work_overdue: 'Scheduled work not firing',
+  connector_check_error: 'Connector health check broken (outages not counted)',
+  spec_control_unprovable: 'Authored-spec manifest unreadable (spec health unknown)',
+  webhook_surface_unprovable: 'Webhook tool surface unresolvable (warn-tier health unknown)',
+  gateway_loop_wedged: 'Gateway event loop wedged (Operator not answering)',
+  gateway_loop_unprovable: 'Gateway loop heartbeat unreadable (loop health unknown)',
+  gateway_restarted: 'Seat supervisor restarted the gateway',
+  gateway_supervisor_refusing: 'Seat supervisor STOPPED restarting (budget spent, needs a human)',
+  gateway_supervisor_inert: 'Seat supervisor cannot act (wedge would not self-recover)',
+}
+
+/** Label lookup with the per-connector prefix form (ADR 0080). */
+export function conditionLabel(condition: FleetCondition): string {
+  const down = conditionPayload(condition, CONNECTOR_DOWN_PREFIX)
+  if (down !== null) return `Connector failing: ${down}`
+  const expiring = conditionPayload(condition, CONNECTOR_TOKEN_EXPIRING_PREFIX)
+  if (expiring !== null) return `Connector credential expiring: ${expiring}`
+  const spec = conditionPayload(condition, SPEC_CONTROL_BROKEN_PREFIX)
+  if (spec !== null) return `Authored spec declared but not installed: ${spec}`
+  const tool = conditionPayload(condition, WEBHOOK_SURFACE_MISSING_PREFIX)
+  if (tool !== null) return `Webhook tool expected but not offered: ${tool}`
+  return CONDITION_LABEL[condition] ?? condition
 }

@@ -930,7 +930,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // v0.19 mcp__server__tool rename at the fan-out (without it a v0.20 seat refuses
     // every connector tool); #282 is the matter-mixing read fence, carried along
     // because it merged to overlay main between the two bumps.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7a8ba42f11515e1856fc1ef13ab2f93a949d15b6"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d35e0b09bd49c4eab949b932508e5b17205d87c6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

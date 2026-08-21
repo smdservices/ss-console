@@ -648,7 +648,23 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the close_list line fails exactly 3 of the 6 new tests while the other 13 pass.
 # Files: shared/report_render.py, tests/test_report_render.py -- NOT tracked
 # pairs; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="7a8ba42f11515e1856fc1ef13ab2f93a949d15b6"
+#
+# 7a8ba42 -> d35e0b0 (overlay #293, ss#2488 part 2): the webhook gate ships the
+# gateway's loop-pulse age and the part-1 supervisor's state on the control-plane
+# heartbeat (gateway_loop_ok, gateway_loop_age_seconds, gateway_supervisor_state,
+# gateway_restarts_last_hour; shared/gateway_loop_check.py + shared/heartbeat.py).
+# The gate is the one process on the seat that survives a gateway wedge, which is
+# exactly why every liveness signal stayed green for 33 minutes on 2026-08-20 --
+# and exactly why it can be the process that reports one. Two signals because one
+# is racable: the part-1 restart also refreshes the heartbeat, so an age-only
+# alert can be overwritten before the console's 2-minute cron samples it; the
+# kill-ledger count cannot be. Arming latch mirrors part 1 (a stale beat from the
+# previous boot is on the volume at every cold start and must not page on deploy).
+# Consumer side: migration 0107, heartbeat.ts, fleet-alerts gateway-loop.ts, the
+# admin roster. Files: shared/gateway_loop_check.py (new), shared/heartbeat.py,
+# contracts/consumes.yaml, tests -- NOT tracked pairs; every overlaySha256
+# unchanged, only overlayRef.
+ARG OVERLAY_REF="d35e0b09bd49c4eab949b932508e5b17205d87c6"
 
 ARG CUSTOMER_SLUG=customer-zero
 
