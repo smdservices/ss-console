@@ -276,6 +276,15 @@ ssh_exec "gateway-liveness-supervisor-ticking" "t=/run/smd-gateway-liveness/tick
 # the state it did see, so a red run says WHICH wrong state, not just "failed".
 ssh_exec "gateway-liveness-supervisor-armed" "n=0; while [ \$n -lt 36 ]; do s=\$(head -c 16 /run/smd-gateway-liveness/state 2>/dev/null); [ \"\$s\" = armed ] && exit 0; n=\$((n+1)); sleep 5; done; echo supervisor-state=\$s >&2; exit 1"
 
+# Part 2 ships these three files on the heartbeat FROM THE GATE, which is the
+# hermes uid. Run the read AS hermes, because "root can read it" proves nothing
+# about the only process that needs to. Found live on hermes-scott 2026-08-21: a
+# ledger written under the first cut's umask was 0640, the gate got Permission
+# denied, and the field went absent (a hold) with every root-side check green.
+# An absent ledger FILE passes (first boot, no kills yet); a present-but-unreadable
+# one fails. tick and state must exist by this point (the two checks above).
+ssh_exec "gateway-liveness-files-readable-by-gate" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"head -c 1 /run/smd-gateway-liveness/state >/dev/null && head -c 0 /run/smd-gateway-liveness/tick && { [ ! -e /opt/data/gateway-liveness/kills ] || head -c 0 /opt/data/gateway-liveness/kills; }\""
+
 # The supervisor is only as good as the signal it reads, and that signal is
 # UPSTREAM's: an asyncio task on the gateway loop rewrites this file every 30s.
 # This check is the tripwire for the whole mechanism rotting silently. The path

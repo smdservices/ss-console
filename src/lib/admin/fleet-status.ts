@@ -71,6 +71,14 @@ export interface FleetStatusRow {
    * broken one, and before this column they looked identical.
    */
   audit_write_failures: number | null
+  /** ss#2488 part 2: 1 = the seat's loop check could look / 0 could not / NULL unreported. */
+  gateway_loop_ok: number | null
+  /** Seconds since the gateway event loop last beat; NULL = hold (latch, no heartbeat, boot). */
+  gateway_loop_age_seconds: number | null
+  /** Part-1 supervisor state: armed | not-armed | inert | not-watching | refusing; NULL unreported. */
+  gateway_supervisor_state: string | null
+  /** Supervisor kill-ledger lines inside the last hour; NULL unreported. */
+  gateway_restarts_last_hour: number | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -84,6 +92,8 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
               scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
               connectors_json, connector_check_ok, cron_containment,
               audit_write_failures,
+              gateway_loop_ok, gateway_loop_age_seconds,
+              gateway_supervisor_state, gateway_restarts_last_hour,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`
