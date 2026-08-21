@@ -60,7 +60,7 @@ def test_the_fence_is_not_a_flag(capsys):
     assert "is not a sandbox seat" in capsys.readouterr().err
 
 
-def test_a_dry_run_transmits_nothing(monkeypatch, capsys):
+def test_a_dry_run_transmits_nothing(monkeypatch, capsys, authored_staging):
     def explode(*_a, **_k):  # pragma: no cover - must never be reached
         raise AssertionError("a dry run reached the network")
 
@@ -111,6 +111,24 @@ _STAGING_CONFIG = {
 }
 
 
+@pytest.fixture
+def authored_staging(monkeypatch):
+    """Pin ``_seat_config`` for the tests that exercise ``main()``.
+
+    Those tests assert argument handling, the dry-run contract and the plant
+    path. None of them is about what ``smd-staging`` currently authors -- yet
+    reading the live customer.yaml made them depend on it, and parking that
+    seat's msgraph connector on 2026-08-21 (the M365 licences are not being
+    retained) turned six unrelated unit tests red. A unit test of this tool
+    should not move when an operator parks a connector.
+
+    The yaml-reading path keeps its own direct coverage: ``guard`` is tested
+    against the real allowlist above, and ``read_credential`` is tested against
+    ``_STAGING_CONFIG`` below.
+    """
+    monkeypatch.setattr(kill, "_seat_config", lambda slug: dict(_STAGING_CONFIG))
+
+
 class _Created:
     def __init__(self, payload):
         self._payload = json.dumps(payload).encode()
@@ -154,7 +172,7 @@ def _clear_graph_env(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
-def test_plant_is_not_the_default_mode(monkeypatch, capsys):
+def test_plant_is_not_the_default_mode(monkeypatch, capsys, authored_staging):
     """The original invocation keeps its original meaning. A mode flag that
     changes what an unchanged command line does is a trap, not a feature."""
     monkeypatch.setattr(kill, "mint_token", lambda *_a, **_k: "tok")
@@ -167,7 +185,7 @@ def test_plant_is_not_the_default_mode(monkeypatch, capsys):
     assert "mode=send" in capsys.readouterr().out
 
 
-def test_both_modes_parse_and_an_invented_mode_does_not(capsys):
+def test_both_modes_parse_and_an_invented_mode_does_not(capsys, authored_staging):
     """A typo'd mode must not fall through to a default that transmits."""
     assert kill.main(["--seat", "smd-staging", "--mode", "plant"]) == 0
     assert "mode plant" in capsys.readouterr().out
@@ -189,7 +207,7 @@ def test_the_paying_firms_seat_is_refused_in_plant_mode_too(capsys):
     assert "is not a sandbox seat" in capsys.readouterr().err
 
 
-def test_a_plant_dry_run_reaches_no_network(monkeypatch, capsys):
+def test_a_plant_dry_run_reaches_no_network(monkeypatch, capsys, authored_staging):
     def explode(*_a, **_k):  # pragma: no cover - must never be reached
         raise AssertionError("a dry run reached the network")
 
@@ -325,7 +343,7 @@ def test_there_is_no_fallback_for_the_secret(monkeypatch):
     assert "MSGRAPH_CLIENT_SECRET" in str(exc.value)
 
 
-def test_plant_never_asks_for_the_send_credential(monkeypatch):
+def test_plant_never_asks_for_the_send_credential(monkeypatch, authored_staging):
     """The whole reason plant exists is that smd-staging has no SEND app
     (ss#2467). If it reached for one it would refuse on the seat it was built
     for, and the falsifier would still have nowhere to run."""
@@ -343,7 +361,7 @@ def test_plant_never_asks_for_the_send_credential(monkeypatch):
     assert kill.main(["--seat", "smd-staging", "--mode", "plant", "--confirm"]) == 0
 
 
-def test_plant_prints_both_ids_so_the_baseline_entry_is_exact(monkeypatch, capsys):
+def test_plant_prints_both_ids_so_the_baseline_entry_is_exact(monkeypatch, capsys, authored_staging):
     """Send mode cannot do this -- Graph answers sendMail with 202 and no body.
     Plant gets the created message back, so the id is printed rather than hunted
     for by subject in a mailbox."""
