@@ -985,7 +985,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // while neither vocabulary declared them. NO tracked twin moves: none of the
     // nine overlayPaths is in the range, re-hashed at the new ref rather than
     // assumed (verify-overlay-pairs.py PASS 9/9).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="991044a84b9fbefd4e0ac94f002c7665b4e9dd22"')
+    // 991044a -> 07ed486 (2026-08-21, overlay#303 + #304 + #305): #304 is the ss#2529
+    // hotfix found on the pilot's first live proof: the confirmation matcher read
+    // the Operator's own prompt preamble as the person's words, and its "never"
+    // made every real "yes" read as a refusal. It now reads only the email body
+    // below the untrusted delimiter, with tests rendered from the real template.
+    // #303 and #305 are the operator-own-matter commitment confirm (a peer
+    // session's work, carried so the seats take one bump, not two). No tracked twin moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="07ed486fcbc388b2f4e906078bc6818e168804bb"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

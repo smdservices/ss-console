@@ -685,7 +685,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # other. Files: shared/citation_filter.py (a TRACKED pair; overlaySha256
 # re-recorded one-sided in overlay-pairs.json), shared/outbound_gate.py,
 # shared/provenance.py, tests.
-ARG OVERLAY_REF="991044a84b9fbefd4e0ac94f002c7665b4e9dd22"
+ARG OVERLAY_REF="07ed486fcbc388b2f4e906078bc6818e168804bb"
 
 ARG CUSTOMER_SLUG=customer-zero
 
