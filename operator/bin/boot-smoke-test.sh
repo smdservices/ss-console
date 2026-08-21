@@ -266,6 +266,16 @@ ssh_exec_script "broker-socket-answers-health" "setpriv --reuid=hermes --regid=h
 # invisible, an inherited `set -e` killing the subshell on its first failed probe.
 ssh_exec "gateway-liveness-supervisor-ticking" "t=/run/smd-gateway-liveness/tick; [ -f \$t ] && [ \$(( \$(date -u +%s) - \$(stat -c %Y \$t) )) -lt 90 ]"
 
+# Ticking proves the loop turns; it does not prove the loop ever found the
+# heartbeat and ARMED. A supervisor stuck on `inert` (argv unresolvable) or
+# `not-armed` (it has never seen a fresh beat) ticks identically to a healthy
+# one and would kill nothing. The state file is one word per transition, written
+# for exactly this question and for the gate to ship on the heartbeat (part 2).
+# Bounded wait: arming happens on the first poll AFTER the gateway's first beat,
+# which on 1 vCPU can land a minute or more into boot. The failing branch prints
+# the state it did see, so a red run says WHICH wrong state, not just "failed".
+ssh_exec "gateway-liveness-supervisor-armed" "n=0; while [ \$n -lt 36 ]; do s=\$(head -c 16 /run/smd-gateway-liveness/state 2>/dev/null); [ \"\$s\" = armed ] && exit 0; n=\$((n+1)); sleep 5; done; echo supervisor-state=\$s >&2; exit 1"
+
 # The supervisor is only as good as the signal it reads, and that signal is
 # UPSTREAM's: an asyncio task on the gateway loop rewrites this file every 30s.
 # This check is the tripwire for the whole mechanism rotting silently. The path
