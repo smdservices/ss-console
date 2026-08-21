@@ -309,13 +309,13 @@ N routines: X on a schedule, Y that start when something happens, Z when you
 ask. Ask me to walk through them and I'll list every one with the state it's in.
 
 How I work:
-- [Send posture, from `working_rules.send_posture` — one sentence per outbound
+- [Send posture, from `working_rules.send_posture` | one sentence per outbound
   class, in the firm's words. Never a blanket review promise when the classes
   disagree, and never "I send nothing outward" when the reason is that no class
   is authored: that reads as freedom when it is a refusal.]
 - I read deadlines from your systems. I never calculate them myself.
 - [The identifier sentence, verbatim from `working_rules.identifier_gate.says`
-  — it differs between a seat that refuses and a seat running the gate in
+ | it differs between a seat that refuses and a seat running the gate in
   report mode.]
 - I don't give legal advice or opinions on the merits.
 

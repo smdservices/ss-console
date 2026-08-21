@@ -36,7 +36,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 
 // Literal path constants (never interpolated) so the paths are auditable.
@@ -158,6 +158,40 @@ describe('setup-turn reply rules are pinned in skill prose', () => {
           `${SKILL_PATHS[skill]} models the shape the outbound citation filter reads as a ` +
             `court-case caption. Rewrite as "compared with" or restructure the sentence. ` +
             `Hits: ${JSON.stringify(hits)}`
+        ).toEqual([])
+      })
+    }
+  })
+
+  describe('no fenced report template carries a tier-1 fabrication marker', () => {
+    // The fixed-shape boards inside fenced blocks are what the model reproduces
+    // verbatim on the reply. On 2026-08-21 the self-initiation board header
+    // ("OPERATOR SELF-INITIATION | [seat] | [date]", then written with dashes)
+    // cost two refused drafts per turn on the A&P seat (tier1_marker em-dash)
+    // before the model substituted a pipe. Every operator skill is checked, not
+    // just the four setup ones: the introduce skill's rule template had the
+    // same dash.
+    const allSkills = readdirSync(resolve(__dirname, '..', 'operator', 'skills'), {
+      withFileTypes: true,
+    })
+      .filter((d) => d.isDirectory())
+      .map((d) => resolve(__dirname, '..', 'operator', 'skills', d.name, 'SKILL.md'))
+      .filter((f) => existsSync(f))
+    for (const file of allSkills) {
+      it(`${file.split('/operator/')[1]} fenced blocks have no em dash`, () => {
+        const fenced: string[] = []
+        let inFence = false
+        for (const line of readFileSync(file, 'utf-8').split('\n')) {
+          if (line.trim().startsWith('```')) {
+            inFence = !inFence
+            continue
+          }
+          if (inFence && line.includes('\u2014')) fenced.push(line)
+        }
+        expect(
+          fenced,
+          `${file}: a fenced template line carries an em dash; the model copies it and the ` +
+            `tier-1 fabrication marker refuses the draft. Use " | " or a comma.`
         ).toEqual([])
       })
     }
