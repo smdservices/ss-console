@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.error
 import urllib.parse
 from pathlib import Path
 
@@ -43,7 +44,9 @@ from workspace_broker.msgraph_auth import (  # noqa: E402
     seat_mailbox,
 )
 from workspace_broker.msgraph_ops import (  # noqa: E402
+    AUDIT_ROW_HEADER,
     MsGraphOps,
+    _audit_header_of,
     MsGraphRefused,
     MsGraphTransportError,
 )
@@ -127,16 +130,45 @@ class FakeGraph:
     """Records requests and replays canned responses; no network is touched.
 
     Answers the token mint, returns an empty body for ``sendMail``/``reply`` (Graph
-    really does answer 202 with nothing), and serves a source message for the
-    reply lane's independent sender fetch.
+    really does answer 202 with nothing), serves a source message for the reply
+    lane's independent sender fetch, and serves Sent Items for the ss#2499
+    lookup.
+
+    SENT ITEMS IS MODELLED, NOT STUBBED. It echoes back whatever
+    ``internetMessageHeaders`` the send actually put on the wire, so a test can
+    only find the message if the header really was stamped. A fixed canned
+    response would pass whether or not the header existed, which is the failure
+    mode of an instrument that cannot observe its own subject.
+
+    ``sent_items_status`` makes the folder read fail with an HTTP status, and
+    ``sent_items_misses`` makes it come back empty for the first N reads —
+    Graph accepts a send before the copy lands, and that race is what the
+    backoff exists for.
     """
 
-    def __init__(self, *, source_from: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        source_from: str | None = None,
+        conversation_id: str = "",
+        sent_items_status: int | None = None,
+        sent_items_misses: int = 0,
+        reply_rejects_headers: bool = False,
+        sent_items_conversation: str | None = None,
+    ) -> None:
         self.calls: list[tuple[str, str, dict | None]] = []
         #: (url, Authorization header) per Graph call — how the two-credential
         #: tests see WHICH app's token each request actually carried.
         self.auths: list[tuple[str, str]] = []
         self._source_from = source_from
+        self._conversation_id = conversation_id
+        self._sent_items_status = sent_items_status
+        self._sent_items_misses = sent_items_misses
+        self._reply_rejects_headers = reply_rejects_headers
+        self._sent_items_conversation = sent_items_conversation
+        #: Headers seen on the wire, oldest first — the folder replays these.
+        self.transmitted_headers: list[list[dict]] = []
+        self.sent_items_reads = 0
 
     def __call__(self, request, timeout=None):  # noqa: ANN001 - urllib signature
         url = request.full_url
@@ -157,12 +189,77 @@ class FakeGraph:
                 json.dumps({"access_token": f"tok-{client_id}", "expires_in": 3600})
             )
         self.auths.append((url, request.get_header("Authorization") or ""))
+        if request.method == "GET" and "/mailFolders/sentitems/messages" in url:
+            return self._sent_items()
         if request.method == "GET" and "/messages/" in url:
             return _Response(
-                json.dumps({"from": {"emailAddress": {"address": self._source_from or ""}}})
+                json.dumps(
+                    {
+                        "from": {"emailAddress": {"address": self._source_from or ""}},
+                        "conversationId": self._conversation_id,
+                    }
+                )
             )
+        if request.method == "POST":
+            self._record_transmit(url, body)
         # sendMail / reply: 202, no body.
         return _Response("")
+
+    def _record_transmit(self, url: str, body: dict | None) -> None:
+        """Remember what the message that just went out actually carried."""
+        message = (body or {}).get("message")
+        headers = message.get("internetMessageHeaders") if isinstance(message, dict) else None
+        if url.endswith("/reply") and self._reply_rejects_headers and headers:
+            raise urllib.error.HTTPError(url, 400, "Bad Request", {}, None)  # type: ignore[arg-type]
+        self.transmitted_headers.append(list(headers or []))
+
+    def _sent_items(self) -> _Response:
+        self.sent_items_reads += 1
+        if self._sent_items_status is not None:
+            raise urllib.error.HTTPError(
+                "sentitems", self._sent_items_status, "nope", {}, None
+            )  # type: ignore[arg-type]
+        if self.sent_items_reads <= self._sent_items_misses:
+            return _Response(json.dumps({"value": []}))
+        headers = self.transmitted_headers[-1] if self.transmitted_headers else []
+        if not headers:
+            return _Response(json.dumps({"value": []}))
+        return _Response(
+            json.dumps(
+                {
+                    "value": [
+                        # A neighbour, so a lookup that returns the first row
+                        # rather than the MATCHING one is visible.
+                        {
+                            "id": "AAMkNEIGHBOUR=",
+                            "internetMessageId": "<neighbour@opslab.example>",
+                            "internetMessageHeaders": [{"name": "x-other", "value": "no"}],
+                        },
+                        {
+                            "id": "AAMkSENTCOPY=",
+                            "internetMessageId": "<sent-copy@opslab.example>",
+                            # Re-cased on purpose: Exchange is free to, and a
+                            # case-sensitive compare would find nothing.
+                            "internetMessageHeaders": [
+                                {"name": h["name"].lower(), "value": h["value"]} for h in headers
+                            ],
+                            "conversationId": (
+                                self._sent_items_conversation
+                                if self._sent_items_conversation is not None
+                                else self._conversation_id
+                            ),
+                        },
+                    ]
+                }
+            )
+        )
+
+    def audit_token_on_the_wire(self) -> str:
+        """The ``X-SMD-Audit-Row`` value the last transmit actually carried."""
+        for header in self.transmitted_headers[-1] if self.transmitted_headers else []:
+            if header.get("name") == AUDIT_ROW_HEADER:
+                return str(header.get("value") or "")
+        return ""
 
     def graph_posts(self) -> list[tuple[str, str, dict | None]]:
         return [c for c in self.calls if c[0] == "POST" and not c[1].endswith("/token")]
@@ -204,6 +301,11 @@ def _ops(
         customer,
         read_credential_path=read_credential if with_read_credential else None,
         opener=http,
+        # The Sent Items lookup waits between attempts (Graph accepts a send
+        # before the copy lands). Injected as a no-op so the suite stays fast
+        # WITHOUT anyone being tempted to shrink the live backoff to a value the
+        # real mailbox cannot satisfy.
+        sleep=lambda _seconds: None,
     )
 
 
@@ -381,7 +483,28 @@ def test_unknown_payload_keys_never_reach_the_wire(tmp_path: Path) -> None:
         "ccRecipients",
         "bccRecipients",
         "replyTo",
+        # ss#2499. On the list because the BROKER puts it there, never a caller
+        # — the test below proves a caller cannot.
+        "internetMessageHeaders",
     }
+
+
+def test_a_caller_cannot_stamp_its_own_audit_header(tmp_path: Path) -> None:
+    """The header is the key the reconciler treats as exact. A caller that could
+    set it could stamp this send with another send's audit key, and the ledger
+    would then hold two rows claiming one message."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    ops.send(
+        {
+            "to": ["scott@smd.services"],
+            "body_text": "x",
+            "internetMessageHeaders": [{"name": AUDIT_ROW_HEADER, "value": "FORGED"}],
+        }
+    )
+    _m, _u, body = http.graph_posts()[0]
+    assert "FORGED" not in json.dumps(body)
+    assert http.audit_token_on_the_wire() and http.audit_token_on_the_wire() != "FORGED"
 
 
 def test_a_202_with_no_body_is_success_not_a_parse_error(tmp_path: Path) -> None:
@@ -445,10 +568,17 @@ def test_reply_fetches_with_the_read_token_and_posts_with_the_send_token(
     http = FakeGraph(source_from="scott@smd.services")
     ops = _ops(tmp_path, http)
     ops.reply({"message_id": "AAMk123", "comment": "sure"})
-    auth_by_kind = {("GET" if "/messages/" in url and not url.endswith("/reply") else "POST"): auth
-                    for url, auth in http.auths}
-    assert auth_by_kind["GET"] == "Bearer tok-cid-read"
-    assert auth_by_kind["POST"] == "Bearer tok-cid-send"
+    # Classified by URL, not by method: ss#2499 added a THIRD call (the Sent
+    # Items read), which is a GET on the read token, and a rule that lumped it
+    # in with the sender fetch would let a regression on either hide behind the
+    # other.
+    auth_by_url = dict(http.auths)
+    fetch = next(u for u in auth_by_url if "/messages/AAMk123?" in u)
+    post = next(u for u in auth_by_url if u.endswith("/reply"))
+    lookup = next(u for u in auth_by_url if "/mailFolders/sentitems/messages" in u)
+    assert auth_by_url[fetch] == "Bearer tok-cid-read"
+    assert auth_by_url[post] == "Bearer tok-cid-send"
+    assert auth_by_url[lookup] == "Bearer tok-cid-read"
 
 
 def test_reply_mints_two_distinct_tokens(tmp_path: Path) -> None:
@@ -458,13 +588,22 @@ def test_reply_mints_two_distinct_tokens(tmp_path: Path) -> None:
     assert sorted(http.token_client_ids()) == ["cid-read", "cid-send"]
 
 
-def test_send_mints_exactly_one_token_and_it_is_the_send_apps(tmp_path: Path) -> None:
-    """send() is untouched by the two-credential split: one mint, the send app's."""
+def test_the_send_itself_rides_the_send_app_and_the_lookup_the_read_app(
+    tmp_path: Path,
+) -> None:
+    """The transmit is still the send app's, alone. ss#2499 adds a Sent Items
+    read afterwards, and that one MUST be the read app's — the send app holds
+    ``Mail.Send`` only (overlay#280) and would 403 on a folder listing, so a
+    lookup on the send token could never work on a real two-app seat."""
     http = FakeGraph()
     ops = _ops(tmp_path, http)
     ops.send({"to": ["scott@smd.services"], "body_text": "x"})
-    assert http.token_client_ids() == ["cid-send"]
-    assert http.auths[0][1] == "Bearer tok-cid-send"
+    assert sorted(http.token_client_ids()) == ["cid-read", "cid-send"]
+    by_url = dict(http.auths)
+    transmit = next(u for u in by_url if u.endswith("/sendMail"))
+    lookup = next(u for u in by_url if "/mailFolders/sentitems/messages" in u)
+    assert by_url[transmit] == "Bearer tok-cid-send"
+    assert by_url[lookup] == "Bearer tok-cid-read"
 
 
 def test_reply_fails_closed_without_a_read_credential(tmp_path: Path) -> None:
@@ -535,11 +674,29 @@ _MULTILINE = "Line one.\n\nLine two."
 _RENDERED = "<div><p>Line one.</p><p>Line two.</p></div>"
 
 
+def _without_audit_header(body: dict | None) -> dict:
+    """The reply body as it was BEFORE ss#2499 added its one header.
+
+    The tests below are about the ss#2489 body shape — html vs comment, and the
+    fact that the two are mutually exclusive. Rewriting each of them to carry the
+    audit header inline would bury the property each one exists to pin. Stripping
+    the header here keeps those assertions exact and leaves "is the header on the
+    wire" to the tests that are actually about that.
+    """
+    out = json.loads(json.dumps(body or {}))
+    message = out.get("message")
+    if isinstance(message, dict):
+        message.pop("internetMessageHeaders", None)
+        if not message:
+            out.pop("message")
+    return out
+
+
 def test_reply_sends_an_html_body_when_one_was_rendered(tmp_path: Path) -> None:
     http = FakeGraph(source_from="scott@smd.services")
     ops = _ops(tmp_path, http)
     ops.reply({"message_id": "AAMk123", "comment": _MULTILINE, "html": _RENDERED})
-    body = http.graph_posts()[0][2]
+    body = _without_audit_header(http.graph_posts()[0][2])
     assert body == {"message": {"body": {"contentType": "HTML", "content": _RENDERED}}}
 
 
@@ -561,7 +718,7 @@ def test_reply_without_html_is_byte_identical_to_today(tmp_path: Path) -> None:
     http = FakeGraph(source_from="scott@smd.services")
     ops = _ops(tmp_path, http)
     ops.reply({"message_id": "AAMk123", "comment": "sure"})
-    assert http.graph_posts()[0][2] == {"comment": "sure"}
+    assert _without_audit_header(http.graph_posts()[0][2]) == {"comment": "sure"}
 
 
 def test_reply_accepts_an_html_only_body(tmp_path: Path) -> None:
@@ -569,7 +726,7 @@ def test_reply_accepts_an_html_only_body(tmp_path: Path) -> None:
     http = FakeGraph(source_from="scott@smd.services")
     ops = _ops(tmp_path, http)
     ops.reply({"message_id": "AAMk123", "html": _RENDERED})
-    assert http.graph_posts()[0][2] == {
+    assert _without_audit_header(http.graph_posts()[0][2]) == {
         "message": {"body": {"contentType": "HTML", "content": _RENDERED}}
     }
 
@@ -970,3 +1127,330 @@ def test_the_sender_key_matches_the_overlay_recipe(tmp_path: Path) -> None:
     assert sender_key("Scott Durgan <scott@smd.services>") == sender_key("scott@smd.services")
     assert sender_key("") is None
     assert sender_key(None) is None
+
+
+# ---------------------------------------------------------------------------
+# ss#2499 — the message can be found again
+#
+# Graph answers both verbs 202 with no body, so every msgraph audit row carried
+# an empty id: 9 of 9 CONFIRM_SEND_DISPATCHED and 8 of 8 REPLY_SENT on the live
+# A&P ledger (vfy_01M0H8DR6JAPYVHFMNJZXQZ517). A row that cannot be joined to
+# the mailbox cannot answer "is this send one of yours?", which is the only
+# question an audit log is asked about a message nobody expected.
+#
+# Two joins come out of this, and the second is the one that survives a bad day:
+# the vendor id when the lookup worked, and the header itself always, because it
+# is ON THE MESSAGE and the console-side reconciler reads it from the mailbox.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "wire_name",
+    ["X-SMD-Audit-Row", "x-smd-audit-row", "X-SMD-AUDIT-ROW", "x-SMD-audit-ROW"],
+)
+def test_the_header_is_recognised_whatever_case_it_comes_back_in(wire_name: str) -> None:
+    """RFC5322 makes header names case-insensitive and Exchange re-cases them
+    freely. A case-sensitive read would find nothing and look like a message that
+    never carried the header — a broken instrument wearing a clean result.
+
+    Asserted over the helper rather than through a send, because the fake mailbox
+    can only replay ONE casing and a test that pins that casing pins the fixture
+    rather than the property."""
+    assert (
+        _audit_header_of({"internetMessageHeaders": [{"name": wire_name, "value": "01ABC"}]})
+        == "01ABC"
+    )
+
+
+def test_a_foreign_header_is_not_read_as_the_audit_one() -> None:
+    """The other half: case-insensitive must not mean loose."""
+    assert (
+        _audit_header_of(
+            {"internetMessageHeaders": [{"name": "x-ms-exchange-crosstenant", "value": "01ABC"}]}
+        )
+        == ""
+    )
+
+
+def test_every_send_carries_an_audit_header(tmp_path: Path) -> None:
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    _m, _u, body = http.graph_posts()[0]
+    assert body["message"]["internetMessageHeaders"] == [
+        {"name": AUDIT_ROW_HEADER, "value": result["audit_row_token"]}
+    ]
+
+
+def test_the_header_value_is_the_token_written_onto_the_row(tmp_path: Path) -> None:
+    """The whole join in one assertion: what went out on the wire is what the
+    audit row will claim. A token minted twice — once for the header, once for
+    the result — would pass every other test in this file and join nothing."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert http.audit_token_on_the_wire() == result["audit_row_token"] != ""
+
+
+def test_two_sends_carry_two_different_tokens(tmp_path: Path) -> None:
+    """A constant token would join every send to every row — an exact match that
+    is always right and never useful."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    first = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    second = ops.send({"to": ["scott@smd.services"], "body_text": "y"})
+    assert first["audit_row_token"] != second["audit_row_token"]
+
+
+def test_the_send_learns_both_ids_from_sent_items(tmp_path: Path) -> None:
+    """Law 12 control for every failure test below: the lookup can succeed."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert result["vendor_message_id"] == "<sent-copy@opslab.example>"
+    assert result["graph_message_id"] == "AAMkSENTCOPY="
+    assert result["lookup"] == "ok"
+
+
+def test_the_lookup_selects_the_header_field_and_bounds_itself(tmp_path: Path) -> None:
+    """``internetMessageHeaders`` is not returned unless it is SELECTED by name,
+    so an unselected lookup finds nothing and looks like an unstamped mailbox."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    url = next(u for u, _a in http.auths if "/mailFolders/sentitems/messages" in u)
+    assert "internetMessageHeaders" in url
+    assert "$top=" in url
+    assert f"/users/{MAILBOX}/mailFolders/sentitems/messages" in url
+
+
+def test_the_lookup_reads_only_this_seats_mailbox(tmp_path: Path) -> None:
+    """4.6: the read surface is one mailbox. Every Graph path this process builds
+    is rooted at the pinned address, and the folder read is no exception."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    for url, _auth in http.auths:
+        assert f"/users/{MAILBOX}/" in url
+
+
+def test_the_lookup_takes_the_matching_message_not_the_newest(tmp_path: Path) -> None:
+    """The folder's first row is a neighbour with a different header. A lookup
+    that returned ``value[0]`` would attach some other message's id to this row —
+    an id that is present, wrong, and indistinguishable from a right one."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert result["vendor_message_id"] != "<neighbour@opslab.example>"
+
+
+def test_the_lookup_retries_while_the_copy_is_still_landing(tmp_path: Path) -> None:
+    """Graph ACCEPTS a send before the Sent Items copy exists, so the first read
+    can legitimately come back empty. Giving up there would report a lookup
+    failure on a perfectly ordinary send."""
+    http = FakeGraph(sent_items_misses=2)
+    ops = _ops(tmp_path, http)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert result["lookup"] == "ok"
+    assert http.sent_items_reads == 3
+
+
+def test_a_lookup_failure_is_recorded_and_never_raised(tmp_path: Path) -> None:
+    """The message is already gone. Raising here would tell the caller its send
+    failed when it did not, and a caller that retries a delivered message sends
+    it twice — trading a missing id for a duplicate message to a client."""
+    http = FakeGraph(sent_items_status=403)
+    ops = _ops(tmp_path, http)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert result["lookup"].startswith("failed:") and "403" in result["lookup"]
+    # No id is claimed, and no empty one is invented either: the row records the
+    # reason instead, which is the difference between "we could not find it" and
+    # the silent blank this issue exists to end.
+    assert "vendor_message_id" not in result and "graph_message_id" not in result
+    # The join that survives it: the header went out regardless, so the mailbox
+    # side of the reconciliation still works.
+    assert http.audit_token_on_the_wire() == result["audit_row_token"] != ""
+
+
+def test_a_seat_with_no_read_credential_records_that_it_could_not_look(
+    tmp_path: Path,
+) -> None:
+    """Distinct from a failed lookup: nothing was wrong with the mailbox, this
+    seat has no credential to read it with. A shared wording would make a
+    single-app seat look like a mailbox that lost a message."""
+    http = FakeGraph()
+    ops = _ops(tmp_path, http, with_read_credential=False)
+    result = ops.send({"to": ["scott@smd.services"], "body_text": "x"})
+    assert result["lookup"].startswith("skipped:")
+    assert http.sent_items_reads == 0
+
+
+def test_a_reply_carries_the_header_and_learns_its_ids(tmp_path: Path) -> None:
+    http = FakeGraph(source_from="scott@smd.services", conversation_id="AAQkCONV=")
+    ops = _ops(tmp_path, http)
+    result = ops.reply({"message_id": "AAMk123", "html": _RENDERED})
+    assert http.audit_token_on_the_wire() == result["audit_row_token"] != ""
+    assert result["vendor_message_id"] == "<sent-copy@opslab.example>"
+    assert result["lookup"] == "ok"
+
+
+def test_a_bare_comment_reply_carries_the_header_beside_the_comment(
+    tmp_path: Path,
+) -> None:
+    """Headers only, never a body: ``comment`` and ``message.body`` are the pair
+    Graph answers 400 to, and that exclusion is about the BODY, not about the
+    message object."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    body = http.graph_posts()[0][2] or {}
+    assert body["comment"] == "sure"
+    assert set(body["message"]) == {"internetMessageHeaders"}
+
+
+def test_a_reply_refused_the_header_is_re_sent_unstamped_and_says_so(
+    tmp_path: Path,
+) -> None:
+    """The honest fallback. ``message`` beside ``comment`` is documented but has
+    never been observed on this tenant's wire, and the reply lane is client
+    facing. A 400 means Graph rejected the BODY and sent nothing, so the reply
+    goes out unstamped rather than failing — and the row says exactly that,
+    because a silently unstamped send is the state this issue exists to end."""
+    http = FakeGraph(source_from="scott@smd.services", reply_rejects_headers=True)
+    ops = _ops(tmp_path, http)
+    result = ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    # The reply still reached the firm.
+    assert [u for _m, u, _b in http.graph_posts() if u.endswith("/reply")]
+    assert http.transmitted_headers[-1] == []
+    assert result["audit_row_token"] == ""
+    assert "HTTP 400" in result["lookup"]
+
+
+def test_a_non_400_reply_failure_still_propagates(tmp_path: Path) -> None:
+    """The falsifier for the fallback above. A 500 or a timeout may have
+    delivered, so re-sending would risk the same message twice; only a 400 is
+    known to have sent nothing."""
+    http = FakeGraph(source_from="scott@smd.services")
+    ops = _ops(tmp_path, http)
+    original = http._record_transmit
+    attempts: list[str] = []
+
+    def explode(url, body):  # noqa: ANN001 - test double
+        # ONCE, not always. A double that failed every attempt would let a
+        # "retry everything" implementation pass this test by failing its retry
+        # too — the mutation would be invisible behind the double.
+        if url.endswith("/reply") and not attempts:
+            attempts.append(url)
+            raise urllib.error.HTTPError(url, 503, "nope", {}, None)  # type: ignore[arg-type]
+        original(url, body)
+
+    http._record_transmit = explode  # type: ignore[method-assign]
+    with pytest.raises(MsGraphTransportError):
+        ops.reply({"message_id": "AAMk123", "comment": "sure"})
+
+
+def test_a_reply_lookup_reports_a_conversation_disagreement(tmp_path: Path) -> None:
+    """The conversationId is a cross-check on an exact match, never the match
+    itself. It cannot be silently preferred, and it cannot be silently ignored."""
+    http = FakeGraph(
+        source_from="scott@smd.services",
+        conversation_id="AAQkCONV=",
+        sent_items_conversation="AAQkSOMETHINGELSE=",
+    )
+    ops = _ops(tmp_path, http)
+    result = ops.reply({"message_id": "AAMk123", "html": _RENDERED})
+    assert result["lookup"].startswith("ok:") and "different conversation" in result["lookup"]
+
+
+def test_the_sender_fetch_selects_the_conversation_it_will_cross_check(
+    tmp_path: Path,
+) -> None:
+    http = FakeGraph(source_from="scott@smd.services", conversation_id="AAQkCONV=")
+    ops = _ops(tmp_path, http)
+    ops.reply({"message_id": "AAMk123", "comment": "sure"})
+    fetch = next(u for u, _a in http.auths if "/messages/AAMk123?" in u)
+    assert "conversationId" in fetch and "from" in fetch
+
+
+def test_the_send_row_carries_the_message_identity(tmp_path: Path) -> None:
+    """The row a firm reads. Before ss#2499 this was ``message_id: ''`` on 9 of 9
+    live rows, which is why the reconciler had nothing to join on.
+
+    FALSIFIER: drop ``vendor_message_id`` from ``_OPS_AUDIT_KEYS`` and this fails
+    while every other row assertion in the file stays green."""
+    broker = _broker(tmp_path, FakeGraph())
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    meta = _meta(broker)
+    assert meta["vendor_message_id"] == "<sent-copy@opslab.example>"
+    assert meta["graph_message_id"] == "AAMkSENTCOPY="
+    assert meta["lookup"] == "ok"
+    assert meta["audit_row_token"]
+
+
+def test_the_row_records_a_failed_lookup_rather_than_a_blank_id(tmp_path: Path) -> None:
+    """A blank id and an unrecorded failure look identical from outside, and the
+    second one is the state ss#2499 exists to end."""
+    broker = _broker(tmp_path, FakeGraph(sent_items_status=500))
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    meta = _meta(broker)
+    assert meta["lookup"].startswith("failed:")
+    assert "vendor_message_id" not in meta
+    # And the row is STILL joinable, from the header on the message itself.
+    assert meta["audit_row_token"]
+
+
+def test_the_audit_token_never_travels_back_to_the_agent(tmp_path: Path) -> None:
+    """It is the key the reconciler treats as exact. An agent that learned this
+    send's token could stamp a later message with it and hide the later one
+    behind this row. The vendor ids DO go back — they are the agent's own
+    message, and naming it to the firm is the point of resolving them."""
+    broker = _broker(tmp_path, FakeGraph())
+    response = broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    assert "audit_row_token" not in response and "sender_key" not in response
+    assert response["vendor_message_id"] == "<sent-copy@opslab.example>"
+    assert _meta(broker)["audit_row_token"]
+
+
+def test_an_agentmail_shaped_result_writes_exactly_the_row_it_writes_today(
+    tmp_path: Path,
+) -> None:
+    """The passthrough is a closed list of OPTIONAL keys, so the channel that
+    contributes none of them is untouched. Asserted at the dispatcher rather than
+    reasoned about, because "AgentMail is unaffected" is the kind of claim that
+    is true right up until someone copies a result wholesale."""
+    broker = _broker(tmp_path, FakeGraph())
+    broker._dispatch_transmit(
+        "agentmail_send",
+        {"payload": {"to": ["scott@smd.services"], "text": "hi"}},
+        send=lambda _p: {"message_id": "<am-1>", "recipients": ["scott@smd.services"],
+                         "inbox_id": "seat@agentmail.to"},
+        reply=lambda _p: {},
+        refused=MsGraphRefused,
+        transport=MsGraphTransportError,
+        attempted_for_send=lambda p: list(p.get("to") or []),
+        identity_key="inbox_id",
+    )
+    meta = _meta(broker)
+    assert meta["message_id"] == "<am-1>"
+    assert not [k for k in ("vendor_message_id", "audit_row_token", "lookup") if k in meta]

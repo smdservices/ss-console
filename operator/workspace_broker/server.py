@@ -99,6 +99,35 @@ class GrantStore:
         )
 
 
+#: What a transmit ops verb may contribute to its own audit row, by name.
+#: A closed list rather than "copy the result": the result is a vendor-shaped
+#: dict, and a wholesale copy would let a future field land in the ledger
+#: without anyone deciding it should.
+#:
+#: ``sender_key``       ss#2497 — who a reply answered, hashed.
+#: ``audit_row_token``  ss#2499 — the ULID stamped on the message as
+#:                      ``X-SMD-Audit-Row``. The join that survives a failed
+#:                      vendor-id lookup, because it is on the message itself.
+#: ``vendor_message_id`` ss#2497's field name for the provider's own id.
+#: ``graph_message_id`` the mailbox-local Graph id, which is what a Graph query
+#:                      addresses; the vendor id is the RFC2822 one, which is
+#:                      what survives outside the mailbox. Both, because a firm
+#:                      asking "is this ours?" may hold either.
+#: ``lookup``           whether that resolution succeeded, and why not. Recorded
+#:                      so a blank id is never mistaken for a mailbox that had
+#:                      nothing to find.
+_OPS_AUDIT_KEYS: tuple[str, ...] = (
+    "sender_key",
+    "audit_row_token",
+    "vendor_message_id",
+    "graph_message_id",
+    "lookup",
+)
+
+#: Of those, the ones that stay in the ledger and never travel back to the agent.
+_AUDIT_ONLY_KEYS = frozenset({"sender_key", "audit_row_token"})
+
+
 class Broker:
     """Authorize and execute reviewed Workspace operations."""
 
@@ -715,25 +744,40 @@ class Broker:
                 "message_id": result.get("message_id") or "",
                 identity_key: result.get(identity_key) or "",
                 "input_digest": digest,
+                # The ops verb's own contributions to the row, written through by
+                # NAME rather than by wholesale copy, so a transmit result can
+                # never quietly widen what the ledger records.
+                #
                 # ss#2497 — on a REPLY the ops verb resolved the original sender
                 # itself (it had to: a caller naming the sender could name any
                 # sender), so the row can name the person it answered without an
                 # address entering the ledger. A send names no such person and
                 # contributes no key.
-                **(
-                    {"sender_key": result["sender_key"]}
-                    if isinstance(result.get("sender_key"), str) and result["sender_key"]
-                    else {}
-                ),
+                #
+                # ss#2499 — and on msgraph it contributes the message's identity,
+                # which Graph's 202 does not return and which the broker goes and
+                # looks up. Every key here is OPTIONAL: AgentMail contributes none
+                # of them and writes exactly the row it writes today.
+                **{
+                    key: result[key]
+                    for key in _OPS_AUDIT_KEYS
+                    if isinstance(result.get(key), str) and result[key]
+                },
             },
             session_id=session_id,
             matter_ref=matter_ref,
         )
-        # ``sender_key`` is audit provenance, not a transmit result: it stays in
-        # the row and does not travel back to the agent, which has no use for it
-        # and which the fence deliberately does not tell who it just wrote to
-        # beyond what it already knew.
-        return {"ok": True, **{k: v for k, v in result.items() if k != "sender_key"}}
+        # ``sender_key`` and ``audit_row_token`` are audit provenance, not
+        # transmit results: they stay in the row and do not travel back to the
+        # agent. The fence deliberately does not tell the agent who it just wrote
+        # to beyond what it already knew, and it does not hand back the audit key
+        # that a later message could then be stamped with to borrow this row's
+        # identity. The vendor ids DO go back — they are the agent's own message,
+        # and naming it to the firm is the point of resolving them.
+        return {
+            "ok": True,
+            **{k: v for k, v in result.items() if k not in _AUDIT_ONLY_KEYS},
+        }
 
     def _handle_agentmail(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
         if self.agentmail is None or self.ledger is None:
