@@ -1635,7 +1635,7 @@ def render_docx_template(
         if wanted and not names_agree(file_name, str(wanted)):
             refusal = (
                 f"filed name {file_name!r} is not this class's template name {wanted!r}, so the "
-                "renderer would never open it. File it as that name — or, if the firm wants a "
+                "renderer would never open it. File it as that name. If the firm wants a "
                 "different one, have self_initiation.document_library.templates authored by PR "
                 "FIRST and then file under the authored name."
             )
