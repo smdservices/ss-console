@@ -26,7 +26,11 @@ Outputs land in the per-customer archive dir:
 * ``machine-snapshot-{date}.sqlite`` — ``audit_log`` + memory tables as real
   sqlite tables. This file doubles as the evidence generator's ``--read-db``
   input, which was always specified as "the per-customer audit-export
-  snapshot" — the seam pull is what finally makes that input real.
+  snapshot" — the seam pull is what finally makes that input real. The
+  snapshot's ``audit_log`` carries the hash-chain link columns as well as the
+  12 compliance columns (ss#2500), because a snapshot without them cannot
+  answer any question about the chain, including whether a pinned head is
+  still in it.
 * ``audit-log-manifest-{date}.json`` / key counts in the step manifest.
 """
 
@@ -73,6 +77,14 @@ MEMORY_EXPORT_TABLES: tuple[str, ...] = (
     "agent_skills_inventory",
     "peer_preferences",
 )
+
+# The hash-chain link columns (#1686). NOT part of AUDIT_COLUMNS, which is the
+# frozen compliance-CSV column order, and preserved in the sqlite snapshot
+# anyway (ss#2500): the snapshot is what the evidence generator reads as
+# --read-db, and without these the packet cannot check a pinned head against the
+# ledger at all. Written as NULL when the Machine's overlay does not serve them,
+# so an older seat degrades to "unchecked" rather than to a crash.
+CHAIN_LINK_COLUMNS: tuple[str, ...] = ("prev_hash", "row_hash")
 
 _PAGE_LIMIT = 200  # overlay MAX_LIMIT
 
@@ -178,18 +190,19 @@ def _snapshot_conn(snapshot_path: Path) -> sqlite3.Connection:
 
 
 def _write_audit_snapshot(conn: sqlite3.Connection, rows: list[dict]) -> None:
-    cols = ", ".join(AUDIT_COLUMNS)
-    placeholders = ", ".join("?" for _ in AUDIT_COLUMNS)
+    snapshot_columns = AUDIT_COLUMNS + CHAIN_LINK_COLUMNS
+    cols = ", ".join(snapshot_columns)
+    placeholders = ", ".join("?" for _ in snapshot_columns)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS audit_log ("
         "id TEXT PRIMARY KEY, ts TEXT NOT NULL, action_type TEXT NOT NULL, "
         "actor TEXT NOT NULL, actor_role TEXT, skill_name TEXT, matter_ref TEXT, "
         "input_digest TEXT, output_digest TEXT, diff_digest TEXT, "
-        "trust_ceiling TEXT, metadata TEXT)"
+        "trust_ceiling TEXT, metadata TEXT, prev_hash TEXT, row_hash TEXT)"
     )
     conn.executemany(
         f"INSERT OR REPLACE INTO audit_log ({cols}) VALUES ({placeholders})",
-        [tuple(row.get(c) for c in AUDIT_COLUMNS) for row in rows],
+        [tuple(row.get(c) for c in snapshot_columns) for row in rows],
     )
     conn.commit()
 
@@ -311,6 +324,7 @@ class SeamAuditLogPreserver:
 
 __all__ = [
     "AUDIT_COLUMNS",
+    "CHAIN_LINK_COLUMNS",
     "MEMORY_EXPORT_TABLES",
     "SeamAuditLogPreserver",
     "SeamClient",
