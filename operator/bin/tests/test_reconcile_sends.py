@@ -12,6 +12,7 @@ import importlib.util
 import json
 import sys
 import tempfile
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -398,9 +399,359 @@ def test_a_finding_outranks_a_hold_so_the_issue_still_files():
 
 def test_missing_credentials_exit_non_zero(monkeypatch):
     """The case the review named: a scheduled run with no key measured nothing,
-    and must not be reported as a clean mailbox."""
+    and must not be reported as a clean mailbox.
+
+    Scoped to one channel because ``main`` now runs two, and this test is about
+    the AgentMail key. Running both here would have this assertion depend on
+    whichever Graph secrets happen to be in the caller's environment -- and, far
+    worse, would put a live read of a client's mailbox inside a unit test."""
     monkeypatch.delenv("AGENTMAIL_API_KEY", raising=False)
-    assert rec.main([]) == rec.EXIT_HOLD
+    assert rec.main(["--channel", "agentmail"]) == rec.EXIT_HOLD
+
+
+def test_a_missing_agentmail_key_no_longer_silences_the_other_channel(monkeypatch):
+    """ss#2499. This used to return EXIT_HOLD before anything else ran, so one
+    absent secret would take the control off the PAYING seat, whose mail is not
+    on AgentMail at all. The AgentMail half holds; the msgraph half still runs.
+
+    FALSIFIER: restore the early ``return EXIT_HOLD`` and ``scanned`` is 1."""
+    monkeypatch.delenv("AGENTMAIL_API_KEY", raising=False)
+    scanned: list[str] = []
+    monkeypatch.setattr(rec, "_reconcile_msgraph", lambda *_a: scanned.append("msgraph") or [])
+    monkeypatch.setattr(rec, "_reconcile_agentmail", lambda *_a: scanned.append("agentmail") or [])
+    rec.main([])
+    # BOTH, asserted by name. "the other channel still ran" is only half the
+    # property — a default that quietly dropped either half is the same bug.
+    assert sorted(scanned) == ["agentmail", "msgraph"]
+
+
+# ---------------------------------------------------------------------------
+# ss#2499 — the msgraph half
+#
+# The control covered ZERO msgraph seats, and the paying firm sends through
+# msgraph. Its exact key is stronger than AgentMail's because the broker mints
+# it: an X-SMD-Audit-Row header on the message, and the same value on the row.
+# ---------------------------------------------------------------------------
+
+_MSG_MAILBOX = "operator@firm.example"
+_MSG_SEAT = rec.MsGraphSeat(
+    slug="a-seat",
+    mailbox=_MSG_MAILBOX,
+    tenant_id="11111111-1111-1111-1111-111111111111",
+    client_id="22222222-2222-2222-2222-222222222222",
+)
+
+
+def _graph_message(*, token="", mid="<a@firm.example>", gid="AAMk1=", ts="2026-08-20T10:00:00Z",
+                   to="scott@smd.services", subject="s", header_name=rec.AUDIT_ROW_HEADER):
+    headers = [{"name": header_name, "value": token}] if token else []
+    return {
+        "id": gid,
+        "internetMessageId": mid,
+        "sentDateTime": ts,
+        "subject": subject,
+        "toRecipients": [{"emailAddress": {"address": to}}],
+        "internetMessageHeaders": headers,
+    }
+
+
+def _audited_row(ts, **meta):
+    return {"ts": ts, "action_type": "CONFIRM_SEND_DISPATCHED", "metadata": meta}
+
+
+def test_the_audit_header_is_an_exact_match(tmp_path):
+    """The join the broker mints. It lives ON THE MESSAGE, so it holds even when
+    the broker could not read its own vendor id back after the 202."""
+    sent = [rec.normalize_graph_message(_graph_message(token="01ABC"))]
+    rows = [_audited_row("2026-08-20T10:00:05Z", audit_row_token="01ABC")]
+    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    assert (exact, tool, unaccounted) == (1, 0, [])
+
+
+def test_the_vendor_id_is_also_an_exact_match(tmp_path):
+    """The second key: when the lookup DID work, the row carries the RFC2822 id
+    and this joins on that alone -- so a run is not hostage to the header."""
+    sent = [rec.normalize_graph_message(_graph_message(mid="<b@firm.example>"))]
+    rows = [_audited_row("2026-08-20T10:00:05Z", vendor_message_id="<b@firm.example>")]
+    exact, _tool, unaccounted = rec.reconcile(sent, rows)
+    assert exact == 1 and unaccounted == []
+
+
+def test_a_send_with_no_header_and_no_row_is_the_finding(tmp_path):
+    """The kill test's shape, and the whole point of the control: a message in
+    Sent Items that did not come through the broker."""
+    sent = [rec.normalize_graph_message(_graph_message(subject="[UNAUDITED-KILLTEST-2258] x"))]
+    rows = [_audited_row("2026-08-20T10:00:05Z", audit_row_token="SOMETHINGELSE")]
+    exact, tool, unaccounted = rec.reconcile(sent, rows)
+    assert (exact, tool) == (0, 0)
+    assert unaccounted[0]["subject"].startswith("[UNAUDITED-KILLTEST-2258]")
+
+
+@pytest.mark.parametrize(
+    "wire_name",
+    ["X-SMD-Audit-Row", "x-smd-audit-row", "X-SMD-AUDIT-ROW", "x-SMD-audit-ROW"],
+)
+def test_the_header_is_read_case_insensitively(wire_name):
+    """RFC5322 says header names are case-insensitive and Exchange re-cases them.
+    A case-sensitive compare would report every broker send as unaudited -- a
+    broken instrument that looks exactly like a mailbox full of foreign mail.
+
+    EVERY casing, not one: a single lowercase case is satisfied by comparing
+    against a lowercase constant with no normalization at all, so it would pin
+    the fixture rather than the property.
+
+    FALSIFIER: drop the ``.lower()`` in ``_audit_token_of`` and the mixed-case
+    rows here fail."""
+    message = _graph_message(token="01ABC", header_name=wire_name)
+    assert rec.normalize_graph_message(message)[rec._AUDIT_TOKEN_KEY] == "01ABC"
+
+
+def test_a_foreign_header_is_not_mistaken_for_the_audit_one(tmp_path):
+    other = _graph_message(token="01ABC", header_name="x-ms-exchange-something")
+    assert rec.normalize_graph_message(other)[rec._AUDIT_TOKEN_KEY] == ""
+
+
+def test_bcc_recipients_are_named_in_a_finding(tmp_path):
+    """A finding that lists only the visible recipients describes the wrong set
+    of people, and a confidently wrong finding is worse than a vague one."""
+    message = _graph_message()
+    message["bccRecipients"] = [{"emailAddress": {"address": "quiet@firm.example"}}]
+    assert "quiet@firm.example" in rec.normalize_graph_message(message)["to"]
+
+
+def test_the_message_id_is_the_rfc2822_one_not_the_graph_one(tmp_path):
+    """It is what the broker records on the row, and what survives outside this
+    mailbox -- in a bounce, or in whatever a firm forwards asking "did you send
+    this?". The mailbox-local Graph id rides along separately."""
+    normalized = rec.normalize_graph_message(_graph_message(mid="<c@firm.example>", gid="AAMkZ="))
+    assert normalized["message_id"] == "<c@firm.example>"
+    assert normalized["graph_id"] == "AAMkZ="
+
+
+def test_the_baseline_quiets_a_reported_msgraph_send_and_only_that_one(tmp_path):
+    """#2345 inherited rather than reinvented: the msgraph half uses the same
+    file, the same fingerprint and the same arithmetic. A triaged send stops
+    being re-reported; a NEW one from the same mailbox still is."""
+    reported = rec.normalize_graph_message(_graph_message(mid="<old@firm.example>"))
+    fresh = rec.normalize_graph_message(_graph_message(mid="<new@firm.example>"))
+    baseline = {rec.fingerprint(_MSG_MAILBOX, reported)}
+    remaining, quieted = rec.split_baselined(_MSG_MAILBOX, [reported, fresh], baseline)
+    assert quieted == 1
+    assert [m["message_id"] for m in remaining] == ["<new@firm.example>"]
+
+
+# --- the Graph read itself --------------------------------------------------
+
+
+class _GraphResponse:
+    def __init__(self, payload):
+        self._payload = json.dumps(payload).encode()
+
+    def read(self):
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+
+class FakeGraph:
+    """Replays Graph pages and RECORDS every request, so the read-only and
+    mailbox-scoped properties can be asserted from the wire rather than trusted.
+    """
+
+    def __init__(self, pages):
+        self._pages = list(pages)
+        self.requests = []
+
+    def __call__(self, request, timeout=None):
+        self.requests.append((request.get_method(), request.full_url))
+        if request.full_url.endswith("/token"):
+            return _GraphResponse({"access_token": "tok", "expires_in": 3600})
+        return _GraphResponse(self._pages.pop(0))
+
+
+def test_the_reader_only_ever_gets_and_only_this_mailbox(tmp_path):
+    """4.6: the read surface is one mailbox, and an instrument observes rather
+    than touches. Asserted from the recorded requests, because "we only read" is
+    the kind of claim that stays true until someone adds a flag."""
+    http = FakeGraph([{"value": [_graph_message(token="01ABC")]}])
+    token = rec.graph_token(_MSG_SEAT, "shh", opener=http)
+    rec.list_sent_msgraph(_MSG_SEAT, token, opener=http)
+    graph_calls = [(m, u) for m, u in http.requests if "graph.microsoft.com" in u]
+    assert graph_calls and all(m == "GET" for m, _u in graph_calls)
+    assert all(f"/users/{_MSG_MAILBOX}/mailFolders/sentitems/messages" in u for _m, u in graph_calls)
+
+
+def test_the_read_selects_the_header_field(tmp_path):
+    """internetMessageHeaders is not returned unless selected BY NAME, and
+    omitting it does not error -- it yields messages with no headers, which reads
+    as "nothing came through the broker" and turns this control into a machine
+    for accusing the Operator of every send it made."""
+    http = FakeGraph([{"value": []}])
+    rec.list_sent_msgraph(_MSG_SEAT, "tok", opener=http)
+    assert "internetMessageHeaders" in http.requests[-1][1]
+
+
+def test_the_read_follows_pages(tmp_path):
+    http = FakeGraph(
+        [
+            {"value": [_graph_message(mid="<p1@firm.example>")],
+             "@odata.nextLink": "https://graph.microsoft.com/v1.0/next"},
+            {"value": [_graph_message(mid="<p2@firm.example>")]},
+        ]
+    )
+    sent = rec.list_sent_msgraph(_MSG_SEAT, "tok", opener=http)
+    assert [m["message_id"] for m in sent] == ["<p1@firm.example>", "<p2@firm.example>"]
+
+
+def test_a_since_window_stops_paging_at_the_boundary(tmp_path):
+    http = FakeGraph(
+        [
+            {
+                "value": [
+                    _graph_message(mid="<recent@firm.example>", ts="2026-08-20T10:00:00Z"),
+                    _graph_message(mid="<ancient@firm.example>", ts="2026-01-01T10:00:00Z"),
+                ],
+                "@odata.nextLink": "https://graph.microsoft.com/v1.0/next",
+            }
+        ]
+    )
+    since = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    sent = rec.list_sent_msgraph(_MSG_SEAT, "tok", since=since, opener=http)
+    assert [m["message_id"] for m in sent] == ["<recent@firm.example>"]
+
+
+def test_a_truncated_scan_raises_rather_than_reporting_clean(tmp_path):
+    """A partial scan reported as a complete one is how a control quietly stops
+    covering the oldest half of a mailbox. It holds instead."""
+    endless = [
+        {"value": [], "@odata.nextLink": "https://graph.microsoft.com/v1.0/next"}
+    ] * (rec._GRAPH_MAX_PAGES + 1)
+    with pytest.raises(rec.ReconcileError):
+        rec.list_sent_msgraph(_MSG_SEAT, "tok", opener=FakeGraph(endless))
+
+
+def test_a_token_failure_holds_and_never_echoes_the_secret(tmp_path):
+    """The token endpoint echoes request parameters back in its error bodies, and
+    one of those parameters is the client secret."""
+    class Boom:
+        def __call__(self, request, timeout=None):
+            raise urllib.error.HTTPError(request.full_url, 401, "no", {}, None)
+
+    with pytest.raises(rec.ReconcileError) as exc:
+        rec.graph_token(_MSG_SEAT, "super-secret-value", opener=Boom())
+    assert "super-secret-value" not in str(exc.value)
+    assert "401" in str(exc.value)
+
+
+# --- seat discovery and the tri-state ---------------------------------------
+
+
+def _seat_tree(tmp_path, **seats):
+    for slug, body in seats.items():
+        directory = tmp_path / slug
+        directory.mkdir()
+        (directory / "customer.yaml").write_text(body)
+    return str(tmp_path)
+
+
+_MSGRAPH_YAML = f"""
+connectors:
+  Email:
+    adapter: msgraph
+    msgraph_auth:
+      tenant_id: 'tid'
+      client_id: 'cid'
+      mailbox: {_MSG_MAILBOX}
+"""
+
+_AGENTMAIL_YAML = """
+connectors:
+  Email:
+    adapter: agentmail
+"""
+
+
+def test_seats_are_discovered_from_customer_yaml_not_a_hand_kept_list(tmp_path):
+    """A hand-kept list is how a channel ends up with zero coverage and nobody
+    notices, which is the state this issue found."""
+    root = _seat_tree(tmp_path, graphed=_MSGRAPH_YAML, mailed=_AGENTMAIL_YAML)
+    assert [s.slug for s in rec.msgraph_seats(root)] == ["graphed"]
+
+
+def test_the_secret_env_is_per_seat(tmp_path):
+    """ADR 0010: the firm's Graph secret is its own. A shared fallback would let
+    a missing per-seat secret quietly authenticate as somebody else's app."""
+    assert rec.MsGraphSeat("ashton-price", "m", "t", "c").secret_env == (
+        "MSGRAPH_CLIENT_SECRET__ASHTON_PRICE"
+    )
+
+
+def test_a_seat_with_no_secret_holds_rather_than_accusing(tmp_path, monkeypatch):
+    monkeypatch.delenv("MSGRAPH_CLIENT_SECRET__A_SEAT", raising=False)
+    report = rec.reconcile_mailbox(_MSG_SEAT, None)
+    assert report.held and not report.is_finding
+
+
+def test_an_incomplete_msgraph_auth_holds(tmp_path):
+    seat = rec.MsGraphSeat(slug="half", mailbox="", tenant_id="t", client_id="c")
+    report = rec.reconcile_mailbox(seat, None, secret="shh")
+    assert report.held and "msgraph_auth" in report.held
+
+
+def test_a_seam_failure_holds_rather_than_marking_every_send_unaccounted(tmp_path):
+    """Fail-closed the other way: a failed audit read must never read as "zero
+    audit rows", which would accuse the Operator of every send it made."""
+    http = FakeGraph([{"value": [_graph_message(token="01ABC")]}])
+    report = rec.reconcile_mailbox(
+        _MSG_SEAT, None, opener=http, secret="shh", client_factory=lambda _slug: None
+    )
+    assert report.held and not report.is_finding
+
+
+def test_an_unaudited_msgraph_send_is_a_finding_end_to_end(tmp_path):
+    """The whole path: read Sent Items, read the ledger, match, report.
+
+    FALSIFIER below is its twin -- the same call with the header recorded on the
+    row comes back clean, so this cannot be an assertion that always passes."""
+    class Ledger:
+        def read_all(self, _table):
+            return [_audited_row("2026-08-20T09:00:00Z", audit_row_token="OTHER")]
+
+    http = FakeGraph([{"value": [_graph_message(token="01ABC")]}])
+    report = rec.reconcile_mailbox(
+        _MSG_SEAT, None, opener=http, secret="shh", client_factory=lambda _slug: Ledger()
+    )
+    assert report.is_finding and report.channel == "msgraph"
+    assert report.sent_total == 1 and report.matched_exact == 0
+
+
+def test_an_audited_msgraph_send_is_clean_end_to_end(tmp_path):
+    class Ledger:
+        def read_all(self, _table):
+            return [_audited_row("2026-08-20T09:00:00Z", audit_row_token="01ABC")]
+
+    http = FakeGraph([{"value": [_graph_message(token="01ABC")]}])
+    report = rec.reconcile_mailbox(
+        _MSG_SEAT, None, opener=http, secret="shh", client_factory=lambda _slug: Ledger()
+    )
+    assert not report.is_finding and report.matched_exact == 1
+
+
+def test_the_report_names_which_channel_each_mailbox_came_from(tmp_path):
+    """A channel that silently stops being scanned is the failure this control
+    cannot afford, and an absent line is much harder to notice than a wrong one."""
+    rendered = rec.render(
+        [
+            rec.InboxReport(inbox="a@agentmail.to", slug="s", sent_total=1),
+            rec.InboxReport(inbox=_MSG_MAILBOX, slug="a-seat", sent_total=1, channel="msgraph"),
+        ]
+    )
+    assert "(msgraph)" in rendered and "(agentmail)" in rendered
+    assert "[agentmail, msgraph]" in rendered
 
 
 # ---------------------------------------------------------------------------
@@ -494,3 +845,50 @@ def _fake_opener(payload):
         return _Resp()
 
     return _open
+
+
+# ---------------------------------------------------------------------------
+# the workflow that runs this
+# ---------------------------------------------------------------------------
+
+_WORKFLOW = (
+    Path(__file__).resolve().parents[3]
+    / ".github"
+    / "workflows"
+    / "unaudited-send-reconcile.yml"
+)
+
+
+def test_every_msgraph_seat_has_its_secret_wired_into_the_workflow():
+    """The one hand-kept list this design could not avoid, held to the authored
+    seats by a test.
+
+    GitHub Actions cannot enumerate secrets, so each msgraph seat's READ secret
+    has to be named in the workflow env. That is exactly the shape that produced
+    the gap ss#2499 closes: a channel nobody remembered to wire, reporting
+    nothing and looking clean. So provisioning a seat onto Graph now fails CI
+    until its secret is wired, and the failure names the variable.
+
+    FALSIFIER: add a customer.yaml with `adapter: msgraph` and no matching env
+    line and this fails; the run it protects would otherwise have HELD forever on
+    a mailbox nobody noticed was unread.
+    """
+    workflow = _WORKFLOW.read_text(encoding="utf-8")
+    missing = [
+        seat.secret_env
+        for seat in rec.msgraph_seats()
+        if f"{seat.secret_env}: " not in workflow
+    ]
+    assert not missing, (
+        "these msgraph seats are authored but their read secret is not wired into "
+        f"unaudited-send-reconcile.yml, so the daily run cannot open their mailbox: {missing}"
+    )
+
+
+def test_the_scheduled_run_passes_no_channel_filter():
+    """The default is BOTH. A --channel on the scheduled run would be how one
+    half quietly stops being scanned."""
+    workflow = _WORKFLOW.read_text(encoding="utf-8")
+    body = workflow.split("Reconcile every inbox", 1)[1]
+    assert "reconcile-sends.py $ARGS" in body
+    assert "--channel" not in body.split("Open an issue", 1)[0]

@@ -31,6 +31,19 @@
 #      PR, the run recognises its own open issue and declines to file a copy.
 # Neither can quiet a NEW send: the baseline names message ids, and one new send
 # changes the fingerprint, so a new issue still opens.
+#
+# TWO CHANNELS (ss#2499). Until now this job read AgentMail only, and covered
+# ZERO msgraph seats -- including the paying firm, whose mail lives in its own
+# Microsoft 365 tenant and never touches AgentMail. The reconciler now reads both
+# and the run below passes no --channel, so a seat authored onto Graph is covered
+# the day its customer.yaml says so.
+#
+# EACH msgraph SEAT NEEDS ITS OWN SECRET, and the reconciler HOLDS (red run, no
+# issue) until it has one. The tenant and client id come from customer.yaml; only
+# the READ app's secret is here, per-seat because the firm's credential is its
+# own (ADR 0010). operator/bin/tests/test_reconcile_sends.py asserts that every
+# msgraph seat in operator/customers is named below, so a newly provisioned Graph
+# seat cannot be added without wiring the secret that makes this control cover it.
 
 name: unaudited-send-reconcile
 
@@ -50,6 +63,9 @@ on:
       - 'operator/bin/reconcile-sends-baseline.json'
       - 'operator/bin/tests/test_reconcile_sends.py'
       - 'operator/bin/tests/fixtures/unaudited-sends-2026-08-17.json'
+      # A seat gaining or losing `adapter: msgraph` changes which mailboxes this
+      # job must cover, and the conformance test that proves it runs here.
+      - 'operator/customers/*/customer.yaml'
       - '.github/workflows/unaudited-send-reconcile.yml'
 
 permissions:
@@ -68,7 +84,9 @@ jobs:
           python-version: '>=3.11'
 
       - name: Install pytest
-        run: python3 -m pip install --quiet pytest
+        # pyyaml: the msgraph half reads each seat's customer.yaml to learn which
+        # mailboxes it must cover (ss#2499).
+        run: python3 -m pip install --quiet pytest pyyaml
 
       # The unit tests gate the scheduled run: a reconciler whose matcher is
       # broken would report either nothing or everything, and both are worse
@@ -85,6 +103,12 @@ jobs:
           AGENTMAIL_API_KEY: ${{ secrets.AGENTMAIL_API_KEY }}
           OPERATOR_RUNTIME_READ_SECRET: ${{ secrets.OPERATOR_RUNTIME_READ_SECRET }}
           OPERATOR_RUNTIME_READ_URL: ${{ secrets.OPERATOR_RUNTIME_READ_URL }}
+          # ss#2499. One line per msgraph seat, and the READ app's secret only --
+          # this control never transmits. An unset secret HOLDS that mailbox: a
+          # red run and a named reason, never a clean report on a mailbox nobody
+          # could open.
+          MSGRAPH_CLIENT_SECRET__ASHTON_PRICE: ${{ secrets.MSGRAPH_CLIENT_SECRET__ASHTON_PRICE }}
+          MSGRAPH_CLIENT_SECRET__SMD_STAGING: ${{ secrets.MSGRAPH_CLIENT_SECRET__SMD_STAGING }}
           # Via env, never interpolated into the script body: a workflow_dispatch
           # input is user-supplied and would otherwise be a shell-injection seam.
           RECONCILE_DAYS: ${{ github.event.inputs.days }}
