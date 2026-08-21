@@ -942,7 +942,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // (ss#2501 sent-reply digest), #297 (ss#2499 msgraph message identity).
     // ONE tracked twin moves: plugins/hermes-smd-audit/emit.py, re-recorded
     // one-sided in overlay-pairs.json.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4dbf415adfb63dfd78707192cdcd9ff09efea5f8"')
+    // 4dbf415 -> 4ca6682 (2026-08-21, overlay#298): the Captain's flip after four
+    // pilot drafting lanes (0 false positives, 1 genuine catch: computed response
+    // deadlines reached a filed Word draft while the same values were refused on
+    // the memo and the email). render_docx_draft leaves the report-only carve and
+    // blocks like every other draft tool; add_file stays report-only until a lane
+    // exercises it. Single-commit range, NO tracked twin moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4ca6682b6944a1b54c15c03f858fa11a3130d74c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
