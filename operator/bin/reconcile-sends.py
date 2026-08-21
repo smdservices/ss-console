@@ -29,7 +29,7 @@ half produces, and hands it to the SAME two-pass matcher. One matcher on
 purpose: two hand-maintained copies of an audit comparison drift silently, and
 in the direction of the copy nobody is reading.
 
-MATCHING, two passes:
+MATCHING, three passes:
   1. EXACT. Every audited send records the AgentMail message id -- REPLY_SENT
      carries ``sent_message_id``, REPLY_HELD carries ``message_id`` (121 of 121
      rows observed). This pass needs no tolerance and cannot drift.
@@ -45,6 +45,30 @@ MATCHING, two passes:
      available key. Observed skew is sub-second (341 ms on 2026-08-01), so the
      window is deliberately tight and each audit row is CONSUMED once -- two
      messages can never claim the same row.
+  3. BROKER DISPATCH (ss#2499, second live run). The msgraph half's first real
+     run reported 14 of 14 sends unaccounted on the paying seat, and all 14 were
+     the Operator's own audited replies: the seat predates the header, so its
+     rows carry ``sent_message_id: '(sent via msgraph, id unavailable)'`` and
+     ``message_id: ''`` -- nothing for pass 1 to join on. Pass 2 could not reach
+     them either, because msgraph sends are dispatched by the BROKER and never
+     produce a TOOL_CALL_COMPLETED/external_send row. So every legitimate,
+     fully-audited msgraph send read as unaudited, which is a control that
+     accuses the Operator of everything it did.
+     This pass takes the broker's own dispatch rows -- CONFIRM_SEND_DISPATCHED
+     with ``outcome == "sent"``, and REPLY_SENT, whose action type IS its
+     outcome -- as time candidates, on the SAME window as pass 2 and with the
+     same one-row-one-message consumption. A confirm row and the reply row for
+     the same send are ONE event seconds apart, so the pair is folded to a
+     single candidate before matching; otherwise one reply would account for two
+     messages.
+     Candidacy is gated on the row carrying NO usable exact key, which is what
+     keeps this pass from weakening pass 1. An AgentMail dispatch row records a
+     real vendor id and is therefore never a time candidate; a post-header
+     msgraph row records ``audit_row_token`` and is not one either. The reported
+     ``broker=N`` is the count of sends matched by TIME rather than identity, and
+     it is expected to fall to zero on a seat once its overlay stamps the header
+     -- it stays reachable only for rows that predate it and for the id lookup
+     that could not run (recorded on the row as ``lookup: failed``, ss#2514).
 
 FAIL-CLOSED, THE OTHER WAY. A failed seam read must never read as "zero audit
 rows", which would mark every send unaccounted and mute this within a week. A
@@ -158,6 +182,27 @@ TOOL_PATH_WINDOW_S = 5.0
 #: Metadata keys that carry an AgentMail message id on an audited send.
 _ID_KEY_SUBSTRING = "message_id"
 
+#: Audit action types the BROKER writes when it has dispatched a message itself
+#: (ss#2499). CONFIRM_SEND_DISPATCHED is written for both sends and replies and
+#: carries its own outcome; REPLY_SENT is written by the reply plugin and its
+#: action type IS the outcome (the failure is a different type, REPLY_FAILED).
+_BROKER_DISPATCH_TYPES = ("CONFIRM_SEND_DISPATCHED", "REPLY_SENT")
+
+#: The only ``outcome`` a CONFIRM row may carry and still account for a message
+#: that demonstrably left the mailbox. ``refused`` and ``transport_error`` rows
+#: exist precisely because the send did NOT go, and a refusal must never be
+#: readable as a send.
+_DISPATCH_OUTCOME_SENT = "sent"
+
+#: A recorded id that is not an id. The overlay writes this literal on a msgraph
+#: REPLY_SENT row when Graph's 202 returned nothing to record (8 of 8 rows on the
+#: live seat before the header landed), and it is honest there -- inventing an id
+#: would name a message the mailbox does not contain. It must not be treated as
+#: an exact key, and a row carrying only this is a row with no usable id. Matched
+#: on the leading parenthesis rather than the exact sentence: no RFC2822 id and
+#: no Graph id begins with one, so any future note in that field is caught too.
+_UNRESOLVED_ID_PREFIX = "("
+
 #: Inboxes that deliberately have no Operator seat behind them, and why. These
 #: are OUR OWN rigs on the shared account -- test harnesses, an opposing-counsel
 #: simulator, other ventures' mailboxes -- so their sends have no seat ledger to
@@ -213,6 +258,11 @@ class InboxReport:
     sent_total: int = 0
     matched_exact: int = 0
     matched_tool_path: int = 0
+    #: Sends matched by TIME against a broker dispatch row rather than by id
+    #: (ss#2499). Reported as its own bucket so a reader can see how much of a
+    #: clean run rests on proximity instead of identity -- and so it can be
+    #: watched falling to zero as seats pick up the audit header.
+    matched_broker: int = 0
     unaccounted: list[dict] = field(default_factory=list)
     baselined: int = 0  # unaccounted, but already reported (ss#2386)
     held: str | None = None  # set when we could not evaluate
@@ -515,9 +565,10 @@ def reconcile_mailbox(
         report.held = f"audit_export returned no rows for {seat.slug}"
         return report
 
-    exact, tool_path, unaccounted = reconcile(sent, rows)
+    exact, tool_path, broker, unaccounted = reconcile(sent, rows)
     report.matched_exact = exact
     report.matched_tool_path = tool_path
+    report.matched_broker = broker
     report.unaccounted, report.baselined = split_baselined(
         report.inbox, unaccounted, baseline or set()
     )
@@ -534,8 +585,83 @@ def _metadata(row: dict) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-def index_audit(rows: list[dict]) -> tuple[set[str], list[dict]]:
-    """Split audit rows into (exact keys ever recorded, tool-path send rows).
+def _usable_ids(meta: dict) -> set[str]:
+    """Every value in one row's metadata that can serve as an EXACT join key.
+
+    A key is usable when it is a non-empty string under a ``*message_id*`` key or
+    under ``audit_row_token``, and is not the overlay's "no id available" note
+    (see ``_UNRESOLVED_ID_PREFIX``). The note is excluded on purpose: left in, it
+    would be a string a mailbox could theoretically carry as an id, and it would
+    also make a row with no id at all look like a row that has one.
+    """
+    ids: set[str] = set()
+    for key, value in meta.items():
+        if not isinstance(value, str) or not value:
+            continue
+        if value.startswith(_UNRESOLVED_ID_PREFIX):
+            continue
+        if _ID_KEY_SUBSTRING in key or key == _AUDIT_TOKEN_KEY:
+            ids.add(value)
+    return ids
+
+
+def _is_broker_dispatch(row: dict, meta: dict) -> bool:
+    """Did the BROKER transmit a message for this row, with no id to prove it?
+
+    Two halves, and both matter. The action type says a message went out: a
+    CONFIRM row must additionally say ``outcome: sent``, because the same type's
+    siblings record a refusal and a transport error and neither of those sent
+    anything. REPLY_SENT needs no outcome -- its type is the outcome, and its
+    failure is a different type entirely.
+
+    The second half is what keeps this pass from weakening the exact one: a row
+    that recorded ANY usable id is not a time candidate. That row is already
+    joinable by identity, so letting it also be claimed by proximity would let a
+    legitimate send launder an unaudited neighbour. It also means this pass
+    empties itself out: once a seat's overlay stamps the audit header, its rows
+    carry a usable key and stop being candidates at all.
+    """
+    action = row.get("action_type")
+    if action not in _BROKER_DISPATCH_TYPES:
+        return False
+    if action == "CONFIRM_SEND_DISPATCHED" and meta.get("outcome") != _DISPATCH_OUTCOME_SENT:
+        return False
+    return not _usable_ids(meta)
+
+
+def _fold_broker_pairs(candidates: list[dict]) -> list[dict]:
+    """One send, one candidate.
+
+    A msgraph reply writes TWO rows -- the broker's CONFIRM_SEND_DISPATCHED and
+    the reply plugin's REPLY_SENT -- describing one event seconds apart. Left
+    unfolded they would account for two messages, so one legitimate reply could
+    absorb an unaudited send beside it, which is the absorption failure this
+    control cannot have.
+
+    Folding is CROSS-TYPE only, and each row may be folded once: two confirms in
+    the same second are two sends, not one, and must stay two candidates.
+    """
+    kept: list[dict] = []
+    for candidate in sorted(candidates, key=lambda c: c["ts"]):
+        twin = next(
+            (
+                other
+                for other in kept
+                if other["kind"] != candidate["kind"]
+                and not other["paired"]
+                and abs((candidate["ts"] - other["ts"]).total_seconds()) <= TOOL_PATH_WINDOW_S
+            ),
+            None,
+        )
+        if twin is not None:
+            twin["paired"] = True
+            continue
+        kept.append(candidate)
+    return kept
+
+
+def index_audit(rows: list[dict]) -> tuple[set[str], list[dict], list[dict]]:
+    """Split audit rows into (exact keys, tool-path send rows, broker dispatches).
 
     The key set is deliberately a UNION rather than a per-channel switch. It
     holds every vendor message id a row recorded (any metadata key containing
@@ -545,28 +671,61 @@ def index_audit(rows: list[dict]) -> tuple[set[str], list[dict]]:
     that transmitted fine and could not read its own vendor id back afterwards.
     The two key spaces cannot collide: one is an RFC2822/vendor id, the other a
     26-character ULID.
+
+    The third list is the ss#2499 second-run fix. A msgraph send is dispatched by
+    the broker and produces no TOOL_CALL_COMPLETED row, so on a seat whose rows
+    predate the audit header there is nothing for either existing pass to reach
+    and every audited send read as unaudited. The broker's own dispatch rows are
+    that seat's only evidence, and time is the only key they offer.
     """
     known_ids: set[str] = set()
     tool_sends: list[dict] = []
+    broker_sends: list[dict] = []
     for row in rows:
         meta = _metadata(row)
-        for key, value in meta.items():
-            if not isinstance(value, str) or not value:
-                continue
-            if _ID_KEY_SUBSTRING in key or key == _AUDIT_TOKEN_KEY:
-                known_ids.add(value)
+        known_ids |= _usable_ids(meta)
         if (
             row.get("action_type") == "TOOL_CALL_COMPLETED"
             and meta.get("action_class") == "external_send"
             and meta.get("outcome") == "ok"
         ):
             tool_sends.append({"ts": _parse_ts(row["ts"]), "claimed": False})
-    return known_ids, tool_sends
+        elif _is_broker_dispatch(row, meta):
+            broker_sends.append(
+                {
+                    "ts": _parse_ts(row["ts"]),
+                    "kind": row.get("action_type"),
+                    "paired": False,
+                    "claimed": False,
+                }
+            )
+    return known_ids, tool_sends, _fold_broker_pairs(broker_sends)
 
 
-def reconcile(sent: list[dict], rows: list[dict]) -> tuple[int, int, list[dict]]:
-    """Return (matched_exact, matched_tool_path, unaccounted)."""
-    known_ids, tool_sends = index_audit(rows)
+def _claim(candidates: list[dict], stamp: datetime) -> bool:
+    """Consume the oldest unclaimed candidate within the window, if any.
+
+    CONSUMED, not merely matched: two messages can never claim the same row, so
+    one audited send never accounts for an unaudited one beside it.
+    """
+    claim = next(
+        (
+            candidate
+            for candidate in candidates
+            if not candidate["claimed"]
+            and abs((candidate["ts"] - stamp).total_seconds()) <= TOOL_PATH_WINDOW_S
+        ),
+        None,
+    )
+    if claim is None:
+        return False
+    claim["claimed"] = True
+    return True
+
+
+def reconcile(sent: list[dict], rows: list[dict]) -> tuple[int, int, int, list[dict]]:
+    """Return (matched_exact, matched_tool_path, matched_broker, unaccounted)."""
+    known_ids, tool_sends, broker_sends = index_audit(rows)
 
     remaining = [
         m
@@ -578,24 +737,17 @@ def reconcile(sent: list[dict], rows: list[dict]) -> tuple[int, int, list[dict]]
 
     unaccounted: list[dict] = []
     matched_tool = 0
+    matched_broker = 0
     # Oldest-first so the pairing is deterministic regardless of page order.
     for message in sorted(remaining, key=lambda m: str(m.get("timestamp") or "")):
         stamp = _parse_ts(message.get("timestamp"))
-        claim = next(
-            (
-                candidate
-                for candidate in tool_sends
-                if not candidate["claimed"]
-                and abs((candidate["ts"] - stamp).total_seconds()) <= TOOL_PATH_WINDOW_S
-            ),
-            None,
-        )
-        if claim is None:
-            unaccounted.append(message)
-        else:
-            claim["claimed"] = True  # consumed: no second message may claim it
+        if _claim(tool_sends, stamp):
             matched_tool += 1
-    return matched_exact, matched_tool, unaccounted
+        elif _claim(broker_sends, stamp):
+            matched_broker += 1
+        else:
+            unaccounted.append(message)
+    return matched_exact, matched_tool, matched_broker, unaccounted
 
 
 def fingerprint(inbox: str, message: dict) -> str:
@@ -755,9 +907,10 @@ def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener
         report.held = f"audit_export returned no rows for {slug}"
         return report
 
-    exact, tool_path, unaccounted = reconcile(sent, rows)
+    exact, tool_path, broker, unaccounted = reconcile(sent, rows)
     report.matched_exact = exact
     report.matched_tool_path = tool_path
+    report.matched_broker = broker
     # Baselining is the LAST step, applied to sends the audit log genuinely does
     # not account for. A held inbox returns above and can never be quieted by it:
     # "already reported" is a statement about a finding, and a hold is not one.
@@ -783,7 +936,8 @@ def render(reports: list[InboxReport]) -> str:
         lines.append(
             f"{'FIND' if report.is_finding else 'ok  '}  {report.inbox} [{owner}] "
             f"({report.channel}) sent={report.sent_total} exact={report.matched_exact} "
-            f"tool={report.matched_tool_path} unaccounted={len(report.unaccounted)} "
+            f"tool={report.matched_tool_path} broker={report.matched_broker} "
+            f"unaccounted={len(report.unaccounted)} "
             f"already-reported={report.baselined}"
         )
         for message in sorted(report.unaccounted, key=lambda m: str(m.get("timestamp") or "")):
@@ -870,6 +1024,7 @@ def main(argv: list[str] | None = None) -> int:
                         "sent_total": r.sent_total,
                         "matched_exact": r.matched_exact,
                         "matched_tool_path": r.matched_tool_path,
+                        "matched_broker": r.matched_broker,
                         "baselined": r.baselined,
                         "held": r.held,
                         "unaccounted": [
