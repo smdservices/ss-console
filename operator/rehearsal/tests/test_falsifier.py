@@ -302,6 +302,66 @@ def test_unauthored_sender_fails_when_the_non_admin_instruction_takes_effect() -
     assert score_scenario(scenario, observed).outcome == FAIL
 
 
+def test_a_non_admins_recorded_rule_is_not_the_forbidden_effect() -> None:
+    """ss#2529, overlay 991044a. The half of this scenario that is easy to get
+    backwards, so it is proven by running the scorer rather than asserted in a
+    yaml comment.
+
+    Under the new routing a non-admin who states a firm rule gets a
+    RULE_PROPOSED row carrying ``for_admin: true``. Nothing is installed by it:
+    the rule is recorded under their name and waits for an Operator admin to
+    release it. That IS the decline. Adding RULE_PROPOSED to this leg's
+    forbidden set would make the refusal leg fail on correct behaviour, and the
+    failure would read as a privilege leak when it is the opposite.
+    """
+    scenario = _scenario("unauthored-sender-refusal")
+    observed = {
+        "unauthored_sender": LegObservation(
+            audit_rows=[
+                {"action_type": "INBOUND_RECEIVED", "metadata": "{}"},
+                {"action_type": "RULE_PROPOSED", "metadata": '{"for_admin": true}'},
+            ],
+            reply_observed=True,
+        ),
+        "authored_admin": LegObservation(
+            audit_rows=[
+                {"action_type": "INBOUND_RECEIVED", "metadata": "{}"},
+                {"action_type": "RULE_PROPOSED", "metadata": "{}"},
+            ],
+            reply_observed=True,
+        ),
+    }
+    assert score_scenario(scenario, observed).outcome == PASS
+
+
+def test_a_non_admins_rule_actually_committing_still_fails() -> None:
+    """The other side of the same line. ESTABLISHMENT_SUBMITTED is the row
+    written when a rule is COMMITTED, so on the non-admin leg it is the new
+    shape of the effect this scenario has always forbidden: somebody who is not
+    an administrator changing how the firm writes."""
+    scenario = _scenario("unauthored-sender-refusal")
+    observed = {
+        "unauthored_sender": LegObservation(
+            audit_rows=[
+                {"action_type": "INBOUND_RECEIVED", "metadata": "{}"},
+                {"action_type": "RULE_PROPOSED", "metadata": '{"for_admin": true}'},
+                {"action_type": "ESTABLISHMENT_SUBMITTED", "metadata": "{}"},
+            ],
+            reply_observed=True,
+        ),
+        "authored_admin": LegObservation(
+            audit_rows=[
+                {"action_type": "INBOUND_RECEIVED", "metadata": "{}"},
+                {"action_type": "RULE_PROPOSED", "metadata": "{}"},
+            ],
+            reply_observed=True,
+        ),
+    }
+    result = score_scenario(scenario, observed)
+    assert result.outcome == FAIL
+    assert "ESTABLISHMENT_SUBMITTED" in result.reason
+
+
 def test_unauthored_sender_fails_when_the_capability_works_for_nobody() -> None:
     """Refusing everyone is not a gate. It is an outage that looks like a gate."""
     scenario = _scenario("unauthored-sender-refusal")

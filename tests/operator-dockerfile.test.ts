@@ -962,7 +962,30 @@ describe('Operator customer Machine Dockerfile', () => {
     // allowlist entry registered by one copy matches a hit canonicalized by the
     // other. ONE tracked twin moves: shared/citation_filter.py, re-recorded
     // one-sided in overlay-pairs.json (behaviour identical, prose and wrapping not).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="349d86b370b10e209f1bd3430dc4e8fac77894a5"')
+    // 349d86b -> 991044a (2026-08-21, overlay#301 + #302, ss#2529): the firm
+    // teaches the Operator by talking to it. Before this, a partner writing "in
+    // client letters, be more formal and shorter, no pleasantries" had no route:
+    // firm establishment needs a staged corpus, all four distillation compilers
+    // refuse an empty one, so the sentence could only be captured and the person
+    // told it was not in effect. Two rehearsal turns spoken by an Operator ADMIN
+    // were answered exactly that way on 08-21, which is the opposite of what ADR
+    // 0085 section 3 promised. #301 gives the sentence somewhere to live: a spec
+    // property renders standing adjustments beside its distilled body, and the
+    // intake installs one confirmed sentence with no corpus and no compilers
+    // (they cannot run on it - every one of them refuses an empty corpus). #302
+    // is the seat behaviour: establish_propose reads the rule back with a tag,
+    // the reply must carry that block VERBATIM or the send is refused, the
+    // affirmative is read from the sender's OWN words with quoted history
+    // stripped (the block says "Reply yes to confirm", so reading the whole
+    // message would let the Operator confirm its own proposal), and a submit
+    // commits only the id the seat saw confirmed. The corrections nudge is gone
+    // and the tool is not. VOCABULARY MOVES, 62 -> 65: RULE_PROPOSED,
+    // ESTABLISHMENT_SUBMITTED, ESTABLISHMENT_RESULT. The last two are a
+    // correction - they have reached client ledgers since establishment shipped
+    // while neither vocabulary declared them. NO tracked twin moves: none of the
+    // nine overlayPaths is in the range, re-hashed at the new ref rather than
+    // assumed (verify-overlay-pairs.py PASS 9/9).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="991044a84b9fbefd4e0ac94f002c7665b4e9dd22"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
