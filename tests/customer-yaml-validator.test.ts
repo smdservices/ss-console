@@ -3323,6 +3323,39 @@ describe('validate — send exposure classes (ADR 0075)', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
   })
+
+  // ss-console#2536. `commitment: confirm` is the one non-send class that may
+  // be authored as confirm, and it may be authored that way on the EXPOSURE
+  // only. A commitment is the firm's own record gaining something, an admin can
+  // be shown exactly what it will be and can answer; the ceiling map is the
+  // entitlement dial's Machine-side clamp, derived from the routine grid's send
+  // tiers, and commitment has none to derive from.
+  it('accepts confirm on commitment in exposure', () => {
+    const r = validate(withExposure({ commitment: 'confirm' }))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.personas[0].entitlements.exposure.commitment).toBe('confirm')
+  })
+
+  it('rejects confirm on commitment in exposure_ceiling', () => {
+    const f = validFixture()
+    const persona = (f['personas'] as Record<string, unknown>[])[0]
+    persona['entitlements'] = {
+      exposure: { commitment: 'confirm' },
+      exposure_ceiling: { commitment: 'confirm' },
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
+  })
+
+  it('still rejects confirm on destructive', () => {
+    // A destructive act REMOVES something, and the read-back cannot show the
+    // admin what would be lost. It stays refused-or-drafted until somebody
+    // argues otherwise in writing.
+    const r = validate(withExposure({ destructive: 'confirm' }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidActionCeiling')
+  })
 })
 
 // -----------------------------------------------------------------------------

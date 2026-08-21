@@ -33,6 +33,18 @@ from typing import Any
 DEFAULT_CUSTOMER_YAML = "/var/lib/smd-config/customer.yaml"
 CUSTOMER_YAML_ENV = "SMD_CUSTOMER_YAML_PATH"
 
+# The Operator's own matter (ss-console#2536). One per seat, keyed on this
+# number, and it is a CONVENTION rather than a guess: the number is what the
+# create tool dedupes on, what the library resolves against, and what the
+# self-test falls back to before reporting that it has nowhere to file. A firm
+# that wants a different number authors ``operator_matter.number``, and then
+# that is the number everywhere.
+OPERATOR_LIBRARY_NUMBER = "OPS-OPERATOR-LIBRARY"
+
+# The folder the library lives in, and the name the establishment skill
+# proposes. Same reasoning: authored wins, the convention fills the gap.
+DEFAULT_FOLDER_NAME = "Document Library"
+
 CLASS_TITLES: dict[str, str] = {
     "discovery_set": "Discovery Set",
     "discovery_response": "Discovery Response",
@@ -50,6 +62,11 @@ class LibraryConfig:
     folder_name: str | None = None
     templates: dict[str, str] = field(default_factory=dict)
     source: str = ""
+    #: True when ``matter_number`` came from the convention rather than the
+    #: firm's own authoring. The distinction is reported, never hidden: "the
+    #: firm's library matter is missing" and "we looked for the matter we would
+    #: have created and it is not there" are different sentences to an admin.
+    fallback_number: bool = False
 
     def template_name(self, document_class: str) -> str:
         custom = self.templates.get(document_class)
@@ -80,14 +97,46 @@ def load_library_config(path: str | None = None) -> LibraryConfig:
     templates = block.get("templates") or {}
     if not isinstance(templates, dict):
         templates = {}
-    number = block.get("matter_number")
+    # RESOLUTION ORDER, and each step is a real authoring decision:
+    #   1. matter_number      the firm's own library matter, whatever it is called
+    #   2. operator_matter.number  the matter the Operator was authorized to create
+    #   3. the convention     the number the Operator WOULD create under
+    # Step 3 is what lets a seat resolve its library before anybody has
+    # authored a number, and the report says the number was a fallback so
+    # "not found" never reads as "the firm never configured this".
+    operator_matter = block.get("operator_matter")
+    if not isinstance(operator_matter, dict):
+        operator_matter = {}
+    number = _first_nonempty(block.get("matter_number"), operator_matter.get("number"))
+    fallback_number = number is None
+    if fallback_number:
+        number = OPERATOR_LIBRARY_NUMBER
+    folder_name = _first_nonempty(block.get("folder_name")) or DEFAULT_FOLDER_NAME
+    source = path
+    if fallback_number:
+        source = f"{path} (matter number defaulted to {OPERATOR_LIBRARY_NUMBER})"
     return LibraryConfig(
-        authored=bool(number) and bool(block.get("folder_name")),
-        matter_number=str(number).strip() if number else None,
-        folder_name=str(block.get("folder_name")).strip() if block.get("folder_name") else None,
+        # A block that exists resolves. What it resolves TO may not exist yet,
+        # and that is reported by resolve_template as "matter not found", which
+        # is the honest sentence and the one an admin can act on.
+        authored=True,
+        matter_number=number,
+        folder_name=folder_name,
         templates={str(k): str(v) for k, v in templates.items()},
-        source=path,
+        source=source,
+        fallback_number=fallback_number,
     )
+
+
+def _first_nonempty(*values: Any) -> str | None:
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if value is not None and not isinstance(value, (str, dict, list)):
+            text = str(value).strip()
+            if text:
+                return text
+    return None
 
 
 @dataclass(frozen=True)
@@ -120,31 +169,129 @@ def _norm(s: Any) -> str:
     return re.sub(r"\s+", " ", str(s or "")).strip().casefold()
 
 
-def find_matter_id(client: Any, matter_number: str) -> str | None:
-    """Exact match on the matter ``number`` field. Search first (cheap), then
-    page the listing; the number is the stable human-legible key a firm
-    authors, never an internal id."""
-    want = _norm(matter_number)
+#: The three answers a matter lookup can give. ``found`` and ``not_found`` are
+#: both ANSWERS; ``lookup_failed`` is the absence of one, and the distinction is
+#: the whole point of this type. Resolving a template can treat a failed lookup
+#: as "no template" and fall back to the starter, because the cost of being
+#: wrong is a draft on the wrong letterhead. Deduping a CREATE cannot: the cost
+#: of being wrong there is a second matter in the firm's system of record, so a
+#: failed lookup has to refuse, and it can only refuse if it can tell itself
+#: apart from an empty result.
+LOOKUP_FOUND = "found"
+LOOKUP_NOT_FOUND = "not_found"
+LOOKUP_FAILED = "lookup_failed"
+
+
+@dataclass(frozen=True)
+class MatterLookup:
+    state: str
+    matter_id: str | None = None
+    matched_on: str = ""
+    reason: str = ""
+
+    @property
+    def found(self) -> bool:
+        return self.state == LOOKUP_FOUND
+
+    @property
+    def failed(self) -> bool:
+        return self.state == LOOKUP_FAILED
+
+
+def _matter_client_ids(matter: dict[str, Any]) -> set[str]:
+    """The contact ids a matter names as its client, across the spellings the
+    API uses. Tolerant on purpose: the number is the primary dedupe key and this
+    is the second one, so a shape we do not recognize must widen the search
+    rather than narrow it."""
+    out: set[str] = set()
+    for key in ("clientIds", "clients", "clientId"):
+        value = matter.get(key)
+        if isinstance(value, str):
+            out.add(value)
+        elif isinstance(value, list):
+            for entry in value:
+                if isinstance(entry, str):
+                    out.add(entry)
+                elif isinstance(entry, dict) and entry.get("id"):
+                    out.add(str(entry["id"]))
+    return out
+
+
+def lookup_matter(
+    client: Any,
+    *,
+    number: str,
+    description: str | None = None,
+    client_contact_id: str | None = None,
+) -> MatterLookup:
+    """Does a matter matching any of these keys already exist?
+
+    Search first (cheap and exact on the number), then a full page-through. Two
+    predicates, because a number can be edited off a matter while the matter
+    itself remains: the authored NUMBER, and the pair (description, client
+    contact) that the create would otherwise duplicate.
+
+    FAILURE IS AN OUTCOME, not a fall-through. A search that raises is tolerated
+    only because the page-through that follows enumerates everything the search
+    would have; a page-through that raises means the enumeration is INCOMPLETE,
+    and an incomplete enumeration is reported as ``lookup_failed`` rather than
+    as "nothing found". That distinction is what makes the create tool's dedupe
+    fail closed.
+    """
+    want_number = _norm(number)
+    want_description = _norm(description) if description else None
+    want_contact = str(client_contact_id) if client_contact_id else None
+
+    def _match(m: dict[str, Any]) -> str | None:
+        if want_number and _norm(m.get("number")) == want_number:
+            return "number"
+        if (
+            want_description
+            and want_contact
+            and _norm(m.get("description")) == want_description
+            and want_contact in _matter_client_ids(m)
+        ):
+            return "description and client"
+        return None
+
     try:
-        resp = client.get("/matters", Search=matter_number, Limit=50, Offset=0)
+        resp = client.get("/matters", Search=number, Limit=50, Offset=0)
         for m in _listing(resp):
-            if _norm(m.get("number")) == want:
-                return str(m.get("id"))
-    except Exception:  # noqa: BLE001 - fall through to paging
+            matched = _match(m)
+            if matched:
+                return MatterLookup(LOOKUP_FOUND, str(m.get("id")), matched)
+    except Exception:  # noqa: BLE001 - the page-through below covers the same ground
         pass
     offset = 0
     while True:
         try:
             resp = client.get("/matters", Limit=500, Offset=offset)
-        except Exception:  # noqa: BLE001
-            return None
+        except Exception as exc:  # noqa: BLE001 - an incomplete enumeration is not an answer
+            return MatterLookup(
+                LOOKUP_FAILED,
+                reason=f"the matter listing could not be read ({exc.__class__.__name__})",
+            )
         items = _listing(resp)
         for m in items:
-            if _norm(m.get("number")) == want:
-                return str(m.get("id"))
+            matched = _match(m)
+            if matched:
+                return MatterLookup(LOOKUP_FOUND, str(m.get("id")), matched)
         if len(items) < 500:
-            return None
+            return MatterLookup(LOOKUP_NOT_FOUND)
         offset += 500
+
+
+def find_matter_id(client: Any, matter_number: str) -> str | None:
+    """Exact match on the matter ``number`` field. Search first (cheap), then
+    page the listing; the number is the stable human-legible key a firm
+    authors, never an internal id.
+
+    A thin wrapper over ``lookup_matter`` since ss-console#2536, keeping the
+    old two-state answer for template resolution, where "we could not look" and
+    "it is not there" lead to the same reported outcome.
+    """
+    result = lookup_matter(client, number=matter_number)
+    return result.matter_id if result.found else None
 
 
 def _walk_folders(nodes: Any) -> list[dict[str, Any]]:
@@ -300,11 +447,18 @@ __all__ = [
     "CLASS_TITLES",
     "CUSTOMER_YAML_ENV",
     "DEFAULT_CUSTOMER_YAML",
+    "DEFAULT_FOLDER_NAME",
+    "LOOKUP_FAILED",
+    "LOOKUP_FOUND",
+    "LOOKUP_NOT_FOUND",
+    "OPERATOR_LIBRARY_NUMBER",
     "LibraryConfig",
+    "MatterLookup",
     "NotResolved",
     "ResolvedTemplate",
     "find_folder_id",
     "find_matter_id",
+    "lookup_matter",
     "is_library_file",
     "list_matter_files",
     "load_library_config",

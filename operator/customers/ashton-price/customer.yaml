@@ -191,6 +191,15 @@ personas:
         # (h) now covers it.
         external_send_client: draft_for_review
         external_send_vendor: draft_for_review
+        # The Operator's own internal matter, and nothing else this class can
+        # reach (mcp_smokeball_create_matter is the only COMMITMENT tool on the
+        # Smokeball surface). Captain-authorized 2026-08-21: an admin-confirmed
+        # act proposal is the only path; never autonomous. The Operator states
+        # the exact matter back to a Named Administrator, the administrator
+        # answers in their own words, and only then does the act happen. There
+        # is deliberately no exposure_ceiling entry for this class, so the
+        # runtime entitlement dial cannot raise it at all.
+        commitment: confirm
       # Letter-commitment bounds for the runtime entitlement dial (ss#2003
       # Q7). Derived from routine-grid.yaml ceiling_tier per send class
       # (auto-handle -> autonomous, prepare-and-route -> draft_for_review),
@@ -980,6 +989,31 @@ self_initiation:
     - document-library-establishment
   document_library:
     folder_name: 'Document Library'
+    # The Operator's OWN matter (ss-console#2536). Four authored values, and
+    # every one of them is a decision the firm made here rather than one the
+    # Operator makes at runtime: the model can ask for this matter and cannot
+    # compose a different one. The broker refuses any proposal whose payload is
+    # not byte-equal to this block, and a seat that authored nothing here can
+    # propose nothing at all.
+    operator_matter:
+      number: 'OPS-OPERATOR-LIBRARY'
+      description: 'Operator Library'
+      # The firm's own company contact, Ashton and Price. The firm is its own
+      # client on this matter, which is what makes it an internal file rather
+      # than a client's case.
+      client_contact_id: '0ac0f746-bf92-462d-b4e5-d133070314fa'
+      # Personal Injury - Plaintiff, the type the firm already uses. A matter
+      # needs a type and this is the one their tenant is built around; choosing
+      # a different one is an edit to this line, never a free-text value from an
+      # email.
+      matter_type_id: '42cc724c-f046-451c-8452-4284f7a82b66_CA'
+      # The two names the read-back shows the administrator. Authored beside the
+      # identifiers, so the sentence she says yes to and the bytes the act
+      # carries come from one file; the seat resolves nothing and composes
+      # nothing. Read live 2026-08-21: the company contact's name and the type's
+      # catalog name.
+      client_contact_name: 'Ashton and Price'
+      matter_type_name: 'Personal Injury - Plaintiff'
 
 # ---- VOICE COHORTS ----
 # The audience classes this seat's voice profiles are partitioned by. An
