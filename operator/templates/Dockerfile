@@ -700,7 +700,25 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the config and the validator that accepts it land together. Files:
 # bootstrap/validate.py, tests/test_customer_config.py -- NOT tracked pairs;
 # every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="e9d9fae182d81b7d83eae75eca51ca77d4baefa5"
+#
+# e9d9fae1 -> 2b0c786d (overlay#308, ss#2537 follow-up). Read live on
+# pilot-smokeball 2026-08-22: SOUL.md rendered the persona's
+# `commitment: confirm` exposure with the generic confirm sentence, which was
+# written for sends (prepare the action, request explicit approval in the same
+# turn). The model did exactly that -- it described the matter it would create,
+# asked for a yes in its own words, and never called
+# mcp_smokeball_create_matter. So the gate never minted an act proposal, the
+# administrator's yes had nothing to bind to, and the readback the
+# administrator saw was the model's own composition with identifiers in it,
+# which is the one thing overlay#303/#305 exist to prevent. #308 adds a
+# per-(action, ceiling) SOUL override: at (commitment, confirm) the line now
+# tells the model to CALL the tool as soon as an Operator administrator asks,
+# relay the gate's returned act line verbatim, and on the administrator's
+# answer call the same tool again with the same values. Send classes keep the
+# generic sentence. Files: bootstrap/translate.py,
+# tests/test_bootstrap_translate.py -- NOT tracked pairs; every overlaySha256
+# unchanged, only overlayRef.
+ARG OVERLAY_REF="2b0c786d76490178b9797ed164ec6097cb3abb22"
 
 ARG CUSTOMER_SLUG=customer-zero
 
