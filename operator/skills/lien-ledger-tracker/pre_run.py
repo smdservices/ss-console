@@ -874,7 +874,11 @@ def _write_pre_run_handoff(payload: dict) -> None:
         # it has; the file's own 0600 is the load-bearing half.
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         tmp = directory / ("." + _HANDOFF_SKILL + ".json.tmp")
-        handle = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        # O_EXCL so the open cannot follow a pre-planted symlink, preceded by an
+        # unlink so a temp file left by a crashed run cannot wedge the writer
+        # for good. missing_ok: there is usually nothing to remove.
+        tmp.unlink(missing_ok=True)
+        handle = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(handle, "w", encoding="utf-8") as fh:
             json.dump(record, fh)
         os.replace(tmp, directory / (_HANDOFF_SKILL + ".json"))

@@ -1076,6 +1076,20 @@ def test_the_handoff_is_readable_only_by_its_owner(tmp_path, monkeypatch) -> Non
     assert mode & 0o077 == 0, f"group/other bits set: {oct(mode)}"
 
 
+def test_a_temp_file_left_by_a_crashed_run_does_not_wedge_the_writer(
+    tmp_path, monkeypatch
+) -> None:
+    """The open is O_EXCL so it cannot follow a planted symlink. Without the
+    unlink in front of it, one crashed run would silence the handoff forever."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    stale = tmp_path / ".smd" / "pre_run" / ".deadline-miss-escalator.json.tmp"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("left over", encoding="utf-8")
+    _wake_stdout()
+    assert _handoff_path(tmp_path).exists()
+    assert not stale.exists()
+
+
 def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypatch) -> None:
     """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
     directory would still be writable by root, and CI containers run as root."""
