@@ -20,7 +20,7 @@ import importlib.util
 import json
 import pathlib
 import sys
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
@@ -653,3 +653,91 @@ def test_every_plan_action_is_counted_by_itself():
     meta = decision.extra_metadata
     counted = meta["provider_chases_due"] + meta["hold_surface_due"] + meta["register_due"]
     assert counted == len(decision.plans), "every plan is accounted for by its own action"
+
+
+# ---------------------------------------------------------------------------
+# Pre-run handoff (ss#2547)
+# ---------------------------------------------------------------------------
+# The same block every bespoke pre_run carries. This gate emits no authored
+# record date today (a chase plan carries balances and matter ids, not dates),
+# and the projection is asserted to be empty for exactly that reason: an empty
+# `dates` list is the honest reading of what the wake line said, and the day
+# this gate starts emitting a date the assertion below starts failing rather
+# than silently seeding nothing.
+
+_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids"}
+
+
+def _authored_dates_in(node, found=None) -> list:
+    """Every authored_date in the wake payload, first-seen order.
+
+    Written out again here rather than calling the module's own walker: a test
+    that reuses the projection it is checking agrees with that projection's bugs.
+    """
+    if found is None:
+        found = []
+    if isinstance(node, dict):
+        value = node.get("authored_date")
+        if isinstance(value, str) and value and value not in found:
+            found.append(value)
+        for child in node.values():
+            _authored_dates_in(child, found)
+    elif isinstance(node, list):
+        for child in node:
+            _authored_dates_in(child, found)
+    return found
+
+
+def _wake_stdout(capsys) -> str:
+    """A stale-hold wake, chosen because its plan carries a per-matter id.
+
+    A payer-grouped chase plan deliberately carries `matter_id=""` and puts its
+    matters under `matters`, so projecting it would prove nothing about whether
+    the projection works.
+    """
+    events = [_event(MATTER_A, gate.HOLD_SOURCE_ID, "sct-chase-hold", "fired", "2026-08-01T00:00:00Z")]
+    decision = _decide(
+        _pull([_obligation(MATTER_A, ENTITY_1, "Valley Health Plan", 100.0)]), events=events
+    )
+    assert decision.wake is True
+    assert gate._emit_wake(decision) == 0
+    return capsys.readouterr().out.strip()
+
+
+def _handoff_path(home) -> pathlib.Path:
+    return pathlib.Path(home) / ".smd" / "pre_run" / "lien-ledger-tracker.json"
+
+
+def test_the_wake_writes_a_handoff_projecting_what_it_emitted(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = json.loads(_wake_stdout(capsys))
+    record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
+    assert record["dates"] == _authored_dates_in(payload) == []
+    assert record["skill"] == "lien-ledger-tracker"
+    assert record["matter_ids"] == [MATTER_A]
+
+
+def test_the_handoff_carries_nothing_but_the_projection(tmp_path, monkeypatch, capsys) -> None:
+    """Provider names, balances, item keys and prose never reach the register."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    _wake_stdout(capsys)
+    record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
+    assert set(record) == _HANDOFF_KEYS
+    assert record["started_at"].endswith("Z")
+    datetime.fromisoformat(record["started_at"].replace("Z", "+00:00"))
+
+
+def test_a_handoff_write_failure_leaves_stdout_byte_identical(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
+    directory would still be writable by root, and CI containers run as root."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    good = _wake_stdout(capsys)
+    assert _handoff_path(tmp_path).exists()
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(blocked))
+    assert _wake_stdout(capsys) == good

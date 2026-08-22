@@ -987,3 +987,91 @@ def test_run_once_wake_line_carries_the_digest():
     (item,) = digest["needs_you"]
     assert item["task_id"] == "task-9"
     assert item["ack_code"].startswith("ACK-")
+
+
+# ---------------------------------------------------------------------------
+# Pre-run handoff (ss#2547)
+# ---------------------------------------------------------------------------
+# The gate reads authored dates from the firm's record and hands them to the
+# turn as prompt text. Prompt text is not a source, so on 2026-08-19 the
+# identifier gate refused this skill's digest four times over those very dates.
+# The handoff file is what lets the overlay seed them as read, and these tests
+# guard the three properties that make it safe to seed from: it lands, it
+# carries exactly what the wake line already said, and it carries nothing else.
+
+_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids"}
+
+
+def _authored_dates_in(node, found=None) -> list:
+    """Every authored_date in the wake payload, first-seen order.
+
+    Written out again here rather than calling the module's own walker: a test
+    that reuses the projection it is checking agrees with that projection's bugs.
+    """
+    if found is None:
+        found = []
+    if isinstance(node, dict):
+        value = node.get("authored_date")
+        if isinstance(value, str) and value and value not in found:
+            found.append(value)
+        for child in node.values():
+            _authored_dates_in(child, found)
+    elif isinstance(node, list):
+        for child in node:
+            _authored_dates_in(child, found)
+    return found
+
+
+def _wake_stdout() -> str:
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([_dl(days_out=3, matter_id="7001", task_id="t-1")])],
+            EscalationWindows(),
+            lambda: None,
+            today=TODAY,
+            now=NOW,
+            fire_policy=_POLICY,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    return out
+
+
+def _handoff_path(home) -> Path:
+    return Path(home) / ".smd" / "pre_run" / "deadline-miss-escalator.json"
+
+
+def test_the_wake_writes_a_handoff_whose_dates_are_the_dates_it_emitted(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = json.loads(_wake_stdout())
+    record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
+    emitted = _authored_dates_in(payload)
+    assert emitted, "this fixture must emit an authored date or the test proves nothing"
+    assert record["dates"] == emitted
+    assert record["skill"] == "deadline-miss-escalator"
+    assert "7001" in record["matter_ids"]
+
+
+def test_the_handoff_carries_nothing_but_the_projection(tmp_path, monkeypatch) -> None:
+    """Labels, ack codes, subjects and prose never reach the register."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    _wake_stdout()
+    record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
+    assert set(record) == _HANDOFF_KEYS
+    assert record["started_at"].endswith("Z")
+    datetime.fromisoformat(record["started_at"].replace("Z", "+00:00"))
+
+
+def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypatch) -> None:
+    """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
+    directory would still be writable by root, and CI containers run as root."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    good = _wake_stdout()
+    assert _handoff_path(tmp_path).exists()
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(blocked))
+    assert _wake_stdout() == good
