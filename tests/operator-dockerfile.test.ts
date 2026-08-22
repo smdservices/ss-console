@@ -1051,7 +1051,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // compared as sets; all three leave consoleOnly. No tracked pair moves, and
     // that was established by re-hashing all nine twins at the new ref rather
     // than by reading the range's file list.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="119f6bf2e4dc9e9add6ea83527f0c18576ffb02d"')
+    //
+    // 2026-08-22c: 119f6bf2 -> 29536fcb (overlay#310, ss#2547 follow-up). A silent
+    // wake is joined to its routine's OWN turn (skill_name + time, capped at 60
+    // min; 30 min when no turn row exists) instead of by session id, which the
+    // pre-run child never stamps on an EMITTED_WAKE row. Without it the unsent
+    // fact fell back to a fixed 30-minute window on every live wake and would
+    // have paged a false "unsent" on any escalator turn that sent after 30 min.
+    // Range touches shared/heartbeat.py, tests/test_heartbeat.py and the retro
+    // script only; no tracked pair moves; schemas.py untouched. Retro-falsifier
+    // at this ref reproduces every muting day per kind on the pilot ledger.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="29536fcb9f703a40bed8eb35bbf6a88bd18ff9a7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
