@@ -1136,3 +1136,15 @@ def test_the_hooks_six_key_payload_commits_against_the_four_key_row(tmp_path):
     proposal_id = _hook_propose(broker, dict(HOOK_PAYLOAD))["proposal_id"]
     result = _act_commit(broker, proposal_id, payload=dict(HOOK_PAYLOAD))
     assert result["ok"] is True
+
+
+def test_the_pending_view_names_the_tool_at_the_top_level_for_an_act(tmp_path):
+    """The seat reads ``row["tool"]`` when an administrator confirms an act. Read
+    live on pilot-smokeball 2026-08-22: with the tool only inside ``subject``,
+    the confirmation came back "no longer holding that as something to do"."""
+    broker = _act_broker(tmp_path, AUTHORED_YAML_WITH_NAMES)
+    proposal_id = _hook_propose(broker, dict(HOOK_PAYLOAD))["proposal_id"]
+    listing = _call(broker, action="establish_pending", proposal_id=proposal_id)
+    rows = [r for r in listing["pending"] if r["proposal_id"] == proposal_id]
+    assert rows and rows[0]["tool"] == ACT_TOOL
+    assert rows[0]["kind"] == "tool_call" and rows[0]["payload"]["number"] == ACT_NUMBER

@@ -1155,6 +1155,13 @@ class EstablishmentStore:
             "text": row["text"],
             "readback": readback_for(row["proposal_id"], row["text"], row["kind"]),
             "payload": row["payload"],
+            # The tool an act row names, at the top level, because that is where
+            # the seat reads it (hermes-smd-establishment._act_confirmation_note:
+            # ``row.get("tool")``). It also lives inside ``subject``; read live on
+            # pilot-smokeball 2026-08-22, a confirmed act came back "no longer
+            # held" because this view left the top-level key out and the seat
+            # took the empty string as "names no tool".
+            "tool": (row["subject"] or {}).get("tool") if row["kind"] == "tool_call" else None,
             "instructed_by": row["instructed_by"],
             "for_admin": row["for_admin"],
             "created_at": row["created_at"],
