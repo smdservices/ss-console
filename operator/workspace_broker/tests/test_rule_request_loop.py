@@ -501,6 +501,51 @@ def test_an_outcome_belongs_to_the_person_who_asked_not_to_the_administrator(tmp
     assert admin_view["pending"] == []
 
 
+def test_the_sweeper_can_ask_what_ended_unreported_across_the_seat(tmp_path):
+    """The one query with no sender, and the reason it has to exist: a lapse has
+    nobody in front of it. Waiting for the requester's next message would make
+    the report depend on them continuing to talk to an Operator that has just
+    gone silent on them."""
+    broker = _broker(tmp_path)
+    mine = _propose(broker)
+    theirs = _propose(broker, instructed_by="dana@firm.com")
+    _age_out(broker, mine["proposal_id"])
+    _age_out(broker, theirs["proposal_id"])
+    broker.establishment.sweep()
+
+    result = _call(broker, action="establish_pending", include_outcomes=True)
+    by_id = {p["proposal_id"]: p for p in result["pending"]}
+    assert set(by_id) == {mine["proposal_id"], theirs["proposal_id"]}
+    # Each row still names its own author, which is what keeps the sweeper's
+    # note going to the person who asked and to nobody else.
+    assert by_id[mine["proposal_id"]]["instructed_by"] == PARALEGAL
+    assert by_id[theirs["proposal_id"]]["instructed_by"] == "dana@firm.com"
+
+
+def test_the_seat_wide_query_returns_nothing_confirmable(tmp_path):
+    """FALSIFIER for the widening this could have been. A senderless listing
+    that included OPEN rows would be a second way to reach somebody else's
+    pending rule; it returns terminal rows only."""
+    broker = _broker(tmp_path)
+    open_row = _propose(broker)
+    declined = _propose(broker, text="Name the deadline in the first paragraph.")
+    _decline(broker, declined["proposal_id"])
+
+    result = _call(broker, action="establish_pending", include_outcomes=True)
+    ids = [p["proposal_id"] for p in result["pending"]]
+    assert ids == [declined["proposal_id"]]
+    assert open_row["proposal_id"] not in ids
+
+
+def test_a_senderless_listing_without_the_flag_is_still_refused(tmp_path):
+    """The old shape is unchanged: no sender and no flag is a malformed call,
+    not an invitation to list the seat."""
+    broker = _broker(tmp_path)
+    _propose(broker)
+    with pytest.raises(EstablishmentValidationError, match="sender"):
+        _call(broker, action="establish_pending")
+
+
 def test_include_outcomes_must_be_a_boolean(tmp_path):
     broker = _broker(tmp_path)
     with pytest.raises(EstablishmentValidationError, match="include_outcomes"):
