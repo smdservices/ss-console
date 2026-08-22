@@ -1008,7 +1008,20 @@ describe('Operator customer Machine Dockerfile', () => {
     // words the person saw may be committed); the Operator then claimed "in
     // effect" with nothing installed. Now a confirmed commit sends only the id,
     // and a reply cannot claim effect until establish_status says installed.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e9d9fae182d81b7d83eae75eca51ca77d4baefa5"')
+    // e9d9fae1 -> 2b0c786d (2026-08-22, overlay#308, ss#2537 follow-up): read
+    // live on pilot-smokeball. SOUL.md rendered the persona's `commitment:
+    // confirm` exposure with the generic confirm sentence, which was written for
+    // sends: prepare the action and request explicit approval in the same turn.
+    // The model did exactly that, described the matter it would create, asked for
+    // a yes in its own words, and never called mcp_smokeball_create_matter, so
+    // the gate never minted an act proposal and the administrator's yes had
+    // nothing to bind to. #308 adds a per-(action, ceiling) SOUL override: at
+    // (commitment, confirm) the line tells the model to call the tool as soon as
+    // an administrator asks, relay the gate's returned act line verbatim, and on
+    // the answer call again with the same values. Send classes keep the generic
+    // sentence. No tracked twin moves: bootstrap/translate.py and
+    // tests/test_bootstrap_translate.py are the whole range.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2b0c786d76490178b9797ed164ec6097cb3abb22"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
