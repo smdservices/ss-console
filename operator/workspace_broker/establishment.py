@@ -811,24 +811,38 @@ class PendingRuleStore:
             conn.close()
         return [self._hydrate(row) for row in rows]
 
-    def unreported_outcomes_for(self, sender: str) -> list[dict[str, Any]]:
+    def unreported_outcomes_for(self, sender: str | None) -> list[dict[str, Any]]:
         """Rows that ENDED without being committed and whose author has not been
         told: declined by an administrator, or lapsed unanswered.
 
-        Only rows this sender STATED (``instructed_by``). A decline is news for
-        the person who asked, not for the administrator who gave it, and an
-        administrator who is shown every lapse in the firm is being shown other
-        people's business.
+        With a ``sender``, only rows THAT PERSON stated (``instructed_by``). A
+        decline is news for the person who asked, not for the administrator who
+        gave it, and an administrator shown every lapse in the firm is being
+        shown other people's business.
+
+        With ``sender=None``, every unreported outcome on the seat. That is not
+        a widening of who may be told anything: each row still names its own
+        author, and the only caller is the seat's own lapse sweeper, which sends
+        each note to that author and nobody else. It exists because a lapse has
+        no person in front of it by definition. Waiting for the requester's next
+        message would make the report depend on the person continuing to talk to
+        an Operator that has just gone silent on them, and enumerating the
+        firm's authored people instead would miss anyone the roster covers by
+        domain rather than by name (the paralegal this whole issue is about).
         """
+        sql = (
+            "SELECT * FROM pending_rules WHERE consumed_at IS NULL "
+            "AND lapse_notified_at IS NULL "
+            "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL)"
+        )
+        params: tuple[Any, ...] = ()
+        if sender is not None:
+            sql += " AND instructed_by = ?"
+            params = (sender,)
+        sql += " ORDER BY created_at ASC"
         conn = self._connect()
         try:
-            rows = conn.execute(
-                "SELECT * FROM pending_rules WHERE instructed_by = ? "
-                "AND consumed_at IS NULL AND lapse_notified_at IS NULL "
-                "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL) "
-                "ORDER BY created_at ASC",
-                (sender,),
-            ).fetchall()
+            rows = conn.execute(sql, params).fetchall()
         finally:
             conn.close()
         return [self._hydrate(row) for row in rows]
@@ -1521,13 +1535,25 @@ class EstablishmentStore:
                 else []
             )
             return {"ok": True, "pending": [self._pending_view(r) for r in open_rows]}
+        outcomes_raw = request.get("include_outcomes", False)
+        if not isinstance(outcomes_raw, bool):
+            raise EstablishmentValidationError("include_outcomes must be a boolean")
+        if request.get("sender") is None and outcomes_raw:
+            # THE SWEEPER'S QUERY, and the only shape with no sender. A lapse
+            # has nobody in front of it by definition, so the seat's sweeper
+            # asks what ended unreported and tells each row's own author. It
+            # returns terminal rows only: nothing here can be confirmed, so it
+            # cannot become a second way to release a rule.
+            return {
+                "ok": True,
+                "pending": [
+                    self._pending_view(r) for r in pending.unreported_outcomes_for(None)
+                ],
+            }
         sender = require_address(request.get("sender"), "sender")
         include_raw = request.get("include_for_admin", False)
         if not isinstance(include_raw, bool):
             raise EstablishmentValidationError("include_for_admin must be a boolean")
-        outcomes_raw = request.get("include_outcomes", False)
-        if not isinstance(outcomes_raw, bool):
-            raise EstablishmentValidationError("include_outcomes must be a boolean")
         rows = pending.open_for(sender, include_raw)
         # ss-console#2546. OPT-IN, and the reason is version skew, not taste.
         # This module ships in the seat image; the plugin that reads it ships at
