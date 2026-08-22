@@ -700,7 +700,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the config and the validator that accepts it land together. Files:
 # bootstrap/validate.py, tests/test_customer_config.py -- NOT tracked pairs;
 # every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="b782926c3466bf298ec2f19643037d57e269dc13"
+ARG OVERLAY_REF="e9d9fae182d81b7d83eae75eca51ca77d4baefa5"
 
 ARG CUSTOMER_SLUG=customer-zero
 

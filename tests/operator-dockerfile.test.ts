@@ -1002,7 +1002,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // so it still cannot be authored where it would do nothing. This PR un-parks
     // both seat lines in the same change. No tracked twin moves: bootstrap/
     // validate.py and tests/test_customer_config.py are the whole range.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b782926c3466bf298ec2f19643037d57e269dc13"')
+    // b782926c -> e9d9fae1 (2026-08-21, overlay#307, ss#2529): second hotfix from
+    // the pilot proof. The plugin sent the model's own paraphrase as spec_body
+    // beside the proposal id and the broker refused it (by design: only the
+    // words the person saw may be committed); the Operator then claimed "in
+    // effect" with nothing installed. Now a confirmed commit sends only the id,
+    // and a reply cannot claim effect until establish_status says installed.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e9d9fae182d81b7d83eae75eca51ca77d4baefa5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
