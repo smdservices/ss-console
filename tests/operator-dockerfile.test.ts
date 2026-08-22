@@ -1021,7 +1021,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // the answer call again with the same values. Send classes keep the generic
     // sentence. No tracked twin moves: bootstrap/translate.py and
     // tests/test_bootstrap_translate.py are the whole range.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2b0c786d76490178b9797ed164ec6097cb3abb22"')
+    //
+    // 2026-08-22: 2b0c786 -> 241df3bc (overlay#309, ss#2547). A refusal that keeps a
+    // routine from reaching a human now reaches us instead: the heartbeat carries
+    // send_refusals / send_refusals_last_ts / send_refusals_json (refused cron
+    // sends, CONFIRM_SEND_FAILED, and wakes with needs-you items that sent
+    // nothing, trailing 24h); a pre-run script's handoff seeds the provenance
+    // register with date atoms only, bound to one session and consumed once, and
+    // a turn cannot write under $HERMES_HOME/.smd/; staff-class sends normalize
+    // em and en dashes instead of being refused. No tracked pair moves; schemas.py
+    // untouched. Retro-falsifier over the pilot ledger: vfy_01M0N81GHW5PHY0N453ZHN18RY.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="241df3bc33be455dd939d350625740c23abb065f"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
