@@ -383,9 +383,9 @@
       "reason": "ss#2161 (ADR 0085). The broker appends the bounded verdict row on the one-shot result read, before deleting the result file, so the retained trace outlives the payload. Declared in this repo 2026-08-21 (ss#2529), same history as ESTABLISHMENT_SUBMITTED."
     },
     "RULE_REQUEST_NOTIFIED": {
-      "side": "deferred",
-      "producerIntent": "venturecrane/hermes-smd-overlay plugins/hermes-smd-establishment/__init__.py - the post-tool-call dispatcher that emails the firm's rule_requests_to administrators after a for_admin rule is recorded. It lands in ss-console#2546 PR 2 (overlay) and reaches seats at the OVERLAY_REF bump in PR 3, at which point this entry becomes side: overlay with that file as overlayProducer and the type moves out of consoleOnly in audit-action-vocabulary.json.",
-      "reason": "ss#2546 PR 1 declares the type here BEFORE its producer exists, deliberately and for one release only. The alternative is the failure ss#2316 catalogued from the other direction: the overlay starts emitting a type this repo has never heard of, the rows land in client ledgers, and the portal renders nothing - a silence indistinguishable from a deliberate suppression. Declaring first means the client feed is correct on the first row ever written. Tracked to close at the PR 3 bump."
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-establishment/__init__.py",
+      "reason": "ss#2546. The establishment plugin emits this when a non-admin's firm-level rule has actually been EMAILED to the administrators the firm names on scope.rule_requests_to, carrying who was notified and never the rule's text. Its own row rather than a field on the send's CONFIRM_SEND_DISPATCHED row, because the two answer different questions: the send row says a message left, this says a specific request reached the people authorized to answer it, which is what anyone auditing this loop is looking for. WAS side: deferred for exactly one release (ss#2546 PR 1 declared the type before its producer existed, so the client feed would render the first row ever written rather than the ss#2316 silence); it becomes overlay-produced at the OVERLAY_REF bump to 119f6bf2 (overlay#311), which returns the deferred count to zero."
     },
     "ACT_PROPOSED": {
       "side": "ss-console",
