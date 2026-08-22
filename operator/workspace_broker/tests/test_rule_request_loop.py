@@ -756,3 +756,233 @@ def test_a_table_written_before_this_change_gains_the_columns_and_reads_as_open(
     assert row["lapse_notified_at"] is None
     assert row["kind"] == "rule"
     assert [r["proposal_id"] for r in store.open_for(PARALEGAL, True)] == ["aaaaaaaa"]
+
+
+# ---------------------------------------------------------------------------
+# The fourth outcome: a rule that was APPLIED (ss-console#2546 follow-up)
+#
+# LIVE DEFECT (pilot, 2026-08-22T20:31Z, overlay 119f6bf). A non-admin stated a
+# firm rule, an administrator replied "apply that", the submit was accepted at
+# 20:31:32Z and the intake installed it at 20:31:52Z. The person who asked was
+# never told. Two reasons, and both are broker-side:
+#
+# * the seat looked the row up by id straight after committing it, to learn
+#   whether it was for_admin and who had asked -- and the by-id lookup returned
+#   open rows only, so committing the rule is exactly what made it invisible;
+# * the install result is a ONE-SHOT read, so whether a rule went into force
+#   survived for a single call and then existed nowhere queryable. No later path
+#   could recover it, which is why there was no fallback to catch the miss.
+#
+# So: the lookup answers "what became of this" when asked to, an observed
+# install is stamped on the proposal, and an installed rule joins declined and
+# lapsed as an outcome its author is owed a note about. The line these tests
+# hold is that INSTALLED is not COMMITTED -- between them sit a converge window
+# and a failure mode, and only the first entitles anyone to say "in effect".
+# ---------------------------------------------------------------------------
+
+
+def _commit(broker: Broker, proposal_id: str, run_id: str = "run-install-1") -> str:
+    """Take a proposal the way a confirmed submit does: consume it, naming the run."""
+    assert broker.establishment.pending.consume(proposal_id, run_id)
+    return run_id
+
+
+def _write_result(broker: Broker, run_id: str, status: str = "installed") -> None:
+    (broker.establishment.results_dir / f"{run_id}.json").write_text(
+        json.dumps({"status": status, "phase": "install", "scope": "firm_adjust"})
+    )
+
+
+def _status(broker: Broker, run_id: str):
+    return _call(broker, action="establish_status", run_id=run_id)
+
+
+def test_a_committed_rule_is_visible_to_a_lookup_that_asks_for_outcomes(tmp_path):
+    """THE LIVE DEFECT, in one assertion. The seat asks the broker about the rule
+    it has just committed, and gets the row."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    _commit(broker, proposal_id)
+
+    found = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=proposal_id,
+        include_outcomes=True,
+    )["pending"]
+    assert [r["proposal_id"] for r in found] == [proposal_id]
+    assert found[0]["state"] == "committed"
+    assert found[0]["for_admin"] is True
+    assert found[0]["instructed_by"] == PARALEGAL
+
+
+def test_the_old_lookup_still_answers_the_old_question(tmp_path):
+    """The falsifier for the change above, and the compatibility guarantee: a
+    caller that does not ask for outcomes still sees confirmable rows only, so a
+    seat running the old plugin is handed exactly what it was handed before."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    assert _call(broker, action="establish_pending", proposal_id=proposal_id)["pending"]
+
+    _commit(broker, proposal_id)
+    assert _call(broker, action="establish_pending", proposal_id=proposal_id)["pending"] == []
+
+
+def test_reading_an_installed_result_stamps_the_proposal(tmp_path):
+    """The one-shot read leaves something behind. Without this the fact that a
+    rule went into force lives for exactly one call."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    _write_result(broker, run_id)
+
+    assert _status(broker, run_id)["result"]["status"] == "installed"
+    assert broker.establishment.pending.get(proposal_id)["installed_at"] is not None
+
+
+def test_a_result_that_is_not_installed_stamps_nothing(tmp_path):
+    """The falsifier. A run that failed its write gates must not leave the
+    proposal looking like a rule in force."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    _write_result(broker, run_id, status="refused")
+
+    assert _status(broker, run_id)["result"]["status"] == "refused"
+    assert broker.establishment.pending.get(proposal_id)["installed_at"] is None
+
+
+def test_the_stamp_follows_the_run_the_broker_itself_recorded(tmp_path):
+    """A result for a run no proposal was committed under stamps nothing. The
+    link is consumed_run_id, written by the broker at commit, so no request field
+    can point an install at somebody else's rule."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    _commit(broker, proposal_id, run_id="run-mine")
+    _write_result(broker, "run-someone-elses")
+
+    assert _status(broker, "run-someone-elses")["result"]["status"] == "installed"
+    assert broker.establishment.pending.get(proposal_id)["installed_at"] is None
+
+
+def test_an_installed_rule_is_an_outcome_its_author_has_not_been_told_about(tmp_path):
+    """The sweeper's senderless view carries it, so a seat that missed the
+    observation in the turn still reports it afterwards."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    _write_result(broker, run_id)
+    _status(broker, run_id)
+
+    outstanding = _call(broker, action="establish_pending", include_outcomes=True)["pending"]
+    assert [r["proposal_id"] for r in outstanding] == [proposal_id]
+    assert outstanding[0]["state"] == "committed"
+    assert outstanding[0]["installed"] is True
+    assert outstanding[0]["lapse_notified"] is False
+
+
+def test_a_committed_rule_nobody_has_seen_install_is_not_reportable_yet(tmp_path):
+    """THE HONESTY OF THE WHOLE CHANGE. Committed means the submission reached
+    the intake; the converge window is still open and the run can still fail. A
+    view keyed on consumed_at would mail 'your rule is in effect' about a rule
+    that never installed."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    _commit(broker, proposal_id)
+
+    assert _call(broker, action="establish_pending", include_outcomes=True)["pending"] == []
+    with pytest.raises(EstablishmentValidationError) as excinfo:
+        _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)
+    assert "not been observed installed" in str(excinfo.value)
+
+
+def test_an_installed_rule_nobody_waited_on_is_nobodys_news(tmp_path):
+    """An administrator's OWN rule is not for_admin, so nobody is waiting to hear
+    that it landed. It must not enter the outcome view at all."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker, instructed_by=ADMIN, for_admin=False)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    _write_result(broker, run_id)
+    _status(broker, run_id)
+
+    assert broker.establishment.pending.get(proposal_id)["installed_at"] is not None
+    assert _call(broker, action="establish_pending", include_outcomes=True)["pending"] == []
+
+
+def test_an_installed_rule_is_reported_exactly_once(tmp_path):
+    """The cross-path lock. Three observers can reach the mark and one wins the
+    UPDATE, so the person who asked gets one letter and not three."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    _write_result(broker, run_id)
+    _status(broker, run_id)
+
+    assert _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)["ok"]
+    with pytest.raises(EstablishmentValidationError) as excinfo:
+        _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)
+    assert "already reported" in str(excinfo.value)
+    assert _call(broker, action="establish_pending", include_outcomes=True)["pending"] == []
+
+
+def test_reporting_an_install_forges_no_lapse(tmp_path):
+    """RULE_LAPSED is the record that a rule died unanswered. A rule that went
+    into force must not write one -- the run already left its own result row."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    _write_result(broker, run_id)
+    _status(broker, run_id)
+    _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)
+
+    assert _rows(broker, RULE_LAPSED_ACTION_TYPE) == []
+
+
+def test_two_reads_of_one_result_stamp_once(tmp_path):
+    """mark_installed is conditional, like every other mark here."""
+    broker = _broker(tmp_path)
+    proposal_id = _propose(broker)["proposal_id"]
+    run_id = _commit(broker, proposal_id)
+    store = broker.establishment.pending
+
+    assert store.mark_installed(run_id) == proposal_id
+    stamped = store.get(proposal_id)["installed_at"]
+    assert store.mark_installed(run_id) == ""
+    assert store.get(proposal_id)["installed_at"] == stamped
+
+
+def test_an_uncommitted_proposal_cannot_be_stamped_installed(tmp_path):
+    """Nothing installs a rule an administrator never applied."""
+    broker = _broker(tmp_path)
+    _propose(broker)
+    assert broker.establishment.pending.mark_installed("run-nothing-committed") == ""
+
+
+def test_a_table_written_before_the_column_reads_as_not_installed(tmp_path):
+    """The additive-ALTER idiom again, exercised rather than asserted."""
+    db_path = tmp_path / "pending-old.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "CREATE TABLE pending_rules ("
+            "proposal_id TEXT PRIMARY KEY, scope TEXT NOT NULL, subject_json TEXT NOT NULL, "
+            "text TEXT NOT NULL, text_sha256 TEXT NOT NULL, instructed_by TEXT NOT NULL, "
+            "for_admin INTEGER NOT NULL DEFAULT 0, created_at REAL NOT NULL, "
+            "expires_at REAL NOT NULL, consumed_at REAL, consumed_run_id TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO pending_rules (proposal_id, scope, subject_json, text, "
+            "text_sha256, instructed_by, for_admin, created_at, expires_at, "
+            "consumed_at, consumed_run_id) "
+            "VALUES ('bbbbbbbb', 'firm_adjust', '{}', ?, 'sha', ?, 1, ?, ?, ?, 'run-old')",
+            (RULE, PARALEGAL, time.time(), time.time() + 3600, time.time()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    store = PendingRuleStore(db_path)
+    assert store.get("bbbbbbbb")["installed_at"] is None
+    assert store.unreported_outcomes_for(None) == []
+    assert store.mark_installed("run-old") == "bbbbbbbb"
+    assert [r["proposal_id"] for r in store.unreported_outcomes_for(None)] == ["bbbbbbbb"]
