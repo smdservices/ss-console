@@ -43,6 +43,7 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     'scope.inbound_allow_from',
     errors
   )
+  const admins = checkAdmins(raw['admins'], errors)
   return {
     email_folders_visible: requireStringList(
       raw,
@@ -66,8 +67,92 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     matter_blocks: optionalStringList(raw, 'matter_blocks', 'scope.matter_blocks', errors),
     inbound_allow_from: inboundAllowFrom,
     outbound_roster: checkOutboundRoster(raw['outbound_roster'], errors),
-    admins: checkAdmins(raw['admins'], errors),
+    admins,
+    rule_requests_to: checkRuleRequestsTo(raw['rule_requests_to'], admins, errors),
   }
+}
+
+/**
+ * Validate `scope.rule_requests_to` (ss-console#2546): who is EMAILED when a
+ * non-admin asks for a firm-level rule. Routing, not authority — every admin
+ * keeps the power to apply a rule, and this list only decides whose inbox the
+ * request lands in.
+ *
+ * Same person-address shape as `scope.admins`, plus the one rule that makes the
+ * key safe: every entry must already be an admin. Two things fall out of it.
+ * A rule request cannot be routed to somebody who could not act on it, and the
+ * broker's recipient fence — admins, the inbound roster, the typed outbound
+ * roster — already admits every address here, so the send cannot be authored
+ * into a refusal.
+ *
+ * Absent/null yields `[]`. That is fail-closed in the honest direction: no
+ * admin is emailed, and nothing anywhere may claim one was.
+ */
+function checkRuleRequestsTo(raw: unknown, admins: string[], errors: ValidationError[]): string[] {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'scope.rule_requests_to',
+      message: 'scope.rule_requests_to must be a list',
+    })
+    return []
+  }
+  const known = new Set(admins)
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const canon = ruleRequestEntry(raw[i], `scope.rule_requests_to[${i}]`, seen, known, errors)
+    if (canon === null) continue
+    seen.add(canon)
+    out.push(canon)
+  }
+  return out
+}
+
+/** One routing entry: person-shaped, non-duplicate, and already an admin. */
+function ruleRequestEntry(
+  raw: unknown,
+  path: string,
+  seen: Set<string>,
+  admins: Set<string>,
+  errors: ValidationError[]
+): string | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    errors.push({
+      code: 'MissingField',
+      path,
+      message: 'rule_requests_to entries must be non-empty strings',
+    })
+    return null
+  }
+  const canon = canonRosterAddress(raw)
+  if (canon === null || canon.startsWith('@')) {
+    errors.push({
+      code: 'InvalidRuleRequestsTo',
+      path,
+      message:
+        'rule_requests_to must be exact person addresses (local@domain); a whole-@domain grant routes a request to nobody in particular',
+    })
+    return null
+  }
+  if (seen.has(canon)) {
+    errors.push({
+      code: 'InvalidRuleRequestsTo',
+      path,
+      message: `${canon} appears more than once in scope.rule_requests_to`,
+    })
+    return null
+  }
+  if (!admins.has(canon)) {
+    errors.push({
+      code: 'InvalidRuleRequestsTo',
+      path,
+      message: `${canon} is not on scope.admins; a rule request may only be routed to somebody who can apply it`,
+    })
+    return null
+  }
+  return canon
 }
 
 /**
@@ -287,5 +372,6 @@ function emptyScope(): Scope {
     inbound_allow_from: [],
     outbound_roster: [],
     admins: [],
+    rule_requests_to: [],
   }
 }

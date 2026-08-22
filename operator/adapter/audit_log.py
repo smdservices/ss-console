@@ -294,6 +294,16 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "RULE_PROPOSED",
         "ESTABLISHMENT_SUBMITTED",
         "ESTABLISHMENT_RESULT",
+        # ss#2546: the loop closing round the two silences #2529 left. A rule a
+        # non-admin states is now EMAILED to the administrators the firm named
+        # for request traffic (RULE_REQUEST_NOTIFIED, written by the seat's
+        # establishment hook when that email is away); an administrator's "no"
+        # is a decision with a row (RULE_DECLINED, broker-side); and a rule
+        # nobody answered inside seven days lapses and the person who asked is
+        # told (RULE_LAPSED, broker-side, written when the note is away).
+        "RULE_REQUEST_NOTIFIED",
+        "RULE_DECLINED",
+        "RULE_LAPSED",
         # ss#2536: the same broker-side channel carrying a TOOL CALL. Proposed
         # when the Operator states one act back for an admin to confirm;
         # committed after that act succeeded, naming the confirmer.

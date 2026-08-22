@@ -410,10 +410,15 @@ export function applyEditableChanges(
     // and NOT portal-editable; preserve the current values verbatim (same posture
     // as voice_cohorts below). admins in particular decides who may establish the
     // firm's voice, so a portal save must never be able to widen or clear it.
+    // rule_requests_to (ss#2546) is preserved on the same footing: it is
+    // validated as a subset of admins, so a portal save that could edit one
+    // without the other could leave a request routed to somebody who is no
+    // longer an administrator.
     scope: {
       ...changes.scope,
       outbound_roster: current.scope.outbound_roster,
       admins: current.scope.admins,
+      rule_requests_to: current.scope.rule_requests_to,
     },
     // case_alert_routing (#2004) is governance-sensitive (it decides who at
     // the firm receives case alerts) and NOT portal-editable; preserve the

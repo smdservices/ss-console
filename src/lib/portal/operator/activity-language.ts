@@ -93,6 +93,9 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'OUTPUT_SPEC_REJECTED',
       'CORRECTION_PROPOSED',
       'RULE_PROPOSED',
+      'RULE_REQUEST_NOTIFIED',
+      'RULE_DECLINED',
+      'RULE_LAPSED',
       'ESTABLISHMENT_SUBMITTED',
       'ESTABLISHMENT_RESULT',
       'ACT_PROPOSED',
@@ -278,6 +281,13 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   // is a fact about the record, "applied" is the one that says the next
   // document of that kind is written to it.
   RULE_PROPOSED: () => 'Stated a rule back for confirmation',
+  // ss#2546. Three more lines, for the three things that used to happen in
+  // silence when the person who asked was not an administrator. Each is written
+  // from the reader's side: what happened to the request they made, never which
+  // verb ran. No timing promise on any of them (Pattern A).
+  RULE_REQUEST_NOTIFIED: () => 'Asked an administrator to apply a rule',
+  RULE_DECLINED: () => 'An administrator declined a rule',
+  RULE_LAPSED: () => 'A rule request lapsed unanswered',
   ESTABLISHMENT_SUBMITTED: () => 'Committed a rule you confirmed',
   ESTABLISHMENT_RESULT: () => 'Applied a rule to how work is written',
   // ss#2536. Two lines for the two halves of an act, and the first one has to

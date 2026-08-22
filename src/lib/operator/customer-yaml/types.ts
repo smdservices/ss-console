@@ -813,6 +813,30 @@ export interface Scope {
    */
   admins: string[]
   /**
+   * Who receives REQUEST TRAFFIC when a non-admin states a firm-level rule
+   * (ss-console#2546). A subset of {@link admins}, and nothing more than that:
+   * this list carries no authority of its own.
+   *
+   * The split it draws. `admins` says who MAY apply a firm rule — every one of
+   * them, unchanged. This says who gets EMAILED when somebody who is not an
+   * admin asks for one. A firm with a partner and an office manager on the
+   * admin list does not want the partner paged every time a paralegal asks for
+   * a different sign-off, and before this key the only way to spare him was to
+   * take his authority away.
+   *
+   * Every entry must also appear in `admins`. The validator enforces it, and
+   * the reason is not tidiness: the broker's recipient fence admits admins, the
+   * inbound roster, and the typed outbound roster, so an address here that is
+   * not an admin would be a recipient the seat is asked to write to and refused
+   * at the fence — a request that silently reaches nobody.
+   *
+   * Person addresses only; an `@domain` grant is refused for the same reason it
+   * is on `admins`. Empty when unauthored, which is fail-closed in the honest
+   * direction: no admin is emailed, and the Operator says so rather than
+   * claiming somebody was asked.
+   */
+  rule_requests_to: string[]
+  /**
    * Typed outbound roster (ADR 0075) — the firm's own clients / records vendors,
    * each resolving to the `external_send_client` / `external_send_vendor` action
    * class. Empty array when unauthored (fail-closed: every outside send stays on
@@ -1340,6 +1364,9 @@ export type ValidationErrorCode =
   | 'InvalidActionCeiling'
   | 'InvalidOutboundRoster'
   | 'InvalidAdminList'
+  /** ss-console#2546: `scope.rule_requests_to` is not person-shaped, repeats an
+   * address, or names somebody who is not on `scope.admins`. */
+  | 'InvalidRuleRequestsTo'
   | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'

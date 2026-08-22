@@ -225,6 +225,14 @@ scope:
   # (nobody can establish firm-level voice/shape; per-person preferences are
   # unaffected — a person's own rostered identity governs their own layer).
   admins: []
+  # Who is EMAILED when somebody who is not an admin asks for a firm-level rule
+  # (ss-console#2546). Routing, not authority: every admin above may still apply
+  # a rule. Author a subset of `admins` when the organization does not want each
+  # of them paged for every request; author all of them, or leave it empty, when
+  # it does not care. Every entry MUST also appear on `admins` (validated).
+  # Empty = no admin is emailed, and the Operator says so rather than claiming
+  # somebody was asked.
+  rule_requests_to: []
 
 # ---- ESCALATION ----
 escalation:

@@ -451,13 +451,24 @@ def test_an_expired_proposal_refuses_by_name_and_never_claims_effect(tmp_path):
         )
 
 
-def test_an_expired_proposal_is_swept_and_then_reads_as_never_proposed(tmp_path):
+def test_an_expired_proposal_is_swept_into_a_lapse_and_never_commits(tmp_path):
+    """ss-console#2546 changed this test's subject, and the change IS the issue.
+
+    The sweep used to DELETE an expired row, and that deletion is why a lapse
+    was silent: the row that would have let anyone tell the person who asked was
+    gone, and the table's honest answer became "nobody ever proposed that". It
+    is now marked instead, so the seat has something true to report, and a late
+    "yes" still commits nothing.
+    """
     broker = _broker(tmp_path)
     proposed = _propose(broker)
     _age_out(broker, proposed["proposal_id"])
     broker.establishment.sweep()
-    assert broker.establishment.pending.get(proposed["proposal_id"]) is None
-    with pytest.raises(EstablishmentValidationError, match="state the rule again"):
+    row = broker.establishment.pending.get(proposed["proposal_id"])
+    assert row is not None
+    assert row["lapsed_at"] is not None
+    assert row["consumed_at"] is None
+    with pytest.raises(EstablishmentValidationError, match="lapsed unanswered"):
         _confirm(broker, proposed["proposal_id"])
 
 

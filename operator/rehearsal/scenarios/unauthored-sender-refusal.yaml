@@ -67,6 +67,17 @@ legs:
           replying "apply that", which is the same review the capture queue provided
           conducted where the firm already is. Forbidding that row would forbid the
           decline itself.
+
+          NEITHER IS RULE_REQUEST_NOTIFIED, added by ss#2546, and it is the one
+          most likely to be read as a leak by somebody scanning this list. On this
+          leg the Operator now EMAILS the administrators the firm named on
+          scope.rule_requests_to, saying a paralegal asked for this rule and how to
+          answer. A non-admin's message causing mail to reach an administrator is
+          not the non-admin gaining privilege; it is the request arriving at the
+          person who holds it. The privilege boundary is unchanged and is measured
+          by ESTABLISHMENT_SUBMITTED below: what a non-admin may not do is cause a
+          rule to COMMIT. Before #2546 this leg ended in silence for everyone
+          except the sender, which is the defect that issue closes.
       - kind: reply_arrives
         why: a decline the sender never sees is indistinguishable from an outage
 
@@ -93,6 +104,7 @@ legs:
             CONFIG_WRITE,
             CORRECTION_PROPOSED,
             RULE_PROPOSED,
+            RULE_DECLINED,
             ESTABLISHMENT_SUBMITTED,
           ]
         why: >
@@ -114,3 +126,11 @@ legs:
           the day this scenario grows a second leg that answers the readback. Both
           are an authorizing act by an admin, which is what this leg exists to
           distinguish from the refusal above.
+
+          RULE_DECLINED joins them at ss#2546, and it belongs in an OR set about
+          AUTHORITY for the same reason the other two do: refusing a rule somebody
+          else asked for is an act only an administrator can perform, and the
+          broker refuses it from anyone the row does not admit. It is here for the
+          shape where the admin's message answers a request already waiting rather
+          than stating a new rule. It is not a substitute for the rows above on the
+          first turn of a fresh instruction, which still writes RULE_PROPOSED.

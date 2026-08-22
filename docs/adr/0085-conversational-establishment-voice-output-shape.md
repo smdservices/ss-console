@@ -107,3 +107,36 @@ Nothing else about ADR 0083's registry moves: declarations (`output_classes:`) s
 - [ ] (runtime) The same motion updates an existing voice, and the prior spec is recoverable
 - [ ] (runtime) A non-admin's identical instruction is refused with a reply naming who can do it, and is captured as a proposed correction where applicable
 - [ ] (runtime) A user states a personal preference; work produced for that user honors it; firm-level output is unchanged
+
+## Amendment, 2026-08-22: three categories of change, and who decides each (Captain decision; ss-console#2546)
+
+The 2026-08-21 amendment above named a second authorization: an admin's confirmed one-sentence adjustment installs on authority, attribution, an untainted turn, and a readback. Building it exposed a question the ADR had not answered. A person who is not an admin can also state a firm-level sentence, and what happened next was that the Operator recorded it and said an admin could apply it by replying "apply that". No admin was told. A decline was silent, a lapse was silent, and a request about a routine got a sentence with nothing behind it.
+
+The gap was not in the mechanism. It was that "who decides" had only two values, admin and not-admin, and a firm has three kinds of change.
+
+| Kind           | Example                                                 | Who decides                                         | How                                                                                      |
+| -------------- | ------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Personal       | "open tasks first, for me"                              | the person                                          | readback, yes                                                                            |
+| Firm standards | voice, document shape and templates, letter tone        | any Operator admin                                  | readback, yes; a non-admin's request goes to `rule_requests_to` for "apply that" or "no" |
+| Operations     | routines, schedules, channels, memory, autonomy, on/off | SMD on request; admins keep pause/off in the portal | fixed reply; request passed to SMD by email                                              |
+
+Two things follow from the table, and both are deliberate.
+
+**Operations stay with SMD for now.** A routine is a schedule that initiates work on its own, and changing one changes what the Operator does when nobody is watching. That is a configuration act with a reviewed diff behind it, not a sentence. So the Operator's answer to "start sending me a digest every Monday" is that SMD makes those changes, and the request actually reaches SMD rather than being absorbed by a polite reply. What an admin keeps unilaterally is the direction that only ever reduces exposure: pause, and off, from the portal. The self-managed end of this spectrum, where an admin approves a routine change by email the way they approve a rule, is a later decision and is not taken here.
+
+**Authority and traffic are separated.** Every Operator admin may apply a firm rule; that is §2 and it does not move. What ss-console#2546 adds is `scope.rule_requests_to`, an authored subset of `scope.admins` naming who is EMAILED when a non-admin asks for one. The distinction exists because the two lists answer different questions. Authority asks who may speak for the firm, and the firm's answer is its Named Administrators. Traffic asks whose inbox rings, and a firm with a litigating partner and an office manager on the same list does not want the partner paged every time a paralegal asks for a different sign-off. Before this key, the only way to spare him that was to take his authority away.
+
+The routing list is a subset by validation, not by convention. An address on it that is not an admin would be a person asked to answer a question they have no power to answer, and the broker's own recipient fence would refuse the send anyway, so the request would reach nobody and nothing would say so. Empty is fail-closed in the honest direction: no admin is emailed, and the Operator says that rather than claiming somebody was asked.
+
+The loop the routing closes is the point of the whole amendment. A rule stated by somebody who is not an admin is recorded, read back, and emailed to every address on `rule_requests_to` with the tag and "reply 'apply that' or 'no'". An admin's "apply that" commits it and the person who asked is told it is in effect. An admin's "no" declines it, once, and the person who asked is told it was declined. Nobody answering inside seven days lapses it, and the person who asked is told that too. An admin who is not named for requests receives nothing at any point. Personal preferences under §6 are untouched: a person's own identity is the authority over their own layer, and nothing about their own preference is routed to anybody.
+
+Two bounds worth stating plainly. The seven-day window applies to a rule only; an act proposed for confirmation keeps the twenty-four hours it was authorized under, because widening it would widen a commitment nobody widened. And a decline is an explicit act by a second person: the requester cannot decline their own rule, since leaving it unconfirmed is how they withdraw it.
+
+### Acceptance criteria (this amendment)
+
+- [ ] (repo) `customer.yaml` carries `scope.rule_requests_to`, validated as a subset of `scope.admins`, parsed by the seat, and authored on both the client seat and the proving seat
+- [ ] (repo) A non-admin's firm rule is emailed to every `rule_requests_to` address with the readback and the two answers; an admin not named receives nothing
+- [ ] (repo) An admin's "no" declines the proposal once, and the person who asked is told the outcome on apply and on decline
+- [ ] (repo) A rule nobody answers lapses at seven days and the person who asked is told; an act still expires at twenty-four hours
+- [ ] (repo) An operations request gets the fixed reply and reaches SMD by email
+- [ ] (runtime) On a proving seat, all four legs are observed end to end from the seat's own mailbox
