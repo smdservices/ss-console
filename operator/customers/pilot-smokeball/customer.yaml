@@ -1008,7 +1008,7 @@ self_initiation:
     # and this feature does not move it.
     operator_matter:
       number: '2026-OPS-LIBRARY'
-      description: 'Operator Library'
+      description: 'Operator Library (rehearsal)'
       # This seat's own "SMD Operations" person contact.
       client_contact_id: '7236214f-628e-412b-ad0e-099c61371cd4'
       matter_type_id: '42cc724c-f046-451c-8452-4284f7a82b66_CA'
