@@ -718,7 +718,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # generic sentence. Files: bootstrap/translate.py,
 # tests/test_bootstrap_translate.py -- NOT tracked pairs; every overlaySha256
 # unchanged, only overlayRef.
-ARG OVERLAY_REF="2b0c786d76490178b9797ed164ec6097cb3abb22"
+ARG OVERLAY_REF="241df3bc33be455dd939d350625740c23abb065f"
 
 ARG CUSTOMER_SLUG=customer-zero
 
