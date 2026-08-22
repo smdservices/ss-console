@@ -537,6 +537,87 @@ def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
     return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
+# ---------------------------------------------------------------------------
+# Pre-run handoff (ss#2547)
+# ---------------------------------------------------------------------------
+# The dates this script emits were READ from the firm's record. On the woken
+# turn they arrive as prompt text, and prompt text is not a source: on
+# 2026-08-19 the escalator's digest was refused five times by the identifier
+# gate for the very dates this script had just read, and the escalation nobody
+# received was a court date seven days out
+# (docs/runbooks/operator/incidents/2026-08-19-gate-muted-escalator.md).
+#
+# This file is the seam that turns the script's read into a source. The READER
+# is the overlay's ``shared/pre_run_handoff.take_handoff``, which binds the
+# handoff to the one session started inside its window, seeds only the date
+# atoms into the provenance register, and consumes it. The same block is copied
+# verbatim into every bespoke pre_run that emits authored record dates: this
+# script runs as a subprocess under the connector interpreter and cannot import
+# the overlay.
+#
+# Best-effort by construction. Any failure goes to stderr and changes neither
+# stdout nor the wake decision, because a routine that cannot write a handoff
+# still has to wake.
+
+_HANDOFF_SKILL = "client-verification-tracker"
+_HANDOFF_STARTED_AT = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _handoff_values(node, key: str, out: list) -> list:
+    """Every ``key`` string in a nested payload, deduped, first-seen order."""
+    if isinstance(node, dict):
+        value = node.get(key)
+        if isinstance(value, str) and value and value not in out:
+            out.append(value)
+        for child in node.values():
+            _handoff_values(child, key, out)
+    elif isinstance(node, list):
+        for child in node:
+            _handoff_values(child, key, out)
+    return out
+
+
+def _is_iso_day(value: str) -> bool:
+    """YYYY-MM-DD and nothing else. The register must never learn a non-date."""
+    return (
+        len(value) == 10
+        and value[4] == "-"
+        and value[7] == "-"
+        and value.replace("-", "").isdigit()
+    )
+
+
+def _write_pre_run_handoff(payload: dict) -> None:
+    """Project the emitted payload down to dates + matter ids and hand it off."""
+    try:
+        record = {
+            "skill": _HANDOFF_SKILL,
+            "started_at": _HANDOFF_STARTED_AT,
+            "dates": [
+                d for d in _handoff_values(payload, "authored_date", []) if _is_iso_day(d)
+            ],
+            "matter_ids": _handoff_values(payload, "matter_id", []),
+        }
+        directory = Path(os.environ.get("HERMES_HOME") or "/opt/data") / ".smd" / "pre_run"
+        # Modes are set AT CREATION, never by a follow-up chmod: umask can only
+        # remove bits, so the result is at most 0700/0600 and there is no window
+        # in which the file is readable by anyone else. It names the matters the
+        # firm is working on. An already-existing directory keeps whatever mode
+        # it has; the file's own 0600 is the load-bearing half.
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        tmp = directory / ("." + _HANDOFF_SKILL + ".json.tmp")
+        # O_EXCL so the open cannot follow a pre-planted symlink, preceded by an
+        # unlink so a temp file left by a crashed run cannot wedge the writer
+        # for good. missing_ok: there is usually nothing to remove.
+        tmp.unlink(missing_ok=True)
+        handle = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            json.dump(record, fh)
+        os.replace(tmp, directory / (_HANDOFF_SKILL + ".json"))
+    except Exception as exc:  # noqa: BLE001 -- never change stdout or the wake
+        sys.stderr.write("[pre_run] handoff write failed (" + str(exc) + ")\n")
+
+
 def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
     """Print the wake gate line — WITH the decision's plans (ss #2226).
 
@@ -568,6 +649,7 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
             }
             for p in decision.plans
         ]
+    _write_pre_run_handoff(payload)
     print(json.dumps(payload))
     return 0
 

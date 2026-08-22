@@ -908,3 +908,88 @@ def test_load_chase_config_rejects_nonpositive(tmp_path, monkeypatch):
     config, _refire = load_chase_config()
     assert config.chase_cadence_days is None
     assert config.escalate_after_attempts is None
+
+
+# ---------------------------------------------------------------------------
+# Pre-run handoff (ss#2547)
+# ---------------------------------------------------------------------------
+# The same block every bespoke pre_run carries. This skill emits NO authored
+# date today (identity is the stable task_id, so `authored_date` is None in
+# production), and the projection is asserted to be empty for exactly that
+# reason: an empty `dates` list here is the honest reading of what the wake
+# line said, and the day this gate starts emitting a date the assertion below
+# starts failing rather than silently seeding nothing.
+
+_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids"}
+
+
+def _authored_dates_in(node, found=None) -> list:
+    """Every authored_date in the wake payload, first-seen order.
+
+    Written out again here rather than calling the module's own walker: a test
+    that reuses the projection it is checking agrees with that projection's bugs.
+    """
+    if found is None:
+        found = []
+    if isinstance(node, dict):
+        value = node.get("authored_date")
+        if isinstance(value, str) and value and value not in found:
+            found.append(value)
+        for child in node.values():
+            _authored_dates_in(child, found)
+    elif isinstance(node, list):
+        for child in node:
+            _authored_dates_in(child, found)
+    return found
+
+
+def _wake_stdout() -> str:
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([_item(next_chase_due=TODAY)])],
+            _factory(FakeExecutor()),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=_ledger,
+            ledger_events=[],
+        )
+    )
+    assert code == 0
+    return out
+
+
+def _handoff_path(home) -> Path:
+    return Path(home) / ".smd" / "pre_run" / "client-verification-tracker.json"
+
+
+def test_the_wake_writes_a_handoff_projecting_what_it_emitted(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = json.loads(_wake_stdout())
+    record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
+    assert record["dates"] == _authored_dates_in(payload) == []
+    assert record["skill"] == "client-verification-tracker"
+    assert record["matter_ids"] == [p["matter_id"] for p in payload["plans"]]
+
+
+def test_the_handoff_carries_nothing_but_the_projection(tmp_path, monkeypatch) -> None:
+    """Item keys, actions, labels and prose never reach the register."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    _wake_stdout()
+    record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
+    assert set(record) == _HANDOFF_KEYS
+    assert record["started_at"].endswith("Z")
+    datetime.fromisoformat(record["started_at"].replace("Z", "+00:00"))
+
+
+def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypatch) -> None:
+    """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
+    directory would still be writable by root, and CI containers run as root."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    good = _wake_stdout()
+    assert _handoff_path(tmp_path).exists()
+    blocked = tmp_path / "not-a-directory"
+    blocked.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(blocked))
+    assert _wake_stdout() == good

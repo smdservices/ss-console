@@ -68,6 +68,8 @@ const CONDITION_LABEL: Record<string, string> = {
   gateway_restarted: 'Seat supervisor restarted the gateway',
   gateway_supervisor_refusing: 'Seat supervisor STOPPED restarting (budget spent, needs a human)',
   gateway_supervisor_inert: 'Seat supervisor cannot act (wedge would not self-recover)',
+  send_refused:
+    "a routine's outbound send was refused by a gate, or a wake with needs-you items sent nothing",
 }
 
 /** Label lookup with the per-connector prefix form (ADR 0080). */

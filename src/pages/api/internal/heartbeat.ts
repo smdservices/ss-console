@@ -29,7 +29,10 @@
  *     "webhook_surface":         <map tool → entry> // optional (ss#2222 warn tier)
  *     "audit_write_failures":    <integer>,        // optional (ss#2498 lost rows, cumulative)
  *     "audit_head":              <64 hex chars>,   // optional (ss#2500 chain pin)
- *     "audit_rows":              <integer>         // optional (ss#2500 chain pin)
+ *     "audit_rows":              <integer>,        // optional (ss#2500 chain pin)
+ *     "send_refusals":           <integer>,        // optional (ss#2547 muted routine)
+ *     "send_refusals_last_ts":   <ISO 8601 UTC>,   // optional (ss#2547 pager marker)
+ *     "send_refusals_json":      <array of <=5>    // optional (ss#2547 newest events)
  *   }
  *
  * `audit_head` / `audit_rows` are the one pair here that does NOT land only in
@@ -90,6 +93,9 @@ interface HeartbeatBody {
   gateway_loop_age_seconds?: unknown
   gateway_supervisor_state?: unknown
   gateway_restarts_last_hour?: unknown
+  send_refusals?: unknown
+  send_refusals_last_ts?: unknown
+  send_refusals_json?: unknown
 }
 
 // The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
@@ -271,6 +277,70 @@ function parseWebhookSurfaceJson(value: unknown): string | null {
   return JSON.stringify(parsed)
 }
 
+// ss#2547: the send-refusal event list.
+//
+// Every field here is bounded because the whole point of the list is to carry a
+// refusal REASON verbatim from a customer Machine into an ops inbox, and
+// verbatim text from a seat is the one input this handler must never trust by
+// size. Whole-array invalid (not an array, more entries than the writer is
+// allowed to send, or serializing past the cap) stores NULL, which the pager
+// reads as "no detail this beat" -- the count and the marker still land, so a
+// junk list can never suppress the page itself.
+const SEND_REFUSAL_MAX_ENTRIES = 5
+const SEND_REFUSAL_MAX_CHARS = 4096
+const SEND_REFUSAL_FIELD_CHARS = 200
+const SEND_REFUSAL_KINDS = new Set(['refused', 'unsent'])
+
+// ISO-8601 with an explicit zone. A bare local-looking timestamp is refused
+// rather than assumed UTC: this value is the pager's ordering marker, and a
+// marker off by a zone offset either re-pages a handled event or swallows a new
+// one.
+const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+
+/**
+ * A timestamp, normalized to canonical UTC (`...Z`).
+ *
+ * Normalized rather than stored verbatim because the alerter orders events by
+ * this string. Two seats reporting the same instant with different offsets
+ * would sort wrongly as raw text; as canonical UTC, string order and instant
+ * order are the same thing.
+ */
+function parseIsoInstant(value: unknown): string | null {
+  if (typeof value !== 'string' || !ISO_8601_RE.test(value)) return null
+  const ms = Date.parse(value)
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString()
+}
+
+/** One event. Atomic like a connector entry: half of one would page wrongly. */
+function parseSendRefusalEntry(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const ts = parseIsoInstant(raw.ts)
+  if (ts === null) return null
+  if (typeof raw.kind !== 'string' || !SEND_REFUSAL_KINDS.has(raw.kind)) return null
+  const entry: Record<string, unknown> = { ts, kind: raw.kind }
+  for (const field of ['routine', 'tool', 'reason'] as const) {
+    const text = raw[field]
+    if (typeof text === 'string' && text.length > 0) {
+      entry[field] = text.slice(0, SEND_REFUSAL_FIELD_CHARS)
+    }
+  }
+  const needsYou = parseNonNegInt(raw.needs_you)
+  if (needsYou !== null) entry.needs_you = needsYou
+  return entry
+}
+
+function parseSendRefusalsJson(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length > SEND_REFUSAL_MAX_ENTRIES) return null
+  const parsed: Array<Record<string, unknown>> = []
+  for (const raw of value) {
+    const entry = parseSendRefusalEntry(raw)
+    if (entry !== null) parsed.push(entry)
+  }
+  const json = JSON.stringify(parsed)
+  return json.length > SEND_REFUSAL_MAX_CHARS ? null : json
+}
+
 /**
  * Every alert-driving field, parsed-not-cast.
  *
@@ -325,6 +395,15 @@ function parseObservability(body: HeartbeatBody) {
     gatewayLoopAgeSeconds: parseNonNegInt(body.gateway_loop_age_seconds),
     gatewaySupervisorState: parseGatewaySupervisorState(body.gateway_supervisor_state),
     gatewayRestartsLastHour: parseNonNegInt(body.gateway_restarts_last_hour),
+    // ss#2547: what the seat's own gates refused, and what it woke with and
+    // never tried to send. Event-shaped, so these three are the exception to
+    // the overwrite-including-NULL rule stated above and are stored with
+    // COALESCE: the marker is the alerter's memory of what it has already
+    // paged for, and erasing it on an unreported beat would re-page the whole
+    // backlog the next time the seat spoke. See migration 0109.
+    sendRefusals: parseNonNegInt(body.send_refusals),
+    sendRefusalsLastTs: parseIsoInstant(body.send_refusals_last_ts),
+    sendRefusalsJson: parseSendRefusalsJson(body.send_refusals_json),
   }
 }
 
@@ -467,6 +546,9 @@ interface FleetStatusUpsert {
   gatewayLoopAgeSeconds: number | null
   gatewaySupervisorState: string | null
   gatewayRestartsLastHour: number | null
+  sendRefusals: number | null
+  sendRefusalsLastTs: string | null
+  sendRefusalsJson: string | null
 }
 
 /**
@@ -477,12 +559,13 @@ interface FleetStatusUpsert {
  * everything an alert reads, because a stale pinned verdict must never outlive
  * the signal that produced it.
  */
-async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
-  // Re-keyed on customer_slug (migration 0093): several seats share one entity,
-  // so ON CONFLICT(entity_id) would collide them into one row. entity_id is now
-  // a plain column and is refreshed from the request on every upsert.
-  await env.DB.prepare(
-    `INSERT INTO fleet_status (
+// Lifted out of the function body (ss#2547) rather than shortened: the
+// statement is one declaration and the ESLint per-function line ceiling counts
+// it as flow. Splitting the SQL itself would be worse than the ceiling it was
+// tripping. Re-keyed on customer_slug (migration 0093): several seats share one
+// entity, so ON CONFLICT(entity_id) would collide them into one row. entity_id
+// is now a plain column and is refreshed from the request on every upsert.
+const FLEET_STATUS_UPSERT_SQL = `INSERT INTO fleet_status (
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
@@ -491,8 +574,9 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        webhook_surface_json, webhook_surface_ok, cron_containment,
        audit_write_failures, audit_head, audit_rows,
        gateway_loop_ok, gateway_loop_age_seconds, gateway_supervisor_state,
-       gateway_restarts_last_hour, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       gateway_restarts_last_hour,
+       send_refusals, send_refusals_last_ts, send_refusals_json, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -520,8 +604,13 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
        gateway_loop_age_seconds   = excluded.gateway_loop_age_seconds,
        gateway_supervisor_state   = excluded.gateway_supervisor_state,
        gateway_restarts_last_hour = excluded.gateway_restarts_last_hour,
+       send_refusals           = COALESCE(excluded.send_refusals, fleet_status.send_refusals),
+       send_refusals_last_ts   = COALESCE(excluded.send_refusals_last_ts, fleet_status.send_refusals_last_ts),
+       send_refusals_json      = COALESCE(excluded.send_refusals_json, fleet_status.send_refusals_json),
        updated_at              = datetime('now')`
-  )
+
+async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
+  await env.DB.prepare(FLEET_STATUS_UPSERT_SQL)
     .bind(
       u.entityId,
       u.slug,
@@ -549,7 +638,10 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
       u.gatewayLoopOk,
       u.gatewayLoopAgeSeconds,
       u.gatewaySupervisorState,
-      u.gatewayRestartsLastHour
+      u.gatewayRestartsLastHour,
+      u.sendRefusals,
+      u.sendRefusalsLastTs,
+      u.sendRefusalsJson
     )
     .run()
 }

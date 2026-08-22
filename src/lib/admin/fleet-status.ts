@@ -79,6 +79,18 @@ export interface FleetStatusRow {
   gateway_supervisor_state: string | null
   /** Supervisor kill-ledger lines inside the last hour; NULL unreported. */
   gateway_restarts_last_hour: number | null
+  /**
+   * ss#2547: outbound sends this seat's own gates refused, plus wakes that
+   * carried needs-you items and attempted nothing, over the trailing 24h. 0 is
+   * a REAL value and the load-bearing one: it is what separates a seat whose
+   * escalations are landing from a seat that has gone quiet because it cannot
+   * get past itself. NULL means the seat cannot answer.
+   */
+  send_refusals: number | null
+  /** Newest refusal-or-unsent event, canonical UTC; NULL = nothing to show. */
+  send_refusals_last_ts: string | null
+  /** The newest few events verbatim (ts, routine, tool, kind, reason); NULL = no detail. */
+  send_refusals_json: string | null
   sentry_errors_last_24h: number | null
   sentry_errors_synced_at: string | null
   updated_at: string
@@ -94,6 +106,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
               audit_write_failures,
               gateway_loop_ok, gateway_loop_age_seconds,
               gateway_supervisor_state, gateway_restarts_last_hour,
+              send_refusals, send_refusals_last_ts, send_refusals_json,
               sentry_errors_last_24h, sentry_errors_synced_at, updated_at
          FROM fleet_status
         ORDER BY customer_slug ASC`

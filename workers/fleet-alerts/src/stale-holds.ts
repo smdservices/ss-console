@@ -94,6 +94,11 @@ export const STALE_HOLDS_SQL = `SELECT s.customer_slug AS customer_slug, s.condi
             OR (s.condition = 'gateway_restarted' AND f.gateway_restarts_last_hour IS NULL)
             OR (s.condition = 'gateway_supervisor_refusing' AND f.gateway_supervisor_state IS NULL)
             OR (s.condition = 'gateway_supervisor_inert' AND f.gateway_supervisor_state IS NULL)
+            -- ss#2547 has NO clause here on purpose. send_refused is
+            -- event-shaped: its row is written with status='resolved' the
+            -- moment it pages and is never open, so the s.status = 'open'
+            -- filter above already excludes it. A clause of its own would be
+            -- dead code that reads as coverage. See ./send-refused.
           )
         ORDER BY s.customer_slug ASC, s.condition ASC`
 
