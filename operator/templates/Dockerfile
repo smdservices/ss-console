@@ -718,7 +718,37 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # generic sentence. Files: bootstrap/translate.py,
 # tests/test_bootstrap_translate.py -- NOT tracked pairs; every overlaySha256
 # unchanged, only overlayRef.
-ARG OVERLAY_REF="241df3bc33be455dd939d350625740c23abb065f"
+#
+# 241df3bc -> 119f6bf2 (overlay#311, ss-console#2546 PR 2). ONE merge in the
+# range, checked rather than assumed: `git log 241df3bc..119f6bf` on the
+# overlay returns a single commit.
+#
+# WHAT REACHES A SEAT AT THIS PIN. Under ss-console#2529 a person who is NOT an
+# Operator admin could state a firm-level rule and be told an admin could apply
+# it, and then nothing happened: no administrator was told there was anything to
+# answer, an administrator's "no" did nothing at all, and a rule nobody answered
+# was deleted by the broker sweep, so the person who asked could not even be
+# told it had lapsed. From this ref the request is EMAILED to the administrators
+# the firm names on scope.rule_requests_to (traffic, not authority: an admin not
+# named receives nothing), the person who asked is told on apply, on decline and
+# on lapse, a 30 s daemon reports the lapse because the client seat's crons are
+# all off, and a routine/schedule/channel/memory/autonomy/on-off ask reaches SMD
+# through the new operations_request tool instead of getting a sentence with
+# nothing behind it. Every one of those sends re-authorizes through the same
+# enforce.evaluate_tool_call a model's own send goes through, so a tainted turn
+# refuses it and the Operator says so rather than claiming somebody was asked.
+#
+# VOCABULARY MOVED at this pin: 65 -> 68 types (RULE_DECLINED, RULE_LAPSED,
+# RULE_REQUEST_NOTIFIED), re-extracted by AST at both refs and compared as sets;
+# all three move out of consoleOnly in audit-action-vocabulary.json.
+#
+# Files: plugins/hermes-smd-audit/schemas.py,
+# plugins/hermes-smd-establishment/{__init__.py,plugin.yaml,sweeper.py},
+# plugins/hermes-smd-trust/{__init__.py,enforce.py},
+# shared/{action_classes,customer_config,operations_request,rule_confirm,
+# rule_dispatch,send_dispatch,spec_gate}.py and three test files -- NOT tracked
+# pairs; every overlaySha256 unchanged, only overlayRef.
+ARG OVERLAY_REF="29536fcb9f703a40bed8eb35bbf6a88bd18ff9a7"
 
 ARG CUSTOMER_SLUG=customer-zero
 

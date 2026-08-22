@@ -1031,7 +1031,37 @@ describe('Operator customer Machine Dockerfile', () => {
     // a turn cannot write under $HERMES_HOME/.smd/; staff-class sends normalize
     // em and en dashes instead of being refused. No tracked pair moves; schemas.py
     // untouched. Retro-falsifier over the pilot ledger: vfy_01M0N81GHW5PHY0N453ZHN18RY.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="241df3bc33be455dd939d350625740c23abb065f"')
+    //
+    // 2026-08-22b: 241df3bc -> 119f6bf2 (overlay#311, ss-console#2546 PR 2). ONE
+    // merge in the range, checked rather than assumed: `git log
+    // 241df3bc..119f6bf` on the overlay returns a single commit. A rule stated by
+    // somebody who is NOT an Operator admin used to end in silence: it was
+    // recorded, nobody was told, an admin's "no" did nothing, and the sweep
+    // deleted it so its author could not even be told it lapsed. From this pin
+    // the request is emailed to the administrators the firm names on
+    // scope.rule_requests_to (traffic, not authority: an admin not named receives
+    // nothing), the requester is told on apply, on decline and on lapse, a 30 s
+    // daemon reports the lapse because the client seat's crons are all off, and a
+    // routine/schedule/channel/memory/autonomy/on-off ask reaches SMD through the
+    // new operations_request tool. Every one of those sends re-authorizes through
+    // the same enforce.evaluate_tool_call a model's own send goes through, so a
+    // tainted turn refuses it and the Operator says so rather than claiming
+    // somebody was asked. VOCABULARY MOVED: 65 -> 68 types (RULE_DECLINED,
+    // RULE_LAPSED, RULE_REQUEST_NOTIFIED), re-extracted by AST at both refs and
+    // compared as sets; all three leave consoleOnly. No tracked pair moves, and
+    // that was established by re-hashing all nine twins at the new ref rather
+    // than by reading the range's file list.
+    //
+    // 2026-08-22c: 119f6bf2 -> 29536fcb (overlay#310, ss#2547 follow-up). A silent
+    // wake is joined to its routine's OWN turn (skill_name + time, capped at 60
+    // min; 30 min when no turn row exists) instead of by session id, which the
+    // pre-run child never stamps on an EMITTED_WAKE row. Without it the unsent
+    // fact fell back to a fixed 30-minute window on every live wake and would
+    // have paged a false "unsent" on any escalator turn that sent after 30 min.
+    // Range touches shared/heartbeat.py, tests/test_heartbeat.py and the retro
+    // script only; no tracked pair moves; schemas.py untouched. Retro-falsifier
+    // at this ref reproduces every muting day per kind on the pilot ledger.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="29536fcb9f703a40bed8eb35bbf6a88bd18ff9a7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
