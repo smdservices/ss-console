@@ -845,6 +845,40 @@ scope:
     - chris@ashtonandprice.com
     - christa@ashtonandprice.com
     - scott@smd.services
+  # TRAFFIC ROUTING ONLY (ss-console#2546). When somebody at the firm who is not
+  # an admin asks for a firm-level rule, this is who gets the email asking them
+  # to reply "apply that" or "no". It changes nothing about AUTHORITY: all three
+  # admins above may still apply a rule, and any of them can, by answering the
+  # Operator directly. Chris is deliberately absent — he is an admin who is not
+  # paged for every request, which is the reason this key is separate from the
+  # list above. Scott (SMD) is here so the path has a second answerer while the
+  # firm settles in.
+  #
+  # Every entry must also be on scope.admins (validator-enforced): routing a
+  # request to somebody who could not act on it would produce an email nobody
+  # can answer, and the broker's recipient fence would refuse the send anyway.
+  #
+  # Empty = no admin is emailed, and the Operator says so rather than claiming
+  # somebody was asked.
+  rule_requests_to:
+    - christa@ashtonandprice.com
+    - scott@smd.services
+  # Typed outbound roster (ADR 0075). One entry on this seat, and it is an SMD
+  # address rather than a firm one: operations requests (routines, schedules,
+  # channels, memory, autonomy, on/off) are made by SMD, not by the firm's own
+  # admins, so the Operator has to be able to pass such a request on to us
+  # (ss-console#2546).
+  #
+  # WHAT THIS GRANTS, exactly: outbound CLASSIFICATION. A send to this address
+  # resolves as internal firm staff instead of falling to the outside
+  # external_send ceiling, so the request goes rather than sitting as a held
+  # draft. It grants NO inbound trust — this address is deliberately absent from
+  # scope.inbound_allow_from, so mail claiming to come from it does not untaint
+  # a turn and cannot instruct the seat.
+  outbound_roster:
+    - address: team@smd.services
+      class: firm_staff
+      note: 'SMD operations desk; outbound classification only, never inbound trust'
   # External send to non-roster recipients is drafted, never autonomous — client-
   # and tribunal-bound mail ships under a human reviewer. The draft_for_review
   # posture is authored on the persona's entitlements.exposure (ADR 0056), the

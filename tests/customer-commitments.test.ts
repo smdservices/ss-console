@@ -450,6 +450,79 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
     expect(ap.scope.admins.length).toBe(3)
   })
 
+  // (k) ss-console#2546. The loop the admin list could not close on its own.
+  // Every admin may apply a firm rule; this says whose inbox a NON-admin's
+  // request lands in, so a partner is not paged every time a paralegal asks for
+  // a different sign-off. Two invariants on both seats, and each is the property
+  // the feature actually needs:
+  //   - non-empty, or a non-admin's rule reaches nobody and the Operator has
+  //     nothing true to say about who was asked;
+  //   - a subset of the admin list, so a request can never be routed to somebody
+  //     who could not act on it (the validator enforces this per-seat; asserted
+  //     again here because the authored VALUES are what ship, not the schema).
+  it('(k) both seats route rule requests to a subset of their admins (ss#2546)', () => {
+    const seats: Array<readonly [string, CustomerYaml]> = [
+      ['ashton-price', validatedSeat(join(AP_DIR, 'customer.yaml'))],
+      ['pilot-smokeball', seatValue()],
+    ]
+
+    for (const [label, cfg] of seats) {
+      const routing = cfg.scope.rule_requests_to
+      expect(
+        routing.length,
+        `${label}: an unauthored routing list means a non-admin's rule reaches nobody`
+      ).toBeGreaterThan(0)
+      const admins = new Set(cfg.scope.admins)
+      for (const to of routing) {
+        expect(to.startsWith('@'), `${label}: a request goes to a person, never a domain`).toBe(
+          false
+        )
+        expect(admins.has(to), `${label}: ${to} is routed a request it could not act on`).toBe(true)
+      }
+    }
+
+    // The split is REAL on both seats, not decorative: each authors at least one
+    // admin who is NOT paged. On A&P that is Chris by name (an admin who keeps
+    // the authority and loses the traffic); on the proving seat it is scott@,
+    // whose absence is what makes the "an admin not named receives nothing" leg
+    // falsifiable there.
+    for (const [label, cfg] of seats) {
+      const unpaged = cfg.scope.admins.filter((a) => !cfg.scope.rule_requests_to.includes(a))
+      expect(
+        unpaged.length,
+        `${label}: routing names every admin, so nothing proves the split is wired`
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  // (l) ss-console#2546. An operations request (routine, schedule, channel,
+  // memory, autonomy, on/off) is SMD's to make, and the Operator has to be able
+  // to pass one on. That send needs a typed outbound class or it falls to the
+  // outside external_send ceiling and sits as a held draft.
+  //
+  // The second half is the one worth a gate: the same address must NOT be on
+  // the inbound roster. Rostering it would trust mail claiming to come FROM it,
+  // which is a different and much larger grant than being able to write to it.
+  it('(l) both seats can send to the SMD operations desk, and trust nothing from it', () => {
+    const seats: Array<readonly [string, CustomerYaml]> = [
+      ['ashton-price', validatedSeat(join(AP_DIR, 'customer.yaml'))],
+      ['pilot-smokeball', seatValue()],
+    ]
+    const DESK = 'team@smd.services'
+
+    for (const [label, cfg] of seats) {
+      const entry = cfg.scope.outbound_roster.find((e) => e.address === DESK)
+      expect(entry, `${label}: no outbound class for the operations desk`).toBeDefined()
+      expect(entry!.class, `${label}: the desk is firm staff, not a client or a vendor`).toBe(
+        'firm_staff'
+      )
+      expect(
+        cfg.scope.inbound_allow_from.includes(DESK),
+        `${label}: the operations desk must not be granted inbound trust`
+      ).toBe(false)
+    }
+  })
+
   it('(i) the authored persona register is real and identical across the client and proving seats', () => {
     const seats = [AP_DIR, resolve('operator/customers/pilot-smokeball')]
     const tones = seats.map((dir) => {

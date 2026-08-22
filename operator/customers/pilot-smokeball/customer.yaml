@@ -836,6 +836,16 @@ scope:
     # install + the possession ceremony); mirrors A&P's two-admin shape. Never
     # copy to a client seat.
     - ss-probe-admin@agentmail.to
+  # TRAFFIC ROUTING ONLY (ss-console#2546) — who is EMAILED when a non-admin
+  # asks for a firm-level rule. Authority is unchanged: both admins above may
+  # still apply a rule.
+  #
+  # The probe admin alone, and scott@ deliberately left out, because that
+  # omission is what makes the routing leg falsifiable here: scott@ IS an admin,
+  # so if a rule request reaches him the split is decorative rather than real.
+  # Mirrors the A&P shape, where Chris is the admin who is not paged.
+  rule_requests_to:
+    - ss-probe-admin@agentmail.to
   # Typed outbound roster (ADR 0075) — the firm's own client / records-vendor
   # addresses, which resolve to the external_send_client / external_send_vendor
   # action classes instead of the outside external_send ceiling. These two are
@@ -855,6 +865,17 @@ scope:
     - address: ap-records-standin@agentmail.to
       class: records_vendor
       note: 'records vendor stand-in inbox for the live send probes'
+    # SMD's own operations desk (ss-console#2546), authored identically on
+    # ashton-price. An operations request (routine, schedule, channel, memory,
+    # autonomy, on/off) is SMD's to make, so the Operator has to be able to pass
+    # one on. This grants outbound CLASSIFICATION only: the send resolves as
+    # internal firm staff instead of falling to the outside external_send
+    # ceiling. It grants NO inbound trust — the address is deliberately absent
+    # from scope.inbound_allow_from above, so mail claiming to come from it does
+    # not untaint a turn and cannot instruct the seat.
+    - address: team@smd.services
+      class: firm_staff
+      note: 'SMD operations desk; outbound classification only, never inbound trust'
   # External send (to anyone OUTSIDE the roster and NOT in outbound_roster) follows
   # the authored external_send ceiling above — draft_for_review under the Ashton &
   # Price day-one grid posture (2026-07-09 letter), the letter's permanent

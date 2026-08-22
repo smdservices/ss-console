@@ -78,6 +78,14 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'ESTABLISHMENT_RESULT',
         'ESTABLISHMENT_SUBMITTED',
         'RULE_PROPOSED',
+        // ss#2546. The three beats that used to happen in silence when the
+        // person who asked was not an administrator: their request reaching an
+        // administrator, that administrator refusing it, and nobody answering
+        // at all. Each renders, because a request whose outcome shows nothing
+        // on the feed is the same as the outcome never being reported.
+        'RULE_DECLINED',
+        'RULE_LAPSED',
+        'RULE_REQUEST_NOTIFIED',
         'DRAFT_CREATED',
         'DRAFT_EXPIRED',
         'DRAFT_REJECTED',
@@ -137,6 +145,14 @@ describe('failure outcomes are visible to the client (ss#2320)', () => {
     // feed must be able to tell the asking from the doing.
     ['ACT_PROPOSED', 'Asked you to confirm something before doing it'],
     ['ACT_COMMITTED', 'Did what you confirmed'],
+    // ss#2546, and the same reason the two ESTABLISHMENT lines are asserted as
+    // rendering: these three exist BECAUSE the outcome used to be invisible, so
+    // a mapping that rendered an empty string would reproduce the defect the
+    // work was done to fix. The wording is from the reader's side - what became
+    // of the request they made - and carries no timing promise.
+    ['RULE_REQUEST_NOTIFIED', 'Asked an administrator to apply a rule'],
+    ['RULE_DECLINED', 'An administrator declined a rule'],
+    ['RULE_LAPSED', 'A rule request lapsed unanswered'],
   ]
 
   for (const [action, copy] of outcomes) {

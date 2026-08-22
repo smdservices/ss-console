@@ -430,6 +430,14 @@ class Broker:
             # on propose, ACT_COMMITTED on commit).
             "act_propose",
             "act_commit",
+            # ss-console#2546: the two ways a proposal ends WITHOUT being
+            # committed, each its own verb under the same uid gate, the same
+            # lock, the same sweep, and the same one-pinned-action_type
+            # discipline (RULE_DECLINED on decline; RULE_LAPSED on the lapse
+            # report, and nothing at all when the outcome being reported is a
+            # decline, because RULE_DECLINED already recorded that).
+            "establish_decline",
+            "establish_lapse_notified",
         ):
             if self.ledger is None:
                 raise ValueError("audit ledger not configured on this broker")
@@ -460,6 +468,10 @@ class Broker:
                     return self.establishment.act_propose(request)
                 if action == "act_commit":
                     return self.establishment.act_commit(request)
+                if action == "establish_decline":
+                    return self.establishment.decline(request)
+                if action == "establish_lapse_notified":
+                    return self.establishment.lapse_notified(request)
                 return self.establishment.status(request)
         # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
         # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the

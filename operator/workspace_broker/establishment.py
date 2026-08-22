@@ -83,6 +83,12 @@ from .audit_ledger import _iso_utc
 ESTABLISHMENT_SUBMITTED_ACTION_TYPE = "ESTABLISHMENT_SUBMITTED"
 ESTABLISHMENT_RESULT_ACTION_TYPE = "ESTABLISHMENT_RESULT"
 RULE_PROPOSED_ACTION_TYPE = "RULE_PROPOSED"
+# ss-console#2546. The two ways a proposal ends without being committed, each
+# pinned to exactly one writing verb so neither can forge the other:
+# establish_decline writes RULE_DECLINED, establish_lapse_notified writes
+# RULE_LAPSED.
+RULE_DECLINED_ACTION_TYPE = "RULE_DECLINED"
+RULE_LAPSED_ACTION_TYPE = "RULE_LAPSED"
 # ss-console#2536. The same propose-read-back-confirm channel, carrying a TOOL
 # CALL instead of a sentence. One pinned type per verb, exactly as above:
 # ``act_propose`` appends only ACT_PROPOSED, ``act_commit`` only ACT_COMMITTED.
@@ -168,10 +174,27 @@ _PROPOSAL_ID_PATTERN = re.compile(r"\A[0-9a-f]{8}\Z")
 # costs one sentence and re-establishes that they still mean it.
 PROPOSAL_TTL_SECONDS = 86_400
 
-# How long a consumed row is kept after it commits. It is kept at all so a
-# retry of the same confirmation gets "that rule was already committed" rather
+# A week, for a RULE only (ss-console#2546). The 24 h bound above was written
+# for a rule an admin states about their own firm and answers in the same
+# conversation. It is the wrong bound for the loop this issue closes: a
+# paralegal's rule is emailed to a named administrator, who may be in trial, and
+# a request that dies overnight is a request the firm never had. Seven days is
+# long enough to cross a week, short enough that a rule nobody answered lapses
+# while the person who asked still remembers asking.
+#
+# ACTS KEEP 24 HOURS. An act is one tool call the Operator is holding, and the
+# Captain's authorization for the confirm ceiling was given under that bound;
+# widening it here would widen a commitment nobody widened. Which TTL applies is
+# read from the row's ``kind``, never from the caller (``ttl_for_kind``).
+RULE_TTL_SECONDS = 7 * 86_400
+
+# How long a row is kept after it reaches a TERMINAL state — committed,
+# declined, or lapsed. It is kept at all so a late answer gets the true sentence
+# ("that rule was already committed", "an administrator declined it") rather
 # than "unknown proposal", which reads to the firm like the rule was lost.
-CONSUMED_RETENTION_SECONDS = 86_400
+# Matched to RULE_TTL_SECONDS so the tombstone outlives the window in which a
+# person could still be quoting the tag.
+TERMINAL_RETENTION_SECONDS = 7 * 86_400
 
 # Ceiling on a spoken rule. It is a sentence, not a document; the applier holds
 # the identical bound, so a rule this accepts is one the seat can render.
@@ -242,7 +265,13 @@ CREATE_PENDING_RULES_SQL = (
     "consumed_at REAL, "
     "consumed_run_id TEXT, "
     "kind TEXT NOT NULL DEFAULT 'rule', "
-    "payload_json TEXT"
+    "payload_json TEXT, "
+    # ss-console#2546: the two non-committing ends of a proposal, and the mark
+    # that the person who asked has been told about one of them.
+    "declined_at REAL, "
+    "declined_by TEXT, "
+    "lapsed_at REAL, "
+    "lapse_notified_at REAL"
     ")"
 )
 # Additive upgrade for a table created by ss-console#2529, applied at
@@ -252,11 +281,28 @@ CREATE_PENDING_RULES_SQL = (
 PENDING_RULES_COLUMN_ALTERS: tuple[str, ...] = (
     "ALTER TABLE pending_rules ADD COLUMN kind TEXT NOT NULL DEFAULT 'rule'",
     "ALTER TABLE pending_rules ADD COLUMN payload_json TEXT",
+    # ss-console#2546, same additive idiom: a seat carrying rows proposed under
+    # #2529 or #2536 keeps them, and each reads back as open (all four are NULL
+    # on an existing row, which is what an unanswered proposal is).
+    "ALTER TABLE pending_rules ADD COLUMN declined_at REAL",
+    "ALTER TABLE pending_rules ADD COLUMN declined_by TEXT",
+    "ALTER TABLE pending_rules ADD COLUMN lapsed_at REAL",
+    "ALTER TABLE pending_rules ADD COLUMN lapse_notified_at REAL",
 )
 CREATE_PENDING_RULES_INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS idx_pending_rules_open "
     "ON pending_rules(instructed_by, expires_at) WHERE consumed_at IS NULL"
 )
+
+
+def ttl_for_kind(kind: str) -> int:
+    """How long a row of this kind stays answerable.
+
+    Read from the STORED kind, never from the caller, so no request can widen
+    the window its own proposal lives in. A rule gets a week (a named
+    administrator may be in trial); an act keeps the day it has always had.
+    """
+    return RULE_TTL_SECONDS if kind == "rule" else PROPOSAL_TTL_SECONDS
 
 
 class EstablishmentValidationError(ValueError):
@@ -455,6 +501,33 @@ def normalize_lf(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
+def _column(row: sqlite3.Row, name: str) -> Any:
+    """One column, or None when the table predates it (ss-console#2546).
+
+    The additive-ALTER idiom leaves a window in which a table created by an
+    older build is read by a newer one, and a KeyError there would take out the
+    whole establishment path rather than one field.
+    """
+    return row[name] if name in row.keys() else None
+
+
+def proposal_state(row: dict[str, Any]) -> str:
+    """One word for where a proposal stands, for the seat to branch on.
+
+    Ordered by precedence rather than by recency, because the states are
+    mutually exclusive by construction (every writer's WHERE clause requires the
+    other two to be NULL) and an order makes a corrupted row read as the most
+    conservative answer instead of as open.
+    """
+    if row.get("consumed_at") is not None:
+        return "committed"
+    if row.get("declined_at") is not None:
+        return "declined"
+    if row.get("lapsed_at") is not None:
+        return "lapsed"
+    return "open"
+
+
 def _hash_text(text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
@@ -572,21 +645,41 @@ class PendingRuleStore:
             conn.close()
 
     def sweep(self, now: float | None = None) -> int:
-        """Drop expired proposals and long-committed ones. Returns rows removed.
+        """Mark expired proposals LAPSED, then delete long-terminal rows.
 
-        Called on every establishment verb, so the table stays bounded without a
-        timer. An expired row is removed rather than kept as a tombstone: after
-        a day the honest answer to a late "yes" is "state it again", and that is
-        also the answer an absent row produces.
+        Returns rows deleted. Called on every establishment verb, so the table
+        stays bounded without a timer.
+
+        THE CHANGE ss-console#2546 MAKES, and why it is the whole point of the
+        issue: an expired row used to be deleted here, and deletion is why a
+        lapse was silent. The person who asked for the rule got nothing — the
+        row that would have let anyone tell them was gone, and "nobody ever
+        proposed that" is what the table then said. So expiry now writes
+        ``lapsed_at`` and leaves the row, which gives the seat something true to
+        report and gives this sweep a second, later job: delete the row once
+        every terminal state is older than TERMINAL_RETENTION_SECONDS.
+
+        Ordering matters and is deliberate: mark first, then delete. A row that
+        expired long ago is marked on the pass that also becomes eligible to
+        delete it, so it is never deleted without first having existed as a
+        lapse the seat could have read.
         """
         now = time.time() if now is None else now
+        cutoff = now - TERMINAL_RETENTION_SECONDS
         conn = self._connect()
         try:
+            conn.execute(
+                "UPDATE pending_rules SET lapsed_at=? WHERE "
+                "consumed_at IS NULL AND declined_at IS NULL AND lapsed_at IS NULL "
+                "AND expires_at < ?",
+                (now, now),
+            )
             cursor = conn.execute(
                 "DELETE FROM pending_rules WHERE "
-                "(consumed_at IS NULL AND expires_at < ?) OR "
-                "(consumed_at IS NOT NULL AND consumed_at < ?)",
-                (now, now - CONSUMED_RETENTION_SECONDS),
+                "(consumed_at IS NOT NULL AND consumed_at < ?) OR "
+                "(declined_at IS NOT NULL AND declined_at < ?) OR "
+                "(lapsed_at IS NOT NULL AND lapsed_at < ?)",
+                (cutoff, cutoff, cutoff),
             )
             conn.commit()
             return cursor.rowcount or 0
@@ -612,6 +705,7 @@ class PendingRuleStore:
         the commit replays the row rather than the wire.
         """
         now = time.time()
+        ttl = ttl_for_kind(kind)
         digest = _hash_text(text)
         payload_json = (
             None
@@ -638,7 +732,7 @@ class PendingRuleStore:
                             instructed_by,
                             1 if for_admin else 0,
                             now,
-                            now + PROPOSAL_TTL_SECONDS,
+                            now + ttl,
                             kind,
                             payload_json,
                         ),
@@ -665,7 +759,7 @@ class PendingRuleStore:
             "instructed_by": instructed_by,
             "for_admin": for_admin,
             "created_at": now,
-            "expires_at": now + PROPOSAL_TTL_SECONDS,
+            "expires_at": now + ttl,
             "kind": kind,
             "payload": payload,
         }
@@ -697,8 +791,13 @@ class PendingRuleStore:
         make, so it is taken as an argument rather than guessed at.
         """
         now = time.time() if now is None else now
+        # ss-console#2546: declined and lapsed join consumed as reasons a row is
+        # no longer confirmable. Without the declined_at clause an administrator's
+        # "no" would leave the rule sitting in this list, and the Operator would
+        # go on offering the firm a rule that has already been refused.
         sql = (
-            "SELECT * FROM pending_rules WHERE consumed_at IS NULL AND expires_at >= ? "
+            "SELECT * FROM pending_rules WHERE consumed_at IS NULL "
+            "AND declined_at IS NULL AND lapsed_at IS NULL AND expires_at >= ? "
             "AND (instructed_by = ?"
         )
         params: list[Any] = [now, sender]
@@ -711,6 +810,103 @@ class PendingRuleStore:
         finally:
             conn.close()
         return [self._hydrate(row) for row in rows]
+
+    def unreported_outcomes_for(self, sender: str) -> list[dict[str, Any]]:
+        """Rows that ENDED without being committed and whose author has not been
+        told: declined by an administrator, or lapsed unanswered.
+
+        Only rows this sender STATED (``instructed_by``). A decline is news for
+        the person who asked, not for the administrator who gave it, and an
+        administrator who is shown every lapse in the firm is being shown other
+        people's business.
+        """
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM pending_rules WHERE instructed_by = ? "
+                "AND consumed_at IS NULL AND lapse_notified_at IS NULL "
+                "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL) "
+                "ORDER BY created_at ASC",
+                (sender,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [self._hydrate(row) for row in rows]
+
+    def find_open_duplicate(
+        self, *, instructed_by: str, scope: str, text: str, now: float | None = None
+    ) -> dict[str, Any] | None:
+        """An OPEN row this same person already stated, word for word.
+
+        Matched on the normalized text's digest rather than the text, so
+        "same rule" means here what it means everywhere else in this module.
+
+        Why it exists (ss-console#2546): a rule now emails an administrator. A
+        person who re-sends the same sentence, or whose mail client retries,
+        would otherwise page that administrator twice for one request, and the
+        second page would carry a different tag - so answering one would leave
+        the other open. Returning the row the caller already has is both the
+        cheaper and the truer answer.
+        """
+        now = time.time() if now is None else now
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM pending_rules WHERE instructed_by = ? AND scope = ? "
+                "AND text_sha256 = ? AND consumed_at IS NULL AND declined_at IS NULL "
+                "AND lapsed_at IS NULL AND expires_at >= ? ORDER BY created_at ASC LIMIT 1",
+                (instructed_by, scope, _hash_text(text), now),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._hydrate(row) if row is not None else None
+
+    def decline(self, proposal_id: str, declined_by: str) -> bool:
+        """Refuse one proposal on an administrator's word. True iff THIS call
+        declined it.
+
+        A conditional UPDATE for the same reason ``consume`` is one: decline-once
+        is enforced by the database, not by a read-then-write the caller could
+        interleave. The WHERE clause carries every condition rather than trusting
+        a check performed above it - open, not already answered, not expired,
+        and ``for_admin`` (a rule somebody stated about their own work is not an
+        administrator's to refuse; they simply do not confirm it).
+        """
+        now = time.time()
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE pending_rules SET declined_at=?, declined_by=? "
+                "WHERE proposal_id=? AND consumed_at IS NULL AND declined_at IS NULL "
+                "AND lapsed_at IS NULL AND for_admin = 1 AND expires_at >= ?",
+                (now, declined_by, proposal_id, now),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+        finally:
+            conn.close()
+
+    def mark_outcome_reported(self, proposal_id: str) -> bool:
+        """Record that the person who asked has been told how their rule ended.
+        True iff THIS call marked it.
+
+        Conditional again, and the condition is what stops a second note: a row
+        can only be marked once, and only once it actually HAS an outcome. A
+        seat that retries the send loses the race and sends nothing.
+        """
+        now = time.time()
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE pending_rules SET lapse_notified_at=? WHERE proposal_id=? "
+                "AND lapse_notified_at IS NULL "
+                "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL)",
+                (now, proposal_id),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+        finally:
+            conn.close()
 
     def consume(self, proposal_id: str, run_id: str) -> bool:
         """Mark one proposal committed. True iff THIS call consumed it.
@@ -764,6 +960,12 @@ class PendingRuleStore:
             # reading it as one is the migration working rather than failing.
             "kind": (row["kind"] if "kind" in row.keys() else None) or "rule",
             "payload": payload,
+            # ss-console#2546. Same tolerance for a row written before the four
+            # columns existed: absent reads as NULL, which is "open".
+            "declined_at": _column(row, "declined_at"),
+            "declined_by": _column(row, "declined_by"),
+            "lapsed_at": _column(row, "lapsed_at"),
+            "lapse_notified_at": _column(row, "lapse_notified_at"),
         }
 
 
@@ -1067,6 +1269,25 @@ class EstablishmentStore:
             }
 
         text = normalize_rule_text(request.get("text"))
+        # ss-console#2546: the same person, the same sentence, already waiting.
+        # Hand back the row they already have and write NOTHING - no second row,
+        # no second RULE_PROPOSED, and (the reason this matters now) no second
+        # email to an administrator carrying a different tag, only one of which
+        # answering would close.
+        existing = pending.find_open_duplicate(
+            instructed_by=instructed_by, scope=scope, text=text
+        )
+        if existing is not None:
+            return {
+                "ok": True,
+                "duplicate_of": existing["proposal_id"],
+                "proposal_id": existing["proposal_id"],
+                "scope": existing["scope"],
+                "subject": existing["subject"],
+                "for_admin": existing["for_admin"],
+                "expires_at": existing["expires_at"],
+                "readback": readback_for(existing["proposal_id"], existing["text"]),
+            }
         row = pending.create(
             scope=scope,
             subject=subject,
@@ -1099,6 +1320,9 @@ class EstablishmentStore:
         )
         return {
             "ok": True,
+            # Always present, so a caller reads one field rather than testing
+            # for a key's absence to decide whether it just created something.
+            "duplicate_of": None,
             "proposal_id": row["proposal_id"],
             "scope": scope,
             "subject": subject,
@@ -1106,6 +1330,171 @@ class EstablishmentStore:
             "expires_at": row["expires_at"],
             "readback": readback_for(row["proposal_id"], text),
         }
+
+    # ------------------------------------------------------------------
+    # establish_decline / establish_lapse_notified  (ss-console#2546)
+    # ------------------------------------------------------------------
+
+    def decline(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Refuse one rule on an administrator's word.
+
+        The other half of "apply that". Before this verb an administrator's "no"
+        did nothing at all: the rule sat open until it expired, the person who
+        asked heard nothing, and the only record of the decision was whatever
+        the model happened to say in a reply. So a decline is now a row and a
+        state, and the person who asked can be told.
+
+        Four conditions, and every one of them is in the UPDATE's WHERE clause
+        rather than checked above it, so two administrators answering at once
+        cannot both win:
+          - the row is open (not committed, not already declined, not lapsed);
+          - it is ``for_admin`` - a rule somebody stated about their OWN work is
+            not an administrator's to refuse, they simply do not confirm it;
+          - it has not expired;
+          - the decliner is not the person who stated it (that is a withdrawal,
+            a different act, and letting it through here would let one address
+            both raise and refuse a rule with no second person involved).
+
+        The SEAT is what establishes that the decliner is an administrator, from
+        the authored allow list this uid cannot read. What this verb enforces is
+        everything that can be enforced from the row.
+        """
+        pending = self._require_pending()
+        proposal_id = _require_proposal_id(request.get("proposal_id"))
+        declined_by = require_address(request.get("declined_by"), "declined_by")
+        source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
+
+        row = pending.get(proposal_id)
+        if row is None:
+            raise EstablishmentValidationError(
+                f"no rule was proposed under {proposal_id}; nothing to decline"
+            )
+        self._refuse_undeclinable(row, proposal_id, declined_by)
+        if not pending.decline(proposal_id, declined_by):
+            # Lost the race to another decline or to the commit. Whichever won,
+            # the answer is the state now on the row, never this call's.
+            raise EstablishmentValidationError(
+                f"rule {proposal_id} was already answered; nothing was changed"
+            )
+
+        metadata = {
+            "proposal_id": proposal_id,
+            "scope": row["scope"],
+            "instructed_by": row["instructed_by"],
+            "declined_by": declined_by,
+            "source_ref": source_ref,
+            # The digest, never the sentence - same posture as RULE_PROPOSED.
+            # The two rows join on it, so the ledger shows WHICH rule was
+            # refused without holding a second copy of the firm's words.
+            "text_sha256": row["text_sha256"],
+        }
+        metadata.update(row["subject"])
+        self._ledger.append(
+            {
+                "action_type": RULE_DECLINED_ACTION_TYPE,
+                "actor": "operator",
+                "actor_role": "agent",
+                "metadata": json.dumps(metadata, sort_keys=True, separators=(",", ":")),
+            }
+        )
+        return {
+            "ok": True,
+            "proposal_id": proposal_id,
+            "state": "declined",
+            "scope": row["scope"],
+            "subject": row["subject"],
+            # Who to tell, and what they asked for. The seat composes the note to
+            # the requester from these rather than from anything on the wire.
+            "instructed_by": row["instructed_by"],
+            "declined_by": declined_by,
+            "text": row["text"],
+            "readback": readback_for(proposal_id, row["text"], row["kind"]),
+        }
+
+    @staticmethod
+    def _refuse_undeclinable(
+        row: dict[str, Any], proposal_id: str, declined_by: str
+    ) -> None:
+        """Name the reason a decline cannot land, before the UPDATE tries it.
+
+        The UPDATE is the enforcement; this exists so the refusal a person reads
+        says which of five different things happened.
+        """
+        if row["consumed_at"] is not None:
+            raise EstablishmentValidationError(
+                f"rule {proposal_id} was already committed; it is in effect"
+            )
+        if row["declined_at"] is not None:
+            raise EstablishmentValidationError(
+                f"rule {proposal_id} was already declined; nothing was changed"
+            )
+        if row["lapsed_at"] is not None or row["expires_at"] < time.time():
+            raise EstablishmentValidationError(
+                f"rule {proposal_id} lapsed unanswered; ask for it to be stated again"
+            )
+        if not row["for_admin"]:
+            raise EstablishmentValidationError(
+                f"rule {proposal_id} was not waiting on an administrator; "
+                "there is nothing to decline"
+            )
+        if row["instructed_by"] == declined_by:
+            raise EstablishmentValidationError(
+                "the person who stated a rule cannot decline it; "
+                "leaving it unconfirmed is how they withdraw it"
+            )
+
+    def lapse_notified(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Record that the person who asked has been told how their rule ended.
+
+        Called by the seat AFTER the note is away, so a send that failed leaves
+        the row unmarked and the next attributed turn tries again. Marking first
+        would trade a duplicate note for a silence, and silence is the failure
+        this whole issue exists to end.
+
+        ONE ACTION TYPE, and it is RULE_LAPSED. A lapse has no other row
+        anywhere, so this is the only record that a rule died unanswered. A
+        DECLINE already wrote RULE_DECLINED at the moment the administrator
+        answered, so telling the requester about it writes nothing further -
+        this verb cannot emit a second type, which is the property that keeps
+        it unable to forge one.
+        """
+        pending = self._require_pending()
+        proposal_id = _require_proposal_id(request.get("proposal_id"))
+        row = pending.get(proposal_id)
+        if row is None:
+            raise EstablishmentValidationError(
+                f"no rule was proposed under {proposal_id}; nothing to report"
+            )
+        if row["declined_at"] is None and row["lapsed_at"] is None:
+            raise EstablishmentValidationError(
+                f"rule {proposal_id} has no outcome to report; it is still open"
+            )
+        if not pending.mark_outcome_reported(proposal_id):
+            raise EstablishmentValidationError(
+                f"the outcome of rule {proposal_id} was already reported; "
+                "nothing was changed"
+            )
+        state = proposal_state(pending.get(proposal_id) or row)
+        if state == "lapsed":
+            self._ledger.append(
+                {
+                    "action_type": RULE_LAPSED_ACTION_TYPE,
+                    "actor": "operator",
+                    "actor_role": "agent",
+                    "metadata": json.dumps(
+                        {
+                            "proposal_id": proposal_id,
+                            "scope": row["scope"],
+                            "instructed_by": row["instructed_by"],
+                            "for_admin": row["for_admin"],
+                            "text_sha256": row["text_sha256"],
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                }
+            )
+        return {"ok": True, "proposal_id": proposal_id, "state": state}
 
     # ------------------------------------------------------------------
     # establish_pending  (ss-console#2529)
@@ -1136,7 +1525,19 @@ class EstablishmentStore:
         include_raw = request.get("include_for_admin", False)
         if not isinstance(include_raw, bool):
             raise EstablishmentValidationError("include_for_admin must be a boolean")
+        outcomes_raw = request.get("include_outcomes", False)
+        if not isinstance(outcomes_raw, bool):
+            raise EstablishmentValidationError("include_outcomes must be a boolean")
         rows = pending.open_for(sender, include_raw)
+        # ss-console#2546. OPT-IN, and the reason is version skew, not taste.
+        # This module ships in the seat image; the plugin that reads it ships at
+        # the pinned OVERLAY_REF, and the two move in separate PRs. A seat
+        # running the new broker under the old plugin would be handed declined
+        # and lapsed rows in a list whose every previous member was confirmable,
+        # and would offer the firm a rule that has already been refused. Default
+        # off means the old caller sees exactly what it saw before.
+        if outcomes_raw:
+            rows = rows + pending.unreported_outcomes_for(sender)
         return {"ok": True, "pending": [self._pending_view(r) for r in rows]}
 
     @staticmethod
@@ -1166,6 +1567,12 @@ class EstablishmentStore:
             "for_admin": row["for_admin"],
             "created_at": row["created_at"],
             "expires_at": row["expires_at"],
+            # ss-console#2546. A row is no longer only "here to be confirmed":
+            # it can be one the seat must REPORT, and the seat has to be able to
+            # tell those apart without inferring it from timestamps.
+            "state": proposal_state(row),
+            "declined_by": row.get("declined_by"),
+            "lapse_notified": row.get("lapse_notified_at") is not None,
         }
 
     # ------------------------------------------------------------------
@@ -1567,6 +1974,24 @@ class EstablishmentStore:
             raise EstablishmentValidationError(
                 f"{noun} {proposal_id} was already committed; "
                 + ("it has been done" if scope == "act" else "it is in effect")
+            )
+        # ss-console#2546. Two more distinguishable ends. A declined rule must
+        # never commit on a later "yes" from anyone, and the person deserves to
+        # hear WHICH thing happened: "an administrator declined it" and "nobody
+        # answered in time" call for different next sentences from them.
+        if row["declined_at"] is not None:
+            raise EstablishmentValidationError(
+                f"{noun} {proposal_id} was declined by an administrator; "
+                f"it is not in effect"
+            )
+        if row["lapsed_at"] is not None:
+            # "Lapsed" is the right word for a rule, which somebody was waiting
+            # on an answer to. An act was one call the Operator was holding, and
+            # nobody was owed a report about it, so it keeps the sentence it has
+            # always had.
+            ended = "expired" if scope == "act" else "lapsed unanswered"
+            raise EstablishmentValidationError(
+                f"{noun} {proposal_id} {ended}; {restate}"
             )
         if row["expires_at"] < time.time():
             raise EstablishmentValidationError(
@@ -2155,7 +2580,6 @@ __all__ = [
     "ACT_CONFIG_KEYS",
     "ACT_PROPOSED_ACTION_TYPE",
     "ACT_TOOLS",
-    "CONSUMED_RETENTION_SECONDS",
     "ESTABLISHMENT_RESULT_ACTION_TYPE",
     "ESTABLISHMENT_SUBMITTED_ACTION_TYPE",
     "MAX_DOCS_PER_SET",
@@ -2168,10 +2592,14 @@ __all__ = [
     "PROPOSAL_SCOPES",
     "PROPOSAL_TTL_SECONDS",
     "RESULT_TTL_SECONDS",
+    "RULE_DECLINED_ACTION_TYPE",
+    "RULE_LAPSED_ACTION_TYPE",
     "RULE_PROPOSED_ACTION_TYPE",
+    "RULE_TTL_SECONDS",
     "SPEC_PROPERTIES",
     "STAGING_TTL_SECONDS",
     "SUBMIT_PHASES",
+    "TERMINAL_RETENTION_SECONDS",
     "EstablishmentStore",
     "EstablishmentValidationError",
     "PendingRuleStore",
@@ -2179,7 +2607,9 @@ __all__ = [
     "build_result_row",
     "normalize_lf",
     "normalize_rule_text",
+    "proposal_state",
     "readback_for",
     "require_address",
     "safe_slug",
+    "ttl_for_kind",
 ]

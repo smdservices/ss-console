@@ -78,7 +78,7 @@
     "HONCHO_PROMOTION": "Declared, no emitter at the pinned ref.",
     "HONCHO_DISMISSAL": "Declared, no emitter at the pinned ref."
   },
-  "consoleOnlyNote": "Declared here, absent from the overlay vocabulary. These are written by CONSOLE-side producers (the decommission pipeline, the wake path, the customer.yaml sync, the admin console), never by the seat runtime, so the overlay has no reason to know them. Harmless in the direction that matters: a console-written row is already rendered from this repo's own vocabulary.",
+  "consoleOnlyNote": "Declared here, absent from the overlay vocabulary. These are written by CONSOLE-side producers (the decommission pipeline, the wake path, the customer.yaml sync, the admin console), never by the seat runtime, so the overlay has no reason to know them. Harmless in the direction that matters: a console-written row is already rendered from this repo's own vocabulary. 2026-08-22 (ss#2546): RULE_REQUEST_NOTIFIED, RULE_DECLINED and RULE_LAPSED are declared here at PR 1 while the overlay half is still unmerged. Two of the three are genuinely console-side (the workspace broker writes them). RULE_REQUEST_NOTIFIED is not - it is written by the seat's establishment hook - and it sits here for exactly one release so the portal is never handed a row it cannot name. ALL THREE MOVE INTO overlayTypes AT THE OVERLAY_REF BUMP IN PR 3, re-extracted by AST at the new ref rather than transcribed.",
   "consoleOnly": {
     "AGENT_SKILL_REMOVED": "Console-side skill removal record.",
     "CUSTOMER_YAML_SYNCED": "Written by the git->D1 projection, not the seat.",
@@ -90,6 +90,9 @@
     "SUPPRESSED_WAKE": "Wake dispatch is console-side.",
     "HONCHO_CONCLUSION_DISMISSED": "Captain action in the admin console (ADR 0016).",
     "ACT_PROPOSED": "ss#2536. Written by operator/workspace_broker/establishment.py under the broker uid, same reason RULE_PROPOSED carried before the 991044a8 bump: console-owned source running on the seat, not overlay runtime, so the overlay's hermes-smd-audit vocabulary does not gate the write. The overlay declares neither type at any ref yet; both move into overlayTypes at the bump that ships the ss#2536 confirm path.",
-    "ACT_COMMITTED": "ss#2536. Broker-written, same reason as ACT_PROPOSED."
+    "ACT_COMMITTED": "ss#2536. Broker-written, same reason as ACT_PROPOSED.",
+    "RULE_REQUEST_NOTIFIED": "ss#2546. Written by the SEAT's establishment hook (overlay plugins/hermes-smd-establishment) when a for_admin rule has been emailed to the administrators the firm named on scope.rule_requests_to. Declared here in PR 1, BEFORE the overlay declares it, so the client feed renders the first row ever written rather than the ss#2316 silence. It moves out of consoleOnly and into overlayTypes at the OVERLAY_REF bump in ss#2546 PR 3, which is the same motion RULE_PROPOSED made at the 991044a8 bump.",
+    "RULE_DECLINED": "ss#2546. Written by operator/workspace_broker/establishment.py under the broker uid when an administrator refuses a rule somebody else asked for - console-owned source running on the seat, not overlay runtime, so the overlay's hermes-smd-audit vocabulary does not gate the write. Same standing RULE_PROPOSED had before the 991044a8 bump; it moves into overlayTypes at the PR 3 bump.",
+    "RULE_LAPSED": "ss#2546. Broker-written, same reason as RULE_DECLINED: appended when the person who asked has been told their rule lapsed unanswered. Moves into overlayTypes at the PR 3 bump."
   }
 }

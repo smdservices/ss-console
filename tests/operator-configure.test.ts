@@ -69,6 +69,7 @@ describe('parseScope', () => {
       inbound_allow_from: [],
       outbound_roster: [],
       admins: [],
+      rule_requests_to: [],
     })
     expect(parseScope(null)).toBeNull()
     expect(parseScope('nope')).toBeNull()

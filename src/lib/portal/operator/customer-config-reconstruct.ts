@@ -91,6 +91,10 @@ interface ProjectedScope {
   matter_blocks?: string[]
   inbound_allow_from?: string[]
   admins?: string[]
+  // ss#2546. Carried beside admins rather than left to the validator's default,
+  // because it is validated AS A SUBSET of admins: reconstructing one without
+  // the other would validate a document the authored file is not.
+  rule_requests_to?: string[]
 }
 
 interface ProjectedEscalation {
@@ -144,6 +148,7 @@ function reconstructScope(raw: unknown): Required<ProjectedScope> {
     matter_blocks: scope.matter_blocks ?? [],
     inbound_allow_from: scope.inbound_allow_from ?? [],
     admins: scope.admins ?? [],
+    rule_requests_to: scope.rule_requests_to ?? [],
   }
 }
 

@@ -3296,6 +3296,90 @@ describe('validate — scope.admins (ADR 0085 §2)', () => {
   })
 })
 
+describe('validate — scope.rule_requests_to (ss-console#2546)', () => {
+  const ADMINS = ['dana@example-firm.com', 'lee@example-firm.com']
+
+  function withRouting(routing: unknown, admins: unknown = ADMINS): Record<string, unknown> {
+    const f = validFixture()
+    const scope = f['scope'] as Record<string, unknown>
+    scope['admins'] = admins
+    scope['rule_requests_to'] = routing
+    return f
+  }
+
+  it('accepts a subset of the admin list, canonicalized', () => {
+    const r = validate(withRouting(['Dana@Example-Firm.com']))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.rule_requests_to).toEqual(['dana@example-firm.com'])
+  })
+
+  it('accepts every admin, which is the no-split default a firm may author', () => {
+    const r = validate(withRouting(ADMINS))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.rule_requests_to).toEqual(ADMINS)
+  })
+
+  // The rule the key exists for. Routing may narrow who is PAGED; it may never
+  // name somebody who could not act on the request, and it may never widen
+  // authority by naming a non-admin.
+  it('rejects an address that is not on scope.admins', () => {
+    const r = validate(withRouting(['sarah@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(codesOf(r.errors)).toContain('InvalidRuleRequestsTo')
+      expect(r.errors.some((e) => e.message.includes('not on scope.admins'))).toBe(true)
+    }
+  })
+
+  it('rejects an @domain grant — a request goes to a person, not to a building', () => {
+    const r = validate(withRouting(['@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidRuleRequestsTo')
+  })
+
+  it('rejects a duplicate, so the authored list is the count of who is paged', () => {
+    const r = validate(withRouting(['dana@example-firm.com', 'DANA@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidRuleRequestsTo')
+  })
+
+  it('rejects a malformed address', () => {
+    const r = validate(withRouting(['not-an-email']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidRuleRequestsTo')
+  })
+
+  it('rejects a non-string entry', () => {
+    const r = validate(withRouting([{ email: 'dana@example-firm.com' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('MissingField')
+  })
+
+  it('rejects a non-list rule_requests_to', () => {
+    const r = validate(withRouting('dana@example-firm.com'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('defaults to [] when unauthored, so nothing claims an admin was asked', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.rule_requests_to).toEqual([])
+  })
+
+  // An admin list that is itself invalid drops the offending entries, and the
+  // subset check must then refuse the routing rather than silently accept it
+  // against a shorter list than the author wrote.
+  it('refuses routing to an address the admin list rejected', () => {
+    const r = validate(withRouting(['dana@example-firm.com'], ['@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(codesOf(r.errors)).toContain('InvalidAdminList')
+      expect(codesOf(r.errors)).toContain('InvalidRuleRequestsTo')
+    }
+  })
+})
+
 describe('validate — send exposure classes (ADR 0075)', () => {
   function withExposure(exposure: Record<string, unknown>): Record<string, unknown> {
     const f = validFixture()

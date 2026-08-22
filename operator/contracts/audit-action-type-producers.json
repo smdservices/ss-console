@@ -8,7 +8,7 @@
     "evidence packet CONSUME these values (audit viewer filters, compliance.ts roll-ups,",
     "evidence/packet.py _count(...) buckets). But nothing asserted that each consumed",
     "value has a RUNTIME PRODUCER. An action_type can sit in the enum, be mirrored to TS,",
-    "be counted by the compliance packet, and be emitted by NOBODY — a dashboard column or",
+    "be counted by the compliance packet, and be emitted by NOBODY \u2014 a dashboard column or",
     "compliance metric that is structurally always-zero. That is the inert-control class:",
     "a consumer with no producer reads as 'feature present, value 0' indistinguishable from",
     "'genuinely zero events'.",
@@ -19,17 +19,17 @@
     "                 named producerFile exists and contains the token in code).",
     "  'overlay'    = it is emitted by the venturecrane/hermes-smd-overlay runtime that ships",
     "                 on customer Machines (a separate, pinned repo not checked out in this",
-    "                 CI; we record overlayProducer + reason — the same cross-repo",
+    "                 CI; we record overlayProducer + reason \u2014 the same cross-repo",
     "                 human-decision shape operator/contracts/overlay-pairs.json uses).",
     "  'deferred'   = in the closed vocabulary and CONSUMED (viewer filter / compliance),",
-    "                 but NO producer writes the literal row yet — persistence is gated on a",
+    "                 but NO producer writes the literal row yet \u2014 persistence is gated on a",
     "                 tracked issue. This is the live inert-control instance the guard found;",
     "                 it carries producerIntent + reason naming the gap and the unblocking",
     "                 work, so the always-zero metric is documented loudly, not hidden.",
     "",
     "ENFORCEMENT (tests/operator-audit-producers.test.ts):",
     "  1. COVERAGE: manifest keys == ACCEPTED_ACTION_TYPES exactly. A new action_type with",
-    "     no manifest entry fails CI, forcing a conscious producer classification — the gate",
+    "     no manifest entry fails CI, forcing a conscious producer classification \u2014 the gate",
     "     that would have caught a consumed-but-never-produced type.",
     "  2. ss-console PRODUCERS ARE REAL: each 'ss-console' entry's producerFile exists and",
     "     contains the token in code. Deleting the only producer of a still-consumed type",
@@ -170,7 +170,7 @@
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-corrections (post_llm_call, ss#2429 / overlay#277)",
       "producerIntent": "src/lib/portal/operator/rbac-audit.ts",
-      "reason": "the corrections plugin writes RBAC_EVENT refusal rows (metadata subAction=correction_capture_refused) when a rostered NON-admin's message would have been captured as a standing correction — capture is server-gated on sender_is_admin from the session-keyed verified origin (ss#2429). The ss-console portal writer intent (rbac-audit.ts, user-management actions) remains gated on #821/#891 and unwired; producerIntent is kept so that half is not forgotten."
+      "reason": "the corrections plugin writes RBAC_EVENT refusal rows (metadata subAction=correction_capture_refused) when a rostered NON-admin's message would have been captured as a standing correction \u2014 capture is server-gated on sender_is_admin from the session-keyed verified origin (ss#2429). The ss-console portal writer intent (rbac-audit.ts, user-management actions) remains gated on #821/#891 and unwired; producerIntent is kept so that half is not forgotten."
     },
     "COMPLIANCE_PACKET_EXPORTED": {
       "side": "ss-console",
@@ -285,7 +285,7 @@
     "EMITTED_WAKE": {
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/server.py",
-      "note": "The wake half of the cron gate (#2253). Broker-stamped via the uid-gated emitted_wake_append verb; the producers are the pre_run.py scripts, each attempting the row on the real-decision wake path BEFORE printing {wakeAgent:true}. Written best-effort: unlike SUPPRESSED_WAKE, a write failure must NOT change the decision, so a wake is never gated on its own audit row. The adapter SuppressedWakeWriter.write_emitted_wake (operator/adapter/audit_log.py) remains the dev/test writer. 2026-08-20 (#2498) CORRECTION + WIDENING. The prior note named four producers — deadline-miss-escalator, client-verification-tracker, paid-media-anomaly-watcher, retainer-hours-reconciler — and two of those were wrong: paid-media-anomaly-watcher and retainer-hours-reconciler have no pre_run.py at all, while lien-ledger-tracker and medical-records-chaser (both of which graduated to bespoke gates after the note was written) do produce. Probed, not assumed: `grep -l emitted_wake_append operator/skills/*/pre_run.py` returns exactly client-verification-tracker, deadline-miss-escalator, lien-ledger-tracker, medical-records-chaser. #2498 also carries the wake half to the SHARED gate template (operator/templates/pre_run_gate.py -> write_emitted_wake_heartbeat), which stamps into the eight skills pinned in operator/tests/test_pre_run_gate.py GATED_SKILLS — those eight wrote a row on every quiet tick and nothing on the ticks they fired, so the one tick that mattered was the one tick with no row. Producer count is therefore 12, not 4."
+      "note": "The wake half of the cron gate (#2253). Broker-stamped via the uid-gated emitted_wake_append verb; the producers are the pre_run.py scripts, each attempting the row on the real-decision wake path BEFORE printing {wakeAgent:true}. Written best-effort: unlike SUPPRESSED_WAKE, a write failure must NOT change the decision, so a wake is never gated on its own audit row. The adapter SuppressedWakeWriter.write_emitted_wake (operator/adapter/audit_log.py) remains the dev/test writer. 2026-08-20 (#2498) CORRECTION + WIDENING. The prior note named four producers \u2014 deadline-miss-escalator, client-verification-tracker, paid-media-anomaly-watcher, retainer-hours-reconciler \u2014 and two of those were wrong: paid-media-anomaly-watcher and retainer-hours-reconciler have no pre_run.py at all, while lien-ledger-tracker and medical-records-chaser (both of which graduated to bespoke gates after the note was written) do produce. Probed, not assumed: `grep -l emitted_wake_append operator/skills/*/pre_run.py` returns exactly client-verification-tracker, deadline-miss-escalator, lien-ledger-tracker, medical-records-chaser. #2498 also carries the wake half to the SHARED gate template (operator/templates/pre_run_gate.py -> write_emitted_wake_heartbeat), which stamps into the eight skills pinned in operator/tests/test_pre_run_gate.py GATED_SKILLS \u2014 those eight wrote a row on every quiet tick and nothing on the ticks they fired, so the one tick that mattered was the one tick with no row. Producer count is therefore 12, not 4."
     },
     "REPLY_SENT": {
       "side": "overlay",
@@ -295,7 +295,7 @@
     "REPLY_HELD": {
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",
-      "reason": "emitted on the customer Machine when an autonomous reply is held to draft (off-roster sender, recipient mismatch, content floor, rate-limit, no inbox, empty body, or — since ss#2167 — matter_mismatch, the reply citing a matter its recipient is provably not a party to)."
+      "reason": "emitted on the customer Machine when an autonomous reply is held to draft (off-roster sender, recipient mismatch, content floor, rate-limit, no inbox, empty body, or \u2014 since ss#2167 \u2014 matter_mismatch, the reply citing a matter its recipient is provably not a party to)."
     },
     "MATTER_UNRESOLVED": {
       "side": "overlay",
@@ -382,6 +382,11 @@
       "producerFile": "operator/workspace_broker/establishment.py",
       "reason": "ss#2161 (ADR 0085). The broker appends the bounded verdict row on the one-shot result read, before deleting the result file, so the retained trace outlives the payload. Declared in this repo 2026-08-21 (ss#2529), same history as ESTABLISHMENT_SUBMITTED."
     },
+    "RULE_REQUEST_NOTIFIED": {
+      "side": "deferred",
+      "producerIntent": "venturecrane/hermes-smd-overlay plugins/hermes-smd-establishment/__init__.py - the post-tool-call dispatcher that emails the firm's rule_requests_to administrators after a for_admin rule is recorded. It lands in ss-console#2546 PR 2 (overlay) and reaches seats at the OVERLAY_REF bump in PR 3, at which point this entry becomes side: overlay with that file as overlayProducer and the type moves out of consoleOnly in audit-action-vocabulary.json.",
+      "reason": "ss#2546 PR 1 declares the type here BEFORE its producer exists, deliberately and for one release only. The alternative is the failure ss#2316 catalogued from the other direction: the overlay starts emitting a type this repo has never heard of, the rows land in client ledgers, and the portal renders nothing - a silence indistinguishable from a deliberate suppression. Declaring first means the client feed is correct on the first row ever written. Tracked to close at the PR 3 bump."
+    },
     "ACT_PROPOSED": {
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/establishment.py",
@@ -391,6 +396,16 @@
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/establishment.py",
       "reason": "ss#2536. Appended after the confirmed tool call succeeded, naming who confirmed it and the message id their confirmation arrived in, so an admin approval is joinable to the inbound row that carried it (the ss#2497 joins) rather than merely asserted. A tool call that failed writes no row: the proposal stays open for its TTL, so a transport failure does not spend a person's yes."
+    },
+    "RULE_DECLINED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2546. The broker appends one row when an administrator refuses a rule somebody else asked for. Before this verb a \"no\" did nothing at all: the rule sat open until it expired and the only record of the decision was whatever the model happened to say in a reply. The row carries the proposal id, who stated the rule, who declined it, and the text digest - never the sentence - so it joins to RULE_PROPOSED on the digest and the ledger shows WHICH rule was refused without holding a second copy of the firm's words. Written under a conditional UPDATE, so a second decline changes nothing and writes nothing."
+    },
+    "RULE_LAPSED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2546. The broker appends this when the person who asked for a rule has been TOLD it lapsed unanswered, not when the sweep marks it. That ordering is the point: the mark is bookkeeping, the row is the moment the firm learned something. A lapse has no other row anywhere - nothing was committed and nobody decided - so this is the only record that a request died, which is why the sweep now marks an expired row instead of deleting it. Reporting a DECLINE writes nothing here: RULE_DECLINED already recorded that decision."
     }
   }
 }
