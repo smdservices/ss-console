@@ -579,11 +579,16 @@ def _write_pre_run_handoff(payload: dict) -> None:
             "matter_ids": _handoff_values(payload, "matter_id", []),
         }
         directory = Path(os.environ.get("HERMES_HOME") or "/opt/data") / ".smd" / "pre_run"
+        # Modes are set AT CREATION, never by a follow-up chmod: umask can only
+        # remove bits, so the result is at most 0700/0600 and there is no window
+        # in which the file is readable by anyone else. It names the matters the
+        # firm is working on. An already-existing directory keeps whatever mode
+        # it has; the file's own 0600 is the load-bearing half.
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(directory, 0o700)
         tmp = directory / ("." + _HANDOFF_SKILL + ".json.tmp")
-        tmp.write_text(json.dumps(record), encoding="utf-8")
-        os.chmod(tmp, 0o600)
+        handle = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            json.dump(record, fh)
         os.replace(tmp, directory / (_HANDOFF_SKILL + ".json"))
     except Exception as exc:  # noqa: BLE001 -- never change stdout or the wake
         sys.stderr.write("[pre_run] handoff write failed (" + str(exc) + ")\n")

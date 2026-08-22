@@ -1065,6 +1065,17 @@ def test_the_handoff_carries_nothing_but_the_projection(tmp_path, monkeypatch) -
     datetime.fromisoformat(record["started_at"].replace("Z", "+00:00"))
 
 
+def test_the_handoff_is_readable_only_by_its_owner(tmp_path, monkeypatch) -> None:
+    """It names the matters the firm is working on. Asserted at the canonical
+    site; the same block is copied verbatim into the other three pre_runs."""
+    import stat
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    _wake_stdout()
+    mode = stat.S_IMODE(_handoff_path(tmp_path).stat().st_mode)
+    assert mode & 0o077 == 0, f"group/other bits set: {oct(mode)}"
+
+
 def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypatch) -> None:
     """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
     directory would still be writable by root, and CI containers run as root."""
