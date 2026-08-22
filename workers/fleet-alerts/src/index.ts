@@ -63,6 +63,7 @@
 import { CONNECTOR_DOWN_PREFIX } from './conditions'
 import { escapeHtml } from './html'
 import { notifySinkAlerts, type SinkNotification } from './sink-notify'
+import { notifySendRefusals, type SendRefusedNotification } from './send-refused'
 import { getOpenSpecControlKeys, specControlConditions } from './spec-control'
 import { getStaleHolds } from './stale-holds'
 import { tokenExpiryConditions } from './token-expiry'
@@ -71,7 +72,7 @@ import { gatewayLoopConditions, gatewayLoopRedSeconds } from './gateway-loop'
 import { conditionLabel } from './conditions'
 export { conditionLabel } from './conditions'
 
-export type { SinkNotification }
+export type { SinkNotification, SendRefusedNotification }
 
 export interface Env {
   DB: D1Database
@@ -137,6 +138,9 @@ export type FleetCondition =
   | 'gateway_restarted'
   | 'gateway_supervisor_refusing'
   | 'gateway_supervisor_inert'
+  // ss#2547. The one EVENT-shaped member of this union: it never goes `open`
+  // and never resolves, it only carries a marker. See ./send-refused.
+  | 'send_refused'
   | `connector_down:${string}`
   | `connector_token_expiring:${string}`
   | `spec_control_broken:${string}`
@@ -159,6 +163,15 @@ export interface FleetStatusRow {
   gateway_loop_age_seconds: number | null
   gateway_supervisor_state: string | null
   gateway_restarts_last_hour: number | null
+  /**
+   * ss#2547. Optional on the TYPE, not merely nullable: before migration 0109
+   * is applied these columns do not exist, and the SELECT returns rows without
+   * the property at all. `undefined` and `null` must both hold, so the pager
+   * checks the value rather than trusting the column to be there.
+   */
+  send_refusals?: number | null
+  send_refusals_last_ts?: string | null
+  send_refusals_json?: string | null
 }
 
 /** One per-server entry from the seat's connectors map (writer-side ages). */
@@ -206,6 +219,7 @@ export interface RunSummary {
   transitions: Transition[]
   stale_holds: StaleHold[]
   sink_notifications: SinkNotification[]
+  send_refusals: SendRefusedNotification[]
 }
 
 const DEFAULT_RED_SECONDS = 300
@@ -491,7 +505,8 @@ async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
               spec_control_json, spec_control_ok,
               webhook_surface_json, webhook_surface_ok,
               gateway_loop_ok, gateway_loop_age_seconds,
-              gateway_supervisor_state, gateway_restarts_last_hour
+              gateway_supervisor_state, gateway_restarts_last_hour,
+              send_refusals, send_refusals_last_ts, send_refusals_json
          FROM fleet_status`
     )
     .all<FleetStatusRow>()
@@ -676,6 +691,11 @@ export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<Run
   // fail-soft, so a sink problem can never suppress the fleet_status pager.
   const sinkNotifications = await notifySinkAlerts(env)
 
+  // ss#2547: the refused-or-unsent pager. Runs after condition evaluation for
+  // the same reason the sink does, and is event-shaped rather than a condition
+  // -- see ./send-refused for why a refusal has no green state to return to.
+  const sendRefusals = await notifySendRefusals(env, rows)
+
   const summary: RunSummary = {
     at: new Date(nowMs).toISOString(),
     seats: rows.length,
@@ -683,12 +703,16 @@ export async function runOnce(env: Env, nowMs: number = Date.now()): Promise<Run
     transitions,
     stale_holds: staleHolds,
     sink_notifications: sinkNotifications,
+    send_refusals: sendRefusals,
   }
   if (transitions.length > 0) {
     console.log(`[fleet-alerts] transitions: ${JSON.stringify(transitions)}`)
   }
   if (sinkNotifications.length > 0) {
     console.log(`[fleet-alerts] sink notifications: ${JSON.stringify(sinkNotifications)}`)
+  }
+  if (sendRefusals.length > 0) {
+    console.log(`[fleet-alerts] send refusals: ${JSON.stringify(sendRefusals)}`)
   }
 
   // Watch the watcher: only reached when the run completed without throwing.

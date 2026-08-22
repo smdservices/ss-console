@@ -299,6 +299,8 @@ incidents:
     ref: "evidence-packet tamper test (#2122: the check ran `sed 's/Acme/Acmf/'` against a manifest whose slug is lowercase `acme`, so it altered nothing; openssl then verified the unmodified bytes and the session reported a passing tamper test. The signature was in fact sound, which is worse -- a real regression would have been reported green by the same command)"
   - date: 2026-08-01
     ref: 'memory-corpus audit (asked for a wrongness rate, the session built six checks and three failed on the instrument rather than the claim: guessed ADR filenames produced five false FAILs against memories that were correct, an issue number was checked as a PR, and an absence assertion was written inverted so the correct result was labelled a failure. Measured memory error rate 2/147; measured first-attempt instrument error rate 3/6)'
+  - date: 2026-08-19
+    ref: 'gate-muted escalator (ss#2547, docs/runbooks/operator/incidents/2026-08-19-gate-muted-escalator.md: the pilot Operator woke with a court date seven days out, was refused five times by its own gates, and every liveness instrument stayed green because none of them could return the other answer. Heartbeat fresh, scheduler healthy, cron fired, routine woke, nothing sent, three days silent. The instruments measured that the routine RAN, which it could not have failed, rather than that a message ARRIVED)'
 escalation: none pending
 ```
 
