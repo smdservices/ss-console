@@ -68,6 +68,7 @@ the authored allow list in customer.yaml, which this uid cannot read.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import secrets
 import shutil
@@ -78,6 +79,8 @@ from pathlib import Path
 from typing import Any
 
 from .audit_ledger import _iso_utc
+
+logger = logging.getLogger(__name__)
 
 # Pinned audit action types — exactly one per writing verb (discipline 1).
 ESTABLISHMENT_SUBMITTED_ACTION_TYPE = "ESTABLISHMENT_SUBMITTED"
@@ -121,6 +124,12 @@ STAGING_TTL_SECONDS = 30 * 60
 # Results are one-shot reads; the TTL sweep is the backstop for a result the
 # agent never came back for.
 RESULT_TTL_SECONDS = 30 * 60
+
+#: The one result status that means the firm's rule is actually in force.
+#: Mirrors ``establish_intake.intake.STATUS_INSTALLED``; the two are one
+#: string across a root/broker boundary, so it is named on both sides rather
+#: than spelled inline.
+STATUS_INSTALLED = "installed"
 
 # Spec-body ceiling — applier parity (spec_applier holds a 256 KiB body
 # ceiling; a body the applier would refuse must be refused here, not queued).
@@ -271,7 +280,12 @@ CREATE_PENDING_RULES_SQL = (
     "declined_at REAL, "
     "declined_by TEXT, "
     "lapsed_at REAL, "
-    "lapse_notified_at REAL"
+    "lapse_notified_at REAL, "
+    # ss-console#2546 follow-up: the moment a COMMITTED rule was observed
+    # installed. Its own column rather than an inference from consumed_at,
+    # because committed and installed are hours apart in the failure case and
+    # only one of them entitles anybody to say "in effect".
+    "installed_at REAL"
     ")"
 )
 # Additive upgrade for a table created by ss-console#2529, applied at
@@ -288,6 +302,9 @@ PENDING_RULES_COLUMN_ALTERS: tuple[str, ...] = (
     "ALTER TABLE pending_rules ADD COLUMN declined_by TEXT",
     "ALTER TABLE pending_rules ADD COLUMN lapsed_at REAL",
     "ALTER TABLE pending_rules ADD COLUMN lapse_notified_at REAL",
+    # ss-console#2546 follow-up. Absent reads as NULL, which is "committed but
+    # nobody has observed it install" -- the conservative answer.
+    "ALTER TABLE pending_rules ADD COLUMN installed_at REAL",
 )
 CREATE_PENDING_RULES_INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS idx_pending_rules_open "
@@ -812,8 +829,8 @@ class PendingRuleStore:
         return [self._hydrate(row) for row in rows]
 
     def unreported_outcomes_for(self, sender: str | None) -> list[dict[str, Any]]:
-        """Rows that ENDED without being committed and whose author has not been
-        told: declined by an administrator, or lapsed unanswered.
+        """Rows that ENDED and whose author has not been told: declined by an
+        administrator, lapsed unanswered, or observed installed.
 
         With a ``sender``, only rows THAT PERSON stated (``instructed_by``). A
         decline is news for the person who asked, not for the administrator who
@@ -831,9 +848,23 @@ class PendingRuleStore:
         domain rather than by name (the paralegal this whole issue is about).
         """
         sql = (
-            "SELECT * FROM pending_rules WHERE consumed_at IS NULL "
-            "AND lapse_notified_at IS NULL "
-            "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL)"
+            "SELECT * FROM pending_rules WHERE lapse_notified_at IS NULL AND ("
+            # The two non-committing ends.
+            "(consumed_at IS NULL AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL))"
+            # ss-console#2546 follow-up: and the committing one. A rule an
+            # administrator APPLIED is an outcome the person who asked is owed,
+            # and it was the one outcome this view could not express -- its
+            # every arm required consumed_at IS NULL, so a rule that went into
+            # force fell out of the list that exists to report outcomes.
+            #
+            # THE ARM IS installed_at, NOT consumed_at, and that is the whole
+            # honesty of it. Committed means the submission reached the intake
+            # spool; installed means somebody read the run's result and saw the
+            # word. Between them sits a converge window and a failure mode, and
+            # a sweeper firing on consumed_at would mail "your rule is in
+            # effect" about a rule that never installed.
+            " OR (installed_at IS NOT NULL AND for_admin = 1)"
+            ")"
         )
         params: tuple[Any, ...] = ()
         if sender is not None:
@@ -906,7 +937,14 @@ class PendingRuleStore:
 
         Conditional again, and the condition is what stops a second note: a row
         can only be marked once, and only once it actually HAS an outcome. A
-        seat that retries the send loses the race and sends nothing.
+        seat that retries the send loses the race and sends nothing. That is
+        also what makes this the cross-path lock for ss-console#2546's install
+        notice: three observers can reach it and exactly one wins the UPDATE.
+
+        ``installed_at`` joins the two non-committing ends as an outcome, so an
+        applied rule can be marked reported at all. Without it the seat could
+        send the note and never record having sent it, and every later observer
+        would send it again.
         """
         now = time.time()
         conn = self._connect()
@@ -914,11 +952,48 @@ class PendingRuleStore:
             cursor = conn.execute(
                 "UPDATE pending_rules SET lapse_notified_at=? WHERE proposal_id=? "
                 "AND lapse_notified_at IS NULL "
-                "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL)",
+                "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL "
+                "OR installed_at IS NOT NULL)",
                 (now, proposal_id),
             )
             conn.commit()
             return bool(cursor.rowcount)
+        finally:
+            conn.close()
+
+    def mark_installed(self, run_id: str, now: float | None = None) -> str:
+        """Record that the run that committed a rule was observed INSTALLED.
+
+        Returns the proposal id this stamped, or ``""`` when it stamped nothing
+        (no committed row carries that run, or one already does).
+
+        THE ONLY WRITER IS :meth:`EstablishmentStore.status`, on the path where
+        the broker has just read a root-authored result whose status is
+        ``installed``. Nothing the agent says reaches this: the word comes off a
+        file the intake wrote as root, and the run id comes off the row the
+        broker itself stamped at commit. That is what lets the seat's sweeper
+        treat the column as grounds to tell somebody their rule is in force.
+
+        Conditional, like every other mark here, so two reads of one result
+        stamp once.
+        """
+        now = time.time() if now is None else now
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT proposal_id FROM pending_rules WHERE consumed_run_id=? "
+                "AND consumed_at IS NOT NULL AND installed_at IS NULL",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                return ""
+            cursor = conn.execute(
+                "UPDATE pending_rules SET installed_at=? WHERE consumed_run_id=? "
+                "AND consumed_at IS NOT NULL AND installed_at IS NULL",
+                (now, run_id),
+            )
+            conn.commit()
+            return str(row["proposal_id"]) if cursor.rowcount else ""
         finally:
             conn.close()
 
@@ -980,6 +1055,7 @@ class PendingRuleStore:
             "declined_by": _column(row, "declined_by"),
             "lapsed_at": _column(row, "lapsed_at"),
             "lapse_notified_at": _column(row, "lapse_notified_at"),
+            "installed_at": _column(row, "installed_at"),
         }
 
 
@@ -1470,7 +1546,9 @@ class EstablishmentStore:
         DECLINE already wrote RULE_DECLINED at the moment the administrator
         answered, so telling the requester about it writes nothing further -
         this verb cannot emit a second type, which is the property that keeps
-        it unable to forge one.
+        it unable to forge one. An INSTALL (ss-console#2546 follow-up) is the
+        third thing this can now mark, and it writes nothing either: the run
+        already left its ESTABLISHMENT_RESULT row.
         """
         pending = self._require_pending()
         proposal_id = _require_proposal_id(request.get("proposal_id"))
@@ -1479,9 +1557,20 @@ class EstablishmentStore:
             raise EstablishmentValidationError(
                 f"no rule was proposed under {proposal_id}; nothing to report"
             )
-        if row["declined_at"] is None and row["lapsed_at"] is None:
+        if (
+            row["declined_at"] is None
+            and row["lapsed_at"] is None
+            and row.get("installed_at") is None
+        ):
             raise EstablishmentValidationError(
                 f"rule {proposal_id} has no outcome to report; it is still open"
+                if row["consumed_at"] is None
+                # ss-console#2546 follow-up. Committed is not an outcome a
+                # person can be told about yet, and saying so by name is what
+                # stops a seat mailing "your rule is in effect" about a run
+                # still inside its converge window.
+                else f"rule {proposal_id} was committed but has not been observed "
+                "installed; there is nothing to report yet"
             )
         if not pending.mark_outcome_reported(proposal_id):
             raise EstablishmentValidationError(
@@ -1523,21 +1612,31 @@ class EstablishmentStore:
         an assertion that it can be confirmed.
         """
         pending = self._require_pending()
+        outcomes_raw = request.get("include_outcomes", False)
+        if not isinstance(outcomes_raw, bool):
+            raise EstablishmentValidationError("include_outcomes must be a boolean")
         proposal_id_raw = request.get("proposal_id")
         if proposal_id_raw is not None:
             proposal_id = _require_proposal_id(proposal_id_raw)
             row = pending.get(proposal_id)
-            open_rows = (
-                [row]
-                if row is not None
-                and row["consumed_at"] is None
-                and row["expires_at"] >= time.time()
-                else []
+            # ss-console#2546 follow-up. Under ``include_outcomes`` this lookup
+            # answers "what became of this rule", so it returns the row in ANY
+            # state and lets ``state`` say which. Without the flag it answers
+            # the older question, "can this still be confirmed", and a committed
+            # or expired row is correctly absent -- the same opt-in that keeps a
+            # seat running the old plugin seeing exactly what it saw before.
+            #
+            # THIS IS THE LOOKUP THAT SILENTLY BROKE THE INSTALL NOTICE. The
+            # seat fetched the row right after committing it, to learn whether
+            # the rule was for_admin and who had asked for it, and got an empty
+            # list every time -- because committing is precisely what took the
+            # row out of this branch's answer.
+            visible = row is not None and (
+                outcomes_raw
+                or (row["consumed_at"] is None and row["expires_at"] >= time.time())
             )
+            open_rows = [row] if visible else []
             return {"ok": True, "pending": [self._pending_view(r) for r in open_rows]}
-        outcomes_raw = request.get("include_outcomes", False)
-        if not isinstance(outcomes_raw, bool):
-            raise EstablishmentValidationError("include_outcomes must be a boolean")
         if request.get("sender") is None and outcomes_raw:
             # THE SWEEPER'S QUERY, and the only shape with no sender. A lapse
             # has nobody in front of it by definition, so the seat's sweeper
@@ -1599,6 +1698,11 @@ class EstablishmentStore:
             "state": proposal_state(row),
             "declined_by": row.get("declined_by"),
             "lapse_notified": row.get("lapse_notified_at") is not None,
+            # ss-console#2546 follow-up. "committed" and "in force" are not the
+            # same fact, so the view carries both: ``state`` says the firm's
+            # administrator applied it, this says somebody read the run result
+            # and saw it land. Only the second entitles a note.
+            "installed": row.get("installed_at") is not None,
         }
 
     # ------------------------------------------------------------------
@@ -2563,6 +2667,33 @@ class EstablishmentStore:
     # establish_status
     # ------------------------------------------------------------------
 
+    def _stamp_installed(self, run_id: str, result: dict[str, Any]) -> None:
+        """Record ``installed`` durably, because the read that carries it is
+        one-shot (ss-console#2546 follow-up).
+
+        The result file is deleted after the first successful read, so the fact
+        that a rule went into force lives for exactly one call and then only in
+        an audit row nobody queries. That is why the requester was never told:
+        every path that wanted to say "your rule is in effect" had to be the
+        one call that read the result, and none of them reliably was.
+
+        A column on the proposal instead. It is written from the root-authored
+        result and from the broker's own commit record, never from a request
+        field, and it is what the seat's outcome view keys on.
+
+        Best-effort: a stamping fault must not cost the caller the result they
+        asked for, which is the same rule the ledger append one line up follows.
+        """
+        if self.pending is None or result.get("status") != STATUS_INSTALLED:
+            return
+        try:
+            proposal_id = self.pending.mark_installed(run_id)
+        except sqlite3.Error:
+            logger.warning("run %s installed but the proposal could not be stamped", run_id)
+            return
+        if proposal_id:
+            logger.info("rule %s observed installed on run %s", proposal_id, run_id)
+
     def status(self, request: dict[str, Any]) -> dict[str, Any]:
         """Read a run's result. One-shot: the result file is deleted after the
         first successful read, and its retained trace is the bounded
@@ -2582,6 +2713,7 @@ class EstablishmentStore:
                     f"result for run {run_id} is not an object; the TTL sweep will clear it"
                 )
             self._ledger.append(build_result_row(run_id, result))
+            self._stamp_installed(run_id, result)
             # One-shot delete. The results dir is 0770 root:workspace-broker
             # (entrypoint-authored; the intake re-hardens to the same, its
             # overlay#221 fix), so this unlink succeeds in production. The
