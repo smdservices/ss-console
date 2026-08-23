@@ -239,6 +239,22 @@ RULE_TTL_SECONDS = 7 * 86_400
 # person could still be quoting the tag.
 TERMINAL_RETENTION_SECONDS = 7 * 86_400
 
+# ss-console#2546. HOW LONG ONE PROCESS MAY HOLD THE RIGHT TO SEND A ROW'S
+# OUTCOME LETTER before another may take it. The claim exists because the seat
+# runs the establishment plugin in TWO processes -- `hermes -p operator gateway
+# run` (pid 658) and its child `hermes-smd-webhook-gate` (pid 1115), observed on
+# pilot-smokeball 2026-08-23 (vfy_01M0QK1927KP54R7J13J2TH3WZ) -- each with its
+# own sweeper thread. An in-process claim is therefore two claims, and on
+# fc8f88c1 the requester was mailed the same outcome letter twice, 12 s apart.
+# The broker is the one process both share, so the claim lives here.
+#
+# It EXPIRES rather than persisting, because a process that claimed a row and
+# then died must not freeze that row's letter forever: unsent is the worse
+# failure of the two, and it is the failure this whole issue exists to end. The
+# window is wide enough to cover a mail send and narrow enough that a crashed
+# sender costs one sweep interval.
+NOTIFY_CLAIM_STALE_SECONDS = 120.0
+
 # Ceiling on a spoken rule. It is a sentence, not a document; the applier holds
 # the identical bound, so a rule this accepts is one the seat can render.
 MAX_RULE_TEXT_BYTES = 2000
@@ -347,7 +363,14 @@ CREATE_PENDING_RULES_SQL = (
     # The mark that SMD has already been asked, once, to answer in the two words
     # the parser reads. Without it an unparseable reply would be re-asked on
     # every turn that touched the row.
-    "ask_sent_at REAL"
+    "ask_sent_at REAL, "
+    # ss-console#2546 (the duplicate-letter fix). WHICH observer currently holds
+    # the right to send this row's outcome letter, and WHEN it took that right.
+    # ``lapse_notified_at`` is the durable mark and is unchanged; this is the
+    # short-lived claim that stops two processes both reading the row as
+    # unreported, both sending, and only then racing to mark it.
+    "notify_claimed_at REAL, "
+    "notify_claimed_by TEXT"
     ")"
 )
 # Additive upgrade for a table created by ss-console#2529, applied at
@@ -374,6 +397,11 @@ PENDING_RULES_COLUMN_ALTERS: tuple[str, ...] = (
     "ALTER TABLE pending_rules ADD COLUMN resolved_by TEXT",
     "ALTER TABLE pending_rules ADD COLUMN outcome_reason TEXT",
     "ALTER TABLE pending_rules ADD COLUMN ask_sent_at REAL",
+    # ss-console#2546 (the duplicate-letter fix), same additive idiom. Absent
+    # reads as NULL, which is "unclaimed" -- exactly right for every row that
+    # existed before the claim did.
+    "ALTER TABLE pending_rules ADD COLUMN notify_claimed_at REAL",
+    "ALTER TABLE pending_rules ADD COLUMN notify_claimed_by TEXT",
 )
 CREATE_PENDING_RULES_INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS idx_pending_rules_open "
@@ -967,7 +995,9 @@ class PendingRuleStore:
             conn.close()
         return [self._hydrate(row) for row in rows]
 
-    def unreported_outcomes_for(self, sender: str | None) -> list[dict[str, Any]]:
+    def unreported_outcomes_for(
+        self, sender: str | None, now: float | None = None
+    ) -> list[dict[str, Any]]:
         """Rows that ENDED and whose author has not been told: declined by an
         administrator, lapsed unanswered, or observed installed.
 
@@ -985,7 +1015,21 @@ class PendingRuleStore:
         an Operator that has just gone silent on them, and enumerating the
         firm's authored people instead would miss anyone the roster covers by
         domain rather than by name (the paralegal this whole issue is about).
+
+        THE SENDERLESS SHAPE ALSO HIDES A ROW ANOTHER OBSERVER IS CURRENTLY
+        SENDING (ss-console#2546, the duplicate-letter fix), for
+        ``NOTIFY_CLAIM_STALE_SECONDS`` and no longer. This is the cheap half of
+        the once-guard, not the guard: two sweepers can still list the same row
+        in the same instant, and what stops the second letter is
+        :meth:`claim_notify`. What this buys is that the ordinary case does not
+        even reach the claim, and that a row whose claimant died comes back into
+        the list rather than going quiet forever.
+
+        The SENDER-scoped shape is deliberately left alone. It answers "what
+        does this person still need to hear", which is a true answer whether or
+        not a sweeper is mid-send; the send itself is gated by the claim.
         """
+        now = time.time() if now is None else now
         sql = (
             "SELECT * FROM pending_rules WHERE lapse_notified_at IS NULL AND ("
             # The two non-committing ends.
@@ -1009,6 +1053,9 @@ class PendingRuleStore:
         if sender is not None:
             sql += " AND instructed_by = ?"
             params = (sender,)
+        else:
+            sql += " AND (notify_claimed_at IS NULL OR notify_claimed_at < ?)"
+            params = (now - NOTIFY_CLAIM_STALE_SECONDS,)
         sql += " ORDER BY created_at ASC"
         conn = self._connect()
         try:
@@ -1016,6 +1063,72 @@ class PendingRuleStore:
         finally:
             conn.close()
         return [self._hydrate(row) for row in rows]
+
+    def claim_notify(
+        self, proposal_id: str, claimed_by: str, now: float | None = None
+    ) -> bool:
+        """Take the right to send ONE row's outcome letter. True iff THIS call
+        took it.
+
+        The conditional UPDATE is the whole control, for the reason ``consume``
+        and ``decline`` are conditional: claim-once has to be enforced by the
+        database, because the two processes racing for it are two processes and
+        no amount of in-memory bookkeeping in either one can see the other.
+        overlay#315 put this claim in memory and the letter still went twice.
+
+        Every condition is in the WHERE clause:
+          - unclaimed, OR claimed longer ago than ``NOTIFY_CLAIM_STALE_SECONDS``
+            (a claimant that died hands the row back by falling silent, because
+            an un-sent letter is worse than a late one);
+          - not already reported -- ``lapse_notified_at`` is the durable mark and
+            it outranks any claim;
+          - actually terminal. A row with no outcome has no letter to send, so a
+            claim on one is refused rather than parked.
+
+        A refusal is a ``False``, never an exception: losing this race is the
+        system working, and the caller's correct response is to send nothing.
+        """
+        now = time.time() if now is None else now
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE pending_rules SET notify_claimed_at=?, notify_claimed_by=? "
+                "WHERE proposal_id=? "
+                "AND (notify_claimed_at IS NULL OR notify_claimed_at < ?) "
+                "AND lapse_notified_at IS NULL "
+                "AND (declined_at IS NOT NULL OR lapsed_at IS NOT NULL "
+                "OR installed_at IS NOT NULL)",
+                (now, claimed_by, proposal_id, now - NOTIFY_CLAIM_STALE_SECONDS),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+        finally:
+            conn.close()
+
+    def release_notify(self, proposal_id: str) -> bool:
+        """Hand a claimed row back, unsent. True iff THIS call released it.
+
+        The path is a send that FAILED: the claimant knows the letter did not go,
+        and the honest thing is to give the row back immediately rather than
+        leave the next observer waiting out the stale window.
+
+        ``lapse_notified_at IS NULL`` is the guard, and it is the same one
+        ``claim_notify`` carries: once a letter is recorded as sent, nothing may
+        reopen the row for a second one. A release on a reported row is a
+        ``False``, not a clearing.
+        """
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE pending_rules SET notify_claimed_at=NULL, notify_claimed_by=NULL "
+                "WHERE proposal_id=? AND notify_claimed_at IS NOT NULL "
+                "AND lapse_notified_at IS NULL",
+                (proposal_id,),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+        finally:
+            conn.close()
 
     def find_open_duplicate(
         self, *, instructed_by: str, scope: str, text: str, now: float | None = None
@@ -1297,6 +1410,9 @@ class PendingRuleStore:
             "resolved_by": _column(row, "resolved_by"),
             "outcome_reason": _column(row, "outcome_reason"),
             "ask_sent_at": _column(row, "ask_sent_at"),
+            # ss-console#2546 (the duplicate-letter fix); same tolerance again.
+            "notify_claimed_at": _column(row, "notify_claimed_at"),
+            "notify_claimed_by": _column(row, "notify_claimed_by"),
         }
 
 
@@ -1866,6 +1982,104 @@ class EstablishmentStore:
         return {"ok": True, "proposal_id": proposal_id, "state": state}
 
     # ------------------------------------------------------------------
+    # establish_notify_claim / establish_notify_release  (ss-console#2546)
+    #
+    # THE DUPLICATE-LETTER FIX. ``lapse_notified`` is written AFTER the letter is
+    # away, on purpose -- marking first would trade a duplicate for a silence.
+    # That ordering is safe against a retry inside one process and is not safe
+    # against two processes, and the seat runs two: the gateway (pid 658) and its
+    # webhook-gate child (pid 1115), each with its own sweeper thread. Observed
+    # on pilot-smokeball 2026-08-23, overlay fc8f88c1: both read the row as
+    # unreported, both sent, and the requester got the same letter 12 s apart
+    # (vfy_01M0QK1927KP54R7J13J2TH3WZ). overlay#315 answered it with an
+    # in-process lock, which on this seat is two locks.
+    #
+    # So the window between "decided to send" and "recorded as sent" gets a
+    # holder, and it lives in the ONE process both observers share. Two verbs,
+    # both non-writing (no audit row): claiming the right to send is not a
+    # decision about the firm's work, it is bookkeeping about which of our own
+    # processes is speaking.
+    # ------------------------------------------------------------------
+
+    def notify_claim(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Take the right to send one row's outcome letter.
+
+        ``claimed: False`` is the ordinary answer for a caller that lost, and it
+        is NOT an error: another observer holds the row, or the row was already
+        reported, or it has no outcome yet. The caller's correct response to all
+        three is identical -- send nothing, mark nothing.
+
+        An UNKNOWN proposal id still raises, because that is a caller bug rather
+        than a lost race, and answering it with ``claimed: False`` would let a
+        typo look like ordinary contention forever.
+        """
+        pending = self._require_pending()
+        proposal_id = _require_proposal_id(request.get("proposal_id"))
+        # A process label ("gateway", "webhook-gate", a pid) rather than an
+        # address: this names which of OUR processes holds the row, and it is
+        # stored so a live duplicate can be traced to the two senders rather
+        # than guessed at.
+        claimed_by = _require_text(
+            request.get("claimed_by"), "claimed_by", _MAX_SHORT_TEXT
+        )
+
+        row = pending.get(proposal_id)
+        if row is None:
+            raise EstablishmentValidationError(
+                f"no proposal was recorded under {proposal_id}; "
+                "there is no outcome to claim"
+            )
+        claimed = pending.claim_notify(proposal_id, claimed_by)
+        return {
+            "ok": True,
+            "claimed": claimed,
+            "proposal_id": proposal_id,
+            # Why the claim was refused, for the caller's log. Read off the row
+            # AFTER the attempt, so it describes the state that actually beat
+            # this caller rather than one read before the race.
+            "reason": (
+                None if claimed else self._claim_refusal(pending.get(proposal_id) or row)
+            ),
+        }
+
+    @staticmethod
+    def _claim_refusal(row: dict[str, Any]) -> str:
+        """Name which of the three refusals happened. Diagnostic only -- the
+        UPDATE is the enforcement, and none of these strings is load-bearing."""
+        if row.get("lapse_notified_at") is not None:
+            return "the outcome of this proposal has already been reported"
+        if (
+            row.get("declined_at") is None
+            and row.get("lapsed_at") is None
+            and row.get("installed_at") is None
+        ):
+            return "this proposal has no outcome to report yet"
+        holder = row.get("notify_claimed_by") or "unnamed"
+        return f"another observer is sending this outcome ({holder})"
+
+    def notify_release(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Hand a claimed row back because the letter did NOT go.
+
+        The failure path of a claim, and the reason a claim is not simply the
+        mark: a send that raised must leave the row sendable, immediately, by
+        somebody. ``released: False`` means there was nothing to give back --
+        already reported, or never claimed -- and is not an error either.
+        """
+        pending = self._require_pending()
+        proposal_id = _require_proposal_id(request.get("proposal_id"))
+        row = pending.get(proposal_id)
+        if row is None:
+            raise EstablishmentValidationError(
+                f"no proposal was recorded under {proposal_id}; "
+                "there is no claim to release"
+            )
+        return {
+            "ok": True,
+            "released": pending.release_notify(proposal_id),
+            "proposal_id": proposal_id,
+        }
+
+    # ------------------------------------------------------------------
     # ops_propose / ops_resolve / ops_ask_sent  (ss-console#2546)
     # ------------------------------------------------------------------
 
@@ -2205,6 +2419,15 @@ class EstablishmentStore:
             # administrator applied it, this says somebody read the run result
             # and saw it land. Only the second entitles a note.
             "installed": row.get("installed_at") is not None,
+            # ss-console#2546 (the duplicate-letter fix). Whether SOME observer
+            # currently holds the right to send this row's outcome letter. It is
+            # the raw column, not a freshness judgement: a claim older than
+            # NOTIFY_CLAIM_STALE_SECONDS still reads True here and is still
+            # takeable by claim_notify. Nothing may decide whether to send from
+            # this field -- that is what the claim verb is for; it is here so a
+            # seat can SAY why it is sending nothing.
+            "notify_claimed": row.get("notify_claimed_at") is not None,
+            "notify_claimed_by": row.get("notify_claimed_by"),
         }
 
     # ------------------------------------------------------------------

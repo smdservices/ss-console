@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from workspace_broker.audit_ledger import LedgerWriter
 from workspace_broker.establishment import (
     MAX_OUTCOME_REASON,
+    NOTIFY_CLAIM_STALE_SECONDS,
     OPS_REQUEST_LAPSED_ACTION_TYPE,
     OPS_REQUEST_RECORDED_ACTION_TYPE,
     OPS_REQUEST_RESOLVED_ACTION_TYPE,
@@ -1544,3 +1545,318 @@ def test_a_table_written_before_the_operations_columns_still_reads(tmp_path):
     # And the row is still confirmable, which is what "the migration worked"
     # actually means here.
     assert [r["proposal_id"] for r in store.open_for(PARALEGAL, False)] == ["cccccccc"]
+
+
+# ---------------------------------------------------------------------------
+# establish_notify_claim / establish_notify_release (ss-console#2546)
+#
+# LIVE DEFECT (pilot-smokeball, 2026-08-23, overlay fc8f88c1). The requester's
+# outcome letter went TWICE, 12 s apart (vfy_01M0QK1927KP54R7J13J2TH3WZ). The
+# seat runs the establishment plugin in two processes -- `hermes -p operator
+# gateway run` (pid 658) and its child `hermes-smd-webhook-gate` (pid 1115) --
+# each with its own sweeper thread. Both read the row as unreported, both sent,
+# and only then did one of them mark it. overlay#315 had already added an
+# in-process claim; on this seat that is two claims, one per process, and it
+# held nothing.
+#
+# The mark is written after the send on purpose (a mark-first design trades a
+# duplicate for a silence, and silence is the failure this issue exists to end),
+# so the window between "decided to send" and "recorded as sent" is real and
+# cannot be closed by reordering. What these tests hold is that the window has a
+# HOLDER, that the holder lives in the one process both observers share, and
+# that a holder which dies cannot freeze the letter forever.
+# ---------------------------------------------------------------------------
+
+
+def _claim(broker: Broker, proposal_id: str, claimed_by: str = "gateway"):
+    return _call(
+        broker,
+        action="establish_notify_claim",
+        proposal_id=proposal_id,
+        claimed_by=claimed_by,
+    )
+
+
+def _release(broker: Broker, proposal_id: str):
+    return _call(
+        broker, action="establish_notify_release", proposal_id=proposal_id
+    )
+
+
+def _lapsed_row(broker: Broker) -> str:
+    """A rule nobody answered, swept, and therefore owed its author a letter."""
+    proposed = _propose(broker)
+    _age_out(broker, proposed["proposal_id"])
+    broker.establishment.sweep()
+    return proposed["proposal_id"]
+
+
+def _backdate_claim(broker: Broker, proposal_id: str, age_seconds: float) -> None:
+    """Age an existing claim, the way a claimant that died would leave it."""
+    conn = sqlite3.connect(broker.db_path)
+    try:
+        conn.execute(
+            "UPDATE pending_rules SET notify_claimed_at=? WHERE proposal_id=?",
+            (time.time() - age_seconds, proposal_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _sweep_list(broker: Broker) -> list[str]:
+    """What the seat's senderless sweeper is offered."""
+    result = _call(broker, action="establish_pending", include_outcomes=True)
+    return [row["proposal_id"] for row in result["pending"]]
+
+
+def test_two_processes_race_for_one_letter_and_exactly_one_may_send(tmp_path):
+    """THE DEFECT, reproduced at the seam that failed. Both observers see the row
+    as unreported -- which is TRUE, neither has sent yet -- and both go to send.
+    Exactly one may."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+
+    # Both processes list the row in the same instant, before either claims.
+    # This is the real ordering: the listing is not the guard.
+    assert _sweep_list(broker) == [proposal_id]
+    assert _sweep_list(broker) == [proposal_id]
+
+    gateway = _claim(broker, proposal_id, "gateway")
+    webhook_gate = _claim(broker, proposal_id, "webhook-gate")
+
+    assert gateway["claimed"] is True
+    assert gateway["reason"] is None
+    assert webhook_gate["claimed"] is False
+    assert "gateway" in webhook_gate["reason"]
+
+
+def test_the_winner_of_the_claim_can_still_mark_the_row_reported(tmp_path):
+    """The claim does not replace the durable mark, it guards the window before
+    it. A claimant that sends must still be able to record having sent."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id)["claimed"] is True
+
+    result = _call(
+        broker, action="establish_lapse_notified", proposal_id=proposal_id
+    )
+    assert result["state"] == "lapsed"
+    assert len(_rows(broker, RULE_LAPSED_ACTION_TYPE)) == 1
+
+
+def test_a_failed_send_hands_the_row_back_and_the_other_process_takes_it(tmp_path):
+    """The reason a claim is not the mark. A send that RAISED left no letter, so
+    the row must go back immediately rather than wait out the stale window."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id, "gateway")["claimed"] is True
+    assert _claim(broker, proposal_id, "webhook-gate")["claimed"] is False
+
+    assert _release(broker, proposal_id)["released"] is True
+    assert _claim(broker, proposal_id, "webhook-gate")["claimed"] is True
+
+
+def test_a_claimed_row_leaves_the_sweepers_list_until_the_claim_goes_stale(tmp_path):
+    """The cheap half: the ordinary case does not even reach the claim. And the
+    half that matters more -- a claimant that DIED gives the row back by falling
+    silent, because an unsent letter is worse than a late one."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id)["claimed"] is True
+
+    assert _sweep_list(broker) == []
+
+    _backdate_claim(broker, proposal_id, NOTIFY_CLAIM_STALE_SECONDS + 1)
+    assert _sweep_list(broker) == [proposal_id]
+    # And it is takeable again, or coming back into the list would be theatre.
+    assert _claim(broker, proposal_id, "webhook-gate")["claimed"] is True
+
+
+def test_a_claim_just_inside_the_window_still_holds_the_row(tmp_path):
+    """THE FALSIFIER for the staleness rule: if the window were ignored
+    altogether, this row would be listed and claimable, and the duplicate letter
+    would be back."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id)["claimed"] is True
+
+    _backdate_claim(broker, proposal_id, NOTIFY_CLAIM_STALE_SECONDS - 5)
+    assert _sweep_list(broker) == []
+    assert _claim(broker, proposal_id, "webhook-gate")["claimed"] is False
+
+
+def test_an_open_rule_cannot_be_claimed_for_a_letter_it_has_not_earned(tmp_path):
+    """A row with no outcome has no letter to send, so a claim on one is refused
+    rather than parked -- a parked claim would be a hold on a row that may still
+    be confirmed."""
+    broker = _broker(tmp_path)
+    proposed = _propose(broker)
+
+    result = _claim(broker, proposed["proposal_id"])
+    assert result["claimed"] is False
+    assert "no outcome" in result["reason"]
+
+
+def test_a_reported_outcome_cannot_be_claimed_again(tmp_path):
+    """THE FALSIFIER for the mark outranking the claim. Once a letter is recorded
+    as sent, nothing may take the row for a second one -- including a process
+    that has just restarted and holds no memory of the first."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id)["claimed"] is True
+    _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)
+
+    result = _claim(broker, proposal_id, "webhook-gate")
+    assert result["claimed"] is False
+    assert "already been reported" in result["reason"]
+
+
+def test_a_row_reported_without_ever_being_claimed_still_cannot_be_claimed(tmp_path):
+    """THE FALSIFIER THAT MATTERS, and it is a real window rather than a
+    hypothetical: this broker ships in the seat image and the plugin ships at
+    the pinned OVERLAY_REF, so for as long as the two are out of step a letter
+    gets sent and marked by a caller that never claimed anything. When the new
+    plugin does come up it must not read an unclaimed row as an unsent one.
+
+    The sibling test above cannot see this: there the first claim is still on
+    the row, so the claim clause alone would refuse the second caller and the
+    durable mark's authority would never be exercised.
+    """
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)
+    assert broker.establishment.pending.get(proposal_id)["notify_claimed_at"] is None
+
+    result = _claim(broker, proposal_id, "gateway")
+    assert result["claimed"] is False
+    assert "already been reported" in result["reason"]
+
+
+def test_a_release_cannot_reopen_a_row_whose_letter_already_went(tmp_path):
+    """The same guard from the other side. A release after the mark would make
+    the row claimable again, and the second claimant would send a second letter
+    about news the requester already has."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id)["claimed"] is True
+    _call(broker, action="establish_lapse_notified", proposal_id=proposal_id)
+
+    assert _release(broker, proposal_id)["released"] is False
+    assert broker.establishment.pending.get(proposal_id)["lapse_notified_at"]
+    assert _claim(broker, proposal_id, "webhook-gate")["claimed"] is False
+
+
+def test_releasing_a_row_nobody_claimed_changes_nothing(tmp_path):
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _release(broker, proposal_id)["released"] is False
+
+
+def test_a_declined_rule_is_claimable_because_its_author_is_owed_a_letter(tmp_path):
+    """All three outcomes are letters, so all three are claimable. A decline is
+    the one an administrator answered, and the requester still has to hear it."""
+    broker = _broker(tmp_path)
+    proposed = _propose(broker)
+    _decline(broker, proposed["proposal_id"])
+
+    assert _claim(broker, proposed["proposal_id"], "gateway")["claimed"] is True
+    assert _claim(broker, proposed["proposal_id"], "webhook-gate")["claimed"] is False
+
+
+def test_a_claim_names_which_process_holds_the_row(tmp_path):
+    """Stored, not discarded. A live duplicate has to be traceable to the two
+    senders rather than guessed at -- which is how this defect was found."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    _claim(broker, proposal_id, "webhook-gate-1115")
+
+    view = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=proposal_id,
+        include_outcomes=True,
+    )["pending"][0]
+    assert view["notify_claimed"] is True
+    assert view["notify_claimed_by"] == "webhook-gate-1115"
+
+
+def test_an_unclaimed_row_says_so(tmp_path):
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    view = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=proposal_id,
+        include_outcomes=True,
+    )["pending"][0]
+    assert view["notify_claimed"] is False
+    assert view["notify_claimed_by"] is None
+
+
+def test_a_claim_must_name_its_claimant(tmp_path):
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    with pytest.raises(EstablishmentValidationError, match="claimed_by"):
+        _call(
+            broker, action="establish_notify_claim", proposal_id=proposal_id
+        )
+
+
+def test_an_unknown_proposal_cannot_be_claimed_or_released(tmp_path):
+    """A typo is a caller bug, not a lost race, and answering it with the same
+    ``claimed: False`` a loser gets would let it look like ordinary contention
+    forever."""
+    broker = _broker(tmp_path)
+    with pytest.raises(EstablishmentValidationError, match="no outcome to claim"):
+        _claim(broker, "deadbeef")
+    with pytest.raises(EstablishmentValidationError, match="no claim to release"):
+        _release(broker, "deadbeef")
+
+
+def test_the_requesters_own_list_still_shows_a_row_another_process_is_sending(tmp_path):
+    """DELIBERATE, and worth pinning. The sender-scoped list answers "what does
+    this person still need to hear", which stays true mid-send; the send is
+    gated by the claim, not by the listing. Narrowing this shape too would make
+    an attributed turn silently skip an outcome whose claimant then died."""
+    broker = _broker(tmp_path)
+    proposal_id = _lapsed_row(broker)
+    assert _claim(broker, proposal_id)["claimed"] is True
+
+    result = _call(
+        broker, action="establish_pending", sender=PARALEGAL, include_outcomes=True
+    )
+    assert [row["proposal_id"] for row in result["pending"]] == [proposal_id]
+    # And that turn cannot send, which is the property that makes the above safe.
+    assert _claim(broker, proposal_id, "attributed-turn")["claimed"] is False
+
+
+def test_a_table_written_before_the_claim_columns_reads_as_unclaimed(tmp_path):
+    """The additive-ALTER idiom once more. A seat carrying a lapsed row from
+    before this change reads it as unclaimed, which is what it is."""
+    db_path = tmp_path / "pending-preclaim.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "CREATE TABLE pending_rules ("
+            "proposal_id TEXT PRIMARY KEY, scope TEXT NOT NULL, subject_json TEXT NOT NULL, "
+            "text TEXT NOT NULL, text_sha256 TEXT NOT NULL, instructed_by TEXT NOT NULL, "
+            "for_admin INTEGER NOT NULL DEFAULT 0, created_at REAL NOT NULL, "
+            "expires_at REAL NOT NULL, consumed_at REAL, consumed_run_id TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO pending_rules (proposal_id, scope, subject_json, text, "
+            "text_sha256, instructed_by, for_admin, created_at, expires_at) "
+            "VALUES ('dddddddd', 'firm_adjust', '{}', ?, 'sha', ?, 1, ?, ?)",
+            (RULE, PARALEGAL, time.time() - 10, time.time() - 5),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    store = PendingRuleStore(db_path)
+    assert store.get("dddddddd")["notify_claimed_at"] is None
+    store.sweep()
+    # And the row the migration recovered is claimable exactly once.
+    assert store.claim_notify("dddddddd", "gateway") is True
+    assert store.claim_notify("dddddddd", "webhook-gate") is False
