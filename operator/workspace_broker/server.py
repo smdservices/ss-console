@@ -438,6 +438,18 @@ class Broker:
             # decline, because RULE_DECLINED already recorded that).
             "establish_decline",
             "establish_lapse_notified",
+            # ss-console#2546 (the duplicate-letter fix). The seat runs the
+            # establishment plugin in TWO processes -- the gateway and its
+            # webhook-gate child -- each with its own sweeper, so an in-process
+            # once-guard is two guards and the requester was mailed the same
+            # outcome letter twice (pilot-smokeball 2026-08-23, overlay
+            # fc8f88c1, vfy_01M0QK1927KP54R7J13J2TH3WZ). These two verbs put the
+            # claim in the one process both share. Neither WRITES a row -- which
+            # of our processes is speaking is not a decision about the firm's
+            # work -- so the one-pinned-action_type discipline has nothing to
+            # pin here, exactly as with establish_pending and ops_ask_sent.
+            "establish_notify_claim",
+            "establish_notify_release",
             # ss-console#2546 (the operations half): a routine, a schedule, a
             # channel, a memory setting, an autonomy level or an on/off is SMD's
             # to change (ADR 0085 as amended 2026-08-22), so the firm cannot
@@ -485,6 +497,10 @@ class Broker:
                     return self.establishment.decline(request)
                 if action == "establish_lapse_notified":
                     return self.establishment.lapse_notified(request)
+                if action == "establish_notify_claim":
+                    return self.establishment.notify_claim(request)
+                if action == "establish_notify_release":
+                    return self.establishment.notify_release(request)
                 if action == "ops_propose":
                     return self.establishment.ops_propose(request)
                 if action == "ops_resolve":
