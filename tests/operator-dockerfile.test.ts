@@ -1079,7 +1079,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // in-turn path (it had arrived twice, 38 ms apart), and a reply to a sender who
     // cannot answer an ops request may no longer say it is closed. Vocabulary
     // identical (71); no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fc8f88c1eb97780ddf6f234407085d6b95a88be7"')
+    // fc8f88c1 -> 2c4e8e92 (2026-08-23, overlay#316, ss#2546): the outcome letter is
+    // claimed in the broker before it is sent; the seat runs the plugin in two
+    // processes (gateway + webhook-gate), so the in-process claim of #315 could not
+    // arbitrate. Pairs with console #2564. Vocabulary identical (71); no pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2c4e8e92bc1dfc853da7511a28b9e6967e8ee984"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
