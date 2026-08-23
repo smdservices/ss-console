@@ -24,6 +24,12 @@ the one way it may not end:
 Every assertion here has its falsifier beside it: the second decline, the second
 lapse note, the act TTL that must NOT have moved, and the duplicate that must
 still create a row when it is genuinely a different request.
+
+THE SECOND HALF OF THE SAME ISSUE (2026-08-23) is at the bottom of the file:
+OPERATIONS requests, which are the changes ADR 0085's amendment places with SMD
+rather than with the firm. They share this table and share none of its paths --
+the firm cannot confirm one, so a yes, a decline, and ``consume`` itself are each
+refused on the kind, and each refusal is exercised.
 """
 
 from __future__ import annotations
@@ -40,6 +46,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from workspace_broker.audit_ledger import LedgerWriter
 from workspace_broker.establishment import (
+    MAX_OUTCOME_REASON,
+    OPS_REQUEST_LAPSED_ACTION_TYPE,
+    OPS_REQUEST_RECORDED_ACTION_TYPE,
+    OPS_REQUEST_RESOLVED_ACTION_TYPE,
     PROPOSAL_TTL_SECONDS,
     RULE_DECLINED_ACTION_TYPE,
     RULE_LAPSED_ACTION_TYPE,
@@ -986,3 +996,551 @@ def test_a_table_written_before_the_column_reads_as_not_installed(tmp_path):
     assert store.unreported_outcomes_for(None) == []
     assert store.mark_installed("run-old") == "bbbbbbbb"
     assert [r["proposal_id"] for r in store.unreported_outcomes_for(None)] == ["bbbbbbbb"]
+
+
+# ---------------------------------------------------------------------------
+# operations requests (ss-console#2546, the second half)
+#
+# A routine, a schedule, a channel, a memory setting, an autonomy level, an
+# on/off. ADR 0085's 2026-08-22 amendment puts every one of those with SMD, so
+# the firm cannot confirm one and there is nothing here to commit. What the row
+# is for is the other half: somebody asked, SMD was emailed, and the person who
+# asked has to hear the answer.
+#
+# The tests split three ways, and the middle group is the one that matters most.
+# First, that a request is recorded and tagged as its own thing. Second, that it
+# is NOT a rule -- three independent refusals, each exercised, because "the firm
+# accidentally installed a routine change by saying yes" is the failure this
+# feature could plausibly produce. Third, that each of the three answers writes
+# the columns the seat's existing sweeper reads, so the requester is told through
+# the path that already works rather than through a second one.
+# ---------------------------------------------------------------------------
+
+OPS_TEXT = "Send me a digest of open matters every Monday morning."
+SMD = "scott@smd.services"
+SMD_DESK = "team@smd.services"
+
+
+def _ops_propose(broker: Broker, **over):
+    request = {
+        "action": "ops_propose",
+        "text": OPS_TEXT,
+        "instructed_by": PARALEGAL,
+        "source_ref": "msg-70",
+    }
+    request.update(over)
+    return _call(broker, **request)
+
+
+def _ops_resolve(broker: Broker, proposal_id: str, outcome: str, **over):
+    request = {
+        "action": "ops_resolve",
+        "proposal_id": proposal_id,
+        "outcome": outcome,
+        "resolved_by": SMD,
+        "source_ref": "msg-71",
+    }
+    request.update(over)
+    return _call(broker, **request)
+
+
+def test_an_operations_request_is_recorded_under_its_own_tag(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    assert recorded["ok"] is True
+    assert recorded["kind"] == "ops_request"
+    assert recorded["duplicate_of"] is None
+    # The tag word is the whole point of the readback: a person answering
+    # "[ops 1a2b3c4d]" is answering a request SMD makes, and a person answering
+    # "[rule ...]" is applying the firm's own standard. Binding an answer to the
+    # wrong one of those is the failure the distinct words exist to prevent.
+    assert recorded["readback"] == f"[ops {recorded['proposal_id']}] {OPS_TEXT}"
+    assert "[rule" not in recorded["readback"]
+
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["kind"] == "ops_request"
+    assert row["scope"] == "ops"
+    assert row["for_admin"] is True
+    assert row["instructed_by"] == PARALEGAL
+
+
+def test_an_operations_request_gets_the_rules_week_not_the_acts_day(tmp_path):
+    """It is emailed to a person at SMD who may be with a client all day. The
+    falsifier beside it is the act, which must NOT have moved."""
+    assert ttl_for_kind("ops_request") == RULE_TTL_SECONDS
+    assert ttl_for_kind("tool_call") == PROPOSAL_TTL_SECONDS
+
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    assert recorded["expires_at"] == pytest.approx(time.time() + RULE_TTL_SECONDS, abs=30)
+
+
+def test_the_recorded_row_carries_ids_and_never_the_request(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    rows = _rows(broker, OPS_REQUEST_RECORDED_ACTION_TYPE)
+    assert len(rows) == 1
+    metadata = json.loads(rows[0]["metadata"])
+    assert metadata["proposal_id"] == recorded["proposal_id"]
+    assert metadata["instructed_by"] == PARALEGAL
+    assert metadata["source_ref"] == "msg-70"
+    assert metadata["text_sha256"]
+    assert OPS_TEXT not in rows[0]["metadata"]
+    # And it is not filed as a rule: an audit reader asking "who decided this"
+    # must not find a routine change under the type the firm's own rules use.
+    assert _rows(broker, RULE_PROPOSED_ACTION_TYPE) == []
+
+
+def test_the_same_request_twice_records_one_row_and_pages_smd_once(tmp_path):
+    """A retried mail client must not put two tags in front of SMD, only one of
+    which answering would close."""
+    broker = _broker(tmp_path)
+    first = _ops_propose(broker)
+    second = _ops_propose(broker)
+
+    assert second["duplicate_of"] == first["proposal_id"]
+    assert second["proposal_id"] == first["proposal_id"]
+    assert len(_rows(broker, OPS_REQUEST_RECORDED_ACTION_TYPE)) == 1
+
+    # The falsifier: a genuinely different request still gets its own row.
+    third = _ops_propose(broker, text="Turn the Friday reminder off.")
+    assert third["duplicate_of"] is None
+    assert third["proposal_id"] != first["proposal_id"]
+    assert len(_rows(broker, OPS_REQUEST_RECORDED_ACTION_TYPE)) == 2
+
+
+# --- an operations request is not a rule, in three independent ways --------
+
+
+def test_a_yes_cannot_commit_an_operations_request(tmp_path):
+    """The first of the three refusals, and the one a person could actually
+    trip: an open ops row plus a submit naming it. The message says the true
+    thing rather than complaining about a scope mismatch."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    with pytest.raises(EstablishmentValidationError, match="operations request"):
+        _call(
+            broker,
+            action="establish_submit",
+            scope="firm_adjust",
+            proposal_id=recorded["proposal_id"],
+            instructed_by=ADMIN,
+            source_ref="msg-99",
+        )
+
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["consumed_at"] is None
+
+
+def test_an_administrator_cannot_decline_an_operations_request(tmp_path):
+    """The second refusal. It was never theirs to answer -- it went to SMD -- and
+    a decline landing here would tell the requester the firm refused them."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    with pytest.raises(EstablishmentValidationError, match="answered by SMD"):
+        _decline(broker, recorded["proposal_id"])
+
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["declined_at"] is None
+
+
+def test_consume_cannot_end_an_operations_request(tmp_path):
+    """The third refusal, and the structural one: straight at the store, past
+    every named check above it. ``consume`` is what turns a row into something
+    the firm committed, and no route may reach it with this kind."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    store = broker.establishment.pending
+
+    assert store.consume(recorded["proposal_id"], "run-forged") is False
+    assert store.get(recorded["proposal_id"])["consumed_at"] is None
+
+    # The falsifier: the same call on a rule row does consume it, so the guard
+    # is refusing the kind rather than refusing everything.
+    rule = _propose(broker)
+    assert store.consume(rule["proposal_id"], "run-real") is True
+
+
+def test_an_operations_request_is_never_offered_as_something_to_confirm(tmp_path):
+    """``open_for`` answers "what may this sender confirm". An ops row is
+    for_admin, so without the kind clause every administrator on the seat would
+    be handed a routine change in the list a "yes" applies to."""
+    broker = _broker(tmp_path)
+    ops = _ops_propose(broker)
+    rule = _propose(broker)
+
+    for sender, include in ((ADMIN, True), (PARALEGAL, False)):
+        listed = _call(
+            broker,
+            action="establish_pending",
+            sender=sender,
+            include_for_admin=include,
+        )["pending"]
+        ids = [row["proposal_id"] for row in listed]
+        assert ops["proposal_id"] not in ids
+        # The falsifier beside it: the rule proposed in the same breath IS
+        # listed, so the empty answer above is the kind being excluded rather
+        # than the query returning nothing.
+        assert rule["proposal_id"] in ids
+
+    # It is still readable by id, which is how the seat fetches it to answer.
+    looked_up = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=ops["proposal_id"],
+        include_outcomes=True,
+    )["pending"]
+    assert [row["proposal_id"] for row in looked_up] == [ops["proposal_id"]]
+    assert looked_up[0]["kind"] == "ops_request"
+    assert looked_up[0]["state"] == "open"
+    assert looked_up[0]["ask_sent"] is False
+
+
+# --- the three answers ------------------------------------------------------
+
+
+def test_smd_saying_done_ends_it_and_leaves_the_requester_owed_a_note(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    answered = _ops_resolve(broker, recorded["proposal_id"], "done")
+
+    assert answered["outcome"] == "done"
+    assert answered["state"] == "committed"
+    # Who to tell, and what they asked for. The seat composes the notice from
+    # these, never from anything on the wire.
+    assert answered["instructed_by"] == PARALEGAL
+    assert answered["resolved_by"] == SMD
+    assert answered["text"] == OPS_TEXT
+    assert answered["reason"] is None
+
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["consumed_at"] is not None
+    assert row["installed_at"] is not None
+    assert row["consumed_run_id"] is None
+    assert row["resolved_by"] == SMD
+
+    # THE ASSERTION THAT MATTERS: the seat's existing sweeper query picks it up.
+    # Without installed_at this row would end in the same silence the whole
+    # issue exists to end.
+    owed = broker.establishment.pending.unreported_outcomes_for(None)
+    assert [r["proposal_id"] for r in owed] == [recorded["proposal_id"]]
+
+
+def test_smd_saying_no_carries_the_reason_they_wrote(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    answered = _ops_resolve(
+        broker,
+        recorded["proposal_id"],
+        "declined",
+        reason="not in this package",
+    )
+
+    assert answered["state"] == "declined"
+    assert answered["reason"] == "not in this package"
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["declined_at"] is not None
+    assert row["declined_by"] == SMD
+    assert row["outcome_reason"] == "not in this package"
+    owed = broker.establishment.pending.unreported_outcomes_for(None)
+    assert [r["proposal_id"] for r in owed] == [recorded["proposal_id"]]
+
+
+def test_a_withdrawn_request_tells_the_requester_nothing(tmp_path):
+    """The seat could not get the request out of the building. Nothing is sent,
+    because nothing was ever asked -- and the requester already heard that, in
+    the refusal they got in the same turn."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    answered = _ops_resolve(broker, recorded["proposal_id"], "withdrawn")
+
+    assert answered["state"] == "lapsed"
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["lapsed_at"] is not None
+    assert row["lapse_notified_at"] is not None, "an unmarked row would mail a lapse notice"
+    assert broker.establishment.pending.unreported_outcomes_for(None) == []
+
+
+def test_a_request_is_answered_once(tmp_path):
+    """Enforced by the database, not by a read-then-write two SMD replies could
+    interleave. The person who asked is told once, and told one thing."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    _ops_resolve(broker, recorded["proposal_id"], "done")
+
+    with pytest.raises(EstablishmentValidationError, match="already answered"):
+        _ops_resolve(broker, recorded["proposal_id"], "declined", reason="changed my mind")
+
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row["declined_at"] is None
+    assert len(_rows(broker, OPS_REQUEST_RESOLVED_ACTION_TYPE)) == 1
+
+
+def test_ops_resolve_refuses_a_rule(tmp_path):
+    """The mirror of the decline refusal. A firm rule is answered by an
+    administrator of the firm; SMD answering one through this verb would put an
+    SMD address in ``declined_by`` on a decision SMD never made."""
+    broker = _broker(tmp_path)
+    proposed = _propose(broker)
+
+    with pytest.raises(EstablishmentValidationError, match="not an operations request"):
+        _ops_resolve(broker, proposed["proposal_id"], "declined", reason="no")
+
+    row = broker.establishment.pending.get(proposed["proposal_id"])
+    assert row["declined_at"] is None
+    assert row["resolved_by"] is None
+
+
+def test_the_resolved_row_carries_ids_and_never_the_words(tmp_path):
+    """Neither the request nor SMD's reason. Retained rows carry ids, names, and
+    counts (ADR 0083's posture); ``has_reason`` is the countable half."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    _ops_resolve(broker, recorded["proposal_id"], "declined", reason="not in this package")
+
+    rows = _rows(broker, OPS_REQUEST_RESOLVED_ACTION_TYPE)
+    assert len(rows) == 1
+    metadata = json.loads(rows[0]["metadata"])
+    assert metadata["proposal_id"] == recorded["proposal_id"]
+    assert metadata["outcome"] == "declined"
+    assert metadata["instructed_by"] == PARALEGAL
+    assert metadata["resolved_by"] == SMD
+    assert metadata["has_reason"] is True
+    recorded_meta = json.loads(_rows(broker, OPS_REQUEST_RECORDED_ACTION_TYPE)[0]["metadata"])
+    assert metadata["text_sha256"] == recorded_meta["text_sha256"]
+    assert OPS_TEXT not in rows[0]["metadata"]
+    assert "not in this package" not in rows[0]["metadata"]
+
+
+def test_an_unknown_outcome_is_refused_by_name(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    with pytest.raises(EstablishmentValidationError, match="outcome must be one of"):
+        _ops_resolve(broker, recorded["proposal_id"], "maybe")
+
+    assert broker.establishment.pending.get(recorded["proposal_id"])["consumed_at"] is None
+
+
+# --- the quoted reason ------------------------------------------------------
+
+
+def test_the_reason_is_one_line_bounded_and_carries_no_link(tmp_path):
+    """It rides an email the OPERATOR sends under its own name, and the address
+    that wrote it is trusted only by the tag it quoted. A live link there would
+    make a forged answer into a phish carried by the firm's own assistant."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    answered = _ops_resolve(
+        broker,
+        recorded["proposal_id"],
+        "declined",
+        reason="not this month.\nSee   https://evil.example/pay and www.evil.example now",
+    )
+
+    reason = answered["reason"]
+    assert "\n" not in reason
+    assert "https://evil.example/pay" not in reason
+    assert "www.evil.example" not in reason
+    assert reason.count("[link removed]") == 2
+    assert reason.startswith("not this month. See [link removed]")
+
+
+def test_a_long_reason_is_quoted_up_to_the_ceiling_rather_than_refused(tmp_path):
+    """The one place a rewrite beats a refusal. Refusing a 400-character reason
+    would leave the request unanswered and the requester in the silence this
+    issue exists to end, which is strictly worse than quoting the first 300."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    answered = _ops_resolve(
+        broker, recorded["proposal_id"], "declined", reason="x" * 400
+    )
+    assert len(answered["reason"]) == MAX_OUTCOME_REASON
+    assert (
+        broker.establishment.pending.get(recorded["proposal_id"])["outcome_reason"]
+        == "x" * MAX_OUTCOME_REASON
+    )
+
+
+def test_an_empty_reason_reads_as_no_reason(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    answered = _ops_resolve(broker, recorded["proposal_id"], "declined", reason="   ")
+    assert answered["reason"] is None
+    assert json.loads(_rows(broker, OPS_REQUEST_RESOLVED_ACTION_TYPE)[0]["metadata"])[
+        "has_reason"
+    ] is False
+
+
+# --- the one follow-up ask --------------------------------------------------
+
+
+def test_smd_is_asked_once_for_an_answer_the_parser_reads(tmp_path):
+    """A reply that says neither done nor no leaves the row open, and leaving it
+    there silently is the same silence in a new place. So SMD is asked -- and
+    asked once, because a per-turn re-ask is how a nudge becomes a mail loop."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+
+    assert _call(
+        broker, action="ops_ask_sent", proposal_id=recorded["proposal_id"]
+    )["ask_sent"] is True
+
+    with pytest.raises(EstablishmentValidationError, match="already been asked once"):
+        _call(broker, action="ops_ask_sent", proposal_id=recorded["proposal_id"])
+
+    view = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=recorded["proposal_id"],
+        include_outcomes=True,
+    )["pending"][0]
+    assert view["ask_sent"] is True
+    # Being asked again is not a decision, so it writes no ledger row.
+    assert _rows(broker, OPS_REQUEST_RESOLVED_ACTION_TYPE) == []
+
+
+def test_a_rule_cannot_be_marked_asked(tmp_path):
+    broker = _broker(tmp_path)
+    proposed = _propose(broker)
+    with pytest.raises(EstablishmentValidationError, match="not an operations request"):
+        _call(broker, action="ops_ask_sent", proposal_id=proposed["proposal_id"])
+
+
+def test_an_answered_request_is_not_asked_again(tmp_path):
+    """The ask is about an open row. Nudging SMD about a request they already
+    answered is noise to the person who answered it."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    _ops_resolve(broker, recorded["proposal_id"], "done")
+
+    with pytest.raises(EstablishmentValidationError, match="no longer open"):
+        _call(broker, action="ops_ask_sent", proposal_id=recorded["proposal_id"])
+
+
+# --- nobody answered --------------------------------------------------------
+
+
+def test_an_unanswered_request_lapses_and_reports_its_own_type(tmp_path):
+    """Not RULE_LAPSED. Nobody at the firm failed to answer this; SMD did, and a
+    ledger that said otherwise would misattribute the silence."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    _age_out(broker, recorded["proposal_id"])
+    broker.establishment.sweep()
+
+    row = broker.establishment.pending.get(recorded["proposal_id"])
+    assert row is not None, "a deleted row is a person who never hears back"
+    assert row["lapsed_at"] is not None
+
+    reported = _call(
+        broker, action="establish_lapse_notified", proposal_id=recorded["proposal_id"]
+    )
+    assert reported["state"] == "lapsed"
+
+    lapsed = _rows(broker, OPS_REQUEST_LAPSED_ACTION_TYPE)
+    assert len(lapsed) == 1
+    assert json.loads(lapsed[0]["metadata"])["instructed_by"] == PARALEGAL
+    assert _rows(broker, RULE_LAPSED_ACTION_TYPE) == []
+
+    # The falsifier: a LAPSED RULE still writes RULE_LAPSED, so the branch is
+    # choosing on the stored kind rather than having renamed the type.
+    rule = _propose(broker)
+    _age_out(broker, rule["proposal_id"])
+    broker.establishment.sweep()
+    _call(broker, action="establish_lapse_notified", proposal_id=rule["proposal_id"])
+    assert len(_rows(broker, RULE_LAPSED_ACTION_TYPE)) == 1
+    assert len(_rows(broker, OPS_REQUEST_LAPSED_ACTION_TYPE)) == 1
+
+
+def test_a_lapsed_request_cannot_be_answered_late(tmp_path):
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    _age_out(broker, recorded["proposal_id"])
+    broker.establishment.sweep()
+
+    with pytest.raises(EstablishmentValidationError, match="lapsed unanswered"):
+        _ops_resolve(broker, recorded["proposal_id"], "done")
+
+
+def test_the_pending_view_carries_who_answered_and_what_they_wrote(tmp_path):
+    """The seat composes the requester's notice off this view, so every field it
+    needs has to survive the round trip."""
+    broker = _broker(tmp_path)
+    recorded = _ops_propose(broker)
+    _ops_resolve(
+        broker, recorded["proposal_id"], "declined", reason="not in this package"
+    )
+
+    view = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=recorded["proposal_id"],
+        include_outcomes=True,
+    )["pending"][0]
+    assert view["kind"] == "ops_request"
+    assert view["state"] == "declined"
+    assert view["instructed_by"] == PARALEGAL
+    assert view["resolved_by"] == SMD
+    assert view["outcome_reason"] == "not in this package"
+    assert view["readback"] == f"[ops {recorded['proposal_id']}] {OPS_TEXT}"
+    assert view["lapse_notified"] is False
+
+
+def test_a_rule_row_reads_back_with_none_of_the_operations_fields(tmp_path):
+    """The additive columns mean nothing on a rule, and the view must say so
+    rather than leaving the seat to guess from a missing key."""
+    broker = _broker(tmp_path)
+    proposed = _propose(broker)
+    view = _call(
+        broker,
+        action="establish_pending",
+        proposal_id=proposed["proposal_id"],
+        include_outcomes=True,
+    )["pending"][0]
+    assert view["resolved_by"] is None
+    assert view["outcome_reason"] is None
+    assert view["ask_sent"] is False
+
+
+def test_a_table_written_before_the_operations_columns_still_reads(tmp_path):
+    """The additive-ALTER idiom once more, exercised rather than asserted: a seat
+    holding rules proposed last week keeps every one of them."""
+    db_path = tmp_path / "pending-preops.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "CREATE TABLE pending_rules ("
+            "proposal_id TEXT PRIMARY KEY, scope TEXT NOT NULL, subject_json TEXT NOT NULL, "
+            "text TEXT NOT NULL, text_sha256 TEXT NOT NULL, instructed_by TEXT NOT NULL, "
+            "for_admin INTEGER NOT NULL DEFAULT 0, created_at REAL NOT NULL, "
+            "expires_at REAL NOT NULL, consumed_at REAL, consumed_run_id TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO pending_rules (proposal_id, scope, subject_json, text, "
+            "text_sha256, instructed_by, for_admin, created_at, expires_at) "
+            "VALUES ('cccccccc', 'firm_adjust', '{}', ?, 'sha', ?, 1, ?, ?)",
+            (RULE, PARALEGAL, time.time(), time.time() + 3600),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    store = PendingRuleStore(db_path)
+    row = store.get("cccccccc")
+    assert row["resolved_by"] is None
+    assert row["outcome_reason"] is None
+    assert row["ask_sent_at"] is None
+    assert row["kind"] == "rule"
+    # And the row is still confirmable, which is what "the migration worked"
+    # actually means here.
+    assert [r["proposal_id"] for r in store.open_for(PARALEGAL, False)] == ["cccccccc"]

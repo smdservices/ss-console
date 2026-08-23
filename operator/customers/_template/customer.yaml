@@ -233,6 +233,15 @@ scope:
   # Empty = no admin is emailed, and the Operator says so rather than claiming
   # somebody was asked.
   rule_requests_to: []
+  # Whose reply ANSWERS an operations request (ss-console#2546) — a routine, a
+  # schedule, a channel, a memory setting, an autonomy level, an on/off, all of
+  # which ADR 0085 as amended places with SMD rather than with the firm. A reply
+  # from one of these addresses quoting the request's `[ops XXXX]` tag resolves
+  # it, and the person who asked is told once. Person addresses at an SMD domain
+  # only (validated); NOT inbound trust, and deliberately never on
+  # `inbound_allow_from`. Empty = no reply resolves anything and every request
+  # lapses unanswered at seven days.
+  ops_reply_from: []
 
 # ---- ESCALATION ----
 escalation:

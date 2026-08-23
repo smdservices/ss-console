@@ -69,7 +69,107 @@ export function checkScope(root: Record<string, unknown>, errors: ValidationErro
     outbound_roster: checkOutboundRoster(raw['outbound_roster'], errors),
     admins,
     rule_requests_to: checkRuleRequestsTo(raw['rule_requests_to'], admins, errors),
+    ops_reply_from: checkOpsReplyFrom(raw['ops_reply_from'], errors),
   }
+}
+
+/**
+ * The two domains an operations answer may come from. SMD is one firm with two
+ * mail domains, and this list is authored here rather than left to the per-seat
+ * config because the whole point of the key is that a SEAT cannot be talked into
+ * widening it: a customer.yaml that named an arbitrary domain would turn
+ * "SMD answers operations requests" into "whoever the config says does".
+ */
+const OPS_REPLY_DOMAINS = ['smd.services', 'smdurgan.com']
+
+/**
+ * Validate `scope.ops_reply_from` (ss-console#2546): whose reply, quoting an
+ * `[ops XXXX]` tag, resolves that operations request.
+ *
+ * WHAT THIS GRANTS, stated narrowly because the grant is narrow. An address here
+ * may do exactly one thing: answer a request the Operator itself raised, by
+ * quoting the eight-hex tag that request carries, and the whole effect of that
+ * answer is one templated notice to the person who asked. It is NOT inbound
+ * trust. It does not put the address on `inbound_allow_from`, it does not make
+ * the sender an admin, and a message from one of these addresses that quotes no
+ * tag is the same untrusted mail it was before.
+ *
+ * THE TAG IS THE CAPABILITY, and the spoof class is the same for every address
+ * on the list. No seat gets an SPF or DKIM verdict on inbound mail (ADR 0085
+ * §5), so `scott@` buys nothing over `team@` in forgery terms; what bounds the
+ * damage is the effect, not the sender.
+ *
+ * Two shape rules beyond person-form. Every entry must sit at one of
+ * {@link OPS_REPLY_DOMAINS}, so a config cannot hand the answering power to a
+ * third party; and an `@domain` grant is refused, because "anyone at SMD" is not
+ * a person and this list is read as the people who answer.
+ *
+ * Absent/null yields `[]`, which is fail-closed: no reply resolves anything, the
+ * request lapses at seven days, and the person who asked is told that.
+ */
+function checkOpsReplyFrom(raw: unknown, errors: ValidationError[]): string[] {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'scope.ops_reply_from',
+      message: 'scope.ops_reply_from must be a list',
+    })
+    return []
+  }
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const canon = opsReplyEntry(raw[i], `scope.ops_reply_from[${i}]`, seen, errors)
+    if (canon === null) continue
+    seen.add(canon)
+    out.push(canon)
+  }
+  return out
+}
+
+/** One answering entry: person-shaped, non-duplicate, and at an SMD domain. */
+function opsReplyEntry(
+  raw: unknown,
+  path: string,
+  seen: Set<string>,
+  errors: ValidationError[]
+): string | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    errors.push({
+      code: 'MissingField',
+      path,
+      message: 'ops_reply_from entries must be non-empty strings',
+    })
+    return null
+  }
+  const canon = canonRosterAddress(raw)
+  if (canon === null || canon.startsWith('@')) {
+    errors.push({
+      code: 'InvalidOpsReplyFrom',
+      path,
+      message:
+        'ops_reply_from must be exact person addresses (local@domain); a whole-@domain grant is not somebody who answers',
+    })
+    return null
+  }
+  if (seen.has(canon)) {
+    errors.push({
+      code: 'InvalidOpsReplyFrom',
+      path,
+      message: `${canon} appears more than once in scope.ops_reply_from`,
+    })
+    return null
+  }
+  if (!OPS_REPLY_DOMAINS.some((d) => canon.endsWith(`@${d}`))) {
+    errors.push({
+      code: 'InvalidOpsReplyFrom',
+      path,
+      message: `${canon} is not at an SMD domain (${OPS_REPLY_DOMAINS.join(', ')}); operations requests are answered by SMD`,
+    })
+    return null
+  }
+  return canon
 }
 
 /**
@@ -373,5 +473,6 @@ function emptyScope(): Scope {
     outbound_roster: [],
     admins: [],
     rule_requests_to: [],
+    ops_reply_from: [],
   }
 }

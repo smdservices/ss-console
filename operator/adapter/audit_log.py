@@ -309,6 +309,21 @@ ACCEPTED_ACTION_TYPES = frozenset(
         # committed after that act succeeded, naming the confirmer.
         "ACT_PROPOSED",
         "ACT_COMMITTED",
+        # ss#2546 (the operations half). The three beats of a change only SMD
+        # makes -- a routine, a schedule, a channel, a memory setting, an
+        # autonomy level, an on/off. Recorded when somebody at the firm asks and
+        # the request is given a tag; resolved when SMD answers done, declined,
+        # or withdrawn; lapsed when nobody answered inside seven days and the
+        # person who asked has been told so. All three are broker-side
+        # (operator/workspace_broker/establishment.py).
+        #
+        # DELIBERATELY NOT the RULE_* types above. A rule is a standard the firm
+        # may apply itself; an operations request is a change the firm cannot
+        # make, and a ledger that filed them under one name would make "who
+        # decided this" unanswerable from the rows.
+        "OPS_REQUEST_RECORDED",
+        "OPS_REQUEST_RESOLVED",
+        "OPS_REQUEST_LAPSED",
     }
 )
 

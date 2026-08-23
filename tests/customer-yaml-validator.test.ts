@@ -3296,6 +3296,100 @@ describe('validate — scope.admins (ADR 0085 §2)', () => {
   })
 })
 
+describe('validate — scope.ops_reply_from (ss-console#2546)', () => {
+  function withOpsReply(list: unknown): Record<string, unknown> {
+    const f = validFixture()
+    const scope = f['scope'] as Record<string, unknown>
+    scope['ops_reply_from'] = list
+    return f
+  }
+
+  it('accepts SMD person addresses at either domain, canonicalized', () => {
+    const r = validate(
+      withOpsReply(['Scott@SMD.services', 'team@smd.services', 'smdurgan@smdurgan.com'])
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok)
+      expect(r.value.scope.ops_reply_from).toEqual([
+        'scott@smd.services',
+        'team@smd.services',
+        'smdurgan@smdurgan.com',
+      ])
+  })
+
+  // The rule the key exists for. The list decides whose answer resolves an
+  // operations request, so a config that could name a third party would hand
+  // the answering power away from SMD entirely.
+  it("rejects an address outside SMD's own mail domains", () => {
+    const r = validate(withOpsReply(['christa@example-firm.com']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(codesOf(r.errors)).toContain('InvalidOpsReplyFrom')
+      expect(r.errors.some((e) => e.message.includes('not at an SMD domain'))).toBe(true)
+    }
+  })
+
+  it('rejects a lookalike domain rather than matching on a suffix', () => {
+    // notsmd.services ends with the same characters; the check is on the @
+    // boundary, not on the tail of the string.
+    const r = validate(withOpsReply(['scott@notsmd.services']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOpsReplyFrom')
+  })
+
+  it('rejects an @domain grant — an answer comes from a person', () => {
+    const r = validate(withOpsReply(['@smd.services']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOpsReplyFrom')
+  })
+
+  it('rejects a duplicate, so the authored list is the count of who answers', () => {
+    const r = validate(withOpsReply(['scott@smd.services', 'SCOTT@smd.services']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOpsReplyFrom')
+  })
+
+  it('rejects a malformed address', () => {
+    const r = validate(withOpsReply(['not-an-email']))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('InvalidOpsReplyFrom')
+  })
+
+  it('rejects a non-string entry', () => {
+    const r = validate(withOpsReply([{ email: 'scott@smd.services' }]))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('MissingField')
+  })
+
+  it('rejects a non-list ops_reply_from', () => {
+    const r = validate(withOpsReply('scott@smd.services'))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('defaults to [] when unauthored, so no reply resolves anything', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.value.scope.ops_reply_from).toEqual([])
+  })
+
+  // It is NOT the admin list and NOT the roster. An SMD address that answers
+  // operations requests is not thereby an Operator admin, and nothing here may
+  // make it one.
+  it('does not require the answering address to be an admin or on the roster', () => {
+    const f = withOpsReply(['team@smd.services'])
+    const scope = f['scope'] as Record<string, unknown>
+    scope['admins'] = []
+    scope['inbound_allow_from'] = []
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.scope.admins).toEqual([])
+      expect(r.value.scope.inbound_allow_from).not.toContain('team@smd.services')
+    }
+  })
+})
+
 describe('validate — scope.rule_requests_to (ss-console#2546)', () => {
   const ADMINS = ['dana@example-firm.com', 'lee@example-firm.com']
 

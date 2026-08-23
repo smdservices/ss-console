@@ -414,11 +414,16 @@ export function applyEditableChanges(
     // validated as a subset of admins, so a portal save that could edit one
     // without the other could leave a request routed to somebody who is no
     // longer an administrator.
+    // ops_reply_from (ss#2546, the operations half) is preserved for a blunter
+    // reason: it names whose answer resolves an operations request, so a portal
+    // save that could edit it would let the firm decide who at SMD speaks for
+    // SMD. It changes through a PR or it does not change.
     scope: {
       ...changes.scope,
       outbound_roster: current.scope.outbound_roster,
       admins: current.scope.admins,
       rule_requests_to: current.scope.rule_requests_to,
+      ops_reply_from: current.scope.ops_reply_from,
     },
     // case_alert_routing (#2004) is governance-sensitive (it decides who at
     // the firm receives case alerts) and NOT portal-editable; preserve the

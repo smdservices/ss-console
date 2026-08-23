@@ -406,6 +406,21 @@
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/establishment.py",
       "reason": "ss#2546. The broker appends this when the person who asked for a rule has been TOLD it lapsed unanswered, not when the sweep marks it. That ordering is the point: the mark is bookkeeping, the row is the moment the firm learned something. A lapse has no other row anywhere - nothing was committed and nobody decided - so this is the only record that a request died, which is why the sweep now marks an expired row instead of deleting it. Reporting a DECLINE writes nothing here: RULE_DECLINED already recorded that decision."
+    },
+    "OPS_REQUEST_RECORDED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2546 (the operations half). The broker appends one row when somebody at the firm asks for a change only SMD makes - a routine, a schedule, a channel, a memory setting, an autonomy level, an on/off (ADR 0085 as amended 2026-08-22). Nothing is changed by it: the row records that a request was given an [ops XXXX] tag so SMD's answer can find its way back to the person who asked, and it carries the proposal id, who asked, and the text digest - never the sentence. The answering row joins to it on that digest."
+    },
+    "OPS_REQUEST_RESOLVED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2546 (the operations half). Appended when SMD answers a request through ops_resolve, naming the outcome (done / declined / withdrawn) and who at SMD answered, under a conditional UPDATE so a second answer changes nothing and writes nothing. The reason SMD wrote is NOT retained here - only has_reason, a countable fact - because it is a person's prose about a business decision and retained rows carry ids, names, and counts (ADR 0083)."
+    },
+    "OPS_REQUEST_LAPSED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/establishment.py",
+      "reason": "ss#2546 (the operations half). Appended when the person who asked has been TOLD their request to SMD lapsed unanswered, not when the sweep marks it - the mark is bookkeeping, the row is the moment the firm learned something. Its own type rather than RULE_LAPSED because nobody at the firm failed to answer it: SMD did, and a ledger filing the two under one name would misattribute the silence. A resolved request writes nothing here; OPS_REQUEST_RESOLVED already recorded that answer."
     }
   }
 }
