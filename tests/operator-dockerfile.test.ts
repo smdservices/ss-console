@@ -1061,7 +1061,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // Range touches shared/heartbeat.py, tests/test_heartbeat.py and the retro
     // script only; no tracked pair moves; schemas.py untouched. Retro-falsifier
     // at this ref reproduces every muting day per kind on the pilot ledger.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="29536fcb9f703a40bed8eb35bbf6a88bd18ff9a7"')
+    // 29536fcb -> 87fa8501 (2026-08-22, overlay#312 + #313). #313 is the ss#2546
+    // fix from the pilot proof: a firm rule may attach only to one of the six
+    // registry output classes (the model had filed rules under invented classes
+    // no output ever reads), and the person who asked hears "in effect" when the
+    // install is actually observed (the single immediate poll had missed it).
+    // #312 is ss#2552 (a peer session): a colleague who states a preference hears
+    // what will change, not that a profile was updated.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="87fa8501595ecc90c17deecc4fe0d7bf9eba59fc"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
