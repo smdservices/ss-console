@@ -748,7 +748,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # shared/{action_classes,customer_config,operations_request,rule_confirm,
 # rule_dispatch,send_dispatch,spec_gate}.py and three test files -- NOT tracked
 # pairs; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="29536fcb9f703a40bed8eb35bbf6a88bd18ff9a7"
+ARG OVERLAY_REF="87fa8501595ecc90c17deecc4fe0d7bf9eba59fc"
 
 ARG CUSTOMER_SLUG=customer-zero
 
