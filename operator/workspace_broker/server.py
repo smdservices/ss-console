@@ -438,6 +438,19 @@ class Broker:
             # decline, because RULE_DECLINED already recorded that).
             "establish_decline",
             "establish_lapse_notified",
+            # ss-console#2546 (the operations half): a routine, a schedule, a
+            # channel, a memory setting, an autonomy level or an on/off is SMD's
+            # to change (ADR 0085 as amended 2026-08-22), so the firm cannot
+            # confirm one and none of the verbs above will touch the row. These
+            # three record the ask, carry SMD's answer back, and mark the one
+            # follow-up ask -- same uid gate, same lock, same sweep, and the same
+            # one-pinned-action_type-per-writing-verb discipline
+            # (OPS_REQUEST_RECORDED on propose, OPS_REQUEST_RESOLVED on resolve,
+            # OPS_REQUEST_LAPSED on the lapse report; ops_ask_sent writes no row
+            # at all, because being asked again is not a decision).
+            "ops_propose",
+            "ops_resolve",
+            "ops_ask_sent",
         ):
             if self.ledger is None:
                 raise ValueError("audit ledger not configured on this broker")
@@ -472,6 +485,12 @@ class Broker:
                     return self.establishment.decline(request)
                 if action == "establish_lapse_notified":
                     return self.establishment.lapse_notified(request)
+                if action == "ops_propose":
+                    return self.establishment.ops_propose(request)
+                if action == "ops_resolve":
+                    return self.establishment.ops_resolve(request)
+                if action == "ops_ask_sent":
+                    return self.establishment.ops_ask_sent(request)
                 return self.establishment.status(request)
         # ss-console #1791: the webhook gate (overlay hermes-smd-webhook-gate)
         # records WEBHOOK_SUPPRESSED for an excluded delivery. It runs as the

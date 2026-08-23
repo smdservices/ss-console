@@ -837,6 +837,29 @@ export interface Scope {
    */
   rule_requests_to: string[]
   /**
+   * ss-console#2546. Whose reply, quoting an `[ops XXXX]` tag, ANSWERS an
+   * operations request — a routine, a schedule, a channel, a memory setting, an
+   * autonomy level, an on/off. ADR 0085's 2026-08-22 amendment places those
+   * changes with SMD rather than with the firm, so the answer comes from SMD and
+   * this is the list of addresses whose answer counts.
+   *
+   * The grant is exactly one act: resolving a request the Operator itself
+   * raised, identified by the eight-hex tag that request carries, whose whole
+   * effect is one templated notice to the person who asked. It is NOT inbound
+   * trust — an address here is not on `inbound_allow_from`, is not an admin, and
+   * a message from it quoting no tag is as untrusted as any other.
+   *
+   * The tag is the capability, and the spoof class is identical for every entry:
+   * no seat gets an SPF or DKIM verdict on inbound mail (ADR 0085 §5), so naming
+   * one SMD address rather than another buys nothing. What bounds the risk is
+   * the effect.
+   *
+   * Person addresses only, at an SMD domain. Empty when unauthored, which is
+   * fail-closed: no reply resolves anything and the request lapses at seven
+   * days, with the person who asked told so.
+   */
+  ops_reply_from: string[]
+  /**
    * Typed outbound roster (ADR 0075) — the firm's own clients / records vendors,
    * each resolving to the `external_send_client` / `external_send_vendor` action
    * class. Empty array when unauthored (fail-closed: every outside send stays on
@@ -1367,6 +1390,9 @@ export type ValidationErrorCode =
   /** ss-console#2546: `scope.rule_requests_to` is not person-shaped, repeats an
    * address, or names somebody who is not on `scope.admins`. */
   | 'InvalidRuleRequestsTo'
+  /** ss-console#2546: `scope.ops_reply_from` is not person-shaped, repeats an
+   * address, or sits outside SMD's own mail domains. */
+  | 'InvalidOpsReplyFrom'
   | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'

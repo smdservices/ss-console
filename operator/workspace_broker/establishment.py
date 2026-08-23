@@ -59,6 +59,21 @@ said yes to a specific sentence and the only way that yes means anything is if
 the committed bytes are the bytes they were shown. Consumption is a conditional
 UPDATE, so a proposal commits exactly once.
 
+AN OPERATIONS REQUEST IS THE THIRD THING THIS TABLE HOLDS (ss-console#2546,
+ADR 0085 as amended 2026-08-23). A routine, a schedule, a channel, a memory
+setting, an autonomy level, an on/off — those are SMD's to change, not the
+firm's, so the firm cannot confirm one and there is nothing here to commit.
+What the row is for is the OTHER half of the loop: somebody asked, SMD was
+emailed, and the person who asked has to hear the answer. So an ``ops_request``
+row is recorded (``ops_propose``), tagged ``[ops XXXX]`` for SMD to quote back,
+and ended by ``ops_resolve`` with one of three words — done, declined,
+withdrawn. It is NEVER confirmable: ``establish_submit`` and
+``establish_decline`` refuse the kind by name, ``consume`` refuses it in SQL,
+and ``open_for`` (the list of what a sender may still confirm) does not return
+it at all. Three independent refusals rather than one, because "the firm
+accidentally installed a routine change by saying yes" is the failure worth
+three.
+
 WHAT THIS MODULE STILL CANNOT SEE. Whether the sender is an Operator admin.
 ``instructed_by`` remains provenance, never authorization, on every verb here
 (the corrections ``stated_by`` posture); the admin gate is seat-side, against
@@ -97,6 +112,15 @@ RULE_LAPSED_ACTION_TYPE = "RULE_LAPSED"
 # ``act_propose`` appends only ACT_PROPOSED, ``act_commit`` only ACT_COMMITTED.
 ACT_PROPOSED_ACTION_TYPE = "ACT_PROPOSED"
 ACT_COMMITTED_ACTION_TYPE = "ACT_COMMITTED"
+# ss-console#2546 (the operations half). Three types, one per writing verb, and
+# they are DELIBERATELY not the RULE_* ones: a rule is a sentence the firm may
+# apply itself, an operations request is a change only SMD makes, and a ledger
+# that called them by the same name would make the audit answer to "who decided
+# this" unreadable. ops_propose appends only OPS_REQUEST_RECORDED, ops_resolve
+# only OPS_REQUEST_RESOLVED, and the lapse report only OPS_REQUEST_LAPSED.
+OPS_REQUEST_RECORDED_ACTION_TYPE = "OPS_REQUEST_RECORDED"
+OPS_REQUEST_RESOLVED_ACTION_TYPE = "OPS_REQUEST_RESOLVED"
+OPS_REQUEST_LAPSED_ACTION_TYPE = "OPS_REQUEST_LAPSED"
 
 # The two spec properties an output class carries (ADR 0083 §2-3). Mirrors
 # SPEC_PROPERTIES in corrections.py and src/lib/operator/output-class-specs.ts.
@@ -159,7 +183,17 @@ _NAME_SLUG_KEEP = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
 # how a kind of firm output reads; ``person`` is one about the speaker's own
 # work. There is deliberately no third: a rule about somebody ELSE's work is a
 # firm rule, and it should be said as one.
-PROPOSAL_SCOPES: frozenset[str] = frozenset({"person", "firm_adjust", "act"})
+PROPOSAL_SCOPES: frozenset[str] = frozenset({"person", "firm_adjust", "act", "ops"})
+
+# ``ops`` is the fourth, and like ``act`` it is not a rule: it is one change to
+# how the seat OPERATES (a routine, a schedule, a channel, a memory setting, an
+# autonomy level, an on/off), which ADR 0085's 2026-08-22 amendment places with
+# SMD rather than with the firm. It shares this table for the reason ``act``
+# does — what has to survive from the asking turn to the answering one is a tag,
+# a sentence, and a bounded memory — and it shares no path with either rule
+# scope: ``establish_submit`` compares against ``person`` / ``firm_adjust`` and
+# ``act_commit`` against ``act``, so a submit naming an ops row is refused by
+# name in every direction.
 
 # ``act`` is the third, and it is not a rule at all: it is one tool call the
 # firm is shown before it happens. It shares this table because the thing that
@@ -215,7 +249,23 @@ MAX_RULE_TEXT_BYTES = 2000
 # work reads; ``tool_call`` is one act the Operator is asking to perform. The
 # default is ``rule`` so a table written before this change reads back as what
 # it holds.
-PROPOSAL_KINDS: frozenset[str] = frozenset({"rule", "tool_call"})
+PROPOSAL_KINDS: frozenset[str] = frozenset({"rule", "tool_call", "ops_request"})
+
+#: The kind an operations request carries, named once so the three refusals that
+#: key on it (submit, decline, consume) cannot drift apart by a typo.
+OPS_REQUEST_KIND = "ops_request"
+
+#: The three ways an operations request ends, and there is deliberately no
+#: fourth. ``done`` is SMD having made the change; ``declined`` is SMD saying no,
+#: with the reason they wrote; ``withdrawn`` is the seat itself giving the row
+#: back because it could not get the request out of the building — the one
+#: outcome that sends the requester nothing, because nothing was ever asked.
+OPS_OUTCOMES: frozenset[str] = frozenset({"done", "declined", "withdrawn"})
+
+#: Ceiling on the quoted reason an outcome carries. It is one line of somebody
+#: else's prose riding into an email the Operator sends under its own name, so
+#: it is bounded, folded to one line, and stripped of links before it is stored.
+MAX_OUTCOME_REASON = 300
 
 # THE CLOSED VOCABULARY OF ACTS. A tool absent from this map cannot be
 # proposed, whatever the caller says, and each entry pins the EXACT field set
@@ -285,7 +335,19 @@ CREATE_PENDING_RULES_SQL = (
     # installed. Its own column rather than an inference from consumed_at,
     # because committed and installed are hours apart in the failure case and
     # only one of them entitles anybody to say "in effect".
-    "installed_at REAL"
+    "installed_at REAL, "
+    # ss-console#2546 (the operations half). WHO at SMD answered an operations
+    # request, and WHAT THEY WROTE when the answer was no. ``resolved_by`` is
+    # separate from ``declined_by`` on purpose: that column means "an
+    # administrator of the FIRM refused a rule", this one means "SMD answered a
+    # request about the seat", and collapsing them would make the ledger's
+    # answer to "who decided this" depend on which verb happened to run.
+    "resolved_by TEXT, "
+    "outcome_reason TEXT, "
+    # The mark that SMD has already been asked, once, to answer in the two words
+    # the parser reads. Without it an unparseable reply would be re-asked on
+    # every turn that touched the row.
+    "ask_sent_at REAL"
     ")"
 )
 # Additive upgrade for a table created by ss-console#2529, applied at
@@ -305,6 +367,13 @@ PENDING_RULES_COLUMN_ALTERS: tuple[str, ...] = (
     # ss-console#2546 follow-up. Absent reads as NULL, which is "committed but
     # nobody has observed it install" -- the conservative answer.
     "ALTER TABLE pending_rules ADD COLUMN installed_at REAL",
+    # ss-console#2546 (the operations half), same additive idiom. A seat holding
+    # rules and acts proposed last week keeps every one of them; all three read
+    # back as NULL, which on a rule or an act is exactly right (no SMD answered
+    # them, because they were never SMD's to answer).
+    "ALTER TABLE pending_rules ADD COLUMN resolved_by TEXT",
+    "ALTER TABLE pending_rules ADD COLUMN outcome_reason TEXT",
+    "ALTER TABLE pending_rules ADD COLUMN ask_sent_at REAL",
 )
 CREATE_PENDING_RULES_INDEX_SQL = (
     "CREATE INDEX IF NOT EXISTS idx_pending_rules_open "
@@ -318,8 +387,16 @@ def ttl_for_kind(kind: str) -> int:
     Read from the STORED kind, never from the caller, so no request can widen
     the window its own proposal lives in. A rule gets a week (a named
     administrator may be in trial); an act keeps the day it has always had.
+
+    An OPERATIONS REQUEST gets the rule's week, and for the same reason rather
+    than by analogy: it is emailed to a person at SMD who may be with a client
+    all day, and a request that dies overnight is a request the firm never had.
     """
-    return RULE_TTL_SECONDS if kind == "rule" else PROPOSAL_TTL_SECONDS
+    return (
+        RULE_TTL_SECONDS
+        if kind in ("rule", OPS_REQUEST_KIND)
+        else PROPOSAL_TTL_SECONDS
+    )
 
 
 class EstablishmentValidationError(ValueError):
@@ -424,6 +501,47 @@ def normalize_rule_text(value: Any) -> str:
     return text
 
 
+#: Anything that looks like a link in a quoted reason. Deliberately broad: this
+#: is not a URL parser, it is a refusal to relay a clickable target.
+_URL_PATTERN = re.compile(r"(?i)\b(?:https?://|www\.)\S+")
+
+
+def normalize_outcome_reason(value: Any) -> str | None:
+    """The reason SMD wrote for declining, reduced to one quotable line.
+
+    Three transformations, and each is a rewrite rather than a refusal — which
+    is the one place in this module that is the right call, for the same reason
+    ``_bounded_str`` truncates a root-authored result instead of refusing it.
+    This text is not an identifier and nothing binds to it: it is prose a person
+    typed, which the seat quotes back to the person who asked. Refusing a
+    300-character reason would leave the request unanswered and the requester in
+    the silence this whole issue exists to end, which is strictly worse than
+    quoting the first 300 characters of it.
+
+    1. Every line break folds to a space (``normalize_rule_text``'s rule), so a
+       reason renders as one quoted line rather than as somebody else's layout.
+    2. Anything link-shaped is replaced with ``[link removed]``. The reason
+       rides an email the OPERATOR sends under its own name to a person at the
+       firm, and the answering address is trusted only by the ``[ops XXXX]``
+       tag it quoted; a live link would make a spoofed answer into a phish
+       carried by the firm's own assistant. The marker is left visible on
+       purpose — a silently deleted link changes what the sentence says.
+    3. Truncated to :data:`MAX_OUTCOME_REASON`.
+
+    ``None`` in, ``None`` out: no reason is a normal answer to "done".
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise EstablishmentValidationError("reason must be a string when present")
+    folded = re.sub(r"\s+", " ", normalize_lf(value)).strip()
+    folded = _URL_PATTERN.sub("[link removed]", folded)
+    folded = re.sub(r"\s+", " ", folded).strip()
+    if not folded:
+        return None
+    return folded[:MAX_OUTCOME_REASON]
+
+
 def readback_for(proposal_id: str, text: str, kind: str = "rule") -> str:
     """The canonical block the seat must send verbatim, rendered broker-side.
 
@@ -434,13 +552,21 @@ def readback_for(proposal_id: str, text: str, kind: str = "rule") -> str:
     that is what makes "you confirmed exactly this" checkable rather than
     asserted.
 
-    Two tags, one shape. ``[rule XXXX]`` marks a sentence about how the firm's
-    work reads; ``[act XXXX]`` marks one act the Operator is asking to perform.
+    Three tags, one shape. ``[rule XXXX]`` marks a sentence about how the firm's
+    work reads; ``[act XXXX]`` marks one act the Operator is asking to perform;
+    ``[ops XXXX]`` marks a change to how the seat runs, which only SMD makes.
     They are distinct words because the person answering them is agreeing to
-    two different things, and the confirming matcher binds the tag to the row
-    it came from.
+    three different things, and the confirming matcher binds the tag to the row
+    it came from. The ops tag is also the CAPABILITY on that row: quoting it is
+    how an answer from SMD is bound to the request it answers, so a name or a
+    reason that could contain a second tag is refused everywhere it is read.
     """
-    tag = "act" if kind == "tool_call" else "rule"
+    if kind == "tool_call":
+        tag = "act"
+    elif kind == OPS_REQUEST_KIND:
+        tag = "ops"
+    else:
+        tag = "rule"
     return f"[{tag} {proposal_id}] {text}"
 
 
@@ -537,6 +663,11 @@ def proposal_state(row: dict[str, Any]) -> str:
     conservative answer instead of as open.
     """
     if row.get("consumed_at") is not None:
+        # An OPERATIONS row reaches this arm through ``ops_resolve`` with
+        # outcome ``done``: nothing was committed by the firm, SMD made the
+        # change. The word is shared because the seat branches on kind before it
+        # branches on state, and inventing a fourth state here would be a fourth
+        # thing every reader of this view has to know.
         return "committed"
     if row.get("declined_at") is not None:
         return "declined"
@@ -812,9 +943,17 @@ class PendingRuleStore:
         # no longer confirmable. Without the declined_at clause an administrator's
         # "no" would leave the rule sitting in this list, and the Operator would
         # go on offering the firm a rule that has already been refused.
+        # ss-console#2546 (the operations half): and an OPERATIONS request is
+        # excluded outright, in SQL, because it is not a thing anybody at the
+        # firm can confirm. It is for_admin, so without this clause every
+        # administrator on the seat would be handed a routine change in the list
+        # of things a "yes" applies to. The seat also skips the kind, and
+        # ``consume`` refuses it, and ``establish_submit`` names it -- three
+        # refusals for the one failure worth three.
         sql = (
             "SELECT * FROM pending_rules WHERE consumed_at IS NULL "
             "AND declined_at IS NULL AND lapsed_at IS NULL AND expires_at >= ? "
+            "AND kind != 'ops_request' "
             "AND (instructed_by = ?"
         )
         params: list[Any] = [now, sender]
@@ -997,6 +1136,96 @@ class PendingRuleStore:
         finally:
             conn.close()
 
+    def resolve_ops(
+        self,
+        proposal_id: str,
+        outcome: str,
+        resolved_by: str,
+        reason: str | None,
+        now: float | None = None,
+    ) -> bool:
+        """End one operations request on SMD's word. True iff THIS call ended it.
+
+        Conditional for the same reason every other terminal write here is: a
+        second answer to the same request loses the race and changes nothing,
+        so the person who asked is told once and told one thing. The WHERE
+        clause carries every condition, including the kind -- a rule and an act
+        end through their own verbs, and this one must not be able to end either.
+
+        WHICH COLUMNS EACH OUTCOME WRITES, and why they are the existing ones
+        rather than a new state machine:
+
+        ``done``       ``consumed_at`` and ``installed_at``. The seat's sweeper
+                       reports an outcome off ``unreported_outcomes_for``, whose
+                       committing arm is ``installed_at IS NOT NULL AND
+                       for_admin = 1``; an ops row is for_admin, so stamping
+                       both is what makes "SMD set this up" reach the requester
+                       through the path that already exists. There is no run and
+                       no spool: SMD made the change, and ``consumed_run_id``
+                       stays NULL, which is what ``mark_installed`` needs to not
+                       match it.
+        ``declined``   ``declined_at`` and ``declined_by``. Same arm the firm's
+                       own declines use, so the same sweeper tells the requester.
+        ``withdrawn``  ``lapsed_at`` AND ``lapse_notified_at`` together, in one
+                       statement. That pair is the row's way of saying "ended,
+                       and nobody is owed a note" -- which is exactly right when
+                       the seat could not get the request out of the building:
+                       the requester was already told, in the refusal they got
+                       in the same turn, that nothing was sent.
+        """
+        now = time.time() if now is None else now
+        stamps: tuple[Any, ...]
+        if outcome == "done":
+            assignment = "consumed_at=?, installed_at=?"
+            stamps = (now, now)
+        elif outcome == "declined":
+            assignment = "declined_at=?, declined_by=?"
+            stamps = (now, resolved_by)
+        elif outcome == "withdrawn":
+            assignment = "lapsed_at=?, lapse_notified_at=?"
+            stamps = (now, now)
+        else:  # pragma: no cover - ops_resolve validates before calling
+            raise EstablishmentValidationError(f"unknown outcome {outcome!r}")
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                f"UPDATE pending_rules SET {assignment}, resolved_by=?, outcome_reason=? "
+                "WHERE proposal_id=? AND kind='ops_request' AND consumed_at IS NULL "
+                "AND declined_at IS NULL AND lapsed_at IS NULL",
+                (*stamps, resolved_by, reason, proposal_id),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+        finally:
+            conn.close()
+
+    def mark_ask_sent(self, proposal_id: str, now: float | None = None) -> bool:
+        """Record that SMD has been asked, once, for an answer this parser reads.
+
+        True iff THIS call marked it. Conditional and kind-gated like every other
+        mark here, and it requires the row to still be OPEN: an ask about a
+        request that has already ended is noise to the person who ended it.
+
+        Why the column exists at all (the critique's item 4): a reply from SMD
+        that says neither "done" nor "no" leaves the row open, and leaving it
+        there silently is the same silence in a new place. So the seat asks for
+        the two words -- and asks once, because a per-turn re-ask is how a
+        helpful nudge becomes a mail loop.
+        """
+        now = time.time() if now is None else now
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE pending_rules SET ask_sent_at=? WHERE proposal_id=? "
+                "AND kind='ops_request' AND ask_sent_at IS NULL AND consumed_at IS NULL "
+                "AND declined_at IS NULL AND lapsed_at IS NULL",
+                (now, proposal_id),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+        finally:
+            conn.close()
+
     def consume(self, proposal_id: str, run_id: str) -> bool:
         """Mark one proposal committed. True iff THIS call consumed it.
 
@@ -1005,13 +1234,21 @@ class PendingRuleStore:
         confirmation of the same rule loses the race and is told the rule is
         already in effect, which is both true and the only safe answer: the
         alternative is the firm's sentence rendered twice.
+
+        AN OPERATIONS ROW IS REFUSED HERE (ss-console#2546), in the WHERE clause
+        rather than above it. ``_claim_proposal`` already names the kind and
+        gives the reader a sentence; this is the structural half, so a future
+        caller that reaches ``consume`` by some other route still cannot turn a
+        routine change into something the firm committed. ``ops_resolve`` is the
+        only writer that ends one of those rows.
         """
         now = time.time()
         conn = self._connect()
         try:
             cursor = conn.execute(
                 "UPDATE pending_rules SET consumed_at=?, consumed_run_id=? "
-                "WHERE proposal_id=? AND consumed_at IS NULL",
+                "WHERE proposal_id=? AND consumed_at IS NULL "
+                "AND kind != 'ops_request'",
                 (now, run_id, proposal_id),
             )
             conn.commit()
@@ -1056,6 +1293,10 @@ class PendingRuleStore:
             "lapsed_at": _column(row, "lapsed_at"),
             "lapse_notified_at": _column(row, "lapse_notified_at"),
             "installed_at": _column(row, "installed_at"),
+            # ss-console#2546 (the operations half); same tolerance again.
+            "resolved_by": _column(row, "resolved_by"),
+            "outcome_reason": _column(row, "outcome_reason"),
+            "ask_sent_at": _column(row, "ask_sent_at"),
         }
 
 
@@ -1510,6 +1751,16 @@ class EstablishmentStore:
         The UPDATE is the enforcement; this exists so the refusal a person reads
         says which of five different things happened.
         """
+        # ss-console#2546 (the operations half): an administrator of the FIRM
+        # does not decline an operations request, because it was never theirs to
+        # answer -- it went to SMD. ``ops_resolve`` is the verb for that, and
+        # keeping this one unable to touch the kind is what stops a decline
+        # landing on a row whose requester is then told the firm refused it.
+        if row["kind"] == OPS_REQUEST_KIND:
+            raise EstablishmentValidationError(
+                f"{proposal_id} is an operations request; it is answered by SMD "
+                "with ops_resolve, not declined here"
+            )
         if row["consumed_at"] is not None:
             raise EstablishmentValidationError(
                 f"rule {proposal_id} was already committed; it is in effect"
@@ -1557,31 +1808,46 @@ class EstablishmentStore:
             raise EstablishmentValidationError(
                 f"no rule was proposed under {proposal_id}; nothing to report"
             )
+        # ss-console#2546 (the operations half): the same verb reports both, so
+        # the noun follows the row rather than the code path. A person told
+        # "rule 1a2b has no outcome" about a request for a Monday digest is
+        # being told about something they never asked for.
+        noun = "operations request" if row["kind"] == OPS_REQUEST_KIND else "rule"
         if (
             row["declined_at"] is None
             and row["lapsed_at"] is None
             and row.get("installed_at") is None
         ):
             raise EstablishmentValidationError(
-                f"rule {proposal_id} has no outcome to report; it is still open"
+                f"{noun} {proposal_id} has no outcome to report; it is still open"
                 if row["consumed_at"] is None
                 # ss-console#2546 follow-up. Committed is not an outcome a
                 # person can be told about yet, and saying so by name is what
                 # stops a seat mailing "your rule is in effect" about a run
                 # still inside its converge window.
-                else f"rule {proposal_id} was committed but has not been observed "
+                else f"{noun} {proposal_id} was committed but has not been observed "
                 "installed; there is nothing to report yet"
             )
         if not pending.mark_outcome_reported(proposal_id):
             raise EstablishmentValidationError(
-                f"the outcome of rule {proposal_id} was already reported; "
+                f"the outcome of {noun} {proposal_id} was already reported; "
                 "nothing was changed"
             )
         state = proposal_state(pending.get(proposal_id) or row)
         if state == "lapsed":
+            # ss-console#2546 (the operations half). A lapsed OPERATIONS request
+            # is not a lapsed rule, and the ledger must not say it was: nobody at
+            # the firm failed to answer it, SMD did. One pinned type per kind,
+            # chosen from the STORED kind so no caller can pick which row it
+            # writes.
+            lapsed_type = (
+                OPS_REQUEST_LAPSED_ACTION_TYPE
+                if row["kind"] == OPS_REQUEST_KIND
+                else RULE_LAPSED_ACTION_TYPE
+            )
             self._ledger.append(
                 {
-                    "action_type": RULE_LAPSED_ACTION_TYPE,
+                    "action_type": lapsed_type,
                     "actor": "operator",
                     "actor_role": "agent",
                     "metadata": json.dumps(
@@ -1598,6 +1864,233 @@ class EstablishmentStore:
                 }
             )
         return {"ok": True, "proposal_id": proposal_id, "state": state}
+
+    # ------------------------------------------------------------------
+    # ops_propose / ops_resolve / ops_ask_sent  (ss-console#2546)
+    # ------------------------------------------------------------------
+
+    def ops_propose(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Record one OPERATIONS request and return the tag SMD will quote back.
+
+        Nothing is changed by this and nothing is promised. ADR 0085's
+        2026-08-22 amendment puts routines, schedules, channels, memory,
+        autonomy and on/off with SMD rather than with the firm, so the Operator's
+        honest answer to "send me a digest every Monday" is that SMD makes those
+        changes. What this verb adds is the half that was missing: the request
+        becomes a row with an id, so the answer can find its way back to the
+        person who asked instead of ending in a polite sentence.
+
+        THE TAG IS THE CAPABILITY, stated plainly because it is the accepted
+        risk on this path. ``[ops XXXX]`` is eight hex characters minted here,
+        and quoting it from an address the firm authored on
+        ``scope.ops_reply_from`` is what lets an answer resolve this row. No seat
+        gets an SPF or DKIM verdict, so that is the same spoof class for every
+        address on that list; what bounds it is that the whole effect of a forged
+        answer is one templated notice to the person who asked.
+        """
+        pending = self._require_pending()
+        instructed_by = require_address(request.get("instructed_by"), "instructed_by")
+        source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
+        text = normalize_rule_text(request.get("text"))
+
+        # The same person, the same request, already waiting. Hand back the row
+        # they have and write nothing: no second row, no second
+        # OPS_REQUEST_RECORDED, and no second email to SMD carrying a different
+        # tag, only one of which answering would close.
+        existing = pending.find_open_duplicate(
+            instructed_by=instructed_by, scope="ops", text=text
+        )
+        if existing is not None:
+            return {
+                "ok": True,
+                "duplicate_of": existing["proposal_id"],
+                "proposal_id": existing["proposal_id"],
+                "kind": OPS_REQUEST_KIND,
+                "instructed_by": existing["instructed_by"],
+                "expires_at": existing["expires_at"],
+                "readback": readback_for(
+                    existing["proposal_id"], existing["text"], OPS_REQUEST_KIND
+                ),
+            }
+
+        row = pending.create(
+            scope="ops",
+            # No subject. A rule is about an output class or a person; an
+            # operations request is about the seat, and there is nothing here
+            # that a subject would name.
+            subject={},
+            text=text,
+            instructed_by=instructed_by,
+            # for_admin, and it is load-bearing rather than decorative: the
+            # sweeper's committing arm requires it, so this is what lets a
+            # ``done`` reach the requester through the path that already exists.
+            for_admin=True,
+            kind=OPS_REQUEST_KIND,
+        )
+        self._ledger.append(
+            {
+                "action_type": OPS_REQUEST_RECORDED_ACTION_TYPE,
+                "actor": "operator",
+                "actor_role": "agent",
+                "metadata": json.dumps(
+                    {
+                        "proposal_id": row["proposal_id"],
+                        "instructed_by": instructed_by,
+                        "source_ref": source_ref,
+                        # Ids and a digest, never the sentence -- ADR 0083's
+                        # retention posture, identical to RULE_PROPOSED.
+                        "text_sha256": row["text_sha256"],
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            }
+        )
+        return {
+            "ok": True,
+            "duplicate_of": None,
+            "proposal_id": row["proposal_id"],
+            "kind": OPS_REQUEST_KIND,
+            "instructed_by": instructed_by,
+            "expires_at": row["expires_at"],
+            "readback": readback_for(row["proposal_id"], text, OPS_REQUEST_KIND),
+        }
+
+    def ops_resolve(self, request: dict[str, Any]) -> dict[str, Any]:
+        """End one operations request on SMD's answer, exactly once.
+
+        Three outcomes and no fourth (:data:`OPS_OUTCOMES`):
+
+        ``done``       SMD made the change. The requester is told.
+        ``declined``   SMD said no, with the reason they wrote. The requester is
+                       told, and the reason is quoted rather than paraphrased --
+                       an Operator that composed its own explanation of somebody
+                       else's refusal would be inventing client-facing content.
+        ``withdrawn``  the seat could not get the request out of the building, so
+                       it gives the row back. Nothing is sent, because nothing
+                       was ever asked, and the requester already heard that in
+                       the refusal they got in the same turn.
+
+        WHAT THIS VERB CANNOT DO, and each is enforced rather than documented:
+        it cannot touch a rule or an act (the UPDATE requires the kind), it
+        cannot answer a request twice (the UPDATE requires the row open), and it
+        cannot decide who at SMD is entitled to answer. That last one is the
+        SEAT's, from ``scope.ops_reply_from`` in a config this uid cannot read --
+        the same posture ``establish_decline`` takes toward the admin list.
+        """
+        pending = self._require_pending()
+        proposal_id = _require_proposal_id(request.get("proposal_id"))
+        outcome = _require_text(request.get("outcome"), "outcome", _MAX_SHORT_TEXT)
+        if outcome not in OPS_OUTCOMES:
+            raise EstablishmentValidationError(
+                f"outcome must be one of {sorted(OPS_OUTCOMES)}; got {outcome!r}"
+            )
+        resolved_by = require_address(request.get("resolved_by"), "resolved_by")
+        source_ref = _require_text(request.get("source_ref"), "source_ref", _MAX_SHORT_TEXT)
+        reason = normalize_outcome_reason(request.get("reason"))
+
+        row = pending.get(proposal_id)
+        if row is None:
+            raise EstablishmentValidationError(
+                f"no operations request was recorded under {proposal_id}; nothing to answer"
+            )
+        self._refuse_unresolvable(row, proposal_id)
+        if not pending.resolve_ops(proposal_id, outcome, resolved_by, reason):
+            # Lost the race to another answer. Whichever won, the answer is the
+            # state now on the row, never this call's.
+            raise EstablishmentValidationError(
+                f"operations request {proposal_id} was already answered; nothing was changed"
+            )
+
+        self._ledger.append(
+            {
+                "action_type": OPS_REQUEST_RESOLVED_ACTION_TYPE,
+                "actor": "operator",
+                "actor_role": "agent",
+                "metadata": json.dumps(
+                    {
+                        "proposal_id": proposal_id,
+                        "outcome": outcome,
+                        "instructed_by": row["instructed_by"],
+                        "resolved_by": resolved_by,
+                        "source_ref": source_ref,
+                        "text_sha256": row["text_sha256"],
+                        # WHETHER a reason was given, never the reason. It is a
+                        # person's prose about a business decision, and retained
+                        # rows carry ids, names, and counts.
+                        "has_reason": reason is not None,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            }
+        )
+        state = proposal_state(pending.get(proposal_id) or row)
+        return {
+            "ok": True,
+            "proposal_id": proposal_id,
+            "outcome": outcome,
+            "state": state,
+            # Who to tell and what they asked for. The seat composes the notice
+            # from these, never from anything on the wire.
+            "instructed_by": row["instructed_by"],
+            "resolved_by": resolved_by,
+            "reason": reason,
+            "text": row["text"],
+            "readback": readback_for(proposal_id, row["text"], OPS_REQUEST_KIND),
+        }
+
+    @staticmethod
+    def _refuse_unresolvable(row: dict[str, Any], proposal_id: str) -> None:
+        """Name the reason an answer cannot land, before the UPDATE tries it.
+
+        The UPDATE is the enforcement; this exists so the refusal says which of
+        four things happened rather than "nothing was changed".
+        """
+        if row["kind"] != OPS_REQUEST_KIND:
+            raise EstablishmentValidationError(
+                f"{proposal_id} is not an operations request; a rule is answered by "
+                "an administrator of the firm, not by SMD"
+            )
+        if row["consumed_at"] is not None:
+            raise EstablishmentValidationError(
+                f"operations request {proposal_id} was already answered; SMD made that change"
+            )
+        if row["declined_at"] is not None:
+            raise EstablishmentValidationError(
+                f"operations request {proposal_id} was already declined; nothing was changed"
+            )
+        if row["lapsed_at"] is not None or row["expires_at"] < time.time():
+            raise EstablishmentValidationError(
+                f"operations request {proposal_id} lapsed unanswered; ask for it again"
+            )
+
+    def ops_ask_sent(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Record that SMD has been asked, once, to answer in words this parses.
+
+        Called AFTER the ask is away, so a send that failed leaves the row
+        unmarked and the next observer tries again -- the ordering
+        ``lapse_notified`` uses, for the same reason. A second call is a named
+        refusal rather than a silent no-op, so a seat that has lost track of the
+        mark learns it here instead of mailing SMD on every turn.
+        """
+        pending = self._require_pending()
+        proposal_id = _require_proposal_id(request.get("proposal_id"))
+        row = pending.get(proposal_id)
+        if row is None:
+            raise EstablishmentValidationError(
+                f"no operations request was recorded under {proposal_id}; nothing to ask about"
+            )
+        if row["kind"] != OPS_REQUEST_KIND:
+            raise EstablishmentValidationError(
+                f"{proposal_id} is not an operations request; there is nothing to ask SMD"
+            )
+        if not pending.mark_ask_sent(proposal_id):
+            raise EstablishmentValidationError(
+                f"operations request {proposal_id} has already been asked once, or is "
+                "no longer open; nothing was changed"
+            )
+        return {"ok": True, "proposal_id": proposal_id, "ask_sent": True}
 
     # ------------------------------------------------------------------
     # establish_pending  (ss-console#2529)
@@ -1698,6 +2191,15 @@ class EstablishmentStore:
             "state": proposal_state(row),
             "declined_by": row.get("declined_by"),
             "lapse_notified": row.get("lapse_notified_at") is not None,
+            # ss-console#2546 (the operations half). Who at SMD answered, what
+            # they wrote, and whether they have already been asked once for an
+            # answer in the two words the parser reads. The seat needs all three
+            # to compose the notice and to avoid re-asking; none of them means
+            # anything on a rule or an act row, where they read back as
+            # None/None/False.
+            "resolved_by": row.get("resolved_by"),
+            "outcome_reason": row.get("outcome_reason"),
+            "ask_sent": row.get("ask_sent_at") is not None,
             # ss-console#2546 follow-up. "committed" and "in force" are not the
             # same fact, so the view carries both: ``state`` says the firm's
             # administrator applied it, this says somebody read the run result
@@ -2099,6 +2601,17 @@ class EstablishmentStore:
         if row is None:
             raise EstablishmentValidationError(
                 f"no {noun} was proposed under {proposal_id}; {unknown_tail}"
+            )
+        # ss-console#2546 (the operations half). Named FIRST, and by kind rather
+        # than by the scope mismatch that would catch it two checks later,
+        # because the two refusals read completely differently to the person who
+        # gets them: "that was proposed as 'ops', not 'firm_adjust'" sounds like
+        # a bug, and this says the true thing -- nobody at the firm confirms a
+        # change to how the seat runs, so there is nothing here for a yes to do.
+        if row["kind"] == OPS_REQUEST_KIND:
+            raise EstablishmentValidationError(
+                f"{proposal_id} is an operations request, not a {noun}; SMD makes "
+                "those changes and answers them, so there is nothing to confirm"
             )
         if row["consumed_at"] is not None:
             raise EstablishmentValidationError(

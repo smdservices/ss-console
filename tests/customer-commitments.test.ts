@@ -523,6 +523,64 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
     }
   })
 
+  // (m) ss-console#2546, the operations half. `rule_requests_to` above routes a
+  // firm rule to somebody who can APPLY it. This is the other direction: an
+  // operations request (routine, schedule, channel, memory, autonomy, on/off) is
+  // SMD's to make, so SMD is who ANSWERS it, and `ops_reply_from` is whose
+  // answer counts.
+  //
+  // THE ASSERTION WORTH THE GATE is the last one, and it is (l)'s shape: being
+  // able to answer a question the Operator asked must not become inbound trust.
+  // A regression that quietly added team@ to inbound_allow_from to "make the
+  // reply work" would pass every other assertion in this file, and would grant
+  // any forged mail from that address the power to instruct the seat.
+  //
+  // It is pinned on the DESK specifically rather than on every entry, and the
+  // reason is that scott@smd.services is on both seats' rosters and admin lists
+  // already, under a separate and earlier Captain decision (the self-initiation
+  // set, 2026-08-11 — see (j)). Asserting "no answering address is rostered"
+  // would therefore fail on a grant this key did not make and cannot revoke.
+  // team@ is the address this feature actually introduces, and it is the one
+  // whose isolation this key could plausibly break.
+  it('(m) both seats let SMD answer an operations request, and the desk stays untrusted', () => {
+    const seats: Array<readonly [string, CustomerYaml]> = [
+      ['ashton-price', validatedSeat(join(AP_DIR, 'customer.yaml'))],
+      ['pilot-smokeball', seatValue()],
+    ]
+    const DESK = 'team@smd.services'
+    const SMD_DOMAINS = ['smd.services', 'smdurgan.com']
+
+    for (const [label, cfg] of seats) {
+      const answering = cfg.scope.ops_reply_from
+      expect(
+        answering.length,
+        `${label}: an unauthored answering list means every request lapses unanswered`
+      ).toBeGreaterThan(0)
+
+      // The desk is on it, because the desk is where the request is SENT and a
+      // reply arrives from where it was sent. Without this the loop cannot close
+      // at all: SMD would answer from an address the seat does not read.
+      expect(answering, `${label}: the desk cannot answer its own mail`).toContain(DESK)
+
+      for (const address of answering) {
+        expect(address.startsWith('@'), `${label}: an answer comes from a person`).toBe(false)
+        expect(
+          SMD_DOMAINS.some((d) => address.endsWith(`@${d}`)),
+          `${label}: ${address} is not SMD, and operations changes are SMD's`
+        ).toBe(true)
+      }
+
+      expect(
+        cfg.scope.inbound_allow_from.includes(DESK),
+        `${label}: the desk may answer an operations request, never instruct the seat`
+      ).toBe(false)
+      expect(
+        cfg.scope.admins.includes(DESK),
+        `${label}: answering for SMD does not make the desk an administrator of the firm`
+      ).toBe(false)
+    }
+  })
+
   it('(i) the authored persona register is real and identical across the client and proving seats', () => {
     const seats = [AP_DIR, resolve('operator/customers/pilot-smokeball')]
     const tones = seats.map((dir) => {

@@ -169,6 +169,9 @@ export const AUDIT_ACTION_TYPES = [
   'RULE_LAPSED',
   'ACT_PROPOSED',
   'ACT_COMMITTED',
+  'OPS_REQUEST_RECORDED',
+  'OPS_REQUEST_RESOLVED',
+  'OPS_REQUEST_LAPSED',
 ] as const
 
 export type AuditActionType = (typeof AUDIT_ACTION_TYPES)[number]

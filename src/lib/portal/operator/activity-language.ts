@@ -100,6 +100,9 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'ESTABLISHMENT_RESULT',
       'ACT_PROPOSED',
       'ACT_COMMITTED',
+      'OPS_REQUEST_RECORDED',
+      'OPS_REQUEST_RESOLVED',
+      'OPS_REQUEST_LAPSED',
     ],
   },
   {
@@ -296,6 +299,14 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   // sentence a client should be able to find later.
   ACT_PROPOSED: () => 'Asked you to confirm something before doing it',
   ACT_COMMITTED: () => 'Did what you confirmed',
+  // ss#2546 (the operations half). Three lines for a change the firm asked for
+  // and SMD makes. Written from the reader's side, and the middle one stays
+  // deliberately vague about WHICH answer: the outcome the client cares about
+  // arrives in the email they get, and a feed line that said "declined" would
+  // put a business decision on a row that carries no reason with it (Pattern A).
+  OPS_REQUEST_RECORDED: () => 'Passed a setup request to SMD',
+  OPS_REQUEST_RESOLVED: () => 'SMD answered a setup request',
+  OPS_REQUEST_LAPSED: () => 'A setup request to SMD lapsed unanswered',
   ESCALATION_FIRED: (e) => e.reason ?? 'Flagged something for your attention',
   ESCALATION_ACKNOWLEDGED: () => 'An escalation was acknowledged',
   AGENT_STOPPED: () => 'Your operator was paused',

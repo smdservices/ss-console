@@ -54,6 +54,13 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'ACT_COMMITTED',
         'ACT_PROPOSED',
         'AGENT_RESUMED',
+        // ss#2546 (the operations half). A routine, a schedule, a channel, a
+        // memory setting, an autonomy level, an on/off: the firm asks, SMD
+        // decides. All three render, because a request whose answer shows
+        // nothing on the feed reads exactly like the answer never coming.
+        'OPS_REQUEST_RECORDED',
+        'OPS_REQUEST_RESOLVED',
+        'OPS_REQUEST_LAPSED',
         'AGENT_STOPPED',
         'COMPLIANCE_PACKET_EXPORTED',
         // ss#2122: a Named Administrator pulled the per-matter audit record

@@ -88,6 +88,7 @@ export function parseScope(raw: unknown): Scope | null {
     outbound_roster: parseOutboundRoster(raw['outbound_roster']),
     admins: strArray(raw['admins']),
     rule_requests_to: strArray(raw['rule_requests_to']),
+    ops_reply_from: strArray(raw['ops_reply_from']),
   }
 }
 

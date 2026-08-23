@@ -140,3 +140,32 @@ Two bounds worth stating plainly. The seven-day window applies to a rule only; a
 - [ ] (repo) A rule nobody answers lapses at seven days and the person who asked is told; an act still expires at twenty-four hours
 - [ ] (repo) An operations request gets the fixed reply and reaches SMD by email
 - [ ] (runtime) On a proving seat, all four legs are observed end to end from the seat's own mailbox
+
+## Amendment, 2026-08-23: an operations request comes back answered (Captain decision; ss-console#2546, reopened)
+
+The 2026-08-22 amendment above put operations — routines, schedules, channels, memory, autonomy, on/off — with SMD, and said the request "actually reaches SMD rather than being absorbed by a polite reply". Half of that shipped. An email reaches `team@smd.services`; nothing comes back. SMD's answer never reaches the person who asked, and the Operator's reply at request time narrates a routine that does not exist ("Once it is live, the digest will arrive every Monday"), which is the same promise-of-future-behavior the rest of this ADR spends its length refusing to make.
+
+**The loop closes.** An operations request is now recorded as a row, tagged, answered, and reported, in the same shape a firm rule already is:
+
+- The request is recorded when it is made, and it carries an `[ops XXXX]` tag — eight hex characters, the same shape as `[rule XXXX]` and `[act XXXX]` and deliberately a different word, because the person answering it is deciding something different.
+- SMD is emailed with the tag in the subject.
+- SMD answers by replying with the tag and either `done` or `no, <reason>`. A reply that says neither leaves the row open and gets one automated ask for those words; it is asked once, because a per-turn re-ask is how a nudge becomes a mail loop.
+- The person who asked receives exactly one email: SMD set this up, SMD declined this with the reason SMD wrote, or the request lapsed unanswered after seven days. The reason is **quoted, never paraphrased** — an Operator composing its own account of somebody else's refusal would be inventing client-facing content.
+- When the seat cannot get the request out of the building at all, the row is withdrawn and nothing is sent, because nothing was ever asked and the person already heard that in the refusal they got in the same turn.
+
+**Who may answer.** `scope.ops_reply_from`, authored per seat, person addresses at an SMD domain. The grant is exactly one act: resolving a request the Operator itself raised, identified by its tag, whose whole effect is one templated notice to the person who asked. It is not inbound trust. None of these addresses goes on `scope.inbound_allow_from` — `team@smd.services` in particular stays off it, pinned by a test — so mail from one of them that quotes no tag is as untrusted as any other mail, cannot untaint a turn, and cannot instruct the seat.
+
+**The tag is the capability, and that is the accepted risk, stated plainly.** No seat receives an SPF or DKIM verdict on inbound mail (§5 above), so a forged `From: team@smd.services` is exactly as available as a forged `From: scott@smd.services`; naming one rather than the other buys nothing. What bounds the exposure is not the sender but the effect: the most a forged answer can do is send one person at the firm a templated notice about a request they themselves made. Nothing is configured, nothing is installed, and no routine changes — operations changes remain a reviewed diff made by SMD, which is what the 2026-08-22 amendment decided and this one does not touch.
+
+**An operations request is never confirmable, and that is enforced three times.** It is not a rule: nobody at the firm can say yes to it, because it was never theirs to decide. So a submit naming one is refused by name, an administrator's decline is refused by name, and the broker's `consume` — the write that turns a row into something the firm committed — refuses the kind in SQL. Three refusals rather than one, because "the firm accidentally installed a routine change by saying yes" is the failure this shape could plausibly produce.
+
+**Seven days, matching a rule.** The request is emailed to a person at SMD who may be with a client all day, and a request that dies overnight is a request the firm never had. An act still expires at twenty-four hours; widening that would widen a commitment nobody widened.
+
+### Acceptance criteria (this amendment)
+
+- [ ] (repo) `customer.yaml` carries `scope.ops_reply_from`, validated as person addresses at an SMD domain, authored on both the client seat and the proving seat, and absent from `inbound_allow_from`
+- [ ] (repo) An operations request is recorded with an `[ops XXXX]` tag; a reply from an authored address quoting that tag resolves it as done or declined; a reply from any other address does not
+- [ ] (repo) The person who asked is told once — set up, declined with SMD's quoted reason, or lapsed at seven days — and a withdrawn request tells them nothing
+- [ ] (repo) An operations request cannot be committed by a confirmation, declined by a firm administrator, or consumed by the broker
+- [ ] (repo) The Operator's reply at request time does not describe what a not-yet-existing routine will do
+- [ ] (runtime) On a proving seat, all four legs are observed end to end from the seat's own mailbox: set up, declined with a reason, lapsed, and a tagged reply from an address that is not authored doing nothing
