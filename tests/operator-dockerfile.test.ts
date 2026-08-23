@@ -1083,7 +1083,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // claimed in the broker before it is sent; the seat runs the plugin in two
     // processes (gateway + webhook-gate), so the in-process claim of #315 could not
     // arbitrate. Pairs with console #2564. Vocabulary identical (71); no pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2c4e8e92bc1dfc853da7511a28b9e6967e8ee984"')
+    // 2c4e8e92 -> 0f84a625 (2026-08-23, overlay#317, ss#2546): on the pass-on turn a
+    // future description of the requested routine is withheld even when named only by
+    // pronoun ("when it's set up, you'll start seeing it"), and curly apostrophes no
+    // longer slip the patterns. Vocabulary identical (71); no pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0f84a6254560d506a35b81251c673e37892f95ea"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
