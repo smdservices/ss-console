@@ -1074,7 +1074,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // address resolves the row (no inbound trust granted), the requester gets one
     // sweeper-sent letter, and the reply at request time can no longer describe
     // the future routine. Vocabulary 68 -> 71 (OPS_REQUEST_*); no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="cce3126e5e29f4063944ff4a7631607bd53f1332"')
+    // cce3126e -> fc8f88c1 (2026-08-23, overlay#315, ss#2546 pilot-proof fixes): the
+    // requester's outcome letter is claimed once across the sweeper thread and the
+    // in-turn path (it had arrived twice, 38 ms apart), and a reply to a sender who
+    // cannot answer an ops request may no longer say it is closed. Vocabulary
+    // identical (71); no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fc8f88c1eb97780ddf6f234407085d6b95a88be7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
