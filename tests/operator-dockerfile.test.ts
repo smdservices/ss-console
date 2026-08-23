@@ -1068,7 +1068,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // install is actually observed (the single immediate poll had missed it).
     // #312 is ss#2552 (a peer session): a colleague who states a preference hears
     // what will change, not that a profile was updated.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="87fa8501595ecc90c17deecc4fe0d7bf9eba59fc"')
+    // 87fa8501 -> cce3126e (2026-08-23, overlay#314, ss#2546 reopened). A request
+    // only SMD can grant comes back answered: the operations email to SMD carries
+    // an [ops XXXX] tag, SMD's "done" / "no, reason" reply from a listed SMD
+    // address resolves the row (no inbound trust granted), the requester gets one
+    // sweeper-sent letter, and the reply at request time can no longer describe
+    // the future routine. Vocabulary 68 -> 71 (OPS_REQUEST_*); no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="cce3126e5e29f4063944ff4a7631607bd53f1332"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
