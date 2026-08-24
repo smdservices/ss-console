@@ -189,9 +189,51 @@ function validateEvent(raw: unknown): IncomingEvent | null {
 }
 
 /**
- * Strip query strings and fragments. Defensive even though the client
- * already does this — an attacker bypassing the client could submit raw
- * URLs with tokens or PII in query params.
+ * Route prefixes whose NEXT path segment is a credential rather than a page
+ * identity. `/book/manage/<token>` is the live case: that token IS the auth
+ * (`api/booking/manage/[token].ts` — "no session required"), and
+ * `lib/booking/tokens.ts` states the raw token is never written to the DB or
+ * logged. Storing it in `events.path` broke that invariant.
+ */
+const OPAQUE_SEGMENT_PREFIXES = ['/book/manage/'] as const
+
+/**
+ * Length at or above which a single path segment drawn only from the
+ * URL-safe-base64 alphabet is treated as opaque and redacted. The manage token
+ * is 32 random bytes rendered as 43 chars. No authored slug in this codebase is
+ * near this long, so the false-positive cost is nil, and the benefit is that a
+ * FUTURE token-bearing route is covered without anyone remembering to add it to
+ * the list above.
+ */
+const OPAQUE_SEGMENT_MIN_LEN = 24
+const OPAQUE_SEGMENT_RE = /^[A-Za-z0-9_-]+$/
+
+/**
+ * Replace credential-shaped path segments with a placeholder, keeping the route
+ * shape so the analytics stay useful.
+ */
+function redactOpaqueSegments(path: string): string {
+  for (const prefix of OPAQUE_SEGMENT_PREFIXES) {
+    if (path.startsWith(prefix) && path.length > prefix.length) {
+      const rest = path.slice(prefix.length)
+      const slash = rest.indexOf('/')
+      return `${prefix}:redacted${slash === -1 ? '' : rest.slice(slash)}`
+    }
+  }
+  return path
+    .split('/')
+    .map((seg) =>
+      seg.length >= OPAQUE_SEGMENT_MIN_LEN && OPAQUE_SEGMENT_RE.test(seg) ? ':redacted' : seg
+    )
+    .join('/')
+}
+
+/**
+ * Strip query strings and fragments, then redact credential-shaped path
+ * segments. Defensive even though the client already does both — an attacker
+ * bypassing the client could submit raw URLs with tokens or PII, and the events
+ * rate limit is keyed on a client-supplied session id, so "the client would not
+ * do that" is not a bound worth relying on.
  */
 function scrubPath(input: string): string {
   const qIdx = input.indexOf('?')
@@ -203,12 +245,12 @@ function scrubPath(input: string): string {
   // Force leading slash; reject anything that looks like a full URL.
   if (stripped.startsWith('http://') || stripped.startsWith('https://')) {
     try {
-      return new URL(stripped).pathname
+      return redactOpaqueSegments(new URL(stripped).pathname)
     } catch {
       return '/'
     }
   }
-  return stripped.startsWith('/') ? stripped : `/${stripped}`
+  return redactOpaqueSegments(stripped.startsWith('/') ? stripped : `/${stripped}`)
 }
 
 /**
