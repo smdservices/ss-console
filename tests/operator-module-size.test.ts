@@ -244,9 +244,22 @@ describe('operator module-size ratchet', () => {
             `Split it, or if this is a deliberate carry-over, regenerate the baseline and say why in the PR.`
         )
       } else if (lines > recorded) {
+        // A naive split BREAKS THE RUNTIME for skills/<name>/pre_run.py. The
+        // Hermes scheduler stages that one file to <profile>/scripts/<skill>/
+        // pre_run.py and runs it there (operator/templates/pre_run_gate.py:35);
+        // a sibling module extracted next to it is simply not staged, so the
+        // import fails on a live client seat. Say so where the advice is given,
+        // rather than leaving a correct-sounding instruction that is wrong for
+        // this one shape.
+        const stagedAlone = /skills\/[^/]+\/pre_run\.py$/.test(path)
         problems.push(
           `${path}: grew ${recorded} -> ${lines} logical lines. The ratchet only tightens — ` +
-            `split the module rather than raising its baseline.`
+            `split the module rather than raising its baseline.` +
+            (stagedAlone
+              ? ` NOTE: the scheduler stages this file ALONE (see operator/templates/pre_run_gate.py:35), ` +
+                `so a naive split breaks the runtime — keep pre_run.py self-contained, or extend the ` +
+                `staging to carry its siblings first.`
+              : '')
         )
       }
     }
