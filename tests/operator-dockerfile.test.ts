@@ -1087,7 +1087,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // future description of the requested routine is withheld even when named only by
     // pronoun ("when it's set up, you'll start seeing it"), and curly apostrophes no
     // longer slip the patterns. Vocabulary identical (71); no pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0f84a6254560d506a35b81251c673e37892f95ea"')
+    // 0f84a625 -> f16d4920 (2026-08-24, overlay#318, ss#2390 + the ss#2547 live
+    // defects): the pre-run handoff actually binds in production (persona-home
+    // reader, recency binding), seeds (matterNumber, dates) records as pair
+    // associations, the empty-register refusal stops offering value removal, and
+    // the heartbeat counts withheld degraded digests as the 'degraded' kind.
+    // Vocabulary identical; no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="f16d492006ad902721c0a25bdd3869246740df85"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
