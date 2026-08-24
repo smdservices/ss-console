@@ -122,19 +122,80 @@ describe('normaliseBotTitle', () => {
 // something.
 describe('verdict rules, each with its falsifier', () => {
   it('autofile-duplicate: a bot re-filing the same finding', () => {
+    // Both bare: nobody commented, no commit names either. That is the only
+    // shape this rule may fire on.
     const older = issue({
       number: 2401,
       authorLogin: 'github-actions',
       title: 'Routine run with no terminal state 2026-08-18',
+      commentCount: 0,
     })
     const newer = issue({
       number: 2567,
       authorLogin: 'github-actions',
       title: 'Routine run with no terminal state 2026-08-24',
+      commentCount: 0,
     })
     expect(verdictOf([older, newer], 2567)).toBe('autofile-duplicate')
     // The oldest copy is the one finding, not a duplicate of itself.
     expect(verdictOf([older, newer], 2401)).not.toBe('autofile-duplicate')
+  })
+
+  it('a re-file that someone WORKED is not a bare duplicate', () => {
+    // Found while acting on the census, 2026-08-24, before anything was closed.
+    // Three workflow re-files carried work the rule could not see: one had 5
+    // merged commits (the Hermes v0.20 promotion), one carried a live analysis
+    // with a verify ID, and one carried a comment from a prior session saying it
+    // was deliberately paired with another issue and they close together.
+    // Marking any of them `autofile-duplicate` would have erased a live thread.
+    const canonical = issue({
+      number: 2225,
+      authorLogin: 'github-actions',
+      title: 'Hermes upstream v2026.8.3 available',
+      commentCount: 0,
+    })
+    const worked = issue({
+      number: 2444,
+      authorLogin: 'github-actions',
+      title: 'Hermes upstream v2026.8.18 available',
+      commentCount: 0,
+      namingCommits: ['a1', 'b2', 'c3', 'd4', 'e5'],
+    })
+    expect(verdictOf([canonical, worked], 2444)).not.toBe('autofile-duplicate')
+  })
+
+  it('a re-file someone COMMENTED on is not a bare duplicate either', () => {
+    const canonical = issue({
+      number: 2401,
+      authorLogin: 'github-actions',
+      title: 'Routine run with no terminal state 2026-08-18',
+      commentCount: 0,
+    })
+    const discussed = issue({
+      number: 2567,
+      authorLogin: 'github-actions',
+      title: 'Routine run with no terminal state 2026-08-24',
+      commentCount: 1,
+    })
+    expect(verdictOf([canonical, discussed], 2567)).not.toBe('autofile-duplicate')
+  })
+
+  it('falsifier: with no work signal, the same re-file IS a duplicate', () => {
+    // Without this the rule above could be satisfied by never firing at all.
+    const canonical = issue({
+      number: 2401,
+      authorLogin: 'github-actions',
+      title: 'Routine run with no terminal state 2026-08-18',
+      commentCount: 0,
+    })
+    const bare = issue({
+      number: 2567,
+      authorLogin: 'github-actions',
+      title: 'Routine run with no terminal state 2026-08-24',
+      commentCount: 0,
+      namingCommits: [],
+    })
+    expect(verdictOf([canonical, bare], 2567)).toBe('autofile-duplicate')
   })
 
   it('falsifier: an agent-authored title is never collapsed, even if identical', () => {

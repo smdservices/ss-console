@@ -205,7 +205,8 @@ function buildFlags(
  * spec: a change here changes the answer, so it is pinned by test.
  *
  * Ordering rationale:
- *   1. autofile-duplicate outranks everything. It needs no judgment at all.
+ *   1. autofile-duplicate outranks everything. It needs no judgment at all,
+ *      BUT ONLY where nobody has touched the re-file (see below).
  *   2. gate-held outranks close-acs-met. If a bot reopened the issue, closing
  *      it again just trips the same gate; satisfying the gate is the act.
  *   3. close-acs-met outranks tick-blocked. Nothing left unticked means there
@@ -217,10 +218,18 @@ function decide(row: Omit<CensusRow, 'verdict' | 'because'>): {
   verdict: Verdict
   because: string
 } {
-  if (row.duplicateOf !== null) {
+  // A re-file someone WORKED is not a bare duplicate. Caught on the live
+  // backlog before anything was closed (2026-08-24): three workflow re-files
+  // carried threads this rule could not see -- one with 5 merged commits (the
+  // Hermes v0.20 promotion), one with an analysis carrying a verify ID, and one
+  // whose comment recorded a prior session's decision to keep it paired with
+  // another issue so the two close together. Duplicate-closing any of them
+  // would have destroyed the thread while reporting a tidy backlog.
+  const untouched = row.namingCommits === 0 && row.commentCount === 0
+  if (row.duplicateOf !== null && untouched) {
     return {
       verdict: 'autofile-duplicate',
-      because: `workflow-filed; same normalised title as open #${row.duplicateOf}`,
+      because: `workflow-filed, untouched; same normalised title as open #${row.duplicateOf}`,
     }
   }
   if (row.reopenedByBot) {
