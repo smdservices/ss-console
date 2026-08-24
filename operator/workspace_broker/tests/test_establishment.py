@@ -24,7 +24,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from workspace_broker import establishment
+from workspace_broker import establishment, establishment_store
 from workspace_broker.audit_ledger import LedgerWriter
 from workspace_broker.establishment import (
     ESTABLISHMENT_RESULT_ACTION_TYPE,
@@ -245,7 +245,10 @@ def test_stage_unknown_staging_id_is_refused(tmp_path: Path) -> None:
 
 
 def test_stage_doc_count_ceiling(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(establishment, "MAX_DOCS_PER_SET", 2)
+    # Patch target is establishment_store, not establishment: the constant is
+    # consumed there, and `import *` binds values at import time, so patching
+    # the re-export surface would not reach the consumer (2026-08-24 split).
+    monkeypatch.setattr(establishment_store, "MAX_DOCS_PER_SET", 2)
     broker = _broker(tmp_path)
     first = _stage(broker)
     _stage(broker, staging_id=first["staging_id"])
@@ -254,7 +257,10 @@ def test_stage_doc_count_ceiling(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_stage_total_bytes_ceiling(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(establishment, "MAX_SET_BYTES", 100)
+    # Patch target is establishment_store, not establishment: the constant is
+    # consumed there, and `import *` binds values at import time, so patching
+    # the re-export surface would not reach the consumer (2026-08-24 split).
+    monkeypatch.setattr(establishment_store, "MAX_SET_BYTES", 100)
     broker = _broker(tmp_path)
     first = _stage(broker, text="x" * 80)
     with pytest.raises(EstablishmentValidationError):
@@ -505,7 +511,10 @@ def test_install_assertions_shape_and_ceilings(tmp_path: Path, monkeypatch) -> N
                 peer_pid=9999,
                 peer_uid=AGENT_UID,
             )
-    monkeypatch.setattr(establishment, "_MAX_ASSERTIONS", 1)
+    # Patch target is establishment_store, not establishment: the constant is
+    # consumed there, and `import *` binds values at import time, so patching
+    # the re-export surface would not reach the consumer (2026-08-24 split).
+    monkeypatch.setattr(establishment_store, "_MAX_ASSERTIONS", 1)
     with pytest.raises(EstablishmentValidationError):
         broker.handle(
             _install_request(staged, assertions={"rules": [{"a": 1}, {"b": 2}]}),

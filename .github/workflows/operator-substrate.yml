@@ -44,6 +44,9 @@ on:
       - 'operator/workspace_broker/**'
       - 'operator/tests/**'
       - 'operator/pytest.ini'
+      # The lint config itself, same reasoning as pytest.ini above: narrowing the
+      # rule selection must re-run the gate it narrows.
+      - 'operator/ruff.toml'
       - '.github/workflows/operator-substrate.yml'
   push:
     branches: [main]
@@ -78,7 +81,18 @@ jobs:
         # they round-trip a real Ed25519 detached signature over a real built
         # packet. Without it those tests skip, and a signature that does not
         # verify would be discovered by a client's carrier instead of by CI.
-        run: python3 -m pip install --quiet pytest pyyaml cryptography
+        # ruff lints the tree against operator/ruff.toml (see that file's header
+        # for why the rule selection is narrow and why it is a gate, not a
+        # baseline).
+        run: python3 -m pip install --quiet pytest pyyaml cryptography ruff
+
+      - name: Run ruff
+        # Selection is exactly the set that reports zero across the tree, so this
+        # blocks new violations outright. It also makes 106 of the 261 `# noqa`
+        # annotations already in the tree mean something — before operator/ruff.toml
+        # existed, no Python linter ran here at all and every one was inert.
+        working-directory: operator
+        run: ruff check .
 
       - name: Run run()-style safety invariants
         working-directory: operator
