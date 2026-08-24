@@ -369,17 +369,17 @@
     },
     "RULE_PROPOSED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2529. The workspace broker appends one row per rule the Operator states back for confirmation. Nothing is installed by it: the row records that a sentence was put in front of a person with a tag, carrying the proposal id and the text digest and never the text. The confirming turn writes ESTABLISHMENT_SUBMITTED under the same digest, so the two rows together prove the committed rule is the proposed one without either of them holding a copy of it."
     },
     "ESTABLISHMENT_SUBMITTED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2161 (ADR 0085). The broker appends this when an establishment run is materialized into the root intake spool, on all three scopes (firm, person, firm_adjust). Declared in this repo 2026-08-21 (ss#2529): it had been landing in client ledgers since establishment shipped while AUDIT_ACTION_TYPES had never heard of it, so the portal rendered it as nothing."
     },
     "ESTABLISHMENT_RESULT": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2161 (ADR 0085). The broker appends the bounded verdict row on the one-shot result read, before deleting the result file, so the retained trace outlives the payload. Declared in this repo 2026-08-21 (ss#2529), same history as ESTABLISHMENT_SUBMITTED."
     },
     "RULE_REQUEST_NOTIFIED": {
@@ -389,37 +389,37 @@
     },
     "ACT_PROPOSED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2536. The workspace broker appends one row per ACT the Operator states back for confirmation. Nothing happens by it: the row records that one tool call was put in front of a Named Administrator with a tag, carrying the proposal id, the tool name, and the payload digest, and never the payload. The confirming turn writes ACT_COMMITTED under the same digest, so the two rows together prove the act performed is the act proposed without either of them holding a second copy of the firm's values."
     },
     "ACT_COMMITTED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2536. Appended after the confirmed tool call succeeded, naming who confirmed it and the message id their confirmation arrived in, so an admin approval is joinable to the inbound row that carried it (the ss#2497 joins) rather than merely asserted. A tool call that failed writes no row: the proposal stays open for its TTL, so a transport failure does not spend a person's yes."
     },
     "RULE_DECLINED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2546. The broker appends one row when an administrator refuses a rule somebody else asked for. Before this verb a \"no\" did nothing at all: the rule sat open until it expired and the only record of the decision was whatever the model happened to say in a reply. The row carries the proposal id, who stated the rule, who declined it, and the text digest - never the sentence - so it joins to RULE_PROPOSED on the digest and the ledger shows WHICH rule was refused without holding a second copy of the firm's words. Written under a conditional UPDATE, so a second decline changes nothing and writes nothing."
     },
     "RULE_LAPSED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2546. The broker appends this when the person who asked for a rule has been TOLD it lapsed unanswered, not when the sweep marks it. That ordering is the point: the mark is bookkeeping, the row is the moment the firm learned something. A lapse has no other row anywhere - nothing was committed and nobody decided - so this is the only record that a request died, which is why the sweep now marks an expired row instead of deleting it. Reporting a DECLINE writes nothing here: RULE_DECLINED already recorded that decision."
     },
     "OPS_REQUEST_RECORDED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2546 (the operations half). The broker appends one row when somebody at the firm asks for a change only SMD makes - a routine, a schedule, a channel, a memory setting, an autonomy level, an on/off (ADR 0085 as amended 2026-08-22). Nothing is changed by it: the row records that a request was given an [ops XXXX] tag so SMD's answer can find its way back to the person who asked, and it carries the proposal id, who asked, and the text digest - never the sentence. The answering row joins to it on that digest."
     },
     "OPS_REQUEST_RESOLVED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2546 (the operations half). Appended when SMD answers a request through ops_resolve, naming the outcome (done / declined / withdrawn) and who at SMD answered, under a conditional UPDATE so a second answer changes nothing and writes nothing. The reason SMD wrote is NOT retained here - only has_reason, a countable fact - because it is a person's prose about a business decision and retained rows carry ids, names, and counts (ADR 0083)."
     },
     "OPS_REQUEST_LAPSED": {
       "side": "ss-console",
-      "producerFile": "operator/workspace_broker/establishment.py",
+      "producerFile": "operator/workspace_broker/establishment_constants.py",
       "reason": "ss#2546 (the operations half). Appended when the person who asked has been TOLD their request to SMD lapsed unanswered, not when the sweep marks it - the mark is bookkeeping, the row is the moment the firm learned something. Its own type rather than RULE_LAPSED because nobody at the firm failed to answer it: SMD did, and a ledger filing the two under one name would misattribute the silence. A resolved request writes nothing here; OPS_REQUEST_RESOLVED already recorded that answer."
     }
   }
