@@ -88,13 +88,13 @@ describe('degraded send-refusal ingest', () => {
   })
 
   async function row(): Promise<Record<string, unknown> | null> {
-    return (await db
+    return await db
       .prepare(
         `SELECT send_refusals, send_refusals_last_ts, send_refusals_json
          FROM fleet_status WHERE customer_slug = ?`
       )
       .bind(SLUG)
-      .first())
+      .first()
   }
 
   it("a degraded-only beat stores the count, the marker, and the event's reason", async () => {
