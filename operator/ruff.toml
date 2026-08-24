@@ -1,0 +1,64 @@
+# Ruff configuration for the Python operator tree.
+#
+# WHY THIS EXISTS. Before this file, `operator/` carried 261 `# noqa`
+# annotations across 121 files naming 12 distinct rule codes — and no ruff,
+# flake8, bandit, mypy or black configuration existed anywhere in the
+# repository. Every one of those suppressions was inert. People had written
+# careful justifications ("fixed argv, no shell, paths we wrote" at
+# connectors/smokeball/smokeball_connector/record_check.py:246, "https enforced
+# at construction" at bin/lib/seam_pull.py:129) for a linter that never ran.
+# This file is the missing half.
+#
+# THIS IS A GATE, NOT A BASELINE. The selection below is exactly the set that
+# reports ZERO violations across the whole tree today, so it blocks new
+# violations outright rather than freezing a debt pile. That is a deliberate
+# trade: a narrow rule set that actually fails is worth more than a broad one
+# carrying an allowlist that quietly grows. The selected codes activate 106 of
+# the existing suppressions (102 × E402, 2 × E731, 2 × S102).
+#
+# WHAT IS NOT SELECTED, AND WHY. Each of these fires today, so selecting it
+# would require either mass edits inside a refactor PR or an allowlist that
+# defeats the point. Counts measured 2026-08-24 with
+# `ruff check --select <code> --statistics`, reported as ALL / NON-TEST:
+#
+#   S101   4889 / —     assert. Correct in pytest; would need a test-file carve-out.
+#   E501   2119 / —     line-too-long. No Python line-length convention exists in
+#                       this repo; picking one is a formatter decision, not this PR's.
+#   ANN001 1287 / —     missing arg annotations. 62% of defs are annotated already
+#                       (2955/4732), so this is a real project, not a sweep.
+#   SLF001  166 / 9     private-member-access.
+#   S106     62 / 0     hardcoded-password-func-arg — every hit is in a test.
+#   ARG002   36 / 5     unused method argument.
+#   F        34 / 18    mostly F401 unused-import; auto-fixable, but 18 non-test
+#                       edits across unrelated files is scope creep in a refactor PR.
+#   S310     30 / 30    suspicious-url-open. 5 sites already carry a noqa.
+#   S603     29 / 19    subprocess-without-shell. 1 site already carries a noqa.
+#   S105     21 / 13    hardcoded-password-string.
+#   S110     14 / 14    try-except-pass.
+#   S608     11 / 10    hardcoded-sql-expression. 2 sites already carry a noqa.
+#   S103      6 / 1     bad-file-permissions.
+#   BLE001    5 / 5     blind-except. 136 sites already carry a noqa — the
+#                       suppressions are doing their job; only 5 are uncovered.
+#
+# Widening this selection is tracked separately. BLE001 (5 sites) and S607
+# (1 non-test site) are the cheapest next steps; F401 is the highest value per
+# edit. Do NOT widen it by adding blanket `# noqa` — that trades a real gate for
+# the appearance of one, which is the failure this file was written to end.
+
+target-version = "py311"
+
+# Vendored virtualenvs and caches are not our source.
+extend-exclude = [
+    "**/.venv",
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/.ruff_cache",
+]
+
+[lint]
+select = [
+    "E4", # import placement — activates the 102 existing E402 suppressions
+    "E7", # statement-level pycodestyle, incl. E731 lambda-assignment (2 suppressions)
+    "E9", # syntax and IO errors ruff cannot parse past
+    "S102", # exec-builtin — activates the 2 existing suppressions
+]
