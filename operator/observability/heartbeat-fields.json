@@ -21,7 +21,7 @@
     "re-reads build_payload at the new ref and re-stamps this file. Read the",
     "limits of that in the test's header before trusting it further than it goes."
   ],
-  "overlay_ref": "0f84a6254560d506a35b81251c673e37892f95ea",
+  "overlay_ref": "f16d492006ad902721c0a25bdd3869246740df85",
   "fields": [
     {
       "name": "heartbeat_ts",
@@ -190,9 +190,15 @@
           "routine": "op-managed:operator:deadline-miss-escalator",
           "tool": "smd_send_message",
           "reason": "Refused: this content contains identifier(s) not traceable to anything read this session (date)."
+        },
+        {
+          "ts": "2026-08-24T14:00:26.000Z",
+          "kind": "degraded",
+          "routine": "op-managed:operator:deadline-miss-escalator",
+          "reason": "12 deadline(s) withheld: 0 matter numbers resolved, 12 lookup(s) failed"
         }
       ]
     }
   ],
-  "note": "2026-08-18 re-stamp 20518e86 -> 0716dc17: heartbeat.py untouched in the range (compare API file list), build_payload unchanged, field set re-read as identical. 2026-08-18 re-stamp af0c8a0f -> 0088352a: heartbeat.py untouched in the range (single commit, msgraph poller/replay/consumes/tests only), build_payload unchanged, field set re-read as identical. 2026-08-19 re-stamp 0088352a -> eeeac283 (overlay#281, ss#2444 Hermes v0.20.4 promotion PR-1): heartbeat.py untouched in the range (bootstrap/translate.py + tests only), build_payload unchanged, field set re-read as identical. 2026-08-19 re-stamp eeeac283 -> ab352d5b (overlay#282+#283): shared/heartbeat.py untouched in the range, build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp ab352d5b -> 88f6daa (overlay#284+#285+#286): shared/heartbeat.py untouched in the range (bootstrap/mcp_registry.py, contracts/consumes.yaml, tests/test_connector_platform.py, tests/test_matter_mixing_wire_names.py), build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp 88f6daa -> 78c2544 (overlay#287): shared/heartbeat.py untouched in the range (shared/inbound.py, plugins/hermes-smd-establishment/__init__.py, tests/test_inbound.py, tests/test_establishment_plugin.py), build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp 78c2544 -> 16770d3 (overlay#288, ss#2489): shared/heartbeat.py untouched in the range (plugins/hermes-smd-reply/__init__.py, shared/msgraph_broker.py, tests/test_msgraph_transports.py - the full file list, read from git diff --name-only at both refs), build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp 16770d3 -> 7a8ba42 (overlay#290, ss#2489 follow-on): shared/heartbeat.py untouched in the range (shared/report_render.py, tests/test_report_render.py - the full file list, read from git diff --name-only at both refs), build_payload unchanged, field set re-read as identical."
+  "note": "2026-08-18 re-stamp 20518e86 -> 0716dc17: heartbeat.py untouched in the range (compare API file list), build_payload unchanged, field set re-read as identical. 2026-08-18 re-stamp af0c8a0f -> 0088352a: heartbeat.py untouched in the range (single commit, msgraph poller/replay/consumes/tests only), build_payload unchanged, field set re-read as identical. 2026-08-19 re-stamp 0088352a -> eeeac283 (overlay#281, ss#2444 Hermes v0.20.4 promotion PR-1): heartbeat.py untouched in the range (bootstrap/translate.py + tests only), build_payload unchanged, field set re-read as identical. 2026-08-19 re-stamp eeeac283 -> ab352d5b (overlay#282+#283): shared/heartbeat.py untouched in the range, build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp ab352d5b -> 88f6daa (overlay#284+#285+#286): shared/heartbeat.py untouched in the range (bootstrap/mcp_registry.py, contracts/consumes.yaml, tests/test_connector_platform.py, tests/test_matter_mixing_wire_names.py), build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp 88f6daa -> 78c2544 (overlay#287): shared/heartbeat.py untouched in the range (shared/inbound.py, plugins/hermes-smd-establishment/__init__.py, tests/test_inbound.py, tests/test_establishment_plugin.py), build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp 78c2544 -> 16770d3 (overlay#288, ss#2489): shared/heartbeat.py untouched in the range (plugins/hermes-smd-reply/__init__.py, shared/msgraph_broker.py, tests/test_msgraph_transports.py - the full file list, read from git diff --name-only at both refs), build_payload unchanged, field set re-read as identical. 2026-08-20 re-stamp 16770d3 -> 7a8ba42 (overlay#290, ss#2489 follow-on): shared/heartbeat.py untouched in the range (shared/report_render.py, tests/test_report_render.py - the full file list, read from git diff --name-only at both refs), build_payload unchanged, field set re-read as identical. 2026-08-24: re-stamped for f16d4920 (overlay#318). build_payload keys are unchanged; the send_refusals_json sample gains a 'degraded' event (new kind counted by count_send_refusals for withheld degraded digests, ss#2390) \u2014 same three columns, no new field."
 }

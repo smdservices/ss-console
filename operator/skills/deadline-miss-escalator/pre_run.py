@@ -81,6 +81,15 @@ class MatterDeadline:
     # for an item with no stable id: it gets no per-item ack token and renders
     # in the blanket-ack-only group.
     task_id: str | None = None
+    # The firm's human-readable matter number, projected in code by the
+    # connector's matter.id -> matter.number join during the pull (ss #2390 —
+    # never composed, recalled, or derived by the model). None when absent;
+    # ``matter_number_absent`` then says WHY, because "the record has no
+    # number" and "the lookup failed" have different consequences (an authored
+    # absence renders explicitly and ships; a resolution failure counts toward
+    # a degraded run).
+    matter_number: str | None = None
+    matter_number_absent: str | None = None
     # When the OPERATOR last raised this item, from the escalation ledger
     # (``ItemState.last_raised_ts``), joined in ``enrich_with_ledger``. ``None``
     # on a pulled-but-not-yet-enriched item and on an item the Operator has
@@ -184,6 +193,39 @@ def load_escalation_config(
     return windows, policy
 
 
+_DEFAULT_MATTER_LOOKUP_BUDGET = 100
+
+
+def load_matter_lookup_budget(customer_yaml_path: str | None = None) -> int:
+    """The matter-number join's live-lookup cap: ``escalation.matter_lookup_budget``.
+
+    Its own reader (rather than a third return from ``load_escalation_config``)
+    because ZERO is a legitimate authored value here and ``_pos_int`` floors at
+    one: budget 0 disables the join entirely, which is the staging lever that
+    forces the degraded path for the runtime rehearsal — a config value, not a
+    test sentinel in production code. Missing/invalid → the default.
+    """
+    path = customer_yaml_path or os.environ.get("SMD_CUSTOMER_YAML_PATH")
+    if not path:
+        return _DEFAULT_MATTER_LOOKUP_BUDGET
+    try:
+        import yaml
+    except ImportError:
+        return _DEFAULT_MATTER_LOOKUP_BUDGET
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+    except (OSError, yaml.YAMLError):
+        return _DEFAULT_MATTER_LOOKUP_BUDGET
+    esc = data.get("escalation") if isinstance(data, dict) else None
+    if not isinstance(esc, dict):
+        return _DEFAULT_MATTER_LOOKUP_BUDGET
+    raw = esc.get("matter_lookup_budget")
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
+        return _DEFAULT_MATTER_LOOKUP_BUDGET
+    return raw
+
+
 # ---------------------------------------------------------------------------
 # Escalation ledger — the vendored copy of the shared module (byte-identical to
 # operator/workspace_broker/escalation_ledger.py; see test_escalation_ledger_sync).
@@ -258,6 +300,8 @@ def enrich_with_ledger(
         enriched.append(
             MatterDeadline(
                 matter_id=d.matter_id,
+                matter_number=d.matter_number,
+                matter_number_absent=d.matter_number_absent,
                 authored_date=d.authored_date,
                 label=d.label,
                 matter_open=d.matter_open,
@@ -295,6 +339,9 @@ class ItemPlan:
     rung: str
     # The Operator's own last raise on this item, or None. See MatterDeadline.
     last_raised: str | None
+    # Code-projected matter number + typed absence — see MatterDeadline.
+    matter_number: str | None = None
+    matter_number_absent: str | None = None
 
 
 @dataclass(frozen=True)
@@ -327,6 +374,8 @@ _NEEDS_YOU_MAX = 5  # output-format rule 2: three to five in the top block
 def _digest_item(d: MatterDeadline, today: date, ack_code: str | None) -> dict:
     return {
         "matter_id": d.matter_id,
+        "matter_number": d.matter_number,
+        "matter_number_absent": d.matter_number_absent,
         "task_id": d.task_id,
         "label": d.label,
         "authored_date": d.authored_date.isoformat(),
@@ -477,6 +526,8 @@ def decide(
                     days_out=(d.authored_date - today).days,
                     rung=_rung_for(d, today, windows),
                     last_raised=d.last_raised,
+                    matter_number=d.matter_number,
+                    matter_number_absent=d.matter_number_absent,
                 )
                 for d in in_range
             ),
@@ -567,9 +618,54 @@ def _is_iso_day(value: str) -> bool:
     )
 
 
+#: Per-item date fields whose values a digest line renders BESIDE the matter
+#: number, and which therefore must seed as that matter's pairs. ``authored_date``
+#: is the deadline itself; ``last_raised`` is the Operator's own ledger timestamp
+#: rendered as "(last raised <date>)" on the under-active-escalation band — the
+#: 2026-08-24 rehearsal was refused on exactly that pairing because only
+#: authored dates were grouped (the atoms verified; the association did not).
+_HANDOFF_RECORD_DATE_KEYS = ("authored_date", "last_raised")
+
+
+def _handoff_records(node, out: dict) -> dict:
+    """Group every ``(matter_number, date)`` co-occurrence in the payload into
+    per-matter records, first-seen order, deduped.
+
+    These become the overlay handoff's ``records`` — the association half of
+    provenance (ss #2390): the trust register seeds each matter's number WITH
+    its own dates, so a rendered digest line pairing this matter with another
+    matter's date is refused as the mispairing it is. Only nodes carrying the
+    number AND a date field contribute; the association is a fact of the
+    projection, never an inference across siblings. ``last_raised`` is an ISO
+    timestamp — its DAY is what a digest line renders, so the day is what
+    seeds.
+    """
+    if isinstance(node, dict):
+        number = node.get("matter_number")
+        if isinstance(number, str) and number:
+            for key in _HANDOFF_RECORD_DATE_KEYS:
+                value = node.get(key)
+                if not isinstance(value, str):
+                    continue
+                day = value[:10]
+                if not _is_iso_day(day):
+                    continue
+                dates = out.setdefault(number, [])
+                if day not in dates:
+                    dates.append(day)
+        for child in node.values():
+            _handoff_records(child, out)
+    elif isinstance(node, list):
+        for child in node:
+            _handoff_records(child, out)
+    return out
+
+
 def _write_pre_run_handoff(payload: dict) -> None:
-    """Project the emitted payload down to dates + matter ids and hand it off."""
+    """Project the emitted payload down to dates + matter ids + per-matter
+    (number, dates) records and hand it off."""
     try:
+        grouped = _handoff_records(payload, {})
         record = {
             "skill": _HANDOFF_SKILL,
             "started_at": _HANDOFF_STARTED_AT,
@@ -577,6 +673,9 @@ def _write_pre_run_handoff(payload: dict) -> None:
                 d for d in _handoff_values(payload, "authored_date", []) if _is_iso_day(d)
             ],
             "matter_ids": _handoff_values(payload, "matter_id", []),
+            "records": [
+                {"matterNumber": number, "dates": dates} for number, dates in grouped.items()
+            ],
         }
         directory = Path(os.environ.get("HERMES_HOME") or "/opt/data") / ".smd" / "pre_run"
         # Modes are set AT CREATION, never by a follow-up chmod: umask can only
@@ -628,6 +727,8 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         payload["plans"] = [
             {
                 "matter_id": p.matter_id,
+                "matter_number": p.matter_number,
+                "matter_number_absent": p.matter_number_absent,
                 "task_id": p.task_id,
                 "label": p.label,
                 "authored_date": p.authored_date,
@@ -747,6 +848,43 @@ def _deadline_to_dict(d: MatterDeadline) -> dict:
     }
 
 
+#: The typed absences that mean the JOIN failed, as opposed to the firm's own
+#: record carrying no number. Only these count toward a degraded run — see
+#: smokeball_connector/matter_ref.py for why the distinction is load-bearing.
+_RESOLUTION_FAILURES = frozenset({"lookup_failed", "budget_exhausted"})
+
+
+def _degradation(
+    deadlines: Sequence[MatterDeadline], today: date
+) -> tuple[int, int, str | None]:
+    """``(resolved, failed, reason)`` for the degraded-run judgment (2026-08-24).
+
+    ``failed`` counts only RESOLUTION failures, never authored absence. The
+    reason string is what the team@ page will read (it rides the heartbeat's
+    degraded event), so it carries the run's own numbers — "N deadlines
+    withheld" is actionable where a bare basis token is not. None when there is
+    nothing degraded to say.
+    """
+    resolved = sum(1 for d in deadlines if d.matter_number)
+    failed = sum(1 for d in deadlines if d.matter_number_absent in _RESOLUTION_FAILURES)
+    if failed == 0:
+        return resolved, failed, None
+    nearest = min(
+        ((d.authored_date - today).days for d in deadlines), default=0
+    )
+    if resolved == 0:
+        reason = (
+            f"{len(deadlines)} deadline(s) withheld: 0 matter numbers resolved, "
+            f"{failed} lookup(s) failed, nearest deadline {nearest} day(s) out"
+        )
+    else:
+        reason = (
+            f"digest sent with explicit absences: {failed} of {failed + resolved} "
+            f"matter lookup(s) failed"
+        )
+    return resolved, failed, reason
+
+
 async def run_once(
     sources: Sequence[DeadlineSource],
     windows: EscalationWindows,
@@ -817,6 +955,64 @@ async def run_once(
                     probe_stats=probe_stats or None,
                 ),
             )
+        resolved, failed, degraded_reason = _degradation(deadlines, today)
+        if resolved == 0 and failed > 0:
+            # THE 2026-08-24 RULE: a digest in which not one matter resolved a
+            # number is not a deliverable — every line would read "matter
+            # number unavailable", which is the artifact the Captain rejected.
+            # Withhold it and page instead: the SUPPRESSED_WAKE row below
+            # carries a digest_degraded basis, which the seat heartbeat counts
+            # as a 'degraded' send-refusal event and the console's existing
+            # ss#2547 marker pager turns into a team@ page. Deliberate nothing,
+            # never silent nothing.
+            #
+            # Authored absence does NOT reach this branch (_RESOLUTION_FAILURES
+            # excludes no_number_on_record): a firm whose matters genuinely
+            # carry no numbers keeps its deadline watch, rendered with explicit
+            # absences. Partial failure also ships (below) — withholding real
+            # deadlines because SOME lookups failed hurts the firm more than
+            # explicit absences do; the threshold is zero-resolved.
+            writer = audit_writer_factory()
+            if writer is not None:
+                try:
+                    await writer.write_suppressed_wake(
+                        skill_name=skill_name,
+                        pre_run_inputs=decision.pre_run_inputs_digest,
+                        decision_basis="digest_degraded_suppressed",
+                        next_scheduled_at=_next_scheduled_at(now),
+                        extra_metadata={
+                            "degraded_reason": degraded_reason,
+                            "matter_numbers_resolved": resolved,
+                            "matter_lookups_failed": failed,
+                            **decision.extra_metadata,
+                        },
+                    )
+                    return _emit_suppress()
+                except Exception:  # noqa: BLE001 — fall through to the stripped wake
+                    pass
+            # The audit write failed (or no writer is wired). Falling open WITH
+            # the digest would ship the degraded artifact the suppress just
+            # withheld; staying silent would break the dead-man's-switch. So the
+            # wake fires STRIPPED — no plans, no digest, a basis the skill
+            # renders as "report the run failed" — and the turn has nothing
+            # degraded to render. (The refusal path backstops it: with nothing
+            # read this session, the tier3 gate's empty-register refusal now
+            # instructs stop-and-report, and a refused send pages via the
+            # existing 'refused' kind.)
+            return _emit_wake(basis="digest_degraded_audit_unavailable")
+        if degraded_reason is not None:
+            # Partial failure: the digest ships (explicit absences per item),
+            # AND the degraded fact rides the EMITTED_WAKE row's metadata so
+            # the heartbeat pages it — a 1-of-40 run must not sail silently.
+            decision = replace(
+                decision,
+                extra_metadata={
+                    **decision.extra_metadata,
+                    "degraded_reason": degraded_reason,
+                    "matter_numbers_resolved": resolved,
+                    "matter_lookups_failed": failed,
+                },
+            )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
         await _try_write_emitted_wake(
             audit_writer_factory, decision, skill_name=skill_name, now=now
@@ -857,11 +1053,24 @@ _HEARTBEAT_TIMEOUT_SECONDS = 10
 
 # Runs inside the connector venv. Both pulls are attempted independently and
 # errors are REPORTED, not swallowed — a partial view must not suppress.
+#
+# The matter-number enrichment (ss #2390) is the connector's own join
+# (``smokeball_connector.matter_ref``), invoked here because this pull uses the
+# raw client and bypasses the MCP surface where ``server.py`` performs it. Its
+# failure is REPORTED per item (typed absences) and wholesale
+# (``matterRefError``), never allowed to kill the pull: dates without numbers
+# are still deadlines, and what happens to a number-less digest is decided in
+# ``run_once``, not by an exception here. The lookup budget arrives via
+# ``SMD_MATTER_LOOKUP_BUDGET`` in the subprocess env (config-authored,
+# ``escalation.matter_lookup_budget``) — argv stays exactly the two locally
+# computed date strings.
 _PULL_SNIPPET = """\
 import json
+import os
 import sys
 
 from smokeball_connector.client import build_client_from_env
+from smokeball_connector.matter_ref import attach_matter_numbers
 
 frm, to = sys.argv[1], sys.argv[2]
 client = build_client_from_env()
@@ -874,6 +1083,18 @@ try:
     out["events"] = client.get("/events", From=frm, To=to, Limit=500)
 except Exception as exc:
     out["eventsError"] = str(exc)[:300]
+try:
+    budget = int(os.environ.get("SMD_MATTER_LOOKUP_BUDGET", "100"))
+    items = []
+    for key in ("tasks", "events"):
+        envelope = out.get(key)
+        if isinstance(envelope, dict) and isinstance(envelope.get("value"), list):
+            items.extend(envelope["value"])
+        elif isinstance(envelope, list):
+            items.extend(envelope)
+    out["matterNumberCounts"] = attach_matter_numbers(client, items, budget=budget)
+except Exception as exc:
+    out["matterRefError"] = str(exc)[:300]
 print(json.dumps(out, default=str))
 """
 
@@ -992,6 +1213,27 @@ def _probe_stamp_of(item: dict) -> datetime | None:
         return None
 
 
+def _matter_number_of(item: dict) -> tuple[str | None, str | None]:
+    """``(matter_number, absent_reason)`` — exactly one is non-None.
+
+    The number is the connector's code-projected ``matterNumber`` (ss #2390),
+    never derived here. The absence reasons are the connector's typed ones
+    (``matterNumberAbsent``); an item with neither annotation came from a pull
+    where the enrichment step itself never ran or crashed wholesale, which for
+    the degraded-run judgment IS a resolution failure — with one carve: an item
+    that names no matter at all can only ever be "no_matter_link".
+    """
+    number = item.get("matterNumber")
+    if isinstance(number, str) and number:
+        return number, None
+    absent = item.get("matterNumberAbsent")
+    if isinstance(absent, str) and absent:
+        return None, absent
+    if _matter_id_of(item) == "unknown-matter":
+        return None, "no_matter_link"
+    return None, "lookup_failed"
+
+
 def parse_pull(
     raw: dict, *, now: datetime | None = None
 ) -> tuple[list[MatterDeadline], str | None, dict]:
@@ -1045,9 +1287,12 @@ def parse_pull(
             authored = _first_date(item, keys)
             if authored is None:
                 continue
+            number, number_absent = _matter_number_of(item)
             deadlines.append(
                 MatterDeadline(
                     matter_id=_matter_id_of(item),
+                    matter_number=number,
+                    matter_number_absent=number_absent,
                     authored_date=authored,
                     label=label,
                     matter_open=True,
@@ -1072,10 +1317,19 @@ class SmokeballSubprocessSource:
     run_once after the pull; the DeadlineSource protocol itself stays a plain
     deadlines pull)."""
 
-    def __init__(self, windows: EscalationWindows, today: date) -> None:
+    def __init__(
+        self, windows: EscalationWindows, today: date, matter_lookup_budget: int = 100
+    ) -> None:
         self._windows = windows
         self._today = today
+        self._matter_lookup_budget = matter_lookup_budget
         self.probe_stats: dict | None = None
+        # The connector's per-status join census (ss #2390): resolved /
+        # no_number_on_record / lookup_failed / budget_exhausted /
+        # no_matter_link. None when the pull never ran; the wholesale-crash
+        # case surfaces as matter_ref_error instead.
+        self.matter_number_counts: dict | None = None
+        self.matter_ref_error: str | None = None
 
     def pull_deadlines(self) -> Sequence[MatterDeadline]:
         connector_python = os.environ.get(
@@ -1083,12 +1337,17 @@ class SmokeballSubprocessSource:
         )
         frm = self._today.isoformat()
         to = (self._today + timedelta(days=self._windows.escalation_window_days)).isoformat()
+        env = dict(os.environ)
+        # Config-authored lookup cap for the matter-number join, carried in the
+        # ENV rather than argv so the nosemgrep justification below stays true.
+        env["SMD_MATTER_LOOKUP_BUDGET"] = str(self._matter_lookup_budget)
         result = subprocess.run(  # raises on timeout → caller wakes
             # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args — argv[0] is the module-constant connector-venv interpreter, overridable only via SMD_CONNECTOR_VENV_PYTHON from the Machine's own boot env (same trust domain; the test seam). The snippet is a module constant; frm/to are date.isoformat() strings computed here, never external input.
             [connector_python, "-c", _PULL_SNIPPET, frm, to],
             capture_output=True,
             text=True,
             timeout=_PULL_TIMEOUT_SECONDS,
+            env=env,
         )
         if result.returncode != 0:
             raise RuntimeError(
@@ -1096,6 +1355,10 @@ class SmokeballSubprocessSource:
                 f"{(result.stderr or '').strip()[:500]}"
             )
         raw = json.loads((result.stdout or "").strip().splitlines()[-1])
+        counts = raw.get("matterNumberCounts")
+        self.matter_number_counts = counts if isinstance(counts, dict) else None
+        error = raw.get("matterRefError")
+        self.matter_ref_error = error if isinstance(error, str) else None
         deadlines, problem, probe_stats = parse_pull(raw)
         self.probe_stats = probe_stats
         if problem:
@@ -1222,7 +1485,9 @@ def main() -> int:
         return _emit_wake(basis="customer_slug_unset_fail_open")
     windows, fire_policy = load_escalation_config()
     today = datetime.now(timezone.utc).date()
-    source = SmokeballSubprocessSource(windows, today)
+    source = SmokeballSubprocessSource(
+        windows, today, matter_lookup_budget=load_matter_lookup_budget()
+    )
     try:
         return asyncio.run(
             run_once(
