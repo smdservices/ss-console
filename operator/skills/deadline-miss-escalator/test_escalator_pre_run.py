@@ -86,6 +86,8 @@ def _dl(
     acked: bool = False,
     task_id: str | None = None,
     last_raised: str | None = None,
+    matter_number: str | None = None,
+    matter_number_absent: str | None = None,
 ) -> MatterDeadline:
     from datetime import timedelta
 
@@ -99,6 +101,8 @@ def _dl(
         acked=acked,
         task_id=task_id,
         last_raised=last_raised,
+        matter_number=matter_number,
+        matter_number_absent=matter_number_absent,
     )
 
 
@@ -1324,3 +1328,130 @@ def test_the_subprocess_source_passes_the_budget_in_the_env_and_captures_counts(
     # (the nosemgrep justification's contract).
     assert len(seen["argv"]) == 5
     assert source.matter_number_counts == {"resolved": 0}
+
+
+# ---------------------------------------------------------------------------
+# The degraded-run rule (2026-08-24): a digest naming zero matters is withheld
+# ---------------------------------------------------------------------------
+
+
+def _dl_num(number=None, absent=None, **kwargs):
+    """An in-range deadline with matter-number provenance."""
+    return _dl(matter_number=number, matter_number_absent=absent, **kwargs)
+
+
+def test_zero_resolved_with_failures_suppresses_and_pages_not_sends():
+    """The incident rule. Every line of the would-be digest reads "matter
+    number unavailable" because the JOIN failed — that artifact is withheld,
+    and the SUPPRESSED_WAKE row carries the digest_degraded basis + a reason
+    with the run's own numbers (what the team@ page renders)."""
+    sources = [
+        FakeSource(
+            [
+                _dl_num(absent="lookup_failed", days_out=5, task_id="t-1"),
+                _dl_num(absent="lookup_failed", days_out=2, task_id="t-2", matter_id="7002"),
+            ]
+        )
+    ]
+    executor = FakeExecutor()
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
+    )
+    assert code == 0
+    assert json.loads(out) == {"wakeAgent": False}
+    (call,) = executor.calls
+    sql, params = call
+    assert params[2] == "SUPPRESSED_WAKE"
+    metadata = json.loads(params[11])
+    assert metadata["decision_basis"] == "digest_degraded_suppressed"
+    assert metadata["matter_numbers_resolved"] == 0
+    assert metadata["matter_lookups_failed"] == 2
+    assert "withheld" in metadata["degraded_reason"]
+    assert "2 lookup(s) failed" in metadata["degraded_reason"]
+
+
+def test_degraded_suppress_with_a_failed_audit_write_wakes_stripped():
+    """The critique's blocking finding: the old fail-open (wake WITH the
+    digest) would re-ship the incident artifact the suppress just withheld.
+    The stripped wake carries no plans and no digest — nothing degraded for
+    the turn to render — under its own basis."""
+    sources = [FakeSource([_dl_num(absent="lookup_failed", days_out=5, task_id="t-1")])]
+    executor = FakeExecutor(fail=True)
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload == {
+        "wakeAgent": True,
+        "decision_basis": "digest_degraded_audit_unavailable",
+    }
+
+
+def test_partial_failure_ships_the_digest_and_pages_the_degradation():
+    """1-of-40 must neither sail silently nor be withheld: real deadlines with
+    a resolved number outweigh the failed lookups (each renders explicit
+    absence), and the degraded fact rides the EMITTED_WAKE metadata so the
+    heartbeat's degraded kind still pages."""
+    sources = [
+        FakeSource(
+            [
+                _dl_num(number="PI-2026-0001", days_out=5, task_id="t-1"),
+                _dl_num(absent="lookup_failed", days_out=3, task_id="t-2", matter_id="7002"),
+            ]
+        )
+    ]
+    executor = FakeExecutor()
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["wakeAgent"] is True
+    assert payload["decision_basis"] == "deadline_in_escalation_range"
+    assert payload["digest"] is not None
+    (call,) = executor.calls
+    _sql, params = call
+    assert params[2] == "EMITTED_WAKE"
+    metadata = json.loads(params[11])
+    assert metadata["degraded_reason"].startswith("digest sent with explicit absences")
+    assert metadata["matter_numbers_resolved"] == 1
+    assert metadata["matter_lookups_failed"] == 1
+
+
+def test_authored_absence_alone_is_never_degraded():
+    """A firm whose matters carry no numbers keeps its deadline watch: the
+    digest ships with "no number on record" per item and nothing pages."""
+    sources = [
+        FakeSource(
+            [_dl_num(absent="no_number_on_record", days_out=5, task_id="t-1")]
+        )
+    ]
+    executor = FakeExecutor()
+
+    def factory():
+        return SuppressedWakeWriter(AuditLogWriter(executor))
+
+    code, out = _capture_stdout(
+        run_once(sources, EscalationWindows(), factory, today=TODAY, now=NOW)
+    )
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["wakeAgent"] is True
+    assert payload["decision_basis"] == "deadline_in_escalation_range"
+    (call,) = executor.calls
+    _sql, params = call
+    metadata = json.loads(params[11])
+    assert "degraded_reason" not in metadata

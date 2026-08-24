@@ -300,6 +300,8 @@ def enrich_with_ledger(
         enriched.append(
             MatterDeadline(
                 matter_id=d.matter_id,
+                matter_number=d.matter_number,
+                matter_number_absent=d.matter_number_absent,
                 authored_date=d.authored_date,
                 label=d.label,
                 matter_open=d.matter_open,
@@ -834,6 +836,43 @@ def _deadline_to_dict(d: MatterDeadline) -> dict:
     }
 
 
+#: The typed absences that mean the JOIN failed, as opposed to the firm's own
+#: record carrying no number. Only these count toward a degraded run — see
+#: smokeball_connector/matter_ref.py for why the distinction is load-bearing.
+_RESOLUTION_FAILURES = frozenset({"lookup_failed", "budget_exhausted"})
+
+
+def _degradation(
+    deadlines: Sequence[MatterDeadline], today: date
+) -> tuple[int, int, str | None]:
+    """``(resolved, failed, reason)`` for the degraded-run judgment (2026-08-24).
+
+    ``failed`` counts only RESOLUTION failures, never authored absence. The
+    reason string is what the team@ page will read (it rides the heartbeat's
+    degraded event), so it carries the run's own numbers — "N deadlines
+    withheld" is actionable where a bare basis token is not. None when there is
+    nothing degraded to say.
+    """
+    resolved = sum(1 for d in deadlines if d.matter_number)
+    failed = sum(1 for d in deadlines if d.matter_number_absent in _RESOLUTION_FAILURES)
+    if failed == 0:
+        return resolved, failed, None
+    nearest = min(
+        ((d.authored_date - today).days for d in deadlines), default=0
+    )
+    if resolved == 0:
+        reason = (
+            f"{len(deadlines)} deadline(s) withheld: 0 matter numbers resolved, "
+            f"{failed} lookup(s) failed, nearest deadline {nearest} day(s) out"
+        )
+    else:
+        reason = (
+            f"digest sent with explicit absences: {failed} of {failed + resolved} "
+            f"matter lookup(s) failed"
+        )
+    return resolved, failed, reason
+
+
 async def run_once(
     sources: Sequence[DeadlineSource],
     windows: EscalationWindows,
@@ -903,6 +942,64 @@ async def run_once(
                     today=today,
                     probe_stats=probe_stats or None,
                 ),
+            )
+        resolved, failed, degraded_reason = _degradation(deadlines, today)
+        if resolved == 0 and failed > 0:
+            # THE 2026-08-24 RULE: a digest in which not one matter resolved a
+            # number is not a deliverable — every line would read "matter
+            # number unavailable", which is the artifact the Captain rejected.
+            # Withhold it and page instead: the SUPPRESSED_WAKE row below
+            # carries a digest_degraded basis, which the seat heartbeat counts
+            # as a 'degraded' send-refusal event and the console's existing
+            # ss#2547 marker pager turns into a team@ page. Deliberate nothing,
+            # never silent nothing.
+            #
+            # Authored absence does NOT reach this branch (_RESOLUTION_FAILURES
+            # excludes no_number_on_record): a firm whose matters genuinely
+            # carry no numbers keeps its deadline watch, rendered with explicit
+            # absences. Partial failure also ships (below) — withholding real
+            # deadlines because SOME lookups failed hurts the firm more than
+            # explicit absences do; the threshold is zero-resolved.
+            writer = audit_writer_factory()
+            if writer is not None:
+                try:
+                    await writer.write_suppressed_wake(
+                        skill_name=skill_name,
+                        pre_run_inputs=decision.pre_run_inputs_digest,
+                        decision_basis="digest_degraded_suppressed",
+                        next_scheduled_at=_next_scheduled_at(now),
+                        extra_metadata={
+                            "degraded_reason": degraded_reason,
+                            "matter_numbers_resolved": resolved,
+                            "matter_lookups_failed": failed,
+                            **decision.extra_metadata,
+                        },
+                    )
+                    return _emit_suppress()
+                except Exception:  # noqa: BLE001 — fall through to the stripped wake
+                    pass
+            # The audit write failed (or no writer is wired). Falling open WITH
+            # the digest would ship the degraded artifact the suppress just
+            # withheld; staying silent would break the dead-man's-switch. So the
+            # wake fires STRIPPED — no plans, no digest, a basis the skill
+            # renders as "report the run failed" — and the turn has nothing
+            # degraded to render. (The refusal path backstops it: with nothing
+            # read this session, the tier3 gate's empty-register refusal now
+            # instructs stop-and-report, and a refused send pages via the
+            # existing 'refused' kind.)
+            return _emit_wake(basis="digest_degraded_audit_unavailable")
+        if degraded_reason is not None:
+            # Partial failure: the digest ships (explicit absences per item),
+            # AND the degraded fact rides the EMITTED_WAKE row's metadata so
+            # the heartbeat pages it — a 1-of-40 run must not sail silently.
+            decision = replace(
+                decision,
+                extra_metadata={
+                    **decision.extra_metadata,
+                    "degraded_reason": degraded_reason,
+                    "matter_numbers_resolved": resolved,
+                    "matter_lookups_failed": failed,
+                },
             )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
         await _try_write_emitted_wake(

@@ -289,7 +289,10 @@ function parseWebhookSurfaceJson(value: unknown): string | null {
 const SEND_REFUSAL_MAX_ENTRIES = 5
 const SEND_REFUSAL_MAX_CHARS = 4096
 const SEND_REFUSAL_FIELD_CHARS = 200
-const SEND_REFUSAL_KINDS = new Set(['refused', 'unsent'])
+// 'degraded' (2026-08-24): the routine's own pre-run withheld an unfit digest
+// (SUPPRESSED_WAKE with a digest_degraded basis, counted by the overlay's
+// count_send_refusals) — the deliberate nothing that must page like a refusal.
+const SEND_REFUSAL_KINDS = new Set(['refused', 'unsent', 'degraded'])
 
 // ISO-8601 with an explicit zone. A bare local-looking timestamp is refused
 // rather than assumed UTC: this value is the pager's ordering marker, and a
