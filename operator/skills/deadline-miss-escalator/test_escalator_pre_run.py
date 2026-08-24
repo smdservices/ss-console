@@ -1272,6 +1272,35 @@ def test_the_handoff_records_group_each_matters_dates_under_its_number(tmp_path,
     assert "2026-07-12" in written["dates"]
 
 
+def test_the_handoff_records_include_each_matters_last_raised_day(tmp_path, monkeypatch):
+    """The 2026-08-24 rehearsal refusal: the under-active band renders
+    "(last raised <date>)" beside the matter number, and that PAIRING must seed
+    or a fully correct digest is refused on it. ``last_raised`` is an ISO
+    timestamp; the digest renders its day, so the day seeds."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = {
+        "digest": {
+            "under_active_escalation_elsewhere": [
+                {
+                    "matter_id": "m-1",
+                    "matter_number": "2026-PI-101",
+                    "authored_date": "2026-07-08",
+                    "last_raised": "2026-08-24T14:04:09.774Z",
+                }
+            ]
+        }
+    }
+    _pre_run._write_pre_run_handoff(payload)
+    written = json.loads(
+        (tmp_path / ".smd" / "pre_run" / "deadline-miss-escalator.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert written["records"] == [
+        {"matterNumber": "2026-PI-101", "dates": ["2026-07-08", "2026-08-24"]}
+    ]
+
+
 def test_load_matter_lookup_budget_reads_the_authored_value_and_allows_zero(
     tmp_path, monkeypatch
 ):
