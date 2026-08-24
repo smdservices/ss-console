@@ -4,7 +4,7 @@ description: >-
   Escalates a deadline that is near or already missed. Walks an approaching or missed
   firm-authored deadline up a ladder: re-surface, re-route, then notify a named human, so a
   critical date never slips silently. Internal-only; tracks authored dates, never computes one.
-version: 0.3.0
+version: 0.4.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -66,11 +66,11 @@ Reads Smokeball (`list_tasks` `due_date`) for authored task deadlines and the ma
 ## Procedure
 
 1. **Pre-run (cron, no agent):** `pre_run.py` compares each authored date to today and joins the escalation ledger. Wakes the agent iff some open, in-range item **should fire now** (never fired, or its re-fire window elapsed, or an ack has snoozed out); otherwise writes `SUPPRESSED_WAKE` and prints `{"wakeAgent": false}`. Audit-write failure falls back to wake (the date must not go dark).
-2. **On wake — the wake line in the Script Output block is this turn's item list (#2253).** When it carries `plans`, each entry names the `matter_id`, `task_id`, the authored `label`, the `authored_date` verbatim, the `rung` the gate mapped, and `last_raised`. Those entries are the firing set: verify each live against Smokeball when the connector allows, and work from them rather than re-deriving a list. When the line carries **no plans** (a fail-open `decision_basis` such as `no_audit_writer_fail_open`, `suppress_heartbeat_failed_fail_open`, `customer_slug_unset_fail_open`, or `pre_run_crashed_fail_open`), or carries `plans_truncated: true`, the gate woke blind or partial: enumerate through the connector yourself and never treat a partial list as the complete one.
+2. **On wake — the wake line in the Script Output block is this turn's item list (#2253).** When it carries `plans`, each entry names the `matter_id`, the code-projected `matter_number` (or a typed `matter_number_absent` reason), `task_id`, the authored `label`, the `authored_date` verbatim, the `rung` the gate mapped, and `last_raised`. Those entries are the firing set: verify each live against Smokeball when the connector allows, and work from them rather than re-deriving a list. When the line carries **no plans** (a fail-open `decision_basis` such as `no_audit_writer_fail_open`, `suppress_heartbeat_failed_fail_open`, `customer_slug_unset_fail_open`, or `pre_run_crashed_fail_open`), or carries `plans_truncated: true`, the gate woke blind or partial: enumerate through the connector yourself and never treat a partial list as the complete one.
 
-   **The `digest` block is the alert's structure, rendered verbatim (ss #2405).** The wake line normally also carries `digest`: the projected sections (`needs_you`, `admin_confirms` with per-matter `count` + `ack_codes`, `under_active_escalation_elsewhere`, `awaiting_clearance`, `blanket_ack_only`, `probe_artifacts`), the `subject`, and every count — computed by the gate over the FULL universe, ahead of the plan cap. The turn renders that structure exactly: the subject line is the digest's `subject`; a section absent from the digest is absent from the email (never a zero-count heading); each rendered count IS the digest's count, never re-counted. The 2026-08-14 digest labeled a matter "1 routine confirmation(s)" above two ACK codes and its subject counted 32 routine confirms as "need you" — every number was model arithmetic; none may be again. What the turn ADDS is prose, not structure: each needs-you item's one plain line of why it is consequential, ordering within a band, and the empty-state notes. When the wake carries NO digest (ledger unavailable), compose per the fail-open rule above and say the projection was unavailable rather than asserting section counts.
+   **The `digest` block is the alert's structure, rendered verbatim (ss #2405).** The wake line normally also carries `digest`: the projected sections (`needs_you`, `admin_confirms` with per-matter `count` + `ack_codes`, `under_active_escalation_elsewhere`, `awaiting_clearance`, `blanket_ack_only`, `probe_artifacts`), the `subject`, and every count — computed by the gate over the FULL universe, ahead of the plan cap. Each item also carries its `matter_number`, projected in code by the connector's matter.id → matter.number join during the gate's own pull (ss #2390): render it verbatim beside the item. An item whose `matter_number` is null carries `matter_number_absent` saying why — render `no_number_on_record` as "no number on record" (the firm's own record has no number; that is authored absence, stated plainly); any other reason renders "matter number unavailable". Never substitute the GUID `matter_id` for a missing number. The turn renders that structure exactly: the subject line is the digest's `subject`; a section absent from the digest is absent from the email (never a zero-count heading); each rendered count IS the digest's count, never re-counted. The 2026-08-14 digest labeled a matter "1 routine confirmation(s)" above two ACK codes and its subject counted 32 routine confirms as "need you" — every number was model arithmetic; none may be again. What the turn ADDS is prose, not structure: each needs-you item's one plain line of why it is consequential, ordering within a band, and the empty-state notes. When the wake carries NO digest (ledger unavailable), compose per the fail-open rule above and say the projection was unavailable rather than asserting section counts.
 
-   **Provenance boundary.** The authored dates and labels in the wake payload are the gate's own pull on this same tick, so they are read facts, not remembered ones, and may be stated. `ACK` codes are a different class and the #1935 rule in step 3 is unchanged: a code may be printed only when an `escalation_append` call this run returned it. `last_raised` carries its own limit: the escalation ledger records what THE OPERATOR raised, and only after a send succeeded, so a null value renders as "no Operator raise on record" and never as "not raised".
+   **Provenance boundary.** The authored dates, labels, and `matter_number` values in the wake payload are the gate's own pull on this same tick — the numbers resolved by the connector's code join, never composed — so they are read facts, not remembered ones, and may be stated. `ACK` codes are a different class and the #1935 rule in step 3 is unchanged: a code may be printed only when an `escalation_append` call this run returned it. `last_raised` carries its own limit: the escalation ledger records what THE OPERATOR raised, and only after a send succeeded, so a null value renders as "no Operator raise on record" and never as "not raised".
 
    **When the connector is unavailable,** state only what the wake payload carries plus what a tool call actually returned this run. Everything else renders "unavailable (connector down)" per `docs/style/empty-state-pattern.md`. Never state a specific date, count, or code the run did not read. An internal note may be short; it may not be confidently wrong.
 
@@ -107,6 +107,7 @@ Computing "X from the incident" to decide what is overdue (the cardinal sin — 
 3. `ESCALATION_FIRED` targets the authored red-flag recipient; with none authored, no alert fires.
 4. Held matters surface for clearance, no client step.
 5. No date is computed; overdue is decided by an authored date passing today.
+6. Every rendered matter number equals a `matter_number` the wake payload or a this-turn read carries; an absent number renders explicit absence ("no number on record" / "matter number unavailable"), never a GUID and never a supplied value.
 
 ## References
 
@@ -136,7 +137,9 @@ the first time):
 - In email, task, and memo text, refer to the matter by its NUMBER, taken ONLY
   from the `matterNumber` field the connector projected onto a record you read
   this turn (task, event, memo, file, and document reads all carry it when the
-  matter resolves). Never compose, recall, or infer a matter number, and never
+  matter resolves) — or, in this skill, from the wake payload's `matter_number`
+  field, which is the same connector join performed on the gate's own pull this
+  tick (ss #2390). Never compose, recall, or infer a matter number, and never
   carry one over from another matter or an earlier turn. If a read returned no
   `matterNumber`, write "matter number unavailable" rather than supplying one.
   Never refer to the matter by its case caption. The matter's own caption is

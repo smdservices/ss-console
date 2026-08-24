@@ -13,7 +13,12 @@ the routine confirmations to per-matter counts, and carries a per-item ACK code
 so the reader can acknowledge one item without silencing the rest.
 
 **The structure and every count come from the wake line's projected `digest`
-(ss #2405), rendered verbatim.** Section membership, per-matter groups, code
+(ss #2405), rendered verbatim.** `<number>` in every template below is the
+digest item's `matter_number` — the connector's code join on the gate's own
+pull (ss #2390), copied verbatim. When it is null: `matter_number_absent:
+no_number_on_record` renders "no number on record" (the firm's record carries
+no number); any other absence renders "matter number unavailable". Never a
+GUID, never a composed or remembered number. Section membership, per-matter groups, code
 lists, section counts, and the subject line are all computed by the pre-run
 gate over the full item universe; the turn re-counts nothing and moves nothing
 across bands. Subject semantics changed with ss #2405: `<N>` counts ONLY the
@@ -42,7 +47,7 @@ Subject: [Deadlines] <N> need you, YYYY-MM-DD
 
 Ranked by what the record says, most consequential first. Three to five items.
 
-1. matter <id>, <label> <date> (<overdue by N days | due in N days>) [ACK-XXXXXX]
+1. matter <number>, <label> <date> (<overdue by N days | due in N days>) [ACK-XXXXXX]
    <one plain line of why it is consequential: the authored signal only, e.g.
    "an unverified response is treated as no response" / "disbursement blocked
    until the lien payoff is confirmed" / "opposing-counsel letter held N days">
@@ -53,7 +58,7 @@ Ranked by what the record says, most consequential first. Three to five items.
 Routine confirmations, collapsed per matter. Reply with a matter's ACK codes to
 clear its items, or open the item in Smokeball.
 
-- matter <id>: <k> routine confirmation(s). [ACK-XXXXXX] [ACK-XXXXXX] ...
+- matter <number>: <k> routine confirmation(s). [ACK-XXXXXX] [ACK-XXXXXX] ...
 - ...
 
 ## Under active escalation elsewhere (<count>) [omit section if 0]
@@ -61,21 +66,21 @@ clear its items, or open the item in Smokeball.
 Already raised by another step, shown so it is not double-counted. No action
 here beyond what that step owns.
 
-- matter <id>, <item>: under active escalation by <owning skill> (last raised <date>).
+- matter <number>, <item>: under active escalation by <owning skill> (last raised <date>).
 
 ## Awaiting clearance (<count>) [omit section if 0]
 
 Held matters with an approaching date. Surfaced for a person to clear; never a
 client-facing step.
 
-- matter <id>: on CONFLICT-HOLD with <label> <date> approaching.
+- matter <number>: on CONFLICT-HOLD with <label> <date> approaching.
 
 ## Blanket-ack only (<count>) [omit section if 0]
 
 Items with no stable task id, so they carry no individual ACK code. A blanket
 acknowledgement (below) acks exactly the ones quoted here.
 
-- matter <id>: <label> <date> (<overdue by N days | due in N days>).
+- matter <number>: <label> <date> (<overdue by N days | due in N days>).
 
 Reply with the ACK code(s) above to acknowledge. Reply ESCALATION_ACKNOWLEDGED
 to ack every item quoted in this message; items you do not quote stay open. An
@@ -92,7 +97,7 @@ exactly what was acked and counts what remains, so an under-ack (a mail client
 trimming quoted text) stays visible.
 
 ```markdown
-Acknowledged <A> item(s): <ACK-XXXXXX> matter <id>, <label>; ...
+Acknowledged <A> item(s): <ACK-XXXXXX> matter <number>, <label>; ...
 Still open and not acked: <R> item(s). They will surface again on the next run.
 Acked items go quiet for <ack_snooze_days> days unless resolved sooner in Smokeball.
 ```

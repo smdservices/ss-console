@@ -220,6 +220,8 @@ def test_run_once_wakes_on_in_range_no_audit_written():
         "plans": [
             {
                 "matter_id": "7001",
+                "matter_number": None,  # FakeSource authored no number
+                "matter_number_absent": None,
                 "task_id": "task-9",
                 "label": "filing-deadline",
                 "authored_date": "2026-06-13",  # verbatim, not re-derived from days_out
@@ -275,6 +277,8 @@ def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
         "plans": [
             {
                 "matter_id": "7001",
+                "matter_number": None,
+                "matter_number_absent": None,
                 "task_id": "task-9",
                 "label": "filing-deadline",
                 "authored_date": "2026-06-13",
@@ -999,7 +1003,7 @@ def test_run_once_wake_line_carries_the_digest():
 # guard the three properties that make it safe to seed from: it lands, it
 # carries exactly what the wake line already said, and it carries nothing else.
 
-_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids"}
+_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids", "records"}
 
 
 def _authored_dates_in(node, found=None) -> list:
@@ -1100,3 +1104,223 @@ def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypa
     blocked.write_text("x", encoding="utf-8")
     monkeypatch.setenv("HERMES_HOME", str(blocked))
     assert _wake_stdout() == good
+
+
+# ---------------------------------------------------------------------------
+# Matter numbers projected in code (ss #2390 / the 2026-08-24 degraded digest)
+# ---------------------------------------------------------------------------
+#
+# The fixture is CAPTURED FROM THE LIVE API (pilot tenant, 2026-08-24, trimmed
+# to the fields these paths read) — ss #2390 AC4: fixtures come from the live
+# API, not authored dict literals. The connector join itself is unit-tested in
+# operator/connectors/smokeball/tests/test_matter_ref.py against the same
+# capture; here the join is REPLAYED over the capture and the projection is
+# checked against the SOURCE record, so a digest item wearing a lookalike
+# matter's number fails (the ss #2405 falsifier shape).
+
+_FIXTURE_PATH = _HERE.parent / "tests" / "fixtures" / "live-pull-2026-08-24.json"
+_CONNECTOR_PKG = _HERE.parents[2] / "connectors" / "smokeball"
+
+
+def _load_matter_ref():
+    matter_ref_path = _CONNECTOR_PKG / "smokeball_connector" / "matter_ref.py"
+    spec = importlib.util.spec_from_file_location("smokeball_matter_ref", matter_ref_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class _FixtureClient:
+    def __init__(self, matters):
+        self._matters = matters
+
+    def get(self, path, **params):
+        matter = self._matters.get(path.rsplit("/", 1)[-1])
+        if matter is None:
+            raise RuntimeError("404")
+        return matter
+
+
+def _enriched_fixture():
+    fixture = json.loads(_FIXTURE_PATH.read_text(encoding="utf-8"))
+    matter_ref = _load_matter_ref()
+    tasks = fixture["tasks"]["value"]
+    matter_ref.attach_matter_numbers(_FixtureClient(fixture["matters"]), tasks)
+    return fixture
+
+
+def test_parse_pull_carries_the_code_projected_matter_number():
+    fixture = _enriched_fixture()
+    deadlines, problem, _stats = _pre_run.parse_pull(
+        {"tasks": fixture["tasks"], "events": []}
+    )
+    assert problem is None
+    assert deadlines, "the live capture holds open tasks with due dates"
+    for d in deadlines:
+        source = fixture["matters"][d.matter_id]
+        assert d.matter_number == source["number"]
+        assert d.matter_number_absent is None
+
+
+def test_the_digest_item_number_matches_the_source_record_for_every_item():
+    """The ss #2405 falsifier: the projection is compared against the SOURCE,
+    per item — a digest item carrying another matter's number, or a composed
+    one, fails here."""
+    fixture = _enriched_fixture()
+    deadlines, _problem, _stats = _pre_run.parse_pull(
+        {"tasks": fixture["tasks"], "events": []}
+    )
+    ledger = _pre_run._load_ledger_module()
+    digest = _pre_run.project_digest(
+        deadlines,
+        EscalationWindows(),
+        ledger,
+        today=date(2026, 7, 20),
+    )
+    rendered = 0
+    for section in ("needs_you", "under_active_escalation_elsewhere", "blanket_ack_only"):
+        for item in digest.get(section) or []:
+            source = fixture["matters"][item["matter_id"]]
+            assert item["matter_number"] == source["number"]
+            rendered += 1
+    assert rendered > 0
+
+
+def test_an_unenriched_item_reads_as_lookup_failed_not_as_authored_absence():
+    """An item with neither annotation came from a pull whose enrichment never
+    ran or crashed wholesale — for the degraded judgment that IS a resolution
+    failure, and must never read as "the record has no number"."""
+    deadlines, _problem, _stats = _pre_run.parse_pull(
+        {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "subject": "x",
+                    "dueDate": "2026-07-10",
+                    "matter": {"id": "m-1"},
+                }
+            ],
+            "events": [],
+        }
+    )
+    (d,) = deadlines
+    assert d.matter_number is None
+    assert d.matter_number_absent == "lookup_failed"
+
+
+def test_a_typed_absence_rides_through_parse():
+    deadlines, _problem, _stats = _pre_run.parse_pull(
+        {
+            "tasks": [
+                {
+                    "id": "t1",
+                    "subject": "x",
+                    "dueDate": "2026-07-10",
+                    "matter": {"id": "m-1"},
+                    "matterNumberAbsent": "no_number_on_record",
+                }
+            ],
+            "events": [],
+        }
+    )
+    (d,) = deadlines
+    assert d.matter_number is None
+    assert d.matter_number_absent == "no_number_on_record"
+
+
+def test_the_handoff_records_group_each_matters_dates_under_its_number(tmp_path, monkeypatch):
+    """The association half of ss #2390: the overlay register seeds (number,
+    dates) PER RECORD, so the grouping here is the mispairing boundary — a date
+    grouped under the wrong number would seed the wrong pair."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = {
+        "plans": [
+            {
+                "matter_id": "m-1",
+                "matter_number": "PI-2026-0001",
+                "authored_date": "2026-07-08",
+            },
+            {
+                "matter_id": "m-1",
+                "matter_number": "PI-2026-0001",
+                "authored_date": "2026-07-14",
+            },
+            {
+                "matter_id": "m-2",
+                "matter_number": "PI-2026-0002",
+                "authored_date": "2026-07-10",
+            },
+            # No number: contributes to dates, never to records.
+            {"matter_id": "m-3", "authored_date": "2026-07-12"},
+        ]
+    }
+    _pre_run._write_pre_run_handoff(payload)
+    written = json.loads(
+        (tmp_path / ".smd" / "pre_run" / "deadline-miss-escalator.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert written["records"] == [
+        {"matterNumber": "PI-2026-0001", "dates": ["2026-07-08", "2026-07-14"]},
+        {"matterNumber": "PI-2026-0002", "dates": ["2026-07-10"]},
+    ]
+    assert "2026-07-12" in written["dates"]
+
+
+def test_load_matter_lookup_budget_reads_the_authored_value_and_allows_zero(
+    tmp_path, monkeypatch
+):
+    """Zero is a legitimate authored value — the staging lever that forces the
+    degraded path for the runtime rehearsal. Missing or malformed → default."""
+    yaml_path = tmp_path / "customer.yaml"
+    yaml_path.write_text("escalation:\n  matter_lookup_budget: 0\n", encoding="utf-8")
+    assert _pre_run.load_matter_lookup_budget(str(yaml_path)) == 0
+    yaml_path.write_text("escalation:\n  matter_lookup_budget: 25\n", encoding="utf-8")
+    assert _pre_run.load_matter_lookup_budget(str(yaml_path)) == 25
+    yaml_path.write_text("escalation: {}\n", encoding="utf-8")
+    assert (
+        _pre_run.load_matter_lookup_budget(str(yaml_path))
+        == _pre_run._DEFAULT_MATTER_LOOKUP_BUDGET
+    )
+    yaml_path.write_text("escalation:\n  matter_lookup_budget: -3\n", encoding="utf-8")
+    assert (
+        _pre_run.load_matter_lookup_budget(str(yaml_path))
+        == _pre_run._DEFAULT_MATTER_LOOKUP_BUDGET
+    )
+    monkeypatch.delenv("SMD_CUSTOMER_YAML_PATH", raising=False)
+    assert _pre_run.load_matter_lookup_budget(None) == _pre_run._DEFAULT_MATTER_LOOKUP_BUDGET
+
+
+def test_the_subprocess_source_passes_the_budget_in_the_env_and_captures_counts(
+    monkeypatch,
+):
+    seen = {}
+
+    def fake_run(argv, capture_output, text, timeout, env):
+        seen["env_budget"] = env.get("SMD_MATTER_LOOKUP_BUDGET")
+        seen["argv"] = argv
+
+        class R:
+            returncode = 0
+            stderr = ""
+            stdout = json.dumps(
+                {
+                    "tasks": [],
+                    "events": [],
+                    "matterNumberCounts": {"resolved": 0},
+                }
+            )
+
+        return R()
+
+    monkeypatch.setattr(_pre_run.subprocess, "run", fake_run)
+    source = _pre_run.SmokeballSubprocessSource(
+        EscalationWindows(), date(2026, 8, 24), matter_lookup_budget=7
+    )
+    assert source.pull_deadlines() == []
+    assert seen["env_budget"] == "7"
+    # argv stays exactly interpreter, -c, snippet, and the two date strings
+    # (the nosemgrep justification's contract).
+    assert len(seen["argv"]) == 5
+    assert source.matter_number_counts == {"resolved": 0}
