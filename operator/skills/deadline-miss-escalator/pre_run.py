@@ -618,29 +618,41 @@ def _is_iso_day(value: str) -> bool:
     )
 
 
+#: Per-item date fields whose values a digest line renders BESIDE the matter
+#: number, and which therefore must seed as that matter's pairs. ``authored_date``
+#: is the deadline itself; ``last_raised`` is the Operator's own ledger timestamp
+#: rendered as "(last raised <date>)" on the under-active-escalation band — the
+#: 2026-08-24 rehearsal was refused on exactly that pairing because only
+#: authored dates were grouped (the atoms verified; the association did not).
+_HANDOFF_RECORD_DATE_KEYS = ("authored_date", "last_raised")
+
+
 def _handoff_records(node, out: dict) -> dict:
-    """Group every ``(matter_number, authored_date)`` co-occurrence in the
-    payload into per-matter records, first-seen order, deduped.
+    """Group every ``(matter_number, date)`` co-occurrence in the payload into
+    per-matter records, first-seen order, deduped.
 
     These become the overlay handoff's ``records`` — the association half of
     provenance (ss #2390): the trust register seeds each matter's number WITH
     its own dates, so a rendered digest line pairing this matter with another
-    matter's date is refused as the mispairing it is. Only nodes carrying BOTH
-    fields contribute; the association is a fact of the projection, never an
-    inference across siblings.
+    matter's date is refused as the mispairing it is. Only nodes carrying the
+    number AND a date field contribute; the association is a fact of the
+    projection, never an inference across siblings. ``last_raised`` is an ISO
+    timestamp — its DAY is what a digest line renders, so the day is what
+    seeds.
     """
     if isinstance(node, dict):
         number = node.get("matter_number")
-        authored = node.get("authored_date")
-        if (
-            isinstance(number, str)
-            and number
-            and isinstance(authored, str)
-            and _is_iso_day(authored)
-        ):
-            dates = out.setdefault(number, [])
-            if authored not in dates:
-                dates.append(authored)
+        if isinstance(number, str) and number:
+            for key in _HANDOFF_RECORD_DATE_KEYS:
+                value = node.get(key)
+                if not isinstance(value, str):
+                    continue
+                day = value[:10]
+                if not _is_iso_day(day):
+                    continue
+                dates = out.setdefault(number, [])
+                if day not in dates:
+                    dates.append(day)
         for child in node.values():
             _handoff_records(child, out)
     elif isinstance(node, list):
