@@ -323,3 +323,46 @@ describe('mechanisms under review are falsifiable', () => {
     expect(violations).toEqual([])
   })
 })
+
+/**
+ * The venture's repository set is declared, so "don't switch repos" has
+ * something to check against.
+ *
+ * WHY. On 2026-08-25 an agent retired a seat across git, D1, R2 and Fly, then
+ * stopped at the overlay's mirrored contract fixture and asked permission to
+ * continue. The SOS directive says "never switch repos or ventures without
+ * explicit Captain approval"; CLAUDE.md declared `venturecrane/engagements` as a
+ * sibling repo of this venture and never declared the overlay. With no declared
+ * repo set, the conservative reading of the directive wins and the agent stops
+ * at a repo boundary that is internal to the venture. The Captain reports having
+ * explained this many times -- which is the signal that it was never written
+ * down, not that it was forgotten.
+ *
+ * This is a guard rather than a note because the failure is silent: an agent
+ * that stops does not error, it just asks, and the cost lands on the Captain one
+ * conversation at a time.
+ */
+describe('venture repositories are declared in CLAUDE.md', () => {
+  const claudeMd = readFileSync(resolve('CLAUDE.md'), 'utf8')
+
+  // Every repo this venture spans. Adding one here without adding it to
+  // CLAUDE.md fails, which is the point.
+  const VENTURE_REPOS = [
+    'venturecrane/ss-console',
+    'venturecrane/hermes-smd-overlay',
+    'venturecrane/engagements',
+  ]
+
+  for (const repo of VENTURE_REPOS) {
+    it(`names ${repo}`, () => {
+      expect(claudeMd).toContain(repo)
+    })
+  }
+
+  it('states that moving between them is not a venture switch', () => {
+    // The directive an agent is weighing says "repos or ventures". CLAUDE.md has
+    // to answer the question that phrasing raises, not merely list the repos.
+    expect(claudeMd).toMatch(/NOT a repo switch/i)
+    expect(claudeMd).toMatch(/different venture/i)
+  })
+})
