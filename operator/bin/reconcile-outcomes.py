@@ -58,6 +58,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -453,6 +454,64 @@ def reconcile_seat(
     return report
 
 
+#: Constant for this control, deliberately NOT derived from the findings.
+#
+# It is how a run locates the issue it already opened. The tempting design is a
+# hash of the finding set, and it is wrong: this control's finding set GREW on
+# five of six day-over-day transitions (350 -> 361 -> 376 -> 380 -> 388 -> 389
+# -> 389, ss#2581), so a findings-derived marker would fail to match yesterday's
+# issue on almost every run and file a second one -- exactly the defect. The
+# sibling reconciler can key on its findings because its backlog is static; this
+# one cannot.
+SERIES_MARKER = "reconcile-series: terminal-state"
+
+
+def finding_key(slug: str, obligation: Obligation) -> str:
+    """Stable identity of one silent run, as a `|`-joined key.
+
+    Mirrors reconcile-sends.py:753 in shape and in what it refuses to include.
+
+    `row_id` is the audit ledger's own primary key and is the right identity,
+    but `_claimed_obligations` never sets one, so claimed findings fall back to
+    a timestamp keyspace behind a `ts:` marker -- the same trick the sibling
+    uses "so the two key spaces can never collide".
+
+    `slug` comes from the caller, never from `obligation.slug`: the claimed
+    constructor takes ``slug=str(claim.get("slug") or "")``, which can be the
+    empty string, and two seats' claimed findings would then share a key.
+
+    Deliberately absent: `rows_in_window` and `rows_read` (recomputed against
+    whatever window this run pulled), `pending` (depends on `now`), and
+    `routine_class` (mutated in place at line 287 when a hold folds into an
+    enclosing run). Any of them turns a stable identity into a daily-changing
+    one, which is how an escalation ledger ends up disjoint from reality.
+    """
+    if obligation.row_id:
+        return f"{slug}|row:{obligation.row_id}"
+    return f"{slug}|ts:{obligation.opened_at.isoformat()}|{obligation.shape}"
+
+
+def finding_digest(reports: list["SeatReport"]) -> str:
+    """Fingerprint of the whole finding set, for "did the number move".
+
+    Its ONLY job is to decide whether a run has anything new to say on the
+    issue it already opened. It never decides whether to report: this control
+    reports every run, because its findings accrue daily.
+
+    Sorted before hashing so seat read order cannot change it. Empty on a clean
+    run, so a run with nothing to say is distinguishable from one that has not
+    been compared.
+    """
+    keys = sorted(
+        finding_key(report.slug, obligation)
+        for report in reports
+        for obligation in report.findings
+    )
+    if not keys:
+        return ""
+    return hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
+
+
 def render(reports: list[SeatReport]) -> str:
     lines: list[str] = []
     for report in reports:
@@ -490,6 +549,16 @@ def render(reports: list[SeatReport]) -> str:
         f"{sum(len(r.unclassified) for r in reports)} unclassified, "
         f"{len(held)} seat(s) held, {len(reports)} seat(s) scanned"
     )
+    # Column 0, and in render() only. The workflow finds the issue it already
+    # opened with `sed -n 's/^reconcile-series: //p'`; finding detail lines are
+    # indented eight spaces, so nothing above can be mistaken for it. --json
+    # omits both, because a bare marker line inside a JSON payload breaks the
+    # parse -- the sibling reconciler omits its own for the same reason.
+    lines.append("")
+    lines.append(SERIES_MARKER)
+    digest = finding_digest(reports)
+    if digest:
+        lines.append(f"reconcile-findings: {digest}")
     return "\n".join(lines)
 
 

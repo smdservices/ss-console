@@ -412,3 +412,177 @@ def test_exit_3_when_every_seat_fails_to_read(monkeypatch, capsys):
     monkeypatch.setattr(rec.seam_pull, "seam_client_from_env", lambda slug: None)
     assert rec.main(["--slug", "pilot-smokeball"]) == rec.EXIT_HOLD
     assert "HOLD" in capsys.readouterr().out
+
+
+# ======================================================================
+# ss#2582 -- one condition, one issue
+#
+# The reconciler filed a fresh prio:P1 every scheduled run: seven issues in
+# seven days for one condition. The obvious fix -- fingerprint the findings and
+# stay silent when they repeat -- is WRONG here and was nearly shipped. The
+# finding set grew on 5 of 6 day-over-day transitions (350 -> 361 -> 376 -> 380
+# -> 388 -> 389 -> 389). The control is firing for cause (ss#2581); a dedupe
+# would have suppressed 1 of the 7 and taught the reader to skim the rest.
+#
+# So the marker that finds the open issue is CONSTANT for this control, and the
+# digest of the finding set is a separate value whose only job is to answer
+# "did the number move since last time".
+# ======================================================================
+
+
+def test_the_series_marker_is_constant_across_different_finding_sets():
+    """This is what lets a run FIND the issue it already opened. If it varied
+    with the findings -- the tempting design -- a changed set would fail to
+    match yesterday's issue and file a second one, which is the defect."""
+    a = _report(_analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")]))
+    b = _report(
+        _analyze(
+            [
+                _row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED"),
+                _row("2026-08-14T09:00:00.000Z", "INBOUND_RECEIVED"),
+            ]
+        )
+    )
+    def marker_line(report):
+        hits = [ln for ln in rec.render([report]).split("\n") if ln.startswith("reconcile-series:")]
+        assert len(hits) == 1, f"expected exactly one marker line, got {hits}"
+        return hits[0]
+
+    # Equality, not `in`. Found by mutation testing 2026-08-24: appending the
+    # finding count to the marker -- the precise wrong design this test exists
+    # to forbid -- left `SERIES_MARKER in rendered` true, because the constant
+    # is a prefix of the varying string. A substring assertion cannot see it.
+    assert marker_line(a) == rec.SERIES_MARKER
+    assert marker_line(b) == rec.SERIES_MARKER
+    assert marker_line(a) == marker_line(b)
+
+
+def test_the_digest_ignores_rows_read():
+    """rows_read moves every run -- 2045 -> 2089 on ashton-price between two
+    consecutive days -- while the findings stood still. A digest over the
+    report TEXT would change daily and the control would comment every day
+    about nothing. Falsifier for the pair below."""
+    obligations = _analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")])
+    quiet = _report(obligations)
+    quiet.rows_read = 2045
+    busy = _report(obligations)
+    busy.rows_read = 2089
+    assert rec.finding_digest([quiet]) == rec.finding_digest([busy])
+
+
+def test_the_digest_changes_when_a_genuine_finding_appears():
+    """The other half. Without this the digest could be a constant and every
+    test above would still pass."""
+    one = _report(_analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")]))
+    two = _report(
+        _analyze(
+            [
+                _row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED"),
+                _row("2026-08-14T09:00:00.000Z", "INBOUND_RECEIVED"),
+            ]
+        )
+    )
+    assert len(two.findings) > len(one.findings)
+    assert rec.finding_digest([one]) != rec.finding_digest([two])
+
+
+def test_the_digest_is_order_independent():
+    """Seats are read in whatever order the fleet list returns them."""
+    a = _report(_analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")]))
+    b = _report(
+        _analyze([_row("2026-08-14T09:00:00.000Z", "INBOUND_RECEIVED")], slug="scott"),
+    )
+    b.slug = "scott"
+    assert rec.finding_digest([a, b]) == rec.finding_digest([b, a])
+
+
+def test_a_finding_key_never_carries_a_count():
+    """rows_in_window is recomputed against whatever window this run pulled;
+    pending depends on `now`; routine_class is mutated in place when a hold
+    folds into an enclosing run. None of them identify the finding, and any of
+    them in the key reintroduces the daily churn."""
+    obligation = _findings(_analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")]))[0]
+    key = rec.finding_key("pilot-smokeball", obligation)
+    assert str(obligation.rows_in_window) not in key.split("|")
+    assert obligation.routine_class not in key
+    assert "pending" not in key
+
+
+def test_a_claimed_finding_keys_off_the_report_slug_not_its_own():
+    """_claimed_obligations takes slug=str(claim.get("slug") or ""), which can
+    be the empty string. Keyed off the obligation, two seats' claimed findings
+    would collide on `|ts:...`."""
+    claimed = rec.Obligation(
+        slug="",
+        opened_at=rec.parse_ts("2026-08-13T21:21:53.988Z"),
+        opened_by="external claim",
+        trigger_kind="claimed",
+        routine_class="scheduled_internal",
+        shape=rec.SHAPE_NO_RUN_EVENTS,
+    )
+    left = rec.finding_key("pilot-smokeball", claimed)
+    right = rec.finding_key("ashton-price", claimed)
+    assert left != right
+    assert left.startswith("pilot-smokeball|")
+
+
+def test_the_series_marker_sits_at_column_zero():
+    """The workflow greps `^reconcile-series: ` with sed. Finding detail lines
+    are indented eight spaces; if the marker ever drifts into an indented
+    block the search silently finds nothing and the control files a second
+    issue every day again."""
+    out = rec.render([_report(_analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")]))])
+    marker_lines = [ln for ln in out.split("\n") if rec.SERIES_MARKER in ln]
+    assert marker_lines, "no marker line emitted"
+    assert all(not ln.startswith(" ") for ln in marker_lines)
+
+
+def test_json_mode_carries_no_marker():
+    """--json is consumed by machines that parse the whole payload; a bare
+    marker line would break the parse, and the sibling reconciler omits it
+    there for the same reason."""
+    out = rec.as_json([_report(_analyze([_row("2026-08-13T21:21:53.988Z", "INBOUND_RECEIVED")]))])
+    assert rec.SERIES_MARKER not in out
+
+
+def test_a_clean_run_still_emits_the_marker_so_the_issue_can_be_updated():
+    """A day with nothing to report must still be able to find the open issue
+    and record that the count went to zero. Silence is what this whole control
+    exists to remove."""
+    assert rec.SERIES_MARKER in rec.render([_report([])])
+
+
+# ----------------------------------------------------------------------
+# Workflow conformance. The renderer and the workflow are coupled by a grep,
+# and a grep that stops matching fails silently -- the control would file a
+# second issue every day again and look healthy doing it. The sibling suite
+# pins its own workflow the same way.
+# ----------------------------------------------------------------------
+
+_WORKFLOW = (
+    Path(__file__).resolve().parents[3] / ".github" / "workflows" / "terminal-state-reconcile.yml"
+)
+
+
+def test_the_workflow_greps_the_marker_the_renderer_actually_emits():
+    text = _WORKFLOW.read_text()
+    assert "sed -n 's/^reconcile-series: //p'" in text
+    assert rec.SERIES_MARKER.split(":")[0] + ":" == "reconcile-series:"
+
+
+def test_the_workflow_refuses_to_file_without_a_marker():
+    """A findings run that emits no marker means the renderer and the grep have
+    drifted. Filing anyway would open a fresh un-findable issue daily, which is
+    the original defect wearing the fix's clothes."""
+    assert "findings reported with no reconcile-series line" in _WORKFLOW.read_text()
+
+
+def test_the_hold_step_is_not_gated_on_findings():
+    """pilot-law was dark for seven days and only the daily P1 said so. The HOLD
+    surface must not be reachable only through the findings path, or collapsing
+    to one issue hides it."""
+    text = _WORKFLOW.read_text()
+    hold_step = text[text.index("A held seat is always said out loud") :]
+    condition = hold_step[: hold_step.index("run: |")]
+    assert "steps.reconcile.outputs.status == '1'" not in condition
+    assert "GITHUB_STEP_SUMMARY" in hold_step
