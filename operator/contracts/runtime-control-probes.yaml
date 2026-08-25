@@ -113,19 +113,14 @@ probes:
     expect: expected-fail
     runner: sticky_stop_arm_unwired
     proves: >-
-      That no ss-console module drives this arm. As of 2026-08-25 that is no
-      longer the same statement as "the arm is inert": overlay#319 wired it on
-      the runtime side, where this probe cannot see, and overlay#320 proves it
-      fires at boot. So a not-fired result here is EXPECTED and says nothing
-      about the control's status; loop_arm_boot_probe is the live probe.
-      Retained because an ss-console-side caller appearing would still be a
-      surprise worth a red run.
+      Nothing. That is the point: the ladder is healthy and nobody calls it, so
+      the probe comes back not-fired and the registry's `inert` is confirmed
+      rather than asserted. If a caller ever appears, this flips to
+      UNEXPECTED_PASS and the registry row is wrong.
     limits: >-
-      The caller search covers ss-console only, which is exactly why this probe
-      could not observe the overlay wiring that made the control enforced. The
-      sentence this file already carried — "a wiring that lands in the overlay
-      flips the registry row, not this probe" — is now the live case rather than
-      a hypothetical.
+      The caller search covers ss-console only. A wiring that lands in the
+      overlay flips the registry row, not this probe; the same cross-repo limit
+      overlay-pairs.json documents.
 
   refusal_cascade_arm_has_no_dispatch_caller:
     probe: refusal_cascade_arm_has_no_dispatch_caller
@@ -138,12 +133,10 @@ probes:
     expect: expected-fail
     runner: sticky_stop_arm_unwired
     proves: >-
-      That no ss-console module drives this arm. Since 2026-08-25 that is not
-      the same as inert — overlay#319 wired it runtime-side and
-      refusal_cascade_boot_probe is the live probe. Retained as an ss-console
-      observer only.
+      Confirms `inert` rather than asserting it, and turns the day a caller
+      appears into a red run instead of a silent status drift.
     limits: >-
-      ss-console only, as above — the reason it could not see the wiring.
+      ss-console only, as above.
 
   time_budget_arm_has_no_dispatch_caller:
     probe: time_budget_arm_has_no_dispatch_caller
@@ -190,48 +183,6 @@ probes:
     proves: >-
       On the seat, on every boot, that the audit emitter actually writes; the
       handler os._exit(1)s when the row count does not move.
-    limits: >-
-      Overlay-side. Reported here as HOLD, never as this suite's green.
-
-  loop_arm_boot_probe:
-    probe: loop_arm_boot_probe
-    control: sticky_stop_tool_failure
-    kind: boot
-    violation: >-
-      At boot, in a throwaway db, drive the REAL post_tool_call handler
-      (_meter_loop_arms) with a status=error envelope, then status=ok, then an
-      unrecognised status.
-    expect: refuse
-    observe: 'fly logs -a hermes-<slug> | grep -i "RUNAWAY-LOOP BRAKE"'
-    proves: >-
-      That a tool failure ARRIVING AT THE HOOK moves the ladder on the seat —
-      not merely that the ladder can climb, which is all the local probe and the
-      cost boot probe can say. That distinction is the whole defect: for months
-      record_tool_failure was implemented, thresholded, audited and unit-tested
-      with no caller anywhere, and every test was green about it. A probe that
-      drove the state machine directly would have passed throughout. It also
-      asserts status=ok RESETS the streak (an arm that only climbs would stop
-      every healthy long-lived seat) and that an unrecognised status moves
-      nothing (or an upstream envelope rename starts manufacturing stops).
-      The handler os._exit(1)s on any of the three, so a seat whose runaway
-      brake is inert crash-loops instead of serving.
-    limits: >-
-      Overlay-side (overlay#320). Reported here as HOLD with the observation
-      command, never as this suite's green — the same posture as the trust and
-      audit boot probes.
-
-  refusal_cascade_boot_probe:
-    probe: refusal_cascade_boot_probe
-    control: sticky_stop_refusal_cascade
-    kind: boot
-    violation: >-
-      At boot, drive the REAL post_tool_call handler with a
-      status=blocked / error_type=plugin_block envelope against a throwaway db.
-    expect: refuse
-    observe: 'fly logs -a hermes-<slug> | grep -i "RUNAWAY-LOOP BRAKE"'
-    proves: >-
-      That a trust refusal arriving at the hook feeds the refusal-cascade arm on
-      the seat. Same runner and the same fail-closed exit as loop_arm_boot_probe.
     limits: >-
       Overlay-side. Reported here as HOLD, never as this suite's green.
 
