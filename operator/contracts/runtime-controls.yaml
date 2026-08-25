@@ -473,20 +473,29 @@ controls:
     control: sticky_stop_tool_failure
     class: circuit-breaker
     substrate_module: safety-substrate/sticky_stop.py
-    wired_via: ''
+    wired_via: 'post_tool_call / hermes-smd-audit'
     live_probe: ''
     probe_surface: ''
-    status: inert
+    status: unprobed
     owner: SMDurgan
     tracking: ADR-0050:B3
     candidate_probe: tool_failure_arm_has_no_dispatch_caller
     risk_review: >-
-      2026-08-17 (ss#2387): now PROBED as inert rather than asserted as inert. The
-      probe drives the ladder (it still climbs) and then searches for a non-test
-      caller (there is none), so it records EXPECTED_FAIL. Exposure unchanged: a
-      seat looping on a failing tool has no brake and stops only on cost. The day
-      a caller appears in ss-console the probe flips to UNEXPECTED_PASS and this
-      row goes red. Owner SMDurgan, tracked at ADR-0050:B3.
+      2026-08-25: inert -> UNPROBED. The arm IS fed as of overlay 99c62699
+      (overlay#319), which is the ref this repo pins, so `inert` had stopped being
+      true — it said the control does not fire while the control fires on every
+      seat provisioned from the pin. Nothing automated caught that: the candidate
+      probe's caller search is ss-console-only and its own `limits` field says an
+      overlay-side wiring "flips the registry row, not this probe."
+      NOT `enforced`, because no probe observes it firing on a seat. A per-boot
+      self-check was built for exactly that and abandoned the same day after three
+      broken lookups, a wrong harm tier, and a 29-minute crash-loop of
+      hermes-smd-staging; the branches are overlay#320/#321/#322/#325 if it is ever
+      picked up again. Exposure now: a seat provisioned from the pin HAS the brake
+      (proven on staging, vfy_01M0WNVF6KDHP8YW2EJGYEMKMY); a seat on an older ref
+      does not, and as of today that is both client seats — hermes-ashton-price on
+      f16d4920 and hermes-smd on 0f84a625, each verified absent with a positive
+      control. Owner SMDurgan, tracked at ADR-0050:B3.
     note: >-
       record_tool_failure() consecutive-failure ladder (WARN/SOFT_STOP/HARD_STOP).
       Built + tested; no dispatch caller. Wired by B3 (StickyStopError integration
@@ -496,23 +505,24 @@ controls:
     control: sticky_stop_refusal_cascade
     class: circuit-breaker
     substrate_module: safety-substrate/sticky_stop.py
-    wired_via: ''
+    wired_via: 'post_tool_call / hermes-smd-audit'
     live_probe: ''
     probe_surface: ''
-    status: inert
+    status: unprobed
     owner: SMDurgan
     tracking: ADR-0050:B3
     candidate_probe: refusal_cascade_arm_has_no_dispatch_caller
     risk_review: >-
-      2026-08-17 (ss#2387): probed as inert, EXPECTED_FAIL. Worth recording that
-      the first version of this probe reported a caller in
-      safety-substrate/refusal.py and was wrong: it had grepped a docstring
-      sentence. The probe parses calls now, which is the difference between a
-      control declared live by prose and one declared live by a call site. Owner
-      SMDurgan, tracked at ADR-0050:B3.
+      2026-08-25: inert -> UNPROBED, same reasoning as sticky_stop_tool_failure.
+      Fed from post_tool_call as of overlay 99c62699 (overlay#319) when a trust
+      refusal arrives as status=blocked / error_type=plugin_block; no probe
+      observes it firing on a seat, so not `enforced`. Worth keeping from the
+      2026-08-17 entry: the first version of the candidate probe reported a caller
+      in safety-substrate/refusal.py and was wrong — it had grepped a docstring
+      sentence. Owner SMDurgan, tracked at ADR-0050:B3.
     note: >-
-      record_refusal() refusal-cascade ladder. Built + tested; no dispatch caller.
-      Wired by B3.
+      record_refusal() refusal-cascade ladder. Fed from post_tool_call in
+      hermes-smd-audit as of overlay#319; unprobed on any seat.
 
   sticky_stop_time_budget:
     control: sticky_stop_time_budget
