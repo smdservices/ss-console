@@ -12,8 +12,16 @@ The alert leads with the few items that genuinely need a person today, collapses
 the routine confirmations to per-matter counts, and carries a per-item ACK code
 so the reader can acknowledge one item without silencing the rest.
 
-**The structure and every count come from the wake line's projected `digest`
-(ss #2405), rendered verbatim.** `<number>` in every template below is the
+**The digest supplies the VALUES and the MEMBERSHIP. The templates below supply
+the WORDS and the MARKUP.** The turn never prints the projection's field names,
+never prints its rows as data, and never invents a heading. Every `##` heading,
+every `-` and every `1.` in the templates below is required literally in the
+body you send: an alert whose lines carry no list marker renders as one run-on
+paragraph in a mail client, which is what happened on 2026-08-25.
+
+"Rendered verbatim" below means the COUNTS and the BANDING are copied, not
+recomputed. It has never meant "print the digest". `<number>` in every template
+below is the
 digest item's `matter_number` — the connector's code join on the gate's own
 pull (ss #2390), copied verbatim. When it is null: `matter_number_absent:
 no_number_on_record` renders "no number on record" (the firm's record carries
@@ -61,12 +69,11 @@ clear its items, or open the item in Smokeball.
 - matter <number>: <k> routine confirmation(s). [ACK-XXXXXX] [ACK-XXXXXX] ...
 - ...
 
-## Under active escalation elsewhere (<count>) [omit section if 0]
+## Under active escalation elsewhere (<count> across <M> matters) [omit section if 0]
 
-Already raised by another step, shown so it is not double-counted. No action
-here beyond what that step owns.
+Already raised, shown so it is not double-counted. No action here.
 
-- matter <number>, <item>: under active escalation by <owning skill> (last raised <date>).
+- matter <number>: <k> item(s) under active escalation (last raised <date>).
 
 ## Awaiting clearance (<count>) [omit section if 0]
 
@@ -101,6 +108,42 @@ Acknowledged <A> item(s): <ACK-XXXXXX> matter <number>, <label>; ...
 Still open and not acked: <R> item(s). They will surface again on the next run.
 Acked items go quiet for <ack_snooze_days> days unless resolved sooner in Smokeball.
 ```
+
+## What this must never look like
+
+The 2026-08-25 alert, sent and unusable. Every line below is a real defect, and
+all of them are one deviation: the turn wrote its own shape instead of the
+templates above.
+
+```
+NEEDS YOU TODAY                                          <- not a heading, no count
+
+2026-PI-101 | task-deadline | due 2026-08-26 | 1 day out <- the projection's fields
+No Operator raise on record.                                printed as a data row
+ACK: ACK-YED4HY
+
+UNDER ACTIVE ESCALATION ELSEWHERE (no action required from you)   <- invented title
+
+2026-PI-106 | task-deadline | authored 2026-07-08 | 48 days overdue | last raised ...
+2026-PI-106 | task-deadline | authored 2026-07-08 | 48 days overdue | last raised ...
+... 36 more, 20 of them the same matter, none distinguishable from another
+```
+
+Four things went wrong and each has a rule above:
+
+1. **No `##`, no `-`, no `1.`.** The only markdown block marker in the whole
+   4,280-character body was a single `---`. The html renderer had no heading and
+   no list item to emit, so every band collapsed into one run-on paragraph.
+2. **Field names reached the reader.** `authored_date` became the English word
+   "authored", so a court date one day out read "authored 2026-08-26", which
+   says the opposite of what it means. Use the item's `label` and the templates'
+   own words: `<label> <date> (due in N days)`.
+3. **A band was rendered flat.** 38 rows, 20 for one matter. Both grouped bands
+   arrive pre-collapsed; render one line per matter, never one per item.
+4. **An item-scoped truth read as a matter-scoped contradiction.** "No Operator
+   raise on record" is true of that ITEM. Directly above 20 rows of the SAME
+   matter marked "last raised", it reads as the alert contradicting itself. Say
+   "no prior raise on this item".
 
 ## Rules
 
