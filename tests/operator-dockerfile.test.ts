@@ -1093,6 +1093,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
+    // 99c62699 -> 671507b7 (2026-08-25, overlay#320-#325): the message-structure floor
+    // (#323, ss#2090) plus the pilot-law retirement (#324). The abandoned loop-arm boot
+    // self-check is REMOVED again (#325) rather than carried forward. The runaway-loop
+    // BRAKE (_meter_loop_arms) was already in the old pin and is unchanged.
     // f16d4920 -> 99c62699 (2026-08-25, overlay#319): the sticky-stop ladder's
     // runaway-loop arms get fed. record_tool_failure and record_refusal were
     // implemented, thresholded and audited but had NO caller in either repo, so a
@@ -1104,7 +1108,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="99c62699ff45c9a544ac749635e3d30baedef922"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="671507b7d2b744c54ce8a85aa00b4e2612c6e305"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
