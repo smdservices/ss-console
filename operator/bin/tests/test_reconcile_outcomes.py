@@ -586,3 +586,59 @@ def test_the_hold_step_is_not_gated_on_findings():
     condition = hold_step[: hold_step.index("run: |")]
     assert "steps.reconcile.outputs.status == '1'" not in condition
     assert "GITHUB_STEP_SUMMARY" in hold_step
+
+
+# ----------------------------------------------------------------------
+# ss#2582 follow-on: a machine that was never stood up is not a dark seat.
+#
+# seat_slugs() enumerates AUTHORED directories. pilot-law has been authored and
+# unprovisioned since 2026-06-05 (audit-chain-watch.py:29), so every run holds
+# on it with "Name or service not known" -- DNS failing to resolve a host that
+# does not exist. Reported as HOLD it would fire a warning every day forever
+# about a known non-seat, which is the same noise this issue set out to remove.
+#
+# The seat descriptor refuses to carry a lifecycle field on purpose ("a claim an
+# agent can write is one that rots"), so the discriminator is derived from the
+# probe: name does not resolve -> the machine is ABSENT; anything else ->
+# genuinely HELD. Named either way, so the denominator stays visible (#2366).
+# ----------------------------------------------------------------------
+
+
+def _boom(exc):
+    class _Client:
+        def read_all(self, _kind):
+            raise exc
+
+    return lambda _slug: _Client()
+
+
+def test_a_hostname_that_does_not_resolve_is_absent_not_held():
+    import socket
+    import urllib.error
+
+    err = urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
+    report = rec.reconcile_seat(CONTRACT, "pilot-law", now=AFTER, client_factory=_boom(err))
+    assert report.absent, "an unresolvable host must be marked absent"
+    assert not report.held, "and must not also be held, or it warns daily forever"
+
+
+def test_a_live_seat_that_fails_to_read_is_still_held():
+    """The falsifier. If everything became 'absent' the warning could never fire
+    and a genuinely dark seat would go silent -- the exact failure the HOLD
+    surface exists to prevent."""
+    report = rec.reconcile_seat(
+        CONTRACT, "pilot-smokeball", now=AFTER, client_factory=_boom(TimeoutError("timed out"))
+    )
+    assert report.held, "a reachable-but-failing seat is held"
+    assert not report.absent
+
+
+def test_absent_seats_are_named_in_the_report_not_filtered_away():
+    """#2366: a control that quietly drops rows reports a denominator it did not
+    measure."""
+    report = rec.SeatReport(slug="pilot-law")
+    report.absent = "no machine at that name"
+    out = rec.render([report])
+    assert "pilot-law" in out
+    assert "SKIP" in out
+    assert not any(ln.startswith("HOLD") for ln in out.split("\n"))

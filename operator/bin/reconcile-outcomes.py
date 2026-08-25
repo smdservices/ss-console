@@ -61,6 +61,7 @@ import argparse
 import hashlib
 import json
 import os
+import socket
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -404,7 +405,11 @@ class SeatReport:
     slug: str
     obligations: list[Obligation] = field(default_factory=list)
     rows_read: int = 0
-    held: Optional[str] = None  # could not evaluate
+    held: Optional[str] = None
+    #: The seat's hostname does not resolve, so no machine exists to read. Named
+    #: in the report (#2366) but NOT a hold: holding on it warns daily forever
+    #: about a slug nobody provisioned.
+    absent: Optional[str] = None  # could not evaluate
 
     @property
     def findings(self) -> list[Obligation]:
@@ -417,6 +422,32 @@ class SeatReport:
     @property
     def pending(self) -> list[Obligation]:
         return [o for o in self.obligations if o.pending]
+
+
+def _name_does_not_resolve(exc: BaseException) -> bool:
+    """True when the failure is DNS refusing to resolve the seat's hostname.
+
+    That is the signature of a machine that was never stood up, or has been
+    destroyed -- there is no host to talk to, as opposed to a host that will not
+    answer. `seat_slugs()` enumerates AUTHORED directories, and pilot-law has
+    been authored and unprovisioned since 2026-06-05
+    (`audit-chain-watch.py:29`), so without this every run holds on it forever.
+
+    Derived from the probe, deliberately, rather than read from the seat
+    descriptor: that file refuses to carry a lifecycle field because "a state
+    field is a claim an agent can write, and a claim an agent can write is one
+    that rots". DNS is not a claim.
+
+    Walks the cause chain because urllib wraps the gaierror in a URLError.
+    """
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, socket.gaierror):
+            return True
+        reason = getattr(exc, "reason", None)
+        exc = reason if isinstance(reason, BaseException) else (exc.__cause__ or exc.__context__)
+    return False
 
 
 def reconcile_seat(
@@ -438,7 +469,10 @@ def reconcile_seat(
         try:
             rows = client.read_all("audit_export")
         except Exception as exc:  # noqa: BLE001 -- any transport failure HOLDS
-            report.held = f"audit_export read failed for {slug}: {exc}"
+            if _name_does_not_resolve(exc):
+                report.absent = f"no machine resolves for {slug}: {exc}"
+            else:
+                report.held = f"audit_export read failed for {slug}: {exc}"
             return report
         if not rows:
             # A seat with no rows at all is unmeasurable, not clean. Kept
@@ -515,6 +549,10 @@ def finding_digest(reports: list["SeatReport"]) -> str:
 def render(reports: list[SeatReport]) -> str:
     lines: list[str] = []
     for report in reports:
+        if report.absent:
+            # SKIP, not HOLD: the denominator stays visible without the warning.
+            lines.append(f"SKIP  {report.slug}: {report.absent}")
+            continue
         if report.held:
             lines.append(f"HOLD  {report.slug}: {report.held}")
             continue
@@ -547,7 +585,9 @@ def render(reports: list[SeatReport]) -> str:
     lines.append(
         f"{findings} run(s) with no terminal state, "
         f"{sum(len(r.unclassified) for r in reports)} unclassified, "
-        f"{len(held)} seat(s) held, {len(reports)} seat(s) scanned"
+        f"{len(held)} seat(s) held, "
+        f"{sum(1 for r in reports if r.absent)} seat(s) absent, "
+        f"{len(reports)} seat(s) scanned"
     )
     # Column 0, and in render() only. The workflow finds the issue it already
     # opened with `sed -n 's/^reconcile-series: //p'`; finding detail lines are
