@@ -22,7 +22,8 @@
  * rot.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
@@ -97,7 +98,6 @@ const CANDIDATES: readonly string[] = [
   // live seats
   'ashton-price',
   'pilot-smokeball',
-  'pilot-law',
   'scott',
   'smd',
   'smd-staging',
@@ -137,7 +137,6 @@ const MUST_REJECT: readonly string[] = [
 const LIVE_SLUGS: readonly string[] = [
   'ashton-price',
   'pilot-smokeball',
-  'pilot-law',
   'scott',
   'smd',
   'smd-staging',
@@ -249,5 +248,41 @@ describe('customer slug pattern: one shape, every guard (#2285)', () => {
       rejected,
       `real customer dirs rejected by the canonical pattern: ${rejected.join(', ')}`
     ).toEqual([])
+  })
+})
+
+/**
+ * Retired seats stay retired.
+ *
+ * `pilot-law` was authored 2026-06-05 for the ADR 0038 6 Clio-sandbox law wedge
+ * and never provisioned: no Fly app, no `customer_configs` row. It sat in
+ * `operator/customers/` for eleven weeks, and because seat enumeration walks
+ * AUTHORED directories rather than provisioned seats, every terminal-state
+ * reconciler run held on it with a DNS failure for a machine that never
+ * existed. Retired in full 2026-08-25 -- git, and the orphaned prod R2 object
+ * at `vaults/pilot-law/customer.yaml`.
+ *
+ * This is a guard, not a note. A seat directory is cheap to recreate and the
+ * cost of its return is a daily false hold; the R2 publisher and the
+ * terminal-state reconciler both key off directory presence, so a reappearing
+ * directory silently re-arms both. The second assertion is the one that
+ * generalises: it fails for ANY directory nobody listed, not just this slug.
+ *
+ * If pilot-law is ever genuinely stood up, update this test in the same PR that
+ * provisions it. A visible decision, not a silent one.
+ */
+describe('retired seats', () => {
+  it('pilot-law has no seat directory', () => {
+    expect(existsSync(resolve(REPO_ROOT, 'operator/customers/pilot-law'))).toBe(false)
+  })
+
+  it('the live-seat list matches the directories on disk', () => {
+    const onDisk = readdirSync(resolve(REPO_ROOT, 'operator/customers'), {
+      withFileTypes: true,
+    })
+      .filter((e) => e.isDirectory() && !e.name.startsWith('_') && !e.name.startsWith('.'))
+      .map((e) => e.name)
+      .sort()
+    expect(onDisk).toEqual([...LIVE_SLUGS].sort())
   })
 })
