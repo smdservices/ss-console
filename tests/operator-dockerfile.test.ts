@@ -1104,14 +1104,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    // 99c62699 -> fc17a415 (2026-08-25, overlay#320): the loop-arm wiring gets a
-    // per-boot proof. The sibling cost probe drives the state machine directly and
-    // so is blind to whether the arms are FED — a probe of that shape would have
-    // passed throughout the months record_tool_failure had no caller. This one runs
-    // the real post_tool_call handler against a throwaway ladder and _die's if a
-    // failure envelope does not trip it, a success does not reset the streak, or an
-    // unrecognised status moves anything. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="fc17a4159294009a5db705313927b955c6e30ba0"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="99c62699ff45c9a544ac749635e3d30baedef922"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
