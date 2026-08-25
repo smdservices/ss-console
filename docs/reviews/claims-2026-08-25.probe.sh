@@ -55,26 +55,63 @@ echo "Claims for ss-console, 2026-08-25"
 echo
 
 # ============================================================ ABSENCE LANE ===
-# A6: no security response headers anywhere in shipped code.
+# A6: security response headers. WAS the absence; now the presence.
 #
-# POSITIVE CONTROL (PC6) is what the 2026-08-23 review lacked. "0 matches" is
-# only evidence if the instrument could have returned non-zero — same regex,
-# same paths, same flags, on a term that IS present. Without it the finding is
-# inadmissible, not merely low-confidence.
+# The 2026-08-25 run recorded this OPEN with a positive control (PC6) proving
+# the instrument could return non-zero. It was true at BOTH layers — the repo
+# grep returned 0, and `curl -sSIL https://portal.smd.services/` returned 0
+# while the same command found `content-type`. Closed 2026-08-24 by
+# src/lib/security/response-headers.ts, wired in src/middleware.ts around the
+# WHOLE request so redirects and 401/403 denials carry the headers too.
+#
+# PC6 is retained. An absence claim that flips to a presence claim still needs
+# its instrument shown live, because the same broken search that reports "0
+# headers" would report "0 headers" after a correct fix.
 pc6=$(grep -rniE "content-type|cache-control" src/ workers/ public/ wrangler.toml 2>/dev/null | wc -l | tr -d ' ')
 check PC6 FIXED at-least 1 "$pc6" "instrument is live (sibling header terms found)"
 
 a6=$(grep -rniE "content-security-policy|x-frame-options|strict-transport-security|frame-ancestors" \
        src/ workers/ public/ wrangler.toml 2>/dev/null | wc -l | tr -d ' ')
-check A6 OPEN exact 0 "$a6" "no security response headers set anywhere"
+check A6 FIXED at-least 4 "$a6" "security response headers exist in shipped code"
 
-# ============================================================== INVARIANTS ===
-check F1  OPEN at-most  2   "$(grep -rn 'sticky_stop\|record_tool_failure\|record_refusal' operator/ --include='*.py' 2>/dev/null | grep -v test | grep -v control-probes | grep -v 'sticky_stop.py:' | wc -l | tr -d ' ')" "sticky_stop has no code callers"
-check F3  OPEN exact    0   "$(grep -rln '_VERBS' operator/workspace_broker/tests/ 2>/dev/null | wc -l | tr -d ' ')" "no test enumerates broker verbs"
-check F4  OPEN exact    0   "$(grep -o '\"[a-z_/]*\.py\"' operator/contracts/overlay-pairs.json 2>/dev/null | sort -u | grep -c trust_ceiling | tr -d ' ')" "trust_ceiling absent from parity manifest"
-check F7  OPEN at-most  4   "$(grep -rln 'class BrokerSuppressedWakeWriter' operator/skills/ 2>/dev/null | wc -l | tr -d ' ')" "BrokerSuppressedWakeWriter copies"
-check F9  OPEN at-most  28  "$(grep -rn 'sys.path.insert' operator/ --include='*.py' 2>/dev/null | grep -v test | wc -l | tr -d ' ')" "sys.path.insert stands in for packaging"
-check F12 OPEN exact    0   "$(grep -rn 'test:coverage\|--coverage' .github/workflows/ 2>/dev/null | wc -l | tr -d ' ')" "no workflow runs coverage"
+# Built is not wired. The module can be perfect and unreachable.
+#
+# MATCH THE CALL, NOT THE NAME. The first version of this check counted every
+# occurrence of `applySecurityHeaders` in the middleware and required >=1.
+# Deleting the CALL left the IMPORT, the count went 2 -> 1, and the probe
+# reported HOLDS on a middleware that no longer set a single header. Caught by
+# tampering the target, which is the only reason it is not still wrong.
+a6w=$(grep -cE 'return applySecurityHeaders\(response, context\.request\.url\)' src/middleware.ts 2>/dev/null | tr -d ' ')
+check A6w FIXED at-least 1 "$a6w" "headers applied by the middleware (call site, not import)"
+
+# ============================================== NOW ENFORCED BY npm run verify
+# These five stopped being claims a review re-derives and became checks a merge
+# is gated on. The probe's remaining job is to confirm the ENFORCEMENT is still
+# wired — a test file that gets deleted takes its finding with it, silently.
+check F3  FIXED at-least 1 "$(grep -c 'EXPECTED_VERBS' tests/broker-verb-registry.test.ts 2>/dev/null | tr -d ' ')" "broker verb set is pinned by a test"
+check F4  FIXED at-least 1 "$(grep -c 'taintGateMembers' tests/operator-taint-gate.test.ts 2>/dev/null | tr -d ' ')" "taint-gate refusal set is pinned by a test"
+check F7  FIXED at-least 20 "$(grep -c '\"copies\"' operator/contracts/pre-run-shared-symbols.json 2>/dev/null | tr -d ' ')" "vendored pre_run symbols under a sync contract"
+check F12 FIXED exact    0  "$(grep -cE '^ *thresholds *:' vitest.config.ts 2>/dev/null | tr -d ' ')" "no unevaluatable coverage thresholds declared"
+
+# ================================================== STILL OPEN — JUDGMENT ====
+# F1: sticky_stop's arms have no dispatch caller. NOT a missing check — it is
+# already probed daily by .github/workflows/control-probes.yml
+# (probe_sticky_stop_arm_unwired), whose caller search excludes tests on purpose
+# because "a test calling a circuit breaker is exactly the evidence that fooled
+# everyone about sticky_stop for two months". The system knows. What is open is
+# a product decision — wire the breaker or delete it — and that is the Captain's,
+# not a gate's.
+check F1  OPEN at-most  2   "$(grep -rn 'sticky_stop\|record_tool_failure\|record_refusal' operator/ --include='*.py' 2>/dev/null | grep -v test | grep -v control-probes | grep -v 'sticky_stop.py:' | wc -l | tr -d ' ')" "sticky_stop has no code callers (already probed daily)"
+
+# F9: RESTATED. "28 sys.path.insert" mixed two different things. 22 are in
+# executable entrypoints (operator/bin/*.py, rehearsal runners, seed scripts),
+# where adding operator/ to the path is ordinary script behaviour. 6 are in
+# LIBRARY modules that mutate sys.path at import time — importing them has a
+# global side effect on the importing process. Only the second group is a smell,
+# and its fix is packaging the operator tree, which is a live-runtime refactor
+# and a design call rather than a defect. Measured precisely so the next review
+# argues about the right number.
+check F9  OPEN at-most  6   "$(grep -rn 'sys.path.insert' operator/safety-substrate/ operator/bin/lib/ --include='*.py' 2>/dev/null | grep -v test | wc -l | tr -d ' ')" "library modules mutate sys.path at import"
 
 # ================================================================== FIXED ====
 check F15 FIXED at-least 3  "$(grep -c 'redactOpaqueSegments' src/pages/api/events.ts 2>/dev/null | tr -d ' ')" "manage-token redaction wired"

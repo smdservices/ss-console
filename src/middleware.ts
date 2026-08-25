@@ -5,6 +5,7 @@ import { clerkMiddleware } from '@clerk/astro/server'
 import { resolveAdminSessionFromClerk } from './lib/auth/admin-session-shim'
 import { parseSessionToken, validateSession, renewSession } from './lib/auth/session'
 import { withSentryRequestHandler } from './lib/observability/sentry'
+import { applySecurityHeaders } from './lib/security/response-headers'
 import {
   PRE_REWRITE_REDIRECTS,
   POST_REWRITE_REDIRECTS,
@@ -238,8 +239,14 @@ async function handleRequest(context: APIContext, next: NextFn): Promise<Respons
 //                         admin session shim, and auth enforcement
 //                         (Clerk for both portal and admin; admin gated
 //                         on role='admin' via the shim).
+//   3. security headers — set on EVERY response leaving this Worker, including
+//      the redirects and 401/403 denials that `handleRequest` returns before
+//      ever calling `next()`. Wrapping here rather than inside `handleRequest`
+//      is what makes that true: a header applied only around `next()` would
+//      miss every early return, which is most of the auth surface.
 const ssMiddleware = defineMiddleware(async (context: APIContext, next: NextFn) => {
-  return withSentryRequestHandler(context, () => handleRequest(context, next))
+  const response = await withSentryRequestHandler(context, () => handleRequest(context, next))
+  return applySecurityHeaders(response, context.request.url)
 })
 
 export const onRequest = sequence(clerkMiddleware(), ssMiddleware)
