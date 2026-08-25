@@ -60,15 +60,12 @@ const CUSTOMER_FLY_APPS: Readonly<Record<string, string>> = Object.freeze({
  *
  * `customer.yaml` cannot answer this question itself: it carries no lifecycle
  * field, deliberately ("a state field is a claim an agent can write, and a
- * claim an agent can write is one that rots" — `operator/customers/pilot-law/
+ * claim an agent can write is one that rots" — `operator/customers/<slug>/
  * customer.yaml`), and `seat.kind` does not separate provisioned from not
- * (pilot-law is `sandbox` and has no app; pilot-smokeball is `proving` and
+ * (pilot-law, retired 2026-08-25, was `sandbox` with no app; pilot-smokeball is `proving` and
  * does). So the decision is authored here and reviewed like any other code.
  */
-export const UNPROVISIONED_CUSTOMERS: Readonly<Record<string, string>> = Object.freeze({
-  'pilot-law':
-    'Clio-sandbox law-wedge seat authored for ADR 0038 §6 but never stood up: no hermes-pilot-law Fly app exists and no customer_configs row was ever seeded. Register it when it is provisioned.',
-})
+export const UNPROVISIONED_CUSTOMERS: Readonly<Record<string, string>> = Object.freeze({})
 
 /**
  * The registry itself, for the drift guard in

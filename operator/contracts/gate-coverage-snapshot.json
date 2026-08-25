@@ -14,10 +14,6 @@
         }
       }
     },
-    "pilot-law": {
-      "voice_library_nonempty": true,
-      "output_classes": {}
-    },
     "pilot-smokeball": {
       "voice_library_nonempty": true,
       "output_classes": {
