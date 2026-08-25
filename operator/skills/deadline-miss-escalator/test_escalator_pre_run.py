@@ -876,7 +876,8 @@ def test_digest_recently_raised_items_band_as_elsewhere_not_admin():
         last_raised="2026-06-07T09:00:00.000Z",
     )
     d = _project([quiet, _dl(matter_id="m-2", days_out=1, task_id="t-live")])
-    assert [i["task_id"] for i in d["under_active_escalation_elsewhere"]] == ["t-raised"]
+    band = d["under_active_escalation_elsewhere"]
+    assert [i["task_id"] for g in band["matters"] for i in g["items"]] == ["t-raised"]
     assert [i["task_id"] for i in d["needs_you"]] == ["t-live"]
 
 
@@ -1184,7 +1185,13 @@ def test_the_digest_item_number_matches_the_source_record_for_every_item():
     )
     rendered = 0
     for section in ("needs_you", "under_active_escalation_elsewhere", "blanket_ack_only"):
-        for item in digest.get(section) or []:
+        band = digest.get(section) or []
+        items = (
+            [i for g in band["matters"] for i in g["items"]]
+            if isinstance(band, dict)
+            else band
+        )
+        for item in items:
             source = fixture["matters"][item["matter_id"]]
             assert item["matter_number"] == source["number"]
             rendered += 1
@@ -1484,3 +1491,68 @@ def test_authored_absence_alone_is_never_degraded():
     _sql, params = call
     metadata = json.loads(params[11])
     assert "degraded_reason" not in metadata
+
+
+def test_elsewhere_band_collapses_per_matter_never_one_row_per_item():
+    """The 2026-08-25 regression: 38 flat rows, 20 of them one matter.
+
+    A band whose whole message is "already handled, no action here" must never
+    be the longest thing in the alert (Law 11). It arrives pre-collapsed, so the
+    turn has no flat list to render even if it wanted one.
+
+    Falsifier: if the projection went back to a flat list, ``matters`` would not
+    exist and this would raise TypeError/KeyError rather than pass.
+    """
+    quiet = [
+        _dl(
+            matter_id="m-1",
+            days_out=-40 - i,
+            task_id=f"t-{i}",
+            acknowledged=True,
+            last_raised="2026-06-07T09:00:00.000Z",
+        )
+        for i in range(20)
+    ]
+    quiet.append(
+        _dl(
+            matter_id="m-2",
+            days_out=-5,
+            task_id="t-other",
+            acknowledged=True,
+            last_raised="2026-06-09T09:00:00.000Z",
+        )
+    )
+    d = _project(quiet + [_dl(matter_id="m-3", days_out=1, task_id="t-live")])
+    band = d["under_active_escalation_elsewhere"]
+
+    assert band["total"] == 21, "every item still counted"
+    assert band["matter_count"] == 2, "two matters, not 21 rows"
+    assert len(band["matters"]) == 2
+
+    m1 = next(g for g in band["matters"] if g["matter_id"] == "m-1")
+    assert m1["count"] == 20
+    # One line can state one date, so it states the most recent raise.
+    assert m1["last_raised"] == "2026-06-07T09:00:00.000Z"
+    # Counts are list lengths by construction, never arithmetic.
+    assert m1["count"] == len(m1["items"])
+    assert band["total"] == sum(g["count"] for g in band["matters"])
+
+
+def test_grouped_bands_carry_the_matter_number_so_a_line_can_name_the_matter():
+    """A collapsed line renders "matter <number>", so the GROUP needs the number.
+
+    Before this, only items carried it and a renderer had to reach into an item
+    to name the matter the group is about.
+    """
+    quiet = _dl(
+        matter_id="m-1",
+        days_out=-9,
+        task_id="t-1",
+        acknowledged=True,
+        last_raised="2026-06-07T09:00:00.000Z",
+        matter_number="2026-PI-101",
+    )
+    d = _project([quiet, _dl(matter_id="m-2", days_out=1, task_id="t-live")])
+    group = d["under_active_escalation_elsewhere"]["matters"][0]
+    assert group["matter_number"] == "2026-PI-101"
+    assert "matter_number_absent" in group

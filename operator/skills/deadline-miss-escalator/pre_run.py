@@ -95,7 +95,7 @@ class MatterDeadline:
     # on a pulled-but-not-yet-enriched item and on an item the Operator has
     # never raised. It is NOT "when the firm last acted on this deadline" — the
     # ledger records only Operator raises, and only after a successful send
-    # (SKILL.md step 3), so absent means "no Operator raise on record" and never
+    # (SKILL.md step 3), so absent means "no prior raise on this item" and never
     # "not raised". Carried into the wake payload so a woken turn states a last
     # raise it READ instead of inventing one (#2253).
     last_raised: str | None = None
@@ -385,6 +385,32 @@ def _digest_item(d: MatterDeadline, today: date, ack_code: str | None) -> dict:
     }
 
 
+def _group_by_matter(items: Sequence[dict]) -> dict:
+    """Collapse a band's items into per-matter groups, counts by construction.
+
+    Every count here is a list length, never arithmetic, and the group carries
+    the matter's own ``matter_number`` (plus its typed absence) so the renderer
+    can name the matter without reaching back into an item. ``last_raised`` is
+    the LATEST across the group, because a group rendered as one line can state
+    only one date and the most recent raise is the one that answers "is anyone
+    on this?".
+    """
+    by_matter: dict[str, list[dict]] = {}
+    for item in items:
+        by_matter.setdefault(item["matter_id"], []).append(item)
+    groups = [
+        {
+            **{k: g[0][k] for k in ("matter_id", "matter_number", "matter_number_absent")},
+            "count": len(g),
+            "ack_codes": [i["ack_code"] for i in g if i["ack_code"]],
+            "last_raised": max((i["last_raised"] for i in g if i["last_raised"]), default=None),
+            "items": g,
+        }
+        for _, g in sorted(by_matter.items())
+    ]
+    return {"total": len(items), "matter_count": len(groups), "matters": groups}
+
+
 def project_digest(
     deadlines: Sequence[MatterDeadline],
     windows: EscalationWindows,
@@ -438,35 +464,25 @@ def project_digest(
         "needs_you": [_digest_item(d, today, code_for(d)) for d in needs_you],
     }
     if admin:
-        by_matter: dict[str, list[dict]] = {}
-        for d in admin:
-            by_matter.setdefault(d.matter_id, []).append(_digest_item(d, today, code_for(d)))
-        digest["admin_confirms"] = {
-            "total": len(admin),
-            "matter_count": len(by_matter),
-            "matters": [
-                {
-                    "matter_id": matter_id,
-                    "count": len(items),
-                    "ack_codes": [i["ack_code"] for i in items],
-                    "items": items,
-                }
-                for matter_id, items in sorted(by_matter.items())
-            ],
-        }
+        digest["admin_confirms"] = _group_by_matter(
+            [_digest_item(d, today, code_for(d)) for d in admin]
+        )
     if elsewhere:
-        digest["under_active_escalation_elsewhere"] = [
-            _digest_item(d, today, None) for d in sorted(elsewhere, key=lambda d: d.matter_id)
-        ]
+        # Collapsed per matter for the same reason admin_confirms is (Law 11).
+        # The 2026-08-25 digest rendered this band as 38 flat rows, 20 of them
+        # for one matter, indistinguishable from each other because the line
+        # format carries no task id. A band whose whole purpose is "already
+        # handled, no action here" must not be the longest thing in the alert.
+        digest["under_active_escalation_elsewhere"] = _group_by_matter(
+            [_digest_item(d, today, None) for d in elsewhere]
+        )
     if clearance:
         digest["awaiting_clearance"] = [
             _digest_item(d, today, None) for d in sorted(clearance, key=lambda d: d.matter_id)
         ]
     if blanket:
-        digest["blanket_ack_only"] = [
-            _digest_item(d, today, None)
-            for d in sorted(blanket, key=lambda d: ((d.authored_date - today).days, d.matter_id))
-        ]
+        blanket.sort(key=lambda d: ((d.authored_date - today).days, d.matter_id))
+        digest["blanket_ack_only"] = [_digest_item(d, today, None) for d in blanket]
     if probe_stats and (probe_stats.get("excluded") or probe_stats.get("stale")):
         # ss #2403's daily loud channel: probe artifacts present on the tenant
         # are stated in the digest (excluded from work, and stale ones named for
@@ -738,7 +754,7 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
                 # Provenance, stated in the payload rather than assumed by the
                 # reader: this timestamp is the OPERATOR's escalation ledger,
                 # which records only raises that sent successfully. Null means
-                # "no Operator raise on record", never "not raised".
+                # "no prior raise on this item", never "not raised".
                 "last_raised_source": "operator_ledger",
             }
             for p in emitted
