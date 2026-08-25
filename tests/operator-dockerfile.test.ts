@@ -1104,7 +1104,19 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="99c62699ff45c9a544ac749635e3d30baedef922"')
+    // 99c62699 -> e355edbe (2026-08-25, overlay#320+#321+#322): the loop brake's
+    // self-check, third attempt and the first that is safe to carry. #320 shipped it
+    // FATAL with a plugin lookup built from the repo layout; on a seat that path does
+    // not exist, so the gateway exited 1 every boot and hermes-smd-staging crash-looped
+    // for 29 minutes (pin reverted in #2590). #322 resolves the plugin from the live
+    // PluginManager instead, drives the REGISTERED callback rather than the inner
+    // function it was accidentally measuring, and drops the gate to WARN tier per
+    // shared/webhook_read_surface.py: a crash-loop is right only when serving is worse
+    // than being down, and an unverified brake is not worse than a firm with no
+    // paralegal. It also fixes the same unguarded-await + missing-timeout holes in the
+    // COST gate next door and adds a top-level guard to handle(). Vocabulary identical;
+    // no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e355edbe2efa6223d67fa30397e866c9b73566df"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
