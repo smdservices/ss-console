@@ -63,6 +63,22 @@ import { execFileSync } from 'node:child_process'
  * contract, following `tests/operator-module-size.test.ts`. Sharing it makes
  * "the generator and the checker disagree" structurally impossible.
  *
+ * THE CONTRACT STORES NAMES AND COUNTS, NEVER HASHES, and this is the third
+ * bug this file had. The first version recorded each symbol's digest and
+ * compared every copy against the RECORDED value. It passed on the authoring
+ * machine and failed in CI on all 23 symbols at once, in all 14 skills —
+ * because `ast.dump` output is interpreter-version dependent, so a digest
+ * taken under one Python is not comparable under another. A stored digest is a
+ * measurement frozen with its instrument's calibration attached.
+ *
+ * The invariant was never "these copies equal a historical value". It is
+ * "these copies equal EACH OTHER", so the check computes every copy in one run
+ * and compares them among themselves. Version-independence falls out for free:
+ * both sides of every comparison come from the same interpreter. It also means
+ * a shared symbol changed consistently across all copies passes without a
+ * regeneration dance, which is the correct behaviour — reviewing that change is
+ * code review's job, and the diff shows it plainly.
+ *
  * REGENERATE (after deliberately changing a shared symbol in EVERY copy):
  *
  *   UPDATE_PRE_RUN_SHARED_SYMBOLS=1 npx vitest run tests/operator-vendored-symbols.test.ts
@@ -73,7 +89,7 @@ const CONTRACT = join(REPO_ROOT, 'operator', 'contracts', 'pre-run-shared-symbol
 
 interface Contract {
   _comment: string
-  symbols: Record<string, { copies: number; sha256: string }>
+  symbols: Record<string, { copies: number }>
 }
 
 /**
@@ -208,7 +224,7 @@ json.dump({
         // that differs across skills is per-skill logic (`decide`, `main`) and
         // is deliberately left unconstrained.
         if (skills.length > 1 && hashes.size === 1) {
-          symbols[name] = { copies: skills.length, sha256: [...hashes][0] }
+          symbols[name] = { copies: skills.length }
         }
       }
       writeFileSync(
@@ -245,15 +261,26 @@ json.dump({
         )
         continue
       }
-      const divergent = Object.entries(copies).filter(([, h]) => h !== expected.sha256)
-      if (divergent.length > 0) {
+      // Compare the copies to EACH OTHER, never to a stored hash — see the
+      // header note on why a recorded digest was version-dependent poison.
+      const groups = new Map<string, string[]>()
+      for (const [skill, h] of Object.entries(copies)) {
+        if (!groups.has(h)) groups.set(h, [])
+        groups.get(h)!.push(skill)
+      }
+      if (groups.size > 1) {
+        const shape = [...groups.values()]
+          .map((skills) => skills.sort().join(' + '))
+          .sort()
+          .join('  vs  ')
         problems.push(
           `${name}: vendored into ${Object.keys(copies).length} skill(s) and no longer identical. ` +
-            `Diverged in: ${divergent.map(([s]) => s).join(', ')}. ` +
+            `Versions: ${shape}. ` +
             `These copies exist because the scheduler stages pre_run.py alone ` +
             `(operator/templates/pre_run_gate.py:35) — a change to one MUST be made to all, ` +
-            `or the skills behave differently on a live seat. Apply the change everywhere, ` +
-            `then regenerate with UPDATE_PRE_RUN_SHARED_SYMBOLS=1.`
+            `or the skills behave differently on a live seat. Apply the change to every copy. ` +
+            `No regeneration is needed: the contract records names and copy counts, not ` +
+            `content, so a change made consistently everywhere passes on its own.`
         )
       }
       const now = Object.keys(copies).length
@@ -275,7 +302,6 @@ json.dump({
     expect(entries.length).toBeGreaterThanOrEqual(20)
     for (const [name, entry] of entries) {
       expect(entry.copies, `${name} contracted with fewer than 2 copies`).toBeGreaterThan(1)
-      expect(entry.sha256).toMatch(/^[0-9a-f]{64}$/)
     }
   })
 })

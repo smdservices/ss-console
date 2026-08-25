@@ -2,96 +2,73 @@
   "_comment": "Symbols vendored identically into multiple operator/skills/*/pre_run.py. The Hermes scheduler stages pre_run.py ALONE (operator/templates/pre_run_gate.py:35), so these files cannot import a shared module — the copies are forced, and this contract is what keeps them honest. Hashes are over a docstring-stripped ast.dump, so prose and formatting are ignored and structure is not. Generated and enforced by tests/operator-vendored-symbols.test.ts — do not hand-edit. Regenerate with UPDATE_PRE_RUN_SHARED_SYMBOLS=1 after changing a shared symbol in EVERY copy.",
   "symbols": {
     "BrokerSuppressedWakeWriter": {
-      "copies": 4,
-      "sha256": "730d88cea6908ae8a52de3cf93512dcc84c908cc11fe3e0ef027393d31f36789"
+      "copies": 4
     },
     "_append_wake_row": {
-      "copies": 8,
-      "sha256": "451333109f873b6ca207f26e0bdd714ac3e444c209b64bd05f39fc950990fa10"
+      "copies": 8
     },
     "_emit": {
-      "copies": 8,
-      "sha256": "8341d4b59e0208601504e982c06385c042f2e5d69f5f9f41ba0786c9a16c8fc9"
+      "copies": 8
     },
     "_emit_suppress": {
-      "copies": 6,
-      "sha256": "2c7847ec63f6d7035bad30edb5216ab350337620bbe5a05d20412c4bf04ca61e"
+      "copies": 6
     },
     "_find_skill_settings": {
-      "copies": 3,
-      "sha256": "520407e1a18588cfb2ce47fa16e795136bd6c5d6b6670774b9a880a02fa11510"
+      "copies": 3
     },
     "_first_date": {
-      "copies": 3,
-      "sha256": "b481d222f44442b04c32b8bb741bbc20b9e169c0caf834c2cda9244b3e0f5356"
+      "copies": 3
     },
     "_first_str": {
-      "copies": 2,
-      "sha256": "2e0f40350dff1109c45d22e77e80a657af0be0badb233ce9bccaad8c7026a42b"
+      "copies": 2
     },
     "_handoff_values": {
-      "copies": 4,
-      "sha256": "c47bfb266190056f3576d5769ed108251f7e9d11e6fe1459395fa9eff29ebb7f"
+      "copies": 4
     },
     "_hold_active": {
-      "copies": 3,
-      "sha256": "b633bdca223054ecd3959ddf59033080736f58d657eb30969c8446d49605010e"
+      "copies": 3
     },
     "_is_iso_day": {
-      "copies": 4,
-      "sha256": "70cdc5b6602767e1cd07b6bc77b10c73937dc4717e5823631fb3f821ad635976"
+      "copies": 4
     },
     "_is_probe_subject": {
-      "copies": 2,
-      "sha256": "f17288dd02ffe17ecde481d461f6a599e45657915ac9597598f1a065259288d7"
+      "copies": 2
     },
     "_matter_id_of": {
-      "copies": 3,
-      "sha256": "3d4aaf4b740b61aa583f657f7db79fde7e56dfe4fdececdc2166194b3db02b49"
+      "copies": 3
     },
     "_parse_iso_date": {
-      "copies": 3,
-      "sha256": "84f05070d1a896dd588aae76a3775af14e63b583409052f46ad84a0ce0b239b9"
+      "copies": 3
     },
     "_pos_int": {
-      "copies": 4,
-      "sha256": "88ea82e7e4aafea1162b9cc476578ad257b96a901c66f34ec3647b5f6dc43406"
+      "copies": 4
     },
     "_pos_int_or_none": {
-      "copies": 3,
-      "sha256": "8d194b6f4ce6bdb248d1640e30729ccb53e7a535b9a6be42459db017f0589250"
+      "copies": 3
     },
     "_skill_name": {
-      "copies": 8,
-      "sha256": "d186e531d724c09ec5c694d8015af91e7873068cc13b526a81be16b35a33b109"
+      "copies": 8
     },
     "_source_id_of": {
-      "copies": 3,
-      "sha256": "0a072fbb75675ab21d5bb55ccfc245e5708f8f24123507724969859445a124d1"
+      "copies": 3
     },
     "_try_write_emitted_wake": {
-      "copies": 6,
-      "sha256": "9da10a067bd7401e4c78837c62204e431d8331882142e2ae61657f4f0fbfb174"
+      "copies": 6
     },
     "_writer_factory": {
-      "copies": 4,
-      "sha256": "c579406d0c937bf8b40fb2e8539f65788889c11f7aaccc6c5df289b79d8ec314"
+      "copies": 4
     },
     "decide_and_emit": {
-      "copies": 8,
-      "sha256": "ae8f8e3bee20d9d2bd85f8c75620e28ace1f9b97e77f6db614b904e2d3e2f221"
+      "copies": 8
     },
     "probe_open_matter_count": {
-      "copies": 8,
-      "sha256": "49bb69fce57586c48845ea91135a0d099dfd864de22ede04fd715842a8387453"
+      "copies": 8
     },
     "write_emitted_wake_heartbeat": {
-      "copies": 8,
-      "sha256": "b7306cdecf0a43cbb711d3a5cdeb65e6cbfe7033f5a7020a74f1bb4cbbd3e85d"
+      "copies": 8
     },
     "write_suppressed_wake_heartbeat": {
-      "copies": 8,
-      "sha256": "187e82621f3f30b630d2b2e897719574dec9a6a07dbdfcd1b08a84c415ff429c"
+      "copies": 8
     }
   }
 }

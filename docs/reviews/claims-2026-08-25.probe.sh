@@ -90,7 +90,7 @@ check A6w FIXED at-least 1 "$a6w" "headers applied by the middleware (call site,
 # wired — a test file that gets deleted takes its finding with it, silently.
 check F3  FIXED at-least 1 "$(grep -c 'EXPECTED_VERBS' tests/broker-verb-registry.test.ts 2>/dev/null | tr -d ' ')" "broker verb set is pinned by a test"
 check F4  FIXED at-least 1 "$(grep -c 'taintGateMembers' tests/operator-taint-gate.test.ts 2>/dev/null | tr -d ' ')" "taint-gate refusal set is pinned by a test"
-check F7  FIXED at-least 20 "$(grep -c '\"sha256\"' operator/contracts/pre-run-shared-symbols.json 2>/dev/null | tr -d ' ')" "vendored pre_run symbols under a sync contract"
+check F7  FIXED at-least 20 "$(grep -c '\"copies\"' operator/contracts/pre-run-shared-symbols.json 2>/dev/null | tr -d ' ')" "vendored pre_run symbols under a sync contract"
 check F12 FIXED exact    0  "$(grep -cE '^ *thresholds *:' vitest.config.ts 2>/dev/null | tr -d ' ')" "no unevaluatable coverage thresholds declared"
 
 # ================================================== STILL OPEN — JUDGMENT ====
