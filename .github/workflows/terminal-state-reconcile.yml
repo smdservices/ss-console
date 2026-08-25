@@ -105,34 +105,130 @@ jobs:
             exit "${STATUS}"
           fi
 
-      - name: Open an issue when a run ended in silence
+      - name: Report the silence on ONE issue, updated in place
         if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # ss#2582. This used to `gh issue create` unconditionally, so one
+          # condition occupied one issue per day -- seven in seven days.
+          #
+          # It does NOT de-duplicate into silence, and that distinction is the
+          # whole point. The sibling reconciler (unaudited-send-reconcile.yml)
+          # fingerprints its findings and stays quiet when they repeat, which is
+          # right THERE because its backlog is static. Here the finding set grew
+          # on five of six day-over-day transitions -- 350, 361, 376, 380, 388,
+          # 389, 389 -- so this control is firing for cause (ss#2581). Quieting
+          # it would have muted a watchdog mid-alarm. What was wrong was the
+          # number of containers, not the reporting.
+          #
+          # So: find the one open issue by a CONSTANT series marker, rewrite its
+          # body with today's numbers, and comment only when the finding set
+          # actually moved.
+          SERIES="$(sed -n 's/^reconcile-series: //p' outcomes.txt | tail -1)"
+          if [ -z "${SERIES}" ]; then
+            echo "findings reported with no reconcile-series line" >&2
+            exit 1
+          fi
+          DIGEST="$(sed -n 's/^reconcile-findings: //p' outcomes.txt | tail -1)"
+
+          # Listed, not searched: the search index lags by minutes and this job
+          # runs daily. Bodies, not titles -- the title carries a date, which is
+          # why no title check could ever have caught the original duplicates.
+          gh issue list --repo "${REPO}" --state open --label "prio:P1" \
+            --limit 200 --json number,body > open-issues.json
+          EXISTING="$(SERIES="reconcile-series: ${SERIES}" python3 -c '
+          import json, os
+          series = os.environ["SERIES"]
+          issues = json.load(open("open-issues.json"))
+          print(next((str(i["number"]) for i in issues if series in (i.get("body") or "")), ""))
+          ')"
+
           {
-            echo "A triggered routine run ended in no observable terminal state."
+            echo "Triggered routine runs that ended in no observable terminal state."
             echo
             echo "Every run is supposed to end delivered, refused with the reason"
             echo "delivered, or escalated. Anything listed below ended in silence,"
             echo "which from a client's side is indistinguishable from nothing"
             echo "having happened (ss#2367) or from nothing having run (ss#2136)."
             echo
+            echo "**This issue is rewritten in place on every run.** The counts below"
+            echo "are current as of the run linked at the bottom, not a snapshot of"
+            echo "the day it was opened. A comment is added only when the finding set"
+            echo "changes, so the comment thread is the history of what moved."
+            echo
             echo '```'
             cat outcomes.txt
             echo '```'
             echo
             echo "Contract: \`operator/contracts/terminal-states.yaml\`."
-            echo "Reconciler: \`operator/bin/reconcile-outcomes.py\` (ss#2388)."
-            echo "Run: ${RUN_URL}"
+            echo "Reconciler: \`operator/bin/reconcile-outcomes.py\` (ss#2388, ss#2582)."
+            echo "Series key, do not edit: \`reconcile-series: ${SERIES}\`"
+            echo "Last run: ${RUN_URL}"
           } > body.md
-          gh issue create \
-            --repo "${REPO}" \
-            --title "Routine run with no terminal state $(date -u +%Y-%m-%d)" \
-            --label "prio:P1" --label "type:bug" \
-            --body-file body.md
+
+          if [ -n "${EXISTING}" ]; then
+            PREV="$(gh issue view "${EXISTING}" --repo "${REPO}" --json body --jq '.body' \
+                    | sed -n 's/^reconcile-findings: //p' | tail -1)"
+            gh issue edit "${EXISTING}" --repo "${REPO}" --body-file body.md
+            echo "Updated #${EXISTING} in place."
+            if [ "${PREV}" != "${DIGEST}" ]; then
+              {
+                echo "The finding set changed since the last run."
+                echo
+                echo "\`${PREV:-none}\` -> \`${DIGEST:-none}\`"
+                echo
+                echo "Current counts are in the issue body above. Run: ${RUN_URL}"
+              } > comment.md
+              gh issue comment "${EXISTING}" --repo "${REPO}" --body-file comment.md
+              echo "Finding set moved; commented."
+            else
+              echo "Finding set unchanged; body refreshed, no comment."
+            fi
+          else
+            gh issue create \
+              --repo "${REPO}" \
+              --title "Routine runs with no terminal state (rolling)" \
+              --label "prio:P1" --label "type:bug" \
+              --body-file body.md
+          fi
+
+      - name: A held seat is always said out loud
+        # ss#2582. Runs on EVERY outcome, including the clean one, and that is
+        # the point.
+        #
+        # `pilot-law` was unevaluated for seven consecutive days -- "audit_export
+        # read failed: Name or service not known" appears in all seven of the
+        # issues this control filed between 08-18 and 08-24. The only reason
+        # anyone could see that was the daily P1 carrying the HOLD line in its
+        # body. Collapsing to one updated issue would have removed the last
+        # surface reporting a dark seat, trading a noisy true report for a
+        # silent blind spot -- the same failure this whole track exists to
+        # remove, one layer down.
+        #
+        # A per-seat hold still does not fail the run (pinging on one seat's
+        # network blip is how controls get muted); only "nothing evaluated"
+        # does, below. But it is never invisible.
+        if: github.event_name != 'pull_request' && always() && steps.reconcile.outputs.status != ''
+        run: |
+          if [ ! -f outcomes.txt ]; then exit 0; fi
+          if grep -q '^HOLD' outcomes.txt; then
+            {
+              echo "## Seats that could not be evaluated"
+              echo
+              echo "These seats were not reconciled. Their runs are neither clean"
+              echo "nor findings -- they are unmeasured, and an unmeasured seat"
+              echo "reports nothing on the issue above."
+              echo
+              echo '```'
+              grep '^HOLD' outcomes.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            grep '^HOLD' outcomes.txt
+            echo "::warning title=terminal-state reconciler::$(grep -c '^HOLD' outcomes.txt) seat(s) could not be evaluated"
+          fi
 
       # THE LOUD HOLD. A control that cannot run has not passed, and a green
       # check that means "nothing was measured" is the failure this whole track

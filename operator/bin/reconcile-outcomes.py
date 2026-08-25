@@ -58,8 +58,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import socket
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -403,7 +405,11 @@ class SeatReport:
     slug: str
     obligations: list[Obligation] = field(default_factory=list)
     rows_read: int = 0
-    held: Optional[str] = None  # could not evaluate
+    held: Optional[str] = None
+    #: The seat's hostname does not resolve, so no machine exists to read. Named
+    #: in the report (#2366) but NOT a hold: holding on it warns daily forever
+    #: about a slug nobody provisioned.
+    absent: Optional[str] = None  # could not evaluate
 
     @property
     def findings(self) -> list[Obligation]:
@@ -416,6 +422,32 @@ class SeatReport:
     @property
     def pending(self) -> list[Obligation]:
         return [o for o in self.obligations if o.pending]
+
+
+def _name_does_not_resolve(exc: BaseException) -> bool:
+    """True when the failure is DNS refusing to resolve the seat's hostname.
+
+    That is the signature of a machine that was never stood up, or has been
+    destroyed -- there is no host to talk to, as opposed to a host that will not
+    answer. `seat_slugs()` enumerates AUTHORED directories, and pilot-law has
+    been authored and unprovisioned since 2026-06-05
+    (`audit-chain-watch.py:29`), so without this every run holds on it forever.
+
+    Derived from the probe, deliberately, rather than read from the seat
+    descriptor: that file refuses to carry a lifecycle field because "a state
+    field is a claim an agent can write, and a claim an agent can write is one
+    that rots". DNS is not a claim.
+
+    Walks the cause chain because urllib wraps the gaierror in a URLError.
+    """
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, socket.gaierror):
+            return True
+        reason = getattr(exc, "reason", None)
+        exc = reason if isinstance(reason, BaseException) else (exc.__cause__ or exc.__context__)
+    return False
 
 
 def reconcile_seat(
@@ -437,7 +469,10 @@ def reconcile_seat(
         try:
             rows = client.read_all("audit_export")
         except Exception as exc:  # noqa: BLE001 -- any transport failure HOLDS
-            report.held = f"audit_export read failed for {slug}: {exc}"
+            if _name_does_not_resolve(exc):
+                report.absent = f"no machine resolves for {slug}: {exc}"
+            else:
+                report.held = f"audit_export read failed for {slug}: {exc}"
             return report
         if not rows:
             # A seat with no rows at all is unmeasurable, not clean. Kept
@@ -453,9 +488,71 @@ def reconcile_seat(
     return report
 
 
+#: Constant for this control, deliberately NOT derived from the findings.
+#
+# It is how a run locates the issue it already opened. The tempting design is a
+# hash of the finding set, and it is wrong: this control's finding set GREW on
+# five of six day-over-day transitions (350 -> 361 -> 376 -> 380 -> 388 -> 389
+# -> 389, ss#2581), so a findings-derived marker would fail to match yesterday's
+# issue on almost every run and file a second one -- exactly the defect. The
+# sibling reconciler can key on its findings because its backlog is static; this
+# one cannot.
+SERIES_MARKER = "reconcile-series: terminal-state"
+
+
+def finding_key(slug: str, obligation: Obligation) -> str:
+    """Stable identity of one silent run, as a `|`-joined key.
+
+    Mirrors reconcile-sends.py:753 in shape and in what it refuses to include.
+
+    `row_id` is the audit ledger's own primary key and is the right identity,
+    but `_claimed_obligations` never sets one, so claimed findings fall back to
+    a timestamp keyspace behind a `ts:` marker -- the same trick the sibling
+    uses "so the two key spaces can never collide".
+
+    `slug` comes from the caller, never from `obligation.slug`: the claimed
+    constructor takes ``slug=str(claim.get("slug") or "")``, which can be the
+    empty string, and two seats' claimed findings would then share a key.
+
+    Deliberately absent: `rows_in_window` and `rows_read` (recomputed against
+    whatever window this run pulled), `pending` (depends on `now`), and
+    `routine_class` (mutated in place at line 287 when a hold folds into an
+    enclosing run). Any of them turns a stable identity into a daily-changing
+    one, which is how an escalation ledger ends up disjoint from reality.
+    """
+    if obligation.row_id:
+        return f"{slug}|row:{obligation.row_id}"
+    return f"{slug}|ts:{obligation.opened_at.isoformat()}|{obligation.shape}"
+
+
+def finding_digest(reports: list["SeatReport"]) -> str:
+    """Fingerprint of the whole finding set, for "did the number move".
+
+    Its ONLY job is to decide whether a run has anything new to say on the
+    issue it already opened. It never decides whether to report: this control
+    reports every run, because its findings accrue daily.
+
+    Sorted before hashing so seat read order cannot change it. Empty on a clean
+    run, so a run with nothing to say is distinguishable from one that has not
+    been compared.
+    """
+    keys = sorted(
+        finding_key(report.slug, obligation)
+        for report in reports
+        for obligation in report.findings
+    )
+    if not keys:
+        return ""
+    return hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
+
+
 def render(reports: list[SeatReport]) -> str:
     lines: list[str] = []
     for report in reports:
+        if report.absent:
+            # SKIP, not HOLD: the denominator stays visible without the warning.
+            lines.append(f"SKIP  {report.slug}: {report.absent}")
+            continue
         if report.held:
             lines.append(f"HOLD  {report.slug}: {report.held}")
             continue
@@ -488,8 +585,20 @@ def render(reports: list[SeatReport]) -> str:
     lines.append(
         f"{findings} run(s) with no terminal state, "
         f"{sum(len(r.unclassified) for r in reports)} unclassified, "
-        f"{len(held)} seat(s) held, {len(reports)} seat(s) scanned"
+        f"{len(held)} seat(s) held, "
+        f"{sum(1 for r in reports if r.absent)} seat(s) absent, "
+        f"{len(reports)} seat(s) scanned"
     )
+    # Column 0, and in render() only. The workflow finds the issue it already
+    # opened with `sed -n 's/^reconcile-series: //p'`; finding detail lines are
+    # indented eight spaces, so nothing above can be mistaken for it. --json
+    # omits both, because a bare marker line inside a JSON payload breaks the
+    # parse -- the sibling reconciler omits its own for the same reason.
+    lines.append("")
+    lines.append(SERIES_MARKER)
+    digest = finding_digest(reports)
+    if digest:
+        lines.append(f"reconcile-findings: {digest}")
     return "\n".join(lines)
 
 
