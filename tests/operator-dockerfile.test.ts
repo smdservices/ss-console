@@ -1093,7 +1093,18 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="f16d492006ad902721c0a25bdd3869246740df85"')
+    // f16d4920 -> 99c62699 (2026-08-25, overlay#319): the sticky-stop ladder's
+    // runaway-loop arms get fed. record_tool_failure and record_refusal were
+    // implemented, thresholded and audited but had NO caller in either repo, so a
+    // seat looping on a failing tool or refusing every call stopped only on cost.
+    // post_tool_call in hermes-smd-audit now feeds both, plus record_tool_success
+    // (the ladder counts CONSECUTIVE failures, so feeding failures alone would
+    // march every long-lived seat to HARD_STOP). Detection is positive-only: an
+    // unrecognised `status` records nothing, so an envelope rename degrades to the
+    // old unbraked behaviour rather than stopping a live seat. The controls stay
+    // status: inert in runtime-controls.yaml until a boot probe proves the arm
+    // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="99c62699ff45c9a544ac749635e3d30baedef922"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
