@@ -16,7 +16,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import escalation_ledger
 from .agentmail_auth import materialize_credential as materialize_agentmail_credential
 from .agentmail_ops import (
     AgentMailOps,
@@ -34,6 +33,7 @@ from .msgraph_auth import materialize_read_credential as materialize_msgraph_rea
 from .msgraph_ops import MsGraphOps, MsGraphRefused, MsGraphTransportError
 from .msgraph_ops import collect_recipients as collect_msgraph_recipients
 from .operations import WorkspaceOperations
+from .send_witness import append_escalation_event
 
 MAX_REQUEST_BYTES = 1_048_576
 GRANT_TTL_SECONDS = 10
@@ -134,6 +134,12 @@ class Broker:
     # Class default so instances built via ``__new__`` (tests) and pre-WS5
     # images without SMD_AUDIT_DB_PATH have a defined, audit-disabled ledger.
     ledger: LedgerWriter | None = None
+    # The path behind the escalation raise witness. Same default-disabled
+    # posture as ``ledger``: a ``__new__`` instance or a pre-WS5 image has no
+    # audit DB to consult, and send_witness reads that as "no witness exists
+    # here and never did" — it allows the raise rather than converting an
+    # audit-disabled seat into one that cannot escalate at all.
+    audit_db_path: str | None = None
     # B1 job-control plane. Same default-disabled posture as ``ledger`` so
     # instances built via ``__new__`` (tests) and pre-B1 images have a defined,
     # job-disabled ledger.
@@ -172,6 +178,10 @@ class Broker:
         # this broker does not touch it.
         audit_db_path = os.environ.get("SMD_AUDIT_DB_PATH")
         self.ledger = LedgerWriter(audit_db_path) if audit_db_path else None
+        # Kept for the escalation raise witness, which re-reads this file
+        # read-only (mode=ro) to confirm THIS broker dispatched to a person
+        # before it will record a raise. See send_witness.dispatched_to_a_person.
+        self.audit_db_path = audit_db_path
         # ADR 0021 Stream B: cron pre_run scripts run as subprocess CHILDREN of
         # the gateway (hermes cron/scheduler.py `subprocess.run`), so they share
         # the agent uid but never the gateway PID. The narrow heartbeat verb
@@ -352,29 +362,19 @@ class Broker:
         # WP-A escalation ledger append. Same caller shape as the heartbeat
         # verbs above: a cron pre_run or the agent's execute_code turn (agent
         # uid, non-gateway PID). Gated on the agent uid, and the write is
-        # VALIDATED (escalation_ledger.validate_append) so an ``acked`` that has
-        # no prior ``fired``/``chased`` raise is rejected — the LLM turn can
-        # append only through this seam, never the file directly, and it cannot
-        # silence an alarm that never rang. ts/id are stamped server-side, so
-        # the caller cannot backdate. Serialized by an instance lock (the server
-        # is threaded) so the tail-read + append stays consistent.
+        # VALIDATED (escalation_ledger.validate_append) on both doors into
+        # silence: an ``acked`` with no prior raise is rejected, and a
+        # ``fired``/``chased`` this broker did not witness dispatching to a
+        # person is rejected too (send_witness below). The LLM turn can append
+        # only through this seam, never the file directly, so it can neither
+        # silence an alarm that never rang nor claim one rang when it did not.
+        # ts/id are stamped server-side, so the caller cannot backdate.
+        # Serialized by an instance lock (the server is threaded) so the
+        # tail-read + append stays consistent.
+        # Body lives in send_witness.append_escalation_event — beside the witness
+        # it has to consult, and out of this module's size ratchet.
         if action == "escalation_event_append":
-            agent_uid = self._resolve_agent_uid()
-            if agent_uid is None or peer_uid != agent_uid:
-                raise PermissionError(
-                    "escalation_event_append requires a caller running as the agent uid"
-                )
-            if not self.escalation_ledger_path:
-                raise ValueError("escalation ledger path not configured on this broker")
-            event = request.get("event")
-            if not isinstance(event, dict):
-                raise ValueError("escalation_event_append requires an 'event' object")
-            with self._escalation_lock:
-                existing = escalation_ledger.read_ledger(self.escalation_ledger_path)
-                escalation_ledger.validate_append(existing, event)
-                stamped = escalation_ledger.stamp_event(event)
-                escalation_ledger.append_line(self.escalation_ledger_path, stamped)
-            return {"ok": True, "id": stamped["id"]}
+            return append_escalation_event(self, request, peer_uid)
         # ss-console #2091 (ADR 0083 §4): the Operator CAPTURES a correction a
         # customer stated, and never applies one. Same caller shape as the
         # heartbeat verbs above (agent uid, non-gateway PID — an execute_code
