@@ -161,6 +161,34 @@ describe('Operator customer Machine entrypoint — ADR 0085 establishment spool 
  * @see operator/safety-substrate/invariants/invariant_7.py
  * @see docs/adr/0009-cross-machine-query-prohibition.md
  */
+describe('Operator customer Machine entrypoint — sftp staging directory', () => {
+  it('creates the staging dir hermes-owned, with an explicit mode', () => {
+    // `fly ssh sftp put` runs as ROOT. If the directory does not exist, the
+    // first push creates it root-owned, and hermes then cannot unlink there
+    // (unlink permission comes from the DIRECTORY, not the file), so every
+    // transfer copy stays until someone runs a root op. Live-caught on
+    // hermes-ashton-price 2026-08-26: root:root 0755, 18 files, 157 MiB of
+    // client medical material, `PermissionError` on a hermes write probe.
+    expect(ENTRYPOINT_CODE).toMatch(/STAGE_DIR="\/opt\/data\/tmp-deliverable"/)
+    expect(ENTRYPOINT_CODE).toMatch(/install -d -o hermes -g hermes -m 0700 "\$\{STAGE_DIR\}"/)
+    // Never a bare mkdir, whose mode is umask luck.
+    expect(/mkdir[^\n]*tmp-deliverable/.test(ENTRYPOINT_CODE)).toBe(false)
+  })
+
+  it('creates it AFTER the chown sweep, so the sweep cannot be relied on instead', () => {
+    // The boot sweep re-owns everything under /opt/data, which is why this
+    // looked self-healing and was not: the sweep runs at boot, and the
+    // directory is created by a push that happens later. Ordering it after
+    // the sweep makes the establishment unconditional rather than incidental.
+    // Falsifier: this fails if the install line is moved above the sweep.
+    const sweep = ENTRYPOINT_CODE.indexOf('-prune -o -print0 | xargs -0 -r chown hermes:hermes')
+    const stage = ENTRYPOINT_CODE.indexOf('install -d -o hermes -g hermes -m 0700 "${STAGE_DIR}"')
+    expect(sweep, 'chown sweep must be present').toBeGreaterThan(-1)
+    expect(stage, 'staging dir establishment must be present').toBeGreaterThan(-1)
+    expect(stage).toBeGreaterThan(sweep)
+  })
+})
+
 describe('Operator customer Machine entrypoint — ADR 0009 / SEC-22 isolation boot check', () => {
   it('invokes the invariant_7 boot check', () => {
     expect(ENTRYPOINT_CODE).toMatch(/safety-substrate\/invariants\/invariant_7\.py/)

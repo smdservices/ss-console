@@ -160,6 +160,21 @@ find /opt/data \( -path "${AUDIT_DIR}" -o -path "${GATEWAY_LIVENESS_LEDGER_DIR}"
 # 0700 mid-boot, which strips any group-traverse we could grant here — so the
 # write path must not depend on the home dir's mode.
 
+# Staging area for file transfers into the seat. `fly ssh sftp put` runs as
+# ROOT, so if this directory does not already exist the first push creates it
+# root-owned — and the sweep above cannot help, because it ran at boot, before
+# the directory existed. hermes then cannot unlink there (unlink permission
+# comes from the DIRECTORY), so every transfer copy stays until someone runs a
+# root op. On ashton-price that reached 18 files and 157 MiB of client medical
+# material before it was noticed (2026-08-26).
+#
+# Creating it here, explicitly owned and moded rather than relying on mkdir -p
+# defaults, means a root-created FILE inside it is still removable by hermes.
+# Lifecycle of the contents belongs to whatever pushes them: this establishes
+# the directory, it does not purge it.
+STAGE_DIR="/opt/data/tmp-deliverable"
+install -d -o hermes -g hermes -m 0700 "${STAGE_DIR}"
+
 # Convergent (idempotent, every-boot) audit-ledger establishment. Never drops
 # rows. Fails loud rather than silently diverging two ledgers (R5 / DA #5).
 mkdir -p "${AUDIT_DIR}"
