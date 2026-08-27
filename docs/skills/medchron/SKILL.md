@@ -346,14 +346,26 @@ data:
   of a real ~$14.60 because a stage ran without the full env block exported.
   That is why Step 5 exports every variable for every stage, and why Step 9
   reconciles against console receipts before a row enters `calibration.jsonl`.
-- **The clean-run number is not the planning number.** Cadman quoted $62-70
-  by taking the measured all-in anchor and discounting for "no defect-hunting
-  this time"; the run landed at ~$102 because it found four new defects — and
-  the all-in per-character anchor alone would have predicted $99.50. Every run
-  to date has surfaced defects; a discount that assumes this run won't is a
-  bet, not a projection. Quote from the **measured all-in dollars per
-  extracted character** of the nearest rows; if a run comes in clean, the
-  savings are upside to report, never a number to promise.
+- **The clean-run number is not the planning number — and neither is a
+  mid-run number.** Cadman quoted $62-70 by discounting the measured anchor
+  for "no defect-hunting this time" (it recurred: four new defects), read
+  $102 mid-audit as nearly final, and LANDED at **$145.11** — 2.2x the
+  quote. Two lessons, not one. First: a discount that assumes this run
+  will be clean is a bet, not a projection; every run to date has surfaced
+  defects. Second: the per-character anchor itself predicted $99.50 and
+  ran ~30% low, because the **audit-repair loop's cost scales with claim
+  count, not with extracted characters** (Cadman, measured after close:
+  audit+repair $54.39 = 37% of the whole run, 1,745 calls, **$0.055 per
+  live claim**; ~4.9 claims per chronology entry). The audit line of a
+  quote is therefore `projected claims x $0.055` (claims from entry count)
+  stated separately from the composition anchor — never folded into one
+  false-precision band — with the rate re-read from calibration.jsonl
+  `audit_detail` as rows accrue (n=1 today). Two sub-facts that shape it:
+  convergence re-runs are noise (Cadman's four extra passes cost $0.94;
+  the first loop's completion was the money — budget the initial claim
+  count, not "extra rounds"), and a spend reported mid-audit is a FLOOR,
+  not a landing (Cadman's mid-audit $102 was 70% of final): say which one
+  you are reporting.
 
 Post the one consolidated report — this replaces the old separate selection and
 spend gates:
