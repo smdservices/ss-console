@@ -452,6 +452,32 @@ session works with files under `operator/`. For Operator strategy work that
 touches no operator/ file, read `operator/CLAUDE.md` first — the thesis is
 to be built upon, not re-derived.
 
+## Captain-Side Skills (docs/skills/)
+
+Venture-local slash commands, authored here and installed with
+`bash scripts/install-captain-skills.sh`. The installer symlinks each
+`docs/skills/<name>/SKILL.md` into `.agents/skills/<name>/SKILL.md` and
+`.claude/commands/<name>.md`, both of which are gitignored because the
+enterprise skill triplet is mirrored into them from crane-console on every
+`crane ss` launch. The tracked file under `docs/skills/` is the only authored
+copy; edit it, never the symlink targets. Run the installer on a fresh checkout
+or when a skill is missing.
+
+These are **not** enterprise skills. Nothing here is synced from or to
+crane-console.
+
+| Skill       | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/medchron` | Runs an A&P medical chronology end to end, from matter resolution through the Smokeball write. The production pipeline itself (about 40 Python scripts) lives in the **private** engagements repo at `operator/customers/ashton-price/tools/medchron/`, whose `RUNBOOK.md` is the authority for stage order; the skill is the orchestration contract around it. Do not confuse it with the Operator seat skill `operator/skills/medical-chronology-maintainer/`, which is routine 11 and a different thing entirely. |
+
+**The governing constraint, and the reason these skills read the way they do:**
+the Captain cannot see any artifact a run produces. Not a file, not a log, not a
+directory listing. A step that says "eyeball the output" or "review the list" is
+an instruction to nobody. Every decision point in a Captain-side skill arrives as
+prose in chat, carrying the counts, the exclusions and their reasons, the money,
+a recommendation, and a specific question. See
+`feedback_captain_cannot_see_artifacts_gates_must_be_prose.md`.
+
 ## Venture Handbook
 
 The franchise operations manual lives in `docs/handbook/` and renders in the admin console at `admin.smd.services/admin/playbook`. It is the E-Myth handoff manual: what the venture is, why it exists, how it works, and where everything lives, organized so a zero-context successor could run, build, and grow the venture. Source of truth is the markdown in `docs/handbook/` (rendered by `src/content.config.ts` + `src/pages/admin/playbook/`).
