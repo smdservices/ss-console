@@ -266,31 +266,142 @@ def test_derive_state_orders_by_ts_regardless_of_input_order() -> None:
 # ---------------------------------------------------------------------------
 
 
+#: A broker that witnessed a dispatch to a person, and one that did not. The
+#: witness is keyword-only with no default, so every call names which world it
+#: is in — that is the point of the signature.
+def _witnessed(_event: dict) -> bool:
+    return True
+
+
+def _unwitnessed(_event: dict) -> bool:
+    return False
+
+
 def test_validate_append_accepts_fired() -> None:
-    el.validate_append([], _ev("fired", ts="2026-07-14T07:00:00.000Z"))
+    el.validate_append([], _ev("fired", ts="2026-07-14T07:00:00.000Z"), send_witness=_witnessed)
 
 
 def test_validate_append_rejects_acked_without_raise() -> None:
     with pytest.raises(ValueError):
-        el.validate_append([], _ev("acked", ts="2026-07-14T07:00:00.000Z"))
+        el.validate_append([], _ev("acked", ts="2026-07-14T07:00:00.000Z"), send_witness=_witnessed)
 
 
 def test_validate_append_matches_ack_by_token() -> None:
     existing = [_ev("fired", ts="2026-07-14T07:00:00.000Z", token="ACK-ABCDEF", key="k9")]
     # same token, different item_key spelling still matches on token
-    el.validate_append(existing, _ev("acked", ts="2026-07-14T08:00:00.000Z", token="ACK-ABCDEF", key="k9"))
+    el.validate_append(
+        existing,
+        _ev("acked", ts="2026-07-14T08:00:00.000Z", token="ACK-ABCDEF", key="k9"),
+        send_witness=_witnessed,
+    )
 
 
 def test_validate_append_rejects_unknown_event() -> None:
     with pytest.raises(ValueError):
-        el.validate_append([], {"event": "boom", "item_key": "k1", "skill": "s", "ts": "x"})
+        el.validate_append(
+            [], {"event": "boom", "item_key": "k1", "skill": "s", "ts": "x"}, send_witness=_witnessed
+        )
 
 
 def test_validate_append_requires_item_key_and_skill() -> None:
     with pytest.raises(ValueError):
-        el.validate_append([], {"event": "fired", "item_key": "", "skill": "s", "ts": "x"})
+        el.validate_append(
+            [],
+            {"event": "fired", "item_key": "", "skill": "s", "ts": "x"},
+            send_witness=_witnessed,
+        )
     with pytest.raises(ValueError):
-        el.validate_append([], {"event": "fired", "item_key": "k1", "skill": "", "ts": "x"})
+        el.validate_append(
+            [],
+            {"event": "fired", "item_key": "k1", "skill": "", "ts": "x"},
+            send_witness=_witnessed,
+        )
+
+
+# ---------------------------------------------------------------------------
+# The raise witness — you cannot record that an alarm rang when it did not.
+#
+# Pilot-smokeball, 2026-08-26: five `fired` rows written in a turn whose only
+# delivery attempt was a refused memo; refire_days=3 then silenced those five
+# deadlines until 08-29. 2026-08-20: 77 appends, zero sends. The `acked` guard
+# below has always refused to silence an alarm that never rang; these tests
+# close the other door into the same silence.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unwitnessed_fired_is_refused() -> None:
+    with pytest.raises(ValueError, match="dispatched no message"):
+        el.validate_append(
+            [], _ev("fired", ts="2026-08-26T14:02:06.416Z"), send_witness=_unwitnessed
+        )
+
+
+def test_an_unwitnessed_chased_is_refused_too() -> None:
+    """`chased` is a RAISING_EVENTS member: it also claims a person was reached."""
+    with pytest.raises(ValueError, match="dispatched no message"):
+        el.validate_append(
+            [], _ev("chased", ts="2026-08-26T14:02:06.416Z"), send_witness=_unwitnessed
+        )
+
+
+def test_the_refusal_names_the_send_tool_and_says_retrying_will_not_help() -> None:
+    """The overlay keeps the append handle alive after a broker refusal so the
+    turn can retry the same identity, and this repo carries no runaway-loop brake.
+    A refusal that reads as transient therefore invites a retry storm — so it must
+    say what would change the answer, and that waiting will not."""
+    with pytest.raises(ValueError) as excinfo:
+        el.validate_append(
+            [], _ev("fired", ts="2026-08-26T14:02:06.416Z"), send_witness=_unwitnessed
+        )
+    message = str(excinfo.value)
+    assert "smd_send_message" in message
+    assert "fail identically" in message
+
+
+def test_non_raising_events_never_consult_the_witness() -> None:
+    """An ack/resolve is not a claim that anyone was reached, so it must not pay
+    for a lookup — and must not be refused by a broker that cannot do one."""
+    calls: list[dict] = []
+
+    def _recording(event: dict) -> bool:
+        calls.append(event)
+        return False
+
+    existing = [_ev("fired", ts="2026-08-01T07:00:00.000Z", token="ACK-ABCDEF", key="k9")]
+    el.validate_append(
+        existing,
+        _ev("acked", ts="2026-08-01T08:00:00.000Z", token="ACK-ABCDEF", key="k9"),
+        send_witness=_recording,
+    )
+    el.validate_append(
+        existing, _ev("resolved", ts="2026-08-01T09:00:00.000Z", key="k9"), send_witness=_recording
+    )
+    assert calls == []
+
+
+def test_the_witness_is_required_not_optional() -> None:
+    """Fail-closed by construction: a caller that forgets the witness gets a
+    TypeError, never a silently unguarded raise."""
+    with pytest.raises(TypeError):
+        el.validate_append([], _ev("fired", ts="2026-08-26T14:02:06.416Z"))  # type: ignore[call-arg]
+
+
+def test_a_non_callable_witness_is_refused() -> None:
+    with pytest.raises(ValueError, match="callable send_witness"):
+        el.validate_append([], _ev("fired", ts="2026-08-26T14:02:06.416Z"), send_witness=True)
+
+
+def test_the_witness_sees_the_event_so_it_can_scope_by_session() -> None:
+    seen: list[str] = []
+
+    def _capture(event: dict) -> bool:
+        seen.append(str(event.get("session_id")))
+        return True
+
+    event = _ev("fired", ts="2026-08-25T14:01:13.458Z")
+    event["session_id"] = "cron_6c073ab9b3fc_20260825_070034"
+    el.validate_append([], event, send_witness=_capture)
+    assert seen == ["cron_6c073ab9b3fc_20260825_070034"]
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +418,9 @@ def test_ack_against_pre_epoch_raise_is_refused_by_name() -> None:
     stale["v"] = 1
     with pytest.raises(ValueError, match="ss #2151"):
         el.validate_append(
-            [stale], _ev("acked", ts="2026-08-12T09:00:00.000Z", token="ACK-8SQ6CJ", key="d6718838f50dfa54")
+            [stale],
+            _ev("acked", ts="2026-08-12T09:00:00.000Z", token="ACK-8SQ6CJ", key="d6718838f50dfa54"),
+            send_witness=_witnessed,
         )
 
 
@@ -317,7 +430,11 @@ def test_ack_still_accepted_when_a_current_raise_exists() -> None:
     stale = _ev("fired", ts="2026-08-11T14:05:18.711Z", token="ACK-8SQ6CJ", key="k-live")
     stale["v"] = 1
     current = _ev("fired", ts="2026-08-12T14:00:00.000Z", token="ACK-8SQ6CJ", key="k-live")
-    el.validate_append([stale, current], _ev("acked", ts="2026-08-12T15:00:00.000Z", token="ACK-8SQ6CJ", key="k-live"))
+    el.validate_append(
+        [stale, current],
+        _ev("acked", ts="2026-08-12T15:00:00.000Z", token="ACK-8SQ6CJ", key="k-live"),
+        send_witness=_witnessed,
+    )
 
 
 def test_raise_with_missing_version_is_treated_as_pre_epoch() -> None:
@@ -326,7 +443,9 @@ def test_raise_with_missing_version_is_treated_as_pre_epoch() -> None:
     stale.pop("v", None)
     with pytest.raises(ValueError, match="ss #2151"):
         el.validate_append(
-            [stale], _ev("acked", ts="2026-08-12T09:00:00.000Z", token="ACK-ZZZZZZ", key="k-unknown")
+            [stale],
+            _ev("acked", ts="2026-08-12T09:00:00.000Z", token="ACK-ZZZZZZ", key="k-unknown"),
+            send_witness=_witnessed,
         )
 
 
