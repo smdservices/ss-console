@@ -221,6 +221,49 @@ python3 extract.py  <slug>         # text layer; builds scan_queue.json
 (`/0/1/2/3`) or fails an English-stopword ratio, and deletes the stale text file
 so vision's resume check cannot be satisfied by junk.
 
+### Then open the email containers, or the corpus is short
+
+```bash
+python3 index_msg.py <slug> <MID>          # after download.py, never before
+```
+
+`download.py` pulls only `DOC_EXTS`, which has no `.msg`, so **every Outlook
+container on the matter is skipped and the records attached to those emails are
+invisible.** `coverage_gate.py` cannot catch it: the gate's denominator is
+`raw_manifest.jsonl`, the pulled set, so a file never pulled can never surface
+as uncited. It reports full coverage of a corpus that was already short. Two
+delivered chronologies went out that way before this was found.
+
+`index_msg.py` pulls the containers, extracts attachments, dedupes on sha256 of
+the attachment bytes, and compares each against everything already pulled.
+**Order is not optional** - run it before `download.py` and the comparison set
+is empty, so every attachment reports NEW by construction and the run looks
+like a discovery. The script now refuses, but do not put it in that position.
+
+Then read the NEW list and decide per attachment, which is the third prose gate
+in practice:
+
+```bash
+python3 index_msg.py <slug> <MID> --fold=<sha12>,<sha12>   # allowlist, never a class
+python3 extract.py <slug>                                   # again, for the folded rows
+```
+
+Folding is an allowlist because a folded image becomes a vision call and a
+folded email banner becomes a junk source in composition. Bare `--fold`
+refuses.
+
+**Byte-distinct is not substantively new.** A rescan of a filed record hashes
+differently and reports NEW. Across four swept matters, nearly every "new"
+attachment turned out to be a rescan, a prior vendor's exhibit bundle, or
+litigation paperwork. Open them before believing the count. Rendering a scanned
+page with `pdftoppm -png` and reading it yourself costs nothing; the paid vision
+stage is for transcribing a corpus, not for adjudicating ten pages.
+
+**One hole nothing closes:** `.rpmsg` attachments are Microsoft RMS-encrypted
+and need the recipient's Azure credentials. They are reported as their own
+named bucket. Say so plainly rather than letting it sit inside "we open
+emails now".
+
 Measure the extracted text volume; it is the cost basis for Gate 2:
 
 ```bash
