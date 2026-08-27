@@ -346,14 +346,21 @@ data:
   of a real ~$14.60 because a stage ran without the full env block exported.
   That is why Step 5 exports every variable for every stage, and why Step 9
   reconciles against console receipts before a row enters `calibration.jsonl`.
-- **The clean-run number is not the planning number.** Cadman quoted $62-70
-  by taking the measured all-in anchor and discounting for "no defect-hunting
-  this time"; the run landed at ~$102 because it found four new defects — and
-  the all-in per-character anchor alone would have predicted $99.50. Every run
-  to date has surfaced defects; a discount that assumes this run won't is a
-  bet, not a projection. Quote from the **measured all-in dollars per
-  extracted character** of the nearest rows; if a run comes in clean, the
-  savings are upside to report, never a number to promise.
+- **The clean-run number is not the planning number — and neither is a
+  mid-run number.** Cadman quoted $62-70 by discounting the measured anchor
+  for "no defect-hunting this time" (it recurred: four new defects), read
+  $102 mid-audit as nearly final, and LANDED at **$145.11** — 2.2x the
+  quote. Two lessons, not one. First: a discount that assumes this run
+  will be clean is a bet, not a projection; every run to date has surfaced
+  defects. Second: the per-character anchor itself predicted $99.50 and
+  ran ~30% low, because the **audit-repair loop's cost scales with claim
+  count and defect density, not with extracted characters** (997 claims on
+  Cadman), and no corpus has a measured audit rate yet. Until
+  calibration.jsonl carries stage-split rows that make the audit rate a
+  measured number, a quote states the audit loop as its own explicit range
+  on top of the composition anchor — never folded into one
+  false-precision band. And a spend reported mid-audit is a floor, not a
+  landing: say which it is.
 
 Post the one consolidated report — this replaces the old separate selection and
 spend gates:
