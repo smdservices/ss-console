@@ -354,13 +354,18 @@ data:
   will be clean is a bet, not a projection; every run to date has surfaced
   defects. Second: the per-character anchor itself predicted $99.50 and
   ran ~30% low, because the **audit-repair loop's cost scales with claim
-  count and defect density, not with extracted characters** (997 claims on
-  Cadman), and no corpus has a measured audit rate yet. Until
-  calibration.jsonl carries stage-split rows that make the audit rate a
-  measured number, a quote states the audit loop as its own explicit range
-  on top of the composition anchor — never folded into one
-  false-precision band. And a spend reported mid-audit is a floor, not a
-  landing: say which it is.
+  count, not with extracted characters** (Cadman, measured after close:
+  audit+repair $54.39 = 37% of the whole run, 1,745 calls, **$0.055 per
+  live claim**; ~4.9 claims per chronology entry). The audit line of a
+  quote is therefore `projected claims x $0.055` (claims from entry count)
+  stated separately from the composition anchor — never folded into one
+  false-precision band — with the rate re-read from calibration.jsonl
+  `audit_detail` as rows accrue (n=1 today). Two sub-facts that shape it:
+  convergence re-runs are noise (Cadman's four extra passes cost $0.94;
+  the first loop's completion was the money — budget the initial claim
+  count, not "extra rounds"), and a spend reported mid-audit is a FLOOR,
+  not a landing (Cadman's mid-audit $102 was 70% of final): say which one
+  you are reporting.
 
 Post the one consolidated report — this replaces the old separate selection and
 spend gates:
