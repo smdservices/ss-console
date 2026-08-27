@@ -335,7 +335,8 @@ characters**. This file used to hardcode two anchors; every run moved the
 number and someone hand-edited a table. The skill carries the method, the data
 file carries the numbers.
 
-Two calibration lessons that stay in prose because they are judgment, not data:
+Three calibration lessons that stay in prose because they are judgment, not
+data:
 
 - **Density varies by source system.** Epic EMR exports measured 63% more
   characters per byte than a mixed corpus; the 08-27 Cadman quote was 30% low
@@ -345,6 +346,14 @@ Two calibration lessons that stay in prose because they are judgment, not data:
   of a real ~$14.60 because a stage ran without the full env block exported.
   That is why Step 5 exports every variable for every stage, and why Step 9
   reconciles against console receipts before a row enters `calibration.jsonl`.
+- **The clean-run number is not the planning number.** Cadman quoted $62-70
+  by taking the measured all-in anchor and discounting for "no defect-hunting
+  this time"; the run landed at ~$102 because it found four new defects — and
+  the all-in per-character anchor alone would have predicted $99.50. Every run
+  to date has surfaced defects; a discount that assumes this run won't is a
+  bet, not a projection. Quote from the **measured all-in dollars per
+  extracted character** of the nearest rows; if a run comes in clean, the
+  savings are upside to report, never a number to promise.
 
 Post the one consolidated report — this replaces the old separate selection and
 spend gates:
