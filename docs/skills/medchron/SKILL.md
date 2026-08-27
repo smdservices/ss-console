@@ -401,7 +401,16 @@ Decisions you make yourself and report, never hand over:
 
 - **Provider grouping.** Read `groups/<unit>.json`, add facility rules for
   providers the existing rules do not cover, and say how many lanes you ended
-  with and which ones you wrote rules for.
+  with and which ones you wrote rules for. Resolve the sentinel lane
+  `(unattributed - resolve before exhibits)` by hand: those are root files
+  whose names carry no known brand, and a filename is not a provider. Then
+  check each lane for third-party documents filed under a facility they merely
+  narrate. Index attribution beats filename attribution (the Robertus "Select
+  PT" case), but it inherits this failure mode: a document ABOUT a facility
+  indexes as that facility's record - on Cadman, a 30-page Sheriff's incident
+  report grouped under the hospital it recounts a transfer to. Filing a police
+  report as a hospital record misstates its source in the exhibit list. No
+  table rule can catch this; it is your eye.
 - **Billing document selection** for `billing_docs.json`. CMS-1500 claim forms
   count; they carry charges. Page counts can arrive null from the seat and must
   be filled locally before `billing_extract` will run.
