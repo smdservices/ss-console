@@ -1093,6 +1093,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
+    // 3f86737d -> 6e4223d1 (2026-08-28c, overlay#329): the read-volume
+    // accumulator parses the dispatcher envelope. Round-3 rehearsal: session
+    // marked, 30pp read against a 20pp threshold, gate silent - post_tool_call
+    // hands {"result": "<connector JSON as a string>"} and the field walker
+    // never descended nested JSON strings (the exact live-caught trap
+    // _unwrap_read_result documents in hermes-smd-establishment). read_volume
+    // + tests only. Vocabulary identical; no tracked pair moves.
     // c2668ce2 -> 3f86737d (2026-08-28b, overlay#328): the read-volume gate's
     // review marker watches skill_view in addition to read_file. The live pilot
     // rehearsal showed the model reads skill procedures via the gateway-native
@@ -1124,7 +1131,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3f86737d5bf8eee1a28b98da3a89238421766658"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6e4223d130b807740086fc9e7a64eadfc525fadd"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
