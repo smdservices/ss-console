@@ -1093,6 +1093,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
+    // 671507b7 -> c2668ce2 (2026-08-28, overlay#327, agreement §2.8 routine 5):
+    // the read-volume gate. A served opposing-response review is metered in
+    // pages at the read seam (shared/read_volume.py; fence beside the
+    // matter-mixing fence in trust enforce); past the client-authored
+    // settings.review_threshold_pages the crossing read is refused with a
+    // surface-only-note directive. Review sessions are marked by webhook route
+    // OR by the session reading the gated skill's SKILL.md (the spine path).
+    // Lever SMD_READ_VOLUME_GATE_MODE off|report|block (unset=block).
+    // Vocabulary identical; no tracked pair moves.
     // 99c62699 -> 671507b7 (2026-08-25, overlay#320-#325): the message-structure floor
     // (#323, ss#2090) plus the pilot-law retirement (#324). The abandoned loop-arm boot
     // self-check is REMOVED again (#325) rather than carried forward. The runaway-loop
@@ -1108,7 +1117,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="671507b7d2b744c54ce8a85aa00b4e2612c6e305"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c2668ce209d64d08d24975e94700dc5745214ff5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

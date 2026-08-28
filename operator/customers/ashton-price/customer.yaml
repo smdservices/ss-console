@@ -425,6 +425,12 @@ personas:
           scheduled: false
           webhook: true
         enabled: true
+        settings:
+          # Agreement §2.8 / Exhibit A row 5 (engagements PR #92): pages of
+          # documents read in the course of a single review. The overlay's
+          # read-volume gate (overlay#327) reads this LIVE and suspends the
+          # review at the crossing read. Unauthored would mean ungated.
+          review_threshold_pages: 250
       - name: meet-and-confer-drafter # drafted only; attorney decides + sends
         version: pending
         initiation:
