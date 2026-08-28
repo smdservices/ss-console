@@ -1093,6 +1093,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
+    // c2668ce2 -> 3f86737d (2026-08-28b, overlay#328): the read-volume gate's
+    // review marker watches skill_view in addition to read_file. The live pilot
+    // rehearsal showed the model reads skill procedures via the gateway-native
+    // skill_view (3 calls, zero read_file), so the spine-path marker was inert
+    // and a 30-page review ran unfenced against a 20-page threshold; on-seat
+    // selftest proved the rest of the deployed gate correct. read_volume.py +
+    // tests only. Vocabulary identical; no tracked pair moves.
     // 671507b7 -> c2668ce2 (2026-08-28, overlay#327, agreement §2.8 routine 5):
     // the read-volume gate. A served opposing-response review is metered in
     // pages at the read seam (shared/read_volume.py; fence beside the
@@ -1117,7 +1124,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c2668ce209d64d08d24975e94700dc5745214ff5"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3f86737d5bf8eee1a28b98da3a89238421766658"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
