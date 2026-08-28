@@ -195,7 +195,16 @@ off the matter's own record; never guess it, never infer it from a filename.
 
 Note whether the matter is single-client or **joint**. A joint matter runs one
 unit per client (`units/<unit>.json`); on a single-client matter `SMD_UNIT`
-equals `SMD_SLUG`.
+equals `SMD_SLUG`. On joint matters classify/strip/scanned/billing stages take
+the unit as an argument and REFUSE without it (their refusal is the guard
+working, not a break); `billing_chart` additionally requires `--patient`.
+
+**When a unit is added mid-run, authored artifacts do not regenerate.**
+Derived artifacts rebuild; anything authored by hand (`billing_docs.json`,
+`include.json`, record controls, drops, `provider_match.json`) still
+describes the matter as it stood when authored — re-author each before its
+consuming stage, or the new unit's documents are silently absent (Smith
+08-27: Matthew's worksheet nearly shipped missing eight billing documents).
 
 The seat is 1 vCPU / 1 GB. **Serialize seat calls. Never parallelize them.**
 
