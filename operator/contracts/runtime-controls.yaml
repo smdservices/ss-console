@@ -580,6 +580,42 @@ controls:
       real plugin + real state db) and has no live exercise yet precisely
       because no live wake path survives to reach it.
 
+  read_volume_gate:
+    control: read_volume_gate
+    class: dispatch-guard
+    # Overlay-resident (born there, no vendored twin): register + fence live in
+    # hermes-smd-overlay (shared/read_volume.py, fence in trust enforce).
+    substrate_module: 'overlay:shared/read_volume.py'
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: 'engagements service-agreement open item 11'
+    candidate_probe: seat_review_suspends_past_threshold
+    note: >-
+      Agreement §2.8 routine 5 (overlay#327, 2026-08-28): meters pages of
+      documents read in the course of an opposing-response review and refuses
+      the crossing read past the client-authored
+      settings.review_threshold_pages (A&P: 250, engagements PR #92; census
+      basis vfy_01M14QV1CP6DAJ78XHY881S63G). Review sessions are marked by the
+      webhook route to the skill or by the session reading the skill's
+      SKILL.md (the matter-inbox-router spine path). Unauthored threshold =
+      inert; config unreadable = inert + warn (billing-scope contract term,
+      not a safety floor). DECIDED v1 posture, recorded here on purpose:
+      per-session in-memory accumulation — a seat restart or webhook
+      redelivery grants a fresh budget; compensating controls are the webhook
+      throttle, one audit row per crossing (reason READ_VOLUME_GATE), and
+      §2.7 usage monitoring; the named follow-up if retries show up is an
+      SQLite accumulator keyed (matter, window) beside the sticky-stop store.
+      Rollback runbook: `fly secrets set SMD_READ_VOLUME_GATE_MODE=off -a
+      hermes-<slug>` + restart (report also available; unset or garbage =
+      block); config-side, deleting the settings key goes inert on the next
+      live read, no restart. Flip to enforced only with rehearsal vfy ids:
+      over-set suspends + surfaces with observed numbers, under-set completes,
+      unauthored proceeds, report records exactly once, spine path gates.
+      Rehearsal currently BLOCKED by the org API spend pause (until Sept 1 or
+      a tier raise).
   entitlement_dial:
     control: entitlement_dial
     class: dispatch-guard

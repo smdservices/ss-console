@@ -420,6 +420,11 @@ personas:
           scheduled: false
           webhook: true
         enabled: true
+        settings:
+          # Rehearsal threshold for the read-volume gate (overlay#327) - small
+          # on purpose so an over-set fixture crosses cheaply. The client
+          # seat authors its contract value; this seat proves the control.
+          review_threshold_pages: 20
       - name: meet-and-confer-drafter # drafted only; attorney decides + sends
         version: pending
         initiation:
@@ -785,6 +790,13 @@ webhook_triggers:
   - source: agentmail
     event_type: message.received
     skill: matter-inbox-router
+    persona: operator
+  # REHEARSAL ONLY (read-volume gate, overlay#327): a synthetic signed event
+  # drives the opposing-response review directly so the gate's webhook-route
+  # marking can be exercised; the real vendor never emits this event_type.
+  - source: smokeball
+    event_type: responses.served
+    skill: opposing-response-deficiency-review
     persona: operator
 
 # ---- SCOPE ----
