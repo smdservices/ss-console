@@ -336,6 +336,34 @@ probes:
       Covers the closed channel only. The residual delegate_task
       result-laundering path needs its own design before it can be probed.
 
+  seat_review_suspends_past_threshold:
+    probe: seat_review_suspends_past_threshold
+    control: read_volume_gate
+    kind: seat
+    violation: >-
+      Drive an opposing-response review on the pilot seat with a fixture set
+      whose distinct-document pages exceed settings.review_threshold_pages, and
+      require the crossing read to be REFUSED (audit reason READ_VOLUME_GATE)
+      with the surface-only note directive; drive an under-threshold set and
+      require the review to complete with zero gate rows; remove the setting
+      and require the same over-set to proceed; set
+      SMD_READ_VOLUME_GATE_MODE=report and require exactly one allowed report
+      row and no block; drive the SPINE path (email -> matter-inbox-router
+      executing the review procedure, marked by the SKILL.md read) and require
+      the gate to fire there too.
+    expect: flag
+    seat_command: []
+    expect_pattern: ''
+    proves: >-
+      Nothing yet. No driver is authored (rehearsal blocked by the org API
+      spend pause until Sept 1), so the runner HOLDS, and the registry row
+      stays `unprobed`.
+    limits: >-
+      The placement and both-ways falsifiers are pinned by overlay
+      tests/test_read_volume_gate_placement.py; this probe is about the
+      behavior on a provisioned seat with the live config chain, which no
+      unit test can stand in for. The spine-path case is the load-bearing one
+      (a webhook-only rehearsal proves a route the client seat does not use).
   seat_entitlement_lowered_downgrades:
     probe: seat_entitlement_lowered_downgrades
     control: entitlement_dial

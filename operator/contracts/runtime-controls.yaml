@@ -591,8 +591,17 @@ controls:
     probe_surface: ''
     status: unprobed
     owner: SMDurgan
-    tracking: 'engagements service-agreement open item 11'
+    tracking: 'https://github.com/venturecrane/engagements/pull/92'
     candidate_probe: seat_review_suspends_past_threshold
+    risk_review: >-
+      2026-08-28 (overlay#327 / ss#2622): built and pinned, unprobed. The gate
+      ships DORMANT on the client seat (A&P authors no webhook route to the
+      review skill and every routine is off), so the unprobed window carries no
+      client exposure; the pilot rehearsal that would flip this is blocked by
+      the org API spend pause until Sept 1 or a tier raise. The exposure while
+      unprobed is contractual, not operational: Exhibit A row 5 promises a
+      suspend-and-surface the seat has not yet demonstrated, which is why the
+      signing package holds until the rehearsal lands.
     note: >-
       Agreement §2.8 routine 5 (overlay#327, 2026-08-28): meters pages of
       documents read in the course of an opposing-response review and refuses
