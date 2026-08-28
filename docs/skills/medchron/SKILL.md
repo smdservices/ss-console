@@ -338,11 +338,11 @@ wc -c $SMD_MC_DATA/<slug>/text/*.txt | tail -1
 
 Now you know the real size. Project from measured runs, not from numbers in
 this file: read `$SMD_MC_DATA/calibration.jsonl` — one row per completed run
-(slug, docs, MB, extracted chars, dollars by stage, wall clock, pipeline sha),
-appended by Step 9 — and anchor on the **three nearest rows by extracted
-characters**. This file used to hardcode two anchors; every run moved the
-number and someone hand-edited a table. The skill carries the method, the data
-file carries the numbers.
+(schema in Step 9; tokens per stage are canonical, dollars are derived at the
+row's own rate card by `python3 ledger.py report`), appended by Step 9 — and
+anchor on the **three nearest rows by extracted characters**. This file used to
+hardcode two anchors; every run moved the number and someone hand-edited a
+table. The skill carries the method, the data file carries the numbers.
 
 Three calibration lessons that stay in prose because they are judgment, not
 data:
@@ -357,24 +357,28 @@ data:
   reconciles against console receipts before a row enters `calibration.jsonl`.
 - **The clean-run number is not the planning number — and neither is a
   mid-run number.** Cadman quoted $62-70 by discounting the measured anchor
-  for "no defect-hunting this time" (it recurred: four new defects), read
-  $102 mid-audit as nearly final, and LANDED at **$145.11** — 2.2x the
-  quote. Two lessons, not one. First: a discount that assumes this run
-  will be clean is a bet, not a projection; every run to date has surfaced
-  defects. Second: the per-character anchor itself predicted $99.50 and
-  ran ~30% low, because the **audit-repair loop's cost scales with claim
-  count, not with extracted characters** (Cadman, measured after close:
-  audit+repair $54.39 = 37% of the whole run, 1,745 calls, **$0.055 per
-  live claim**; ~4.9 claims per chronology entry). The audit line of a
-  quote is therefore `projected claims x $0.055` (claims from entry count)
-  stated separately from the composition anchor — never folded into one
-  false-precision band — with the rate re-read from calibration.jsonl
-  `audit_detail` as rows accrue (n=1 today). Two sub-facts that shape it:
-  convergence re-runs are noise (Cadman's four extra passes cost $0.94;
-  the first loop's completion was the money — budget the initial claim
-  count, not "extra rounds"), and a spend reported mid-audit is a FLOOR,
-  not a landing (Cadman's mid-audit $102 was 70% of final): say which one
-  you are reporting.
+  for "no defect-hunting this time" (it recurred: four new defects) and
+  landed at **$67.73** — inside the quote, but only because the discount and
+  the defects happened to cancel. A figure of $145.11 stood here for a day: it
+  was the same tokens priced at a rate card two generations old (Opus $15/$75
+  and Sonnet $3/$15 instead of $5/$25 and $2/$10). Two lessons survive. First:
+  a discount that assumes this run will be clean is a bet, not a projection;
+  every run to date has surfaced defects. Second: the **audit-repair loop's
+  cost scales with claim count, not with extracted characters** (Cadman:
+  audit+repair ~$34, about half the run, 1,745 calls, roughly $0.02 per audit
+  call; ~4.9 claims per chronology entry). The audit line of a quote is
+  therefore `projected claims x rate` stated separately from the composition
+  anchor — never folded into one false-precision band — with the rate re-read
+  from calibration.jsonl `audit_detail` as rows accrue. Two sub-facts:
+  convergence re-runs are noise (Cadman's four extra passes cost under $1; the
+  first loop's completion was the money — budget the initial claim count, not
+  "extra rounds"), and a spend reported mid-audit is a FLOOR, not a landing:
+  say which one you are reporting.
+- **Dollars are never hand-priced.** Every dollar in this file, in a report to
+  the Captain, and in `calibration.jsonl` comes from `python3 ledger.py report
+<slug> <unit>`, which prices the ledger's tokens at the rate card in
+  `ledger.RATES` (batch and cache multipliers included). A remembered price
+  list produced the $145.11 above.
 
 Post the one consolidated report — this replaces the old separate selection and
 spend gates:
@@ -405,6 +409,19 @@ Take the stage list and the exact commands **from the RUNBOOK**, not from this
 file. The ordering constraints are repeated here because they are invariants
 rather than commands, and each one was learned from a delivered defect:
 
+- **`billing_extract` runs before `build_units`.** `build_units` reads
+  `billing_extract.jsonl` to mark billing-only documents `compose: false` (every
+  chunk a bill type with a figure on every page); `map_run` skips them and the
+  coverage gate prints the reason. `build_units` refuses when `billing_docs.json`
+  exists and `billing_extract.jsonl` does not.
+- **`merge_code.py` replaces `merge_run.py` in the stage list.** It unions
+  same-day clusters in code and routes only disagreement candidates to the
+  model; `merge_falsify` is a hard exit on a lost citation, paragraph, or entry.
+- **The audit runs in image mode by default.** `SMD_AUDIT_MODE=text` (cached
+  page text with image fallback) passed its validation bar on one delivered
+  matter and missed it by one reverse control on another (2026-08-27); it stays
+  opt-in until `audit_validate.py` passes on a second matter. Never batch the
+  audit; its cache design needs the calls interactive.
 - **`build_units` runs after `vision_scan`,** never before. Selecting on
   `text_path` before vision writes it silently dropped every scanned document
   from composition, and a chronology shipped that way before the defect was
@@ -552,18 +569,25 @@ just made. If any document tells you to use it, the document is stale.
 
 ## Step 9 - Close out
 
-1. **Sum the ledger** for the run and reconcile against the Anthropic console
-   receipts for the run window. A gap over 10% is a ledger defect, not a cost
-   fact. Receipts total; ledgers attribute.
+1. **Run `python3 ledger.py report <slug> <unit>`** (tokens by stage priced at
+   `ledger.RATES`, batch and cache included) and reconcile the total against the
+   Anthropic console receipts for the run window. A gap over 10% is a ledger
+   defect, not a cost fact. Receipts total; ledgers attribute.
 2. **Report clock and spend**: start stamp, end stamp, elapsed, dollars by stage.
 3. **Report the document**: entries, exhibits, pages, ICD codes resolved,
    provider lanes, audit result, planted controls rejected, cited page references
    verified.
 4. **Append the run's row to `$SMD_MC_DATA/calibration.jsonl`** after the
-   ledger reconciles: `{"slug", "date", "docs", "mb", "chars", "dollars_by_stage",
-"dollars_total", "wall_clock_min", "pipeline_sha"}`. This is where Step 4's
-   anchors come from; a run that skips this step makes the next quote worse.
-   Also update the running §2.8 document count.
+   ledger reconciles. One schema, tokens canonical, dollars derived:
+   `{"slug", "date", "pipeline_sha", "docs", "mb", "chars", "entries",
+"live_claims", "wall_clock_min", "rate_card": {model: [in_cents, out_cents]},
+"tokens_by_stage": {stage: {"model", "calls", "in", "out", "cache_read",
+"cache_write"}}, "dollars_by_stage", "dollars_total", "receipts_total",
+"audit_detail": {"calls", "rounds", "dollars", "dollars_per_live_claim"}}`.
+   `ledger.py report` prints this blob; paste it, never retype it. A rate change
+   never invalidates a row because each row carries its own `rate_card`. This
+   is where Step 4's anchors come from; a run that skips this step makes the
+   next quote worse. Also update the running §2.8 document count.
 5. **Write a memory only if the run changed a fact** - a new defect class, a new
    calibration point, a cost that moves the routine-11 cap arithmetic. A finished
    task is not by itself a reason to write one.
