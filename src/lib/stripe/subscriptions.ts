@@ -155,7 +155,7 @@ export async function createOperatorSubscription(
   const body = new URLSearchParams()
   body.append('customer', customerId)
   body.append('collection_method', 'send_invoice')
-  body.append('days_until_due', String(params.days_until_due ?? 15))
+  body.append('days_until_due', String(params.days_until_due ?? 30))
   body.append('description', 'Operator retainer')
   body.append('items[0][price_data][unit_amount]', String(params.monthly_amount_cents))
   body.append('items[0][price_data][currency]', 'usd')

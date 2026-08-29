@@ -89,7 +89,7 @@ describe('createOperatorSubscription', () => {
     const body = new URLSearchParams(create!.body)
     expect(body.get('customer')).toBe('cus_1')
     expect(body.get('collection_method')).toBe('send_invoice')
-    expect(body.get('days_until_due')).toBe('15')
+    expect(body.get('days_until_due')).toBe('30')
     expect(body.get('items[0][price_data][unit_amount]')).toBe('500000')
     expect(body.get('items[0][price_data][currency]')).toBe('usd')
     expect(body.get('items[0][price_data][product]')).toBe('prod_retainer')
