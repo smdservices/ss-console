@@ -110,7 +110,7 @@ def usage_of(result: llm.Result) -> list[int]:
 def range_id(idx: int, name: str, start: int, end: int) -> str:
     """A custom_id the Batch API accepts, unique per document AND position:
     two documents can share a name, and the API refuses a duplicate id."""
-    return f"b{idx}-{hashlib.sha1(name.encode('utf-8')).hexdigest()[:12]}-{start}-{end}"
+    return f"b{idx}-{hashlib.sha256(name.encode('utf-8')).hexdigest()[:12]}-{start}-{end}"
 
 
 def first_ranges(n: int) -> list[tuple[int, int]]:
