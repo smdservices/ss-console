@@ -122,7 +122,7 @@ async function handleIssue({
         description: line.description,
         quantity: 1,
       })),
-      days_until_due: 15,
+      days_until_due: 30,
       collection_method: 'send_invoice',
       metadata: { invoice_id: existing.id, org_id: orgId, type: existing.type },
       payment_settings: { payment_method_types: ['ach_debit', 'card'] },
