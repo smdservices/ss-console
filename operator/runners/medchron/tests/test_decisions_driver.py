@@ -110,16 +110,31 @@ def test_control_picks_the_page_with_most_native_text(job_dir: Path, data_root: 
 
 # ---- driver ------------------------------------------------------------------
 def _seat() -> FakeSeat:
-    """One MEDICAL folder with a dense seven-page record and an unowned mystery
-    file; enough for the ported $0 stages to run for real under the driver."""
+    """One MEDICAL folder with a dense seven-page record and a one-page second
+    file, both native text; enough for the ported stages to run for real under
+    the driver without a scan queue or a billing document."""
     f1, f9 = make_pdf([PROSE] * 7), make_pdf([PROSE])
     docs = [doc_row("f1", "f1.pdf", "fold-med", len(f1)), doc_row("f9", "mystery.pdf", "fold-med", len(f9))]
     return FakeSeat(docs, [{"id": "fold-med", "name": "MEDICAL", "parentId": None, "path": "/MEDICAL"}],
                     {"f1": f1, "f9": f9})
 
 
+class _NoNetwork:
+    """A client that fails loudly: nothing in these runs may reach the API."""
+
+    def __init__(self) -> None:
+        self.messages = self
+
+    def create(self, **kw):
+        raise AssertionError("a driver test reached the SDK client")
+
+    def stream(self, **kw):
+        raise AssertionError("a driver test reached the SDK client")
+
+
 def _driver(job_dir: Path, firm_config_path: Path, pricing_path: Path, **kw) -> driver_mod.Driver:
     kw.setdefault("seat_factory", _seat)
+    kw.setdefault("client", _NoNetwork())
     return driver_mod.Driver(job_dir, firm_config=str(firm_config_path), pricing=str(pricing_path), log=lambda *_: None, **kw)
 
 
@@ -134,7 +149,7 @@ def test_dry_run_authors_nothing_and_runs_nothing(job_dir: Path, data_root: Path
     assert calls(data_root) == []
 
 
-def test_free_stages_run_with_the_full_env_block_and_the_run_holds_at_orphans(
+def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_subprocesses(
     job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path
 ) -> None:
     sd = data_root / "example-matter"
@@ -143,9 +158,10 @@ def test_free_stages_run_with_the_full_env_block_and_the_run_holds_at_orphans(
         {"exhibit": 1, "files": [{"file": "f1.pdf", "start_page": 1, "pages": 7}]}]))
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
     o = outs[0]
-    # The fake pipeline never writes units/, so the unowned mystery.pdf holds at orphans.
-    assert o.outcome == "held" and o.stage == "decide_orphans", o
-    assert "mystery.pdf" in o.reason
+    # Every stage ran: the ported ones for real (both files owned by the one
+    # unit, nothing to scan, no billing documents), the frozen ones as fakes.
+    assert o.outcome == "delivered" and o.stage is None, o
+    assert (sd / "orphans.json").is_file()
     # The ported $0 stages ran for real: listing, pull, extract, the email index.
     assert json.loads((sd / "manifest.json").read_text())["count"] == 2
     pulled = {r["id"] for r in map(json.loads, (sd / "raw_manifest.jsonl").read_text().splitlines()) if r["ok"]}
@@ -154,9 +170,11 @@ def test_free_stages_run_with_the_full_env_block_and_the_run_holds_at_orphans(
     assert extracted["f1.pdf"]["pages"] == 7 and extracted["f1.pdf"]["chars"] > 5600
     assert json.loads((sd / "msg_attachments.json").read_text())["comparable"] is True
     assert (sd / "runs" / "alpha" / "log-download.txt").read_text().startswith("example-matter: 2 targets")
+    # The paid $0-in-this-run stages ran in-process too: no scans, no billing docs, one unit.
+    assert [r["id"] for r in json.loads((sd / "units" / "alpha.json").read_text())] == ["f1", "f9"]
     # The frozen stages still run as subprocesses with the full env block.
     ran = [c["script"] for c in calls(data_root)]
-    assert ran[0] == "vision_scan.py"
+    assert ran[0] == "check_unit_identity.py"
     assert "strip_nonrecord.py" in ran
     first = calls(data_root)[0]
     assert first["env"]["SMD_SLUG"] == "example-matter"
@@ -165,26 +183,28 @@ def test_free_stages_run_with_the_full_env_block_and_the_run_holds_at_orphans(
     assert first["env"]["SMD_MODEL_AUDIT"] == "claude-sonnet-5"
     assert first["cwd"] == str(data_root / "example-matter")
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
-    assert st.outcome == "held"
-    assert st.is_done("list_matter") and st.is_done("download") and st.is_done("extract_after_fold")
+    assert st.outcome == "delivered"
+    for name in ("list_matter", "download", "extract_after_fold", "vision", "billing_extract", "build_units", "manifest"):
+        assert st.is_done(name), name
     assert st.pipeline_sha
 
 
 def test_resume_skips_done_stages_after_a_kill(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
     seed_folders(data_root, ["MEDICAL"])
-    (fake_pipeline / "exit_vision_scan.py").write_text("9")  # a crash mid-run
+    (fake_pipeline / "exit_check_unit_identity.py").write_text("9")  # a crash mid-run
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
-    assert outs[0].outcome == "failed" and outs[0].stage == "vision"
+    assert outs[0].outcome == "failed" and outs[0].stage == "identity"
     before = len(calls(data_root))
-    (fake_pipeline / "exit_vision_scan.py").unlink()
+    (fake_pipeline / "exit_check_unit_identity.py").unlink()
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     st.outcome = None
     st.save()
     _driver(job_dir, firm_config_path, pricing_path).run()
     after = calls(data_root)[before:]
-    assert after[0]["script"] == "vision_scan.py"
+    assert after[0]["script"] == "check_unit_identity.py"
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     assert st.stage("download").attempts == 1   # the pull was not repeated
+    assert st.stage("build_units").attempts == 1
 
 
 def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
@@ -199,9 +219,9 @@ def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path,
 
 def test_exit_code_map_yields_the_vocabulary(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
     seed_folders(data_root, ["MEDICAL"])
-    (fake_pipeline / "exit_build_units.py").write_text("2")
+    (fake_pipeline / "exit_assemble.py").write_text("1")
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
-    assert outs[0].outcome == "refused" and "build_units refused" in outs[0].reason
+    assert outs[0].outcome == "refused" and "assemble refused" in outs[0].reason
 
 
 def test_unknown_model_in_ledger_refuses_the_run(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:

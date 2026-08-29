@@ -275,11 +275,12 @@ class Doorway:
                    batch_stages=frozenset(cfg.batch_stages) - NEVER_BATCHED, client=client, log=log)
 
     def _client(self, timeout: float | None) -> Any:
-        if self.client is not None:
-            return self.client
-        import anthropic
+        if self.client is None:
+            import anthropic
 
-        self.client = anthropic.Anthropic(timeout=timeout or 600.0, max_retries=0)
+            self.client = anthropic.Anthropic(timeout=600.0, max_retries=0)
+        if timeout is not None and hasattr(self.client, "with_options"):
+            return self.client.with_options(timeout=timeout)
         return self.client
 
     def call(self, stage: str, *, model: str, messages: list[dict[str, Any]], max_tokens: int, system: Any = None,
