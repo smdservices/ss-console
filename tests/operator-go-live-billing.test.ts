@@ -26,7 +26,10 @@ import {
   setSubscriptionBillingStatus,
 } from '../src/lib/db/subscriptions'
 import {
+  CARD_FEE_LINE_DESCRIPTION,
+  cardProcessingFeeCents,
   createInvoice,
+  invoiceIsCardPayable,
   invoiceTypeLabel,
   isInvoiceType,
   listLineItemsForInvoice,
@@ -153,6 +156,24 @@ describe('the stand-up fee is an implementation invoice, born presentable (migra
     })
     await db.prepare('DELETE FROM invoices WHERE id = ?').bind(invoice.id).run()
     expect(await listLineItemsForInvoice(db, invoice.id)).toHaveLength(0)
+  })
+})
+
+describe('card processing fee (agreement §3.8)', () => {
+  it('is 3% of the amount paid by card, rounded to the cent', () => {
+    expect(cardProcessingFeeCents(400000)).toBe(12000)
+    expect(cardProcessingFeeCents(500000)).toBe(15000)
+    expect(cardProcessingFeeCents(1)).toBe(0)
+  })
+
+  it('an invoice is card-payable only when it carries the fee line', () => {
+    expect(invoiceIsCardPayable([{ description: 'Operator implementation' }])).toBe(false)
+    expect(
+      invoiceIsCardPayable([
+        { description: 'Operator implementation' },
+        { description: CARD_FEE_LINE_DESCRIPTION },
+      ])
+    ).toBe(true)
   })
 })
 
