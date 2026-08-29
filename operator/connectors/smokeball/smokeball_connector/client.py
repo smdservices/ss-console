@@ -483,6 +483,18 @@ class SmokeballClient:
                 f"presigned upload PUT rejected with HTTP {resp.status_code}"
             )
 
+    def create_folder(
+        self, matter_id: str, name: str, parent_folder_id: str | None = None
+    ) -> Any:
+        """``POST /matters/{id}/documents/folders``: a document folder on a matter,
+        nested under ``parent_folder_id`` or at the matter root. The MCP tool of
+        the same name and the chronology runner's delivery step both call this,
+        so the wire shape lives in one place."""
+        body: dict[str, Any] = {"name": name}
+        if parent_folder_id is not None:
+            body["parentFolderId"] = parent_folder_id
+        return self.request("POST", f"/matters/{matter_id}/documents/folders", json=body)
+
     def delete_file(self, matter_id: str, file_id: str) -> Any:
         """Delete a file from a matter (``DELETE /matters/{id}/documents/files/{fileId}``,
         async — returns the tracking Link). DESTRUCTIVE at the overlay."""

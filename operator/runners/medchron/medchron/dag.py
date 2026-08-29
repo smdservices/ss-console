@@ -7,11 +7,13 @@ before exhibits; condense before summarize; strip as falsify, dry run, apply;
 the audit last, and reopened by any later edit to the document. The driver
 executes this list; it does not decide order at run time.
 
-A stage is a subprocess of the frozen pipeline in PR 1. Its `argv` builder
-reproduces the script's positional contract exactly, so a later PR can flip
-`runner` to an in-process function without touching the order. `exit_map`
-turns a script's exit codes into the outcome vocabulary; anything unmapped and
-non-zero is `failed`.
+A stage is either a subprocess of the frozen pipeline (`script`) or an
+in-process function (`runner`), and the order does not know which. Its `argv`
+builder reproduces the script's positional contract exactly, so a stage flips
+from one to the other without touching the order. `exit_map` turns a stage's
+exit code into the outcome vocabulary; anything unmapped and non-zero is
+`failed`. Ported so far (PR 2): list_matter, download, extract, index_msg,
+fold_msg, extract_after_fold.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .job import Job, Unit
+from .stages import download as _download, extract as _extract, listing as _listing, msg as _msg
 
 # Outcome vocabulary shared with state.py. HOLD and REFUSE never write to the
 # matter; they end the run with a reason a person can act on.
@@ -50,6 +53,7 @@ class Stage:
     exit_map: dict[int, tuple[str, str]] = field(default_factory=dict)
     decision: str | None = None     # decisions.py hook name for authoring stages
     once_per_machine: bool = False  # e.g. ICD table fetch
+    runner: Callable[..., int] | None = None   # in-process stage; `script` is then ""
 
 
 def _slug(ctx: Ctx) -> list[str]:
@@ -66,17 +70,18 @@ def _slug_unit_date(ctx: Ctx) -> list[str]:
 
 STAGES: tuple[Stage, ...] = (
     # ---- $0: selection, pull, extract ------------------------------------
-    Stage("decide_selection", "", _slug, scope="slug", decision="selection"),
-    Stage("download", "download.py", lambda c: [c.slug, c.job.matter_id], scope="slug",
-          requires=("decide_selection",),
-          exit_map={1: (FAILED, "download reported a pull failure")}),
-    Stage("extract", "extract.py", _slug, scope="slug", requires=("download",)),
-    Stage("index_msg", "index_msg.py", lambda c: [c.slug, c.job.matter_id], scope="slug",
-          requires=("extract",)),
+    Stage("list_matter", "", lambda c: [c.job.matter_id], scope="slug", runner=_listing.run),
+    Stage("decide_selection", "", _slug, scope="slug", requires=("list_matter",), decision="selection"),
+    Stage("download", "", lambda c: [c.slug, c.job.matter_id], scope="slug",
+          requires=("decide_selection",), runner=_download.run,
+          exit_map={1: (FAILED, "download: targets are still not pulled after the pass")}),
+    Stage("extract", "", _slug, scope="slug", requires=("download",), runner=_extract.run),
+    Stage("index_msg", "", lambda c: [c.slug, c.job.matter_id], scope="slug",
+          requires=("extract",), runner=_msg.run_index),
     Stage("decide_fold", "", _slug, scope="slug", requires=("index_msg",), decision="fold"),
-    Stage("fold_msg", "index_msg.py", lambda c: [c.slug, c.job.matter_id, "--fold=@decided"],
-          scope="slug", requires=("decide_fold",)),
-    Stage("extract_after_fold", "extract.py", _slug, scope="slug", requires=("fold_msg",)),
+    Stage("fold_msg", "", lambda c: [c.slug, c.job.matter_id, "--fold=@decided"],
+          scope="slug", requires=("decide_fold",), runner=_msg.run_fold),
+    Stage("extract_after_fold", "", _slug, scope="slug", requires=("fold_msg",), runner=_extract.run),
     # ---- paid: transcription, units, billing -----------------------------
     Stage("vision", "vision_scan.py", _slug, paid=True, scope="slug", requires=("extract_after_fold",)),
     Stage("decide_billing_docs", "", _slug, scope="slug", requires=("vision",), decision="billing_docs"),

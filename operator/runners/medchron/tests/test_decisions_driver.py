@@ -8,7 +8,10 @@ import yaml
 
 from medchron import budget as budget_mod, config as config_mod, decisions, driver as driver_mod, job as job_mod
 from medchron.state import RunState, state_path
-from medchron_testkit import calls, job_yaml, seed_folders, seed_raw_manifest, write_ledger
+from medchron_testkit import FakeSeat, calls, doc_row, job_yaml, make_pdf, seed_folders, seed_raw_manifest, write_ledger
+
+PROSE = ("Patient seen in clinic today for follow up of neck pain after the collision. "
+         "The patient reports that the pain is improving with therapy and has no new complaints. ") * 6
 
 
 def _cfg(firm_config_path: Path) -> config_mod.FirmConfig:
@@ -46,16 +49,21 @@ def test_selection_holds_when_a_unit_folder_is_missing(tmp_path: Path, data_root
 
 
 def test_fold_keeps_everything_but_skip_types_and_discloses_encrypted(job_dir: Path, data_root: Path, firm_config_path: Path) -> None:
-    (data_root / "example-matter" / "msg_attachments.json").write_text(json.dumps({"attachments": [
-        {"sha12": "a" * 12, "ext": ".pdf", "status": "NEW"},
-        {"sha12": "b" * 12, "ext": ".rpmsg", "status": "NEW"},
-        {"sha12": "c" * 12, "ext": ".png", "status": "NEW"},
-        {"sha12": "d" * 12, "ext": ".ics", "status": "NEW"},
-        {"sha12": "e" * 12, "ext": ".pdf", "status": "PULLED"},
-    ]}))
+    # The shape stages/msg.py writes: kept attachments only, with the pull's
+    # name when the bytes are already in the corpus; encrypted ones by name.
+    (data_root / "example-matter" / "msg_attachments.json").write_text(json.dumps({
+        "comparable": True,
+        "attachments": [
+            {"sha256": "a" * 64, "local": "aaaaaaaaaaaa.pdf", "kind": "pdf", "already_pulled_as": None},
+            {"sha256": "c" * 64, "local": "cccccccccccc.png", "kind": "image", "already_pulled_as": None},
+            {"sha256": "e" * 64, "local": "eeeeeeeeeeee.pdf", "kind": "pdf", "already_pulled_as": "filed copy.pdf"},
+        ],
+        "encrypted": [{"email": "RE: records", "attachment": "secure.rpmsg", "bytes": 30000}],
+    }))
     d = decisions.fold(job_mod.load(job_dir), _cfg(firm_config_path), data_root / "example-matter", dry_run=False)
     assert d.payload["fold"] == ["a" * 12, "c" * 12]
-    assert d.payload["_disclosed_encrypted"] == ["b" * 12]
+    assert d.payload["_disclosed_encrypted"] == ["secure.rpmsg"]
+    assert any("1 encrypted attachment" in n for n in d.notes)
 
 
 def test_orphans_explains_by_config_reason_and_holds_on_residue(job_dir: Path, data_root: Path, firm_config_path: Path) -> None:
@@ -101,7 +109,17 @@ def test_control_picks_the_page_with_most_native_text(job_dir: Path, data_root: 
 
 
 # ---- driver ------------------------------------------------------------------
+def _seat() -> FakeSeat:
+    """One MEDICAL folder with a dense seven-page record and an unowned mystery
+    file; enough for the ported $0 stages to run for real under the driver."""
+    f1, f9 = make_pdf([PROSE] * 7), make_pdf([PROSE])
+    docs = [doc_row("f1", "f1.pdf", "fold-med", len(f1)), doc_row("f9", "mystery.pdf", "fold-med", len(f9))]
+    return FakeSeat(docs, [{"id": "fold-med", "name": "MEDICAL", "parentId": None, "path": "/MEDICAL"}],
+                    {"f1": f1, "f9": f9})
+
+
 def _driver(job_dir: Path, firm_config_path: Path, pricing_path: Path, **kw) -> driver_mod.Driver:
+    kw.setdefault("seat_factory", _seat)
     return driver_mod.Driver(job_dir, firm_config=str(firm_config_path), pricing=str(pricing_path), log=lambda *_: None, **kw)
 
 
@@ -119,21 +137,26 @@ def test_dry_run_authors_nothing_and_runs_nothing(job_dir: Path, data_root: Path
 def test_free_stages_run_with_the_full_env_block_and_the_run_holds_at_orphans(
     job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path
 ) -> None:
-    seed_folders(data_root, ["MEDICAL"])
-    seed_raw_manifest(data_root, [{"id": "f9", "name": "mystery.pdf", "ok": True}])
     sd = data_root / "example-matter"
     (sd / "out" / "alpha").mkdir(parents=True)
     (sd / "out" / "alpha" / "page_map.json").write_text(json.dumps([
         {"exhibit": 1, "files": [{"file": "f1.pdf", "start_page": 1, "pages": 7}]}]))
-    # The fake extract stage writes extracted.jsonl with id f1 only; give the
-    # control hook a named dense file so it passes and the run reaches orphans.
-    (sd / "extracted.jsonl").write_text(json.dumps({"id": "f1", "name": "f1", "pages": 7, "chars": 9000}) + "\n")
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
     o = outs[0]
-    # The fake pipeline never writes units/, so the unowned pull holds at orphans.
+    # The fake pipeline never writes units/, so the unowned mystery.pdf holds at orphans.
     assert o.outcome == "held" and o.stage == "decide_orphans", o
+    assert "mystery.pdf" in o.reason
+    # The ported $0 stages ran for real: listing, pull, extract, the email index.
+    assert json.loads((sd / "manifest.json").read_text())["count"] == 2
+    pulled = {r["id"] for r in map(json.loads, (sd / "raw_manifest.jsonl").read_text().splitlines()) if r["ok"]}
+    assert pulled == {"f1", "f9"}
+    extracted = {r["name"]: r for r in map(json.loads, (sd / "extracted.jsonl").read_text().splitlines())}
+    assert extracted["f1.pdf"]["pages"] == 7 and extracted["f1.pdf"]["chars"] > 5600
+    assert json.loads((sd / "msg_attachments.json").read_text())["comparable"] is True
+    assert (sd / "runs" / "alpha" / "log-download.txt").read_text().startswith("example-matter: 2 targets")
+    # The frozen stages still run as subprocesses with the full env block.
     ran = [c["script"] for c in calls(data_root)]
-    assert ran[:3] == ["download.py", "extract.py", "index_msg.py"]
+    assert ran[0] == "vision_scan.py"
     assert "strip_nonrecord.py" in ran
     first = calls(data_root)[0]
     assert first["env"]["SMD_SLUG"] == "example-matter"
@@ -141,10 +164,9 @@ def test_free_stages_run_with_the_full_env_block_and_the_run_holds_at_orphans(
     assert first["env"]["SMD_INCIDENT_DATE"] == "2026-01-15"
     assert first["env"]["SMD_MODEL_AUDIT"] == "claude-sonnet-5"
     assert first["cwd"] == str(data_root / "example-matter")
-    fold_call = next(c for c in calls(data_root) if any(a.startswith("--fold=") for a in c["argv"]))
-    assert fold_call["argv"][-1] == "--fold=" + "a" * 12 + "," + "c" * 12
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     assert st.outcome == "held"
+    assert st.is_done("list_matter") and st.is_done("download") and st.is_done("extract_after_fold")
     assert st.pipeline_sha
 
 
@@ -161,7 +183,8 @@ def test_resume_skips_done_stages_after_a_kill(job_dir: Path, data_root: Path, f
     _driver(job_dir, firm_config_path, pricing_path).run()
     after = calls(data_root)[before:]
     assert after[0]["script"] == "vision_scan.py"
-    assert "download.py" not in [c["script"] for c in after]
+    st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
+    assert st.stage("download").attempts == 1   # the pull was not repeated
 
 
 def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:

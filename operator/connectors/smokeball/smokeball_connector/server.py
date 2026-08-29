@@ -1388,11 +1388,7 @@ def create_folder(
     Operator stages served requests + supporting docs into for BriefPoint/CoCounsel
     to draw from. ``parent_folder_id`` nests it (matter root if omitted). Classified
     INTERNAL_WRITE."""
-    return _get_client().request(
-        "POST",
-        f"/matters/{matter_id}/documents/folders",
-        json=_body(name=name, parentFolderId=parent_folder_id),
-    )
+    return _get_client().create_folder(matter_id, name, parent_folder_id)
 
 
 # ---- the Operator's own matter (ss-console#2536) ----------------------------
