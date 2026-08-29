@@ -101,9 +101,14 @@ escalation_model: claude-opus-4-8
 # plus zero duplicate inbound rows, not by boot-smoke.
 hermes_ref: v2026.8.18@e624e9fde561e1add9388384012b295fde669ade
 
+# ss#2612 / ADR 0087: the chronology-package runner runs on this Machine beside
+# the gateway. Memory is the binding constraint (vision and billing render
+# whole documents to base64; exhibit assembly holds a provider production;
+# the 1 GB seat went health-critical under two 40 MB downloads, ss#2465), so
+# 4 GB with one job at a time; two shared vCPUs set wall clock, not cost.
 machine:
-  size: shared-cpu-1x
-  memory_mb: 1024
+  size: shared-cpu-2x
+  memory_mb: 4096
 
 # ---- HUMANS WITH PORTAL ACCESS ----
 # A&P's two principals-of-use plus the SMD operator for the pilot period.
