@@ -11,6 +11,8 @@ import {
   handleSubscriptionLifecycle,
 } from '../../../lib/webhooks/stripe-subscription-handler'
 import { handleHostedAgentCheckoutCompleted } from '../../../lib/webhooks/hosted-agent-checkout-handler'
+import { handleOperatorCheckoutCompleted } from '../../../lib/webhooks/operator-checkout-handler'
+import { OPERATOR_CHECKOUT_PRODUCT_SLUG } from '../../../lib/stripe/subscriptions'
 import { env } from 'cloudflare:workers'
 import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 import { getAdminBaseUrl, getPortalBaseUrl } from '../../../lib/config/app-url'
@@ -179,9 +181,10 @@ async function dispatchInvoiceEvent(eventType: string, parsed: unknown): Promise
   return jsonResponse(200, { ok: true, event: eventType })
 }
 
-/** Route checkout.session.completed to the Hosted Agent concierge pipeline
- * (ADR 0067). The handler acks non-hosted-agent sessions honestly. Returns
- * null for other event types. */
+/** Route checkout.session.completed by the session's `product_slug`
+ * metadata: the Operator retainer start (operator-checkout-handler.ts) or
+ * the Hosted Agent concierge pipeline (ADR 0067). Each handler acks sessions
+ * that are not its own. Returns null for other event types. */
 async function dispatchCheckoutEvent(eventType: string, parsed: unknown): Promise<Response | null> {
   if (eventType !== 'checkout.session.completed') return null
   const eventResult = StripeCheckoutSessionWebhookEventSchema.safeParse(parsed)
@@ -190,6 +193,9 @@ async function dispatchCheckoutEvent(eventType: string, parsed: unknown): Promis
   }
   // Non-throwing base-URL reads: a missing env var must degrade the email
   // links, never 500 the webhook (Stripe would retry-loop a config gap).
+  if (eventResult.data.data.object.metadata['product_slug'] === OPERATOR_CHECKOUT_PRODUCT_SLUG) {
+    return handleOperatorCheckoutCompleted(env.DB, eventResult.data.data.object)
+  }
   const portalBase = getPortalBaseUrl(env) ?? 'https://portal.smd.services'
   const adminBase = getAdminBaseUrl(env) ?? 'https://admin.smd.services'
   return handleHostedAgentCheckoutCompleted(

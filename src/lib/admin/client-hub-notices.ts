@@ -8,20 +8,16 @@
  */
 
 const BILLING_NOTICES: Record<string, string> = {
-  started: 'Monthly billing started. The subscription is live in the client portal.',
   paused: 'Billing paused.',
   resumed: 'Billing resumed.',
   cancelled: 'Billing cancelled.',
 }
 
 const ERROR_NOTICES: Record<string, string> = {
-  no_authored_price: 'Author the monthly price before starting billing.',
   no_billing_contact:
     'Add a contact with an email address first. Stripe keys the customer by email.',
-  billing_already_attached: 'Billing is already attached to this subscription.',
   no_subscription_row: 'No operator subscription row exists for this client.',
   no_billing_attached: 'Billing is not attached yet.',
-  bad_billing_start: 'Billing start must be a calendar date that is today or later.',
   bad_billing_action: 'Unknown billing action.',
   billing_server: 'Billing request failed. Check the logs.',
   bad_price: 'Enter a whole-dollar monthly price.',

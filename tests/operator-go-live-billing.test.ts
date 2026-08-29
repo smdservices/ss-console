@@ -3,13 +3,13 @@
  * (A&P production-client readiness, 2026-08-29).
  *
  * Three facts the portal's visibility rules depend on (offerings.ts):
- *   1. A `provisioning` operator row is promoted to `active` by the admin's
- *      start-billing act and by nothing else (the webhooks keep their
- *      provisioning guard). That flip is what reveals Home + Billing.
+ *   1. A `provisioning` operator row is promoted to `active` by the client's
+ *      own checkout (operator-checkout-handler) and by nothing else (the
+ *      generic status mirror keeps its provisioning guard). That flip is
+ *      what reveals Home + Billing.
  *   2. The stand-up fee is an `implementation` invoice (migration 0110) that
  *      is born with its authored line item, so it can be presented at once.
- *   3. The Billing Start Date parser refuses the past and anchors the future
- *      at 16:00 UTC.
+ *   3. The checkout-completed handler binds, promotes, and is idempotent.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -35,7 +35,10 @@ import {
   listLineItemsForInvoice,
   updateInvoiceStatus,
 } from '../src/lib/db/invoices'
-import { parseBillingStart } from '../src/pages/api/admin/clients/[id]/subscription-billing'
+import {
+  handleOperatorCheckoutCompleted,
+  type OperatorCheckoutSessionPayload,
+} from '../src/lib/webhooks/operator-checkout-handler'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')
 const ORG = 'org-a'
@@ -66,7 +69,7 @@ async function insertSubscription(
     .run()
 }
 
-describe('go-live: start-billing promotes the operator row (offerings.ts hasBillingRelationship)', () => {
+describe('go-live: the promotion primitive (offerings.ts hasBillingRelationship)', () => {
   let db: D1Database
 
   beforeEach(async () => {
@@ -177,28 +180,87 @@ describe('card processing fee (agreement §3.8)', () => {
   })
 })
 
-describe('parseBillingStart', () => {
-  const now = new Date('2026-08-29T20:00:00Z')
+describe("operator checkout.session.completed: the client's payment is the go-live act", () => {
+  let db: D1Database
 
-  it('empty means bill now', () => {
-    expect(parseBillingStart(null, now)).toEqual({ ok: true, anchor: undefined })
-    expect(parseBillingStart('', now)).toEqual({ ok: true, anchor: undefined })
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+    await insertSubscription(db, 'sub-op', 'operator', 'provisioning')
   })
 
-  it('a future date anchors at 16:00 UTC that day', () => {
-    const r = parseBillingStart('2026-09-08', now)
-    expect(r).toEqual({ ok: true, anchor: Date.UTC(2026, 8, 8, 16, 0, 0) / 1000 })
+  const payload = (
+    over: Partial<OperatorCheckoutSessionPayload> = {}
+  ): OperatorCheckoutSessionPayload => ({
+    id: 'cs_test_1',
+    client_reference_id: 'user-1',
+    customer: 'cus_1',
+    subscription: 'sub_stripe_1',
+    amount_total: 500000,
+    customer_details: { email: 'admin@firm.com', name: 'Admin' },
+    metadata: { product_slug: 'operator', smd_entity_id: ENTITY, smd_subscription_id: 'sub-op' },
+    ...over,
   })
 
-  it('today after 16:00 UTC becomes now + 5 minutes (Stripe needs a future anchor)', () => {
-    const r = parseBillingStart('2026-08-29', now)
-    expect(r.ok).toBe(true)
-    if (r.ok) expect(r.anchor).toBe(Math.floor((now.getTime() + 5 * 60 * 1000) / 1000))
+  it('binds the Stripe subscription + customer and promotes the row to active', async () => {
+    const res = await handleOperatorCheckoutCompleted(db, payload())
+    expect(res.status).toBe(200)
+    const row = await db
+      .prepare(
+        'SELECT status, stripe_subscription_id, settings_json FROM subscriptions WHERE id = ?'
+      )
+      .bind('sub-op')
+      .first<{ status: string; stripe_subscription_id: string; settings_json: string }>()
+    expect(row?.status).toBe('active')
+    expect(row?.stripe_subscription_id).toBe('sub_stripe_1')
+    expect(JSON.parse(row!.settings_json)).toEqual({ stripe_customer_id: 'cus_1' })
+    const order = await db
+      .prepare('SELECT status, product_slug FROM stripe_checkout_orders WHERE session_id = ?')
+      .bind('cs_test_1')
+      .first<{ status: string; product_slug: string }>()
+    expect(order).toEqual({ status: 'processed', product_slug: 'operator' })
   })
 
-  it('refuses the past and malformed input', () => {
-    expect(parseBillingStart('2026-08-28', now)).toEqual({ ok: false })
-    expect(parseBillingStart('next week', now)).toEqual({ ok: false })
-    expect(parseBillingStart('2026-13-40', now)).toEqual({ ok: false })
+  it('is idempotent on replay', async () => {
+    await handleOperatorCheckoutCompleted(db, payload())
+    const res = await handleOperatorCheckoutCompleted(db, payload({ subscription: 'sub_other' }))
+    expect(res.status).toBe(200)
+    const row = await db
+      .prepare('SELECT stripe_subscription_id FROM subscriptions WHERE id = ?')
+      .bind('sub-op')
+      .first<{ stripe_subscription_id: string }>()
+    expect(row?.stripe_subscription_id).toBe('sub_stripe_1')
+  })
+
+  it('acks a session for another product without touching anything', async () => {
+    const res = await handleOperatorCheckoutCompleted(
+      db,
+      payload({ metadata: { product_slug: 'hosted-agent' } })
+    )
+    expect(res.status).toBe(200)
+    const row = await db
+      .prepare('SELECT status FROM subscriptions WHERE id = ?')
+      .bind('sub-op')
+      .first<{ status: string }>()
+    expect(row?.status).toBe('provisioning')
+  })
+
+  it('records a session naming an unknown row as failed (200, no invention)', async () => {
+    const res = await handleOperatorCheckoutCompleted(
+      db,
+      payload({ metadata: { product_slug: 'operator', smd_subscription_id: 'sub-nope' } })
+    )
+    expect(res.status).toBe(200)
+    const order = await db
+      .prepare('SELECT status FROM stripe_checkout_orders WHERE session_id = ?')
+      .bind('cs_test_1')
+      .first<{ status: string }>()
+    expect(order?.status).toBe('failed')
+    const row = await db
+      .prepare('SELECT status FROM subscriptions WHERE id = ?')
+      .bind('sub-op')
+      .first<{ status: string }>()
+    expect(row?.status).toBe('provisioning')
   })
 })
