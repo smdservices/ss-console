@@ -70,6 +70,7 @@ describe('operator fly.toml template — [[vm]] renders cpus from machine.size (
     ['shared-cpu-1x', 'shared', '1'],
     ['shared-cpu-2x', 'shared', '2'],
     ['shared-cpu-4x', 'shared', '4'],
+    ['shared-cpu-6x', 'shared', '6'],
     ['performance-2x', 'performance', '2'],
   ])('derives %s -> %s x %s', (size, kind, cpus) => {
     expect(derive('machine_cpu_kind', size)).toBe(kind)

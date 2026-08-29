@@ -38,9 +38,9 @@ machine_cpus() {
   esac
   n="${n%x}"
   case "${n}" in
-    1|2|4|8|16) echo "${n}" ;;
+    1|2|4|6|8|16) echo "${n}" ;;
     *)
-      echo "machine-size: unsupported cpu count '${n}' in machine.size '$1' (expected 1, 2, 4, 8, or 16)" >&2
+      echo "machine-size: unsupported cpu count '${n}' in machine.size '$1' (expected 1, 2, 4, 6, 8, or 16; fly platform vm-sizes)" >&2
       return 1
       ;;
   esac
