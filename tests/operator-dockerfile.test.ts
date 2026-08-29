@@ -1093,6 +1093,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
+    // 6e4223d1 -> bc9285bf (2026-08-28d, overlay#330): shape-only trace journal
+    // for the read-volume gate (/tmp/read_volume_trace.jsonl, 120-entry cap,
+    // keys/types/counts never content) - three silent rehearsal rounds had no
+    // discriminator between marking, accumulation, and evaluation failures.
+    // read_volume + tests only. Vocabulary identical; no tracked pair moves.
     // 3f86737d -> 6e4223d1 (2026-08-28c, overlay#329): the read-volume
     // accumulator parses the dispatcher envelope. Round-3 rehearsal: session
     // marked, 30pp read against a 20pp threshold, gate silent - post_tool_call
@@ -1131,7 +1136,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="6e4223d130b807740086fc9e7a64eadfc525fadd"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="bc9285bf3604052e129a6f1778cbe10ca479e2c5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
