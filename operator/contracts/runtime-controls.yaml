@@ -684,7 +684,7 @@ controls:
   medchron_claim_audit:
     control: medchron_claim_audit
     class: dispatch-guard
-    substrate_module: 'engagements:operator/customers/ashton-price/tools/medchron/audit_citations.py'
+    substrate_module: runners/medchron/medchron/gates/claim_audit.py
     wired_via: ''
     live_probe: ''
     probe_surface: ''
@@ -713,7 +713,7 @@ controls:
   medchron_extractive_gate:
     control: medchron_extractive_gate
     class: dispatch-guard
-    substrate_module: 'engagements:operator/customers/ashton-price/tools/medchron/strip_nonrecord.py'
+    substrate_module: runners/medchron/medchron/gates/extractive.py
     wired_via: ''
     live_probe: ''
     probe_surface: ''
@@ -739,7 +739,7 @@ controls:
   medchron_cross_client_gate:
     control: medchron_cross_client_gate
     class: dispatch-guard
-    substrate_module: 'engagements:operator/customers/ashton-price/tools/medchron/check_unit_identity.py'
+    substrate_module: runners/medchron/medchron/gates/cross_client.py
     wired_via: ''
     live_probe: ''
     probe_surface: ''
@@ -765,7 +765,7 @@ controls:
   medchron_provenance_gate:
     control: medchron_provenance_gate
     class: dispatch-guard
-    substrate_module: 'engagements:operator/customers/ashton-price/tools/medchron/coverage_gate.py'
+    substrate_module: runners/medchron/medchron/gates/provenance.py
     wired_via: ''
     live_probe: ''
     probe_surface: ''

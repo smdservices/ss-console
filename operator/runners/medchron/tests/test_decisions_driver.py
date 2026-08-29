@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from medchron import budget as budget_mod, config as config_mod, decisions, driver as driver_mod, job as job_mod
+from medchron import budget as budget_mod, config as config_mod, dag, decisions, driver as driver_mod, job as job_mod
 from medchron.state import RunState, state_path
 from medchron_testkit import FakeSeat, calls, doc_row, job_yaml, make_pdf, seed_folders, seed_raw_manifest, write_ledger
 
@@ -206,11 +206,25 @@ def _controls(data_root: Path) -> None:
     (icd / "VERSION.json").write_text("{}")
 
 
-def _driver(job_dir: Path, firm_config_path: Path, pricing_path: Path, **kw) -> driver_mod.Driver:
+def _driver(job_dir: Path, firm_config_path: Path, pricing_path: Path, break_at: str | None = None, **kw) -> driver_mod.Driver:
     kw.setdefault("seat_factory", _seat)
     kw.setdefault("client", _NoNetwork())
     _controls(job_mod.load(job_dir).data_root)
-    return driver_mod.Driver(job_dir, firm_config=str(firm_config_path), pricing=str(pricing_path), log=lambda *_: None, **kw)
+    d = driver_mod.Driver(job_dir, firm_config=str(firm_config_path), pricing=str(pricing_path), log=lambda *_: None, **kw)
+    if break_at:
+        # One in-process crash at the named stage, then the real runner: how a
+        # kill mid-stage looks to the state file.
+        real = dag.BY_NAME[break_at].runner
+        fired = {"n": 0}
+
+        def once(sr):
+            if fired["n"] == 0:
+                fired["n"] += 1
+                raise RuntimeError("boom")
+            return real(sr)
+
+        d._runner_override = {break_at: once}
+    return d
 
 
 def test_dry_run_authors_nothing_and_runs_nothing(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path) -> None:
@@ -224,9 +238,10 @@ def test_dry_run_authors_nothing_and_runs_nothing(job_dir: Path, data_root: Path
     assert calls(data_root) == []
 
 
-def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_subprocesses(
-    job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path
+def test_the_whole_dag_runs_in_process_without_the_frozen_pipeline(
+    job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.delenv("MEDCHRON_PIPELINE_DIR", raising=False)   # no frozen checkout anywhere
     sd = data_root / "example-matter"
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
     o = outs[0]
@@ -256,15 +271,12 @@ def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_sub
     # The paid $0-in-this-run stages ran in-process too: no scans, no billing docs, one unit.
     assert [r["id"] for r in json.loads((sd / "units" / "alpha.json").read_text())] == ["f1"]
     assert json.loads((sd / "orphans.json").read_text())["orphans"][0]["reason"].startswith("engagement document")
-    # The frozen stages still run as subprocesses with the full env block.
-    ran = [c["script"] for c in calls(data_root)]
-    assert ran == ["check_unit_identity.py", "md_to_docx_v4.py", "make_manifest.py"]   # what is still frozen
-    first = calls(data_root)[0]
-    assert first["env"]["SMD_SLUG"] == "example-matter"
-    assert first["env"]["SMD_UNIT"] == "alpha"
-    assert first["env"]["SMD_INCIDENT_DATE"] == "2026-01-15"
-    assert first["env"]["SMD_MODEL_AUDIT"] == "claude-sonnet-5"
-    assert first["cwd"] == str(data_root / "example-matter")
+    assert calls(data_root) == []                      # nothing runs as a subprocess any more
+    out = sd / "out" / "alpha"
+    assert list(out.glob("Alpha Example - Medical Chronology *.docx"))
+    manifest = json.loads((out / "upload_manifest.json").read_text())
+    assert [m["name"][:9] for m in manifest] == ["Alpha Exa", "Alpha Exa", "Exhibit 1"]   # chronology, worksheet, exhibit and all(m["sha256"] for m in manifest)
+    assert (out / "img" / "timeline.png").is_file()
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     assert st.outcome == "delivered"
     for name in ("list_matter", "download", "extract_after_fold", "vision", "billing_extract", "build_units",
@@ -278,25 +290,25 @@ def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_sub
     assert (sd / "runs" / "alpha" / "map-01.md").read_text() == REAL_MAP
     assert (sd / "runs" / "alpha" / "merged.md").read_text() == ""
     assert o.dollars > 0    # the compose, classify and audit calls were ledgered and priced
-    assert st.pipeline_sha
+    assert st.pipeline_sha.startswith("medchron-")
 
 
 def test_resume_skips_done_stages_after_a_kill(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
     seed_folders(data_root, ["MEDICAL"])
-    (fake_pipeline / "exit_check_unit_identity.py").write_text("9")  # a crash mid-run
-    outs = _driver(job_dir, firm_config_path, pricing_path).run()
-    assert outs[0].outcome == "failed" and outs[0].stage == "identity"
+    # a crash mid-run: the render stage raises once (a broken chronology file)
+    sd = data_root / "example-matter"
+    outs = _driver(job_dir, firm_config_path, pricing_path, start=None, break_at="render").run()
+    assert outs[0].outcome == "failed" and outs[0].stage == "render"
     before = len(calls(data_root))
-    (fake_pipeline / "exit_check_unit_identity.py").unlink()
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     st.outcome = None
     st.save()
     _driver(job_dir, firm_config_path, pricing_path).run()
-    after = calls(data_root)[before:]
-    assert after[0]["script"] == "check_unit_identity.py"
+    assert calls(data_root)[before:] == []
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
+    assert st.outcome == "delivered"
     assert st.stage("download").attempts == 1   # the pull was not repeated
-    assert st.stage("build_units").attempts == 1
+    assert st.stage("build_units").attempts == 1 and st.stage("render").attempts == 2
 
 
 def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
@@ -311,9 +323,8 @@ def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path,
 
 def test_exit_code_map_yields_the_vocabulary(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
     seed_folders(data_root, ["MEDICAL"])
-    (fake_pipeline / "exit_md_to_docx_v4.py").write_text("1")
-    outs = _driver(job_dir, firm_config_path, pricing_path).run()
-    assert outs[0].outcome == "failed" and outs[0].stage == "render"
+    outs = _driver(job_dir, firm_config_path, pricing_path, break_at="build_units").run()
+    assert outs[0].outcome == "failed" and outs[0].stage == "build_units" and "boom" in outs[0].reason
 
 
 def test_unknown_model_in_ledger_refuses_the_run(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
