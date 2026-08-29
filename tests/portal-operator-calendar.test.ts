@@ -447,6 +447,7 @@ describe('listCalendarItems', () => {
       ended_at: null,
       settings_json: null,
       service_id: null,
+      stripe_subscription_id: null,
       created_at: '2026-05-21T00:00:00Z',
       updated_at: '2026-05-21T00:00:00Z',
     }

@@ -74,7 +74,6 @@ const { success: noticeSuccess, error: noticeError } = resolveClientHubNotices(
   Astro.url.searchParams
 )
 const hubUrl = `/admin/clients/${entityId}`
-const todayIso = new Date().toISOString().slice(0, 10)
 
 const earliestStart = engagements
   .map((e) => e.start_date)
@@ -249,42 +248,15 @@ const LINK_ACT =
                     </span>
                   </div>
                   {!operatorSubscription.stripe_subscription_id && operatorPrice != null && (
-                    <form
-                      method="POST"
-                      action={`/api/admin/clients/${entityId}/subscription-billing`}
-                      class="mt-2.5"
-                    >
-                      <input type="hidden" name="action" value="start" />
-                      <label class="flex items-center gap-2">
-                        <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
-                          Billing start
-                        </span>
-                        <input
-                          type="date"
-                          name="billing_start"
-                          min={todayIso}
-                          class="border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-sm"
-                        />
-                        <span class="font-mono text-[11px] text-[color:var(--ss-color-text-muted)]">
-                          blank = today
-                        </span>
-                      </label>
-                      <p class="mt-1.5 text-xs text-[color:var(--ss-color-text-muted)]">
-                        Creates the Stripe subscription now and marks the operator live in the
-                        portal (Home and Billing appear). The first monthly invoice issues on the
-                        billing start date, then monthly in advance.
-                      </p>
-                      <button
-                        type="submit"
-                        class="mt-2 border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
-                      >
-                        Start monthly billing ({formatMoney(operatorPrice)}/mo)
-                      </button>
-                    </form>
+                    <p class="mt-2 text-sm text-[color:var(--ss-color-text-muted)]">
+                      The client starts the subscription from their portal (Billing → Start
+                      subscription) and pays the first month on Stripe. Nothing is billed or sent
+                      until they do.
+                    </p>
                   )}
                   {!operatorSubscription.stripe_subscription_id && operatorPrice == null && (
                     <p class="mt-2 text-sm text-[color:var(--ss-color-text-muted)]">
-                      Author the monthly price above to start billing.
+                      Author the monthly price above; the client cannot start without one.
                     </p>
                   )}
                   {operatorSubscription.stripe_subscription_id && (

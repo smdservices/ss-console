@@ -1,36 +1,39 @@
 /**
- * Stripe subscription operations for the Operator retainer (#1679).
+ * Stripe subscription operations for the Operator retainer.
  *
  * The Operator is sold as a flat monthly retainer (ADR 0004 shape, ADR 0063
- * price). This module gives the retainer a real billing engine: a Stripe
- * subscription with `collection_method=send_invoice`, so Stripe emails the
- * hosted invoice each cycle and the existing invoice webhooks
- * (src/pages/api/webhooks/stripe.ts) mirror cycle invoices into the local
- * `invoices` table as `type='retainer'` rows.
+ * price). The retainer STARTS BY THE CLIENT'S OWN ACT (Captain, 2026-08-29):
+ * a principal clicks "Start subscription" in the portal, lands on a Stripe
+ * Checkout Session in subscription mode, enters a bank account (ACH Direct
+ * Debit, instant verification with micro-deposit fallback) or a card, and
+ * pays the first month there. Stripe charges that same method every cycle
+ * (charge_automatically). The checkout.session.completed webhook
+ * (operator-checkout-handler.ts) attaches the subscription to the local row
+ * and promotes it to active.
  *
- * Design choices, in order of consequence:
+ * Nothing here creates a subscription on the client's behalf. The earlier
+ * admin-started `send_invoice` retainer (#1679) let Stripe email the firm a
+ * monthly invoice with no act by the client and no approval by the Captain;
+ * it was ripped the day it was first exercised on a real client
+ * (2026-08-29). A subscription exists only after the client has paid.
  *
- *   * **send_invoice, not charge_automatically.** The retainer is a B2B
- *     relationship invoiced monthly; no card-on-file is required, the client
- *     pays the hosted invoice exactly like the one-time deposit/completion
- *     invoices they already know, and a payment failure is a dunning email
- *     thread, never a surprise charge. Stripe auto-activates send_invoice
- *     subscriptions regardless of first-invoice status.
+ * Design choices that survive:
+ *
  *   * **One shared Product, inline per-seat prices.** Stripe's inline
  *     `price_data` requires an existing product id, and every seat's price is
  *     authored per engagement (services.recurring_price) — so we resolve one
- *     "SMD Operator Retainer" product by metadata (create on first use, same
- *     resolve-or-create idiom as customers) and attach a fresh inline monthly
- *     price per subscription. Inline prices are single-use by design, which
- *     matches per-seat authored pricing.
+ *     "SMD Operator Retainer" product by metadata (create on first use) and
+ *     attach a fresh inline monthly price per checkout.
  *   * **Pause = pause_collection[behavior]=void.** A paused seat (audit-only
  *     access, drafts suspended) must not accumulate charges; cycle invoices
- *     generated while paused are voided. Resume clears `pause_collection`
- *     (the dedicated /resume endpoint is charge_automatically-only).
+ *     generated while paused are voided. Resume clears `pause_collection`.
  *   * **Payment failure never touches the Machine.** The webhook alerts
  *     team@smd.services and marks the local invoice overdue; whether to
  *     pause or decommission is a Captain decision under the offboarding
  *     doctrine (#1684). No imposed default.
+ *   * **No Stripe email is load-bearing.** The portal is the surface; what
+ *     Stripe emails (receipts, failed-payment notices) is an account setting
+ *     the Captain owns, never a dependency of this flow.
  *
  * DEV-MODE PATTERN: when apiKey is undefined, log and return a mock — same
  * as client.ts / resend.ts.
@@ -42,6 +45,9 @@ const STRIPE_API_BASE = 'https://api.stripe.com/v1'
 const RETAINER_PRODUCT_MARKER = { key: 'smd_product', value: 'operator-retainer' } as const
 const RETAINER_PRODUCT_NAME = 'SMD Operator Retainer'
 
+/** The checkout-session metadata key + value the webhook routes on. */
+export const OPERATOR_CHECKOUT_PRODUCT_SLUG = 'operator'
+
 function stripeHeaders(apiKey: string): Record<string, string> {
   return {
     Authorization: `Bearer ${apiKey}`,
@@ -52,53 +58,6 @@ function stripeHeaders(apiKey: string): Record<string, string> {
 export interface StripeSubscriptionResult {
   id: string
   status: string
-}
-
-export interface CreateOperatorSubscriptionParams {
-  /** Billing contact — Stripe resolves/creates the customer record by email. */
-  customer_email: string
-  /** Monthly retainer in cents (from services.recurring_price × 100). */
-  monthly_amount_cents: number
-  /** Local entity id, stamped into metadata for cross-reference. */
-  entity_id: string
-  /** Local subscriptions.id, stamped into metadata for cross-reference. */
-  subscription_row_id: string
-  /** Days the client has to pay each cycle invoice. */
-  days_until_due?: number
-  /**
-   * Unix timestamp (seconds) of the Billing Start Date. When set and in the
-   * future, the subscription exists from creation (the portal lists it under
-   * Billing) but Stripe issues the first cycle invoice ON this date, with no
-   * proration for the gap. Mirrors the agreement's billing-start clause:
-   * nothing accrues before implementation testing completes, then monthly in
-   * advance. Omit to bill from creation.
-   */
-  billing_cycle_anchor?: number
-  /** Extra metadata (e.g. a smoke-test marker). */
-  metadata?: Record<string, string>
-}
-
-async function resolveStripeCustomerId(apiKey: string, email: string): Promise<string> {
-  const searchRes = await fetch(
-    `${STRIPE_API_BASE}/customers/search?query=email:'${encodeURIComponent(email)}'`,
-    { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } }
-  )
-  if (searchRes.ok) {
-    const data: { data: Array<{ id: string }> } = await searchRes.json()
-    if (data.data.length > 0) return data.data[0].id
-  }
-  const body = new URLSearchParams()
-  body.append('email', email)
-  const res = await fetch(`${STRIPE_API_BASE}/customers`, {
-    method: 'POST',
-    headers: stripeHeaders(apiKey),
-    body: body.toString(),
-  })
-  if (!res.ok) {
-    throw new Error(`Stripe customer creation failed ${res.status}: ${await res.text()}`)
-  }
-  const data: { id: string } = await res.json()
-  return data.id
 }
 
 /**
@@ -130,61 +89,81 @@ async function resolveRetainerProductId(apiKey: string): Promise<string> {
   return data.id
 }
 
+export interface CreateOperatorCheckoutParams {
+  /** The signed-in principal's email; Stripe pre-fills it and keys the customer on it. */
+  customer_email: string
+  /** Monthly retainer in cents (services.recurring_price × 100). */
+  monthly_amount_cents: number
+  /** Local entity id, stamped into metadata for cross-reference. */
+  entity_id: string
+  /** Local subscriptions.id — the row the webhook attaches to and promotes. */
+  subscription_row_id: string
+  /** Local users.id of the principal who clicked Start (client_reference_id). */
+  user_id: string
+  /** Absolute URL; Stripe substitutes {CHECKOUT_SESSION_ID}. */
+  success_url: string
+  /** Absolute URL for an abandoned checkout. */
+  cancel_url: string
+}
+
+export interface OperatorCheckoutResult {
+  id: string
+  url: string
+}
+
 /**
- * Create the monthly retainer subscription. Stripe generates and emails the
- * first hosted invoice immediately (send_invoice), then one per month; the
- * subscription is active regardless of invoice status. With
- * `billing_cycle_anchor` set to a future date, the first invoice is issued on
- * that date instead (no proration), and the subscription still exists now.
+ * Create the Checkout Session a client uses to START the retainer.
+ *
+ * Subscription mode, monthly, ACH Direct Debit (verification automatic:
+ * instant via Financial Connections, micro-deposits as fallback) and card.
+ * The first month is paid on Stripe's page; the subscription is created by
+ * Stripe on completion, charge_automatically, and the webhook binds it.
+ * No Stripe Tax: the retainer is a managed service, priced as authored.
  */
-export async function createOperatorSubscription(
+export async function createOperatorCheckoutSession(
   apiKey: string | undefined,
-  params: CreateOperatorSubscriptionParams
-): Promise<StripeSubscriptionResult> {
+  params: CreateOperatorCheckoutParams
+): Promise<OperatorCheckoutResult> {
   const dollars = (params.monthly_amount_cents / 100).toFixed(2)
   if (!apiKey) {
-    const devId = 'dev_sub_' + crypto.randomUUID()
-    console.log(`[DEV] Stripe: would create $${dollars}/mo retainer subscription`)
-    console.log(`[DEV] Stripe: customer_email=${params.customer_email}`)
-    return { id: devId, status: 'active' }
+    const devId = 'dev_cs_' + crypto.randomUUID()
+    console.log(`[DEV] Stripe: would create checkout for $${dollars}/mo retainer`)
+    return { id: devId, url: '#dev-mode' }
   }
-
-  const customerId = await resolveStripeCustomerId(apiKey, params.customer_email)
   const productId = await resolveRetainerProductId(apiKey)
 
   const body = new URLSearchParams()
-  body.append('customer', customerId)
-  body.append('collection_method', 'send_invoice')
-  body.append('days_until_due', String(params.days_until_due ?? 30))
-  body.append('description', 'Operator retainer')
-  // Retainer cycle invoices are ACH only: the agreement's no-fee method. A
-  // firm that wants to pay a cycle by card gets a card invoice with the
-  // processing-fee line instead (§3.8); no fee-free card path exists.
-  body.append('payment_settings[payment_method_types][]', 'ach_debit')
-  body.append('items[0][price_data][unit_amount]', String(params.monthly_amount_cents))
-  body.append('items[0][price_data][currency]', 'usd')
-  body.append('items[0][price_data][product]', productId)
-  body.append('items[0][price_data][recurring][interval]', 'month')
-  if (params.billing_cycle_anchor !== undefined) {
-    body.append('billing_cycle_anchor', String(params.billing_cycle_anchor))
-    body.append('proration_behavior', 'none')
-  }
+  body.append('mode', 'subscription')
+  body.append('line_items[0][quantity]', '1')
+  body.append('line_items[0][price_data][unit_amount]', String(params.monthly_amount_cents))
+  body.append('line_items[0][price_data][currency]', 'usd')
+  body.append('line_items[0][price_data][product]', productId)
+  body.append('line_items[0][price_data][recurring][interval]', 'month')
+  body.append('payment_method_types[]', 'us_bank_account')
+  body.append('payment_method_types[]', 'card')
+  body.append('payment_method_options[us_bank_account][verification_method]', 'automatic')
+  body.append('customer_email', params.customer_email)
+  body.append('client_reference_id', params.user_id)
+  body.append('success_url', params.success_url)
+  body.append('cancel_url', params.cancel_url)
+  body.append('metadata[product_slug]', OPERATOR_CHECKOUT_PRODUCT_SLUG)
   body.append('metadata[smd_entity_id]', params.entity_id)
   body.append('metadata[smd_subscription_id]', params.subscription_row_id)
-  for (const [key, value] of Object.entries(params.metadata ?? {})) {
-    body.append(`metadata[${key}]`, value)
-  }
+  body.append('subscription_data[description]', 'Operator retainer')
+  body.append('subscription_data[metadata][product_slug]', OPERATOR_CHECKOUT_PRODUCT_SLUG)
+  body.append('subscription_data[metadata][smd_entity_id]', params.entity_id)
+  body.append('subscription_data[metadata][smd_subscription_id]', params.subscription_row_id)
 
-  const res = await fetch(`${STRIPE_API_BASE}/subscriptions`, {
+  const res = await fetch(`${STRIPE_API_BASE}/checkout/sessions`, {
     method: 'POST',
     headers: stripeHeaders(apiKey),
     body: body.toString(),
   })
   if (!res.ok) {
-    throw new Error(`Stripe subscription creation failed ${res.status}: ${await res.text()}`)
+    throw new Error(`Stripe checkout session creation failed ${res.status}: ${await res.text()}`)
   }
-  const data: { id: string; status: string } = await res.json()
-  return { id: data.id, status: data.status }
+  const data: { id: string; url: string } = await res.json()
+  return { id: data.id, url: data.url }
 }
 
 /**

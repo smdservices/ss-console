@@ -3,16 +3,17 @@
  * (src/lib/stripe/subscriptions.ts, #1679).
  *
  * The configured path is exercised through the real fetch layer with a
- * stubbed global fetch, asserting the exact Stripe API shapes: send_invoice
- * collection, inline monthly price_data against the shared retainer product,
- * pause via pause_collection[behavior]=void, resume via clearing
- * pause_collection, cancel via DELETE.
+ * stubbed global fetch, asserting the exact Stripe API shapes: the
+ * client-started Checkout Session (subscription mode, ACH + card, inline
+ * monthly price_data against the shared retainer product), pause via
+ * pause_collection[behavior]=void, resume via clearing pause_collection,
+ * cancel via DELETE.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   cancelOperatorSubscription,
-  createOperatorSubscription,
+  createOperatorCheckoutSession,
   getOperatorSubscription,
   pauseOperatorSubscription,
   resumeOperatorSubscription,
@@ -53,132 +54,88 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('createOperatorSubscription', () => {
+describe('createOperatorCheckoutSession (the client starts the retainer)', () => {
+  const PARAMS = {
+    customer_email: 'admin@firm.com',
+    monthly_amount_cents: 500000,
+    entity_id: 'ent-1',
+    subscription_row_id: 'sub-row-1',
+    user_id: 'user-1',
+    success_url:
+      'https://portal.example/portal/billing?start=done&session_id={CHECKOUT_SESSION_ID}',
+    cancel_url: 'https://portal.example/portal/billing?start=cancelled',
+  }
+
   it('dev-mode stub when apiKey is undefined (no fetch)', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    const result = await createOperatorSubscription(undefined, {
-      customer_email: 'owner@firm.com',
-      monthly_amount_cents: 500000,
-      entity_id: 'ent-1',
-      subscription_row_id: 'sub-row-1',
-    })
-    expect(result.id).toMatch(/^dev_sub_/)
-    expect(result.status).toBe('active')
+    const result = await createOperatorCheckoutSession(undefined, PARAMS)
+    expect(result.id).toMatch(/^dev_cs_/)
+    expect(result.url).toBe('#dev-mode')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('resolves customer + shared product, then creates a send_invoice monthly subscription', async () => {
+  it('creates a subscription-mode session: ACH + card, monthly inline price, routed by metadata', async () => {
     const { calls } = stubStripe([
-      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
       { match: '/products/search', json: { data: [{ id: 'prod_retainer' }] } },
-      { match: '/subscriptions', method: 'POST', json: { id: 'sub_9', status: 'active' } },
+      {
+        match: '/checkout/sessions',
+        method: 'POST',
+        json: { id: 'cs_1', url: 'https://checkout.stripe.com/c/cs_1' },
+      },
     ])
+    const result = await createOperatorCheckoutSession(KEY, PARAMS)
+    expect(result).toEqual({ id: 'cs_1', url: 'https://checkout.stripe.com/c/cs_1' })
 
-    const result = await createOperatorSubscription(KEY, {
-      customer_email: 'owner@firm.com',
-      monthly_amount_cents: 500000,
-      entity_id: 'ent-1',
-      subscription_row_id: 'sub-row-1',
-      metadata: { smd_smoke_test: '1' },
-    })
-    expect(result).toEqual({ id: 'sub_9', status: 'active' })
-
-    const create = calls.find((c) => c.url.endsWith('/subscriptions') && c.method === 'POST')
-    expect(create).toBeDefined()
+    const create = calls.find((c) => c.url.endsWith('/checkout/sessions') && c.method === 'POST')
     const body = new URLSearchParams(create!.body)
-    expect(body.get('customer')).toBe('cus_1')
-    expect(body.get('collection_method')).toBe('send_invoice')
-    expect(body.get('days_until_due')).toBe('30')
-    expect(body.get('items[0][price_data][unit_amount]')).toBe('500000')
-    expect(body.get('items[0][price_data][currency]')).toBe('usd')
-    expect(body.get('items[0][price_data][product]')).toBe('prod_retainer')
-    expect(body.get('items[0][price_data][recurring][interval]')).toBe('month')
-    // ACH only: the agreement's no-fee method (§3.8); card rides a fee invoice.
-    expect(body.getAll('payment_settings[payment_method_types][]')).toEqual(['ach_debit'])
-    expect(body.get('metadata[smd_entity_id]')).toBe('ent-1')
+    expect(body.get('mode')).toBe('subscription')
+    expect(body.getAll('payment_method_types[]')).toEqual(['us_bank_account', 'card'])
+    expect(body.get('payment_method_options[us_bank_account][verification_method]')).toBe(
+      'automatic'
+    )
+    expect(body.get('line_items[0][price_data][unit_amount]')).toBe('500000')
+    expect(body.get('line_items[0][price_data][product]')).toBe('prod_retainer')
+    expect(body.get('line_items[0][price_data][recurring][interval]')).toBe('month')
+    expect(body.get('customer_email')).toBe('admin@firm.com')
+    expect(body.get('client_reference_id')).toBe('user-1')
+    expect(body.get('metadata[product_slug]')).toBe('operator')
     expect(body.get('metadata[smd_subscription_id]')).toBe('sub-row-1')
-    expect(body.get('metadata[smd_smoke_test]')).toBe('1')
-  })
-
-  it('anchors the first cycle invoice to a future Billing Start Date with no proration', async () => {
-    const { calls } = stubStripe([
-      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
-      { match: '/products/search', json: { data: [{ id: 'prod_retainer' }] } },
-      { match: '/subscriptions', method: 'POST', json: { id: 'sub_10', status: 'active' } },
-    ])
-
-    await createOperatorSubscription(KEY, {
-      customer_email: 'owner@firm.com',
-      monthly_amount_cents: 500000,
-      entity_id: 'ent-1',
-      subscription_row_id: 'sub-row-1',
-      billing_cycle_anchor: 1788019200,
-    })
-
-    const create = calls.find((c) => c.url.endsWith('/subscriptions') && c.method === 'POST')
-    const body = new URLSearchParams(create!.body)
-    expect(body.get('billing_cycle_anchor')).toBe('1788019200')
-    expect(body.get('proration_behavior')).toBe('none')
-    expect(body.get('collection_method')).toBe('send_invoice')
-  })
-
-  it('sends no anchor when billing starts now', async () => {
-    const { calls } = stubStripe([
-      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
-      { match: '/products/search', json: { data: [{ id: 'prod_retainer' }] } },
-      { match: '/subscriptions', method: 'POST', json: { id: 'sub_11', status: 'active' } },
-    ])
-    await createOperatorSubscription(KEY, {
-      customer_email: 'owner@firm.com',
-      monthly_amount_cents: 500000,
-      entity_id: 'ent-1',
-      subscription_row_id: 'sub-row-1',
-    })
-    const create = calls.find((c) => c.url.endsWith('/subscriptions') && c.method === 'POST')
-    const body = new URLSearchParams(create!.body)
+    expect(body.get('subscription_data[metadata][smd_subscription_id]')).toBe('sub-row-1')
+    expect(body.get('success_url')).toContain('{CHECKOUT_SESSION_ID}')
+    // Never the admin-started shape: no collection_method, no anchor, no tax.
+    expect(body.has('collection_method')).toBe(false)
     expect(body.has('billing_cycle_anchor')).toBe(false)
-    expect(body.has('proration_behavior')).toBe(false)
+    expect(body.has('automatic_tax[enabled]')).toBe(false)
   })
 
   it('creates the shared retainer product on first use', async () => {
     const { calls } = stubStripe([
-      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
       { match: '/products/search', json: { data: [] } },
       { match: '/products', method: 'POST', json: { id: 'prod_new' } },
-      { match: '/subscriptions', method: 'POST', json: { id: 'sub_9', status: 'active' } },
+      {
+        match: '/checkout/sessions',
+        method: 'POST',
+        json: { id: 'cs_2', url: 'https://checkout.stripe.com/c/cs_2' },
+      },
     ])
-    await createOperatorSubscription(KEY, {
-      customer_email: 'owner@firm.com',
-      monthly_amount_cents: 500000,
-      entity_id: 'ent-1',
-      subscription_row_id: 'sub-row-1',
-    })
+    await createOperatorCheckoutSession(KEY, PARAMS)
     const productCreate = calls.find((c) => c.url.endsWith('/products') && c.method === 'POST')
     expect(productCreate).toBeDefined()
-    const body = new URLSearchParams(productCreate!.body)
-    expect(body.get('name')).toBe('SMD Operator Retainer')
-    expect(body.get('metadata[smd_product]')).toBe('operator-retainer')
-    const subCreate = calls.find((c) => c.url.endsWith('/subscriptions') && c.method === 'POST')
-    expect(new URLSearchParams(subCreate!.body).get('items[0][price_data][product]')).toBe(
+    const create = calls.find((c) => c.url.endsWith('/checkout/sessions'))
+    expect(new URLSearchParams(create!.body).get('line_items[0][price_data][product]')).toBe(
       'prod_new'
     )
   })
 
   it('throws on a Stripe error (caller decides the redirect)', async () => {
     stubStripe([
-      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
-      { match: '/products/search', json: { data: [{ id: 'prod_1' }] } },
-      { match: '/subscriptions', method: 'POST', json: { error: 'nope' }, status: 402 },
+      { match: '/products/search', json: { data: [{ id: 'prod_retainer' }] } },
+      { match: '/checkout/sessions', method: 'POST', json: { error: 'nope' }, status: 400 },
     ])
-    await expect(
-      createOperatorSubscription(KEY, {
-        customer_email: 'owner@firm.com',
-        monthly_amount_cents: 500000,
-        entity_id: 'ent-1',
-        subscription_row_id: 'sub-row-1',
-      })
-    ).rejects.toThrow(/402/)
+    await expect(createOperatorCheckoutSession(KEY, PARAMS)).rejects.toThrow(
+      /checkout session creation failed 400/
+    )
   })
 })
 
@@ -191,7 +148,7 @@ describe('pause / resume / cancel', () => {
     expect(new URLSearchParams(calls[0].body).get('pause_collection[behavior]')).toBe('void')
   })
 
-  it('resumes by clearing pause_collection (send_invoice cannot use /resume)', async () => {
+  it('resumes by clearing pause_collection', async () => {
     const { calls } = stubStripe([
       { match: '/subscriptions/sub_9', method: 'POST', json: { id: 'sub_9', status: 'active' } },
     ])

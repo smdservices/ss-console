@@ -100,6 +100,7 @@ function makeSubscription(overrides?: Partial<SubscriptionRow>): SubscriptionRow
     ended_at: null,
     settings_json: null,
     service_id: null,
+    stripe_subscription_id: null,
     created_at: '2026-05-01T00:00:00.000Z',
     updated_at: '2026-05-01T00:00:00.000Z',
     ...overrides,

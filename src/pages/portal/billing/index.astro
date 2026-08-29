@@ -15,6 +15,7 @@ import {
 } from '../../../lib/portal/operator/account-read'
 import { resolvePortalOfferings } from '../../../lib/portal/offerings'
 import { parseStripeCustomerId, productDisplayName } from '../../../lib/portal/billing'
+import { getOperatorServiceForEntity } from '../../../lib/db/services'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -38,6 +39,25 @@ const { user, client } = portalData
 const offerings = await resolvePortalOfferings(env.DB, user.org_id, client.id)
 const invoices = await listInvoicesForEntity(env.DB, user.org_id, client.id)
 const subscriptions = offerings.subscriptions
+
+// The retainer starts by the client's own act (Captain, 2026-08-29): an
+// operator row still `provisioning` with no Stripe subscription offers Start,
+// priced from the authored monthly price. No price authored → no door, and
+// nothing invented: the row shows as being set up.
+const operatorService = await getOperatorServiceForEntity(env.DB, user.org_id, client.id)
+const operatorPriceCents =
+  typeof operatorService?.recurring_price === 'number' && operatorService.recurring_price > 0
+    ? Math.round(operatorService.recurring_price * 100)
+    : null
+function canStart(sub: (typeof subscriptions)[number]): boolean {
+  return (
+    sub.product_slug === 'operator' &&
+    sub.status === 'provisioning' &&
+    !sub.stripe_subscription_id &&
+    !!sub.instance_slug &&
+    operatorPriceCents !== null
+  )
+}
 
 function resolveDateLabel(inv: Invoice): string {
   if (inv.paid_at) return 'Paid'
@@ -65,12 +85,24 @@ function asSubscriptionStatus(status: string): SubscriptionStatus {
 }
 
 const csStatus = Astro.url.searchParams.get('cs')
+const startStatus = Astro.url.searchParams.get('start')
+const START_MESSAGES: Record<string, string> = {
+  done: 'Thank you. Your subscription is active and renews automatically each month.',
+  cancelled: 'Checkout was not completed. Your subscription has not started.',
+  already_started: 'This subscription has already been started.',
+  unpriced:
+    'Your subscription is not ready to start yet. Write to team@smd.services and we sort it out.',
+  failed: 'Could not open checkout. Try again, or write to team@smd.services.',
+}
 const csMessage =
   csStatus === 'billing_unavailable'
     ? 'Billing management is not available for that subscription yet. Write to team@smd.services and we sort it out.'
     : csStatus === 'billing_error'
       ? 'Could not open billing management. Try again, or write to team@smd.services.'
-      : null
+      : startStatus
+        ? (START_MESSAGES[startStatus] ?? null)
+        : null
+const csTone = startStatus === 'done' ? 'success' : 'error'
 ---
 
 <PortalShell
@@ -97,7 +129,12 @@ const csMessage =
     csMessage && (
       <div
         role="status"
-        class="mt-6 border-[3px] border-[color:var(--ss-color-error)] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-error)]"
+        class:list={[
+          'mt-6 border-[3px] px-5 py-3 font-mono text-label uppercase tracking-[0.14em] font-bold',
+          csTone === 'success'
+            ? 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]'
+            : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]',
+        ]}
       >
         {csMessage}
       </div>
@@ -121,9 +158,30 @@ const csMessage =
                   {subscriptionStatusLabel(asSubscriptionStatus(sub.status))}
                 </p>
                 <p class="mt-1 font-body text-sm text-[color:var(--ss-color-text-secondary)]">
-                  {subscriptionStatusProse(asSubscriptionStatus(sub.status))}
+                  {canStart(sub)
+                    ? 'Start your subscription to put the Operator on its monthly plan.'
+                    : subscriptionStatusProse(asSubscriptionStatus(sub.status))}
                 </p>
+                {sub.product_slug === 'operator' && operatorPriceCents !== null && (
+                  <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                    <MoneyDisplay amountCents={operatorPriceCents} /> per month, renews
+                    automatically
+                  </p>
+                )}
               </div>
+              {canStart(sub) && (
+                <form
+                  method="POST"
+                  action={`/api/portal/products/operator/${sub.instance_slug}/start-subscription`}
+                >
+                  <button
+                    type="submit"
+                    class="px-5 py-2.5 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-bold uppercase tracking-[0.08em] font-body hover:bg-[color:var(--ss-color-background)] hover:text-[color:var(--ss-color-text-primary)] transition-colors"
+                  >
+                    Start subscription
+                  </button>
+                </form>
+              )}
               {parseStripeCustomerId(sub.settings_json) && (
                 <form method="POST" action="/api/portal/billing/manage">
                   <input type="hidden" name="product_slug" value={sub.product_slug} />

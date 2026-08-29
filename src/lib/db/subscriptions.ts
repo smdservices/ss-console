@@ -51,17 +51,28 @@ export async function getSubscriptionByStripeId(
   return row ?? null
 }
 
-/** Attach a Stripe subscription to the local row (start billing). */
+/**
+ * Attach a Stripe subscription (and its customer) to the local row. The
+ * customer id lands in settings_json.stripe_customer_id, the single key the
+ * portal's Manage Billing door reads (src/lib/portal/billing.ts); the
+ * merge keeps any other settings the row carries.
+ */
 export async function attachStripeSubscription(
   db: D1Database,
   subscriptionRowId: string,
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
+  stripeCustomerId: string | null = null
 ): Promise<void> {
   await db
     .prepare(
-      "UPDATE subscriptions SET stripe_subscription_id = ?, updated_at = datetime('now') WHERE id = ?"
+      `UPDATE subscriptions
+         SET stripe_subscription_id = ?,
+             settings_json = CASE WHEN ? IS NULL THEN settings_json
+                                  ELSE json_set(COALESCE(settings_json, '{}'), '$.stripe_customer_id', ?) END,
+             updated_at = datetime('now')
+       WHERE id = ?`
     )
-    .bind(stripeSubscriptionId, subscriptionRowId)
+    .bind(stripeSubscriptionId, stripeCustomerId, stripeCustomerId, subscriptionRowId)
     .run()
 }
 
@@ -104,16 +115,16 @@ export async function setSubscriptionBillingStatus(
 }
 
 /**
- * Promote a `provisioning` Operator row to `active` because billing has
- * started. This is the go-live flip the portal reads: `provisioning` keeps a
- * client in the review-and-configure window (Home hidden, Billing hidden,
- * landing on the operator page); `active` reveals the full portal
- * (src/lib/portal/offerings.ts, hasBillingRelationship). It is deliberately
- * NOT reachable from the Stripe webhooks (setSubscriptionBillingStatus keeps
- * its provisioning guard for the Hosted Agent's checkout-before-standup
- * flow); only the admin's explicit start-billing act calls it, for the
- * operator product, and only from `provisioning`. Returns true when a row
- * was promoted.
+ * Promote a `provisioning` Operator row to `active` because the client has
+ * started (paid) the retainer. This is the go-live flip the portal reads:
+ * `provisioning` keeps a client in the review-and-configure window (Home
+ * hidden, Billing hidden, landing on the operator page); `active` reveals
+ * the full portal (src/lib/portal/offerings.ts, hasBillingRelationship).
+ * Only the operator checkout.session.completed handler calls it, for the
+ * operator product, from `provisioning`: the client's own payment is the
+ * act. The generic subscription-status mirror keeps its provisioning guard
+ * (the Hosted Agent's checkout-before-standup flow must not be promoted by
+ * billing events). Returns true when a row was promoted.
  */
 export async function activateOperatorSubscriptionForBilling(
   db: D1Database,
