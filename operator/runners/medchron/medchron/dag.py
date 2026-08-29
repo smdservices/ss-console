@@ -12,8 +12,8 @@ in-process function (`runner`), and the order does not know which. Its `argv`
 builder reproduces the script's positional contract exactly, so a stage flips
 from one to the other without touching the order. `exit_map` turns a stage's
 exit code into the outcome vocabulary; anything unmapped and non-zero is
-`failed`. Ported so far (PR 2): list_matter, download, extract, index_msg,
-fold_msg, extract_after_fold.
+`failed`. Ported so far: list_matter, download, extract, index_msg, fold_msg,
+extract_after_fold (PR 2); vision, billing_extract, build_units (PR 4).
 """
 from __future__ import annotations
 
@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .job import Job, Unit
-from .stages import download as _download, extract as _extract, listing as _listing, msg as _msg
+from .stages import (billing as _billing, download as _download, extract as _extract, listing as _listing,
+                     msg as _msg, units as _units, vision as _vision)
 
 # Outcome vocabulary shared with state.py. HOLD and REFUSE never write to the
 # matter; they end the run with a reason a person can act on.
@@ -83,13 +84,15 @@ STAGES: tuple[Stage, ...] = (
           scope="slug", requires=("decide_fold",), runner=_msg.run_fold),
     Stage("extract_after_fold", "", _slug, scope="slug", requires=("fold_msg",), runner=_extract.run),
     # ---- paid: transcription, units, billing -----------------------------
-    Stage("vision", "vision_scan.py", _slug, paid=True, scope="slug", requires=("extract_after_fold",)),
+    Stage("vision", "", _slug, paid=True, scope="slug", requires=("extract_after_fold",), runner=_vision.run,
+          exit_map={1: (FAILED, "vision: a file is incomplete (a page never returned or its batch is still "
+                                "processing); a rerun resumes it")}),
     Stage("decide_billing_docs", "", _slug, scope="slug", requires=("vision",), decision="billing_docs"),
-    Stage("billing_extract", "billing_extract.py", _slug, paid=True, scope="slug",
-          requires=("decide_billing_docs",),
-          exit_map={1: (FAILED, "billing pages could not be transcribed")}),
+    Stage("billing_extract", "", _slug, paid=True, scope="slug", requires=("decide_billing_docs",),
+          runner=_billing.run,
+          exit_map={1: (FAILED, "billing pages could not be transcribed; the totals would be incomplete")}),
     Stage("decide_units", "", _slug, scope="slug", requires=("billing_extract",), decision="units"),
-    Stage("build_units", "build_units.py", _slug, scope="slug", requires=("decide_units",),
+    Stage("build_units", "", _slug, scope="slug", requires=("decide_units",), runner=_units.run,
           exit_map={2: (REFUSED, "build_units refused: a scanned file is untranscribed or billing_extract is missing")}),
     Stage("identity", "check_unit_identity.py", _slug, scope="slug", requires=("build_units",),
           exit_map={1: (FAILED, "units.json missing")}),

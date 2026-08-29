@@ -132,7 +132,8 @@ def _stage_input_sha(slug_dir: Path, stage: dag.Stage) -> str | None:
 
 class Driver:
     def __init__(self, job_dir: Path, *, firm_config: str | None = None, pricing: str | None = None,
-                 dry_run: bool = False, start: str | None = None, log=print, seat_factory=None) -> None:
+                 dry_run: bool = False, start: str | None = None, log=print, seat_factory=None,
+                 client=None) -> None:
         self.job = job_mod.load(job_dir)
         self.cfg = config_mod.load(firm_config)
         self.dry_run = dry_run
@@ -140,7 +141,12 @@ class Driver:
         self.log = log
         # The seat is opened lazily by the first stage that reads the matter,
         # so a dry run and a resume past the pull never touch the firm's system.
-        self.seat_factory = seat_factory or (lambda: seat_mod.open_seat(str(self.cfg.get("firm", "slug"))))
+        # One seat and one SDK client per run, opened lazily by the first stage
+        # that needs them and shared by every stage after (a seat opened per
+        # stage would list a matter under one session and pull it under another).
+        self._seat_factory = seat_factory or (lambda: seat_mod.open_seat(str(self.cfg.get("firm", "slug"))))
+        self._seat = None
+        self._client = client
         self.pipeline = None if dry_run else _pipeline_dir()
         pricing_path = Path(pricing or os.environ.get(budget_mod.PRICING_ENV) or budget_mod.PRICING_DEFAULT)
         self.pricing = budget_mod.Pricing.load(pricing_path)
@@ -262,6 +268,18 @@ class Driver:
         st.end(outcome, reason)
         return Outcome(unit.unit, outcome, reason, stage.name, dollars, pages, notes)
 
+    def _open_seat(self):
+        if self._seat is None:
+            self._seat = self._seat_factory()
+        return self._seat
+
+    def _sdk_client(self):
+        if self._client is None:
+            import anthropic
+
+            self._client = anthropic.Anthropic(timeout=600.0, max_retries=0)
+        return self._client
+
     def _execute_in_process(self, stage: dag.Stage, ctx: dag.Ctx, st: RunState, extracted: Path,
                             notes: list[str]) -> Outcome | None:
         """A ported stage: same state record, same log file, same exit-code
@@ -274,7 +292,7 @@ class Driver:
             self.log(f"  {msg}")
 
         sr = StageRun(job=self.job, cfg=self.cfg, unit=unit, slug_dir=self.slug_dir, decided=self.decided,
-                      log=log, seat_factory=self.seat_factory)
+                      log=log, seat_factory=self._open_seat, client_factory=self._sdk_client)
         st.start(stage.name, input_sha=_stage_input_sha(self.slug_dir, stage))
         self.log(f"[run] {stage.name}: in-process")
         refusal: str | None = None

@@ -15,6 +15,8 @@ from typing import Any, Callable
 
 from .. import config as config_mod, job as job_mod
 from ..seat import Seat
+from ..ledger import Ledger
+from ..llm import Doorway
 
 
 class StageRefusal(RuntimeError):
@@ -31,13 +33,28 @@ class StageRun:
     decided: dict[str, Any]
     log: Callable[[str], None]
     seat_factory: Callable[[], Seat]
+    #: Builds (or returns) the run's one SDK client for paid stages; None means
+    #: the doorway builds the real one. Tests inject a scripted client here, so
+    #: no test touches the network.
+    client_factory: Callable[[], Any] | None = None
     _seat: Seat | None = field(default=None, repr=False)
+    _doorway: Doorway | None = field(default=None, repr=False)
 
     @property
     def seat(self) -> Seat:
         if self._seat is None:
             self._seat = self.seat_factory()
         return self._seat
+
+    @property
+    def doorway(self) -> Doorway:
+        """The paid doorway, writing this unit's ledger. Built once per stage
+        run from the firm's levers."""
+        if self._doorway is None:
+            ledger = Ledger(self.slug_dir / "runs" / self.unit.unit / "usage-ledger.jsonl")
+            client = self.client_factory() if self.client_factory is not None else None
+            self._doorway = Doorway.from_config(self.cfg, ledger, client=client, log=self.log)
+        return self._doorway
 
     @property
     def slug(self) -> str:
