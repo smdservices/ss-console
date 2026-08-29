@@ -278,6 +278,12 @@ FLY_REGION="${FIELDS[1]}"
 MACHINE_SIZE="${FIELDS[2]}"
 MEMORY_MB="${FIELDS[3]}"
 HERMES_REF="${FIELDS[4]}"
+# cpu_kind + cpus come from the size name (ss#2612); an unrecognised size dies
+# here rather than rendering a one-vCPU Machine by fallback.
+# shellcheck source=lib/machine-size.sh
+source "${REPO_ROOT}/operator/bin/lib/machine-size.sh"
+MACHINE_CPU_KIND="$(machine_cpu_kind "${MACHINE_SIZE}")" || die "machine.size '${MACHINE_SIZE}' is not a Fly size this template can render"
+MACHINE_CPUS="$(machine_cpus "${MACHINE_SIZE}")" || die "machine.size '${MACHINE_SIZE}' is not a Fly size this template can render"
 
 [ "${CUSTOMER_ID}" = "${SLUG}" ] || die "customer.yaml customer_id (${CUSTOMER_ID}) does not match slug (${SLUG})"
 APP_NAME="hermes-${SLUG}"
@@ -326,6 +332,8 @@ sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
     -e "s/{{FLY_REGION}}/${FLY_REGION}/g" \
     -e "s/{{MACHINE_SIZE}}/${MACHINE_SIZE}/g" \
     -e "s/{{MEMORY_MB}}/${MEMORY_MB}/g" \
+    -e "s/{{MACHINE_CPU_KIND}}/${MACHINE_CPU_KIND}/g" \
+    -e "s/{{MACHINE_CPUS}}/${MACHINE_CPUS}/g" \
     -e "s/{{HERMES_REF}}/${HERMES_REF}/g" \
     -e "s/{{HERMES_UPSTREAM_TAG}}/${HERMES_UPSTREAM_TAG}/g" \
     -e "s/{{HERMES_UPSTREAM_SHA}}/${HERMES_UPSTREAM_SHA}/g" \

@@ -95,6 +95,33 @@ except Exception:
 done
 [ "${STATE}" = "started" ] || fail "machine-state-started — state=${STATE} after 60s"
 
+# ---------- Step 1b: the guest is the size customer.yaml authored ----------
+# ss#2612: the template hardcoded `cpus = 1`, so an authored shared-cpu-2x
+# rendered a 2x label on a one-vCPU guest and nothing noticed. The guest Fly
+# reports is compared to the authored size and memory, and the cpu count is
+# derived by the same function provisioning used (operator/bin/lib/machine-size.sh).
+CUSTOMER_YAML="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/operator/customers/${SLUG}/customer.yaml"
+if [ -f "${CUSTOMER_YAML}" ]; then
+  # shellcheck source=lib/machine-size.sh
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/machine-size.sh"
+  AUTHORED_SIZE="$(python3 -c "import sys, yaml; c = yaml.safe_load(open('${CUSTOMER_YAML}')); print(c['machine']['size'])" 2>/dev/null || echo "")"
+  AUTHORED_MEM="$(python3 -c "import sys, yaml; c = yaml.safe_load(open('${CUSTOMER_YAML}')); print(c['machine']['memory_mb'])" 2>/dev/null || echo "")"
+  AUTHORED_CPUS="$(machine_cpus "${AUTHORED_SIZE}" 2>/dev/null || echo "")"
+  GUEST="$(fly status -a "${APP_NAME}" --json 2>/dev/null \
+    | python3 -c "import sys, json
+try:
+    d = json.load(sys.stdin)
+    g = (d.get('Machines') or [{}])[0].get('config', {}).get('guest', {})
+    print(f\"{g.get('cpu_kind')}-{g.get('cpus')}-{g.get('memory_mb')}\")
+except Exception:
+    print('error')" 2>/dev/null || echo "error")"
+  if [ -n "${AUTHORED_CPUS}" ] && [ "${GUEST}" = "$(machine_cpu_kind "${AUTHORED_SIZE}")-${AUTHORED_CPUS}-${AUTHORED_MEM}" ]; then
+    pass "guest-matches-authored-size (${AUTHORED_SIZE}, ${AUTHORED_MEM} MB, ${AUTHORED_CPUS} vCPU)"
+  else
+    fail "guest-matches-authored-size — authored ${AUTHORED_SIZE}/${AUTHORED_MEM}MB, Fly reports ${GUEST}"
+  fi
+fi
+
 # ---------- Steps 2-4: Postgres / Redis / Honcho — DEFERRED (Phase 2) ----------
 # The Honcho data plane is deferred to Phase 2 (ADR 0016 revised); Phase 1 boots
 # on Hermes' flat-file memory core, so there is no Postgres/Redis/Honcho to
