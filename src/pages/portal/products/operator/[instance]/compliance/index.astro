@@ -11,6 +11,7 @@ import {
 import type { Vertical } from '../../../../../../lib/operator/customer-yaml'
 import { ACCEPTED_VERTICALS } from '../../../../../../lib/operator/customer-yaml'
 import PortalPageHead from '../../../../../../components/portal/PortalPageHead.astro'
+import PortalListItem from '../../../../../../components/portal/PortalListItem.astro'
 import { env } from 'cloudflare:workers'
 import { listAgreementsForInstance } from '../../../../../../lib/portal/agreement-documents'
 import { formatShortDate } from '../../../../../../lib/portal/formatters'
@@ -350,21 +351,21 @@ const agreements = await listAgreementsForInstance(env.DB, client.id, instance)
             Where more than one is listed, all of them are in force together and the most recent
             sits at the top.
           </p>
-          <ul class="mt-5 border-t-[2px] border-[color:var(--ss-color-text-primary)]">
+          <div class="mt-5 border-[3px] border-[color:var(--ss-color-text-primary)]">
             {agreements.map((doc) => (
-              <li class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b-[2px] border-[color:var(--ss-color-text-primary)] py-4">
-                <a
-                  href={doc.href}
-                  class="font-body text-base font-bold text-[color:var(--ss-color-text-primary)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
-                >
-                  {doc.title}
-                </a>
-                <span class="font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                  Executed {formatShortDate(doc.executedOn)}
-                </span>
-              </li>
+              <PortalListItem
+                chrome="ticket"
+                variant="document"
+                href={doc.href}
+                icon="description"
+                title={doc.title}
+                eyebrow={`Executed ${formatShortDate(doc.executedOn)}`}
+                fileExt="PDF"
+                kind="Agreement"
+                trailingIcon="open_in_new"
+              />
             ))}
-          </ul>
+          </div>
         </div>
       </section>
     )
