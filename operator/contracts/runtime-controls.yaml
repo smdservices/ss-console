@@ -587,21 +587,31 @@ controls:
     # hermes-smd-overlay (shared/read_volume.py, fence in trust enforce).
     substrate_module: 'overlay:shared/read_volume.py'
     wired_via: 'pre_tool_call / hermes-smd-trust'
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    live_probe: seat_review_suspends_past_threshold
+    probe_surface: staging
+    status: enforced
     owner: SMDurgan
     tracking: 'https://github.com/venturecrane/engagements/pull/92'
-    candidate_probe: seat_review_suspends_past_threshold
     risk_review: >-
-      2026-08-28 (overlay#327 / ss#2622): built and pinned, unprobed. The gate
-      ships DORMANT on the client seat (A&P authors no webhook route to the
-      review skill and every routine is off), so the unprobed window carries no
-      client exposure; the pilot rehearsal that would flip this is blocked by
-      the org API spend pause until Sept 1 or a tier raise. The exposure while
-      unprobed is contractual, not operational: Exhibit A row 5 promises a
-      suspend-and-surface the seat has not yet demonstrated, which is why the
-      signing package holds until the rehearsal lands.
+      2026-08-28 night (overlay#327..#331 / ss#2622..#2626): ENFORCED, proven
+      by live rehearsal on pilot-smokeball at overlay 29eac2c7. OVER
+      (vfy_01M15KHR2XVQB6S57W33D2AVZF): crossing at exactly threshold, 5
+      further reads refused in code with observed-numbers directive, refusals
+      never accumulate, model delivered the surface note. UNDER
+      (vfy_01M15KTZFHKMYTJD16DGJ9TTB2): marked review below threshold
+      completed with zero gate rows (discriminating against a dead gate).
+      REPORT (vfy_01M15QGMS4YPHKK0KWSBP2GK4K): proceeds unblocked past
+      crossings; KNOWN GAP overlay#332 - the report audit row is overwritten
+      by the allow-path record (behavior correct, trace journal still shows
+      crossings; fix rides the next pin). Rehearsal surfaced and fixed three
+      live wiring defects no unit test could reach: skill_view marker (#328),
+      nested-JSON envelope (#329), inbound-fence unwrap under the v0.20.4
+      inverted hook order (#331, diagnosed in one turn by the #330 trace
+      journal). A&P seat still runs pre-gate pin 349d86b3-era code: the gate
+      reaches A&P at its NEXT reprovision (deferred to Sept 1+ - boot smoke
+      needs the capped SMD org key; the gate is dormant there regardless: no
+      webhook route to the review skill is authored and every routine is off;
+      the 250-page threshold value is already live via config applier).
     note: >-
       Agreement §2.8 routine 5 (overlay#327, 2026-08-28): meters pages of
       documents read in the course of an opposing-response review and refuses

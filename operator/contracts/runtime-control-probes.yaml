@@ -355,9 +355,14 @@ probes:
     seat_command: []
     expect_pattern: ''
     proves: >-
-      Nothing yet. No driver is authored (rehearsal blocked by the org API
-      spend pause until Sept 1), so the runner HOLDS, and the registry row
-      stays `unprobed`.
+      PROVEN MANUALLY 2026-08-28 night on pilot-smokeball at overlay 29eac2c7
+      (driver: hermes -p operator cron one-shots + fixture PDFs on seed
+      matters): OVER refused at the crossing with the surface-note directive
+      (vfy_01M15KHR2XVQB6S57W33D2AVZF), UNDER completed with zero gate rows
+      (vfy_01M15KTZFHKMYTJD16DGJ9TTB2), REPORT proceeded unblocked
+      (vfy_01M15QGMS4YPHKK0KWSBP2GK4K; report-row gap = overlay#332). Manual
+      probes prove the deployed code's decision at the seam, not that a
+      regression would be caught - no automated driver exists yet.
     limits: >-
       The placement and both-ways falsifiers are pinned by overlay
       tests/test_read_volume_gate_placement.py; this probe is about the
