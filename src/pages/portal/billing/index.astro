@@ -15,6 +15,7 @@ import {
 } from '../../../lib/portal/operator/account-read'
 import { resolvePortalOfferings } from '../../../lib/portal/offerings'
 import { parseStripeCustomerId, productDisplayName } from '../../../lib/portal/billing'
+import { parseCancelAt } from '../../../lib/db/subscriptions'
 import { getOperatorServiceForEntity } from '../../../lib/db/services'
 import { env } from 'cloudflare:workers'
 
@@ -162,10 +163,18 @@ const csTone = startStatus === 'done' ? 'success' : 'error'
                     ? 'Start your subscription to put the Operator on its monthly plan.'
                     : subscriptionStatusProse(asSubscriptionStatus(sub.status))}
                 </p>
-                {sub.product_slug === 'operator' && operatorPriceCents !== null && (
-                  <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                    <MoneyDisplay amountCents={operatorPriceCents} /> per month, renews
-                    automatically
+                {sub.product_slug === 'operator' &&
+                  operatorPriceCents !== null &&
+                  parseCancelAt(sub.settings_json) === null && (
+                    <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                      <MoneyDisplay amountCents={operatorPriceCents} /> per month, renews
+                      automatically
+                    </p>
+                  )}
+                {parseCancelAt(sub.settings_json) && (
+                  <p class="mt-2 font-mono text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
+                    Cancels {formatShortDate(parseCancelAt(sub.settings_json))}. Service continues
+                    until then and you will not be billed again.
                   </p>
                 )}
               </div>

@@ -78,6 +78,16 @@ const StripeSubscriptionSchema = z.looseObject({
   object: z.literal('subscription'),
   status: z.string(),
   pause_collection: z.unknown().optional(),
+  // Client-scheduled cancellation (Billing Portal, mode at_period_end). The
+  // end date rides on `cancel_at`; `items[].current_period_end` is the
+  // fallback because this API version carries no top-level period end.
+  cancel_at_period_end: z.boolean().optional(),
+  cancel_at: z.number().nullable().optional(),
+  items: z
+    .looseObject({
+      data: z.array(z.looseObject({ current_period_end: z.number().nullable().optional() })),
+    })
+    .optional(),
 })
 
 const StripeSubscriptionWebhookEventSchema = z.looseObject({
@@ -223,7 +233,12 @@ async function dispatchSubscriptionEvent(
   if (!eventResult.success) {
     return errorResponse(400, 'Malformed event payload')
   }
-  return handleSubscriptionLifecycle(env.DB, eventType, eventResult.data.data.object)
+  return handleSubscriptionLifecycle(
+    env.DB,
+    eventType,
+    eventResult.data.data.object,
+    env.RESEND_API_KEY
+  )
 }
 
 type ParseStripeWebhookEventResult = { parsed: unknown } | { response: Response }

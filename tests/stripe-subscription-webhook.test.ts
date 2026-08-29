@@ -32,6 +32,7 @@ interface FakeDbState {
     product_slug: string
     status: string
     stripe_subscription_id: string | null
+    settings_json?: string | null
   } | null
   /** invoices row served by SELECT ... WHERE stripe_invoice_id = ? */
   invoiceRow?: { id: string; org_id: string; status: string } | null
@@ -75,6 +76,7 @@ const SUB_ROW = {
   product_slug: 'operator',
   status: 'active',
   stripe_subscription_id: 'sub_stripe_1',
+  settings_json: null,
 }
 
 function invoicePayload(overrides?: Partial<RetainerInvoicePayload>): RetainerInvoicePayload {
@@ -262,5 +264,101 @@ describe('handleSubscriptionLifecycle', () => {
     })
     expect(res.status).toBe(200)
     expect(writes).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Client-scheduled cancellation mirror
+//
+// The client cancels in the Stripe Billing Portal (mode: at_period_end).
+// Stripe keeps the subscription `active` and only flips cancel_at_period_end,
+// so without this mirror the cancellation is invisible on both surfaces until
+// the delete event lands weeks later.
+// ---------------------------------------------------------------------------
+
+/** Writes that touch the scheduled-cancellation key, in order. */
+function cancelWrites(writes: { sql: string; args: unknown[] }[]) {
+  return writes.filter((w) => w.sql.includes('cancel_at'))
+}
+
+describe('scheduled cancellation mirror', () => {
+  const PERIOD_END = 1788883200 // 2026-09-08T00:00:00Z
+
+  it('records the end date from cancel_at', async () => {
+    const { db, writes } = makeDb({ subRow: SUB_ROW })
+    await handleSubscriptionLifecycle(db, 'customer.subscription.updated', {
+      id: 'sub_stripe_1',
+      status: 'active',
+      cancel_at_period_end: true,
+      cancel_at: PERIOD_END,
+    })
+    const c = cancelWrites(writes)
+    expect(c).toHaveLength(1)
+    expect(c[0].sql).toContain('json_set')
+    expect(c[0].args[0]).toBe(new Date(PERIOD_END * 1000).toISOString())
+  })
+
+  it('falls back to the ITEM period end — this API version has no top-level one', async () => {
+    const { db, writes } = makeDb({ subRow: SUB_ROW })
+    await handleSubscriptionLifecycle(db, 'customer.subscription.updated', {
+      id: 'sub_stripe_1',
+      status: 'active',
+      cancel_at_period_end: true,
+      cancel_at: null,
+      items: { data: [{ current_period_end: PERIOD_END }] },
+    })
+    expect(cancelWrites(writes)[0].args[0]).toBe(new Date(PERIOD_END * 1000).toISOString())
+  })
+
+  it('never invents a date when Stripe names none', async () => {
+    const { db, writes } = makeDb({ subRow: SUB_ROW })
+    const res = await handleSubscriptionLifecycle(db, 'customer.subscription.updated', {
+      id: 'sub_stripe_1',
+      status: 'active',
+      cancel_at_period_end: true,
+      cancel_at: null,
+    })
+    expect(res.status).toBe(200)
+    expect(cancelWrites(writes)).toHaveLength(0)
+  })
+
+  it('does not re-write an already-recorded schedule (Stripe resends the whole object)', async () => {
+    const iso = new Date(PERIOD_END * 1000).toISOString()
+    const { db, writes } = makeDb({
+      subRow: { ...SUB_ROW, settings_json: JSON.stringify({ cancel_at: iso }) },
+    })
+    await handleSubscriptionLifecycle(db, 'customer.subscription.updated', {
+      id: 'sub_stripe_1',
+      status: 'active',
+      cancel_at_period_end: true,
+      cancel_at: PERIOD_END,
+    })
+    expect(cancelWrites(writes)).toHaveLength(0)
+  })
+
+  it('clears the schedule when the client reverses the cancellation', async () => {
+    const { db, writes } = makeDb({
+      subRow: {
+        ...SUB_ROW,
+        settings_json: JSON.stringify({ cancel_at: new Date(PERIOD_END * 1000).toISOString() }),
+      },
+    })
+    await handleSubscriptionLifecycle(db, 'customer.subscription.updated', {
+      id: 'sub_stripe_1',
+      status: 'active',
+      cancel_at_period_end: false,
+    })
+    const c = cancelWrites(writes)
+    expect(c).toHaveLength(1)
+    expect(c[0].sql).toContain('json_remove')
+  })
+
+  it('an ordinary update on a healthy subscription writes no cancellation state', async () => {
+    const { db, writes } = makeDb({ subRow: SUB_ROW })
+    await handleSubscriptionLifecycle(db, 'customer.subscription.updated', {
+      id: 'sub_stripe_1',
+      status: 'active',
+    })
+    expect(cancelWrites(writes)).toHaveLength(0)
   })
 })

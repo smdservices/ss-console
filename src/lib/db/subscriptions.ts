@@ -18,9 +18,11 @@ export interface SubscriptionBillingRow {
   product_slug: string
   status: string
   stripe_subscription_id: string | null
+  settings_json: string | null
 }
 
-const BILLING_COLUMNS = 'id, org_id, entity_id, product_slug, status, stripe_subscription_id'
+const BILLING_COLUMNS =
+  'id, org_id, entity_id, product_slug, status, stripe_subscription_id, settings_json'
 
 /** The (entity, product) subscription row, or null. */
 export async function getSubscriptionForBilling(
@@ -74,6 +76,56 @@ export async function attachStripeSubscription(
     )
     .bind(stripeSubscriptionId, stripeCustomerId, stripeCustomerId, subscriptionRowId)
     .run()
+}
+
+/**
+ * Mirror Stripe's SCHEDULED cancellation onto the row.
+ *
+ * A client who cancels in the Stripe Billing Portal does not end the
+ * subscription — the portal is configured `mode: at_period_end`, so Stripe
+ * flips `cancel_at_period_end` and keeps billing state `active` until the
+ * paid month runs out. Without this mirror the local row is indistinguishable
+ * from a healthy one and the client's own cancellation is invisible to both
+ * sides until `customer.subscription.deleted` lands weeks later.
+ *
+ * Stored as `settings_json.cancel_at` (ISO) — set when scheduled, removed
+ * when the client reverses it. The status column is untouched: a scheduled
+ * cancellation is still an `active`, still-served, still-paid subscription.
+ */
+export async function setSubscriptionCancelSchedule(
+  db: D1Database,
+  subscriptionRowId: string,
+  cancelAtIso: string | null
+): Promise<void> {
+  const mutation =
+    cancelAtIso === null
+      ? "json_remove(COALESCE(settings_json, '{}'), '$.cancel_at')"
+      : "json_set(COALESCE(settings_json, '{}'), '$.cancel_at', ?)"
+  const stmt = db.prepare(
+    `UPDATE subscriptions SET settings_json = ${mutation}, updated_at = datetime('now') WHERE id = ?`
+  )
+  await (
+    cancelAtIso === null ? stmt.bind(subscriptionRowId) : stmt.bind(cancelAtIso, subscriptionRowId)
+  ).run()
+}
+
+/**
+ * The scheduled cancellation date on a row, or null when none is scheduled.
+ * The read counterpart of {@link setSubscriptionCancelSchedule}; consumed by
+ * the portal Billing surface and the admin client hub so both sides name the
+ * same date.
+ */
+export function parseCancelAt(settingsJson: string | null): string | null {
+  try {
+    const settings: unknown = settingsJson ? JSON.parse(settingsJson) : null
+    if (settings && typeof settings === 'object' && 'cancel_at' in settings) {
+      const v = (settings as Record<string, unknown>)['cancel_at']
+      return typeof v === 'string' && !Number.isNaN(new Date(v).getTime()) ? v : null
+    }
+  } catch {
+    // malformed settings_json is not a cancellation
+  }
+  return null
 }
 
 /**
