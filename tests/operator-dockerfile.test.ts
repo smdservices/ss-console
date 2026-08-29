@@ -1093,6 +1093,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // associations, the empty-register refusal stops offering value removal, and
     // the heartbeat counts withheld degraded digests as the 'degraded' kind.
     // Vocabulary identical; no tracked pair moves.
+    // bc9285bf -> 29eac2c7 (2026-08-28e, overlay#331): unwrap the inbound
+    // fence before parsing a counted read. The round-5 trace (the #330 journal
+    // in one turn): marking OK, evaluation OK, accumulation dead - the hook
+    // receives nonce-FENCED text because Hermes v0.20.4 fires transform before
+    // post (ss#2444); same cure establishment took 2026-08-20. read_volume +
+    // tests only. Vocabulary identical; no tracked pair moves.
     // 6e4223d1 -> bc9285bf (2026-08-28d, overlay#330): shape-only trace journal
     // for the read-volume gate (/tmp/read_volume_trace.jsonl, 120-entry cap,
     // keys/types/counts never content) - three silent rehearsal rounds had no
@@ -1136,7 +1142,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="bc9285bf3604052e129a6f1778cbe10ca479e2c5"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="29eac2c7f4dc238ea51a97120e21b7d491dd5110"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
