@@ -13,7 +13,8 @@ builder reproduces the script's positional contract exactly, so a stage flips
 from one to the other without touching the order. `exit_map` turns a stage's
 exit code into the outcome vocabulary; anything unmapped and non-zero is
 `failed`. Ported so far: list_matter, download, extract, index_msg, fold_msg,
-extract_after_fold (PR 2); vision, billing_extract, build_units (PR 4).
+extract_after_fold (PR 2); vision, billing_extract, build_units (PR 4); map,
+repair_truncated, assemble, merge (PR 5).
 """
 from __future__ import annotations
 
@@ -21,8 +22,9 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .job import Job, Unit
-from .stages import (billing as _billing, download as _download, extract as _extract, listing as _listing,
-                     msg as _msg, units as _units, vision as _vision)
+from .stages import (assemble as _assemble, billing as _billing, compose as _compose, download as _download,
+                     extract as _extract, listing as _listing, merge as _merge, msg as _msg, repair as _repair,
+                     units as _units, vision as _vision)
 
 # Outcome vocabulary shared with state.py. HOLD and REFUSE never write to the
 # matter; they end the run with a reason a person can act on.
@@ -97,17 +99,19 @@ STAGES: tuple[Stage, ...] = (
     Stage("identity", "check_unit_identity.py", _slug, scope="slug", requires=("build_units",),
           exit_map={1: (FAILED, "units.json missing")}),
     # ---- paid: composition ------------------------------------------------
-    Stage("map", "map_run.py", lambda c: [c.slug, c.unit.unit, f"units/{c.unit.unit}.json"],
-          paid=True, requires=("identity",),
-          exit_map={1: (FAILED, "map incomplete or empty after split")}),
-    Stage("repair_truncated", "repair_truncated.py", _slug_unit, paid=True, requires=("map",)),
-    Stage("assemble", "assemble.py", _slug_unit, requires=("repair_truncated",),
+    Stage("map", "", lambda c: [c.slug, c.unit.unit, f"units/{c.unit.unit}.json"],
+          paid=True, requires=("identity",), runner=_compose.run,
+          exit_map={1: (FAILED, "map incomplete: a chunk produced no output (refused, emptied, or its batch is "
+                                "still processing); a rerun resumes it")}),
+    Stage("repair_truncated", "", _slug_unit, paid=True, requires=("map",), runner=_repair.run,
+          exit_map={1: (FAILED, "a truncated chunk could not be repaired at 2, 3 or 5 parts")}),
+    Stage("assemble", "", _slug_unit, requires=("repair_truncated",), runner=_assemble.run,
           exit_map={1: (REFUSED, "assemble refused: truncated or model-refused chunks")}),
-    Stage("merge", "merge_code.py", _slug_unit, paid=True, requires=("assemble",),
-          exit_map={3: (REFUSED, "merge falsifier: a citation was lost"),
+    Stage("merge", "", _slug_unit, paid=True, requires=("assemble",), runner=_merge.run,
+          exit_map={1: (FAILED, "merge: the model could not merge a routed cluster"),
+                    3: (REFUSED, "merge falsifier: a citation was lost"),
                     4: (REFUSED, "merge falsifier: a paragraph was lost"),
-                    5: (REFUSED, "merge falsifier: an entry was lost"),
-                    6: (REFUSED, "merge: routed clusters left unmerged")}),
+                    5: (REFUSED, "merge falsifier: an entry was lost")}),
     Stage("group", "group_providers.py", _slug_unit, requires=("merge",)),
     Stage("filter", "filter_preincident.py", lambda c: [*_slug_unit_date(c), c.job.injuries],
           paid=True, requires=("group",),

@@ -119,17 +119,41 @@ def _seat() -> FakeSeat:
                     {"f1": f1, "f9": f9})
 
 
+EMPTY_MAP = ("## ENTRIES\nnone in this chunk\n\n## INDEX\n\n## BILLING-DATES\nnone in this chunk\n\n"
+             "## CONFLICTS / REFERENCED-BUT-ABSENT\nnone observed\n\n## FILES-SEEN\n"
+             "=== FILE: f1.pdf (fileId f1) === nothing extractable: fixture\n")
+
+
+class _Usage:
+    input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens = 10, 5, 0, 0
+
+
+class _Stream:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def get_final_message(self):
+        return type("M", (), {"content": [type("B", (), {"type": "text", "text": EMPTY_MAP})()],
+                              "stop_reason": "end_turn", "usage": _Usage()})()
+
+
 class _NoNetwork:
-    """A client that fails loudly: nothing in these runs may reach the API."""
+    """The only paid call these runs may make is the streamed compose of a
+    chunk with nothing extractable; anything else reaching the SDK fails."""
 
     def __init__(self) -> None:
         self.messages = self
+        self.streams = 0
 
     def create(self, **kw):
         raise AssertionError("a driver test reached the SDK client")
 
     def stream(self, **kw):
-        raise AssertionError("a driver test reached the SDK client")
+        self.streams += 1
+        return _Stream()
 
 
 def _driver(job_dir: Path, firm_config_path: Path, pricing_path: Path, **kw) -> driver_mod.Driver:
@@ -184,8 +208,12 @@ def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_sub
     assert first["cwd"] == str(data_root / "example-matter")
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     assert st.outcome == "delivered"
-    for name in ("list_matter", "download", "extract_after_fold", "vision", "billing_extract", "build_units", "manifest"):
+    for name in ("list_matter", "download", "extract_after_fold", "vision", "billing_extract", "build_units",
+                 "map", "repair_truncated", "assemble", "merge", "manifest"):
         assert st.is_done(name), name
+    assert (sd / "runs" / "alpha" / "map-01.md").read_text() == EMPTY_MAP
+    assert (sd / "runs" / "alpha" / "merged.md").read_text() == ""
+    assert o.dollars > 0    # the one compose call was ledgered and priced
     assert st.pipeline_sha
 
 
@@ -219,9 +247,9 @@ def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path,
 
 def test_exit_code_map_yields_the_vocabulary(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
     seed_folders(data_root, ["MEDICAL"])
-    (fake_pipeline / "exit_assemble.py").write_text("1")
+    (fake_pipeline / "exit_build_exhibits.py").write_text("1")
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
-    assert outs[0].outcome == "refused" and "assemble refused" in outs[0].reason
+    assert outs[0].outcome == "refused" and "a citation could not be remapped" in outs[0].reason
 
 
 def test_unknown_model_in_ledger_refuses_the_run(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
