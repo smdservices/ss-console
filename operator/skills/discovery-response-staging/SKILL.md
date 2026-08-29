@@ -104,8 +104,10 @@ switching an engine changes the config mapping, not this skill.
 
 ## A write is not success until a read confirms it (fail-closed on EVERY write)
 
-The Smokeball write path is **unverified against a live tenant**: `add_file` and
-`delete_file` currently 403 on staging (cause unverified), and `create_folder`,
+The Smokeball write path was **unverified against a live tenant** when this skill was
+cut (`add_file` and `delete_file` 403'd on staging then; `create_folder` and
+`add_file` have since delivered chronology packages into the A&P production tenant,
+August 2026), and `create_folder`,
 `create_task`, and the `create_memo` body were cut 2026-06-25 with bodies matching the
 OpenAPI DTOs but **not yet round-tripped** on a real tenant (see `smokeball-surface.md`
 and `_shared-write-posture.md`). Per the shared write posture, **ALL writes are
