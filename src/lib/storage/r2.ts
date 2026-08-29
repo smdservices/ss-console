@@ -65,6 +65,28 @@ export async function getEngagementDocumentKey(
 }
 
 /**
+ * Structured key for an Operator instance's executed agreement document
+ * (ss#2641). Instance-scoped because the portal's Compliance surface is
+ * instance-addressed and an entity may hold several operator instances.
+ *
+ * The `{orgId}/` prefix is load-bearing: the portal download endpoint's
+ * traversal check accepts exactly two conventions, and this joins the first.
+ * Authorization itself is by D1 row, not by this prefix — see
+ * src/lib/portal/agreement-documents.ts.
+ *
+ * @param orgId - Organization ID for tenant scoping
+ * @param instanceSlug - The operator instance's customer_slug
+ * @param originalName - The uploaded file's name, unsanitized
+ */
+export async function getOperatorAgreementKey(
+  orgId: string,
+  instanceSlug: string,
+  originalName: string
+): Promise<string> {
+  return `${orgId}/operator/${instanceSlug}/agreements/${await uploadKeyLeaf(originalName)}`
+}
+
+/**
  * Upload a transcript file to R2.
  *
  * @param r2 - The R2 bucket binding (STORAGE)
