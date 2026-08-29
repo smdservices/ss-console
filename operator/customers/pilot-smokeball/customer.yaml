@@ -484,6 +484,9 @@ personas:
         # MUST replace it before go-live (enforced by tests/customer-commitments).
         settings:
           treatment_gap_flag_days: 45 # PLACEHOLDER(christa): flag treatment gaps beyond this many days
+          # Rehearsal-only value for the routine-11 package allowance (ADR 0087);
+          # the client seat authors the contract figure.
+          chronology_package_document_allowance_per_month: 50
       # motions
       - name: motion-calendar-tracker # keeps motion deadlines/hearings current
         version: pending

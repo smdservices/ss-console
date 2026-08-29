@@ -280,6 +280,11 @@ rows:
         never characterizes: it records what is in the file, it does not compute or
         opine. The "internal record only" cap means no draft, no send, no
         characterization; internal_write is the only governing exposure.
+        Exhibit A (engagements #89) defines two forms of this record: the running
+        chronology is this skill's memo and stays unmetered; the requested
+        chronology package is built by the SMD runner and filed through the
+        connector, governed by the seat's chronology_package_document_allowance_per_month
+        setting and the runner's registered gates (ADR 0087).
 
   # ------------------------------------------------------------------- MOTIONS
   - routine: 'Motion calendar'

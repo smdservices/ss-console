@@ -229,6 +229,23 @@ describe('pilot-smokeball commitments contract (ADR 0075)', () => {
       byName('medical-chronology-maintainer')?.settings?.['treatment_gap_flag_days'],
       'medical-chronology-maintainer must author treatment_gap_flag_days: 45 (correspondence 09)'
     ).toBe(45)
+    // Agreement 2.8 / Exhibit A row 11 (engagements #89, 2026-08-28): the package
+    // allowance is the ONE contract figure the seat authors for routine 11. The
+    // per-matter gates, the per-job cap, and the behavioral defaults are SMD
+    // runner posture and live in the runner's per-firm config, never here
+    // (ADR 0087; a value authored here is agent-readable and world-readable).
+    expect(
+      byName('medical-chronology-maintainer')?.settings?.[
+        'chronology_package_document_allowance_per_month'
+      ],
+      'medical-chronology-maintainer must author the Exhibit A row 11 allowance: 2000 documents per month'
+    ).toBe(2000)
+    for (const key of Object.keys(byName('medical-chronology-maintainer')?.settings ?? {})) {
+      expect(
+        ['treatment_gap_flag_days', 'chronology_package_document_allowance_per_month'],
+        `medical-chronology-maintainer.settings.${key}: only contract-derived keys are authored on the client seat (ADR 0087)`
+      ).toContain(key)
+    }
   })
 
   // (h) A&P GRID TRACEABILITY. The (c) gate above checks the pilot seat
