@@ -42,7 +42,9 @@ PYTEST_INI_PATH = OPERATOR_DIR / "pytest.ini"
 # Directories whose tests are deliberately NOT part of the bare pytest step.
 # connectors/ runs in the workflow's per-connector uv-venv conformance step
 # (real installed artifact + live stdio MCP), never in the bare env.
-PYTEST_EXEMPT_TOPDIRS = {"connectors"}
+# runners/ (ss#2613, the medchron runner) runs in its own uv-venv step for the
+# same reason: it installs the connector client and needs its deps.
+PYTEST_EXEMPT_TOPDIRS = {"connectors", "runners"}
 
 # Cache/build dirs that legitimately contain no first-class tests.
 IGNORED_PARTS = {".pytest_cache", ".ruff_cache", "__pycache__", ".rendered", "node_modules"}
@@ -145,3 +147,15 @@ def test_connector_tests_are_covered_by_the_conformance_step_trigger() -> None:
     # if it left the filter, connector regressions would merge green too.
     wf = _load_workflow()
     assert any(_matches(p, "operator/connectors/smokeball/server.py") for p in _trigger_paths(wf))
+
+
+def test_runner_tests_are_covered_by_their_own_step_and_trigger() -> None:
+    # runners/ is pytest-exempt above (own venv step, ss#2613); pin both the
+    # trigger path and the step so a runner regression cannot merge green.
+    wf = _load_workflow()
+    assert any(_matches(p, "operator/runners/medchron/medchron/driver.py") for p in _trigger_paths(wf))
+    steps = wf["jobs"]["substrate"]["steps"]
+    runs = "\n".join(s.get("run") or "" for s in steps)
+    assert "./runners/medchron" in runs and "runners/medchron/tests" in runs, (
+        "the medchron runner venv step is missing from operator-substrate.yml"
+    )

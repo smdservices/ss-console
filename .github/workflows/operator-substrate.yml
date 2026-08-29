@@ -42,6 +42,10 @@ on:
       - 'operator/verticals/**'
       - 'operator/migrations/**'
       - 'operator/workspace_broker/**'
+      # ss#2613: the chronology-package runner. Its tests need the connector
+      # client's deps, so it runs in its own venv step below, never in the bare
+      # pytest env; the path filter is what makes a runner change run that step.
+      - 'operator/runners/**'
       - 'operator/tests/**'
       - 'operator/pytest.ini'
       # The lint config itself, same reasoning as pytest.ini above: narrowing the
@@ -178,3 +182,15 @@ jobs:
             uv pip install --python "$venv/bin/python" ./_sdk "$cdir" pytest
             PATH="$venv/bin:$PATH" "$venv/bin/python" -m pytest "${cdir}tests" -q
           done
+
+      # ss#2613: the medchron runner is installed exactly as the seat image will
+      # install it (the explicit three-path form: sdk, connector, runner), and
+      # its tests run against that artifact. Not the bare env: the runner's
+      # seat access imports the connector's client.
+      - name: medchron runner tests (own venv)
+        working-directory: operator
+        run: |
+          set -euo pipefail
+          uv venv /tmp/medchronv
+          uv pip install --python /tmp/medchronv/bin/python ./connectors/_sdk ./connectors/smokeball ./runners/medchron pytest
+          /tmp/medchronv/bin/python -m pytest runners/medchron/tests -q
