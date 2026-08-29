@@ -25,7 +25,7 @@ import {
 import { resolveClientHubNotices } from '../../../lib/admin/client-hub-notices'
 import { ENTITY_VERTICALS } from '../../../lib/db/entities'
 import { getOperatorServiceForEntity } from '../../../lib/db/services'
-import { getSubscriptionForBilling } from '../../../lib/db/subscriptions'
+import { getSubscriptionForBilling, parseCancelAt } from '../../../lib/db/subscriptions'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import { env } from 'cloudflare:workers'
 
@@ -247,6 +247,13 @@ const LINK_ACT =
                         : 'Not attached'}
                     </span>
                   </div>
+                  {parseCancelAt(operatorSubscription.settings_json) && (
+                    <p class="mt-2 text-sm font-bold text-[color:var(--ss-color-error)]">
+                      Client cancelled from the portal. Service and billing run through{' '}
+                      {parseCancelAt(operatorSubscription.settings_json)?.slice(0, 10)}. Offboarding
+                      (Section 9.3) is a Captain act.
+                    </p>
+                  )}
                   {!operatorSubscription.stripe_subscription_id && operatorPrice != null && (
                     <p class="mt-2 text-sm text-[color:var(--ss-color-text-muted)]">
                       The client starts the subscription from their portal (Billing → Start
