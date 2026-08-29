@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from medchron import config as config_mod, job as job_mod
-from tests.conftest import FIRM_CONFIG, job_yaml
+from medchron_testkit import FIRM_CONFIG, job_yaml
 
 
 def test_valid_config_loads(firm_config_path: Path) -> None:

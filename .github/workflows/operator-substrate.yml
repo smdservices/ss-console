@@ -193,4 +193,4 @@ jobs:
           set -euo pipefail
           uv venv /tmp/medchronv
           uv pip install --python /tmp/medchronv/bin/python ./connectors/_sdk ./connectors/smokeball ./runners/medchron pytest
-          /tmp/medchronv/bin/python -m pytest runners/medchron/tests -q
+          /tmp/medchronv/bin/python -m pytest -c runners/medchron/pyproject.toml runners/medchron/tests -q

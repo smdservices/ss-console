@@ -31,3 +31,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["medchron"]
+
+[tool.pytest.ini_options]
+# The runner owns its pytest config: the CI step runs from operator/, whose
+# pytest.ini selects importlib mode and whose tests/ package shadows the bare
+# name `tests`. Pass `-c` to this file so rootdir is the package and the test
+# helpers module resolves from tests/.
+pythonpath = ["tests"]
+testpaths = ["tests"]

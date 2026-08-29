@@ -7,7 +7,7 @@ import pytest
 
 from medchron import budget as budget_mod, dag
 from medchron.state import RunState, state_path
-from tests.conftest import PRICING, write_ledger
+from medchron_testkit import PRICING, write_ledger
 
 
 # ---- state -------------------------------------------------------------------
