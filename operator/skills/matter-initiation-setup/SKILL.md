@@ -147,7 +147,8 @@ the skill surfaces the proposed setup and asks; it does not choose one for the f
 
 The Smokeball write path is **unverified against a live tenant**: `create_folder` and
 `create_task` were cut 2026-06-25 with bodies matching the OpenAPI DTOs but **not yet
-round-tripped** on a real tenant, `add_file` currently 403s on staging, and the
+round-tripped** on a real tenant (`create_folder` and `add_file` have since
+delivered chronology packages into the A&P production tenant, August 2026), and the
 `create_memo` body is ASSUMED (see `smokeball-surface.md` and
 `operator/verticals/law-firm/addons/pi/references/_shared-write-posture.md`). Per the
 shared write posture, **ALL writes are unverified-at-connect** - this covers every write
