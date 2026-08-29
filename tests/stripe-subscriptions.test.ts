@@ -94,6 +94,8 @@ describe('createOperatorSubscription', () => {
     expect(body.get('items[0][price_data][currency]')).toBe('usd')
     expect(body.get('items[0][price_data][product]')).toBe('prod_retainer')
     expect(body.get('items[0][price_data][recurring][interval]')).toBe('month')
+    // ACH only: the agreement's no-fee method (§3.8); card rides a fee invoice.
+    expect(body.getAll('payment_settings[payment_method_types][]')).toEqual(['ach_debit'])
     expect(body.get('metadata[smd_entity_id]')).toBe('ent-1')
     expect(body.get('metadata[smd_subscription_id]')).toBe('sub-row-1')
     expect(body.get('metadata[smd_smoke_test]')).toBe('1')

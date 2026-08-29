@@ -499,3 +499,27 @@ export async function listLineItemsForInvoice(
     .all<InvoiceLineItem>()
   return result.results
 }
+
+// ---------------------------------------------------------------------------
+// Card processing fee (Operator Service Agreement §3.8; Captain, 2026-08-29)
+// ---------------------------------------------------------------------------
+
+/** ACH carries no fee. Card payment adds this share of the amount paid by card. */
+export const CARD_PROCESSING_FEE_RATE = 0.03
+
+/**
+ * The authored line the client reads when an invoice is payable by card.
+ * It is also how the issue route knows an invoice is a card invoice: there
+ * is no separate flag column, the fee line IS the fact, and no other path
+ * writes line items with this text.
+ */
+export const CARD_FEE_LINE_DESCRIPTION = 'Card processing fee (3%)'
+
+export function cardProcessingFeeCents(amountCents: number): number {
+  return Math.round(amountCents * CARD_PROCESSING_FEE_RATE)
+}
+
+/** True when the invoice carries the card fee line, i.e. it is to be paid by card. */
+export function invoiceIsCardPayable(lines: { description: string }[]): boolean {
+  return lines.some((l) => l.description === CARD_FEE_LINE_DESCRIPTION)
+}

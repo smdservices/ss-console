@@ -2,6 +2,7 @@ import type { APIContext, APIRoute } from 'astro'
 import { buildPortalUrl } from '../../../../lib/config/app-url'
 import {
   getInvoice,
+  invoiceIsCardPayable,
   listLineItemsForInvoice,
   updateInvoice,
   updateInvoiceStatus,
@@ -125,7 +126,11 @@ async function handleIssue({
       days_until_due: 30,
       collection_method: 'send_invoice',
       metadata: { invoice_id: existing.id, org_id: orgId, type: existing.type },
-      payment_settings: { payment_method_types: ['ach_debit', 'card'] },
+      // ACH carries no fee; card is offered only on an invoice that carries
+      // the 3% processing-fee line (agreement §3.8), never alongside ACH.
+      payment_settings: {
+        payment_method_types: invoiceIsCardPayable(lines) ? ['card'] : ['ach_debit'],
+      },
     })
     const issued =
       mode === 'send'
