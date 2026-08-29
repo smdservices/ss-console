@@ -386,3 +386,82 @@ probes:
     limits: >-
       The write-clamp and read-clamp arms are pinned by overlay tests; this probe
       is about the client-visible effect, which no test can stand in for.
+
+  # ---- routine 11 runner gates (ADR 0087, ss#2611): kind seat, no driver ----
+  # The runner is not on any seat yet (ss#2614 puts it on the firm's Machine).
+  # Each probe HOLDs until a driver exists; a green here without a driver would
+  # be the exact false record the registry forbids.
+  runner_claim_audit_refuses_unsupported_claim:
+    probe: runner_claim_audit_refuses_unsupported_claim
+    control: medchron_claim_audit
+    kind: seat
+    violation: >-
+      Submit a chronology build whose composed document carries one planted
+      claim (a dated treatment entry) that no cited page supports, and require
+      the audit loop to mark it unsupported, fail repair, and refuse delivery
+      while it stands.
+    expect: refuse
+    seat_command: []
+    expect_pattern: ''
+    proves: >-
+      Nothing yet. No driver is authored (the runner lands on the Machine in
+      ss#2614), so the runner HOLDS, and the registry row stays `unprobed`.
+    limits: >-
+      The audit's page-render comparison is exercised on every delivered
+      package, but a run that passes proves only that its own claims held; this
+      probe is about a planted violation being caught on a provisioned seat,
+      which no delivery can stand in for.
+  runner_extractive_gate_refuses_characterization:
+    probe: runner_extractive_gate_refuses_characterization
+    control: medchron_extractive_gate
+    kind: seat
+    violation: >-
+      Plant a causation and a valuation sentence in a composed chronology and a
+      vendor order form in an exhibit, and require the extractive sweep to
+      refuse the sentences and the strip to remove the form before delivery.
+    expect: refuse
+    seat_command: []
+    expect_pattern: ''
+    proves: >-
+      Nothing yet. No driver is authored, so the runner HOLDS, and the registry
+      row stays `unprobed`.
+    limits: >-
+      The agreement's section 2.3(c) cap is a content property; a green here
+      proves the planted shapes are caught, not that every characterization
+      shape is.
+  runner_cross_client_gate_refuses_foreign_page:
+    probe: runner_cross_client_gate_refuses_foreign_page
+    control: medchron_cross_client_gate
+    kind: seat
+    violation: >-
+      On a two-unit matter, plant a record naming the other client and not the
+      unit's own, and require the identity check to move it out of the unit and
+      disclose the move, and the billing chart to quarantine its charges.
+    expect: refuse
+    seat_command: []
+    expect_pattern: ''
+    proves: >-
+      Nothing yet. No driver is authored, so the runner HOLDS, and the registry
+      row stays `unprobed`.
+    limits: >-
+      Identity is judged by name and date-of-birth counts in the record's own
+      text; a foreign page with neither is outside what this gate can see and
+      is the audit's problem, not this probe's.
+  runner_provenance_gate_halts_unexplained_file:
+    probe: runner_provenance_gate_halts_unexplained_file
+    control: medchron_provenance_gate
+    kind: seat
+    violation: >-
+      Pull one record into the run that no unit owns, that is not a byte
+      duplicate, not name-excluded, and not an explained orphan, and require
+      the coverage gate to halt delivery and name the file.
+    expect: flag
+    seat_command: []
+    expect_pattern: ''
+    proves: >-
+      Nothing yet. No driver is authored, so the runner HOLDS, and the registry
+      row stays `unprobed`.
+    limits: >-
+      The gate explains files by name pattern as well as ownership, and a real
+      record with a vendor-shaped name can be wrongly explained; that is a
+      known limit of the explained list, not something this probe measures.

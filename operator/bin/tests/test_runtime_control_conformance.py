@@ -308,11 +308,16 @@ def test_tool_wired_controls_are_actually_instructed() -> None:
 def test_ss_console_substrate_paths_exist() -> None:
     """ss-console substrate modules must exist on disk. Overlay-resident modules
     (prefixed `overlay:`) are not checked out here — the cross-repo limit
-    overlay-pairs.json / overlay-hook-surface.json already document."""
+    overlay-pairs.json / overlay-hook-surface.json already document. Modules in
+    the private engagements repo (prefixed `engagements:`, ADR 0087: the
+    chronology-package runner gates live beside the pipeline they audit) are
+    likewise not checked out here; the prefix names the repo so the row is
+    honest about where the code is, not a way to skip the check for a path
+    that ought to be in this tree."""
     for key, spec in _controls().items():
         module = spec.get("substrate_module") or ""
         assert module, f"{key}: substrate_module is required"
-        if module.startswith("overlay:"):
+        if module.startswith(("overlay:", "engagements:")):
             continue
         assert (_OP / module).is_file(), (
             f"{key}: substrate_module {module!r} does not exist under operator/"
