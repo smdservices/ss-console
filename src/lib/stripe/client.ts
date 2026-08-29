@@ -140,6 +140,49 @@ export async function createStripeInvoice(
 }
 
 /**
+ * Finalize a Stripe invoice WITHOUT emailing it: POST /invoices/:id/finalize
+ * only. The invoice becomes payable at its hosted URL (which the portal
+ * renders as the Pay button) while Stripe sends nothing to the customer.
+ *
+ * This is the "present" path: the client reads and pays the invoice in the
+ * portal when they choose to, with no email announcing it. Stripe's own
+ * reminder/dunning emails are governed by the dashboard's invoice settings,
+ * not by this call.
+ *
+ * `auto_advance=false` is set so Stripe's invoice automation never emails
+ * or attempts collection on this invoice on its own (send_invoice invoices
+ * default to auto_advance=true at finalization).
+ *
+ * If apiKey is undefined: dev-mode stub.
+ */
+export async function finalizeStripeInvoice(
+  apiKey: string | undefined,
+  invoiceId: string
+): Promise<StripeInvoiceResult> {
+  if (!apiKey) {
+    console.log(`[DEV] Stripe: would finalize (not send) invoice ${invoiceId}`)
+    return { id: invoiceId, hosted_invoice_url: '#dev-mode', status: 'open' }
+  }
+  const body = new URLSearchParams()
+  body.append('auto_advance', 'false')
+  const finalizeRes = await fetch(`${STRIPE_API_BASE}/invoices/${invoiceId}/finalize`, {
+    method: 'POST',
+    headers: stripeHeaders(apiKey),
+    body: body.toString(),
+  })
+  if (!finalizeRes.ok) {
+    throw new Error(`Stripe finalize failed ${finalizeRes.status}: ${await finalizeRes.text()}`)
+  }
+  const finalized: { id?: string; hosted_invoice_url?: string; status?: string } =
+    await finalizeRes.json()
+  return {
+    id: finalized.id ?? invoiceId,
+    hosted_invoice_url: finalized.hosted_invoice_url ?? null,
+    status: finalized.status ?? 'open',
+  }
+}
+
+/**
  * Finalize and send a Stripe invoice.
  *
  * Two-step process:

@@ -33,7 +33,38 @@ export interface Invoice {
   updated_at: string
 }
 
-export type InvoiceType = 'deposit' | 'completion' | 'milestone' | 'assessment' | 'retainer'
+/**
+ * The invoice vocabulary. Enforced HERE and at every insert site, not by
+ * the database: migration 0110 dropped the type CHECK (the 0033 decision on
+ * users.role, applied to invoices) so a new type is a code change, not a
+ * table rebuild.
+ *
+ *   deposit / completion / milestone / assessment — consulting engagements
+ *   retainer       — the Operator's monthly subscription cycle invoice,
+ *                    mirrored from Stripe (stripe-subscription-handler.ts)
+ *   implementation — the Operator's one-time stand-up fee (ADR 0063)
+ */
+export type InvoiceType =
+  'deposit' | 'completion' | 'milestone' | 'assessment' | 'retainer' | 'implementation'
+
+/** @public Type-label table, one family with INVOICE_STATUSES. The label is
+ * what a client reads as the invoice's title, so every type must carry one. */
+export const INVOICE_TYPES: { value: InvoiceType; label: string }[] = [
+  { value: 'deposit', label: 'Deposit' },
+  { value: 'completion', label: 'Completion' },
+  { value: 'milestone', label: 'Milestone' },
+  { value: 'assessment', label: 'Assessment' },
+  { value: 'retainer', label: 'Retainer' },
+  { value: 'implementation', label: 'Implementation' },
+]
+
+export function isInvoiceType(value: unknown): value is InvoiceType {
+  return typeof value === 'string' && INVOICE_TYPES.some((t) => t.value === value)
+}
+
+export function invoiceTypeLabel(type: string): string | null {
+  return INVOICE_TYPES.find((t) => t.value === type)?.label ?? null
+}
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
 
@@ -73,6 +104,13 @@ export interface CreateInvoiceData {
   amount: number
   description?: string | null
   due_date?: string | null
+  /**
+   * Authored line items, written in the same call. The send-gate refuses to
+   * send an invoice with none (the portal's "What's included" would render
+   * empty), so an invoice created for immediate presentation carries its
+   * lines from birth. Amounts in cents.
+   */
+  line_items?: { description: string; amount_cents: number }[]
 }
 
 export interface UpdateInvoiceData {
@@ -227,6 +265,20 @@ export async function createInvoice(
       now
     )
     .run()
+
+  const lines = data.line_items ?? []
+  if (lines.length > 0) {
+    await db.batch(
+      lines.map((line, i) =>
+        db
+          .prepare(
+            `INSERT INTO invoice_line_items (id, invoice_id, description, amount_cents, sort_order, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`
+          )
+          .bind(crypto.randomUUID(), id, line.description, line.amount_cents, i, now)
+      )
+    )
+  }
 
   const invoice = await getInvoice(db, orgId, id)
   if (!invoice) {

@@ -11,6 +11,8 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
+import ClientInvoiceRows from '../../../components/admin/ClientInvoiceRows.astro'
+import IssueInvoiceForm from '../../../components/admin/IssueInvoiceForm.astro'
 import { loadEntityDetailPage, formatDate } from '../../../lib/admin/entity-detail-page'
 import { listFleetRoster, personaSummary, posturePill } from '../../../lib/admin/fleet-roster'
 import {
@@ -20,6 +22,7 @@ import {
   serviceToneDotClass,
   clientStageBadge,
 } from '../../../lib/admin/client-hub'
+import { resolveClientHubNotices } from '../../../lib/admin/client-hub-notices'
 import { ENTITY_VERTICALS } from '../../../lib/db/entities'
 import { getOperatorServiceForEntity } from '../../../lib/db/services'
 import { getSubscriptionForBilling } from '../../../lib/db/subscriptions'
@@ -67,6 +70,12 @@ const badge = clientStageBadge(entity.stage)
 const created = Astro.url.searchParams.get('created')
 const primaryContact = contacts[0] ?? null
 
+const { success: noticeSuccess, error: noticeError } = resolveClientHubNotices(
+  Astro.url.searchParams
+)
+const hubUrl = `/admin/clients/${entityId}`
+const todayIso = new Date().toISOString().slice(0, 10)
+
 const earliestStart = engagements
   .map((e) => e.start_date)
   .filter((d): d is string => Boolean(d))
@@ -88,6 +97,8 @@ const LINK_ACT =
   maxWidth="max-w-6xl"
 >
   {created && <AdminFlashNotice message={`${entity.name} added.`} />}
+  {noticeSuccess && <AdminFlashNotice message={noticeSuccess} />}
+  {noticeError && <AdminFlashNotice kind="error" message={noticeError} />}
 
   <a
     href="/admin/clients"
@@ -244,9 +255,28 @@ const LINK_ACT =
                       class="mt-2.5"
                     >
                       <input type="hidden" name="action" value="start" />
+                      <label class="flex items-center gap-2">
+                        <span class="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                          Billing start
+                        </span>
+                        <input
+                          type="date"
+                          name="billing_start"
+                          min={todayIso}
+                          class="border border-[color:var(--ss-color-border)] px-2 py-1 font-mono text-sm"
+                        />
+                        <span class="font-mono text-[11px] text-[color:var(--ss-color-text-muted)]">
+                          blank = today
+                        </span>
+                      </label>
+                      <p class="mt-1.5 text-xs text-[color:var(--ss-color-text-muted)]">
+                        Creates the Stripe subscription now and marks the operator live in the
+                        portal (Home and Billing appear). The first monthly invoice issues on the
+                        billing start date, then monthly in advance.
+                      </p>
                       <button
                         type="submit"
-                        class="border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+                        class="mt-2 border border-[color:var(--ss-color-primary)] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
                       >
                         Start monthly billing ({formatMoney(operatorPrice)}/mo)
                       </button>
@@ -390,24 +420,12 @@ const LINK_ACT =
                   </span>
                 </div>
               )}
-              {invoices.length > 0 && (
-                <div class="flex gap-3">
-                  <span class="w-20 shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
-                    Invoices
-                  </span>
-                  <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    {invoices.map((inv) => (
-                      <span class="inline-flex items-center gap-1.5">
-                        <span class={statusBadgeClass(inv.status)}>{inv.status}</span>
-                        {formatMoney(inv.amount)}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              )}
+              {invoices.length > 0 && <ClientInvoiceRows invoices={invoices} hubUrl={hubUrl} />}
             </div>
           )
         }
+
+        <IssueInvoiceForm entityId={entityId} hubUrl={hubUrl} />
       </section>
 
       <!-- activity -->

@@ -1,15 +1,23 @@
 import type { APIContext, APIRoute } from 'astro'
-import { createInvoice } from '../../../../lib/db/invoices'
-import type { InvoiceType } from '../../../../lib/db/invoices'
+import { createInvoice, isInvoiceType } from '../../../../lib/db/invoices'
+import type { CreateInvoiceData } from '../../../../lib/db/invoices'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
-
-const VALID_TYPES: InvoiceType[] = ['deposit', 'completion', 'milestone', 'assessment', 'retainer']
 
 /**
  * POST /api/admin/invoices
  *
  * Creates a new invoice from form data.
+ *
+ * Form fields:
+ *   client_id, type, amount            — required
+ *   description, due_date, engagement_id, redirect_url — optional
+ *   line_item                          — optional. The authored line the
+ *     client reads under "What's included". When present, one line item is
+ *     written for the full amount alongside the invoice, so the invoice can
+ *     be presented straight away (the send-gate refuses an invoice with no
+ *     authored line). When absent the invoice is created as a bare draft and
+ *     stays unsendable until a line is authored.
  *
  * Protected by auth middleware (requires admin role).
  */
@@ -39,6 +47,26 @@ function parseInvoiceForm(
   }
 }
 
+function optionalText(formData: FormData, key: string): string | null {
+  const v = formData.get(key)
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+}
+
+/** The optional form fields, each empty → null; the line item becomes one
+ * authored line for the full amount. */
+function optionalInvoiceFields(
+  formData: FormData,
+  amount: number
+): Pick<CreateInvoiceData, 'engagement_id' | 'description' | 'due_date' | 'line_items'> {
+  const lineItem = optionalText(formData, 'line_item')
+  return {
+    engagement_id: optionalText(formData, 'engagement_id'),
+    description: optionalText(formData, 'description'),
+    due_date: optionalText(formData, 'due_date'),
+    line_items: lineItem ? [{ description: lineItem, amount_cents: Math.round(amount * 100) }] : [],
+  }
+}
+
 async function handlePost({ request, locals, redirect }: APIContext): Promise<Response> {
   const auth = requireAdminSession(locals)
   if (!auth.ok) return auth.response
@@ -57,7 +85,7 @@ async function handlePost({ request, locals, redirect }: APIContext): Promise<Re
 
     const { clientId, type, amountStr } = parsed
 
-    if (!VALID_TYPES.includes(type as InvoiceType)) {
+    if (!isInvoiceType(type)) {
       return redirect(`${target}?error=invalid_type`, 302)
     }
 
@@ -66,18 +94,11 @@ async function handlePost({ request, locals, redirect }: APIContext): Promise<Re
       return redirect(`${target}?error=invalid_amount`, 302)
     }
 
-    const engagementId = formData.get('engagement_id')
-    const description = formData.get('description')
-    const dueDate = formData.get('due_date')
-
     await createInvoice(env.DB, session.orgId, {
       entity_id: clientId,
-      engagement_id: typeof engagementId === 'string' && engagementId.trim() ? engagementId : null,
-      type: type as InvoiceType,
+      type,
       amount,
-      description:
-        typeof description === 'string' && description.trim() ? description.trim() : null,
-      due_date: typeof dueDate === 'string' && dueDate.trim() ? dueDate.trim() : null,
+      ...optionalInvoiceFields(formData, amount),
     })
 
     return redirect(`${target}?created=1`, 302)

@@ -99,6 +99,46 @@ describe('createOperatorSubscription', () => {
     expect(body.get('metadata[smd_smoke_test]')).toBe('1')
   })
 
+  it('anchors the first cycle invoice to a future Billing Start Date with no proration', async () => {
+    const { calls } = stubStripe([
+      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
+      { match: '/products/search', json: { data: [{ id: 'prod_retainer' }] } },
+      { match: '/subscriptions', method: 'POST', json: { id: 'sub_10', status: 'active' } },
+    ])
+
+    await createOperatorSubscription(KEY, {
+      customer_email: 'owner@firm.com',
+      monthly_amount_cents: 500000,
+      entity_id: 'ent-1',
+      subscription_row_id: 'sub-row-1',
+      billing_cycle_anchor: 1788019200,
+    })
+
+    const create = calls.find((c) => c.url.endsWith('/subscriptions') && c.method === 'POST')
+    const body = new URLSearchParams(create!.body)
+    expect(body.get('billing_cycle_anchor')).toBe('1788019200')
+    expect(body.get('proration_behavior')).toBe('none')
+    expect(body.get('collection_method')).toBe('send_invoice')
+  })
+
+  it('sends no anchor when billing starts now', async () => {
+    const { calls } = stubStripe([
+      { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
+      { match: '/products/search', json: { data: [{ id: 'prod_retainer' }] } },
+      { match: '/subscriptions', method: 'POST', json: { id: 'sub_11', status: 'active' } },
+    ])
+    await createOperatorSubscription(KEY, {
+      customer_email: 'owner@firm.com',
+      monthly_amount_cents: 500000,
+      entity_id: 'ent-1',
+      subscription_row_id: 'sub-row-1',
+    })
+    const create = calls.find((c) => c.url.endsWith('/subscriptions') && c.method === 'POST')
+    const body = new URLSearchParams(create!.body)
+    expect(body.has('billing_cycle_anchor')).toBe(false)
+    expect(body.has('proration_behavior')).toBe(false)
+  })
+
   it('creates the shared retainer product on first use', async () => {
     const { calls } = stubStripe([
       { match: '/customers/search', json: { data: [{ id: 'cus_1' }] } },
