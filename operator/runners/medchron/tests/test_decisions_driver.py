@@ -110,25 +110,44 @@ def test_control_picks_the_page_with_most_native_text(job_dir: Path, data_root: 
 
 # ---- driver ------------------------------------------------------------------
 def _seat() -> FakeSeat:
-    """One MEDICAL folder with a dense seven-page record and a one-page second
-    file, both native text; enough for the ported stages to run for real under
-    the driver without a scan queue or a billing document."""
-    f1, f9 = make_pdf([PROSE] * 7), make_pdf([PROSE])
-    docs = [doc_row("f1", "f1.pdf", "fold-med", len(f1)), doc_row("f9", "mystery.pdf", "fold-med", len(f9))]
+    """One MEDICAL folder with a dense seven-page record and a one-page
+    engagement document (excluded from composition by the firm's name rule and
+    explained to the coverage gate by its exclusion reason); the map cites the
+    record, so every stage after composition has real artifacts to work on."""
+    f1, f9 = make_pdf([f"{PROSE} Page {i} of the record." for i in range(1, 8)]), make_pdf([PROSE])
+    docs = [doc_row("f1", "f1.pdf", "fold-med", len(f1)), doc_row("f9", "Retainer signed.pdf", "fold-med", len(f9))]
     return FakeSeat(docs, [{"id": "fold-med", "name": "MEDICAL", "parentId": None, "path": "/MEDICAL"}],
                     {"f1": f1, "f9": f9})
 
 
-EMPTY_MAP = ("## ENTRIES\nnone in this chunk\n\n## INDEX\n\n## BILLING-DATES\nnone in this chunk\n\n"
-             "## CONFLICTS / REFERENCED-BUT-ABSENT\nnone observed\n\n## FILES-SEEN\n"
-             "=== FILE: f1.pdf (fileId f1) === nothing extractable: fixture\n")
+REAL_MAP = ("## ENTRIES\n01/20/2026\nExample Clinic | Patient Complaints & Limitations\n\n"
+            "The patient reports neck pain after the collision rated 6 of 10. (FILE: f1.pdf, p. 2)\n\n"
+            "Medical Diagnoses\n\nCervical strain. (FILE: f1.pdf, p. 3)\n\n"
+            "## INDEX\n2026-01-20 | Example Clinic | S13.4XXA | f1.pdf\n\n## BILLING-DATES\nnone in this chunk\n\n"
+            "## CONFLICTS / REFERENCED-BUT-ABSENT\nnone observed\n\n## FILES-SEEN\n"
+            "=== FILE: f1.pdf (fileId f1) === entries: 1\n")
+SUPPORTED = {"verdict": "SUPPORTED", "unsupported_assertions": [], "contradictions": [], "note": "on the page"}
+UNSUPPORTED = {"verdict": "UNSUPPORTED", "unsupported_assertions": ["x"], "contradictions": [], "note": "not this page"}
 
 
 class _Usage:
     input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens = 10, 5, 0, 0
 
 
+def _text_msg(text: str):
+    return type("M", (), {"content": [type("B", (), {"type": "text", "text": text})()], "stop_reason": "end_turn",
+                          "usage": _Usage()})()
+
+
+def _tool_msg(payload: dict):
+    return type("M", (), {"content": [type("B", (), {"type": "tool_use", "input": payload})()], "stop_reason": "tool_use",
+                          "usage": _Usage()})()
+
+
 class _Stream:
+    def __init__(self, msg):
+        self.msg = msg
+
     def __enter__(self):
         return self
 
@@ -136,29 +155,61 @@ class _Stream:
         return False
 
     def get_final_message(self):
-        return type("M", (), {"content": [type("B", (), {"type": "text", "text": EMPTY_MAP})()],
-                              "stop_reason": "end_turn", "usage": _Usage()})()
+        return self.msg
 
 
 class _NoNetwork:
-    """The only paid call these runs may make is the streamed compose of a
-    chunk with nothing extractable; anything else reaching the SDK fails."""
+    """Answers each paid shape the run makes from a script; anything else
+    reaching the SDK fails loudly. Streams are the compose; a forced tool is
+    an audit verdict (a control, cited to the other exhibit, is refused);
+    the classifier's system prompt gets labels; nothing else is expected."""
 
     def __init__(self) -> None:
         self.messages = self
-        self.streams = 0
+        self.calls: list[dict] = []
+
+    def _system(self, kw) -> str:
+        sysm = kw.get("system")
+        if isinstance(sysm, list):
+            return sysm[0].get("text", "")
+        return sysm or ""
 
     def create(self, **kw):
-        raise AssertionError("a driver test reached the SDK client")
+        self.calls.append(kw)
+        if kw.get("tool_choice"):
+            tail = kw["messages"][0]["content"][-1]["text"]
+            return _tool_msg(UNSUPPORTED if "cited to Exhibit 2 p.1)" in tail else SUPPORTED)
+        if "classify single pages" in self._system(kw):
+            labels = [b["text"].split()[1].rstrip(":") for b in kw["messages"][0]["content"] if b["type"] == "text"]
+            answer = {"CTL0": "ORDER", "CTL1": "INDEX"}
+            return _text_msg("\n".join(f"{lb} = {answer.get(lb, 'RECORD')}" for lb in labels))
+        raise AssertionError("a driver test reached the SDK client with an unexpected shape")
 
     def stream(self, **kw):
-        self.streams += 1
-        return _Stream()
+        self.calls.append(kw)
+        return _Stream(_text_msg(REAL_MAP))
+
+
+def _controls(data_root: Path) -> None:
+    """The scanned-page classifier's falsifier pages and the ICD tables, as a
+    seat carries them under controls/."""
+    ctl = data_root / "controls"
+    ctl.mkdir(parents=True, exist_ok=True)
+    (ctl / "control-order.pdf").write_bytes(make_pdf(["Order #: 1\nRequested Date Range: 2026\nvendor@example-retrieval.com"]))
+    (ctl / "control-index.pdf").write_bytes(make_pdf(["This list is computer generated\nabdomen 4\n"]))
+    (ctl / "controls.json").write_text(json.dumps([{"pdf": "controls/control-order.pdf", "page": 1, "label": "ORDER"},
+                                                   {"pdf": "controls/control-index.pdf", "page": 1, "label": "INDEX"}]))
+    icd = ctl / "icd"
+    icd.mkdir(exist_ok=True)
+    (icd / "icd10cm_order.txt").write_text("{:<5} {:<7} {} {:<60} {}\n".format("00001", "S134XXA", "1", "Sprain of lig", "Sprain of ligaments of cervical spine, initial encounter"))
+    (icd / "CMS32_DESC_LONG_DX.txt").write_text("7242 Lumbago\n")
+    (icd / "VERSION.json").write_text("{}")
 
 
 def _driver(job_dir: Path, firm_config_path: Path, pricing_path: Path, **kw) -> driver_mod.Driver:
     kw.setdefault("seat_factory", _seat)
     kw.setdefault("client", _NoNetwork())
+    _controls(job_mod.load(job_dir).data_root)
     return driver_mod.Driver(job_dir, firm_config=str(firm_config_path), pricing=str(pricing_path), log=lambda *_: None, **kw)
 
 
@@ -177,29 +228,37 @@ def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_sub
     job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path
 ) -> None:
     sd = data_root / "example-matter"
-    (sd / "out" / "alpha").mkdir(parents=True)
-    (sd / "out" / "alpha" / "page_map.json").write_text(json.dumps([
-        {"exhibit": 1, "files": [{"file": "f1.pdf", "start_page": 1, "pages": 7}]}]))
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
     o = outs[0]
-    # Every stage ran: the ported ones for real (both files owned by the one
-    # unit, nothing to scan, no billing documents), the frozen ones as fakes.
+    # Every stage ran: the ported ones for real (the map cites the record, so
+    # an exhibit is built, classified, stripped of nothing, covered, charted
+    # and audited), the frozen ones (identity, render, manifest) as fakes.
     assert o.outcome == "delivered" and o.stage is None, o
     assert (sd / "orphans.json").is_file()
+    page_map = json.loads((sd / "out" / "alpha" / "page_map.json").read_text())
+    assert len(page_map) == 1 and page_map[0]["total_pages"] == 7 and page_map[0]["provider"] == "Example Clinic"
+    doc = (sd / "runs" / "alpha" / "final-chronology.md").read_text()
+    assert "(Exhibit 1 - p. 2)" in doc and "| S13.4XXA | Sprain of ligaments" in doc
+    assert json.loads((sd / "nonrecord.json").read_text())["1"]["drop_pages"] == []
+    assert json.loads((sd / "scanned_labels.json").read_text())["controls_ok"] is True
+    audit_rows = [json.loads(line) for line in (sd / "out" / "alpha" / "audit-results.jsonl").read_text().splitlines()]
+    assert [r["verdict"] for r in audit_rows if r["kind"] == "real"] == ["SUPPORTED"]   # "Cervical strain." is under the 30-char floor
+    assert "GATE PASS" in (sd / "runs" / "alpha" / "log-audit.txt").read_text()
+    assert json.loads((sd / "billing_chart.json").read_text())["rows"][0]["basis"] == "no bill located"
     # The ported $0 stages ran for real: listing, pull, extract, the email index.
     assert json.loads((sd / "manifest.json").read_text())["count"] == 2
     pulled = {r["id"] for r in map(json.loads, (sd / "raw_manifest.jsonl").read_text().splitlines()) if r["ok"]}
     assert pulled == {"f1", "f9"}
     extracted = {r["name"]: r for r in map(json.loads, (sd / "extracted.jsonl").read_text().splitlines())}
-    assert extracted["f1.pdf"]["pages"] == 7 and extracted["f1.pdf"]["chars"] > 5600
+    assert extracted["f1"]["pages"] == 7 and extracted["f1"]["chars"] > 5600
     assert json.loads((sd / "msg_attachments.json").read_text())["comparable"] is True
     assert (sd / "runs" / "alpha" / "log-download.txt").read_text().startswith("example-matter: 2 targets")
     # The paid $0-in-this-run stages ran in-process too: no scans, no billing docs, one unit.
-    assert [r["id"] for r in json.loads((sd / "units" / "alpha.json").read_text())] == ["f1", "f9"]
+    assert [r["id"] for r in json.loads((sd / "units" / "alpha.json").read_text())] == ["f1"]
+    assert json.loads((sd / "orphans.json").read_text())["orphans"][0]["reason"].startswith("engagement document")
     # The frozen stages still run as subprocesses with the full env block.
     ran = [c["script"] for c in calls(data_root)]
-    assert ran[0] == "check_unit_identity.py"
-    assert "strip_nonrecord.py" in ran
+    assert ran == ["check_unit_identity.py", "md_to_docx_v4.py", "make_manifest.py"]   # what is still frozen
     first = calls(data_root)[0]
     assert first["env"]["SMD_SLUG"] == "example-matter"
     assert first["env"]["SMD_UNIT"] == "alpha"
@@ -209,11 +268,16 @@ def test_the_whole_dag_runs_with_ported_stages_in_process_and_frozen_ones_as_sub
     st = RunState.load_or_new(state_path(data_root, "example-matter", "alpha"), slug="x", unit="y")
     assert st.outcome == "delivered"
     for name in ("list_matter", "download", "extract_after_fold", "vision", "billing_extract", "build_units",
-                 "map", "repair_truncated", "assemble", "merge", "manifest"):
+                 "map", "repair_truncated", "assemble", "merge", "group", "filter", "exhibits", "condense",
+                 "summarize", "build_doc", "classify_nonrecord", "strip_apply", "coverage_gate", "billing_chart",
+                 "billing_docx", "audit", "manifest"):
         assert st.is_done(name), name
-    assert (sd / "runs" / "alpha" / "map-01.md").read_text() == EMPTY_MAP
+    assert doc.startswith("Alpha Example - Medical Chronology") and "## Records Reviewed and Limitations" in doc
+    assert "This chronology was prepared from 2 documents" in doc
+    assert (sd / "runs" / "alpha" / "entries_condensed.md").is_file()
+    assert (sd / "runs" / "alpha" / "map-01.md").read_text() == REAL_MAP
     assert (sd / "runs" / "alpha" / "merged.md").read_text() == ""
-    assert o.dollars > 0    # the one compose call was ledgered and priced
+    assert o.dollars > 0    # the compose, classify and audit calls were ledgered and priced
     assert st.pipeline_sha
 
 
@@ -247,9 +311,9 @@ def test_cap_refuses_before_the_first_paid_stage(job_dir: Path, data_root: Path,
 
 def test_exit_code_map_yields_the_vocabulary(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:
     seed_folders(data_root, ["MEDICAL"])
-    (fake_pipeline / "exit_build_exhibits.py").write_text("1")
+    (fake_pipeline / "exit_md_to_docx_v4.py").write_text("1")
     outs = _driver(job_dir, firm_config_path, pricing_path).run()
-    assert outs[0].outcome == "refused" and "a citation could not be remapped" in outs[0].reason
+    assert outs[0].outcome == "failed" and outs[0].stage == "render"
 
 
 def test_unknown_model_in_ledger_refuses_the_run(job_dir: Path, data_root: Path, firm_config_path: Path, pricing_path: Path, fake_pipeline: Path) -> None:

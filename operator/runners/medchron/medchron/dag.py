@@ -14,7 +14,9 @@ from one to the other without touching the order. `exit_map` turns a stage's
 exit code into the outcome vocabulary; anything unmapped and non-zero is
 `failed`. Ported so far: list_matter, download, extract, index_msg, fold_msg,
 extract_after_fold (PR 2); vision, billing_extract, build_units (PR 4); map,
-repair_truncated, assemble, merge (PR 5).
+repair_truncated, assemble, merge (PR 5); group, filter, exhibits,
+condense, summarize (PR 6); the audit loop (PR 7); build_doc, the classifiers,
+the strip, the coverage gate, the billing chart and worksheet (PR 8).
 """
 from __future__ import annotations
 
@@ -22,9 +24,12 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .job import Job, Unit
-from .stages import (assemble as _assemble, billing as _billing, compose as _compose, download as _download,
-                     extract as _extract, listing as _listing, merge as _merge, msg as _msg, repair as _repair,
-                     units as _units, vision as _vision)
+from .stages import (assemble as _assemble, audit_loop as _audit, billing as _billing, billing_chart as _bchart,
+                     billing_docx as _bdocx, build_doc as _build_doc, classify as _classify, compose as _compose,
+                     condense as _condense, coverage as _coverage, strip as _strip,
+                     download as _download, exhibits as _exhibits, extract as _extract, group as _group,
+                     listing as _listing, merge as _merge, msg as _msg, repair as _repair, scope as _scope,
+                     summarize as _summarize, units as _units, vision as _vision)
 
 # Outcome vocabulary shared with state.py. HOLD and REFUSE never write to the
 # matter; they end the run with a reason a person can act on.
@@ -112,48 +117,53 @@ STAGES: tuple[Stage, ...] = (
                     3: (REFUSED, "merge falsifier: a citation was lost"),
                     4: (REFUSED, "merge falsifier: a paragraph was lost"),
                     5: (REFUSED, "merge falsifier: an entry was lost")}),
-    Stage("group", "group_providers.py", _slug_unit, requires=("merge",)),
-    Stage("filter", "filter_preincident.py", lambda c: [*_slug_unit_date(c), c.job.injuries],
-          paid=True, requires=("group",),
-          exit_map={1: (REFUSED, "filter refused: merged clusters missing")}),
-    Stage("exhibits", "build_exhibits.py", _slug_unit, requires=("filter",),
-          exit_map={1: (REFUSED, "exhibits: a citation could not be remapped")}),
-    Stage("condense", "condense_entries.py", _slug_unit, paid=True, requires=("exhibits",)),
-    Stage("summarize", "summarize_preincident.py", _slug_unit_date, paid=True, requires=("condense",),
+    Stage("group", "", _slug_unit, requires=("merge",), runner=_group.run),
+    Stage("filter", "", lambda c: [*_slug_unit_date(c), c.job.injuries], paid=True, requires=("group",),
+          runner=_scope.run, exit_map={1: (REFUSED, "filter refused: merged clusters missing")}),
+    Stage("exhibits", "", _slug_unit, requires=("filter",), runner=_exhibits.run,
+          exit_map={1: (REFUSED, "exhibits: a citation could not be remapped, or a cited file sits in the "
+                                 "unresolved lane")}),
+    Stage("condense", "", _slug_unit, paid=True, requires=("exhibits",), runner=_condense.run),
+    Stage("summarize", "", _slug_unit_date, paid=True, requires=("condense",), runner=_summarize.run,
           exit_map={1: (REFUSED, "summary reached beyond the source record")}),
     # ---- document, classification, strip, gates ---------------------------
     Stage("icd_tables", "fetch_icd.sh", lambda c: [], scope="slug", once_per_machine=True,
           requires=("summarize",)),
-    Stage("build_doc", "build_doc.py",
-          lambda c: [c.slug, c.unit.unit, c.unit.client_name, c.job.incident_date],
-          requires=("icd_tables",), invalidates=("audit", "coverage_gate", "strip_apply")),
-    Stage("classify_nonrecord", "classify_nonrecord.py", _slug_unit, requires=("build_doc",)),
+    Stage("build_doc", "", lambda c: [c.slug, c.unit.unit, c.unit.client_name, c.job.incident_date],
+          requires=("icd_tables",), invalidates=("audit", "coverage_gate", "strip_apply"), runner=_build_doc.run,
+          exit_map={1: (REFUSED, "build_doc refused: text ahead of the first entry is not a Prior Medical History "
+                                 "heading, or the ICD tables are missing")}),
+    Stage("classify_nonrecord", "", _slug_unit, requires=("build_doc",), runner=_classify.run_nonrecord,
+          exit_map={1: (REFUSED, "classify_nonrecord: the chronology carries no citations to guard against")}),
     Stage("decide_control", "", _slug_unit, requires=("classify_nonrecord",), decision="control"),
-    Stage("classify_scanned", "classify_scanned.py", lambda c: [*_slug_unit(c), "--apply"],
-          paid=True, requires=("decide_control",)),
-    Stage("strip_falsify", "strip_nonrecord.py", lambda c: [*_slug_unit(c), "--falsify"],
-          requires=("classify_scanned",),
-          exit_map={1: (REFUSED, "strip falsifier failed: a citation would lose its page")}),
-    Stage("strip_dry", "strip_nonrecord.py", _slug_unit, requires=("strip_falsify",),
-          exit_map={1: (REFUSED, "strip dry run refused")}),
-    Stage("strip_apply", "strip_nonrecord.py", lambda c: [*_slug_unit(c), "--apply"],
-          requires=("strip_dry",),
+    Stage("classify_scanned", "", lambda c: [*_slug_unit(c), "--apply"], paid=True, requires=("decide_control",),
+          runner=_classify.run_scanned,
+          exit_map={1: (REFUSED, "classify_scanned: the controls are not authored, or the classifier failed them")}),
+    Stage("strip_falsify", "", lambda c: [*_slug_unit(c), "--falsify"], requires=("classify_scanned",),
+          runner=_strip.run_falsify,
+          exit_map={1: (REFUSED, "strip falsifier: the content check cannot fail, so it proves nothing")}),
+    Stage("strip_dry", "", _slug_unit, requires=("strip_falsify",), runner=_strip.run_dry,
+          exit_map={1: (REFUSED, "strip dry run refused: a citation would lose its page, or the classifier's controls failed")}),
+    Stage("strip_apply", "", lambda c: [*_slug_unit(c), "--apply"], requires=("strip_dry",), runner=_strip.run_apply,
           exit_map={1: (REFUSED, "strip apply refused (a prior strip exists, or citations moved)")}),
     Stage("decide_orphans", "", _slug_unit, requires=("strip_apply",), decision="orphans"),
-    Stage("coverage_gate", "coverage_gate.py", _slug_unit, requires=("decide_orphans",),
-          exit_map={1: (HELD, "coverage gate: files pulled and never explained")}),
-    Stage("billing_chart", "billing_chart.py",
-          lambda c: [c.slug, c.unit.unit, "--patient", c.unit.client_name],
-          requires=("coverage_gate",)),
-    Stage("billing_docx", "billing_docx.py",
+    Stage("coverage_gate", "", _slug_unit, requires=("decide_orphans",), runner=_coverage.run,
+          exit_map={1: (HELD, "coverage gate: a pulled file is neither cited nor explained")}),
+    Stage("billing_chart", "", lambda c: [c.slug, c.unit.unit, "--patient", c.unit.client_name],
+          requires=("coverage_gate",), runner=_bchart.run),
+    Stage("billing_docx", "",
           lambda c: [c.slug, c.unit.client_name,
                      f"out/{c.unit.unit}/{c.unit.client_name} - Medical Billing Worksheet {c.date_stamp}.docx",
                      c.unit.unit],
-          requires=("billing_chart",),
-          exit_map={1: (REFUSED, "billing worksheet refused (a suspect amount or missing unit)")}),
+          requires=("billing_chart",), runner=_bdocx.run,
+          exit_map={1: (REFUSED, "billing worksheet refused (a suspect amount, or no patient filter on a joint matter)")}),
     # ---- audit last; render only after it passes ---------------------------
-    Stage("audit", "audit_repair_loop.py", lambda c: ["3"], paid=True, requires=("billing_docx",),
-          exit_map={1: (HELD, "audit coverage: a live claim is not finally SUPPORTED")}),
+    Stage("audit", "", lambda c: ["3"], paid=True, requires=("billing_docx",), runner=_audit.run,
+          exit_map={1: (HELD, "audit coverage: a live claim is not finally SUPPORTED"),
+                    2: (FAILED, "audit INVALID: a control was wrongly SUPPORTED, no exhibit bytes, or a repair did "
+                                "not reconcile"),
+                    3: (FAILED, "audit refused at the double-sweep guard: prior rows for this body carry keys no "
+                                "longer produced")}),
     Stage("render", "md_to_docx_v4.py",
           lambda c: [f"runs/{c.unit.unit}/final-chronology.md",
                      f"out/{c.unit.unit}/{c.unit.client_name} - Medical Chronology {c.date_stamp}.docx"],
