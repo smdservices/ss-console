@@ -203,8 +203,8 @@ describe('invoices: admin API routes', () => {
       expect(source()).toContain('requireAdminSession')
     })
 
-    it('validates invoice type', () => {
-      expect(source()).toContain('VALID_TYPES')
+    it('validates invoice type against the shared vocabulary', () => {
+      expect(source()).toContain('isInvoiceType')
     })
 
     it('validates amount is positive', () => {

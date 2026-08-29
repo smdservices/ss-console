@@ -65,6 +65,15 @@ export interface CreateOperatorSubscriptionParams {
   subscription_row_id: string
   /** Days the client has to pay each cycle invoice. */
   days_until_due?: number
+  /**
+   * Unix timestamp (seconds) of the Billing Start Date. When set and in the
+   * future, the subscription exists from creation (the portal lists it under
+   * Billing) but Stripe issues the first cycle invoice ON this date, with no
+   * proration for the gap. Mirrors the agreement's billing-start clause:
+   * nothing accrues before implementation testing completes, then monthly in
+   * advance. Omit to bill from creation.
+   */
+  billing_cycle_anchor?: number
   /** Extra metadata (e.g. a smoke-test marker). */
   metadata?: Record<string, string>
 }
@@ -124,7 +133,9 @@ async function resolveRetainerProductId(apiKey: string): Promise<string> {
 /**
  * Create the monthly retainer subscription. Stripe generates and emails the
  * first hosted invoice immediately (send_invoice), then one per month; the
- * subscription is active regardless of invoice status.
+ * subscription is active regardless of invoice status. With
+ * `billing_cycle_anchor` set to a future date, the first invoice is issued on
+ * that date instead (no proration), and the subscription still exists now.
  */
 export async function createOperatorSubscription(
   apiKey: string | undefined,
@@ -150,6 +161,10 @@ export async function createOperatorSubscription(
   body.append('items[0][price_data][currency]', 'usd')
   body.append('items[0][price_data][product]', productId)
   body.append('items[0][price_data][recurring][interval]', 'month')
+  if (params.billing_cycle_anchor !== undefined) {
+    body.append('billing_cycle_anchor', String(params.billing_cycle_anchor))
+    body.append('proration_behavior', 'none')
+  }
   body.append('metadata[smd_entity_id]', params.entity_id)
   body.append('metadata[smd_subscription_id]', params.subscription_row_id)
   for (const [key, value] of Object.entries(params.metadata ?? {})) {

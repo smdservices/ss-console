@@ -1,6 +1,6 @@
 ---
 import { getPortalClient } from '../../../lib/portal/session'
-import { listInvoicesForEntity } from '../../../lib/db/invoices'
+import { invoiceTypeLabel, listInvoicesForEntity } from '../../../lib/db/invoices'
 import type { Invoice } from '../../../lib/db/invoices'
 import PortalShell from '../../../layouts/PortalShell.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
@@ -38,14 +38,6 @@ const { user, client } = portalData
 const offerings = await resolvePortalOfferings(env.DB, user.org_id, client.id)
 const invoices = await listInvoicesForEntity(env.DB, user.org_id, client.id)
 const subscriptions = offerings.subscriptions
-
-const typeLabel: Record<string, string> = {
-  deposit: 'Deposit',
-  completion: 'Completion',
-  milestone: 'Milestone',
-  assessment: 'Assessment',
-  retainer: 'Retainer',
-}
 
 function resolveDateLabel(inv: Invoice): string {
   if (inv.paid_at) return 'Paid'
@@ -188,7 +180,7 @@ const csMessage =
               serial={String(invoices.length - idx).padStart(2, '0')}
               tone={resolveInvoiceTone(inv.status)}
               toneLabel={resolveInvoiceStampLabel(inv.status)}
-              title={typeLabel[inv.type] ?? inv.type}
+              title={invoiceTypeLabel(inv.type) ?? 'Invoice'}
               amountCents={Math.round(inv.amount * 100)}
               metaCaption={inv.status === 'paid' ? 'Settled' : 'Amount'}
               metaLabel={resolveDateLabel(inv)}

@@ -1,8 +1,14 @@
 import type { APIContext, APIRoute } from 'astro'
 import { buildPortalUrl } from '../../../../lib/config/app-url'
-import { getInvoice, updateInvoice, updateInvoiceStatus } from '../../../../lib/db/invoices'
+import {
+  getInvoice,
+  listLineItemsForInvoice,
+  updateInvoice,
+  updateInvoiceStatus,
+} from '../../../../lib/db/invoices'
 import {
   createStripeInvoice,
+  finalizeStripeInvoice,
   sendStripeInvoice,
   voidStripeInvoice,
 } from '../../../../lib/stripe/client'
@@ -16,7 +22,15 @@ import { errorResponse } from '../../../../lib/api/helpers'
  * POST /api/admin/invoices/:id
  *
  * Performs actions on an existing invoice:
- * - action=send: Creates invoice in Stripe, sends it, updates local status
+ * - action=send: Creates invoice in Stripe, sends it (Stripe's hosted-invoice
+ *   email + our own notification email), updates local status
+ * - action=present: Creates and finalizes the invoice in Stripe with NO email
+ *   from anyone. The invoice becomes payable in the portal (Billing lists it,
+ *   the detail page shows Pay) and the client reads it when they next sign
+ *   in. For the relationship where the client already knows the amount and
+ *   will pay when directed, and an unannounced email would be noise. Same
+ *   local status ('sent': the portal's visibility predicate) so both paths
+ *   reveal the Billing destination identically.
  * - action=void: Voids the invoice (Stripe + local)
  * - action=mark_paid: Manual override for offline payments (OQ-008)
  *
@@ -26,84 +40,109 @@ import { errorResponse } from '../../../../lib/api/helpers'
 type Redirect = APIContext['redirect']
 type Invoice = NonNullable<Awaited<ReturnType<typeof getInvoice>>>
 
-async function handleSend(
-  redirect: Redirect,
-  orgId: string,
-  invoiceId: string,
-  existing: Invoice,
-  target: string
-): Promise<Response> {
-  if (existing.status !== 'draft') {
-    return redirect(`${target}?error=invalid_transition`, 302)
-  }
+type IssueMode = 'send' | 'present'
 
+interface IssueArgs {
+  redirect: Redirect
+  orgId: string
+  invoiceId: string
+  existing: Invoice
+  target: string
+  mode: IssueMode
+}
+
+async function billingContactEmail(orgId: string, entityId: string): Promise<string | null> {
   const contact = await env.DB.prepare(
     'SELECT email FROM contacts WHERE org_id = ? AND entity_id = ? AND email IS NOT NULL ORDER BY created_at ASC LIMIT 1'
   )
-    .bind(orgId, existing.entity_id)
+    .bind(orgId, entityId)
     .first<{ email: string }>()
+  return contact?.email ?? null
+}
 
-  const clientEmail = contact?.email
+/** Best-effort notification after a SEND (never after a present). */
+async function notifyClientInvoiceReady(
+  orgId: string,
+  existing: Invoice,
+  clientEmail: string
+): Promise<void> {
+  try {
+    const entityRow = await env.DB.prepare('SELECT name FROM entities WHERE id = ? AND org_id = ?')
+      .bind(existing.entity_id, orgId)
+      .first<{ name: string }>()
+    const formattedAmount = `$${existing.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    const portalUrl = buildPortalUrl(env, '/portal/billing')
+    await sendEmail(env.RESEND_API_KEY, {
+      to: clientEmail,
+      subject: 'Your invoice from SMD Services is ready',
+      html: invoiceSentEmailHtml(entityRow?.name ?? 'there', formattedAmount, portalUrl),
+    })
+  } catch (err) {
+    console.error('[api/admin/invoices/[id]] Email send error:', err)
+    // Non-fatal
+  }
+}
 
-  const entityRow = await env.DB.prepare('SELECT name FROM entities WHERE id = ? AND org_id = ?')
-    .bind(existing.entity_id, orgId)
-    .first<{ name: string }>()
+/**
+ * Create the Stripe invoice from the local row and make it payable.
+ *
+ * `mode='send'` finalizes + emails (Stripe's hosted-invoice email, then our
+ * notification); `mode='present'` finalizes only, with auto_advance off so
+ * Stripe's own finalization email does not fire either. A billing contact
+ * with an email is required in both modes: Stripe keys the customer by
+ * email and a placeholder address would put a fabricated customer on a
+ * real invoice. The Stripe invoice carries the same authored lines the
+ * portal renders; the send-gate refuses an invoice with none, and this
+ * checks first so Stripe never sees a line-less invoice either.
+ */
+async function handleIssue({
+  redirect,
+  orgId,
+  invoiceId,
+  existing,
+  target,
+  mode,
+}: IssueArgs): Promise<Response> {
+  if (existing.status !== 'draft') {
+    return redirect(`${target}?error=invalid_transition`, 302)
+  }
+  const clientEmail = await billingContactEmail(orgId, existing.entity_id)
+  if (!clientEmail) return redirect(`${target}?error=no_billing_contact`, 302)
 
-  const clientName = entityRow?.name ?? 'there'
+  const lines = await listLineItemsForInvoice(env.DB, invoiceId)
+  if (lines.length === 0) return redirect(`${target}?error=missing_line_items`, 302)
 
   try {
     const stripeResult = await createStripeInvoice(env.STRIPE_API_KEY, {
-      customer_email: clientEmail ?? 'placeholder@example.com',
-      description: existing.description ?? `Invoice from SMD Services`,
-      line_items: [
-        {
-          amount: Math.round(existing.amount * 100),
-          currency: 'usd',
-          description: existing.description ?? `SMD Services — ${existing.type} invoice`,
-          quantity: 1,
-        },
-      ],
+      customer_email: clientEmail,
+      description: existing.description ?? undefined,
+      line_items: lines.map((line) => ({
+        amount: line.amount_cents,
+        currency: 'usd',
+        description: line.description,
+        quantity: 1,
+      })),
       days_until_due: 15,
       collection_method: 'send_invoice',
-      metadata: {
-        invoice_id: existing.id,
-        org_id: orgId,
-        type: existing.type,
-      },
-      payment_settings: {
-        payment_method_types: ['ach_debit', 'card'],
-      },
+      metadata: { invoice_id: existing.id, org_id: orgId, type: existing.type },
+      payment_settings: { payment_method_types: ['ach_debit', 'card'] },
     })
-
-    const sentResult = await sendStripeInvoice(env.STRIPE_API_KEY, stripeResult.id)
-
+    const issued =
+      mode === 'send'
+        ? await sendStripeInvoice(env.STRIPE_API_KEY, stripeResult.id)
+        : await finalizeStripeInvoice(env.STRIPE_API_KEY, stripeResult.id)
     await updateInvoice(env.DB, orgId, invoiceId, {
       stripe_invoice_id: stripeResult.id,
-      stripe_hosted_url: sentResult.hosted_invoice_url,
+      stripe_hosted_url: issued.hosted_invoice_url,
     })
     await updateInvoiceStatus(env.DB, orgId, invoiceId, 'sent')
   } catch (err) {
-    console.error('[api/admin/invoices/[id]] Stripe send error:', err)
+    console.error(`[api/admin/invoices/[id]] Stripe ${mode} error:`, err)
     const message = err instanceof Error ? err.message : 'Stripe error'
     return redirect(`${target}?error=${encodeURIComponent(message)}`, 302)
   }
 
-  // Best-effort: send notification email to client
-  if (clientEmail) {
-    try {
-      const formattedAmount = `$${existing.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      const portalUrl = buildPortalUrl(env, '/portal/billing')
-      await sendEmail(env.RESEND_API_KEY, {
-        to: clientEmail,
-        subject: 'Your invoice from SMD Services is ready',
-        html: invoiceSentEmailHtml(clientName, formattedAmount, portalUrl),
-      })
-    } catch (err) {
-      console.error('[api/admin/invoices/[id]] Email send error:', err)
-      // Non-fatal
-    }
-  }
-
+  if (mode === 'send') await notifyClientInvoiceReady(orgId, existing, clientEmail)
   return redirect(`${target}?saved=1`, 302)
 }
 
@@ -201,8 +240,15 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
     const redirectUrl = formData.get('redirect_url')
     const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
 
-    if (action === 'send') {
-      return handleSend(redirect, session.orgId, invoiceId, existing, target)
+    if (action === 'send' || action === 'present') {
+      return handleIssue({
+        redirect,
+        orgId: session.orgId,
+        invoiceId,
+        existing,
+        target,
+        mode: action,
+      })
     }
 
     if (action === 'void') {

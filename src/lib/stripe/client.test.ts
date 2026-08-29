@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   createStripeInvoice,
+  finalizeStripeInvoice,
   getStripeInvoice,
   sendStripeInvoice,
   voidStripeInvoice,
@@ -268,6 +269,40 @@ describe('createStripeInvoice', () => {
 // ---------------------------------------------------------------------------
 // sendStripeInvoice
 // ---------------------------------------------------------------------------
+
+describe('finalizeStripeInvoice (present without email)', () => {
+  it('finalizes with auto_advance=false and never calls /send', async () => {
+    queue(json({ id: 'in_7', hosted_invoice_url: 'https://pay.stripe.com/final', status: 'open' }))
+
+    const result = await finalizeStripeInvoice(KEY, 'in_7')
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe(`${API}/invoices/in_7/finalize`)
+    expect(calls[0].init?.method).toBe('POST')
+    expect(headersOf(calls[0]).Authorization).toBe(`Bearer ${KEY}`)
+    // auto_advance=false is the whole point: Stripe emails a finalized
+    // send_invoice invoice automatically UNLESS automatic collection is off.
+    expect(bodyParams(calls[0]).get('auto_advance')).toBe('false')
+    expect(calls.some((c) => c.url.endsWith('/send'))).toBe(false)
+
+    expect(result).toEqual({
+      id: 'in_7',
+      hosted_invoice_url: 'https://pay.stripe.com/final',
+      status: 'open',
+    })
+  })
+
+  it('throws on finalize failure', async () => {
+    queue(json({ error: { message: 'nope' } }, 400))
+    await expect(finalizeStripeInvoice(KEY, 'in_8')).rejects.toThrow(/finalize failed 400/)
+  })
+
+  it('dev mode (no API key): returns an open stub without any network call', async () => {
+    const result = await finalizeStripeInvoice(undefined, 'in_9')
+    expect(calls).toHaveLength(0)
+    expect(result.status).toBe('open')
+  })
+})
 
 describe('sendStripeInvoice', () => {
   it('finalizes then sends, preferring the send response fields', async () => {

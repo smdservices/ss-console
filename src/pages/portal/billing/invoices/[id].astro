@@ -2,6 +2,7 @@
 import PortalShell from '../../../../layouts/PortalShell.astro'
 import { getPortalClient } from '../../../../lib/portal/session'
 import { loadPortalInvoiceDetail } from '../../../../lib/portal/invoice-detail'
+import { invoiceTypeLabel } from '../../../../lib/db/invoices'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
 import MoneyDisplay from '../../../../components/portal/MoneyDisplay.astro'
 import InvoicePaymentDetails from '../../../../components/portal/InvoicePaymentDetails.astro'
@@ -115,14 +116,8 @@ const daysUntil = (iso: string | null): number | null => {
 }
 
 // Title + period
-const typeLabelMap: Record<string, string> = {
-  deposit: 'Deposit invoice',
-  completion: 'Completion invoice',
-  milestone: 'Milestone invoice',
-  assessment: 'Assessment invoice',
-  retainer: 'Retainer invoice',
-}
-const invoiceTitle = typeLabelMap[invoice.type] ?? 'Invoice'
+const typeLabel = invoiceTypeLabel(invoice.type)
+const invoiceTitle = typeLabel ? `${typeLabel} invoice` : 'Invoice'
 // Subtitle comes only from the invoice's own authored description. We never
 // borrow `engagement.scope_summary` — that is an internal operations field,
 // not client-facing authored content. Pattern B per CLAUDE.md (#398).

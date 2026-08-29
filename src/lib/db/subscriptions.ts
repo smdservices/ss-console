@@ -102,3 +102,28 @@ export async function setSubscriptionBillingStatus(
     .bind(status, subscriptionRowId)
     .run()
 }
+
+/**
+ * Promote a `provisioning` Operator row to `active` because billing has
+ * started. This is the go-live flip the portal reads: `provisioning` keeps a
+ * client in the review-and-configure window (Home hidden, Billing hidden,
+ * landing on the operator page); `active` reveals the full portal
+ * (src/lib/portal/offerings.ts, hasBillingRelationship). It is deliberately
+ * NOT reachable from the Stripe webhooks (setSubscriptionBillingStatus keeps
+ * its provisioning guard for the Hosted Agent's checkout-before-standup
+ * flow); only the admin's explicit start-billing act calls it, for the
+ * operator product, and only from `provisioning`. Returns true when a row
+ * was promoted.
+ */
+export async function activateOperatorSubscriptionForBilling(
+  db: D1Database,
+  subscriptionRowId: string
+): Promise<boolean> {
+  const res = await db
+    .prepare(
+      "UPDATE subscriptions SET status = 'active', started_at = COALESCE(started_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND product_slug = 'operator' AND status = 'provisioning'"
+    )
+    .bind(subscriptionRowId)
+    .run()
+  return (res.meta.changes ?? 0) > 0
+}
