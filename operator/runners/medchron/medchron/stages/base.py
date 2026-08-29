@@ -37,6 +37,8 @@ class StageRun:
     #: the doorway builds the real one. Tests inject a scripted client here, so
     #: no test touches the network.
     client_factory: Callable[[], Any] | None = None
+    #: MM-DD-YY for the deliverable names; the driver stamps the run once.
+    date_stamp: str = ""
     _seat: Seat | None = field(default=None, repr=False)
     _doorway: Doorway | None = field(default=None, repr=False)
 

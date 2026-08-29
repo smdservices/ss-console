@@ -292,7 +292,8 @@ class Driver:
             self.log(f"  {msg}")
 
         sr = StageRun(job=self.job, cfg=self.cfg, unit=unit, slug_dir=self.slug_dir, decided=self.decided,
-                      log=log, seat_factory=self._open_seat, client_factory=self._sdk_client)
+                      log=log, seat_factory=self._open_seat, client_factory=self._sdk_client,
+                      date_stamp=self.date_stamp)
         st.start(stage.name, input_sha=_stage_input_sha(self.slug_dir, stage))
         self.log(f"[run] {stage.name}: in-process")
         refusal: str | None = None

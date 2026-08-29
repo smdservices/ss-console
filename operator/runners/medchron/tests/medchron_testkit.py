@@ -178,8 +178,13 @@ def make_pdf(pages: list[str]) -> bytes:
 
 
 def doc_row(fid: str, name: str, folder_id: str | None, size: int, ext: str | None = None) -> dict:
-    return {"id": fid, "name": name, "size": size, "ext": ext or ("." + name.rsplit(".", 1)[1]),
-            "folderId": folder_id, "created": None, "modified": None, "deleted": False}
+    """A listing row as the seat returns it: the NAME carries no extension,
+    the extension is its own field (every stage joins them back as name+ext)."""
+    if ext is None and "." in name:
+        name, suffix = name.rsplit(".", 1)
+        ext = "." + suffix
+    return {"id": fid, "name": name, "size": size, "ext": ext or "", "folderId": folder_id, "created": None,
+            "modified": None, "deleted": False}
 
 
 def seed_seat_files(data_root: Path, seat: "FakeSeat") -> None:
