@@ -113,7 +113,8 @@ async function handlePost({ request, locals, redirect }: APIContext): Promise<Re
     await createInvoice(env.DB, session.orgId, {
       entity_id: clientId,
       type,
-      amount,
+      // amount comes from optionalInvoiceFields: the fee-inclusive total when
+      // the client pays by card, the entered amount otherwise.
       ...optionalInvoiceFields(formData, amount),
     })
 
