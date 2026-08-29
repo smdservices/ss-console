@@ -19,11 +19,13 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import __version__, budget as budget_mod, config as config_mod, dag, decisions, job as job_mod
+from . import __version__, budget as budget_mod, config as config_mod, dag, decisions, job as job_mod, seat as seat_mod
+from .stages.base import StageRefusal, StageRun
 from .state import RunState, state_path
 
 PIPELINE_ENV = "MEDCHRON_PIPELINE_DIR"
@@ -130,12 +132,15 @@ def _stage_input_sha(slug_dir: Path, stage: dag.Stage) -> str | None:
 
 class Driver:
     def __init__(self, job_dir: Path, *, firm_config: str | None = None, pricing: str | None = None,
-                 dry_run: bool = False, start: str | None = None, log=print) -> None:
+                 dry_run: bool = False, start: str | None = None, log=print, seat_factory=None) -> None:
         self.job = job_mod.load(job_dir)
         self.cfg = config_mod.load(firm_config)
         self.dry_run = dry_run
         self.start = start
         self.log = log
+        # The seat is opened lazily by the first stage that reads the matter,
+        # so a dry run and a resume past the pull never touch the firm's system.
+        self.seat_factory = seat_factory or (lambda: seat_mod.open_seat(str(self.cfg.get("firm", "slug"))))
         self.pipeline = None if dry_run else _pipeline_dir()
         pricing_path = Path(pricing or os.environ.get(budget_mod.PRICING_ENV) or budget_mod.PRICING_DEFAULT)
         self.pricing = budget_mod.Pricing.load(pricing_path)
@@ -225,6 +230,8 @@ class Driver:
                 st.end("refused", str(exc))
                 return Outcome(unit.unit, "refused", str(exc), stage.name, self.budget.spent(),
                                budget_mod.pages_read(extracted), notes)
+        if stage.runner is not None:
+            return self._execute_in_process(stage, ctx, st, extracted, notes)
         script = self.pipeline / stage.script
         if not script.is_file():
             st.finish(stage.name, status="failed", exit_code=None, dollars=None, pages=None,
@@ -252,6 +259,48 @@ class Driver:
         outcome, reason = stage.exit_map.get(proc.returncode, ("failed", f"exit {proc.returncode}"))
         reason = f"{reason}; last output: {tail.strip()[-400:]}"
         st.finish(stage.name, status=outcome, exit_code=proc.returncode, dollars=dollars, pages=pages, note=reason)
+        st.end(outcome, reason)
+        return Outcome(unit.unit, outcome, reason, stage.name, dollars, pages, notes)
+
+    def _execute_in_process(self, stage: dag.Stage, ctx: dag.Ctx, st: RunState, extracted: Path,
+                            notes: list[str]) -> Outcome | None:
+        """A ported stage: same state record, same log file, same exit-code
+        reading as a subprocess stage, so nothing downstream can tell."""
+        unit = ctx.unit
+        lines: list[str] = []
+
+        def log(msg: str) -> None:
+            lines.append(msg)
+            self.log(f"  {msg}")
+
+        sr = StageRun(job=self.job, cfg=self.cfg, unit=unit, slug_dir=self.slug_dir, decided=self.decided,
+                      log=log, seat_factory=self.seat_factory)
+        st.start(stage.name, input_sha=_stage_input_sha(self.slug_dir, stage))
+        self.log(f"[run] {stage.name}: in-process")
+        refusal: str | None = None
+        try:
+            code = int(stage.runner(sr))
+        except StageRefusal as exc:
+            code, refusal = -1, str(exc)
+            lines.append(f"REFUSED: {exc}")
+        except Exception:  # noqa: BLE001 - a crash is a failed stage with its trace on file
+            code = 1
+            lines.append(traceback.format_exc())
+        (self.slug_dir / "runs" / unit.unit).mkdir(parents=True, exist_ok=True)
+        (self.slug_dir / "runs" / unit.unit / f"log-{stage.name}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        dollars = self.budget.refresh()
+        pages = budget_mod.pages_read(extracted)
+        if code == 0:
+            st.finish(stage.name, status="done", exit_code=0, dollars=dollars, pages=pages)
+            if stage.invalidates:
+                st.invalidate(list(stage.invalidates))
+            return None
+        if refusal is not None:
+            outcome, reason = "refused", refusal
+        else:
+            outcome, reason = stage.exit_map.get(code, ("failed", f"exit {code}"))
+            reason = f"{reason}; last output: {' | '.join(lines)[-400:]}"
+        st.finish(stage.name, status=outcome, exit_code=code, dollars=dollars, pages=pages, note=reason)
         st.end(outcome, reason)
         return Outcome(unit.unit, outcome, reason, stage.name, dollars, pages, notes)
 

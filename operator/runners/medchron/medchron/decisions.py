@@ -160,23 +160,24 @@ def fold(job: Job, cfg: FirmConfig, slug_dir: Path, *, dry_run: bool) -> Decisio
     mis-sort in both directions (a photographed bill page dropped, a banner
     admitted); dedup and the vision classifier reject banners downstream, and a
     dropped record is undetectable. `.rpmsg` is disclosed, never folded."""
+    # The report shape is stages/msg.py's `msg_attachments.json`: each kept
+    # attachment carries `sha256`, `local` (its file name, so its extension),
+    # and `already_pulled_as` (the pull's name when the bytes are already in
+    # the corpus). Encrypted and skipped kinds never reach `attachments`; they
+    # are named in `dropped_unkept` and `encrypted`, and the disclosure reads
+    # from there.
     index = _read_json(slug_dir / "msg_attachments.json", {})
     items = index.get("attachments") if isinstance(index, dict) else index
     keep: list[str] = []
-    disclosed: list[str] = []
     for a in items or []:
-        sha = str(a.get("sha12") or a.get("sha") or "")[:12]
-        ext = str(a.get("ext") or "").lower()
-        status = str(a.get("status") or "NEW")
-        if status != "NEW":
+        sha = str(a.get("sha256") or "")[:12]
+        ext = ("." + str(a.get("local") or "").rsplit(".", 1)[-1]).lower() if "." in str(a.get("local") or "") else ""
+        if a.get("already_pulled_as") or not sha:
             continue
-        if ext == ".rpmsg":
-            disclosed.append(sha)
+        if ext in SKIP_EXT or ext == ".rpmsg":
             continue
-        if ext in SKIP_EXT:
-            continue
-        if sha:
-            keep.append(sha)
+        keep.append(sha)
+    disclosed = [str(e.get("attachment") or "") for e in (index.get("encrypted") or [] if isinstance(index, dict) else [])]
     payload = {"fold": keep, "_note": "folded by medchron.decisions.fold: every byte-new attachment "
                                       "not in SKIP_EXT; encrypted containers disclosed, not folded",
                "_disclosed_encrypted": disclosed}

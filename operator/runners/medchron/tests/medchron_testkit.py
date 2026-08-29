@@ -120,3 +120,71 @@ def write_ledger(data_root: Path, unit: str, rows: list[dict]) -> Path:
     return p
 
 
+
+
+# ---- a seat that never touches a tenant ----------------------------------------
+class FakeSeat:
+    """Implements medchron.seat.Seat over dicts. `docs` are manifest rows
+    (id, name, size, ext, folderId, deleted), `folders` are tree rows
+    (id, name, parentId, path), `blobs` map id -> bytes. Mint hands back an
+    https URL that encodes the id; fetch writes the blob and honours the
+    advertised size, exactly as the real backends do."""
+
+    def __init__(self, docs: list[dict], folders: list[dict], blobs: dict[str, bytes],
+                 fail_mint: set[str] | None = None) -> None:
+        self.docs, self.folders, self.blobs = docs, folders, blobs
+        self.fail_mint = fail_mint or set()
+        self.mints: list[list[str]] = []
+
+    def list_files(self, matter_id: str) -> list[dict]:
+        return [dict(d) for d in self.docs]
+
+    def folder_tree(self, matter_id: str) -> list[dict]:
+        return [dict(f) for f in self.folders]
+
+    def mint(self, matter_id: str, file_ids: list[str]) -> list[dict]:
+        self.mints.append(list(file_ids))
+        out = []
+        for fid in file_ids:
+            if fid in self.fail_mint or fid not in self.blobs:
+                out.append({"id": fid, "error": "not found"})
+            else:
+                out.append({"id": fid, "url": f"https://fake.invalid/{fid}", "size": len(self.blobs[fid])})
+        return out
+
+    def fetch(self, url: str, dest: Path, expected_size: int | None) -> int:
+        fid = url.rsplit("/", 1)[1]
+        data = self.blobs[fid]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+        if expected_size and len(data) != expected_size:
+            dest.unlink()
+            raise RuntimeError(f"size mismatch: got {len(data)}, expected {expected_size}")
+        return len(data)
+
+
+def make_pdf(pages: list[str]) -> bytes:
+    """A real PDF with one text page per string (empty string = no text layer)."""
+    import pymupdf
+
+    doc = pymupdf.open()
+    for text in pages:
+        page = doc.new_page()
+        if text:
+            page.insert_text((72, 72), text, fontsize=11)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def doc_row(fid: str, name: str, folder_id: str | None, size: int, ext: str | None = None) -> dict:
+    return {"id": fid, "name": name, "size": size, "ext": ext or ("." + name.rsplit(".", 1)[1]),
+            "folderId": folder_id, "created": None, "modified": None, "deleted": False}
+
+
+def seed_seat_files(data_root: Path, seat: "FakeSeat") -> None:
+    """What list_matter would write, for tests that start after it."""
+    sd = data_root / "example-matter"
+    sd.mkdir(parents=True, exist_ok=True)
+    (sd / "manifest.json").write_text(json.dumps({"documents": seat.docs}), encoding="utf-8")
+    (sd / "folders.json").write_text(json.dumps(seat.folders), encoding="utf-8")

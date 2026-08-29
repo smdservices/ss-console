@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from smokeball_connector import server
+from smokeball_connector.client import SmokeballClient
 
 
 class _Recorder:
@@ -25,6 +26,11 @@ class _Recorder:
         cleaned = {k: v for k, v in params.items() if v is not None}
         self.calls.append({"method": "GET", "path": path, "params": cleaned})
         return {"ok": True}
+
+    # create_folder lives on the client (the chronology runner's delivery step
+    # calls it too, ss#2613); bind the real method so its wire body is still
+    # what these tests lock.
+    create_folder = SmokeballClient.create_folder
 
 
 @pytest.fixture()
