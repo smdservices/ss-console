@@ -57,3 +57,6 @@ operator/contracts/gate-coverage-snapshot.overlay.json
 # emitter owns the formatting.
 operator/fixtures/law-firm/pi/lien-ledger-tracker/seed/KEYING-SHEET.md
 operator/fixtures/law-firm/pi/lien-ledger-tracker/seed/wire/
+# The chronology runner's system prompts are package data the model reads
+# byte-for-byte; rewrapping them changes what the model sees.
+operator/runners/medchron/medchron/prompts/
