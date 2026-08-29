@@ -18,6 +18,8 @@ dependencies = [
     "python-docx>=1.1",
     "extract-msg>=0.48",
     "pymupdf>=1.24",
+    # PR 9: the timeline visuals.
+    "matplotlib>=3.8",
     # Seat access rides the Smokeball connector's plain client (stdlib + httpx),
     # never the MCP tool layer. The sdk is an unpublished transitive dep of the
     # connector; both are named under [tool.uv.sources] so `uv pip install

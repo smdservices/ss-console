@@ -57,10 +57,15 @@ class Outcome:
         return f"{head} ({self.dollars:.2f} USD, {self.pages} pages read)"
 
 
-def _pipeline_dir() -> Path:
+def _pipeline_dir() -> Path | None:
+    """The frozen pipeline checkout, only when a stage still names a script.
+    Every stage is in-process since ss#2613 PR 9; the env stays honoured so
+    a stage can be flipped back to its script for a diff."""
     raw = os.environ.get(PIPELINE_ENV)
     if not raw:
-        raise DriverError(f"{PIPELINE_ENV} is not set (the frozen pipeline directory)")
+        if any(s.script for s in dag.STAGES):
+            raise DriverError(f"{PIPELINE_ENV} is not set and a stage still runs as a script")
+        return None
     p = Path(raw).expanduser()
     if not p.is_dir():
         raise DriverError(f"{PIPELINE_ENV}={p} is not a directory")
@@ -166,7 +171,7 @@ class Driver:
         st = RunState.load_or_new(state_path(self.job.data_root, self.job.slug, unit.unit),
                                   slug=self.job.slug, unit=unit.unit)
         st.runner_version = __version__
-        st.pipeline_sha = _pipeline_sha(self.pipeline) if self.pipeline else "dry-run"
+        st.pipeline_sha = _pipeline_sha(self.pipeline) if self.pipeline else f"medchron-{__version__}"
         ctx = dag.Ctx(job=self.job, unit=unit, date_stamp=self.date_stamp)
         notes: list[str] = []
         extracted = self.slug_dir / "extracted.jsonl"
@@ -238,8 +243,8 @@ class Driver:
                                budget_mod.pages_read(extracted), notes)
         if stage.runner is not None:
             return self._execute_in_process(stage, ctx, st, extracted, notes)
-        script = self.pipeline / stage.script
-        if not script.is_file():
+        script = (self.pipeline or Path(".")) / stage.script
+        if self.pipeline is None or not script.is_file():
             st.finish(stage.name, status="failed", exit_code=None, dollars=None, pages=None,
                       note=f"script missing: {script}")
             st.end("failed", f"pipeline script missing: {stage.script}")
@@ -297,8 +302,9 @@ class Driver:
         st.start(stage.name, input_sha=_stage_input_sha(self.slug_dir, stage))
         self.log(f"[run] {stage.name}: in-process")
         refusal: str | None = None
+        runner = getattr(self, "_runner_override", {}).get(stage.name, stage.runner)
         try:
-            code = int(stage.runner(sr))
+            code = int(runner(sr))
         except StageRefusal as exc:
             code, refusal = -1, str(exc)
             lines.append(f"REFUSED: {exc}")

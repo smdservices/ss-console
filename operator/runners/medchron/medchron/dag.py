@@ -16,7 +16,9 @@ exit code into the outcome vocabulary; anything unmapped and non-zero is
 extract_after_fold (PR 2); vision, billing_extract, build_units (PR 4); map,
 repair_truncated, assemble, merge (PR 5); group, filter, exhibits,
 condense, summarize (PR 6); the audit loop (PR 7); build_doc, the classifiers,
-the strip, the coverage gate, the billing chart and worksheet (PR 8).
+the strip, the coverage gate, the billing chart and worksheet (PR 8); identity, the ICD
+fetch, render and manifest (PR 9). Nothing runs as a subprocess any more;
+`script` stays on the Stage for the strangler's history and is always "".
 """
 from __future__ import annotations
 
@@ -26,7 +28,8 @@ from typing import Callable
 from .job import Job, Unit
 from .stages import (assemble as _assemble, audit_loop as _audit, billing as _billing, billing_chart as _bchart,
                      billing_docx as _bdocx, build_doc as _build_doc, classify as _classify, compose as _compose,
-                     condense as _condense, coverage as _coverage, strip as _strip,
+                     condense as _condense, coverage as _coverage, icd_fetch as _icd, identity as _identity,
+                     manifest as _manifest, render as _render, strip as _strip,
                      download as _download, exhibits as _exhibits, extract as _extract, group as _group,
                      listing as _listing, merge as _merge, msg as _msg, repair as _repair, scope as _scope,
                      summarize as _summarize, units as _units, vision as _vision)
@@ -101,8 +104,7 @@ STAGES: tuple[Stage, ...] = (
     Stage("decide_units", "", _slug, scope="slug", requires=("billing_extract",), decision="units"),
     Stage("build_units", "", _slug, scope="slug", requires=("decide_units",), runner=_units.run,
           exit_map={2: (REFUSED, "build_units refused: a scanned file is untranscribed or billing_extract is missing")}),
-    Stage("identity", "check_unit_identity.py", _slug, scope="slug", requires=("build_units",),
-          exit_map={1: (FAILED, "units.json missing")}),
+    Stage("identity", "", _slug, scope="slug", requires=("build_units",), runner=_identity.run),
     # ---- paid: composition ------------------------------------------------
     Stage("map", "", lambda c: [c.slug, c.unit.unit, f"units/{c.unit.unit}.json"],
           paid=True, requires=("identity",), runner=_compose.run,
@@ -127,8 +129,8 @@ STAGES: tuple[Stage, ...] = (
     Stage("summarize", "", _slug_unit_date, paid=True, requires=("condense",), runner=_summarize.run,
           exit_map={1: (REFUSED, "summary reached beyond the source record")}),
     # ---- document, classification, strip, gates ---------------------------
-    Stage("icd_tables", "fetch_icd.sh", lambda c: [], scope="slug", once_per_machine=True,
-          requires=("summarize",)),
+    Stage("icd_tables", "", lambda c: [], scope="slug", once_per_machine=True, requires=("summarize",),
+          runner=_icd.run, exit_map={1: (FAILED, "the CMS ICD tables could not be fetched")}),
     Stage("build_doc", "", lambda c: [c.slug, c.unit.unit, c.unit.client_name, c.job.incident_date],
           requires=("icd_tables",), invalidates=("audit", "coverage_gate", "strip_apply"), runner=_build_doc.run,
           exit_map={1: (REFUSED, "build_doc refused: text ahead of the first entry is not a Prior Medical History "
@@ -164,13 +166,13 @@ STAGES: tuple[Stage, ...] = (
                                 "not reconcile"),
                     3: (FAILED, "audit refused at the double-sweep guard: prior rows for this body carry keys no "
                                 "longer produced")}),
-    Stage("render", "md_to_docx_v4.py",
+    Stage("render", "",
           lambda c: [f"runs/{c.unit.unit}/final-chronology.md",
                      f"out/{c.unit.unit}/{c.unit.client_name} - Medical Chronology {c.date_stamp}.docx"],
-          requires=("audit",)),
-    Stage("manifest", "make_manifest.py",
-          lambda c: [c.slug, c.unit.unit, c.unit.client_name, c.date_stamp],
-          requires=("render",)),
+          requires=("audit",), runner=_render.run,
+          exit_map={1: (FAILED, "render: the limitations section produced no paragraphs")}),
+    Stage("manifest", "", lambda c: [c.slug, c.unit.unit, c.unit.client_name, c.date_stamp], requires=("render",),
+          runner=_manifest.run, exit_map={1: (FAILED, "manifest: a required deliverable is missing")}),
 )
 
 BY_NAME = {s.name: s for s in STAGES}
