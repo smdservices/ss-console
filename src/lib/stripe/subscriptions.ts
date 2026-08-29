@@ -157,6 +157,10 @@ export async function createOperatorSubscription(
   body.append('collection_method', 'send_invoice')
   body.append('days_until_due', String(params.days_until_due ?? 30))
   body.append('description', 'Operator retainer')
+  // Retainer cycle invoices are ACH only: the agreement's no-fee method. A
+  // firm that wants to pay a cycle by card gets a card invoice with the
+  // processing-fee line instead (§3.8); no fee-free card path exists.
+  body.append('payment_settings[payment_method_types][]', 'ach_debit')
   body.append('items[0][price_data][unit_amount]', String(params.monthly_amount_cents))
   body.append('items[0][price_data][currency]', 'usd')
   body.append('items[0][price_data][product]', productId)

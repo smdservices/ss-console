@@ -93,9 +93,15 @@ const { entityId, hubUrl } = Astro.props
         class="border border-[color:var(--ss-color-border)] px-2 py-1 text-sm"
       />
     </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="card_payment" />
+      <span>
+        Client will pay by card: adds the 3% processing fee line and offers card instead of ACH
+      </span>
+    </label>
     <p class="text-xs text-[color:var(--ss-color-text-muted)]">
-      Creates a draft. Present it (portal only, no email) or send it (portal + email) from the list
-      above.
+      Creates a draft, payable by ACH with no fee unless card is chosen above. Present it (portal
+      only, no email) or send it (portal + email) from the list above.
     </p>
     <div>
       <button
