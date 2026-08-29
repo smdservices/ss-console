@@ -706,7 +706,9 @@ controls:
       audit_repair_loop.py and the document is not delivered while a claim is
       unresolved past the repair cap. Registered `unprobed` because the code is
       real and ran, and `enforced` requires a driver that plants an unsupported
-      claim and observes the refusal (ss#2614).
+      claim and observes the refusal (ss#2614). Target home once the audit
+      moves in-process (ss#2613 PR 7): runners/medchron/medchron/gates/claim_audit.py;
+      the row repoints in the PR that creates that file, never before.
 
   medchron_extractive_gate:
     control: medchron_extractive_gate
@@ -731,7 +733,8 @@ controls:
       states them, cited (prompts/map-system.md floor; strip_nonrecord.py
       removes vendor order forms, request letters, and vendor AI summaries
       from the exhibits). Promotion requires a driver that plants a valuation
-      sentence and observes the sweep refuse it.
+      sentence and observes the sweep refuse it. Target home (ss#2613 PR 9):
+      runners/medchron/medchron/gates/extractive.py; repointed in that PR.
 
   medchron_cross_client_gate:
     control: medchron_cross_client_gate
@@ -756,7 +759,8 @@ controls:
       quarantine; a record that names another client and not the unit's own
       is moved and disclosed in the document's limitations section. Promotion
       requires a driver that plants a foreign page in a unit and observes the
-      quarantine.
+      quarantine. Target home (ss#2613 PR 9):
+      runners/medchron/medchron/gates/cross_client.py; repointed in that PR.
 
   medchron_provenance_gate:
     control: medchron_provenance_gate
@@ -780,4 +784,5 @@ controls:
       name-excluded, or an explained orphan; an unexplained residue halts
       delivery and the document's records-reviewed section names exclusions.
       Promotion requires a driver that plants an unowned record and observes
-      the halt.
+      the halt. Target home (ss#2613 PR 9):
+      runners/medchron/medchron/gates/provenance.py; repointed in that PR.
