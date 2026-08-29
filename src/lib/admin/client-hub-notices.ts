@@ -7,6 +7,25 @@
  * silently swallowed.
  */
 
+/** Outcomes of the executed-agreement recorder (ss#2641). Success and refusal
+ * share one query key, because every one of these is the same question to the
+ * Captain: did the firm's paper land in its portal or not. */
+const AGREEMENT_NOTICES: Record<string, string> = {
+  recorded: "Executed document recorded. It is now on the client's Compliance page.",
+  removed: 'Executed document removed from the client portal.',
+}
+
+const AGREEMENT_REFUSALS: Record<string, string> = {
+  no_instance: 'Pick an Operator instance that belongs to this client.',
+  no_title: 'Name the document as the client should see it.',
+  bad_date:
+    'Enter the execution date as YYYY-MM-DD, and not in the future. Only executed documents belong in a client portal.',
+  no_file: 'Attach the executed PDF.',
+  too_large: 'That file is over 20MB. Attach a smaller PDF.',
+  not_found: 'That document no longer exists.',
+  failed: 'Recording the document failed. Check the logs.',
+}
+
 const BILLING_NOTICES: Record<string, string> = {
   paused: 'Billing paused.',
   resumed: 'Billing resumed.',
@@ -37,9 +56,16 @@ export interface ClientHubNotices {
 export function resolveClientHubNotices(params: URLSearchParams): ClientHubNotices {
   const billing = params.get('billing')
   const error = params.get('error')
+  const agreement = params.get('agreement')
   let success: string | null = null
   if (params.get('saved')) success = 'Invoice updated.'
   else if (params.get('priced')) success = 'Monthly price saved.'
   else if (billing) success = BILLING_NOTICES[billing] ?? billing
-  return { success, error: error ? (ERROR_NOTICES[error] ?? error) : null }
+  else if (agreement && AGREEMENT_NOTICES[agreement]) success = AGREEMENT_NOTICES[agreement]
+
+  let resolvedError: string | null = error ? (ERROR_NOTICES[error] ?? error) : null
+  if (!resolvedError && agreement && !AGREEMENT_NOTICES[agreement]) {
+    resolvedError = AGREEMENT_REFUSALS[agreement] ?? agreement
+  }
+  return { success, error: resolvedError }
 }
