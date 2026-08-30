@@ -1179,15 +1179,18 @@ RUN set -eu; \
 # root:root a+rX: the medchron uid executes it and can write nothing in it.
 # The `medchron` console-script assertion fails the BUILD, not a seat.
 COPY operator/runners/ /app/runners/
-COPY operator/adapter/cost_telemetry/anthropic_pricing.json /opt/smd/cost_telemetry/anthropic_pricing.json
+# The pricing table the runner's cents cap and ledger price from, beside the
+# venv (NOT under /opt/smd, which is the establishment compilers' contract
+# tree and is pinned file-by-file by tests/shipped-runtime-paths.test.ts).
+COPY operator/adapter/cost_telemetry/anthropic_pricing.json /opt/medchron/anthropic_pricing.json
 RUN set -eu; \
     uv venv /opt/medchron/.venv; \
     uv pip install --python /opt/medchron/.venv/bin/python --no-cache \
       /app/connectors/_sdk /app/connectors/smokeball /app/runners/medchron; \
     [ -x /opt/medchron/.venv/bin/medchron ] || { echo "FATAL: the medchron runner produced no console-script"; exit 1; }; \
     /opt/medchron/.venv/bin/python -c "import medchron.daemon, medchron.stages.upload"; \
-    chown -R root:root /opt/medchron /opt/smd/cost_telemetry; \
-    chmod -R a+rX /opt/medchron /opt/smd/cost_telemetry
+    chown -R root:root /opt/medchron; \
+    chmod -R a+rX /opt/medchron
 
 # Safety-substrate tests — bootstrap.sh runs these on container start
 COPY operator/safety-substrate/ /app/safety-substrate/

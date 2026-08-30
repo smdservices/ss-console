@@ -632,7 +632,7 @@ if [ -x /opt/medchron/.venv/bin/python ] \
       SMD_MEDCHRON_RUN_DIR="${MEDCHRON_RUN_DIR}" \
       SMOKEBALL_REFRESH_TOKEN_FILE="${SMOKEBALL_TOKEN_RUN_DIR}/refresh_token" \
       MEDCHRON_FIRM_CONFIG="${MEDCHRON_FIRM_CONFIG}" \
-      MEDCHRON_PRICING_JSON="/opt/smd/cost_telemetry/anthropic_pricing.json" \
+      MEDCHRON_PRICING_JSON="/opt/medchron/anthropic_pricing.json" \
       /opt/medchron/.venv/bin/python -m medchron.daemon || true
       log "medchron daemon exited; restarting in 5s"
       sleep 5
