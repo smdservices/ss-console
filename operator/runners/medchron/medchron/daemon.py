@@ -258,7 +258,9 @@ class Daemon:
             raise
         for p in [path, *path.rglob("*")]:
             os.chown(p, pw.pw_uid, pw.pw_gid)
-        os.chmod(path, 0o750)
+        # The child owns its job dir outright; nobody else needs a mode bit
+        # (root reads regardless, and the broker never traverses jobs/).
+        os.chmod(path, 0o700)
 
     def _cgroup_preexec(self) -> Callable[[], None] | None:
         if not memory_cap_available(self.cgroup_root):
