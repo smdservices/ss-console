@@ -15,48 +15,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-FIRM_CONFIG = {
-    "firm": {"slug": "example-firm", "display_name": "Example Firm"},
-    "selection": {
-        "exclude_folder_classes": [r"(?i)vendor chron", r"(?i)client correspondence", r"(?i)^photos$"],
-        "shared_folder_classes": [r"(?i)^emails"],
-        "root_pdfs": True,
-        "doc_extensions": [".pdf", ".docx", ".doc", ".tif", ".tiff", ".jpg", ".jpeg", ".png"],
-    },
-    "folders": {"status_suffix_regex": r"(?i)\s*[-]\s*(have|need)\b.*$"},
-    "providers": {
-        "aliases": [{"match": r"example clinic|ex clinic", "label": "Example Clinic"}],
-        "unresolved_label": "(unattributed)",
-    },
-    "coverage": {
-        "exclusions": [
-            {"match": r"(?i)retainer|fee agreement", "reason": "engagement document, not a chronology source"},
-            {"match": r"(?i)pay stub|salary", "reason": "wage-loss documentation, not a treatment record"},
-        ]
-    },
-    "billing": {"name_patterns": [r"(?i)\bbill", r"(?i)ledger", r"(?i)invoice"], "suspect_amount_cents": 50000000},
-    "nonrecord": {"page_classes": [{"name": "INDEX", "patterns": [r"this list is computer generated"]}]},
-    "units": {"exclude_name_patterns": [r"(?i)retainer"]},
-    "format": {"subsections": ["Medical Diagnoses", "All Other Information"], "font": "Calibri"},
-    "delivery": {
-        "folder_template": "MEDICAL CHRONOLOGY - {CLIENT} {MM-DD-YY} by Example Operator",
-        "chronology_name_template": "{CLIENT} - Medical Chronology {MM-DD-YY}.docx",
-        "worksheet_glob": "* - Medical Billing Worksheet *.docx",
-    },
-    "models": {
-        "tiers": {
-            "transcription": "claude-sonnet-5",
-            "mechanical": "claude-sonnet-5",
-            "composition": "claude-opus-5",
-            "audit": "claude-sonnet-5",
-            "judgment": "claude-opus-5",
-        }
-    },
-    "levers": {"batch_stages": [], "audit_mode": "image", "cache": True, "compose_max_tokens": 128000},
-    "chronology": {"treatment_gap_days": 45, "pre_incident_history": "include"},
-    "budget": {"per_job_cap_usd": 150.0, "usd_per_million_chars": 10.0},
-    "pipeline": {},
-}
+# The synthetic firm config lives in the package so the seat probes can run
+# without the firm's private tables (ss#2614); the tests reuse it verbatim.
+from medchron.probes import SYNTHETIC_FIRM as FIRM_CONFIG  # noqa: E402
 
 PRICING = {
     "_meta": {
@@ -135,8 +96,41 @@ class FakeSeat:
         self.docs, self.folders, self.blobs = docs, folders, blobs
         self.fail_mint = fail_mint or set()
         self.mints: list[list[str]] = []
+        # ss#2614 upload: folders created and files sent by the runner; a
+        # sent file shows in list_files only after `lag` further list calls
+        # (the vendor's index lag), and `crash_after` sends raise once the
+        # count is reached (a kill mid-upload).
+        self.created: list[dict] = []
+        self.sent: list[dict] = []
+        self.lag = 0
+        self.crash_after: int | None = None
+        self._pending: list[tuple[int, dict]] = []
+        self._lists = 0
+
+    def create_folder(self, matter_id: str, name: str) -> dict:
+        fid = f"folder-{len(self.created) + 1}"
+        row = {"id": fid, "name": name, "parentId": None, "path": name}
+        self.created.append(row)
+        self.folders.append(row)
+        return {"id": fid}
+
+    def add_file(self, matter_id: str, folder_id: str, name: str, data: bytes) -> dict:
+        if self.crash_after is not None and len(self.sent) >= self.crash_after:
+            raise RuntimeError("connection dropped mid-upload")
+        self.sent.append({"folderId": folder_id, "name": name, "size": len(data)})
+        self._pending.append((self._lists + self.lag, {"id": f"up-{len(self.sent)}", "name": name, "size": len(data),
+                                                       "ext": name.rsplit(".", 1)[-1], "folderId": folder_id}))
+        return {"fileId": None}
+
+    def _materialize(self) -> None:
+        self._lists += 1
+        keep = []
+        for due, row in self._pending:
+            (self.docs.append(row) if due <= self._lists else keep.append((due, row)))
+        self._pending = keep
 
     def list_files(self, matter_id: str) -> list[dict]:
+        self._materialize()
         return [dict(d) for d in self.docs]
 
     def folder_tree(self, matter_id: str) -> list[dict]:

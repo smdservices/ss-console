@@ -52,6 +52,10 @@ class Seat(Protocol):
     def folder_tree(self, matter_id: str) -> list[dict[str, Any]]: ...
     def mint(self, matter_id: str, file_ids: list[str]) -> list[dict[str, Any]]: ...
     def fetch(self, url: str, dest: Path, expected_size: int | None) -> int: ...
+    # ss#2614: the two writes the upload stage makes. Both are INTERNAL_WRITE
+    # at the overlay; the runner never deletes.
+    def create_folder(self, matter_id: str, name: str) -> dict[str, Any]: ...
+    def add_file(self, matter_id: str, folder_id: str, name: str, data: bytes) -> dict[str, Any]: ...
 
 
 # ---- shapes shared by both backends -----------------------------------------
@@ -165,6 +169,14 @@ class ClientSeat:
     def fetch(self, url: str, dest: Path, expected_size: int | None) -> int:
         return fetch_https(url, dest, expected_size)
 
+    def create_folder(self, matter_id: str, name: str) -> dict[str, Any]:
+        r = self.client.create_folder(matter_id, name)
+        return r if isinstance(r, dict) else {}
+
+    def add_file(self, matter_id: str, folder_id: str, name: str, data: bytes) -> dict[str, Any]:
+        r = self.client.add_file(matter_id, name, data, folder_id=folder_id)
+        return r if isinstance(r, dict) else {}
+
 
 # ---- backend 2: the seat over ssh (the laptop, during the port) ---------------
 # The script that runs on the seat. It is the frozen pipeline's seat_list_mint
@@ -254,6 +266,12 @@ class SshSeat:
 
     def fetch(self, url: str, dest: Path, expected_size: int | None) -> int:
         return fetch_https(url, dest, expected_size)
+
+    def create_folder(self, matter_id: str, name: str) -> dict[str, Any]:
+        raise SeatError("the ssh seat is read-only; the upload stage runs on the Machine (ss#2614)")
+
+    def add_file(self, matter_id: str, folder_id: str, name: str, data: bytes) -> dict[str, Any]:
+        raise SeatError("the ssh seat is read-only; the upload stage runs on the Machine (ss#2614)")
 
 
 def open_seat(customer_slug: str) -> Seat:

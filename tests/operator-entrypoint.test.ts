@@ -153,6 +153,68 @@ describe('Operator customer Machine entrypoint — ADR 0085 establishment spool 
 })
 
 /**
+ * ss#2614 (routine 11): the chronology runner daemon. Same invariants as the
+ * appliers — forked while still root, under an import-gated respawn loop, and
+ * loud when it is not launched — plus the tree it depends on: a root-owned
+ * queue the broker uid can write, a root-only jobs dir, both reached through a
+ * bind mount (the /opt/data mid-boot chmod severs a child dir's group
+ * traverse, the audit-ledger lesson), the queue path carried into the broker's
+ * env -i allowlist, and the firm config fetched from the vault fail-static.
+ */
+describe('entrypoint.sh: the chronology runner daemon (ss#2614)', () => {
+  it('converges the queue and jobs dirs with explicit owners and modes, then binds them', () => {
+    expect(ENTRYPOINT_CODE).toMatch(
+      /install -d -o root -g workspace-broker -m 0770 "\$\{MEDCHRON_DATA_DIR\}\/queue"/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(
+      /install -d -o root -g root -m 0700 "\$\{MEDCHRON_DATA_DIR\}\/jobs"/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(
+      /mount --bind "\$\{MEDCHRON_DATA_DIR\}" "\$\{MEDCHRON_RUN_DIR\}"/
+    )
+    // Pruned from the hermes chown sweep like the audit subtree.
+    expect(ENTRYPOINT_CODE).toMatch(/-o -path "\$\{MEDCHRON_DATA_DIR\}" \\\) -prune/)
+  })
+
+  it('carries the queue path into the broker env allowlist', () => {
+    const launchFn = ENTRYPOINT_CODE.slice(
+      ENTRYPOINT_CODE.indexOf('launch_broker()'),
+      ENTRYPOINT_CODE.indexOf('-m workspace_broker.server')
+    )
+    expect(launchFn).toMatch(/SMD_MEDCHRON_QUEUE_DIR="\$\{SMD_MEDCHRON_QUEUE_DIR\}"/)
+  })
+
+  it('fetches the firm config from the vault without a FATAL arm and fences it to root:medchron', () => {
+    expect(ENTRYPOINT_CODE).toMatch(/vaults\/\$\{CUSTOMER_SLUG\}\/medchron-firm\.yaml/)
+    expect(ENTRYPOINT_CODE).toMatch(/chown root:medchron "\$\{MEDCHRON_FIRM_CONFIG\}"/)
+    expect(ENTRYPOINT_CODE).toMatch(/chmod 0640 "\$\{MEDCHRON_FIRM_CONFIG\}"/)
+    expect(ENTRYPOINT_CODE).toMatch(/the chronology runner will refuse jobs/)
+  })
+
+  it('launches the daemon from its own venv under an import-gated respawn loop, before the exec-drop', () => {
+    expect(ENTRYPOINT_CODE).toMatch(
+      /\/opt\/medchron\/\.venv\/bin\/python -c "import medchron\.daemon"/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(
+      /while\s+true;?\s*do[\s\S]*?-m medchron\.daemon[\s\S]*?done\s*\)\s*&/
+    )
+    const launchIdx = ENTRYPOINT_CODE.indexOf('-m medchron.daemon')
+    const hermesExec = ENTRYPOINT_CODE.search(/exec\s+setpriv[\s\S]*?--reuid=hermes/)
+    expect(launchIdx).toBeGreaterThan(-1)
+    expect(launchIdx < hermesExec, 'the daemon must be forked while still root').toBe(true)
+    expect(ENTRYPOINT_CODE).toMatch(/Root medchron daemon NOT launched/)
+  })
+
+  it('shares the Smokeball token with the medchron uid through a setgid dir, never by widening the file to world', () => {
+    expect(ENTRYPOINT_CODE).toMatch(/chmod 2770 "\$\{SMOKEBALL_TOKEN_DIR\}"/)
+    expect(ENTRYPOINT_CODE).toMatch(/chmod 0660 "\$\{SMOKEBALL_TOKEN_DIR\}\/refresh_token"/)
+    expect(ENTRYPOINT_CODE).not.toMatch(
+      /chmod 0?66[4-7] "\$\{SMOKEBALL_TOKEN_DIR\}\/refresh_token"/
+    )
+  })
+})
+
+/**
  * Regression guard: the entrypoint must run the ADR 0009 cross-machine
  * isolation boot check (invariant_7 `verify_at_boot`) before it hands off to
  * the agent runtime, and must fail closed — including when the invariant module

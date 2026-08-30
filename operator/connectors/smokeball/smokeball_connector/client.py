@@ -291,10 +291,23 @@ class SmokeballClient:
         if not self._refresh_token_file:
             return
         try:
+            # ss#2614: the file's mode bits survive rotation. Two principals
+            # share this token on a seat that runs the chronology runner (the
+            # connector as hermes, the runner as medchron, through a setgid
+            # group dir), and ``os.replace`` creates a NEW inode owned by
+            # whoever rotated. A fixed 0600 here would lock the other one out
+            # at the first rotation; keeping the prior mode (0660 when it was
+            # group-shared, 0600 as before otherwise) keeps both reading.
+            mode = 0o600
+            try:
+                mode = os.stat(self._refresh_token_file).st_mode & 0o777 or 0o600
+            except OSError:
+                pass
             tmp = f"{self._refresh_token_file}.tmp"
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             try:
                 os.write(fd, token.encode())
+                os.fchmod(fd, mode)
             finally:
                 os.close(fd)
             os.replace(tmp, self._refresh_token_file)

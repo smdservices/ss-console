@@ -132,6 +132,33 @@ chown root:root "${LIVE_CUSTOMER_YAML}"
 chmod 0644 "${LIVE_CUSTOMER_YAML}"
 rm -f /opt/data/customer.yaml
 
+# ss#2614: the chronology runner's per-firm config rides the same vault prefix.
+# Same fail-static shape as customer.yaml above, without the FATAL arm: a seat
+# without it boots fine and the runner refuses every job with one loud line.
+# Root-owned, group medchron read-only (the driver child reads it; the agent
+# uid has no group membership and no need to read the firm's tables).
+MEDCHRON_FIRM_CONFIG="${CONFIG_DIR}/medchron-firm.yaml"
+if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
+     AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:?}" \
+       aws s3 cp \
+         --endpoint-url "${_seed_endpoint}" \
+         --only-show-errors \
+         "s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/medchron-firm.yaml" \
+         "${MEDCHRON_FIRM_CONFIG}.r2.tmp" 2>/dev/null; then
+  mv -f "${MEDCHRON_FIRM_CONFIG}.r2.tmp" "${MEDCHRON_FIRM_CONFIG}"
+  log "medchron-firm.yaml refreshed from R2 into ${CONFIG_DIR}"
+elif [ -f "${MEDCHRON_FIRM_CONFIG}" ]; then
+  rm -f "${MEDCHRON_FIRM_CONFIG}.r2.tmp" 2>/dev/null || true
+  log "WARN: R2 fetch of medchron-firm.yaml failed; keeping the existing root-owned copy"
+else
+  rm -f "${MEDCHRON_FIRM_CONFIG}.r2.tmp" 2>/dev/null || true
+  log "No medchron-firm.yaml in the vault for ${CUSTOMER_SLUG}; the chronology runner will refuse jobs"
+fi
+if [ -f "${MEDCHRON_FIRM_CONFIG}" ]; then
+  chown root:medchron "${MEDCHRON_FIRM_CONFIG}"
+  chmod 0640 "${MEDCHRON_FIRM_CONFIG}"
+fi
+
 # OP-P1-4 audit ledger: owned by the broker uid, readable (not writable) by the
 # agent uid via the audit-readers group. The agent's only write path is the
 # broker's append-only audit_append verb.
@@ -145,6 +172,12 @@ LEGACY_AUDIT_DB="/opt/data/audit.db"
 # (the dir is re-created root-owned every boot, but the `kills` FILE inside it
 # would already have flipped). Same reasoning, same fix, as the audit subtree.
 GATEWAY_LIVENESS_LEDGER_DIR="/opt/data/gateway-liveness"
+# ss#2614: the chronology runner's queue + job workdirs. Root-owned on the
+# volume (a job's exhibits are hundreds of MB and a crash must resume), pruned
+# from the sweep for the same reason as the audit subtree, and reached by the
+# broker and the daemon through a bind mount below (the gateway's mid-boot
+# chmod of /opt/data severs a child dir's group-traverse; see the audit note).
+MEDCHRON_DATA_DIR="/opt/data/medchron"
 # Group-readable default so the broker's rollback journal is readable by the
 # hermes mode=ro read seam during a write window. Explicit chmods below for the
 # 0700/0600 broker paths are unaffected by this.
@@ -153,7 +186,7 @@ umask 027
 # Agent owns its data EXCEPT the broker-owned audit subtree (R1). This REPLACES
 # a plain `chown -R hermes:hermes /opt/data`, which would re-own the ledger back
 # to hermes on every reboot and silently false-close the tamper-resistance.
-find /opt/data \( -path "${AUDIT_DIR}" -o -path "${GATEWAY_LIVENESS_LEDGER_DIR}" \) -prune -o -print0 | xargs -0 -r chown hermes:hermes
+find /opt/data \( -path "${AUDIT_DIR}" -o -path "${GATEWAY_LIVENESS_LEDGER_DIR}" -o -path "${MEDCHRON_DATA_DIR}" \) -prune -o -print0 | xargs -0 -r chown hermes:hermes
 
 # NOTE: the broker reaches the ledger via the bind mount established below, NOT
 # by traversing /opt/data. The Hermes gateway chmods its home (/opt/data) to
@@ -220,6 +253,37 @@ mkdir -p "${AUDIT_BIND_DIR}"
 mountpoint -q "${AUDIT_BIND_DIR}" \
   || mount --bind "${AUDIT_DIR}" "${AUDIT_BIND_DIR}" \
   || { log "FATAL: could not bind-mount ${AUDIT_DIR} -> ${AUDIT_BIND_DIR}"; exit 1; }
+
+# ss#2614: the chronology runner's tree, converged on every boot with explicit
+# owners and modes (never mkdir -p defaults; the establish-spool note below
+# explains why). queue/ is written by the broker uid (submit) and read by root
+# (the daemon); jobs/ is root only; both reach their users through the bind
+# mount, exactly like the audit ledger. The Smokeball refresh token becomes
+# group-shared (setgid dir, 0660 file) so the medchron uid can mint and rotate
+# it alongside the connector; the connector preserves that mode on rotation.
+install -d -o root -g root -m 0755 "${MEDCHRON_DATA_DIR}"
+install -d -o root -g workspace-broker -m 0770 "${MEDCHRON_DATA_DIR}/queue"
+install -d -o root -g root -m 0700 "${MEDCHRON_DATA_DIR}/jobs"
+MEDCHRON_RUN_DIR="/run/smd-medchron"
+mkdir -p "${MEDCHRON_RUN_DIR}"
+mountpoint -q "${MEDCHRON_RUN_DIR}" \
+  || mount --bind "${MEDCHRON_DATA_DIR}" "${MEDCHRON_RUN_DIR}" \
+  || { log "FATAL: could not bind-mount ${MEDCHRON_DATA_DIR} -> ${MEDCHRON_RUN_DIR}"; exit 1; }
+export SMD_MEDCHRON_QUEUE_DIR="${MEDCHRON_RUN_DIR}/queue"
+SMOKEBALL_TOKEN_DIR="/opt/data/.smokeball-mcp"
+SMOKEBALL_TOKEN_RUN_DIR="/run/smd-smokeball-token"
+if [ -d "${SMOKEBALL_TOKEN_DIR}" ]; then
+  chown hermes:smokeball-token "${SMOKEBALL_TOKEN_DIR}"
+  chmod 2770 "${SMOKEBALL_TOKEN_DIR}"
+  if [ -f "${SMOKEBALL_TOKEN_DIR}/refresh_token" ]; then
+    chown hermes:smokeball-token "${SMOKEBALL_TOKEN_DIR}/refresh_token"
+    chmod 0660 "${SMOKEBALL_TOKEN_DIR}/refresh_token"
+  fi
+  mkdir -p "${SMOKEBALL_TOKEN_RUN_DIR}"
+  mountpoint -q "${SMOKEBALL_TOKEN_RUN_DIR}" \
+    || mount --bind "${SMOKEBALL_TOKEN_DIR}" "${SMOKEBALL_TOKEN_RUN_DIR}" \
+    || log "WARN: could not bind-mount the Smokeball token dir; the chronology runner cannot reach the matter"
+fi
 
 rm -rf /opt/data/workspace-broker
 rm -f /opt/data/oauth/google.json
@@ -394,6 +458,7 @@ launch_broker() {
     SMD_AGENT_UID="$(id -u hermes)" \
     SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
     SMD_ESTABLISH_SPOOL_DIR="${SMD_ESTABLISH_SPOOL_DIR}" \
+    SMD_MEDCHRON_QUEUE_DIR="${SMD_MEDCHRON_QUEUE_DIR}" \
     SMD_AGENTMAIL_CREDENTIAL_PATH="${SMD_AGENTMAIL_CREDENTIAL_PATH}" \
     SMD_MSGRAPH_CREDENTIAL_PATH="${SMD_MSGRAPH_CREDENTIAL_PATH}" \
     SMD_MSGRAPH_READ_CREDENTIAL_PATH="${SMD_MSGRAPH_READ_CREDENTIAL_PATH}" \
@@ -550,6 +615,31 @@ if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
   log "Root config applier launched (uid 0; polls R2 for live customer.yaml changes)"
 else
   log "Root config applier NOT launched (R2 config creds absent, or config_applier not in this overlay)"
+fi
+
+# Root-side chronology runner daemon (routine 11, ss#2614). Same fork point and
+# respawn discipline as the appliers above, for the same reason: it owns the
+# root-only job dirs and the queue, and it drops each driver child to the
+# medchron uid itself (setpriv), which a hermes process could never do. What
+# the child gets is an ALLOW-LIST from this env (the daemon copies only the
+# Anthropic key, the Smokeball credentials and the firm config path; R2 and
+# Google credentials never reach it). Import-gated so an image whose venv is
+# missing degrades to a loud "NOT launched" line, never a broken boot. Runs
+# from its own root-owned venv, not the Hermes one.
+if [ -x /opt/medchron/.venv/bin/python ] \
+   && /opt/medchron/.venv/bin/python -c "import medchron.daemon" 2>/dev/null; then
+  ( while true; do
+      SMD_MEDCHRON_RUN_DIR="${MEDCHRON_RUN_DIR}" \
+      SMOKEBALL_REFRESH_TOKEN_FILE="${SMOKEBALL_TOKEN_RUN_DIR}/refresh_token" \
+      MEDCHRON_FIRM_CONFIG="${MEDCHRON_FIRM_CONFIG}" \
+      MEDCHRON_PRICING_JSON="/opt/smd/cost_telemetry/anthropic_pricing.json" \
+      /opt/medchron/.venv/bin/python -m medchron.daemon || true
+      log "medchron daemon exited; restarting in 5s"
+      sleep 5
+    done ) &
+  log "Root medchron daemon launched (uid 0; runs chronology jobs as the medchron uid from ${MEDCHRON_RUN_DIR}/queue)"
+else
+  log "Root medchron daemon NOT launched (the runner venv is not in this image)"
 fi
 
 # Root-side authored-spec applier (ss ADR 0083 #2084). Same shape, same

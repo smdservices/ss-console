@@ -44,6 +44,12 @@ class Outcome:
     dollars: float
     pages: int
     notes: list[str] = field(default_factory=list)
+    # ss#2614: what the seat's ledger records per job. documents = matter
+    # files pulled this run (the allowance metric); folder_id + files = the
+    # upload stage's read-back, when it ran.
+    documents: int = 0
+    folder_id: str | None = None
+    files: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
@@ -334,8 +340,33 @@ class Driver:
         outcomes: list[Outcome] = []
         slug_done: set[str] = set()
         for unit in self.job.units:
-            outcomes.append(self.run_unit(unit, slug_done))
+            o = self.run_unit(unit, slug_done)
+            o.documents = _documents_pulled(self.slug_dir)
+            delivery = self.slug_dir / "runs" / unit.unit / "delivery.json"
+            if delivery.is_file():
+                try:
+                    d = json.loads(delivery.read_text(encoding="utf-8"))
+                    o.folder_id = d.get("folder_id")
+                    o.files = list(d.get("files") or [])
+                except (OSError, ValueError):
+                    pass
+            outcomes.append(o)
         return outcomes
+
+
+def _documents_pulled(slug_dir: Path) -> int:
+    """Matter files pulled this run (`raw_manifest.jsonl` rows that landed)."""
+    p = slug_dir / "raw_manifest.jsonl"
+    if not p.is_file():
+        return 0
+    n = 0
+    for line in p.read_text(encoding="utf-8").splitlines():
+        try:
+            if json.loads(line).get("ok"):
+                n += 1
+        except ValueError:
+            continue
+    return n
 
 
 def report(outcomes: list[Outcome]) -> str:

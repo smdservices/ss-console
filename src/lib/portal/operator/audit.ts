@@ -172,6 +172,13 @@ export const AUDIT_ACTION_TYPES = [
   'OPS_REQUEST_RECORDED',
   'OPS_REQUEST_RESOLVED',
   'OPS_REQUEST_LAPSED',
+  // ss#2614 routine 11: one row per chronology-job transition, written by the
+  // workspace broker under its own uid (counts and ids, never the envelope).
+  'MEDCHRON_JOB_SUBMITTED',
+  'MEDCHRON_JOB_RUNNING',
+  'MEDCHRON_JOB_HELD',
+  'MEDCHRON_JOB_DELIVERED',
+  'MEDCHRON_JOB_FAILED',
 ] as const
 
 export type AuditActionType = (typeof AUDIT_ACTION_TYPES)[number]

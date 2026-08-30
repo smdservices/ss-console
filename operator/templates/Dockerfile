@@ -748,7 +748,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # shared/{action_classes,customer_config,operations_request,rule_confirm,
 # rule_dispatch,send_dispatch,spec_gate}.py and three test files -- NOT tracked
 # pairs; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="29eac2c7f4dc238ea51a97120e21b7d491dd5110"
+ARG OVERLAY_REF="3c1b8e98a1f860adc3ed6aafb176c2f3ba268b5f"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -827,7 +827,10 @@ RUN apt-get update \
       ripgrep ffmpeg gcc python3-dev libffi-dev procps git openssh-client \
       docker-cli tini ca-certificates util-linux \
       postgresql-17 postgresql-client-17 redis-server awscli \
+      poppler-utils fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
+# poppler-utils + fonts-dejavu-core (ss#2614): the chronology runner's exhibit
+# rendering fallback and matplotlib's timeline visuals need a real font.
 
 # ---------- runtime principals ----------
 # The gateway and credential broker are distinct non-root principals. The
@@ -844,6 +847,16 @@ RUN groupadd -r workspace-connectors \
  && usermod -a -G workspace-connectors workspace-broker \
  && usermod -a -G audit-readers hermes \
  && usermod -a -G audit-readers workspace-broker
+# medchron (ss#2614): the uid the chronology runner's driver child runs as. No
+# home, no shell, no group beyond smokeball-token, which is the ONE thing it
+# shares with hermes: the Smokeball refresh-token file (setgid dir, 0660),
+# because both principals mint against the same rotating token. The runner
+# daemon itself stays root (it owns the queue and the job dirs); only the
+# stages that read the matter and call the model run as this uid.
+RUN groupadd -r smokeball-token \
+ && useradd -u 10002 -r -M -d /nonexistent -s /usr/sbin/nologin medchron \
+ && usermod -a -G smokeball-token medchron \
+ && usermod -a -G smokeball-token hermes
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
 # Node 26 + npm from the node_source stage (see the stage comment above). npm
@@ -1157,6 +1170,24 @@ RUN set -eu; \
       ls "$venv"/bin/*-mcp >/dev/null 2>&1 || { echo "FATAL: connector ${name} produced no *-mcp console-script"; exit 1; }; \
     done; \
     chmod -R a+rX /opt/connectors
+
+# ---------- The chronology runner (routine 11, ss#2614) ----------
+# operator/runners/medchron is installed into its OWN root-owned venv from the
+# same three paths CI installs it from (the connector SDK, the Smokeball
+# connector, the runner), so the daemon and the driver child never share a
+# dependency closure with the Hermes venv or the broker venv. The venv is
+# root:root a+rX: the medchron uid executes it and can write nothing in it.
+# The `medchron` console-script assertion fails the BUILD, not a seat.
+COPY operator/runners/ /app/runners/
+COPY operator/adapter/cost_telemetry/anthropic_pricing.json /opt/smd/cost_telemetry/anthropic_pricing.json
+RUN set -eu; \
+    uv venv /opt/medchron/.venv; \
+    uv pip install --python /opt/medchron/.venv/bin/python --no-cache \
+      /app/connectors/_sdk /app/connectors/smokeball /app/runners/medchron; \
+    [ -x /opt/medchron/.venv/bin/medchron ] || { echo "FATAL: the medchron runner produced no console-script"; exit 1; }; \
+    /opt/medchron/.venv/bin/python -c "import medchron.daemon, medchron.stages.upload"; \
+    chown -R root:root /opt/medchron /opt/smd/cost_telemetry; \
+    chmod -R a+rX /opt/medchron /opt/smd/cost_telemetry
 
 # Safety-substrate tests — bootstrap.sh runs these on container start
 COPY operator/safety-substrate/ /app/safety-substrate/

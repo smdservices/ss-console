@@ -103,6 +103,11 @@ export const CLIENT_ACTIVITY_CATEGORIES: readonly ClientActivityCategory[] = [
       'OPS_REQUEST_RECORDED',
       'OPS_REQUEST_RESOLVED',
       'OPS_REQUEST_LAPSED',
+      'MEDCHRON_JOB_SUBMITTED',
+      'MEDCHRON_JOB_RUNNING',
+      'MEDCHRON_JOB_HELD',
+      'MEDCHRON_JOB_DELIVERED',
+      'MEDCHRON_JOB_FAILED',
     ],
   },
   {
@@ -299,6 +304,14 @@ const CLIENT_LANGUAGE: Record<string, SummaryBuilder> = {
   // sentence a client should be able to find later.
   ACT_PROPOSED: () => 'Asked you to confirm something before doing it',
   ACT_COMMITTED: () => 'Did what you confirmed',
+  // ss#2614 routine 11. Five lines for a chronology package's life on the
+  // seat, in the reader's words: what was asked, that it is under way, that it
+  // stopped and why, that it landed on the matter, or that it did not.
+  MEDCHRON_JOB_SUBMITTED: () => 'Started a medical chronology package for a matter',
+  MEDCHRON_JOB_RUNNING: () => 'Is building a medical chronology package',
+  MEDCHRON_JOB_HELD: () => 'Paused a medical chronology package and surfaced why',
+  MEDCHRON_JOB_DELIVERED: () => 'Filed a medical chronology package on the matter',
+  MEDCHRON_JOB_FAILED: () => 'Could not finish a medical chronology package',
   // ss#2546 (the operations half). Three lines for a change the firm asked for
   // and SMD makes. Written from the reader's side, and the middle one stays
   // deliberately vague about WHICH answer: the outcome the client cares about
