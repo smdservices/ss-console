@@ -260,7 +260,7 @@ class Daemon:
             os.chown(p, pw.pw_uid, pw.pw_gid)
         # The child owns its job dir outright; nobody else needs a mode bit
         # (root reads regardless, and the broker never traverses jobs/).
-        os.chmod(path, 0o700)
+        os.chmod(path, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions - owner-only; the rule fires on any chmod, and 0700 is the tightest mode that lets the child write its own workdir.
 
     def _cgroup_preexec(self) -> Callable[[], None] | None:
         if not memory_cap_available(self.cgroup_root):
