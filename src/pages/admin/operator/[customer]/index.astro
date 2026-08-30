@@ -370,6 +370,14 @@ const personas = config?.personas ?? []
                 </li>
                 <li>
                   <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/chronology`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Chronology packages
+                  </a>
+                </li>
+                <li>
+                  <a
                     href={`/admin/operator/${encodeURIComponent(slug)}/people`}
                     class="text-[color:var(--ss-color-action)] hover:underline"
                   >

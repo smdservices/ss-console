@@ -84,6 +84,14 @@ const EXPECTED_VERBS = [
   'job_list_claimable',
   'job_read',
   'job_record',
+  // ss#2614 routine 11: the chronology-package job seam. Bodies live in
+  // operator/workspace_broker/medchron_verbs.py; gating per verb is documented
+  // there (submit: gateway or root; record: root only).
+  'medchron_allowance',
+  'medchron_job_list',
+  'medchron_job_record',
+  'medchron_job_status',
+  'medchron_job_submit',
   'ops_ask_sent',
   'ops_propose',
   'ops_resolve',

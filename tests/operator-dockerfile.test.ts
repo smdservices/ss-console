@@ -1142,7 +1142,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // old unbraked behaviour rather than stopping a live seat. The controls stay
     // status: inert in runtime-controls.yaml until a boot probe proves the arm
     // fires on a provisioned seat. Vocabulary identical; no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="29eac2c7f4dc238ea51a97120e21b7d491dd5110"')
+    // 29eac2c7 -> 3c1b8e98 (2026-08-29f, overlay#333, ss#2614): the chronology-package
+    // seam's agent side: hermes-smd-medchron (submit / status / allowance over the
+    // broker), the medchron_jobs runtime-read kind, three action-class rows. The
+    // runner, the verbs and the daemon land here in the same change. Vocabulary
+    // identical (71); no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3c1b8e98a1f860adc3ed6aafb176c2f3ba268b5f"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

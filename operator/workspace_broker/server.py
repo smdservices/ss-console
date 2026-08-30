@@ -27,6 +27,7 @@ from .audit_ledger import LedgerWriter
 from .corrections import PROPOSED_STATUS, build_correction_row
 from .establishment import EstablishmentStore
 from .google_auth import materialize_credential
+from .medchron_verbs import MedchronVerbs, medchron_dispatch
 from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
 from .msgraph_auth import materialize_credential as materialize_msgraph_credential
 from .msgraph_auth import materialize_read_credential as materialize_msgraph_read_credential
@@ -160,6 +161,7 @@ class Broker:
     # image without the send credential configured has a defined, send-disabled
     # value, and the verbs below fail closed rather than reaching for a key.
     agentmail: AgentMailOps | None = None
+    medchron: MedchronVerbs | None = None
     msgraph: MsGraphOps | None = None
 
     def __init__(self) -> None:
@@ -233,6 +235,12 @@ class Broker:
             )
         else:
             self.establishment = None
+        # ss#2614 routine 11: the chronology-package job ledger rides the same
+        # broker-owned DB file (states, counts, cents; never content). The
+        # queue dir is root:workspace-broker 0770 on the volume. Requires the
+        # audit ledger: a job that cannot be recorded must not be queued.
+        self.medchron = MedchronVerbs.build(
+            self, audit_db_path=audit_db_path, queue_dir=os.environ.get("SMD_MEDCHRON_QUEUE_DIR"))
         # ss#2258: AgentMail transmit moves behind this uid boundary. The gateway
         # keeps an inbox-scoped key with message_send/draft_send WITHHELD, so the
         # agent process can read and draft but is vendor-refused from
@@ -307,6 +315,11 @@ class Broker:
         self, request: dict[str, Any], peer_pid: int, peer_uid: int | None = None
     ) -> dict[str, Any]:
         action = request.get("action")
+        # ss#2614: the five routine-11 verbs; gating and the one-pinned
+        # action_type per transition live in medchron_verbs.py.
+        if (action == "medchron_job_submit" or action == "medchron_job_status" or action == "medchron_allowance"
+                or action == "medchron_job_list" or action == "medchron_job_record"):
+            return medchron_dispatch(self.medchron, action, request, peer_pid, peer_uid)
         # ADR 0021 Stream B heartbeat: the ONE verb reachable by cron pre_run
         # children (agent uid, non-gateway PID). Deliberately narrow — the row's
         # action_type is locked to SUPPRESSED_WAKE, so this cannot be used to
@@ -418,26 +431,16 @@ class Broker:
         # never sanitizes — a malformed field. The agent's uid has no access to
         # the spool at any level; these verbs are the only door, and the root
         # intake independently re-verifies uid and hashes on the other side.
-        if action in (
-            "establish_stage_document",
-            "establish_propose",
-            "establish_pending",
-            "establish_submit",
-            "establish_status",
             # ss-console#2536: the same channel carrying a TOOL CALL instead of
             # a sentence. Same uid gate, same lock, same sweep, and the same
             # one-pinned-action_type-per-writing-verb discipline (ACT_PROPOSED
             # on propose, ACT_COMMITTED on commit).
-            "act_propose",
-            "act_commit",
             # ss-console#2546: the two ways a proposal ends WITHOUT being
             # committed, each its own verb under the same uid gate, the same
             # lock, the same sweep, and the same one-pinned-action_type
             # discipline (RULE_DECLINED on decline; RULE_LAPSED on the lapse
             # report, and nothing at all when the outcome being reported is a
             # decline, because RULE_DECLINED already recorded that).
-            "establish_decline",
-            "establish_lapse_notified",
             # ss-console#2546 (the duplicate-letter fix). The seat runs the
             # establishment plugin in TWO processes -- the gateway and its
             # webhook-gate child -- each with its own sweeper, so an in-process
@@ -448,8 +451,6 @@ class Broker:
             # of our processes is speaking is not a decision about the firm's
             # work -- so the one-pinned-action_type discipline has nothing to
             # pin here, exactly as with establish_pending and ops_ask_sent.
-            "establish_notify_claim",
-            "establish_notify_release",
             # ss-console#2546 (the operations half): a routine, a schedule, a
             # channel, a memory setting, an autonomy level or an on/off is SMD's
             # to change (ADR 0085 as amended 2026-08-22), so the firm cannot
@@ -460,9 +461,9 @@ class Broker:
             # (OPS_REQUEST_RECORDED on propose, OPS_REQUEST_RESOLVED on resolve,
             # OPS_REQUEST_LAPSED on the lapse report; ops_ask_sent writes no row
             # at all, because being asked again is not a decision).
-            "ops_propose",
-            "ops_resolve",
-            "ops_ask_sent",
+        if action in (
+            "establish_stage_document", "establish_propose", "establish_pending", "establish_submit", "establish_status", "act_propose", "act_commit", "establish_decline", "establish_lapse_notified",
+            "establish_notify_claim", "establish_notify_release", "ops_propose", "ops_resolve", "ops_ask_sent",
         ):
             if self.ledger is None:
                 raise ValueError("audit ledger not configured on this broker")

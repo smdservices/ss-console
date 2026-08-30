@@ -387,6 +387,31 @@
       "overlayProducer": "plugins/hermes-smd-establishment/__init__.py",
       "reason": "ss#2546. The establishment plugin emits this when a non-admin's firm-level rule has actually been EMAILED to the administrators the firm names on scope.rule_requests_to, carrying who was notified and never the rule's text. Its own row rather than a field on the send's CONFIRM_SEND_DISPATCHED row, because the two answer different questions: the send row says a message left, this says a specific request reached the people authorized to answer it, which is what anyone auditing this loop is looking for. WAS side: deferred for exactly one release (ss#2546 PR 1 declared the type before its producer existed, so the client feed would render the first row ever written rather than the ss#2316 silence); it becomes overlay-produced at the OVERLAY_REF bump to 119f6bf2 (overlay#311), which returns the deferred count to zero."
     },
+    "MEDCHRON_JOB_SUBMITTED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/medchron_ledger.py",
+      "reason": "ss#2614 routine 11. The workspace broker appends one row when a chronology-package job is submitted (by the Operator through medchron_job_submit, or by root on the box). Carries the job id, the matter number, the unit count and the allowance remainder; never the envelope."
+    },
+    "MEDCHRON_JOB_RUNNING": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/medchron_ledger.py",
+      "reason": "ss#2614. The runner daemon reports through the broker (medchron_job_record, uid 0 only) and the broker writes the row: the run started, or resumed after a seat-pause hold."
+    },
+    "MEDCHRON_JOB_HELD": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/medchron_ledger.py",
+      "reason": "ss#2614. The run stopped and surfaced why: a seat at HARD_STOP, an unexplained file, an unmatched folder, or a refusal (the cents cap, the monthly allowance). The reason is prose in metadata."
+    },
+    "MEDCHRON_JOB_DELIVERED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/medchron_ledger.py",
+      "reason": "ss#2614. The package is on the matter: documents read, pages, cents, the folder id, and the file names with sha256 and byte counts the runner read back."
+    },
+    "MEDCHRON_JOB_FAILED": {
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/medchron_ledger.py",
+      "reason": "ss#2614. The runner exited without a verdict or a stage failed; the reason is the runner's own sentence."
+    },
     "ACT_PROPOSED": {
       "side": "ss-console",
       "producerFile": "operator/workspace_broker/establishment_constants.py",

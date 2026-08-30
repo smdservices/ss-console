@@ -236,6 +236,25 @@ def test_authorization_code_persists_rotated_token_to_file(tmp_path) -> None:
     assert (token_file.stat().st_mode & 0o777) == 0o600
 
 
+def test_rotation_keeps_a_group_shared_mode(tmp_path) -> None:
+    # ss#2614: on a seat with the chronology runner the token is group-shared
+    # (0660) between two uids; a rotation by either must not narrow it back to
+    # 0600, or the other uid is locked out of Smokeball at the next mint.
+    token_file = tmp_path / "refresh_token"
+    token_file.write_text("rt-OLD")
+    token_file.chmod(0o660)
+    captured: list[httpx.Request] = []
+    client = _mock_client(
+        _token_handler(captured, rotate="rt-ROTATED"),
+        auth_mode="authorization_code",
+        refresh_token="rt-OLD",
+        refresh_token_file=str(token_file),
+    )
+    client.auth_status()
+    assert token_file.read_text() == "rt-ROTATED"
+    assert (token_file.stat().st_mode & 0o777) == 0o660
+
+
 def test_no_rotation_does_not_touch_file(tmp_path) -> None:
     token_file = tmp_path / "refresh_token"
     captured: list[httpx.Request] = []

@@ -62,6 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     v = sub.add_parser("validate-config", help="validate a firm config file")
     v.add_argument("path")
     v.set_defaults(fn=_cmd_validate)
+    pr = sub.add_parser("probe", help="run a registered gate's planted violation; exit 0 only when it is refused")
+    pr.add_argument("gate", choices=["claim_audit", "extractive", "cross_client", "provenance"])
+    pr.set_defaults(fn=lambda a: __import__("medchron.probes", fromlist=["run_probe"]).run_probe(a.gate))
     args = p.parse_args(argv)
     return int(args.fn(args))
 

@@ -395,4 +395,30 @@ ssh_exec "agentmail-send-key-stripped-from-agent" \
 ssh_exec "msgraph-send-credential-stripped-from-agent" \
   "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py hermes MSGRAPH_SEND_CLIENT_SECRET MSGRAPH_SEND_CLIENT_ID MSGRAPH_SEND_TENANT_ID"
 
+# ---------- Step 14: the chronology runner is present, idle, capped, and fenced (ss#2614) ----------
+# The runner daemon is a root process that spends the firm's model budget on
+# its own schedule, so the checks here are the ones that would otherwise be
+# invisible: that its loop turns (tick freshness, the 11c idiom — not a pid),
+# that it is NOT running a job on a fresh boot (the child pidfile the daemon
+# writes for exactly this question; a `pgrep -f` would match its own sh -c
+# wrapper), that the memory controller the cap depends on is really there
+# (the heartbeat says which; `none` means jobs would run uncapped beside the
+# gateway on a 4 GB guest, the #2465 shape), that the queue and job dirs
+# carry the modes the trust argument rests on, and that the medchron uid can
+# read the firm config but not write it.
+#
+# What makes these able to FAIL: stop the daemon and the tick ages past 90 s;
+# run the image on a guest without cgroup v2 memory and memory_cap reads
+# `none`; loosen an install -d mode in entrypoint.sh and the stat reads it;
+# drop the chown of the firm config and the write test passes.
+ssh_exec "medchron-uid-exists" "id -u medchron >/dev/null"
+ssh_exec "medchron-daemon-ticking" "t=/run/smd-medchron/tick; [ -f \$t ] && [ \$(( \$(date -u +%s) - \$(stat -c %Y \$t) )) -lt 90 ]"
+ssh_exec "medchron-daemon-idle" "! test -f /run/smd-medchron/child.pid"
+ssh_exec "medchron-memory-cap-present" "grep -q memory_cap.:..cgroup2 /run/smd-medchron/heartbeat.json"
+ssh_exec "medchron-queue-root-owned" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/queue)\" = root:workspace-broker:770 ]"
+ssh_exec "medchron-jobs-dir-root-only" "[ \"\$(stat -c %U:%a /run/smd-medchron/jobs)\" = root:700 ]"
+ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
+ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
+ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+
 log "All boot smoke checks passed for ${APP_NAME}"

@@ -309,6 +309,15 @@ ACCEPTED_ACTION_TYPES = frozenset(
         # committed after that act succeeded, naming the confirmer.
         "ACT_PROPOSED",
         "ACT_COMMITTED",
+        # ss#2614 routine 11: a chronology-package job's life on the seat, one
+        # row per transition, written by the broker under its own uid on the
+        # runner daemon's report (operator/workspace_broker/medchron_verbs.py).
+        # Counts, cents, ids and the delivery folder; never the envelope.
+        "MEDCHRON_JOB_SUBMITTED",
+        "MEDCHRON_JOB_RUNNING",
+        "MEDCHRON_JOB_HELD",
+        "MEDCHRON_JOB_DELIVERED",
+        "MEDCHRON_JOB_FAILED",
         # ss#2546 (the operations half). The three beats of a change only SMD
         # makes -- a routine, a schedule, a channel, a memory setting, an
         # autonomy level, an on/off. Recorded when somebody at the firm asks and

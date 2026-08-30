@@ -29,7 +29,7 @@ from .job import Job, Unit
 from .stages import (assemble as _assemble, audit_loop as _audit, billing as _billing, billing_chart as _bchart,
                      billing_docx as _bdocx, build_doc as _build_doc, classify as _classify, compose as _compose,
                      condense as _condense, coverage as _coverage, icd_fetch as _icd, identity as _identity,
-                     manifest as _manifest, render as _render, strip as _strip,
+                     manifest as _manifest, render as _render, strip as _strip, upload as _upload,
                      download as _download, exhibits as _exhibits, extract as _extract, group as _group,
                      listing as _listing, merge as _merge, msg as _msg, repair as _repair, scope as _scope,
                      summarize as _summarize, units as _units, vision as _vision)
@@ -173,6 +173,12 @@ STAGES: tuple[Stage, ...] = (
           exit_map={1: (FAILED, "render: the limitations section produced no paragraphs")}),
     Stage("manifest", "", lambda c: [c.slug, c.unit.unit, c.unit.client_name, c.date_stamp], requires=("render",),
           runner=_manifest.run, exit_map={1: (FAILED, "manifest: a required deliverable is missing")}),
+    # ss#2614: the deliverable set onto the matter. The only stage that writes
+    # to the firm's system; idempotent through the recorded folder id.
+    Stage("upload", "", lambda c: [c.slug, c.unit.unit], requires=("manifest",), runner=_upload.run,
+          exit_map={1: (FAILED, "upload: refused (a folder of that name is not ours, or the local bytes changed)"),
+                    2: (HELD, "upload: the folder read back short after the retries; the files may still be "
+                              "materializing, nothing was deleted")}),
 )
 
 BY_NAME = {s.name: s for s in STAGES}

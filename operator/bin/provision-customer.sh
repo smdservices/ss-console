@@ -320,6 +320,26 @@ AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
   || die "R2 upload failed; bootstrap.sh would not be able to fetch customer.yaml"
 log "R2 upload OK"
 
+# ---------- Step 2b: upload the chronology runner's firm config (ss#2614) ----------
+# The runner's per-firm posture (provider tables, exclusions, caps) lives in
+# the PRIVATE engagements repo, never in this one (ADR 0087: a value authored
+# here is world-readable). The entrypoint fetches it from the same vault
+# prefix as customer.yaml into the root-owned config dir. Absent on a seat that
+# runs no chronology routine; the runner refuses every job until it is there.
+MEDCHRON_FIRM_YAML="${SS_ENGAGEMENTS_DIR:-${HOME}/dev/engagements}/operator/customers/${SLUG}/medchron/firm.yaml"
+if [ -f "${MEDCHRON_FIRM_YAML}" ]; then
+  log "Uploading medchron-firm.yaml to R2: s3://${R2_BUCKET_CONFIG}/vaults/${SLUG}/medchron-firm.yaml"
+  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+  AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 cp "${MEDCHRON_FIRM_YAML}" "s3://${R2_BUCKET_CONFIG}/vaults/${SLUG}/medchron-firm.yaml" \
+      --endpoint-url "${R2_ENDPOINT_URL}" \
+      --only-show-errors \
+    || die "R2 upload of medchron-firm.yaml failed"
+  log "R2 upload OK (medchron-firm.yaml)"
+else
+  log "No medchron firm config for ${SLUG} (${MEDCHRON_FIRM_YAML}); the chronology runner will refuse jobs"
+fi
+
 # ---------- Step 3: render fly.toml ----------
 log "Rendering fly.toml..."
 mkdir -p "${RENDERED_DIR}"

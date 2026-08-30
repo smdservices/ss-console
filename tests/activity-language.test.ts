@@ -61,6 +61,15 @@ describe('activity-language exhaustiveness (writer parity)', () => {
         'OPS_REQUEST_RECORDED',
         'OPS_REQUEST_RESOLVED',
         'OPS_REQUEST_LAPSED',
+        // ss#2614 (routine 11). A chronology package's life on the seat, five
+        // rows the broker writes on the runner's report. All render: the one
+        // that matters most to the firm is the hold, and a hold that shows
+        // nothing on the feed reads exactly like a package that never came.
+        'MEDCHRON_JOB_SUBMITTED',
+        'MEDCHRON_JOB_RUNNING',
+        'MEDCHRON_JOB_HELD',
+        'MEDCHRON_JOB_DELIVERED',
+        'MEDCHRON_JOB_FAILED',
         'AGENT_STOPPED',
         'COMPLIANCE_PACKET_EXPORTED',
         // ss#2122: a Named Administrator pulled the per-matter audit record
@@ -160,6 +169,13 @@ describe('failure outcomes are visible to the client (ss#2320)', () => {
     ['RULE_REQUEST_NOTIFIED', 'Asked an administrator to apply a rule'],
     ['RULE_DECLINED', 'An administrator declined a rule'],
     ['RULE_LAPSED', 'A rule request lapsed unanswered'],
+    // ss#2614. The five beats of a chronology package, from the reader's side
+    // and with no timing promise; the hold names that there is a reason to read.
+    ['MEDCHRON_JOB_SUBMITTED', 'Started a medical chronology package for a matter'],
+    ['MEDCHRON_JOB_RUNNING', 'Is building a medical chronology package'],
+    ['MEDCHRON_JOB_HELD', 'Paused a medical chronology package and surfaced why'],
+    ['MEDCHRON_JOB_DELIVERED', 'Filed a medical chronology package on the matter'],
+    ['MEDCHRON_JOB_FAILED', 'Could not finish a medical chronology package'],
   ]
 
   for (const [action, copy] of outcomes) {
