@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import textwrap
+import zipfile
 
 import httpx
 import pytest
@@ -431,13 +432,28 @@ def _put_bytes(captured: list[httpx.Request]) -> bytes:
     return next(r for r in captured if r.method == "PUT").content
 
 
+def _docx_members(data: bytes) -> dict[str, bytes]:
+    """Decompressed zip members by name, for content comparison of two renders.
+
+    NEVER compare two independent renders as raw archive bytes: a .docx is a
+    zip whose entry headers carry the current time at 2-second DOS granularity,
+    so two renders of identical content that straddle a tick differ only in
+    those mtime fields (observed 2026-08-31 as one-run flakes on PRs #2651 and
+    #2654; the byte diff was the DOS-time fields in the local headers).
+    Comparing member names + decompressed member bytes keeps the full
+    byte-for-byte content claim and drops only the timestamp metadata.
+    """
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        return {name: zf.read(name) for name in zf.namelist()}
+
+
 def test_no_document_class_is_the_stock_render_byte_for_byte(monkeypatch, tmp_path) -> None:
     captured: list[httpx.Request] = []
     monkeypatch.setattr(server, "_get_client", lambda: _mock_client(_handler(captured)))
     _stub_record_check(monkeypatch)
     out = server.render_docx_draft("m-1", "Draft", "Body text.")
     assert "formatApplied" not in out
-    assert _put_bytes(captured) == render_markdown_to_docx("Body text.")
+    assert _docx_members(_put_bytes(captured)) == _docx_members(render_markdown_to_docx("Body text."))
 
 
 def test_document_class_without_an_authored_library_renders_on_the_starter_and_says_so(monkeypatch, tmp_path) -> None:
@@ -451,7 +467,10 @@ def test_document_class_without_an_authored_library_renders_on_the_starter_and_s
     assert fa["templateUsed"] is None and fa["templateExpected"] is False
     assert any("not authored" in n for n in fa["notes"])
     assert fa["blocksStyled"]["labels"] == 2
-    assert _put_bytes(captured) != render_markdown_to_docx(DISCOVERY_MD)  # the falsifier: class changes the bytes
+    # The falsifier: class changes the CONTENT. Compared as members, not raw
+    # archive bytes — raw bytes differ on zip mtimes alone (see _docx_members),
+    # which would let this pass even if the class changed nothing.
+    assert _docx_members(_put_bytes(captured)) != _docx_members(render_markdown_to_docx(DISCOVERY_MD))
     assert hashlib.sha256(_put_bytes(captured)).hexdigest() == out["sha256"]
 
 
