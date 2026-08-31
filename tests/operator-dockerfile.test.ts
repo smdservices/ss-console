@@ -1147,7 +1147,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // broker), the medchron_jobs runtime-read kind, three action-class rows. The
     // runner, the verbs and the daemon land here in the same change. Vocabulary
     // identical (71); no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3c1b8e98a1f860adc3ed6aafb176c2f3ba268b5f"')
+    // 3c1b8e98 -> c5846c68 (2026-08-31, overlay#334 + overlay#335, ss#2652/ss#2654):
+    // the ledger-integrity pair (symmetric raise reset, release validation, hold
+    // determinations via the escalation plugin) and the identifier pair
+    // (register-anchored bare-digit matter numbers: pre_run_handoff seeding,
+    // identifier_filter known-number scan, matter_gate chunked membership pass).
+    // TWO tracked pairs move: escalation_ledger (byte-identical again at
+    // 912bac29...) and identifier_filter (overlay side re-recorded at 71e598a5...).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c5846c68515f34c4771b08e20aded5747c38cb15"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
