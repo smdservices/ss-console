@@ -25,6 +25,11 @@ import { fileURLToPath } from 'node:url'
 import { parse as parseYaml } from 'yaml'
 
 import { validate } from '../src/lib/operator/customer-yaml'
+import {
+  armingViolations,
+  parseOutboundBindings,
+  parseSendRender,
+} from '../src/lib/operator/send-render'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -116,6 +121,41 @@ if (missingSkillBodies.length > 0) {
     )
   }
   process.exit(1)
+}
+
+// Provision-time arming backstop (outbound-quality track): a cron-armed
+// derived-outbound skill must carry a send-render declaration. The merge gate
+// (tests/cron-send-arming-gate.test.ts) is primary; this is what makes
+// `provision-customer.sh` refuse an armed-undeclared seat even if someone
+// pushes around CI. Same join, one implementation (src/lib/operator/send-render.ts).
+const seatSlug = result.value.customer_id
+const cronRows = result.value.personas.flatMap((persona) =>
+  persona.cron.map((row) => ({ skill: row.skill }))
+)
+if (cronRows.length > 0) {
+  const outbound = parseOutboundBindings(
+    readFileSync(join(REPO_ROOT, 'operator', 'contracts', 'output-classes.yaml'), 'utf8')
+  )
+  const renders = parseSendRender(
+    readFileSync(join(REPO_ROOT, 'operator', 'contracts', 'send-render.yaml'), 'utf8')
+  )
+  const violations = armingViolations({
+    seat: seatSlug,
+    cron: cronRows,
+    outbound,
+    renders,
+    templateExists: (path) => existsSync(join(REPO_ROOT, path)),
+  })
+  if (violations.length > 0) {
+    process.stderr.write(
+      `customer.yaml arms ${violations.length} routine(s) to send with no authored ` +
+        `render declaration (operator/contracts/send-render.yaml):\n`
+    )
+    for (const violation of violations) {
+      process.stderr.write(`  [${violation.code}] ${violation.message}\n`)
+    }
+    process.exit(1)
+  }
 }
 
 process.stdout.write(`${filePath} OK\n`)

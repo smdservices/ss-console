@@ -10,6 +10,7 @@ import {
   SLUG_PATTERN,
   type Persona,
   type PersonaChannelBinding,
+  type PersonaSignature,
   type PersonaStatus,
   type ValidationError,
 } from './types'
@@ -91,7 +92,8 @@ function checkOnePersona(
   const bundles = checkBundles(p['bundles'], `personas[${i}].bundles`, skills, errors)
   const cron = checkCron(p['cron'], `personas[${i}].cron`, skills, errors)
   const title = optionalString(p, 'title', `personas[${i}].title`, errors)
-  const signature = optionalString(p, 'signature_html', `personas[${i}].signature_html`, errors)
+  const signatureHtml = optionalString(p, 'signature_html', `personas[${i}].signature_html`, errors)
+  const signature = checkPersonaSignature(p['signature'], `personas[${i}].signature`, errors)
   const avatar = optionalString(p, 'avatar_url', `personas[${i}].avatar_url`, errors)
   const pronouns = optionalEnum(p, 'pronouns', ACCEPTED_PRONOUNS, `personas[${i}].pronouns`, errors)
   const sendAs = checkSendAs(p['send_as'], `personas[${i}].send_as`, errors)
@@ -105,7 +107,8 @@ function checkOnePersona(
     status,
     name,
     title,
-    signature_html: signature,
+    signature_html: signatureHtml,
+    signature,
     avatar_url: avatar,
     tone: extractToneList(p['tone']),
     pronouns: pronouns,
@@ -126,6 +129,44 @@ function checkOnePersona(
     bundles,
     cron,
   }
+}
+
+/**
+ * The authored chase-mail signature block (outbound-quality track): an
+ * optional mapping with optional `firm_line` / `closing` strings, nothing
+ * else. Additive and optional on purpose -- unauthored degrades to
+ * `customer_name` alone (ADR 0035, no imposed defaults) -- but a MALFORMED
+ * authoring is an error, never a silent null: a firm that authored a
+ * signature and got the shape wrong must hear about it at validation time,
+ * not discover its sign-off missing in a client's mailbox.
+ */
+function checkPersonaSignature(
+  value: unknown,
+  path: string,
+  errors: ValidationError[]
+): PersonaSignature | null {
+  if (value === undefined || value === null) return null
+  if (!isPlainObject(value)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: `${path} must be a mapping with optional firm_line / closing strings`,
+    })
+    return null
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== 'firm_line' && key !== 'closing') {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message: `${path}.${key}: unknown key (only firm_line and closing are authored here)`,
+      })
+      return null
+    }
+  }
+  const firmLine = optionalString(value, 'firm_line', `${path}.firm_line`, errors)
+  const closing = optionalString(value, 'closing', `${path}.closing`, errors)
+  return { firm_line: firmLine, closing }
 }
 
 /**

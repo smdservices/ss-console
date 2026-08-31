@@ -19,7 +19,15 @@
  * can fail.
  */
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -363,5 +371,108 @@ describe('a hold fails the run (ss#2386)', () => {
   it('does not itself break when the reconcile step never produced the file', () => {
     const run = runHoldStep(undefined)
     expect(run.failed).toBe(false)
+  })
+})
+
+/**
+ * Public-repo body safety (outbound-quality track, phase 4). Client email
+ * bodies exist only inside the runner's python process: the reconciler's
+ * verdict dataclasses are structurally body-free and its stdout is
+ * sentinel-tested python-side (operator/bin/tests/test_send_verify.py). The
+ * workflow's half of that contract is that no step interpolates anything BEYOND
+ * that leak-tested stdout into an issue body -- the only files ever catted into
+ * a body are reconcile.txt and lists.txt, both produced by sentinel-tested
+ * scripts. These tests pin the workflow half.
+ */
+describe('workflow steps never interpolate body content (phase 4 leak safety)', () => {
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  /** Every `run:` body in the workflow, dedented, keyed by step name. */
+  const allStepBodies = (): Map<string, string> => {
+    const source = readFileSync(WORKFLOW, 'utf8')
+    const bodies = new Map<string, string>()
+    const namePattern = /^ {6}- name: (.+)$/gm
+    let match: RegExpExecArray | null
+    while ((match = namePattern.exec(source)) !== null) {
+      const runAt = source.indexOf('run: |', match.index)
+      if (runAt === -1) continue
+      const nextName = namePattern.lastIndex
+      // From past the matched line: the match itself starts at the indent, so
+      // searching from index+1 would find this step's own `- name:` again.
+      const following = source.indexOf('- name:', match.index + match[0].length)
+      if (following !== -1 && runAt > following) continue // step with no run body
+      const body = source.slice(runAt + 'run: |\n'.length)
+      const lines: string[] = []
+      for (const line of body.split('\n')) {
+        if (line.trim() !== '' && !line.startsWith('          ')) break
+        lines.push(line.slice(10))
+      }
+      bodies.set(match[1], lines.join('\n'))
+      namePattern.lastIndex = nextName
+    }
+    return bodies
+  }
+
+  it('the only files catted into an issue body are the sentinel-tested reports', () => {
+    // The producers of these two files are leak-tested python-side
+    // (test_send_verify.py walks render() and --json for a sentinel body;
+    // check-agentmail-lists.py emits only repo-authored addresses). Any OTHER
+    // `cat` inside a step that writes a body*.md is a new egress nobody
+    // sentinel-tested, and this assertion is what makes adding one a red PR.
+    const allowed = new Set(['reconcile.txt', 'lists.txt'])
+    const bodies = allStepBodies()
+    expect(bodies.size).toBeGreaterThanOrEqual(4)
+    for (const [name, body] of bodies) {
+      if (!/> *body[^\s]*\.md/.test(body)) continue
+      for (const line of body.split('\n')) {
+        const cat = line.match(/^\s*cat\s+([^\s|>&;]+)\s*$/)
+        if (cat) {
+          expect(allowed.has(cat[1]), `step "${name}" cats ${cat[1]} toward an issue body`).toBe(
+            true
+          )
+        }
+      }
+    }
+  })
+
+  it('a body-hash finding leaves only the report files behind, hashes in stdout', () => {
+    // Run the REAL reconcile step with a stub whose report is a phase-4 body
+    // finding line (hashes only, the shape send_verify.render_lines emits).
+    dir = mkdtempSync(join(tmpdir(), 'step-phase4-'))
+    const bin = join(dir, 'bin')
+    mkdirSync(bin, { recursive: true })
+    const findingLine =
+      'BODY_DIVERGED deadline-miss-escalator dispatch=2026-08-30T09:01:00+00:00 ' +
+      'expected=35c6b9f66dceb6cf8f733d08689564e420e18eb40250d9435352617c027f36d6 ' +
+      'actual=611a167854cd6d1c92d7fbcc4ca9b3887ab9cec955ef0e11d4a8dfa3f0596cc4'
+    writeFileSync(join(bin, 'python3'), `#!/usr/bin/env bash\necho "${findingLine}"\nexit 1\n`)
+    chmodSync(join(bin, 'python3'), 0o755)
+    const outputs = join(dir, 'github_output')
+    writeFileSync(outputs, '')
+    const source = readFileSync(WORKFLOW, 'utf8')
+    const start = source.indexOf('      - name: Reconcile every inbox')
+    const body = source.slice(source.indexOf('run: |', start) + 'run: |\n'.length)
+    const lines: string[] = []
+    for (const line of body.split('\n')) {
+      if (line.trim() !== '' && !line.startsWith('          ')) break
+      lines.push(line.slice(10))
+    }
+    writeFileSync(join(dir, 'step.sh'), lines.join('\n'))
+    execFileSync('bash', ['-e', join(dir, 'step.sh')], {
+      cwd: dir,
+      encoding: 'utf-8',
+      env: { ...process.env, GITHUB_OUTPUT: outputs, PATH: `${bin}:${process.env.PATH ?? ''}` },
+    })
+    // The step's entire filesystem footprint: its two report files (plus its
+    // own scaffolding). Bodies never had a file to land in.
+    const written = readdirSync(dir).filter((f) => !['bin', 'step.sh', 'github_output'].includes(f))
+    expect(written.sort()).toEqual(['holds.txt', 'reconcile.txt'])
+    expect(readFileSync(join(dir, 'reconcile.txt'), 'utf-8')).toContain('BODY_DIVERGED')
+    expect(readFileSync(outputs, 'utf-8')).toContain('status=1')
   })
 })

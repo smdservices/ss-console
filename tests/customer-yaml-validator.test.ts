@@ -3865,3 +3865,61 @@ describe('send_policy', () => {
     expect(paths).toContain('send_policy.held_release.ttl_seconds')
   })
 })
+
+// -----------------------------------------------------------------------------
+// personas[].signature — the authored chase-mail signature block
+// (outbound-quality track; consumed by the chase skills' rendered sign-off per
+// _shared-chase-voice.md "Salutation and signature")
+// -----------------------------------------------------------------------------
+
+describe('personas[].signature', () => {
+  function withSignature(signature: unknown): Record<string, unknown> {
+    const f = validFixture()
+    const personas = f['personas'] as Record<string, unknown>[]
+    personas[0]['signature'] = signature
+    return f
+  }
+
+  it('is optional: an unauthored persona carries null (degrades to customer_name)', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.personas[0].signature).toBeNull()
+  })
+
+  it('accepts an authored firm_line + closing', () => {
+    const r = validate(withSignature({ firm_line: 'Smith PI Firm', closing: 'Thank you.' }))
+    if (!r.ok) throw new Error(JSON.stringify(r.errors))
+    expect(r.value.personas[0].signature).toEqual({
+      firm_line: 'Smith PI Firm',
+      closing: 'Thank you.',
+    })
+  })
+
+  it('accepts a partial authoring (firm_line only)', () => {
+    const r = validate(withSignature({ firm_line: 'Smith PI Firm' }))
+    if (!r.ok) throw new Error(JSON.stringify(r.errors))
+    expect(r.value.personas[0].signature).toEqual({ firm_line: 'Smith PI Firm', closing: null })
+  })
+
+  it('refuses a non-mapping authoring rather than silently dropping it', () => {
+    const r = validate(withSignature('Smith PI Firm'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.map((e) => e.path)).toContain('personas[0].signature')
+  })
+
+  it('refuses an unknown key so a typo cannot author nothing', () => {
+    const r = validate(withSignature({ firm_name: 'Smith PI Firm' }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.map((e) => e.path)).toContain('personas[0].signature.firm_name')
+  })
+
+  it('refuses non-string field values', () => {
+    const r = validate(withSignature({ firm_line: 42 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.map((e) => e.path)).toContain('personas[0].signature.firm_line')
+  })
+})

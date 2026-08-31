@@ -87,6 +87,20 @@ from bin.lib.chain_pin import (  # noqa: E402
     PIN_NOT_SUPPLIED,
     check_pinned_head,
 )
+#: The wrangler-backed D1 client moved verbatim to bin/lib/console_d1.py when
+#: the cron-slot watchdog became its second consumer (same behavior, one
+#: client). Re-exported here so tests and callers read unchanged.
+from bin.lib.console_d1 import (  # noqa: E402
+    ALERT_DRIVER_PREFIX,  # noqa: F401 — re-export
+    DEFAULT_DB,
+    ConsoleD1,
+    Runner,  # noqa: F401 — re-export
+    first_result_set,  # noqa: F401 — re-export (tests pin the envelope parse)
+    sql_int,  # noqa: F401 — re-export (tests pin the literal forms)
+    sql_text,  # noqa: F401 — re-export
+    utc_date,  # noqa: F401 — re-export
+    utc_now,
+)
 from bin.lib.seam_pull import seam_client_from_env  # noqa: E402
 from chain import verify_chain  # noqa: E402
 
@@ -103,13 +117,6 @@ HOLD = "hold"
 #: a seat that does not exist has no audit record to be wrong about.
 SKIP = "skip"
 
-#: The alert row's driver. Per SEAT, not per entity: several seats can share one
-#: entity and the alert PK is (entity_id, alert_date, driver), so a bare
-#: 'audit_chain' would let one seat's finding overwrite another's on the same
-#: day. It also cannot collide with the healthchecks writer, which uses ''.
-ALERT_DRIVER_PREFIX = "audit_chain:"
-
-DEFAULT_DB = "ss-console-db"
 DEFAULT_BUCKET = "smd-audit-archive"
 
 
@@ -276,167 +283,6 @@ def partition_seats(authored: Sequence[str], provisioned: Sequence[str]) -> Seat
     )
 
 
-# ---------------------------------------------------------------------------
-# Console D1 (through wrangler, the pattern the other CI reconcilers use)
-# ---------------------------------------------------------------------------
-
-Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
-
-
-def _run(cmd: Sequence[str]) -> "subprocess.CompletedProcess[str]":
-    return subprocess.run(list(cmd), capture_output=True, text=True, check=False)
-
-
-def sql_text(value: Optional[str]) -> str:
-    """A TEXT literal that cannot be escaped out of, whatever the value contains.
-
-    `wrangler d1 execute` takes `--command` and `--file` and NOTHING ELSE --
-    checked against the installed CLI's own `--help`, not assumed -- so there is
-    no parameter binding on this path and every value has to be inlined. Quote
-    doubling is the usual answer and it is the wrong one here: part of what gets
-    inlined is break text lifted out of a seat's own export, which is exactly
-    the untrusted input an injection needs, and a control that could be made to
-    rewrite the alerts table by a compromised seat would be worse than no
-    control.
-
-    A blob literal has no escape sequences to get wrong: every byte is two hex
-    characters and the literal terminates at a fixed length. Cast back to TEXT
-    on the way in so the column holds a string, not a blob.
-    """
-    if value is None:
-        return "NULL"
-    return f"CAST(x'{value.encode('utf-8').hex()}' AS TEXT)"
-
-
-def sql_int(value: int) -> str:
-    """An INTEGER literal. Typed, so a non-int raises here rather than inlining."""
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"sql_int refuses a non-integer: {value!r}")
-    return str(value)
-
-
-class ConsoleD1:
-    """Read pins and write alert rows through ``npx wrangler d1 execute``.
-
-    Same access path as ci-reconcile-customer-configs.sh, deliberately: one
-    credential shape (CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID) for every
-    console-side CI job, and no second D1 client to keep in step with the first.
-    """
-
-    def __init__(self, db: str = DEFAULT_DB, runner: Runner = _run) -> None:
-        self._db = db
-        self._run = runner
-
-    def execute(self, sql: str) -> list[dict]:
-        proc = self._run(
-            ["npx", "wrangler", "d1", "execute", self._db, "--remote", "--json", "--command", sql]
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"d1 execute failed: {proc.stderr.strip() or proc.stdout.strip()}")
-        return first_result_set(proc.stdout)
-
-    def newest_pin(self, slug: str) -> Optional[dict]:
-        sql = (
-            "SELECT audit_head, audit_rows, first_seen_heartbeat_ts, last_seen_heartbeat_ts "
-            f"FROM audit_head_history WHERE customer_slug = {sql_text(slug)} "
-            "ORDER BY id DESC LIMIT 1"
-        )
-        # See sql_text for why an inlined literal is the safe form here.
-        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        rows = self.execute(sql)
-        return rows[0] if rows else None
-
-    def provisioned_slugs(self) -> list[str]:
-        """Every seat the console has a fleet_status row for -- the seats that exist.
-
-        A constant statement: nothing is interpolated, so there is nothing to
-        escape. Failure RAISES rather than returning [], because an empty roster
-        read as "no seats" would turn an unreachable D1 into a quiet green run.
-        """
-        rows = self.execute("SELECT customer_slug FROM fleet_status")
-        return sorted(
-            str(r["customer_slug"]) for r in rows if isinstance(r.get("customer_slug"), str)
-        )
-
-    def entity_id(self, slug: str) -> Optional[str]:
-        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query — see sql_text: no parameter binding exists on this CLI path; the interpolated text is a hex blob literal.
-        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query — not SQLAlchemy; the only interpolation is sql_text's fixed-alphabet hex literal.
-        sql = f"SELECT entity_id FROM customer_configs WHERE customer_slug = {sql_text(slug)}"
-        # See sql_text: wrangler d1 execute has no parameter binding (checked
-        # against the installed CLI's own --help), and sql_text emits a hex blob
-        # literal, which carries no escape sequence to break out of.
-        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        rows = self.execute(sql)
-        return rows[0].get("entity_id") if rows else None
-
-    def write_alert(self, *, entity_id: str, slug: str, summary: str, details: dict) -> None:
-        """One ``audit_integrity`` row on the shared alert sink.
-
-        Existing snooze / acknowledged columns are left alone: this control
-        never undoes a Captain action on a row it wrote yesterday.
-        """
-        values = ", ".join(
-            [
-                sql_text(entity_id),
-                sql_text(slug),
-                sql_text(utc_date()),
-                sql_text(f"{ALERT_DRIVER_PREFIX}{slug}"),
-                "'audit_integrity'",
-                sql_int(0),
-                sql_int(0),
-                sql_int(0),
-                sql_int(0),
-                sql_text(summary),
-                sql_text(json.dumps(details, sort_keys=True)),
-                "datetime('now')",
-            ]
-        )
-        # Every interpolated value came through sql_text / sql_int above, so the
-        # only thing reaching the statement is a hex blob literal or a bare
-        # integer. That matters here more than anywhere else in this file: part
-        # of `details` is break text lifted out of a seat's own export, which is
-        # precisely the untrusted input an injection needs.
-        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        self.execute(
-            "INSERT INTO cost_anomaly_alerts ("
-            "entity_id, customer_slug, alert_date, driver, source, "
-            "daily_cents, rolling_avg_cents, ratio_bps, threshold_bps, "
-            "summary, details_json, detected_at"
-            f") VALUES ({values}) "
-            "ON CONFLICT(entity_id, alert_date, driver) DO UPDATE SET "
-            "summary = excluded.summary, details_json = excluded.details_json, "
-            "detected_at = excluded.detected_at"
-        )
-
-
-def first_result_set(stdout: str) -> list[dict]:
-    """Pull the rows out of wrangler's --json envelope.
-
-    Parsed, never assumed: wrangler prints a list of result objects for a
-    multi-statement command and has also printed a bare object, so both are
-    handled and anything else RAISES. Returning [] on an unrecognized envelope
-    would read as "no pin recorded", which is the one wrong answer that turns
-    into a HOLD nobody investigates.
-    """
-    payload = json.loads(stdout)
-    if isinstance(payload, list):
-        payload = payload[0] if payload else {}
-    if not isinstance(payload, dict):
-        raise RuntimeError("d1 execute returned an unrecognized envelope")
-    results = payload.get("results")
-    if results is None:
-        return []
-    if not isinstance(results, list):
-        raise RuntimeError("d1 execute returned a non-list results field")
-    return [r for r in results if isinstance(r, dict)]
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def utc_date() -> str:
-    return utc_now().strftime("%Y-%m-%d")
 
 
 # ---------------------------------------------------------------------------

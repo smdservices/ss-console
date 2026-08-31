@@ -63,6 +63,18 @@ on:
       - 'operator/bin/reconcile-sends-baseline.json'
       - 'operator/bin/tests/test_reconcile_sends.py'
       - 'operator/bin/tests/fixtures/unaudited-sends-2026-08-17.json'
+      # Phase 4 (body-hash verification + cross-run invariants) and its
+      # transport factor-out ride this job; a change to any of them must run
+      # its tests here.
+      - 'operator/bin/lib/send_verify.py'
+      - 'operator/bin/lib/msgraph_channel.py'
+      - 'operator/bin/send-invariants.json'
+      - 'operator/bin/tests/test_send_verify.py'
+      - 'operator/contracts/send-render.yaml'
+      - 'operator/contracts/fixtures/body-canon-vectors.json'
+      # The AgentMail lists check rides the same daily run.
+      - 'operator/bin/check-agentmail-lists.py'
+      - 'operator/bin/tests/test_check_agentmail_lists.py'
       # A seat gaining or losing `adapter: msgraph` changes which mailboxes this
       # job must cover, and the conformance test that proves it runs here.
       - 'operator/customers/*/customer.yaml'
@@ -92,7 +104,10 @@ jobs:
       # broken would report either nothing or everything, and both are worse
       # than no report.
       - name: Test the reconciler
-        run: python3 -m pytest operator/bin/tests/test_reconcile_sends.py -q
+        run: >-
+          python3 -m pytest operator/bin/tests/test_reconcile_sends.py
+          operator/bin/tests/test_send_verify.py
+          operator/bin/tests/test_check_agentmail_lists.py -q
 
       # On pull_request there are no secrets and nothing to reconcile against —
       # the tests above are the whole job.
@@ -143,6 +158,33 @@ jobs:
           # job, after the issue step has had its turn: a run can hold on one
           # inbox and find on another, and neither may swallow the other.
           grep '^HOLD' reconcile.txt > holds.txt || true
+
+      # AgentMail Lists ride-along (outbound-quality track). A rostered
+      # recipient sitting on a send-block list -- or excluded by a non-empty
+      # send-allow -- is SILENTLY unreachable: the Operator "sends", the vendor
+      # drops it, nothing records a failure. Three GETs per seat, so it rides
+      # the daily run rather than earning its own workflow. Its holds join
+      # holds.txt so the final hold step reddens on them too; its findings get
+      # their own small issue step below (a suppressed rostered address is a
+      # different owner and remedy than an unaudited send).
+      #
+      # `!cancelled()` rather than default success(): a reconcile finding
+      # (exit 1 handled above) must not skip this check.
+      - name: Check AgentMail lists for suppressed rostered recipients
+        if: github.event_name != 'pull_request' && !cancelled() && steps.reconcile.outputs.status != ''
+        id: lists
+        env:
+          AGENTMAIL_API_KEY: ${{ secrets.AGENTMAIL_API_KEY }}
+        run: |
+          set -u
+          # Same `|| STATUS=$?` discipline as the reconcile step (ss#2309):
+          # exit 1 is the findings path and must not abort the step under -e.
+          STATUS=0
+          python3 operator/bin/check-agentmail-lists.py > lists.txt 2>&1 || STATUS=$?
+          cat lists.txt
+          echo "status-lists=${STATUS}" >> "$GITHUB_OUTPUT"
+          if [ "${STATUS}" -gt 2 ]; then exit "${STATUS}"; fi
+          grep '^HOLD' lists.txt >> holds.txt || true
 
       - name: Open an issue when a send has no audit record
         if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
@@ -203,6 +245,56 @@ jobs:
             --title "Unaudited send detected $(date -u +%Y-%m-%d)" \
             --label "prio:P1" --label "type:bug" \
             --body-file body.md
+
+      - name: Open an issue when a rostered recipient is suppressed
+        if: github.event_name != 'pull_request' && steps.lists.outputs.status-lists == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -u
+          # Same dedupe discipline as the unaudited-send step (ss#2386): the
+          # script prints a stable fingerprint of the offending (scope, entry,
+          # recipient) set; an open issue carrying it means this exact state is
+          # already reported.
+          FINGERPRINT="$(sed -n 's/^lists-fingerprint: //p' lists.txt | tail -1)"
+          if [ -z "${FINGERPRINT}" ]; then
+            echo "lists findings reported with no lists-fingerprint line" >&2
+            exit 1
+          fi
+          gh issue list --repo "${REPO}" --state open --label "prio:P1" \
+            --limit 200 --json number,body > open-issues.json
+          DUPLICATE="$(FINGERPRINT="${FINGERPRINT}" python3 -c '
+          import json, os
+          fingerprint = os.environ["FINGERPRINT"]
+          issues = json.load(open("open-issues.json"))
+          print(next((str(i["number"]) for i in issues if fingerprint in (i.get("body") or "")), ""))
+          ')"
+          if [ -n "${DUPLICATE}" ]; then
+            echo "Same lists finding is already open as #${DUPLICATE} (${FINGERPRINT})."
+            exit 0
+          fi
+          {
+            echo "An AgentMail send list suppresses a rostered recipient."
+            echo
+            echo "A rostered address on a send-block list, or omitted by a non-empty"
+            echo "send-allow list, is silently unreachable: the Operator sends, the"
+            echo "vendor drops it, and nothing on our side records a failure."
+            echo
+            echo '```'
+            cat lists.txt
+            echo '```'
+            echo
+            echo "Checker: \`operator/bin/check-agentmail-lists.py\`."
+            echo "Dedupe key, do not edit: \`lists-fingerprint: ${FINGERPRINT}\`"
+            echo "Run: ${RUN_URL}"
+          } > body-lists.md
+          gh issue create \
+            --repo "${REPO}" \
+            --title "AgentMail list suppresses a rostered recipient $(date -u +%Y-%m-%d)" \
+            --label "prio:P1" --label "type:bug" \
+            --body-file body-lists.md
 
       # A HOLD IS NOT A PASS (ss#2386 review). A hold still files no issue --
       # ss#2258's rule that a control must not page on its own blips is intact --

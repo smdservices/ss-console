@@ -535,12 +535,24 @@ export interface PersonaCron {
   wake_policy: WakePolicy
 }
 
+/**
+ * Optional authored signature block for outbound chase mail (outbound-quality
+ * track; consumed by the chase skills' rendered signature per
+ * operator/verticals/law-firm/addons/pi/references/_shared-chase-voice.md).
+ * Authored per engagement when the firm wants more than its `customer_name`
+ * on the sign-off; unauthored degrades to `customer_name` alone, which is
+ * authored data, not invention (ADR 0035 -- no imposed defaults).
+ */
+export type PersonaSignature = { firm_line: string | null; closing: string | null }
+
 export interface Persona {
   slug: string
   status: PersonaStatus
   name: string
   title: string | null
   signature_html: string | null
+  /** Authored chase-mail signature block; null when unauthored. */
+  signature: PersonaSignature | null
   avatar_url: string | null
   tone: string[]
   pronouns: Pronouns | null
