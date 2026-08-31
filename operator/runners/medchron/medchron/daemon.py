@@ -205,8 +205,16 @@ class Daemon:
         out = []
         for d in sorted(self.jobs.iterdir()):
             st = self._daemon_state(d.name)
-            if d.is_dir() and st.get("state") not in TERMINAL and st.get("claimed"):
-                out.append(d.name)
+            if not (d.is_dir() and st.get("state") not in TERMINAL and st.get("claimed")):
+                continue
+            # A runner-held job (a refusal, an unexplained file, an unmatched
+            # folder) is PARKED: it needs a person, and re-running it changes
+            # nothing but the audit log (live-caught 2026-08-31: a cap-refused
+            # job re-ran every tick, one RUNNING/HELD pair per cycle). Only a
+            # seat-pause hold resumes by itself, via the sticky-stop path.
+            if st.get("state") == "held" and not st.get("held_paused"):
+                continue
+            out.append(d.name)
         return out
 
     def claim_next(self) -> str | None:
@@ -355,8 +363,8 @@ class Daemon:
             self.broker.record(job_id, state, fields)
         except BrokerError as exc:
             logger.error("could not record %s for %s: %s (the state file keeps it)", state, job_id, exc)
-        self._write_state(job_id, state=state, finished_at=self.clock() if state in TERMINAL else None,
-                          reason=fields.get("reason"))
+        finished = self.clock() if state in TERMINAL or state == "held" else None
+        self._write_state(job_id, state=state, finished_at=finished, reason=fields.get("reason"))
         return state
 
     # -- the loop ------------------------------------------------------------------

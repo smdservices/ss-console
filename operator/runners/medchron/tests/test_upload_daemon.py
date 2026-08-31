@@ -264,6 +264,12 @@ print(json.dumps([{"unit": "alpha", "outcome": "refused", "reason": "cap", "doll
     broker.down = False
     assert d.tick() == "held"
     assert broker.records[-1][1] == "held" and broker.records[-1][2]["reason"] == "refused: cap"
+    # A runner-held job is PARKED, not retried (live-caught 2026-08-31: a
+    # cap-refused job re-ran every tick, one RUNNING/HELD audit pair per
+    # cycle). Only the sticky-stop pause hold resumes by itself.
+    before = len(broker.records)
+    assert d.tick() is None and d.tick() is None
+    assert len(broker.records) == before
 
 
 def test_memory_cap_mode_detects_v2_v1_and_none(tmp_path):
