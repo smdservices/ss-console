@@ -414,7 +414,10 @@ ssh_exec "msgraph-send-credential-stripped-from-agent" \
 ssh_exec "medchron-uid-exists" "id -u medchron >/dev/null"
 ssh_exec "medchron-daemon-ticking" "t=/run/smd-medchron/tick; [ -f \$t ] && [ \$(( \$(date -u +%s) - \$(stat -c %Y \$t) )) -lt 90 ]"
 ssh_exec "medchron-daemon-idle" "! test -f /run/smd-medchron/child.pid"
-ssh_exec "medchron-memory-cap-present" "grep -q memory_cap.:..cgroup2 /run/smd-medchron/heartbeat.json"
+# cgroup2 on a unified guest, cgroup1 on Fly's hybrid layout (live-probed
+# 2026-08-31: v2 is mounted bare at /sys/fs/cgroup/unified with no
+# controllers; memory is on the v1 mount). `none` is the failure.
+ssh_exec "medchron-memory-cap-present" "grep -q memory_cap.:..cgroup /run/smd-medchron/heartbeat.json"
 ssh_exec "medchron-queue-root-owned" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/queue)\" = root:workspace-broker:770 ]"
 ssh_exec "medchron-jobs-dir-root-only" "[ \"\$(stat -c %U:%a /run/smd-medchron/jobs)\" = root:700 ]"
 ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"

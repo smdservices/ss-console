@@ -118,11 +118,20 @@ def sticky_level(db_path: str) -> str | None:
     return max(levels, key=lambda lv: order.index(lv) if lv in order else 0)
 
 
-def memory_cap_available(cgroup_root: Path = CGROUP_ROOT) -> bool:
+def memory_cap_mode(cgroup_root: Path = CGROUP_ROOT) -> str:
+    """Which memory controller this guest offers: ``cgroup2`` (unified root),
+    ``cgroup1`` (the hybrid layout Fly Machines run: v2 mounted bare at
+    /sys/fs/cgroup/unified with no controllers, memory on the v1 mount), or
+    ``none``. Probed live on hermes-ashton-price 2026-08-31: no
+    ``cgroup.controllers`` at the root, ``cgroup ... memory`` in /proc/mounts."""
     try:
-        return "memory" in (cgroup_root / "cgroup.controllers").read_text().split()
+        if "memory" in (cgroup_root / "cgroup.controllers").read_text().split():
+            return "cgroup2"
     except OSError:
-        return False
+        pass
+    if (cgroup_root / "memory" / "cgroup.procs").exists():
+        return "cgroup1"
+    return "none"
 
 
 def default_runner_cmd() -> list[str]:
@@ -160,7 +169,7 @@ class Daemon:
 
     # -- liveness ------------------------------------------------------------
     def heartbeat(self, *, running: str | None) -> None:
-        cap = "cgroup2" if memory_cap_available(self.cgroup_root) else "none"
+        cap = memory_cap_mode(self.cgroup_root)
         payload = {"pid": os.getpid(), "started_at": self.started_at, "last_poll_at": self.clock(),
                    "jobs_run": self.jobs_run, "running": running, "memory_cap": cap,
                    "queued": len(self._queued())}
@@ -263,12 +272,18 @@ class Daemon:
         os.chmod(path, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions - owner-only; the rule fires on any chmod, and 0700 is the tightest mode that lets the child write its own workdir.
 
     def _cgroup_preexec(self) -> Callable[[], None] | None:
-        if not memory_cap_available(self.cgroup_root):
+        mode = memory_cap_mode(self.cgroup_root)
+        if mode == "none":
             return None
-        cg = self.cgroup_root / "medchron"
+        if mode == "cgroup2":
+            cg = self.cgroup_root / "medchron"
+            limit_file, limit = cg / "memory.max", str(self.memory_max)
+        else:  # cgroup1: the hybrid layout Fly guests run
+            cg = self.cgroup_root / "memory" / "medchron"
+            limit_file, limit = cg / "memory.limit_in_bytes", str(self.memory_max)
         try:
             cg.mkdir(exist_ok=True)
-            (cg / "memory.max").write_text(str(self.memory_max))
+            limit_file.write_text(limit)
         except OSError as exc:
             logger.error("cgroup setup failed (%s); running uncapped", exc)
             return None
@@ -426,8 +441,8 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         logger.error("medchron daemon not started: %s", exc)
         return 2
-    if not memory_cap_available(d.cgroup_root):
-        logger.error("no cgroup v2 memory controller at %s; jobs will run UNCAPPED (boot smoke fails on this)",
+    if memory_cap_mode(d.cgroup_root) == "none":
+        logger.error("no cgroup memory controller at %s; jobs will run UNCAPPED (boot smoke fails on this)",
                      d.cgroup_root)
     poll = float(os.environ.get(POLL_ENV) or 5)
     logger.info("medchron daemon up: run_dir=%s poll=%ss", d.run_dir, poll)
