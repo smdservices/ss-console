@@ -23,6 +23,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  censusClock,
   classify,
   countAcs,
   isBot,
@@ -426,6 +427,65 @@ describe('determinism', () => {
     const summed = Object.values(census.verdictCounts).reduce((a, b) => a + b, 0)
     expect(summed).toBe(census.totalOpen)
     expect(census.totalOpen).toBe(corpus.length)
+  })
+})
+
+// The classifier taking `now` as a parameter buys nothing if the caller always
+// hands it the wall clock. It did until 2026-08-31, which made `--from` drift.
+describe('censusClock: what a reclassified census is judged against', () => {
+  const fetched = NOW // snap() stamps every fixture snapshot with this
+  const laterWallClock = '2026-08-31T16:14:46.278Z'
+  const snapshot = snap([issue()])
+  const at = (over: Parameters<typeof censusClock>[1]) => censusClock(snapshot, over)
+
+  it('a reclassified snapshot is judged at the clock it was FETCHED at', () => {
+    expect(at({ reclassified: true, explicit: null, wallClock: laterWallClock })).toBe(fetched)
+  })
+
+  it('falsifier: a LIVE fetch is judged at the wall clock, not at some stored time', () => {
+    // Without this, the rule above could be satisfied by always returning
+    // fetchedAt, which on a live run is the same value and hides the bug.
+    expect(at({ reclassified: false, explicit: null, wallClock: laterWallClock })).toBe(
+      laterWallClock
+    )
+  })
+
+  it('an explicit --now wins over both, for deliberate what-if questions', () => {
+    const asked = '2026-12-01T00:00:00Z'
+    expect(at({ reclassified: true, explicit: asked, wallClock: laterWallClock })).toBe(asked)
+    expect(at({ reclassified: false, explicit: asked, wallClock: laterWallClock })).toBe(asked)
+  })
+
+  it('an unparsable --now fails loudly rather than silently becoming NaN days', () => {
+    expect(() => at({ reclassified: true, explicit: 'last tuesday', wallClock: fetched })).toThrow(
+      /not a parsable timestamp/
+    )
+  })
+
+  it('regression: the same snapshot reclassified on two days gives the same census', () => {
+    // The measured 2026-08-31 defect, in miniature. `cold` is 29 days old at
+    // fetch time and 36 days old a week later, so an unpinned clock flips it
+    // from `needs-probe` to `never-worked` while nobody touches the backlog.
+    const cold = issue({
+      number: 2081,
+      commentCount: 0,
+      namingCommits: [],
+      createdAt: '2026-07-26T12:00:00Z',
+      updatedAt: '2026-07-26T12:00:00Z',
+    })
+    const s = snap([cold])
+
+    const day0 = classify(s, censusClock(s, { reclassified: true, explicit: null, wallClock: NOW }))
+    const day7 = classify(
+      s,
+      censusClock(s, { reclassified: true, explicit: null, wallClock: laterWallClock })
+    )
+    expect(JSON.stringify(day7)).toBe(JSON.stringify(day0))
+
+    // And the falsifier: the wall clock really would have moved this row, so
+    // the assertion above is pinning something rather than restating a constant.
+    expect(classify(s, NOW).verdictCounts['never-worked']).toBe(0)
+    expect(classify(s, laterWallClock).verdictCounts['never-worked']).toBe(1)
   })
 })
 

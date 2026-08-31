@@ -181,6 +181,42 @@ function daysBetween(fromIso: string, toIso: string): number {
   return Math.floor(ms / 86_400_000)
 }
 
+/**
+ * The clock a census is classified against.
+ *
+ * `now` being a parameter is worth nothing if the caller always hands it the
+ * wall clock, and until 2026-08-31 that is exactly what the CLI did. Measured
+ * on the committed 2026-08-24 snapshot, reclassified seven days later with the
+ * identical classifier and only `now` moved:
+ *
+ *     now=2026-08-24  ->  never-worked  9, needs-probe 94
+ *     now=2026-08-31  ->  never-worked 18, needs-probe 85
+ *
+ * Nine issues crossed STALE_DAYS while nobody touched them, so a run-to-run
+ * diff would have reported the calendar as backlog movement. The header of
+ * scripts/backlog-census.ts promised `--from` returned "byte-identical output",
+ * and nothing ever diffed two runs to find out otherwise: a claim that cannot
+ * fail (Law 12), sitting inside the tool built to stop exactly that.
+ *
+ * So a RECLASSIFIED census defaults to the snapshot's own `fetchedAt`, which
+ * reproduces the original run because a live run classifies at the instant it
+ * fetched. `explicit` (the CLI's `--now`) overrides for deliberate what-if
+ * questions such as "which rows go stale next week", and must be stated, never
+ * drifted into.
+ */
+export function censusClock(
+  snapshot: Snapshot,
+  opts: { reclassified: boolean; explicit: string | null; wallClock: string }
+): string {
+  if (opts.explicit !== null) {
+    if (Number.isNaN(Date.parse(opts.explicit))) {
+      throw new Error(`--now is not a parsable timestamp: ${opts.explicit}`)
+    }
+    return opts.explicit
+  }
+  return opts.reclassified ? snapshot.fetchedAt : opts.wallClock
+}
+
 function buildFlags(
   issue: IssueRecord,
   acs: ReturnType<typeof countAcs>,
