@@ -263,7 +263,11 @@ mountpoint -q "${AUDIT_BIND_DIR}" \
 # it alongside the connector; the connector preserves that mode on rotation.
 install -d -o root -g root -m 0755 "${MEDCHRON_DATA_DIR}"
 install -d -o root -g workspace-broker -m 0770 "${MEDCHRON_DATA_DIR}/queue"
-install -d -o root -g root -m 0700 "${MEDCHRON_DATA_DIR}/jobs"
+# jobs/: root-owned, group medchron EXECUTE-ONLY (0710) — the driver child
+# must traverse it to reach its own job dir (live-caught 2026-08-31: 0700
+# gave the child PermissionError on its job.yaml) but must not be able to
+# list or open sibling jobs; each job dir is 0700 medchron.
+install -d -o root -g medchron -m 0710 "${MEDCHRON_DATA_DIR}/jobs"
 MEDCHRON_RUN_DIR="/run/smd-medchron"
 mkdir -p "${MEDCHRON_RUN_DIR}"
 mountpoint -q "${MEDCHRON_RUN_DIR}" \
