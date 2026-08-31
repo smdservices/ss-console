@@ -112,6 +112,20 @@ def _tool_of(wired_via: str) -> str:
     return parts[1].strip()
 
 
+#: `wired_via` prefix for a control that fires as a mandatory stage of the
+#: medchron runner's fixed DAG (ss#2614) — neither a hook nor an agent-called
+#: tool. The remainder is the gate module's repo path.
+_RUNNER_PREFIX = "runner"
+
+
+def _runner_of(wired_via: str) -> str:
+    """`"runner / <repo path>"` -> `<repo path>`, else `""`."""
+    parts = (wired_via or "").split("/", 1)
+    if len(parts) != 2 or parts[0].strip() != _RUNNER_PREFIX:
+        return ""
+    return parts[1].strip()
+
+
 # --------------------------------------------------------------------------- #
 # structure                                                                    #
 # --------------------------------------------------------------------------- #
@@ -266,11 +280,46 @@ def test_wired_via_hooks_exist_in_surface() -> None:
     required = set(_hook_surface().get("requiredHooks") or {})
     for key, spec in _controls().items():
         wired = spec.get("wired_via")
-        if not wired or _tool_of(wired):
+        if not wired or _tool_of(wired) or _runner_of(wired):
             continue
         hook = _hook_of(wired)
         assert hook in required, (
             f"{key}: wired_via names hook {hook!r} which is not in overlay-hook-surface.json"
+        )
+
+
+def test_runner_wired_controls_name_a_module_the_runner_ships() -> None:
+    """ss#2614: a third wiring shape beside hooks and tools. `runner / <path>`
+    means the control fires because it is a mandatory stage of the medchron
+    runner's fixed DAG — no hook wraps it and no agent chooses to call it; the
+    driver cannot reach delivery without it. The claim is checkable two ways:
+    the named module exists in this tree, and the runner's DAG module names it
+    (a gate module the DAG never binds would be inert by construction)."""
+    dag_src = (_OP / "runners" / "medchron" / "medchron" / "dag.py").read_text(encoding="utf-8")
+    stages_dir = _OP / "runners" / "medchron" / "medchron" / "stages"
+    stage_srcs = "\n".join(p.read_text(encoding="utf-8") for p in stages_dir.glob("*.py"))
+    audit_dir = _OP / "runners" / "medchron" / "medchron" / "audit"
+    audit_srcs = "\n".join(p.read_text(encoding="utf-8") for p in audit_dir.glob("*.py"))
+    for key, spec in _controls().items():
+        path = _runner_of(spec.get("wired_via", ""))
+        if not path:
+            continue
+        module = _OP / path.removeprefix("operator/")
+        assert module.is_file(), f"{key}: runner-wired module {path!r} does not exist"
+        # Two honest shapes of "the DAG reaches this gate": a stage imports the
+        # gate by name (identity.py -> cross_client), or the gate delegates to
+        # a stage/audit seam whose module the DAG binds (extractive -> strip,
+        # provenance -> coverage, claim_audit -> audit.coverage). Either way
+        # there is a text path from dag.py to the module; a gate with neither
+        # is inert by construction.
+        stem = module.stem
+        src = module.read_text(encoding="utf-8")
+        seams = re.findall(r"from \.\.(?:stages|audit) import ([a-z_]+)", src)
+        seam_bound = any(seam in dag_src for seam in seams)
+        named_by_stage = stem in dag_src or stem in stage_srcs or stem in audit_srcs
+        assert seam_bound or named_by_stage, (
+            f"{key}: {stem!r} is neither named by a DAG/stage module nor delegating "
+            f"to a DAG-bound seam (imports: {seams})"
         )
 
 

@@ -99,7 +99,7 @@ repeatedly is a fact the repo failed to write down.
 - **Never echo secret values.** Transcripts persist in ~/.claude/ and are sent to API providers.
 - **Verify secret VALUES, not just key existence.**
 - **Never auto-save to VCMS** without explicit Captain approval.
-- **Scope discipline.** Discover additional work mid-task — finish current scope, file a new issue.
+- **Scope discipline: do the work, do not file it.** Work discovered mid-task gets **done now** if it is within reach — that is what a platoon of agents is for. Finish the current scope first, then do it. File an issue only when it is genuinely not doable now: blocked on something that does not yet exist, or a decision only the Captain can make. "I noticed something" is not a reason to file. **Standing target: zero open issues.** Automated reconcilers (`unaudited-send-reconcile`, `terminal-state-reconcile`) are exempt — their issues are alerts, and the target must never become a reason to silence a monitor.
 - **Escalation triggers.** Credential not found in 2 min, same error 3 times, blocked >30 min — stop and escalate.
 
 ### Gone means gone (removal discipline)

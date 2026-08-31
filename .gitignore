@@ -87,3 +87,12 @@ node_modules
 # worker's write registered as a dirty tracked file, which tripped the
 # worktree-doctor safety gate and blocked automatic orphan cleanup.
 /result.json
+
+# A seat's audit_log is SQLite on the Machine's volume, not D1, and the
+# connector opens it by the path in CUSTOMER_DB. Run any of that code with the
+# variable unset and the literal string becomes the filename, so an empty
+# database lands in whatever directory the process started in. One got
+# committed that way (ss#2239): a single `audit_log` table, zero rows, nothing
+# in the repo referencing it. Ignored so the next unset run leaves a stray file
+# rather than a tracked one.
+/CUSTOMER_DB

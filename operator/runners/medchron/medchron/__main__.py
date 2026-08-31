@@ -11,8 +11,13 @@ from . import config as config_mod, dag, driver as driver_mod
 
 def _cmd_run(args: argparse.Namespace) -> int:
     try:
+        # Progress goes to stderr: with --json, stdout is the machine-read
+        # verdict and nothing else (the daemon parses it; live-caught
+        # 2026-08-31 when interleaved [run] lines made the report unreadable
+        # and a real refusal recorded as "exited 4 without a verdict").
         d = driver_mod.Driver(Path(args.job_dir), firm_config=args.firm_config, pricing=args.pricing,
-                              dry_run=args.dry_run, start=args.start)
+                              dry_run=args.dry_run, start=args.start,
+                              log=lambda m: print(m, file=sys.stderr))
         outcomes = d.run()
     except (driver_mod.DriverError, config_mod.ConfigError) as exc:
         print(f"medchron: {exc}", file=sys.stderr)

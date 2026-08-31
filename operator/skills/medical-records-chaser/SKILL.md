@@ -185,8 +185,11 @@ never Shape B (the firm's file-naming convention is unconfirmed).
    authored confirm-by date). Verify each entry live
    (`list_tasks(matter_id, is_completed=false)`, `get_files_on_matter`), then:
    - a matching record has landed and is matched with confidence → mark received
-     (`update_task`), log (`create_memo`), append a `resolved` ledger event, and
-     let it fall into the daily digest.
+     (`update_task`), log (`create_memo`), and append a `resolved` ledger event —
+     but **only when the ledger holds a raise (a `chased`) for the item**: a
+     never-raised item needs no ledger row (closing the task is the state
+     change; the broker refuses a release with no prior raise — write nothing
+     and move on). Let it fall into the daily digest.
    - still outstanding → chase on the cadence (quiet by design; tell the attorney
      only if it stalls). After the chase is **staged or sent** (the `send_message`
      call succeeded — at `draft_for_review` that means a held draft exists), log
@@ -197,9 +200,15 @@ never Shape B (the firm's file-naming convention is unconfirmed).
      happen. Never auto-mark received on a say-so or an ambiguous match.
    - plan action `surface_hold` → the matter is held (no authored roster, a
      roster without addresses, an ambiguous receipt match). Re-check the blocking
-     fact live first: cleanly resolved → append `resolved` on the hold sentinel;
-     still blocked → re-surface to a person AND append a fresh `fired` on the
-     hold sentinel in the same turn (the raise starts the next quiet window).
+     fact live first: cleanly resolved → append `resolved` on the hold sentinel,
+     and state in the same turn's memo WHY the hold released (what was observed,
+     and from where — the release must read as an observed fact, never an
+     assumption). The hold sentinel needs a prior raise like any other item: if
+     the ledger holds no `fired` for it, there is no hold to release and no row
+     to write. Still blocked → re-surface to a person AND append a fresh `fired`
+     on the hold sentinel in the same turn (the raise starts the next quiet
+     window; a later `fired` after a release RE-ACTIVATES the hold — release is
+     terminal only until the alarm rings again).
      Send no chase.
    - plan action `surface_config_missing` / `surface_no_roster_tasks` → surface
      the seat-level condition (cadence not authored / open tasks carry no roster

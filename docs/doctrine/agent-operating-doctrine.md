@@ -312,6 +312,32 @@ This venture already enforces exactly this discipline on its code and not on its
 
 It is `primer` rather than `gate` because the failure is a missing thought, not a detectable state: no hook can see that a passing command was incapable of failing. The cost is `low` -- naming the falsifier takes one sentence and usually one extra command, and unlike a radar line it produces no false positives to teach agents to skim.
 
+### Law 13: Do the work, do not file it
+
+```yaml
+id: do-it-now-dont-file-it
+primer_line: 'Do the work, do not file it: work found mid-task gets done now unless it is blocked on something that does not exist yet or needs a Captain decision. Standing target is zero open issues.'
+cost: low
+tier: primer
+enforcement:
+  - .claude/hooks/reflex-primer.sh
+  - CLAUDE.md
+incidents:
+  - date: 2026-08-31
+    ref: feedback_do_the_work_dont_file_an_issue (140 open, 136 agent-filed, 115 within 30 days)
+escalation: none pending
+```
+
+A backlog is not a record of ambition, it is a record of work the venture declined to do while telling itself otherwise. On 2026-08-31 a census counted 140 open issues in this repo. 136 of them had been filed by agent sessions and 115 within the previous 30 days, the same month a client went into production. Only three were older than sixty days. None of that was drift or neglect: every one of those sessions was following the rule this repo had written down, which said to finish the current scope and file a new issue for anything else.
+
+The Captain had been saying the opposite out loud for months. That is the diagnosis, and it is not a diligence problem: the repo contradicted the Captain in writing, on every turn, and the writing won. This venture already names the pattern in its own words, that a fact an agent has to be told repeatedly is a fact the repo failed to write down.
+
+So the rule inverts. A platoon of agents can do in an afternoon what a backlog was invented to defer, and the reason to file was never capability, it was calendar. Work found mid-task gets finished after the current scope, in the same session. An issue is correct in exactly two cases: the work is blocked on something that does not exist yet, or it needs a decision only the Captain can make. Noticing something is not one of them, and neither is a defect you could have fixed in the time it took to describe it.
+
+Two guards on the target. Automated reconcilers file alerts rather than backlog and are exempt, because a standing goal of zero must never become an argument for silencing a monitor. And closing an issue is not doing the work: a close records a decision not to do something, which is why the retirement path is `force-close` with a written rationale, a visible scope decision rather than a silent omission.
+
+It is `primer` rather than `gate` because no hook can tell a deferral from a genuine block. The cost is `low`: the rule removes a step rather than adding one.
+
 ---
 
 ## Mechanisms under review

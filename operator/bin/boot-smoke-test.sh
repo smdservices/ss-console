@@ -419,9 +419,22 @@ ssh_exec "medchron-daemon-idle" "! test -f /run/smd-medchron/child.pid"
 # controllers; memory is on the v1 mount). `none` is the failure.
 ssh_exec "medchron-memory-cap-present" "grep -q memory_cap.:..cgroup /run/smd-medchron/heartbeat.json"
 ssh_exec "medchron-queue-root-owned" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/queue)\" = root:workspace-broker:770 ]"
-ssh_exec "medchron-jobs-dir-root-only" "[ \"\$(stat -c %U:%a /run/smd-medchron/jobs)\" = root:700 ]"
+ssh_exec "medchron-jobs-dir-root-owned-child-traversable" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/jobs)\" = root:medchron:710 ]"
 ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
 ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
 ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+
+# ---------- Step 14b: the four registered runner gates refuse their planted violations (ss#2614, ADR 0087) ----------
+# `medchron probe <gate>` builds a throwaway synthetic matter, plants exactly
+# the violation the registry names, runs the gate module the registry points
+# at, and prints REFUSED only when the gate held. $0 and offline. These back
+# the `enforced` status of the four medchron_* rows in runtime-controls.yaml
+# (probe_surface: prod-boot): the status is re-earned on every provision, not
+# asserted once. What makes these able to FAIL: neuter a gate module (return 0,
+# drop the planted check) and its probe prints UNEXPECTED_PASS, non-zero.
+ssh_exec "medchron-gate-claim-audit-refuses" "/opt/medchron/.venv/bin/medchron probe claim_audit | grep -q REFUSED"
+ssh_exec "medchron-gate-extractive-refuses" "/opt/medchron/.venv/bin/medchron probe extractive | grep -q REFUSED"
+ssh_exec "medchron-gate-cross-client-refuses" "/opt/medchron/.venv/bin/medchron probe cross_client | grep -q REFUSED"
+ssh_exec "medchron-gate-provenance-refuses" "/opt/medchron/.venv/bin/medchron probe provenance | grep -q REFUSED"
 
 log "All boot smoke checks passed for ${APP_NAME}"

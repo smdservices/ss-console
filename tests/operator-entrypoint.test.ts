@@ -167,7 +167,9 @@ describe('entrypoint.sh: the chronology runner daemon (ss#2614)', () => {
       /install -d -o root -g workspace-broker -m 0770 "\$\{MEDCHRON_DATA_DIR\}\/queue"/
     )
     expect(ENTRYPOINT_CODE).toMatch(
-      /install -d -o root -g root -m 0700 "\$\{MEDCHRON_DATA_DIR\}\/jobs"/
+      // 0710 group medchron: the driver child traverses to its own job dir but
+      // cannot list or open siblings (live-caught 2026-08-31 at 0700).
+      /install -d -o root -g medchron -m 0710 "\$\{MEDCHRON_DATA_DIR\}\/jobs"/
     )
     expect(ENTRYPOINT_CODE).toMatch(
       /mount --bind "\$\{MEDCHRON_DATA_DIR\}" "\$\{MEDCHRON_RUN_DIR\}"/

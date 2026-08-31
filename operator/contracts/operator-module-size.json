@@ -11,7 +11,7 @@
     "operator/customers/pilot-smokeball/seed/seed_data.py": 515,
     "operator/customers/pilot-smokeball/seed/seed_voice_letters.py": 644,
     "operator/safety-substrate/sticky_stop.py": 553,
-    "operator/skills/client-verification-tracker/pre_run.py": 658,
+    "operator/skills/client-verification-tracker/pre_run.py": 634,
     "operator/skills/deadline-miss-escalator/pre_run.py": 884,
     "operator/skills/lien-ledger-tracker/pre_run.py": 969,
     "operator/skills/medical-records-chaser/pre_run.py": 692,
