@@ -12,17 +12,27 @@
  *   npx tsx scripts/backlog-census.ts --json               # census as JSON
  *   npx tsx scripts/backlog-census.ts --snapshot out.json  # keep the raw snapshot
  *   npx tsx scripts/backlog-census.ts --from snap.json     # reclassify, no network
+ *   npx tsx scripts/backlog-census.ts --from s.json --now 2026-09-30T00:00:00Z
  *
  * `--from` is the reproducibility door: hand someone the snapshot and they get
- * byte-identical output, which is what makes a census arguable rather than
- * merely asserted.
+ * the same census back, which is what makes it arguable rather than merely
+ * asserted. That only holds because `--from` classifies at the snapshot's own
+ * `fetchedAt` rather than at today's wall clock -- see censusClock() in
+ * scripts/backlog/classify.ts for the seven-day measurement that says why, and
+ * pass `--now` when you deliberately want a different clock.
  *
  * @see scripts/backlog/classify.ts - the rules, and why each exists
  */
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { classify, renderReport, type IssueRecord, type Snapshot } from './backlog/classify'
+import {
+  censusClock,
+  classify,
+  renderReport,
+  type IssueRecord,
+  type Snapshot,
+} from './backlog/classify'
 
 const REPO = process.env.BACKLOG_REPO ?? 'venturecrane/ss-console'
 /** How far back to read merged PRs and commits. Beyond this, links are assumed cold. */
@@ -266,14 +276,21 @@ function flagValue(argv: string[], name: string): string | null {
 
 function main(): void {
   const argv = process.argv.slice(2)
-  const now = new Date().toISOString()
+  const wallClock = new Date().toISOString()
   const from = flagValue(argv, '--from')
 
-  const snapshot = from ? loadSnapshot(from) : fetchSnapshot(now)
+  const snapshot = from ? loadSnapshot(from) : fetchSnapshot(wallClock)
 
   const snapshotOut = flagValue(argv, '--snapshot')
   if (snapshotOut) writeFileSync(snapshotOut, JSON.stringify(snapshot, null, 2))
 
+  // Never `wallClock` directly: a reclassified snapshot must be judged against
+  // the clock it was fetched at, or age-keyed rules move without the backlog.
+  const now = censusClock(snapshot, {
+    reclassified: from !== null,
+    explicit: flagValue(argv, '--now'),
+    wallClock,
+  })
   const census = classify(snapshot, now)
   process.stdout.write(
     argv.includes('--json')
