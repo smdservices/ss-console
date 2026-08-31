@@ -748,7 +748,23 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # shared/{action_classes,customer_config,operations_request,rule_confirm,
 # rule_dispatch,send_dispatch,spec_gate}.py and three test files -- NOT tracked
 # pairs; every overlaySha256 unchanged, only overlayRef.
-ARG OVERLAY_REF="45cc19e7184223a344fbe303f1539a81c64d9122"
+#
+# 45cc19e7 -> 727f3f5b (overlay#337, ss#2664 WS-RENDER pair). ONE merge in the
+# range. From this ref the seat dispatches a routine's PRE-RENDERED outbound
+# out of turn at pre_llm_call (shared/prerendered_dispatch.py: consume-once
+# envelope, full -> skeleton -> failure-note ladder, post-dispatch ledger
+# appends under the witness session), enforces the in-turn rendered-body slot
+# check (shared/rendered_body_gate.py), stamps rendered_body_sha256 +
+# body_variant + routing_leg onto CONFIRM rows (pre-mutation canonical hash),
+# down-renders the text/plain half of report sends (report_render.render_plain),
+# and runs the outbound fabrication/identifier scans on the out-of-turn send
+# path. Mirrors tests/contract/send-render.yaml + the canon-vector arbiter.
+# Files: plugins/hermes-smd-trust/{__init__.py,outbound_send.py},
+# shared/{agentmail_broker,msgraph_broker,prerendered_dispatch,
+# rendered_body_gate,report_render}.py and eight test files -- NOT tracked
+# pairs; every overlaySha256 unchanged, only overlayRef. Vocabulary identical
+# (71, AST re-read at both refs); shared/heartbeat.py byte-identical.
+ARG OVERLAY_REF="727f3f5b21c6fb5542ffd6ccf8e38df27fbc4bfc"
 
 ARG CUSTOMER_SLUG=customer-zero
 
