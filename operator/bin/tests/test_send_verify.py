@@ -117,6 +117,24 @@ def test_the_required_trailing_newline_vector_exists_and_is_an_equivalence():
     assert by_name["trailing_newline"]["input"] != by_name["plain_two_lines"]["input"]
 
 
+def test_only_space_and_tab_strip_exotic_whitespace_is_content():
+    """The ss#2664 render-pair drift: a bare rstrip() eats EVERY Unicode
+    whitespace, so a mail-client-converted trailing nbsp would hash differently
+    here than at the render-side stamp sites (which strip " \\t" only) and
+    false-HOLD the channel check. The nbsp_tail_survives vector is the shared
+    pin; this test states the semantics directly."""
+    fixture = json.loads((CONTRACTS / "fixtures" / "body-canon-vectors.json").read_text())
+    by_name = {v["name"]: v for v in fixture["vectors"]}
+    assert "nbsp_tail_survives" in by_name
+    assert sv.canonical_body_sha256("Hello\xa0\n") == by_name["nbsp_tail_survives"]["sha256"]
+    # The exotic tails are CONTENT: none of them may collapse to plain "Hello".
+    plain = sv.canonical_body_sha256("Hello")
+    for tail in ("\xa0", "\x0c", "\x0b"):
+        assert sv.canonical_body_sha256(f"Hello{tail}\n") != plain, repr(tail)
+    # While space and tab still strip exactly as specified.
+    assert sv.canonical_body_sha256("Hello \t\n") == plain
+
+
 # ---------------------------------------------------------------------------
 # the committed contract file parses and is in the wave-1 authored state
 # ---------------------------------------------------------------------------
