@@ -36,6 +36,19 @@ org or inbox scope; a NON-EMPTY send-allow list at a scope that omits a
 rostered address. Exit contract matches reconcile-sends: 0 clean, 1 findings,
 2 HOLD (auth/transport -- nothing measured).
 
+ORG SCOPE IS OUTSIDE THIS CONTROL'S VIEW, BY CREDENTIAL POSTURE (first live
+run, 2026-08-31, workflow run 33430061160). The AGENTMAIL_API_KEY in CI is the
+ss#2258 SCOPED per-inbox key; the org-wide key deliberately exists nowhere --
+that fence was the point. So org-scope list GETs return HTTP 403 forever, and
+a 403 THERE is a NOTED SKIP (one line in the report), not a hold: holding on a
+read our own posture forbids would redden every run into muteness. The
+control's claim shrinks to what it measures -- the INBOX-scope lists, which
+the scoped key can read and which override org anyway per the vendor's
+precedence rules. Every OTHER org-scope failure still HOLDS, and an
+inbox-scope 403 holds too (the scoped key SHOULD read its own inboxes' lists;
+if it cannot, that is the vendor question appended to
+docs/runbooks/operator/agentmail-vendor-ask-deliverability.md).
+
 Usage:
     infisical run --env=prod --path=/ss -- python3 operator/bin/check-agentmail-lists.py
 """
@@ -76,6 +89,13 @@ class ListsError(RuntimeError):
     """Transport, auth, or shape failure. Holds; never a finding."""
 
 
+class ListsForbidden(ListsError):
+    """HTTP 403: the credential cannot read this scope. At ORG scope this is
+    the designed state (scoped per-inbox key, no org key anywhere) and the
+    caller downgrades it to a noted skip; anywhere else it holds like any
+    other ListsError."""
+
+
 def _get(path: str, api_key: str, *, opener=None) -> dict:
     request = urllib.request.Request(
         AGENTMAIL_API_BASE + path, headers={"Authorization": f"Bearer {api_key}"}
@@ -90,6 +110,11 @@ def _get(path: str, api_key: str, *, opener=None) -> dict:
             # documented (the reference does not state the empty-scope status),
             # so 404 reads as "no entries" while every OTHER status holds.
             return {}
+        if exc.code == 403:
+            # The credential cannot read this scope. Typed so the org-scope
+            # caller can downgrade the DESIGNED case (scoped key, no org key)
+            # to a noted skip; every other caller treats it as the hold it is.
+            raise ListsForbidden(f"agentmail GET {path} failed: HTTP 403") from exc
         raise ListsError(f"agentmail GET {path} failed: HTTP {exc.code}") from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:
         raise ListsError(f"agentmail GET {path} failed: {exc}") from exc
@@ -295,8 +320,22 @@ def finding_digest(reports: list[SeatListsReport]) -> str:
     return hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
 
 
-def render(reports: list[SeatListsReport]) -> str:
+#: The one-line residual note printed when the org scope is skipped. A
+#: constant so the report, the tests, and the module docstring cannot drift
+#: apart about what this control does and does not measure.
+ORG_SCOPE_SKIP_NOTE = (
+    "n/a   org-scope lists unreadable with a scoped key; "
+    "org-level blocks are outside this control's view (see module docstring)"
+)
+
+
+def render(reports: list[SeatListsReport], *, org_note: Optional[str] = None) -> str:
     lines: list[str] = []
+    if org_note:
+        # First line on purpose: the report's claim shrinks to what it
+        # measures, and the shrinkage is stated before any per-seat verdict
+        # can be read as covering the org scope.
+        lines.append(org_note)
     for report in reports:
         if report.held:
             lines.append(f"HOLD  {report.inbox}: {report.held}")
@@ -322,9 +361,10 @@ def render(reports: list[SeatListsReport]) -> str:
     findings = sum(len(r.findings) for r in reports if r.held is None)
     held = [r for r in reports if r.held]
     lines.append("")
+    scope_claim = "per-inbox send scope only" if org_note else "org + per-inbox send scope"
     lines.append(
         f"{findings} suppression finding(s), {len(held)} held, {len(reports)} seat(s) checked "
-        "(AgentMail Lists: org + per-inbox send scope)"
+        f"(AgentMail Lists: {scope_claim})"
     )
     # Column 0, render() only: the workflow locates its ONE rolling issue by
     # the constant marker and reads the digest to decide whether to comment.
@@ -360,11 +400,21 @@ def main(argv: Optional[list[str]] = None) -> int:
     if not api_key:
         print("HOLD  agentmail: AGENTMAIL_API_KEY unset (run under infisical)")
         return EXIT_HOLD
+    org_note: Optional[str] = None
     try:
         org_lists = (
             fetch_list(api_key, "send", "block"),
             fetch_list(api_key, "send", "allow"),
         )
+    except ListsForbidden:
+        # The DESIGNED state (first live run, 2026-08-31): the CI key is the
+        # ss#2258 scoped per-inbox key and the org-wide key deliberately
+        # exists nowhere, so this 403 is permanent. Noted skip, not a hold --
+        # the inbox-scope lists below are the real check, and they override
+        # org anyway per the vendor's precedence. Any OTHER org failure still
+        # holds on the branch below.
+        org_lists = ([], [])
+        org_note = ORG_SCOPE_SKIP_NOTE
     except ListsError as exc:
         print(f"HOLD  agentmail: org-scope lists unreadable: {exc}")
         return EXIT_HOLD
@@ -373,7 +423,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("HOLD  agentmail: no seat authors adapter agentmail; nothing was evaluated")
         return EXIT_HOLD
     reports = [check_seat(slug, api_key, org_lists) for slug in seats]
-    print(render(reports))
+    print(render(reports, org_note=org_note))
     if any(r.is_finding for r in reports):
         return EXIT_FINDING
     if any(r.held for r in reports):
