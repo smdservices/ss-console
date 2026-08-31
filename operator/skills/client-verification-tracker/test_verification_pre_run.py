@@ -463,6 +463,304 @@ def test_held_matter_with_two_items_surfaces_once():
 
 
 # ---------------------------------------------------------------------------
+# decide() — a raise after a resolved hold RE-ACTIVATES it (the symmetric
+# reset in the shared ledger). Live sequence off the pilot: the hold fired
+# 08-24, resolved 08-27, and the 08-31 turn re-raised it; before the fix the
+# fold kept `resolved` sticky and the next wake planned a chase straight past
+# the re-surfaced blocker (the investigate -> re-block -> chase loop).
+# ---------------------------------------------------------------------------
+
+
+def test_hold_reactivated_by_fired_after_resolved():
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-06-24T14:00:00.000Z", attempt=1),
+        _hold_event(item, event="resolved", ts="2026-06-27T14:00:00.000Z"),
+        _hold_event(item, ts="2026-07-10T09:00:00.000Z", attempt=2),
+    ]
+    # Re-raised 4 days ago (refire window 3): the hold re-surfaces, the due
+    # chase stays blocked — never ACTION_CHASE.
+    d = _decide([item], events)
+    assert d.wake is True
+    assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]
+
+
+def test_hold_reactivated_within_refire_window_blocks_quietly():
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-06-24T14:00:00.000Z", attempt=1),
+        _hold_event(item, event="resolved", ts="2026-06-27T14:00:00.000Z"),
+        _hold_event(item, ts="2026-07-13T09:00:00.000Z", attempt=2),
+    ]
+    d = _decide([item], events)
+    assert d.wake is False  # within the window: quiet, and still no chase
+    assert d.decision_basis == "no_verification_action_due"
+
+
+# ---------------------------------------------------------------------------
+# decide() — the signer determination consult (ss #2402 Part 3): the current
+# role-snapshot hash rides every hold surface; a determination whose recorded
+# hash no longer matches the live roles swaps a due chase for a hold surface.
+# ---------------------------------------------------------------------------
+
+_SNAP_A = "aa" * 32
+_SNAP_B = "bb" * 32
+
+_DETERMINATION = {
+    "note": "plaintiff is a single adult; Minor/Deceased tags are layout artifacts",
+    "role_snapshot_sha256": _SNAP_A,
+    "confirmed_via": "matter_record",
+}
+
+
+def _hold_resolved_with_determination(item, *, ts, determination=_DETERMINATION):
+    row = _hold_event(item, event="resolved", ts=ts)
+    row["determination"] = determination
+    return row
+
+
+def _decide_with_hashes(items, events, hashes, *, config=_CFG, today=TODAY):
+    return decide(
+        items,
+        config,
+        _ledger,
+        events,
+        raw_inputs_for_digest=b"x",
+        today=today,
+        refire_days=_REFIRE,
+        role_snapshot_hashes=hashes,
+    )
+
+
+def test_surface_hold_plan_carries_current_snapshot_hash():
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [_hold_event(item, ts="2026-07-10T09:00:00.000Z")]
+    d = _decide_with_hashes([item], events, {"m-1": _SNAP_A})
+    assert d.plans[0].action == ACTION_SURFACE_HOLD
+    assert d.plans[0].current_role_snapshot_sha256 == _SNAP_A
+
+
+def test_surface_hold_plan_carries_null_hash_when_pull_failed():
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [_hold_event(item, ts="2026-07-10T09:00:00.000Z")]
+    d = _decide_with_hashes([item], events, {"m-1": None})
+    assert d.plans[0].action == ACTION_SURFACE_HOLD
+    assert d.plans[0].current_role_snapshot_sha256 is None
+
+
+def test_current_determination_rides_the_chase_plan():
+    # Hold resolved with a determination, roles unchanged (hash matches) → the
+    # chase plans normally, stamped so an ambiguous fresh derivation can adopt
+    # the recorded determination and cite it.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-06-24T14:00:00.000Z"),
+        _hold_resolved_with_determination(item, ts="2026-06-27T14:00:00.000Z"),
+    ]
+    d = _decide_with_hashes([item], events, {"m-1": _SNAP_A})
+    assert [p.action for p in d.plans] == [ACTION_CHASE]
+    assert d.plans[0].determination["status"] == "current"
+    assert d.plans[0].determination["note"] == _DETERMINATION["note"]
+    assert d.plans[0].determination["recorded_sha256"] == _SNAP_A
+
+
+def test_stale_determination_swaps_chase_for_hold_surface():
+    # The roles moved since the determination was recorded → never chase on
+    # either reading; surface the discrepancy on the HOLD key so the turn's
+    # fresh `fired` re-activates the hold.
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-06-24T14:00:00.000Z"),
+        _hold_resolved_with_determination(item, ts="2026-06-27T14:00:00.000Z"),
+    ]
+    d = _decide_with_hashes([item], events, {"m-1": _SNAP_B})
+    assert d.wake is True
+    assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]
+    plan = d.plans[0]
+    assert plan.reason == "determination_stale"
+    assert plan.item_key == _ledger.item_key("m-1", HOLD_SOURCE_ID, "chase-hold", None)
+    assert plan.current_role_snapshot_sha256 == _SNAP_B
+    assert plan.determination["status"] == "stale"
+    assert d.extra_metadata["items"][0]["reason"] == "determination_stale"
+
+
+def test_stale_determination_surfaces_once_for_two_items():
+    a = _item(matter_id="m-1", task_id="task-1", next_chase_due=TODAY - timedelta(days=30))
+    b = _item(matter_id="m-1", task_id="task-2", next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(a, ts="2026-06-24T14:00:00.000Z"),
+        _hold_resolved_with_determination(a, ts="2026-06-27T14:00:00.000Z"),
+    ]
+    d = _decide_with_hashes([a, b], events, {"m-1": _SNAP_B})
+    assert [p.action for p in d.plans] == [ACTION_SURFACE_HOLD]  # one, not two
+
+
+def test_unknown_snapshot_degrades_to_stamped_chase():
+    # Pull failed (hash unknown) → fail toward the turn deciding: the chase
+    # plans, stamped status "unknown" so the turn treats it as no
+    # determination (fresh derivation; ambiguity → hold).
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-06-24T14:00:00.000Z"),
+        _hold_resolved_with_determination(item, ts="2026-06-27T14:00:00.000Z"),
+    ]
+    d = _decide_with_hashes([item], events, {"m-1": None})
+    assert [p.action for p in d.plans] == [ACTION_CHASE]
+    assert d.plans[0].determination["status"] == "unknown"
+
+
+def test_no_determination_means_no_stamp():
+    item = _item(next_chase_due=TODAY - timedelta(days=30))
+    events = [
+        _hold_event(item, ts="2026-06-24T14:00:00.000Z"),
+        _hold_event(item, event="resolved", ts="2026-06-27T14:00:00.000Z"),
+    ]
+    d = _decide_with_hashes([item], events, {"m-1": _SNAP_A})
+    assert [p.action for p in d.plans] == [ACTION_CHASE]
+    assert d.plans[0].determination is None
+
+
+def test_hold_source_id_literal_is_the_cross_repo_contract():
+    """The overlay's escalation plugin keys hold-release enforcement on this
+    exact literal (hermes-smd-overlay plugins/hermes-smd-escalation): a derive
+    whose source_id is `__hold__` and whose event is `resolved` must carry the
+    determination. A drifted literal here would silently exempt every hold."""
+    assert HOLD_SOURCE_ID == "__hold__"
+
+
+# ---------------------------------------------------------------------------
+# The role-snapshot projection + hash — pinned against the LIVE probe payload
+# (pilot-smokeball staging 2026-08-31, vfy_01M1CB0NTKCV3ACRY0P6QD6JX7;
+# fixture tests/role_snapshot_probe.json).
+# ---------------------------------------------------------------------------
+
+_FIXTURE_PATH = _HERE.parent / "tests" / "role_snapshot_probe.json"
+
+# The projection/hash live in the sibling role_snapshot.py, loaded the same
+# way the runtime loads it (through pre_run's sibling loader), so these tests
+# exercise the real staging path rather than a direct import.
+_role_snapshot = _pre_run._load_role_snapshot_module()
+assert _role_snapshot is not None, "role_snapshot.py sibling must load from the skill dir"
+
+
+def _load_probe_fixture():
+    return json.loads(_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def _shuffle(value, *, reverse):
+    """Deep-rebuild a payload with reversed key insertion order and reversed
+    list order — the same content a different wire ordering would produce."""
+    if isinstance(value, dict):
+        keys = list(value)
+        if reverse:
+            keys = list(reversed(keys))
+        return {k: _shuffle(value[k], reverse=reverse) for k in keys}
+    if isinstance(value, list):
+        items = [_shuffle(v, reverse=reverse) for v in value]
+        return list(reversed(items)) if reverse else items
+    return value
+
+
+def test_snapshot_hash_is_stable_across_field_order():
+    fixture = _load_probe_fixture()
+    base = _role_snapshot.role_snapshot_hash(
+        _role_snapshot.role_snapshot_projection(fixture["matter"], fixture["roles"])
+    )
+    shuffled = _role_snapshot.role_snapshot_hash(
+        _role_snapshot.role_snapshot_projection(
+            _shuffle(fixture["matter"], reverse=True), _shuffle(fixture["roles"], reverse=True)
+        )
+    )
+    assert base == shuffled
+
+
+def test_snapshot_hash_moves_when_a_role_fact_moves():
+    """The falsifier: a hash that never changes measures nothing. Re-linking a
+    role's contact must move the hash."""
+    fixture = _load_probe_fixture()
+    base = _role_snapshot.role_snapshot_hash(
+        _role_snapshot.role_snapshot_projection(fixture["matter"], fixture["roles"])
+    )
+    mutated = json.loads(json.dumps(fixture["roles"]))
+    mutated["roles"][0]["contactId"] = "00000000-0000-0000-0000-000000000000"
+    mutated["roles"][0]["contact"]["id"] = "00000000-0000-0000-0000-000000000000"
+    assert (
+        _role_snapshot.role_snapshot_hash(
+            _role_snapshot.role_snapshot_projection(fixture["matter"], mutated)
+        )
+        != base
+    )
+
+
+def test_snapshot_hash_moves_when_a_structural_slot_appears():
+    """The F13 conflict source is the layout's structural Minor/Deceased slots
+    under matter.items — adding or removing one is exactly the fact change a
+    determination was derived from."""
+    fixture = _load_probe_fixture()
+    base = _role_snapshot.role_snapshot_hash(
+        _role_snapshot.role_snapshot_projection(fixture["matter"], fixture["roles"])
+    )
+    mutated = json.loads(json.dumps(fixture["matter"]))
+    plaintiff = mutated["items"]["Plaintiff"][0]
+    del plaintiff["subItems"]["Minor"]  # the structural slot disappears
+    assert (
+        _role_snapshot.role_snapshot_hash(_role_snapshot.role_snapshot_projection(mutated, fixture["roles"]))
+        != base
+    )
+
+
+def test_snapshot_hash_ignores_volatile_fields():
+    """href/versionId/title/description/status churn must NOT invalidate a
+    determination — only role facts may."""
+    fixture = _load_probe_fixture()
+    base = _role_snapshot.role_snapshot_hash(
+        _role_snapshot.role_snapshot_projection(fixture["matter"], fixture["roles"])
+    )
+    mutated = json.loads(json.dumps(fixture["matter"]))
+    mutated["versionId"] = "999999999999999999"
+    mutated["href"] = "https://elsewhere.example/matters/x"
+    mutated["description"] = "edited"
+    mutated["status"] = "Closed"
+    assert (
+        _role_snapshot.role_snapshot_hash(_role_snapshot.role_snapshot_projection(mutated, fixture["roles"]))
+        == base
+    )
+
+
+def test_run_once_pulls_hashes_only_for_hold_bearing_matters():
+    """The pull is a second connector subprocess on a 1 vCPU seat: only
+    matters with hold-sentinel history pay for it, serialized."""
+    held = _item(matter_id="m-1", task_id="task-1", next_chase_due=TODAY - timedelta(days=30))
+    free = _item(matter_id="m-2", task_id="task-2", next_chase_due=TODAY)
+    events = [_hold_event(held, ts="2026-07-10T09:00:00.000Z")]
+    pulled: list[str] = []
+
+    def fake_hash(matter_id):
+        pulled.append(matter_id)
+        return _SNAP_A
+
+    executor = FakeExecutor()
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([held, free])],
+            _factory(executor),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=_ledger,
+            ledger_events=events,
+            snapshot_hash_fn=fake_hash,
+        )
+    )
+    assert code == 0
+    assert pulled == ["m-1"]  # never the hold-free matter
+    parsed = json.loads(out)
+    hold_plans = [p for p in parsed["plans"] if p["action"] == "surface_hold"]
+    assert hold_plans and hold_plans[0]["current_role_snapshot_sha256"] == _SNAP_A
+
+
+# ---------------------------------------------------------------------------
 # run_once() — integration + fail-open
 # ---------------------------------------------------------------------------
 
