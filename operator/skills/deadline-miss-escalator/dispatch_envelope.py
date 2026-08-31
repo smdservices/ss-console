@@ -30,19 +30,16 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 SKILL_NAME = "deadline-miss-escalator"
 
-_CONNECTOR_PYTHON_DEFAULT = "/opt/connectors/smokeball/.venv/bin/python"
-_STAFF_PULL_TIMEOUT_SECONDS = 60
-_DEFAULT_STAFF_LOOKUP_BUDGET = 50
-
 #: Bounds the envelope so a pathological universe cannot write an unbounded
-#: file for the overlay to trust.
+#: file for the overlay to trust. Recipient groups past the cap are NOT
+#: dropped silently: their matters land in the unroutable + memo lists so a
+#: person learns delivery did not happen.
 _MAX_DISPATCHES = 10
 _MAX_APPENDS_PER_DISPATCH = 200
 
@@ -83,94 +80,9 @@ def _load_yaml(customer_yaml_path: str | None) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _staff_lookup_budget(data: dict) -> int:
-    esc = data.get("escalation") if isinstance(data.get("escalation"), dict) else {}
-    raw = esc.get("staff_lookup_budget")
-    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
-        return _DEFAULT_STAFF_LOOKUP_BUDGET
-    return raw
-
-
-# Runs inside the connector venv. Matter ids arrive on STDIN as a JSON list —
-# never argv (the pre_run nosemgrep contract keeps argv free of pulled data).
-# Absent/disabled/former staff are reported as-is; the pure routing module
-# decides usability. Errors are per-matter and wholesale, never fatal: a staff
-# pull that dies must not kill the digest (central/fallback still route).
-_STAFF_PULL_SNIPPET = """\
-import json
-import sys
-
-from smokeball_connector.client import build_client_from_env
-
-matter_ids = json.load(sys.stdin)
-client = build_client_from_env()
-out = {}
-for matter_id in matter_ids:
-    entry = {"responsible": None, "assisting": []}
-    try:
-        matter = client.get(f"/matters/{matter_id}")
-        if not isinstance(matter, dict):
-            matter = {}
-        staff_ids = []
-        rid = matter.get("personResponsibleStaffId")
-        if isinstance(rid, str) and rid:
-            staff_ids.append(("responsible", rid))
-        for key in ("personAssistingStaffIds", "personAssistingStaffId", "personAssistingStaffs"):
-            raw = matter.get(key)
-            if isinstance(raw, str) and raw:
-                staff_ids.append(("assisting", raw))
-            elif isinstance(raw, list):
-                for sid in raw:
-                    if isinstance(sid, str) and sid:
-                        staff_ids.append(("assisting", sid))
-        for kind, sid in staff_ids:
-            try:
-                staff = client.get(f"/staff/{sid}")
-            except Exception as exc:
-                entry.setdefault("errors", []).append(str(exc)[:200])
-                continue
-            if not isinstance(staff, dict):
-                continue
-            record = {
-                "email": staff.get("email"),
-                "enabled": staff.get("enabled"),
-                "former": staff.get("former"),
-            }
-            if kind == "responsible":
-                entry["responsible"] = record
-            else:
-                entry["assisting"].append(record)
-    except Exception as exc:
-        entry["error"] = str(exc)[:200]
-    out[matter_id] = entry
-print(json.dumps(out, default=str))
-"""
-
-
-def pull_matter_staff(matter_ids: list[str], budget: int) -> dict[str, dict]:
-    """Pull staff assignments for ``matter_ids`` (first ``budget`` of them) in
-    the connector venv. Any failure returns what resolved; an absent entry is
-    UNPOPULATED and routes to the fallback path — fail toward a person."""
-    ids = [m for m in matter_ids if isinstance(m, str) and m and m != "unknown-matter"]
-    ids = ids[: max(0, budget)]
-    if not ids:
-        return {}
-    connector_python = os.environ.get("SMD_CONNECTOR_VENV_PYTHON", _CONNECTOR_PYTHON_DEFAULT)
-    try:
-        result = subprocess.run(
-            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args — argv[0] is the module-constant connector-venv interpreter, overridable only via SMD_CONNECTOR_VENV_PYTHON from the Machine's own boot env (same trust domain; the test seam — the pre_run pull carries the identical justification). The snippet is a module constant; the matter ids ride STDIN, never argv.
-            [connector_python, "-c", _STAFF_PULL_SNIPPET],
-            input=json.dumps(ids),
-            capture_output=True,
-            text=True,
-            timeout=_STAFF_PULL_TIMEOUT_SECONDS,
-        )
-        if result.returncode != 0:
-            return {}
-        raw = json.loads((result.stdout or "").strip().splitlines()[-1])
-        return raw if isinstance(raw, dict) else {}
-    except Exception:  # noqa: BLE001 — a staff pull must never kill the digest
-        return {}
+# The staff pull + its authored budget live in the vendored ``routing.py``
+# (one pull, one resolution, shared with client-verification-tracker — the
+# WS-RENDER review's finding 2).
 
 
 # ---------------------------------------------------------------------------
@@ -285,19 +197,28 @@ def build_and_write(
     today,
     ack_snooze_days: int,
     customer_yaml_path: str | None = None,
-    staff_pull=pull_matter_staff,
+    staff_pull=None,
 ) -> dict:
     """Render everything, write the envelope, and return the EMITTED_WAKE
-    metadata additions ({} on any failure — the wake proceeds undecorated and
-    the turn's failure-note instruction plus the heartbeat pager cover it).
+    metadata additions.
 
-    ``staff_pull`` is the test seam; production uses the connector subprocess.
+    {} on any failure: the wake proceeds undecorated, ``dispatch_expected``
+    stays absent, and SKILL.md's plans-without-dispatch_expected branch has
+    the turn send the one-line failure note (the heartbeat's no-send pager
+    backstops). An envelope with ZERO dispatches is still written when it
+    carries memo duties (fallback/floor matters), so the dispatcher's context
+    note delivers them — the wake line itself carries no unroutable list.
+
+    ``staff_pull`` is the test seam; production uses the vendored routing
+    module's connector-venv pull (shared with client-verification-tracker).
     """
     try:
         render = _load_sibling("render.py", "escalator_render")
         routing = _load_sibling("routing.py", "escalator_routing")
         if render is None or routing is None:
             return {}
+        if staff_pull is None:
+            staff_pull = routing.pull_matter_staff
         customer_yaml = _load_yaml(customer_yaml_path)
         rekey = legacy_rekey_count(deadlines, states, ledger)
 
@@ -324,7 +245,7 @@ def build_and_write(
         mode = routing_block.get("mode") if isinstance(routing_block, dict) else None
         matter_staff: dict[str, dict] = {}
         if mode == "matter_staff":
-            matter_staff = staff_pull(matter_ids, _staff_lookup_budget(customer_yaml))
+            matter_staff = staff_pull(matter_ids, routing.staff_lookup_budget(customer_yaml))
         result = routing.resolve_case_alert_routing(customer_yaml, matter_staff, matter_ids)
 
         # Group matters by resolved recipient set -> one dispatch per set.
@@ -339,11 +260,16 @@ def build_and_write(
         wake_hashes: list[dict] = []
         wake_items: list[dict] = []
         legs: dict[str, int] = {}
+        overflow_matters: set[str] = set()
         for (emails, leg), group in sorted(
             by_recipients.items(), key=lambda kv: (kv[0][1], kv[0][0])
         ):
             if len(dispatches) >= _MAX_DISPATCHES:
-                break
+                # Never a silent drop: an over-cap recipient group's matters
+                # land in the unroutable + memo lists so a person learns the
+                # alert did not go (the review's finding 8).
+                overflow_matters |= group["matter_ids"]
+                continue
             sub = split_digest(digest, group["matter_ids"], today_iso)
             firing = _firing_items(sub)
             if not firing:
@@ -394,26 +320,35 @@ def build_and_write(
             )
             legs[leg] = legs.get(leg, 0) + 1
 
-        # The turn's residual memo duty: fallback-delivered matters AND the
-        # fail-closed floor both flag the matter in place (routing.md steps 5-6).
+        # The turn's residual memo duty: fallback-delivered matters, the
+        # fail-closed floor, and any over-cap overflow all flag the matter in
+        # place (routing.md steps 5-6). The unknown-matter sentinel is
+        # EXCLUDED from both lists: it names no real matter, so there is
+        # nothing to memo and nothing a person could open (the review's
+        # finding 5); its items still ride the central/fallback dispatch.
         number_by_matter = {}
         for item in _firing_items(digest):
             number_by_matter.setdefault(item.get("matter_id"), item.get("matter_number"))
+        undelivered = set(result.unroutable) | overflow_matters
         memo_matters = sorted(
-            {
-                m
-                for m, routed in result.routed.items()
-                if routed.routing_leg == routing.LEG_FALLBACK
-            }
-            | set(result.unroutable)
+            (
+                {
+                    m
+                    for m, routed in result.routed.items()
+                    if routed.routing_leg == routing.LEG_FALLBACK
+                }
+                | undelivered
+            )
+            - {routing.UNKNOWN_MATTER}
         )
         unroutable = [
             {
                 "matter_id": m,
                 "matter_number": number_by_matter.get(m),
-                "reason": "no_usable_staff",
+                "reason": "dispatch_cap_exceeded" if m in overflow_matters else "no_usable_staff",
             }
-            for m in result.unroutable
+            for m in sorted(undelivered)
+            if m != routing.UNKNOWN_MATTER
         ]
 
         envelope = {
@@ -427,10 +362,9 @@ def build_and_write(
                 {"name": "failure_note", "template": render.FAILURE_NOTE, "slots": {}}
             ],
         }
-        if not dispatches:
-            # Nothing routable: no envelope (the overlay would dispatch
-            # nothing anyway); the turn keeps its unroutable-memo duty via the
-            # wake line and the tracker view surfaces the gap.
+        if not dispatches and not memo_matters and not unroutable:
+            # Nothing to dispatch and nothing to flag: no envelope, and no
+            # dispatch_expected — the wake proceeds undecorated.
             return {}
         if not _write_envelope(envelope):
             return {}

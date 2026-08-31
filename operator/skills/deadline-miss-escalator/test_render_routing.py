@@ -291,6 +291,30 @@ def test_fail_closed_floor_no_fallback_authored():
     assert result.unroutable == ("m-1",)
 
 
+def test_unknown_matter_routes_central_and_never_a_staff_leg():
+    """The sentinel names no real matter: no staff resolution, no memo target.
+    It delivers to the central triage recipients (else fallback)."""
+    result = routing.resolve_case_alert_routing(
+        _yaml_matter_staff(), {}, ["unknown-matter"]
+    )
+    assert result.routed["unknown-matter"].emails == ("ops@firm.example",)
+    assert result.routed["unknown-matter"].routing_leg == "central"
+    no_red_flag = _yaml_matter_staff()
+    no_red_flag["escalation"].pop("red_flag_recipients")
+    result = routing.resolve_case_alert_routing(no_red_flag, {}, ["unknown-matter"])
+    assert result.routed["unknown-matter"].routing_leg == "fallback"
+
+
+def test_staff_pull_lives_in_the_vendored_routing_module():
+    """Finding 2: one pull, one resolution, shared by both vendoring skills."""
+    assert callable(routing.pull_matter_staff)
+    assert routing.staff_lookup_budget({}) == routing.DEFAULT_STAFF_LOOKUP_BUDGET
+    assert routing.staff_lookup_budget({"escalation": {"staff_lookup_budget": 0}}) == 0
+    assert routing.staff_lookup_budget({"escalation": {"staff_lookup_budget": True}}) == (
+        routing.DEFAULT_STAFF_LOOKUP_BUDGET
+    )
+
+
 def test_grant_matching_mirrors_classifier_semantics():
     grants = ["@Firm.Example", "solo@other.example"]
     assert routing._granted("Amy@firm.example", grants)
@@ -417,6 +441,104 @@ def test_matter_staff_split_one_dispatch_per_recipient_set(tmp_path, monkeypatch
     assert written["memo_matters"] == ["m-2"]
     # Each subject counts ONLY its own needs-you band (Law 11).
     assert by_leg["fallback"]["subject"].startswith("[Deadlines] 1 need you")
+
+
+def test_unknown_matter_never_reaches_memo_or_unroutable_lists(tmp_path, monkeypatch):
+    """Finding 5: the sentinel's items still ship (central dispatch), but no
+    memo duty and no unroutable row may name a matter nobody can open."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    pre_run = _load("pre_run.py", "escalator_pre_run_for_sentinel")
+    yaml_path = tmp_path / "customer.yaml"
+    yaml_path.write_text(
+        "escalation:\n"
+        "  red_flag_recipients:\n    - ops@firm.example\n"
+        "  case_alert_routing:\n"
+        "    mode: matter_staff\n"
+        "    fallback_recipients:\n      - fallback@firm.example\n"
+        "scope:\n  inbound_allow_from:\n    - '@firm.example'\n"
+    )
+    deadlines = [
+        pre_run.MatterDeadline(
+            matter_id="unknown-matter",
+            authored_date=date(2026, 8, 29),
+            label="court-date",
+            task_id="ev-1",
+            matter_number=None,
+            matter_number_absent="no_matter_link",
+        )
+    ]
+    today = date(2026, 8, 31)
+    digest = pre_run.project_digest(deadlines, pre_run.EscalationWindows(), ledger, today=today)
+    meta = envelope.build_and_write(
+        digest=digest,
+        deadlines=deadlines,
+        states={},
+        ledger=ledger,
+        today=today,
+        ack_snooze_days=7,
+        customer_yaml_path=str(yaml_path),
+        staff_pull=lambda ids, budget: {},
+    )
+    assert meta["dispatch_count"] == 1
+    written = json.loads(
+        (tmp_path / ".smd" / "pre_run" / "deadline-miss-escalator.dispatch.json").read_text()
+    )
+    [dispatch] = written["dispatches"]
+    assert dispatch["routing_leg"] == "central"  # sentinel -> central triage
+    assert written["memo_matters"] == []
+    assert written["unroutable"] == []
+
+
+def test_dispatch_cap_overflow_is_loud_not_silent(tmp_path, monkeypatch):
+    """Finding 8: over-cap recipient groups land in unroutable + memo lists."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setattr(envelope, "_MAX_DISPATCHES", 1)
+    pre_run = _load("pre_run.py", "escalator_pre_run_for_overflow")
+    yaml_path = tmp_path / "customer.yaml"
+    yaml_path.write_text(
+        "escalation:\n"
+        "  red_flag_recipients:\n    - ops@firm.example\n"
+        "  case_alert_routing:\n"
+        "    mode: matter_staff\n"
+        "    fallback_recipients:\n      - fallback@firm.example\n"
+        "scope:\n  inbound_allow_from:\n    - '@firm.example'\n"
+    )
+    deadlines = [
+        _mk_deadline(pre_run, "m-1", "t-1", "2026-PI-101"),
+        _mk_deadline(pre_run, "m-2", "t-2", "2026-PI-102"),
+    ]
+    today = date(2026, 8, 31)
+    digest = pre_run.project_digest(deadlines, pre_run.EscalationWindows(), ledger, today=today)
+    staff = {
+        "m-1": {"responsible": {"email": "amy@firm.example", "enabled": True}, "assisting": []},
+        "m-2": {"responsible": {"email": "bob@firm.example", "enabled": True}, "assisting": []},
+    }
+    meta = envelope.build_and_write(
+        digest=digest,
+        deadlines=deadlines,
+        states={},
+        ledger=ledger,
+        today=today,
+        ack_snooze_days=7,
+        customer_yaml_path=str(yaml_path),
+        staff_pull=lambda ids, budget: staff,
+    )
+    assert meta["dispatch_count"] == 1
+    written = json.loads(
+        (tmp_path / ".smd" / "pre_run" / "deadline-miss-escalator.dispatch.json").read_text()
+    )
+    overflow = [u for u in written["unroutable"] if u["reason"] == "dispatch_cap_exceeded"]
+    assert len(overflow) == 1
+    assert overflow[0]["matter_id"] in written["memo_matters"]
+
+
+def test_failure_note_in_skill_md_matches_the_renderer(tmp_path):
+    """Finding 9: the SKILL.md quoted failure line IS render.FAILURE_NOTE —
+    the in-turn conformance check accepts exactly that text, so drift between
+    the two would block the turn's only legitimate send."""
+    skill_md = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    collapsed = " ".join(skill_md.split())
+    assert " ".join(render.FAILURE_NOTE.split()) in collapsed
 
 
 def test_legacy_rekey_count():

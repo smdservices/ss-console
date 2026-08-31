@@ -15,8 +15,12 @@ sentinel and re-fires on the refire window — never daily, never silent, and
 never a ``chased`` row (no client was nudged; the ledger stays honest).
 
 Failure direction: any fault here degrades to "no envelope written" — the
-wake fires undecorated, the SKILL.md failure-note instruction and the
-heartbeat pager carry the miss. Nothing may suppress or delay a wake.
+wake fires undecorated, ``dispatch_expected`` stays absent, and SKILL.md's
+plans-without-dispatch_expected branch has the turn send the one-line failure
+note. This skill's OBSERVERS are the terminal-state reconcile (the wake row
+with no terminal outcome) and the ledger's own re-fire property — NOT the
+heartbeat's degraded pager, which reads ``digest_degraded`` bases this
+pre_run never stamps. Nothing may suppress or delay a wake.
 """
 
 from __future__ import annotations
@@ -107,14 +111,23 @@ def build_and_write(
     refire_days: int,
     ceiling: int | None,
     customer_yaml_path: str | None = None,
+    staff_pull=None,
 ) -> dict:
     """Render + write the envelope; return the EMITTED_WAKE metadata additions
-    ({} on any failure — the wake proceeds undecorated)."""
+    ({} on any failure — the wake proceeds undecorated).
+
+    ``staff_pull`` is the test seam; production uses the vendored routing
+    module's connector-venv pull — the SAME pull the escalator runs, so a
+    pilot authored ``mode: matter_staff`` routes CVT alerts to the matter's
+    responsible attorney instead of dumping every alert on the fallback leg
+    (the WS-RENDER review's finding 2)."""
     try:
         render = _load_sibling("render.py", "cvt_render")
         routing = _load_sibling("routing.py", "cvt_routing")
         if render is None or routing is None:
             return {}
+        if staff_pull is None:
+            staff_pull = routing.pull_matter_staff
         customer_yaml = _load_yaml(customer_yaml_path)
         states = ledger.derive_state(ledger_events)
         numbers = _numbers_by_matter(items)
@@ -183,11 +196,23 @@ def build_and_write(
 
         # Routing: seat-level entries (matter_id "") route like an unstaffed
         # matter — central under central mode, fallback under matter_staff.
+        # Staffed matters resolve through the SAME connector-venv staff pull
+        # the escalator uses (vendored routing.py).
         matter_ids = []
         for entry in entries:
             if entry["matter_id"] not in matter_ids:
                 matter_ids.append(entry["matter_id"])
-        result = routing.resolve_case_alert_routing(customer_yaml, {}, matter_ids)
+        esc = (
+            customer_yaml.get("escalation")
+            if isinstance(customer_yaml.get("escalation"), dict)
+            else {}
+        )
+        routing_block = esc.get("case_alert_routing")
+        mode = routing_block.get("mode") if isinstance(routing_block, dict) else None
+        matter_staff: dict[str, dict] = {}
+        if mode == "matter_staff":
+            matter_staff = staff_pull(matter_ids, routing.staff_lookup_budget(customer_yaml))
+        result = routing.resolve_case_alert_routing(customer_yaml, matter_staff, matter_ids)
 
         by_recipients: dict[tuple, list[dict]] = {}
         unroutable_ids = set(result.unroutable)
@@ -202,11 +227,16 @@ def build_and_write(
         wake_hashes: list[dict] = []
         wake_items: list[dict] = []
         legs: dict[str, int] = {}
+        overflow_matters: set[str] = set()
         for (emails, leg), group in sorted(
             by_recipients.items(), key=lambda kv: (kv[0][1], kv[0][0])
         ):
             if len(dispatches) >= _MAX_DISPATCHES:
-                break
+                # Never a silent drop: an over-cap group's matters land in the
+                # unroutable + memo lists so a person learns the alert did not
+                # go (the review's finding 8).
+                overflow_matters |= {e["matter_id"] for e in group if e["matter_id"]}
+                continue
             subject, full_body = render.render_alert(group, today_iso=today_iso)
             skeleton_body = render.render_skeleton(len(group))
             appends = [
@@ -242,16 +272,19 @@ def build_and_write(
             for entry in group:
                 wake_items.append({"item_key": entry["item_key"], "ack_code": None})
 
-        if not dispatches:
-            return {}
-
+        # The memo duty covers fallback-routed, floor, and over-cap matters.
+        # The unknown-matter sentinel and the seat-level "" id are EXCLUDED:
+        # neither names a real matter a person could open (the review's
+        # finding 5).
+        undelivered = (unroutable_ids | overflow_matters) - {"", routing.UNKNOWN_MATTER}
         memo_matters = sorted(
             {
                 entry["matter_id"]
                 for entry in entries
                 if entry["matter_id"]
+                and entry["matter_id"] != routing.UNKNOWN_MATTER
                 and (
-                    entry["matter_id"] in unroutable_ids
+                    entry["matter_id"] in undelivered
                     or (
                         result.routed.get(entry["matter_id"]) is not None
                         and result.routed[entry["matter_id"]].routing_leg
@@ -260,6 +293,8 @@ def build_and_write(
                 )
             }
         )
+        if not dispatches and not memo_matters:
+            return {}
         envelope = {
             "skill": SKILL_NAME,
             "render_mode": "slot-templated",
@@ -269,9 +304,13 @@ def build_and_write(
                 {
                     "matter_id": m,
                     "matter_number": numbers.get(m, (None, None))[0],
-                    "reason": "no_usable_recipient",
+                    "reason": (
+                        "dispatch_cap_exceeded"
+                        if m in overflow_matters
+                        else "no_usable_recipient"
+                    ),
                 }
-                for m in sorted(unroutable_ids)
+                for m in sorted(undelivered)
             ],
             "memo_matters": memo_matters,
             # The failure note is DECLARED but not slot-enforced for this

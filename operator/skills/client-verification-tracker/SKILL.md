@@ -396,6 +396,11 @@ surface), never a silent default.
    chase can render): end the turn without composing anything — the surface
    already went to a person on the re-fire window.
 
+   A wake whose plans include any OTHER action (`surface_hold` / `handoff` /
+   `surface_config_missing`) with NO `dispatch_expected` means the gate could
+   not build the rendered dispatch at all: send the failure note above and end
+   the turn. Never compose the alert to cover the gap.
+
    **The wake line in the Script Output block is the turn's work list
    (#2226):** each `plans` entry names the `matter_id`, the code-projected
    `matter_number`, `task_id`, and `action` (`chase` / `handoff` /
@@ -429,9 +434,10 @@ surface), never a silent default.
      but the plan's `determination` stamp is `status: "current"` → the hold may be
      resolved on its strength, recording a fresh determination that cites it.
      Still ambiguous with no current determination → the re-surface to a
-     person and its fresh `fired` on the hold sentinel were DISPATCHED out of
-     turn (the raise starts the next quiet window); your part is only the
-     release judgment above. A plan carrying `reason: "determination_stale"`
+     person and its fresh `fired` on the hold sentinel are dispatched out of
+     turn when `dispatch_expected` shows (the raise starts the next quiet
+     window; without the flag, the failure-note branch above applies); your
+     part is only the release judgment above. A plan carrying `reason: "determination_stale"`
      is this same branch with the stakes named: the roles moved since the hold
      was released — the dispatched surface says so, and you never chase on
      either reading. Send **no chase and no hand-off**. Never re-verify the
@@ -451,15 +457,16 @@ surface), never a silent default.
      match.
    - attempt count **has reached `escalate_after_attempts`** → the client
      chase stops and the hand-off alert to the matter's assigned staff (Shape
-     D) was DISPATCHED per the case-alert routing rule
+     D) is dispatched out of turn per the case-alert routing rule
      (deadline-miss-escalator/references/case-alert-routing.md), with its
      `handed_off` ledger event appended post-send so the hand-off fires once;
-     the open item moves to a person.
+     the open item moves to a person. No `dispatch_expected` → the
+     failure-note branch above applies.
    - `chase_cadence_days` or `escalate_after_attempts` unauthored → no chase;
      the missing-config note and its `fired` event on the ledger config
-     sentinel were DISPATCHED; the surface holds quiet through the re-fire
-     window and re-surfaces every `escalation.refire_days` until the dials are
-     authored.
+     sentinel are dispatched out of turn on the same terms; the surface holds
+     quiet through the re-fire window and re-surfaces every
+     `escalation.refire_days` until the dials are authored.
 
 6. **Escalate** — two independent triggers, either of which fires on its own; the
    chase's own trigger is the attempt count, and it points to the deadline lane for

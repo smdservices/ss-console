@@ -801,7 +801,11 @@ class Broker:
         # overlay and this process deploy in either order.
         raw_extra = request.get("audit_extra")
         raw_extra = raw_extra if isinstance(raw_extra, dict) else {}
-        audit_extra = {k: raw_extra[k].strip() for k in _CALLER_AUDIT_KEYS if isinstance(raw_extra.get(k), str) and raw_extra[k].strip()}
+        audit_extra = {
+            key: raw_extra[key].strip()
+            for key in _CALLER_AUDIT_KEYS
+            if isinstance(raw_extra.get(key), str) and raw_extra[key].strip()
+        }
         # Digest what the caller asked to send, computed here, so the row proves
         # which content went out without the ledger ever holding the content.
         digest = hashlib.sha256(_canonical(payload)).hexdigest()
@@ -815,7 +819,13 @@ class Broker:
             self._append_send_row(
                 "CONFIRM_SEND_FAILED",
                 action,
-                {"outcome": "refused", "reason": str(exc), "recipients": attempted, "input_digest": digest, **audit_extra},
+                {
+                    "outcome": "refused",
+                    "reason": str(exc),
+                    "recipients": attempted,
+                    "input_digest": digest,
+                    **audit_extra,
+                },
                 session_id=session_id,
                 matter_ref=matter_ref,
             )
@@ -828,7 +838,13 @@ class Broker:
             self._append_send_row(
                 "CONFIRM_SEND_FAILED",
                 action,
-                {"outcome": "transport_error", "reason": str(exc), "recipients": attempted, "input_digest": digest, **audit_extra},
+                {
+                    "outcome": "transport_error",
+                    "reason": str(exc),
+                    "recipients": attempted,
+                    "input_digest": digest,
+                    **audit_extra,
+                },
                 session_id=session_id,
                 matter_ref=matter_ref,
             )

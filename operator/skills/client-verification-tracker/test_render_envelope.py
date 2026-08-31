@@ -207,6 +207,78 @@ def test_envelope_degraded_chase_collapses_to_one_throttled_line(tmp_path, monke
     assert all(a["event"] != "chased" for a in dispatch["appends"])
 
 
+def test_envelope_matter_staff_uses_the_shared_staff_pull(tmp_path, monkeypatch):
+    """Finding 2: under mode: matter_staff a staffed matter routes to its
+    responsible attorney — never a hardcoded empty staff map that dumps every
+    alert on the fallback leg and memos staffed matters as unassigned."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    path = tmp_path / "customer.yaml"
+    path.write_text(
+        "escalation:\n"
+        "  red_flag_recipients:\n    - ops@firm.example\n"
+        "  case_alert_routing:\n"
+        "    mode: matter_staff\n"
+        "    fallback_recipients:\n      - fallback@firm.example\n"
+        "scope:\n  inbound_allow_from:\n    - '@firm.example'\n"
+    )
+    staff = {
+        "m-1": {"responsible": {"email": "amy@firm.example", "enabled": True}, "assisting": []}
+    }
+    pulled: list[list[str]] = []
+
+    def fake_pull(ids, budget):
+        pulled.append(list(ids))
+        return staff
+
+    meta = envelope.build_and_write(
+        plans=[_plan()],
+        items=[],
+        ledger=ledger,
+        ledger_events=[],
+        today=date(2026, 8, 31),
+        refire_days=3,
+        ceiling=3,
+        customer_yaml_path=str(path),
+        staff_pull=fake_pull,
+    )
+    assert pulled == [["m-1"]]
+    assert meta["routing_legs"] == {"matter_staff_responsible": 1}
+    written = json.loads(
+        (tmp_path / ".smd" / "pre_run" / "client-verification-tracker.dispatch.json").read_text()
+    )
+    [dispatch] = written["dispatches"]
+    assert dispatch["recipients"] == ["amy@firm.example"]
+    assert written["memo_matters"] == []  # a staffed matter is NOT "unassigned"
+
+
+def test_unknown_matter_never_reaches_memo_or_unroutable(tmp_path, monkeypatch):
+    """Finding 5: the sentinel names no real matter — no memo duty, no
+    unroutable row; its entry still ships on the central dispatch."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    meta = envelope.build_and_write(
+        plans=[_plan(matter_id="unknown-matter", matter_number=None)],
+        items=[],
+        ledger=ledger,
+        ledger_events=[],
+        today=date(2026, 8, 31),
+        refire_days=3,
+        ceiling=3,
+        customer_yaml_path=_yaml(tmp_path),
+    )
+    assert meta["dispatch_count"] == 1
+    written = json.loads(
+        (tmp_path / ".smd" / "pre_run" / "client-verification-tracker.dispatch.json").read_text()
+    )
+    assert written["memo_matters"] == []
+    assert written["unroutable"] == []
+
+
+def test_failure_note_in_skill_md_matches_the_renderer():
+    """Finding 9: SKILL.md's quoted failure line IS render.FAILURE_NOTE."""
+    skill_md = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    assert " ".join(render.FAILURE_NOTE.split()) in " ".join(skill_md.split())
+
+
 def test_envelope_degraded_chase_respects_refire_window(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     sentinel_key = ledger.item_key("", envelope.RETURN_LINK_SOURCE_ID, "chase-return-link-missing", "")

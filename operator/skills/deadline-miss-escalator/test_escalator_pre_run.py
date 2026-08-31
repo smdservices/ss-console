@@ -1101,14 +1101,23 @@ def test_a_temp_file_left_by_a_crashed_run_does_not_wedge_the_writer(
 
 def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypatch) -> None:
     """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
-    directory would still be writable by root, and CI containers run as root."""
+    directory would still be writable by root, and CI containers run as root.
+
+    ``dispatch_expected`` is the ONE legitimate difference (WS-RENDER): it
+    reflects whether the dispatch envelope actually landed on disk, and on the
+    blocked volume it must clear — that flag going absent is exactly what
+    routes the woken turn to the failure-note branch. Everything else stays
+    byte-identical."""
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    good = _wake_stdout()
+    good = json.loads(_wake_stdout())
     assert _handoff_path(tmp_path).exists()
     blocked = tmp_path / "not-a-directory"
     blocked.write_text("x", encoding="utf-8")
     monkeypatch.setenv("HERMES_HOME", str(blocked))
-    assert _wake_stdout() == good
+    degraded = json.loads(_wake_stdout())
+    assert degraded.pop("dispatch_expected", None) is None
+    good.pop("dispatch_expected", None)
+    assert degraded == good
 
 
 # ---------------------------------------------------------------------------

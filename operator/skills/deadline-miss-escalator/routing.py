@@ -25,14 +25,29 @@ semantics — this module mirrors them and MUST NOT invent a new grant key. An
 address Smokeball returns that no authored grant covers is UNRESOLVABLE ->
 fallback. Never grow the roster from runtime data.
 
-Stdlib only; pure (the staff data is pulled by the caller and passed in).
+Stdlib only. ``resolve_case_alert_routing`` is pure (staff data is passed
+in); the staff PULL that feeds it (``pull_matter_staff`` + its authored
+budget) lives here too, so both vendoring skills share one pull and one
+resolution — a CVT that routed with an empty staff map under matter_staff
+sent every alert down the fallback leg and memoed staffed matters as
+"unassigned" (the WS-RENDER review's finding 2).
 """
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import unicodedata
 from dataclasses import dataclass
 from typing import Sequence
+
+#: The unknown-matter sentinel ``pre_run._matter_id_of`` emits. It names no
+#: real matter, so it has no staff to resolve and can take no memo: it routes
+#: like a CENTRAL item (the red-flag recipients are the people who triage
+#: unidentifiable records), falling back like any other matter, and the
+#: envelope builders exclude it from memo/unroutable name lists.
+UNKNOWN_MATTER = "unknown-matter"
 
 LEG_CENTRAL = "central"
 LEG_RESPONSIBLE = "matter_staff_responsible"
@@ -164,6 +179,17 @@ def resolve_case_alert_routing(
         return RoutingResult(routed, tuple(unroutable))
 
     for matter_id in matter_ids:
+        if matter_id == UNKNOWN_MATTER:
+            # No real matter -> no staff to resolve. Deliver to the central
+            # triage recipients (else fallback); never a per-matter leg, and
+            # never a memo target (there is no matter to flag).
+            if red_flag:
+                routed[matter_id] = RoutedRecipient(tuple(red_flag), LEG_CENTRAL)
+            elif fallback:
+                routed[matter_id] = RoutedRecipient(tuple(fallback), LEG_FALLBACK)
+            else:
+                unroutable.append(matter_id)
+            continue
         staff = matter_staff.get(matter_id)
         staff = staff if isinstance(staff, dict) else {}
         responsible = _usable_staff_email(staff.get("responsible"))
@@ -199,3 +225,107 @@ def resolve_case_alert_routing(
             unroutable.append(matter_id)
 
     return RoutingResult(routed, tuple(unroutable))
+
+
+# ---------------------------------------------------------------------------
+# The staff pull that feeds matter_staff resolution. Shared by both vendoring
+# skills (one pull, one resolution); connector-venv subprocess, matter ids
+# over STDIN, bounded by the authored ``escalation.staff_lookup_budget``.
+# ---------------------------------------------------------------------------
+
+_CONNECTOR_PYTHON_DEFAULT = "/opt/connectors/smokeball/.venv/bin/python"
+_STAFF_PULL_TIMEOUT_SECONDS = 60
+DEFAULT_STAFF_LOOKUP_BUDGET = 50
+
+# Runs inside the connector venv. Matter ids arrive on STDIN as a JSON list —
+# never argv (the pre_run nosemgrep contract keeps argv free of pulled data).
+# Absent/disabled/former staff are reported as-is; the pure resolution above
+# decides usability. Errors are per-matter and wholesale, never fatal: a staff
+# pull that dies must not kill the alert (central/fallback still route).
+_STAFF_PULL_SNIPPET = """\
+import json
+import sys
+
+from smokeball_connector.client import build_client_from_env
+
+matter_ids = json.load(sys.stdin)
+client = build_client_from_env()
+out = {}
+for matter_id in matter_ids:
+    entry = {"responsible": None, "assisting": []}
+    try:
+        matter = client.get(f"/matters/{matter_id}")
+        if not isinstance(matter, dict):
+            matter = {}
+        staff_ids = []
+        rid = matter.get("personResponsibleStaffId")
+        if isinstance(rid, str) and rid:
+            staff_ids.append(("responsible", rid))
+        for key in ("personAssistingStaffIds", "personAssistingStaffId", "personAssistingStaffs"):
+            raw = matter.get(key)
+            if isinstance(raw, str) and raw:
+                staff_ids.append(("assisting", raw))
+            elif isinstance(raw, list):
+                for sid in raw:
+                    if isinstance(sid, str) and sid:
+                        staff_ids.append(("assisting", sid))
+        for kind, sid in staff_ids:
+            try:
+                staff = client.get(f"/staff/{sid}")
+            except Exception as exc:
+                entry.setdefault("errors", []).append(str(exc)[:200])
+                continue
+            if not isinstance(staff, dict):
+                continue
+            record = {
+                "email": staff.get("email"),
+                "enabled": staff.get("enabled"),
+                "former": staff.get("former"),
+            }
+            if kind == "responsible":
+                entry["responsible"] = record
+            else:
+                entry["assisting"].append(record)
+    except Exception as exc:
+        entry["error"] = str(exc)[:200]
+    out[matter_id] = entry
+print(json.dumps(out, default=str))
+"""
+
+
+def staff_lookup_budget(customer_yaml: dict) -> int:
+    """The authored ``escalation.staff_lookup_budget``, else the default.
+    Zero is legitimate (disables the pull — the staging lever); junk takes
+    the default."""
+    data = customer_yaml if isinstance(customer_yaml, dict) else {}
+    esc = data.get("escalation") if isinstance(data.get("escalation"), dict) else {}
+    raw = esc.get("staff_lookup_budget")
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
+        return DEFAULT_STAFF_LOOKUP_BUDGET
+    return raw
+
+
+def pull_matter_staff(matter_ids: Sequence[str], budget: int) -> dict[str, dict]:
+    """Pull staff assignments for ``matter_ids`` (first ``budget`` of them) in
+    the connector venv. Any failure returns what resolved; an absent entry is
+    UNPOPULATED and routes to the fallback path — fail toward a person."""
+    ids = [m for m in matter_ids if isinstance(m, str) and m and m != UNKNOWN_MATTER]
+    ids = ids[: max(0, budget)]
+    if not ids:
+        return {}
+    connector_python = os.environ.get("SMD_CONNECTOR_VENV_PYTHON", _CONNECTOR_PYTHON_DEFAULT)
+    try:
+        result = subprocess.run(
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args — argv[0] is the module-constant connector-venv interpreter, overridable only via SMD_CONNECTOR_VENV_PYTHON from the Machine's own boot env (same trust domain; the test seam — the pre_run pulls carry the identical justification). The snippet is a module constant; the matter ids ride STDIN, never argv.
+            [connector_python, "-c", _STAFF_PULL_SNIPPET],
+            input=json.dumps(ids),
+            capture_output=True,
+            text=True,
+            timeout=_STAFF_PULL_TIMEOUT_SECONDS,
+        )
+        if result.returncode != 0:
+            return {}
+        raw = json.loads((result.stdout or "").strip().splitlines()[-1])
+        return raw if isinstance(raw, dict) else {}
+    except Exception:  # noqa: BLE001 — a staff pull must never kill the alert
+        return {}

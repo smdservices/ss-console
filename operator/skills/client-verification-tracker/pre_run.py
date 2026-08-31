@@ -603,7 +603,14 @@ def decide(
 
     def _stamp(p: ItemPlan) -> ItemPlan:
         it = by_matter.get(p.matter_id)
-        return p if it is None else replace(p, matter_number=it.matter_number, matter_number_absent=it.matter_number_absent, next_chase_due=it.next_chase_due.isoformat())
+        if it is None:
+            return p
+        return replace(
+            p,
+            matter_number=it.matter_number,
+            matter_number_absent=it.matter_number_absent,
+            next_chase_due=it.next_chase_due.isoformat(),
+        )
 
     actionable = tuple(_stamp(p) for p in plans if p.action != ACTION_SUPPRESS)
     if actionable:
@@ -714,7 +721,9 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         for p in decision.plans:
             entry: dict = {
                 "matter_id": p.matter_id,
-                "matter_number": p.matter_number, "matter_number_absent": p.matter_number_absent, "next_chase_due": p.next_chase_due,
+                "matter_number": p.matter_number,
+                "matter_number_absent": p.matter_number_absent,
+                "next_chase_due": p.next_chase_due,
                 "task_id": p.task_id,
                 "item_key": p.item_key,
                 "action": p.action,
@@ -904,12 +913,25 @@ async def run_once(
         if decision.plans:
             # WS-RENDER: render the internal escalations into the out-of-turn
             # dispatch envelope. {} on any failure; the wake proceeds
-            # undecorated (failure-note instruction + heartbeat pager cover it).
+            # undecorated — SKILL.md's plans-without-dispatch_expected branch
+            # has the turn send the failure note, and the terminal-state
+            # reconcile + the ledger's re-fire property observe the miss.
             envelope_mod = _load_sibling_module("dispatch_envelope.py", "cvt_dispatch_envelope")
             if envelope_mod is not None:
-                envelope_meta = envelope_mod.build_and_write(plans=decision.plans, items=items, ledger=ledger, ledger_events=ledger_events, today=today, refire_days=refire_days, ceiling=config.escalate_after_attempts)
+                envelope_meta = envelope_mod.build_and_write(
+                    plans=decision.plans,
+                    items=items,
+                    ledger=ledger,
+                    ledger_events=ledger_events,
+                    today=today,
+                    refire_days=refire_days,
+                    ceiling=config.escalate_after_attempts,
+                )
                 if envelope_meta:
-                    decision = replace(decision, extra_metadata={**decision.extra_metadata, **envelope_meta})
+                    decision = replace(
+                        decision,
+                        extra_metadata={**decision.extra_metadata, **envelope_meta},
+                    )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
         await _try_write_emitted_wake(
             audit_writer_factory, decision, skill_name=SKILL_NAME, now=now
@@ -968,7 +990,11 @@ except Exception as exc:
 try:
     budget = int(os.environ.get("SMD_MATTER_LOOKUP_BUDGET", "100"))
     envelope = out.get("tasks")
-    items = envelope["value"] if isinstance(envelope, dict) and isinstance(envelope.get("value"), list) else (envelope if isinstance(envelope, list) else [])
+    items = []
+    if isinstance(envelope, dict) and isinstance(envelope.get("value"), list):
+        items = envelope["value"]
+    elif isinstance(envelope, list):
+        items = envelope
     out["matterNumberCounts"] = attach_matter_numbers(client, items, budget=budget)
 except Exception as exc:
     out["matterRefError"] = str(exc)[:300]
