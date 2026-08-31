@@ -295,8 +295,9 @@ and only the logging/chase half proceeds.
 
 Follows the pack write posture
 (`operator/verticals/law-firm/addons/pi/references/_shared-write-posture.md`): the
-ledger writes (`create_task` / `update_task` / `create_memo`) are **UNVERIFIED
-against a live tenant** per the surface, so a write is reported as done **only after
+task writes are verified on prod (2026-08-31: `POST /tasks` is 202-async, so an
+immediate read 404s - read back with patience) while `create_memo` remains
+UNVERIFIED per the surface, so a write is reported as done **only after
 a confirming read** shows it landed (`list_tasks` / `get_task` after a task write;
 `get_memos_on_matter` after a memo). If the confirming read does not show it, the
 skill surfaces the failure ("could not confirm the ledger entry was created"), never

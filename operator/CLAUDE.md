@@ -60,10 +60,12 @@ creation stamp>]`, e.g. `[SMD-PROBE 2026-08-18T17:00Z] drafting prove-out`.
    tenant, create-and-read-back one stamped task — this vendor has form for
    munging text, e.g. names truncate at the first period.)
 2. **Tear down in the same session.** A probe artifact is deleted — for tasks,
-   completed via `update_task(is_completed=True)`; the connector has no task
-   delete — before the session reports its test done, with a negative probe
-   (gone-means-gone rule 2). "Its note says to delete it later" is the
-   anti-pattern this contract replaces.
+   completed via `update_task(is_completed=True, staff_id=<owner>)`; the
+   connector has no task delete, and Smokeball's task PUT is a full replace
+   that requires `StaffId` + `CompletedByStaffId` (proven live 2026-08-31,
+   vfy_01M1CWACT2NSB1WFSZXD3KQK5F) — before the session reports its test done,
+   with a negative probe (gone-means-gone rule 2). "Its note says to delete it
+   later" is the anti-pattern this contract replaces.
 3. **Ingestion is fenced either way.** `list_tasks` drops probe-marked rows by
    default and counts the drop (`probeArtifactsExcluded`); the tracker/chaser
    pre_run pulls exclude them too. The match is position-anchored — only a
