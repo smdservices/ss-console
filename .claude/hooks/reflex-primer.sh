@@ -85,6 +85,7 @@ emit_laws() {
 8. Finish or say why: no stopping-point offers, no hedging finished work as draft, no relitigating settled calls.
 10. Your snapshot is not the system. Tree state, branch lists, merged PRs, and installed dependencies decay within minutes of the briefing that reported them. Re-probe before acting on any of them.
 12. A check that cannot fail has measured nothing. Before reporting an observation, name what would have made it false and confirm your instrument would have shown it.
+13. Do the work, do not file it: work found mid-task gets done now unless it is blocked on something that does not exist yet or needs a Captain decision. Standing target is zero open issues.
 Gate-enforced laws (mechanisms, not memory -- registry has the prose): 2 load-before-touch, 5 claims-trace, 6 authored-voice, 7 blast-radius, 9 deliverable-is-the-act, 11 signal-not-volume.
 PRIMER
 }
