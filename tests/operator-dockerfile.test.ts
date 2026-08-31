@@ -1154,7 +1154,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // identifier_filter known-number scan, matter_gate chunked membership pass).
     // TWO tracked pairs move: escalation_ledger (byte-identical again at
     // 912bac29...) and identifier_filter (overlay side re-recorded at 71e598a5...).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c5846c68515f34c4771b08e20aded5747c38cb15"')
+    // c5846c68 -> 45cc19e7 (2026-08-31c, overlay#336, ss#2616): the handoff route
+    // is real (translate materializes it on the MCP bearer; the gate retries any
+    // non-2xx forward) and medchron submit gains the append file-id selection.
+    // Vocabulary identical (71); no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="45cc19e7184223a344fbe303f1539a81c64d9122"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

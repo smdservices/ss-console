@@ -71,6 +71,9 @@ chronology. These rules make the memo pass by construction; they are not style.
 - <document title>
 
 **Chronology package on the matter:** <folder name and file count, from get_files_on_matter this turn | none filed>
+**Package job:** <job id | none> - covered document ids: <the ids the delivered
+package read, recorded by the deliver mode; this line is the APPEND delta
+instrument (current listing minus these ids), so it is exact ids, never a count>
 
 ## Treatment timeline
 

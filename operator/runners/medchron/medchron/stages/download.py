@@ -69,6 +69,20 @@ def run(sr: StageRun) -> int:
     targets = [d for d in sr.manifest()
                if wanted(d, folder_path=fpath.get(d.get("folderId"), "/(root)"), prefixes=prefixes,
                          excludes=excludes, root_pdfs=root_pdfs, doc_exts=doc_exts)]
+    file_ids = sel.get("include_file_ids")
+    if file_ids:
+        # ss#2616 append runs: only the named documents, from the full matter
+        # listing (the id set overrides the folder grain). A named id the
+        # matter does not carry is a HOLD naming it — a silent skip would let
+        # an append claim coverage it never pulled.
+        ids = {str(f) for f in file_ids}
+        by_id = {d["id"]: d for d in sr.manifest()}
+        missing = sorted(ids - set(by_id))
+        if missing:
+            sr.log(f"append: {len(missing)} named document id(s) not on the matter: {', '.join(missing[:5])}")
+            return 2
+        targets = [by_id[i] for i in sorted(ids)]
+        sr.log(f"append: pull restricted to {len(targets)} named document(s)")
     done, seen_sha = _already(read_jsonl(log_path))
     todo = [t for t in targets if t["id"] not in done]
     sr.log(f"{sr.slug}: {len(targets)} targets, {len(done)} already done, {len(todo)} to pull")

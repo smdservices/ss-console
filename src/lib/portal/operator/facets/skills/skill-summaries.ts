@@ -86,7 +86,7 @@ export const SKILL_SUMMARIES: Record<string, string> = {
   'mediation-settlement-tracker':
     'Assembles the input packet for a mediation or settlement brief and tracks settlement deadlines. Never writes the brief, never asserts a deadline as final.',
   'medical-chronology-maintainer':
-    'Keeps a cited medical chronology current on a PI matter as records land. Extractive only, never characterizes causation.',
+    'Keeps a cited medical chronology current on a PI matter, and turns an administrator request into a chronology package built on the seat. Extractive only, never characterizes causation.',
   'medical-records-chaser':
     "Watches for the plaintiff's medical records to land and chases outstanding providers. Never diagnoses, never drafts a demand.",
   'meet-and-confer-drafter':
