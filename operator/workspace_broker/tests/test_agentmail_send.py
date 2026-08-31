@@ -584,3 +584,68 @@ def test_transmit_is_disabled_without_an_audit_ledger(tmp_path: Path) -> None:
             peer_pid=GATEWAY_PID,
             peer_uid=AGENT_UID,
         )
+
+
+def test_caller_audit_extra_rides_the_row_through_a_closed_allowlist(tmp_path: Path) -> None:
+    """WS-RENDER: the overlay's body-conformance stamps (routing_leg,
+    rendered_body_sha256, body_variant) travel on the request beside the
+    ss#2497 joins and land in the row BY NAME — an unlisted or non-string
+    key is dropped, so a caller cannot widen the ledger."""
+    broker = _broker(tmp_path, FakeHTTP())
+    sha = "a" * 64
+    broker.handle(
+        {
+            "action": "agentmail_send",
+            "payload": {"to": ["scott@smd.services"], "text": "hi"},
+            "audit_extra": {
+                "routing_leg": "central",
+                "rendered_body_sha256": sha,
+                "body_variant": "full",
+                "not_allowlisted": "dropped",
+                "recipients": ["forged@x.example"],
+            },
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    meta = _meta(broker)
+    assert meta["routing_leg"] == "central"
+    assert meta["rendered_body_sha256"] == sha
+    assert meta["body_variant"] == "full"
+    assert "not_allowlisted" not in meta
+    # The forged non-string entry cannot displace the broker's own field.
+    assert meta["recipients"] == ["scott@smd.services"]
+
+
+def test_audit_extra_rides_the_refusal_row_too(tmp_path: Path) -> None:
+    """A refused full-body dispatch is what precedes a skeleton fallback; the
+    row carrying which variant was refused is what makes that diagnosable."""
+    broker = _broker(tmp_path, FakeHTTP())
+    with pytest.raises(AgentMailRefused):
+        broker.handle(
+            {
+                "action": "agentmail_send",
+                "payload": {"to": [UNAUTHORED], "text": "x"},
+                "audit_extra": {"body_variant": "full", "routing_leg": "fallback"},
+            },
+            peer_pid=GATEWAY_PID,
+            peer_uid=AGENT_UID,
+        )
+    meta = _meta(broker)
+    assert meta["outcome"] == "refused"
+    assert meta["body_variant"] == "full"
+    assert meta["routing_leg"] == "fallback"
+
+
+def test_absent_audit_extra_writes_exactly_todays_row(tmp_path: Path) -> None:
+    """Optional at both ends: a caller that predates the stamps writes the row
+    it writes today (deploy-order freedom, same as session_id/matter_ref)."""
+    broker = _broker(tmp_path, FakeHTTP())
+    broker.handle(
+        {"action": "agentmail_send", "payload": {"to": ["scott@smd.services"], "text": "hi"}},
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    meta = _meta(broker)
+    for key in ("routing_leg", "rendered_body_sha256", "body_variant"):
+        assert key not in meta

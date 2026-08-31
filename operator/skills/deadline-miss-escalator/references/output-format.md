@@ -1,10 +1,21 @@
 # Deadline Miss Escalator — Output Format
 
-One internal alert to the firm's authored red-flag recipients, triaged so the
-consequential items are read first and the routine ones do not bury them.
-Nothing here is client- or tribunal-bound. No em dashes anywhere; refer to a
-matter by its number, never its caption; state the governing rule in plain
-words, never as a citation.
+One internal alert to the recipients case-alert routing resolves (central =
+the authored red-flag recipients), triaged so the consequential items are read
+first and the routine ones do not bury them. Nothing here is client- or
+tribunal-bound. No em dashes anywhere; refer to a matter by its number, never
+its caption; state the governing rule in plain words, never as a citation.
+
+**RENDERED IN CODE (WS-RENDER).** This document is the human spec the
+renderer is tested against: `render.py` implements the templates below
+literally, in `pre_run`, and the seat dispatches the result out of turn. The
+model no longer composes this alert; every instruction below addressed to
+"the turn" describes what the RENDERER does. The consequence line's closed
+signal set and its authored phrases live in `render.py` (`consequence_line`):
+a task-priority marker the record carries, or the court-date label — an
+unknown signal renders nothing. The rich examples in the template below
+(deemed-admission, disbursement blocker, opposing-counsel held) have no
+code-detectable authored source today and therefore do not render.
 
 ## The triaged alert (internal, to the red-flag recipient)
 

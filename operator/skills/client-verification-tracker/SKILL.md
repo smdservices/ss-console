@@ -365,13 +365,42 @@ surface), never a silent default.
    responsible staff, keyed to the plaintiff/response-set/version, dated to the
    authored `chase_cadence_days` cadence).
 5. **Track + chase** — the bespoke `pre_run.py` gates the wake off the ledger +
-   authored cadence/ceiling (see "The state ledger" above). **The wake line in
-   the Script Output block is the turn's work list (#2226):** when it carries
-   `plans`, each entry names the `matter_id`, `task_id`, and `action`
-   (`chase` / `handoff` / `surface_config_missing` / `surface_hold`) the gate
-   found due, with the attempt number a chase carries. Start from those entries — verify each
-   live (`list_tasks(matter_id, is_completed=false)`, `get_files_on_matter`)
-   and act per the branches below. The gate sees every open verification task
+   authored cadence/ceiling (see "The state ledger" above).
+
+   **The internal escalations are dispatched FOR you, deterministically
+   (WS-RENDER).** When the Script Output shows `dispatch_expected: true`, the
+   gate rendered the hold surfaces, the ceiling hand-off alert, the
+   config-missing note, and the degraded chase-due note into a dispatch
+   envelope; the seat delivers them out of turn through the full gate before
+   your first tool call and records the `fired` / `handed_off` appends itself.
+   You compose none of those alerts and append none of those events. Your
+   residual duties on a dispatch wake are exactly:
+   - **Unroutable or fallback-routed matters** (named in the dispatch note or
+     wake line): `create_memo` on each such matter naming the alert and the
+     unassigned state (case-alert-routing steps 5-6). Memo, not task.
+   - **Hold RELEASE judgment** (the one branch that stays yours): for each
+     `surface_hold` plan, re-check the blocking fact live per the
+     `surface_hold` branch below, and append `resolved` with the determination
+     when it genuinely resolves. Never a chase, never a hand-off, on a held
+     matter.
+   - **Shape C confident close** per the matched-with-confidence branch below.
+   - **Failure note.** If `dispatch_expected: true` and NO dispatch note was
+     injected, or the note says delivery failed: send the alert recipients this
+     one line with `smd_send_message`, exactly, and nothing else: "The
+     verification tracker run failed and needs attention; no alert was
+     delivered this run. The items are in Smokeball and the tracker view."
+
+   A wake whose plans are all `chase` entries and whose Script Output carries
+   NO `dispatch_expected` is a degraded-chase tick inside the throttle window
+   (the client reminder's `settings.return_link` is not authored, so no client
+   chase can render): end the turn without composing anything — the surface
+   already went to a person on the re-fire window.
+
+   **The wake line in the Script Output block is the turn's work list
+   (#2226):** each `plans` entry names the `matter_id`, the code-projected
+   `matter_number`, `task_id`, and `action` (`chase` / `handoff` /
+   `surface_config_missing` / `surface_hold`) the gate found due, with the
+   attempt number a chase carries. The gate sees every open verification task
    through a global pull; the escalation ledger only knows items that have
    already been raised — so a plan naming a matter with no ledger history is
    the expected shape for a NEW item, not an anomaly to discard.
@@ -381,8 +410,10 @@ surface), never a silent default.
    verification-marked tasks yourself. Never scan only the matters the ledger
    already names, and never report "no verification tasks on other matters"
    unless the turn actually listed those matters' tasks.
-   These are metadata reads only; the turn reads no message body, so a chase
-   send stays un-fenced (see the taint-safe rule above):
+   These are metadata reads only; the turn reads no message body (see the
+   taint-safe rule above). The branches below describe the SYSTEM's behavior
+   per action; the deliveries and raise appends marked "dispatched" happen out
+   of turn:
    - matched with confidence (only once the firm's convention is confirmed) → close
      (`update_task`), log (`create_memo`), and append a `resolved` ledger event —
      but **only when the ledger holds a raise for the item**: a never-raised item
@@ -397,37 +428,39 @@ surface), never a silent default.
      verbatim) — the chase resumes on the next wake. Live roles still ambiguous
      but the plan's `determination` stamp is `status: "current"` → the hold may be
      resolved on its strength, recording a fresh determination that cites it.
-     Still ambiguous with no current determination →
-     re-surface the blocker to a person, referencing the prior surface, AND append
-     a fresh `fired` on the hold sentinel in the same turn (the raise starts the
-     next quiet window; without it the hold fires on every wake). A plan carrying
-     `reason: "determination_stale"` is this same branch with the stakes named:
-     the roles moved since the hold was released — surface both readings and never
-     chase on either. Send **no chase
-     and no hand-off**. Never re-verify the signer from memory **without a ledger
-     determination**: the only memory a turn may rely on is a `determination`
-     recorded on the hold ledger whose `role_snapshot_sha256` matches the current
-     roles (the plan's `status: "current"`) — anything else (an earlier turn's
-     prose, an email, this turn's recollection) is not a source.
-   - not found / ambiguous / convention-unconfirmed, and **no open hold on the
-     item**, and the attempt count (the
-     `chased` raises in the ledger) is **below `escalate_after_attempts`**, and
-     `chase_cadence_days` is authored → **re-run the step-1 signer resolution in
-     this turn** (metadata reads; a stale signer is the wrong-recipient defect),
-     then chase the signer with
-     `mcp_agentmail_send_message` (never `reply_to_message`) on the authored cadence;
-     after the send succeeds, log the attempt (`create_memo`) AND append a `chased`
-     ledger event (attempt = the new count); tell the attorney only if it stalls
-     (quiet by design). Never auto-close on an ambiguous match.
-   - attempt count **has reached `escalate_after_attempts`** → **stop chasing the
-     client** and red-flag the matter's assigned staff (Shape D) — delivery per the
-     case-alert routing rule (deadline-miss-escalator/references/case-alert-routing.md);
-     append a `handed_off` ledger event so the hand-off fires once; the client chase
-     is done, the open item moves to a person.
-   - `chase_cadence_days` or `escalate_after_attempts` unauthored → send no chase;
-     surface the missing-config note (append a `fired` event on the ledger config
-     sentinel so the raise is remembered), hold quiet through the re-fire window,
-     and re-surface every `escalation.refire_days` until the dials are authored.
+     Still ambiguous with no current determination → the re-surface to a
+     person and its fresh `fired` on the hold sentinel were DISPATCHED out of
+     turn (the raise starts the next quiet window); your part is only the
+     release judgment above. A plan carrying `reason: "determination_stale"`
+     is this same branch with the stakes named: the roles moved since the hold
+     was released — the dispatched surface says so, and you never chase on
+     either reading. Send **no chase and no hand-off**. Never re-verify the
+     signer from memory **without a ledger determination**: the only memory a
+     turn may rely on is a `determination` recorded on the hold ledger whose
+     `role_snapshot_sha256` matches the current roles (the plan's
+     `status: "current"`) — anything else (an earlier turn's prose, an email,
+     this turn's recollection) is not a source.
+   - plan action `chase` (cadence due, ceiling not reached, no hold) → the
+     client reminder renders ONLY from the authored template with its two
+     slots filled from authored/read values (`render.py` `render_chase`;
+     verification-request.md Draft 2 verbatim). While `settings.return_link`
+     is unauthored — the live state — no client chase can render: the gate
+     dispatched one throttled seat-level surface instead ("a person should
+     send the reminder"), no `chased` event is recorded (no client was
+     nudged), and YOU compose no reminder. Never auto-close on an ambiguous
+     match.
+   - attempt count **has reached `escalate_after_attempts`** → the client
+     chase stops and the hand-off alert to the matter's assigned staff (Shape
+     D) was DISPATCHED per the case-alert routing rule
+     (deadline-miss-escalator/references/case-alert-routing.md), with its
+     `handed_off` ledger event appended post-send so the hand-off fires once;
+     the open item moves to a person.
+   - `chase_cadence_days` or `escalate_after_attempts` unauthored → no chase;
+     the missing-config note and its `fired` event on the ledger config
+     sentinel were DISPATCHED; the surface holds quiet through the re-fire
+     window and re-surfaces every `escalation.refire_days` until the dials are
+     authored.
+
 6. **Escalate** — two independent triggers, either of which fires on its own; the
    chase's own trigger is the attempt count, and it points to the deadline lane for
    the other rather than duplicating it:

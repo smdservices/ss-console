@@ -128,6 +128,25 @@ _OPS_AUDIT_KEYS: tuple[str, ...] = (
 #: Of those, the ones that stay in the ledger and never travel back to the agent.
 _AUDIT_ONLY_KEYS = frozenset({"sender_key", "audit_row_token"})
 
+#: What a CALLER may contribute to a transmit's audit row, by name (WS-RENDER).
+#: Same posture as ``session_id``/``matter_ref`` (ss#2497): attribution the
+#: agent asserts about its own send, never authorization — the broker still
+#: decides recipients from the seat's own config. Closed list so a caller
+#: cannot widen the ledger.
+#:
+#: ``routing_leg``          which case-alert-routing leg picked the recipients
+#:                          (central | matter_staff_responsible |
+#:                          matter_staff_assisting | fallback).
+#: ``rendered_body_sha256`` canonical_body_sha256 of the text the gate allowed,
+#:                          computed by the overlay PRE-mutation (before the
+#:                          html/plain attach) — the console's wake<->confirm
+#:                          hash join (send_verify.py) compares it against the
+#:                          EMITTED_WAKE stamps; arbiter fixture:
+#:                          operator/contracts/fixtures/body-canon-vectors.json.
+#: ``body_variant``         full | skeleton — a skeleton match grades
+#:                          ``degraded`` in the verifier, never BODY_DIVERGED.
+_CALLER_AUDIT_KEYS: tuple[str, ...] = ("routing_leg", "rendered_body_sha256", "body_variant")
+
 
 class Broker:
     """Authorize and execute reviewed Workspace operations."""
@@ -776,6 +795,13 @@ class Broker:
         session_id = session_id.strip() if isinstance(session_id, str) else ""
         matter_ref = request.get("matter_ref")
         matter_ref = matter_ref.strip() if isinstance(matter_ref, str) else ""
+        # WS-RENDER: the caller's body-conformance stamps, read from the
+        # REQUEST like the two joins above, filtered through a closed
+        # allowlist (string values only). Optional at both ends, so the
+        # overlay and this process deploy in either order.
+        raw_extra = request.get("audit_extra")
+        raw_extra = raw_extra if isinstance(raw_extra, dict) else {}
+        audit_extra = {k: raw_extra[k].strip() for k in _CALLER_AUDIT_KEYS if isinstance(raw_extra.get(k), str) and raw_extra[k].strip()}
         # Digest what the caller asked to send, computed here, so the row proves
         # which content went out without the ledger ever holding the content.
         digest = hashlib.sha256(_canonical(payload)).hexdigest()
@@ -789,12 +815,7 @@ class Broker:
             self._append_send_row(
                 "CONFIRM_SEND_FAILED",
                 action,
-                {
-                    "outcome": "refused",
-                    "reason": str(exc),
-                    "recipients": attempted,
-                    "input_digest": digest,
-                },
+                {"outcome": "refused", "reason": str(exc), "recipients": attempted, "input_digest": digest, **audit_extra},
                 session_id=session_id,
                 matter_ref=matter_ref,
             )
@@ -807,12 +828,7 @@ class Broker:
             self._append_send_row(
                 "CONFIRM_SEND_FAILED",
                 action,
-                {
-                    "outcome": "transport_error",
-                    "reason": str(exc),
-                    "recipients": attempted,
-                    "input_digest": digest,
-                },
+                {"outcome": "transport_error", "reason": str(exc), "recipients": attempted, "input_digest": digest, **audit_extra},
                 session_id=session_id,
                 matter_ref=matter_ref,
             )
@@ -826,6 +842,7 @@ class Broker:
                 "message_id": result.get("message_id") or "",
                 identity_key: result.get(identity_key) or "",
                 "input_digest": digest,
+                **audit_extra,
                 # The ops verb's own contributions to the row, written through by
                 # NAME rather than by wholesale copy, so a transmit result can
                 # never quietly widen what the ledger records.
