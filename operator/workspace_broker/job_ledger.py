@@ -37,10 +37,39 @@ The audit_log append-only guarantee is unaffected: no verb here touches
 from __future__ import annotations
 
 import logging
+import secrets
 import sqlite3
+import time
 from datetime import UTC, datetime, timedelta
 
-from .audit_ledger import _iso_utc, _ulid  # ULID/timestamp format in lockstep
+from .audit_ledger import _encode_crockford, _iso_utc, _ulid  # format in lockstep
+
+
+def _mint_id_and_stamp() -> tuple[str, str]:
+    """A job's ULID and its ``created_at``, from ONE clock read.
+
+    ``list_all`` orders ``created_at DESC, id DESC``, so the two values form a
+    composite sort key and must agree about when the row was made. Minting them
+    from separate clock reads (``_ulid()`` then ``_iso_utc()``) lets the pair
+    straddle a millisecond boundary: ``created_at`` says this row came second
+    while its ULID timestamp says it came first, and the composite order stops
+    matching creation order.
+
+    Not theoretical. It flaked the ``substrate`` merge gate on PR #2484
+    (ss#2486) with a failure in a file that PR did not touch, and it passed on
+    re-run: the shape that teaches everyone to hit re-run without reading, which
+    is how a real failure gets waved through.
+
+    One read, both values derived from it, so the pair cannot disagree. The
+    encoder and the timestamp format stay the audit ledger's on purpose, since
+    the two ledgers share a DB file and their id/timestamp formats travel in
+    lockstep.
+    """
+    ms = int(time.time() * 1000)
+    dt = datetime.fromtimestamp(ms / 1000, UTC)
+    job_id = _encode_crockford(ms, 10) + _encode_crockford(secrets.randbits(80), 16)
+    stamp = dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
+    return job_id, stamp
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +206,8 @@ class JobLedgerWriter:
             conn.close()
 
     # -- intake ------------------------------------------------------------
+
+
     def create(self, row: dict) -> str:
         """Create a queued job from caller-supplied create columns. Returns the
         broker-stamped ULID. Identity/lease/cost-progress columns are owned by
@@ -190,8 +221,7 @@ class JobLedgerWriter:
         for required in ("customer_slug", "persona_id", "brief", "budget_cents"):
             if row.get(required) in (None, ""):
                 raise ValueError(f"job create: '{required}' is required")
-        job_id = _ulid()
-        now = _iso_utc()
+        job_id, now = _mint_id_and_stamp()
         cols = ("id", "created_at", "updated_at", *_CREATE_COLUMNS)
         vals = [job_id, now, now, *(row.get(c) for c in _CREATE_COLUMNS)]
         sql = (
