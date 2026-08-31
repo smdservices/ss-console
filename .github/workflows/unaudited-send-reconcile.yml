@@ -63,6 +63,18 @@ on:
       - 'operator/bin/reconcile-sends-baseline.json'
       - 'operator/bin/tests/test_reconcile_sends.py'
       - 'operator/bin/tests/fixtures/unaudited-sends-2026-08-17.json'
+      # Phase 4 (body-hash verification + cross-run invariants) and its
+      # transport factor-out ride this job; a change to any of them must run
+      # its tests here.
+      - 'operator/bin/lib/send_verify.py'
+      - 'operator/bin/lib/msgraph_channel.py'
+      - 'operator/bin/send-invariants.json'
+      - 'operator/bin/tests/test_send_verify.py'
+      - 'operator/contracts/send-render.yaml'
+      - 'operator/contracts/fixtures/body-canon-vectors.json'
+      # The AgentMail lists check rides the same daily run.
+      - 'operator/bin/check-agentmail-lists.py'
+      - 'operator/bin/tests/test_check_agentmail_lists.py'
       # A seat gaining or losing `adapter: msgraph` changes which mailboxes this
       # job must cover, and the conformance test that proves it runs here.
       - 'operator/customers/*/customer.yaml'
@@ -75,7 +87,12 @@ permissions:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 30, raised from 15 with the phase-4 body fetches (dormant until the
+    # render cluster's stamps land) and the lists ride-along (PR #2651 review
+    # finding 4). The JOB timeout is the uncatchable kill: it takes the hold
+    # and issue steps down with it, so it is sized to fire only after the
+    # per-step timeouts below have had their say.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -92,13 +109,23 @@ jobs:
       # broken would report either nothing or everything, and both are worse
       # than no report.
       - name: Test the reconciler
-        run: python3 -m pytest operator/bin/tests/test_reconcile_sends.py -q
+        run: >-
+          python3 -m pytest operator/bin/tests/test_reconcile_sends.py
+          operator/bin/tests/test_send_verify.py
+          operator/bin/tests/test_check_agentmail_lists.py -q
 
       # On pull_request there are no secrets and nothing to reconcile against —
       # the tests above are the whole job.
+      # Step-level timeout BELOW the job's, beside the ss#2309 note it exists
+      # to protect: a JOB-level kill is a SIGKILL of everything, which bypasses
+      # the `|| STATUS=$?` guard AND silently skips the hold/issue steps -- a
+      # hung mailbox read would leave no report at all. A STEP-level kill fails
+      # only this step; the later steps are gated `!cancelled()` and still get
+      # their turn, so the failure is a named red step, never a vanished job.
       - name: Reconcile every inbox
         if: github.event_name != 'pull_request'
         id: reconcile
+        timeout-minutes: 20
         env:
           AGENTMAIL_API_KEY: ${{ secrets.AGENTMAIL_API_KEY }}
           OPERATOR_RUNTIME_READ_SECRET: ${{ secrets.OPERATOR_RUNTIME_READ_SECRET }}
@@ -143,6 +170,36 @@ jobs:
           # job, after the issue step has had its turn: a run can hold on one
           # inbox and find on another, and neither may swallow the other.
           grep '^HOLD' reconcile.txt > holds.txt || true
+
+      # AgentMail Lists ride-along (outbound-quality track). A rostered
+      # recipient sitting on a send-block list -- or excluded by a non-empty
+      # send-allow -- is SILENTLY unreachable: the Operator "sends", the vendor
+      # drops it, nothing records a failure. Three GETs per seat, so it rides
+      # the daily run rather than earning its own workflow. Its holds join
+      # holds.txt so the final hold step reddens on them too; its findings get
+      # their own small issue step below (a suppressed rostered address is a
+      # different owner and remedy than an unaudited send).
+      #
+      # `!cancelled()` rather than default success(): a reconcile finding
+      # (exit 1 handled above) must not skip this check.
+      - name: Check AgentMail lists for suppressed rostered recipients
+        if: github.event_name != 'pull_request' && !cancelled() && steps.reconcile.outputs.status != ''
+        id: lists
+        # Same step-vs-job kill reasoning as the reconcile step above: a hung
+        # vendor GET must fail THIS step, not eat the job's budget.
+        timeout-minutes: 4
+        env:
+          AGENTMAIL_API_KEY: ${{ secrets.AGENTMAIL_API_KEY }}
+        run: |
+          set -u
+          # Same `|| STATUS=$?` discipline as the reconcile step (ss#2309):
+          # exit 1 is the findings path and must not abort the step under -e.
+          STATUS=0
+          python3 operator/bin/check-agentmail-lists.py > lists.txt 2>&1 || STATUS=$?
+          cat lists.txt
+          echo "status-lists=${STATUS}" >> "$GITHUB_OUTPUT"
+          if [ "${STATUS}" -gt 2 ]; then exit "${STATUS}"; fi
+          grep '^HOLD' lists.txt >> holds.txt || true
 
       - name: Open an issue when a send has no audit record
         if: github.event_name != 'pull_request' && steps.reconcile.outputs.status == '1'
@@ -203,6 +260,83 @@ jobs:
             --title "Unaudited send detected $(date -u +%Y-%m-%d)" \
             --label "prio:P1" --label "type:bug" \
             --body-file body.md
+
+      - name: Report suppressed rostered recipients on ONE issue, updated in place
+        if: github.event_name != 'pull_request' && steps.lists.outputs.status-lists == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # The ss#2582 rolling-issue discipline (PR #2651 review finding 1):
+          # a findings-derived dedupe key re-files the WHOLE report as a "new"
+          # issue the day one address joins the set. So: find the one open
+          # issue by the CONSTANT series marker the checker prints, rewrite its
+          # body with today's report, and comment only when the content digest
+          # (stable fields only) actually moved.
+          SERIES="$(sed -n 's/^reconcile-series: //p' lists.txt | tail -1)"
+          if [ -z "${SERIES}" ]; then
+            echo "lists findings reported with no reconcile-series line" >&2
+            exit 1
+          fi
+          DIGEST="$(sed -n 's/^reconcile-findings: //p' lists.txt | tail -1)"
+
+          # Listed, not searched (the search index lags by minutes); bodies,
+          # not titles (a dated title defeats any title check).
+          gh issue list --repo "${REPO}" --state open --label "prio:P1" \
+            --limit 200 --json number,body > open-issues.json
+          EXISTING="$(SERIES="reconcile-series: ${SERIES}" python3 -c '
+          import json, os
+          series = os.environ["SERIES"]
+          issues = json.load(open("open-issues.json"))
+          print(next((str(i["number"]) for i in issues if series in (i.get("body") or "")), ""))
+          ')"
+
+          {
+            echo "An AgentMail send list suppresses a rostered recipient."
+            echo
+            echo "A rostered address on a send-block list, or omitted by a non-empty"
+            echo "send-allow list, is silently unreachable: the Operator sends, the"
+            echo "vendor drops it, and nothing on our side records a failure."
+            echo
+            echo "**This issue is rewritten in place on every run.** The report below"
+            echo "is current as of the run linked at the bottom. A comment is added"
+            echo "only when the finding set changes."
+            echo
+            echo '```'
+            cat lists.txt
+            echo '```'
+            echo
+            echo "Checker: \`operator/bin/check-agentmail-lists.py\`."
+            echo "Series key, do not edit: \`reconcile-series: ${SERIES}\`"
+            echo "Last run: ${RUN_URL}"
+          } > body-lists.md
+
+          if [ -n "${EXISTING}" ]; then
+            PREV="$(gh issue view "${EXISTING}" --repo "${REPO}" --json body --jq '.body' \
+                    | sed -n 's/^reconcile-findings: //p' | tail -1)"
+            gh issue edit "${EXISTING}" --repo "${REPO}" --body-file body-lists.md
+            echo "Updated #${EXISTING} in place."
+            if [ "${PREV}" != "${DIGEST}" ]; then
+              {
+                echo "The finding set changed since the last run."
+                echo
+                echo "\`${PREV:-none}\` -> \`${DIGEST:-none}\`"
+                echo
+                echo "Current report is in the issue body above. Run: ${RUN_URL}"
+              } > comment-lists.md
+              gh issue comment "${EXISTING}" --repo "${REPO}" --body-file comment-lists.md
+              echo "Finding set moved; commented."
+            else
+              echo "Finding set unchanged; body refreshed, no comment."
+            fi
+          else
+            gh issue create \
+              --repo "${REPO}" \
+              --title "AgentMail lists suppressing rostered recipients (rolling)" \
+              --label "prio:P1" --label "type:bug" \
+              --body-file body-lists.md
+          fi
 
       # A HOLD IS NOT A PASS (ss#2386 review). A hold still files no issue --
       # ss#2258's rule that a control must not page on its own blips is intact --

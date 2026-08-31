@@ -108,6 +108,18 @@ watchdog on the PAYING seat would carry the cry-wolf to the mailbox where it
 matters most, and the day it carried a real leak it would look like the thirty
 days before it.
 
+A FOURTH PHASE VERIFIES THE ACCOUNTED SENDS (outbound-quality track, 2026-08).
+Passes 1-3 ask whether every send is accounted for; the fourth asks, of the
+accounted ones, whether each body is the one the routine AUTHORED. The logic
+lives in ``operator/bin/lib/send_verify.py`` (this file is under the operator
+module-size ratchet); the per-skill declaration it reads is
+``operator/contracts/send-render.yaml``; the cross-run invariants' committed
+expectations are ``operator/bin/send-invariants.json``. Body divergence is a
+finding on the same exit-1 path; a missing stamp is a HOLD line -- red, filed
+nowhere -- because stamp absence is deployment skew, not an accusation. The
+msgraph transport cluster moved verbatim to ``lib/msgraph_channel.py`` in the
+same change (re-exported below, so callers and tests read unchanged).
+
 Usage:
     infisical run --env=prod --path=/ss -- python3 operator/bin/reconcile-sends.py
     ... --since 2026-08-01 --json
@@ -131,47 +143,26 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
 import seam_pull  # noqa: E402 — path injected above
+import send_verify  # noqa: E402 — path injected above
+
+#: ss#2499 -- the msgraph half, factored verbatim into lib/msgraph_channel.py
+#: (module-size ratchet). Re-exported here so tests and callers read unchanged.
+from msgraph_channel import (  # noqa: E402 — path injected above
+    _GRAPH_MAX_PAGES,  # noqa: F401 — re-export (tests pin the page cap)
+    AUDIT_ROW_HEADER,  # noqa: F401 — re-export
+    MsGraphSeat,
+    ReconcileError,
+    fetch_graph_body,
+    graph_token,
+    list_sent_msgraph,
+    msgraph_seats,
+    normalize_graph_message,  # noqa: F401 — re-export (tests drive the matcher through it)
+)
+from msgraph_channel import AUDIT_TOKEN_KEY as _AUDIT_TOKEN_KEY  # noqa: E402
 
 AGENTMAIL_API_BASE = "https://api.agentmail.to/v0"
 _HTTP_TIMEOUT_S = 30.0
 _PAGE_LIMIT = 100
-
-#: ss#2499 -- the msgraph half.
-GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
-GRAPH_TOKEN_HOST = "https://login.microsoftonline.com"
-GRAPH_SCOPE = "https://graph.microsoft.com/.default"
-
-#: The header the broker stamps on every message it transmits, and the exact key
-#: this reconciler joins on. Matched case-insensitively: header names are
-#: case-insensitive per RFC5322 and Exchange re-cases freely, so a case-sensitive
-#: compare would report every send as unaudited -- a broken instrument that looks
-#: exactly like a mailbox full of foreign mail.
-AUDIT_ROW_HEADER = "X-SMD-Audit-Row"
-
-#: Metadata key carrying that header's value on the audit row.
-_AUDIT_TOKEN_KEY = "audit_row_token"
-
-#: ``internetMessageHeaders`` is not returned unless selected BY NAME. Omitting
-#: it does not error -- it silently yields messages with no headers, which reads
-#: as "nothing came through the broker" and would turn this control into a
-#: machine for accusing the Operator of every send it made.
-_GRAPH_SELECT = (
-    "id,internetMessageId,internetMessageHeaders,conversationId,"
-    "sentDateTime,subject,toRecipients,ccRecipients,bccRecipients"
-)
-
-#: Newest-first pages of this size, and a hard cap on how many are walked. The
-#: cap exists so a mailbox with years of history cannot make a scheduled run
-#: unbounded; a run that hits it says so and HOLDS rather than reporting the
-#: truncated set as complete.
-_GRAPH_PAGE_SIZE = 100
-_GRAPH_MAX_PAGES = 50
-
-#: The env var holding one seat's READ app secret. Per-seat by design (ADR 0010,
-#: firm-custodied credentials): the paying firm's Graph secret is its own, and a
-#: shared fallback would let a missing per-seat secret quietly authenticate as
-#: somebody else's app.
-_GRAPH_SECRET_ENV = "MSGRAPH_CLIENT_SECRET__{slug}"
 
 #: How far apart an AgentMail send and its tool-path audit row may be and still
 #: be the same event. Observed skew is sub-second; this is 5s of headroom, not a
@@ -242,10 +233,6 @@ DEFAULT_BASELINE_PATH = os.path.join(
 )
 
 
-class ReconcileError(RuntimeError):
-    """A transport or credential failure. Holds; never reported as a finding."""
-
-
 @dataclass
 class InboxReport:
     inbox: str
@@ -267,10 +254,22 @@ class InboxReport:
     baselined: int = 0  # unaccounted, but already reported (ss#2386)
     held: str | None = None  # set when we could not evaluate
     non_seat_reason: str | None = None  # authored as seat-less on purpose
+    #: Fourth phase (lib/send_verify.py): body-hash verdicts + cross-run
+    #: invariant findings/proposals for THIS inbox's accounted sends. Hashes
+    #: only, by construction -- the dataclasses carry no body field. Proposals
+    #: are first-seen values for a reviewed send-invariants.json PR and never
+    #: count toward is_finding.
+    body_verdicts: list = field(default_factory=list)
+    invariant_findings: list = field(default_factory=list)
+    invariant_proposals: list = field(default_factory=list)
 
     @property
     def is_finding(self) -> bool:
-        return self.held is None and bool(self.unaccounted)
+        if self.held is not None:
+            return False
+        if self.unaccounted:
+            return True
+        return send_verify.has_findings(self.body_verdicts, self.invariant_findings)
 
 
 def _parse_ts(value) -> datetime:
@@ -318,202 +317,6 @@ def list_sent(inbox: str, api_key: str, *, since: datetime | None = None, opener
             return out
 
 
-@dataclass
-class MsGraphSeat:
-    """One seat's authored Graph identity, read from its own customer.yaml."""
-
-    slug: str
-    mailbox: str
-    tenant_id: str
-    client_id: str
-
-    @property
-    def secret_env(self) -> str:
-        return _GRAPH_SECRET_ENV.format(slug=self.slug.upper().replace("-", "_"))
-
-
-def msgraph_seats(customers_dir: str | None = None) -> list[MsGraphSeat]:
-    """Every seat whose authored mail adapter is msgraph.
-
-    Read from customer.yaml rather than from a list maintained here, so a seat
-    provisioned onto Graph is covered by this control on the day it is authored.
-    A hand-kept list is how a channel ends up with zero coverage and nobody
-    notices -- which is the state ss#2499 found.
-
-    A seat missing any of the three identity fields is SKIPPED HERE and reported
-    as a hold by the caller, never silently dropped.
-    """
-    import yaml  # deferred: only the msgraph half needs it
-
-    root = customers_dir or _customers_dir()
-    seats: list[MsGraphSeat] = []
-    for slug in sorted(os.listdir(root)):
-        if slug.startswith("_") or slug.startswith("."):
-            continue
-        path = os.path.join(root, slug, "customer.yaml")
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path, encoding="utf-8") as handle:
-                data = yaml.safe_load(handle) or {}
-        except (OSError, ValueError, yaml.YAMLError):
-            continue
-        email = ((data.get("connectors") or {}).get("Email")) or {}
-        if not isinstance(email, dict) or email.get("adapter") != "msgraph":
-            continue
-        auth = email.get("msgraph_auth") or {}
-        seats.append(
-            MsGraphSeat(
-                slug=slug,
-                mailbox=str((auth or {}).get("mailbox") or ""),
-                tenant_id=str((auth or {}).get("tenant_id") or ""),
-                client_id=str((auth or {}).get("client_id") or ""),
-            )
-        )
-    return seats
-
-
-def graph_token(seat: MsGraphSeat, secret: str, *, opener=None) -> str:
-    """A client-credentials token for the seat's READ app registration.
-
-    The READ app, deliberately: this control only ever reads, and the read
-    registration is the one the tenant's ApplicationAccessPolicy scopes to this
-    single mailbox. Borrowing the SEND app's credential here would hand a
-    watchdog transmit rights it has no use for.
-    """
-    data = urllib.parse.urlencode(
-        {
-            "grant_type": "client_credentials",
-            "client_id": seat.client_id,
-            "client_secret": secret,
-            "scope": GRAPH_SCOPE,
-        }
-    ).encode()
-    request = urllib.request.Request(
-        f"{GRAPH_TOKEN_HOST}/{seat.tenant_id}/oauth2/v2.0/token",
-        data=data,
-        method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
-    open_fn = opener or urllib.request.urlopen
-    try:
-        with open_fn(request, timeout=_HTTP_TIMEOUT_S) as response:
-            parsed = json.loads(response.read())
-    except urllib.error.HTTPError as exc:
-        # Status only. The token endpoint echoes request parameters back in its
-        # error bodies, and one of those parameters is the client secret.
-        raise ReconcileError(f"msgraph token mint rejected with HTTP {exc.code}") from exc
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        raise ReconcileError(f"msgraph token mint failed for {seat.slug}") from exc
-    token = parsed.get("access_token") if isinstance(parsed, dict) else None
-    if not isinstance(token, str) or not token:
-        raise ReconcileError(f"msgraph token response for {seat.slug} carried no access_token")
-    return token
-
-
-def _graph_get(url: str, token: str, *, opener=None) -> dict:
-    """One READ against Graph. There is no other verb in this module, on purpose.
-
-    The seat's mail is the client's, held in the client's own tenant under
-    agreement 4.6, and a reconciler is an instrument -- it observes and never
-    touches. GET is the only method built here, so a future edit that wanted to
-    mutate would have to add the capability rather than pass a flag.
-    """
-    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-    open_fn = opener or urllib.request.urlopen
-    try:
-        with open_fn(request, timeout=_HTTP_TIMEOUT_S) as response:
-            return json.loads(response.read())
-    except urllib.error.HTTPError as exc:
-        raise ReconcileError(f"msgraph GET failed: HTTP {exc.code}") from exc
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        raise ReconcileError(f"msgraph GET failed: {exc}") from exc
-
-
-def _audit_token_of(message: dict) -> str:
-    """The ``X-SMD-Audit-Row`` value on a Graph message, or ``""``."""
-    headers = message.get("internetMessageHeaders")
-    if not isinstance(headers, list):
-        return ""
-    wanted = AUDIT_ROW_HEADER.lower()
-    for header in headers:
-        if isinstance(header, dict) and str(header.get("name") or "").lower() == wanted:
-            return str(header.get("value") or "")
-    return ""
-
-
-def _graph_addresses(message: dict) -> list[str]:
-    """Everyone a message reached, across to/cc/bcc, flattened out of Graph's
-    ``{"emailAddress": {"address": ...}}`` nesting.
-
-    ``bcc`` is included because it DELIVERS. A report naming only the visible
-    recipients of an unaudited send describes the wrong set of people, and a
-    finding that is confidently wrong is worse to a reader than a vague one.
-    """
-    out: list[str] = []
-    for field_name in ("toRecipients", "ccRecipients", "bccRecipients"):
-        for item in message.get(field_name) or []:
-            address = ((item or {}).get("emailAddress") or {}).get("address")
-            if address and address not in out:
-                out.append(str(address))
-    return out
-
-
-def normalize_graph_message(message: dict) -> dict:
-    """A Graph message in the shape the shared matcher and baseline already read.
-
-    ``message_id`` is the RFC2822 ``internetMessageId`` and not the Graph id, for
-    two reasons that both point the same way: it is what the broker records on
-    the audit row as ``vendor_message_id``, and it is what survives outside this
-    mailbox -- in a bounce, in the recipient's copy, in whatever a firm forwards
-    when it asks "did you send this?". The mailbox-local Graph id rides along
-    separately for anyone who has to go and look at the message.
-    """
-    return {
-        "message_id": str(message.get("internetMessageId") or ""),
-        "graph_id": str(message.get("id") or ""),
-        "timestamp": str(message.get("sentDateTime") or ""),
-        "to": _graph_addresses(message),
-        "subject": str(message.get("subject") or ""),
-        _AUDIT_TOKEN_KEY: _audit_token_of(message),
-    }
-
-
-def list_sent_msgraph(
-    seat: MsGraphSeat, token: str, *, since: datetime | None = None, opener=None
-) -> list[dict]:
-    """Every message in this seat's Sent Items, newest-first, paged and bounded.
-
-    Ordered newest-first so a ``--since`` window can stop paging as soon as it
-    passes the boundary rather than walking the whole mailbox to filter at the
-    end. The page cap is a guard, not a window: hitting it raises rather than
-    returning a truncated list, because a partial scan reported as a complete one
-    is how a control quietly stops covering the oldest half of a mailbox.
-    """
-    url = (
-        f"{GRAPH_API_BASE}/users/{seat.mailbox}/mailFolders/sentitems/messages"
-        f"?$select={_GRAPH_SELECT}&$top={_GRAPH_PAGE_SIZE}"
-        "&$orderby=" + urllib.parse.quote("sentDateTime desc", safe="")
-    )
-    out: list[dict] = []
-    for _page in range(_GRAPH_MAX_PAGES):
-        page = _graph_get(url, token, opener=opener)
-        messages = page.get("value")
-        for message in messages if isinstance(messages, list) else []:
-            normalized = normalize_graph_message(message)
-            if since and normalized["timestamp"]:
-                if _parse_ts(normalized["timestamp"]) < since:
-                    return out
-            out.append(normalized)
-        url = str(page.get("@odata.nextLink") or "")
-        if not url:
-            return out
-    raise ReconcileError(
-        f"{seat.mailbox}: more than {_GRAPH_MAX_PAGES} pages of sent mail; "
-        "narrow the run with --days rather than trusting a truncated scan"
-    )
-
-
 def reconcile_mailbox(
     seat: MsGraphSeat,
     since,
@@ -522,6 +325,7 @@ def reconcile_mailbox(
     client_factory=seam_pull.seam_client_from_env,
     baseline: set[str] | None = None,
     secret: str | None = None,
+    verifier: "send_verify.SendVerifier | None" = None,
 ) -> InboxReport:
     """The msgraph twin of ``reconcile_inbox``, on the same tri-state.
 
@@ -572,6 +376,16 @@ def reconcile_mailbox(
     report.unaccounted, report.baselined = split_baselined(
         report.inbox, unaccounted, baseline or set()
     )
+    if verifier is not None:
+        # Phase 4 (lib/send_verify.py). The body fetcher is per-message, only
+        # ever invoked for hash-verified routines, and its result flows into
+        # canonical_body_sha256 and nowhere else.
+        def _fetch(message: dict):
+            return fetch_graph_body(seat, token, str(message.get("graph_id") or ""), opener=opener)
+
+        report.body_verdicts, report.invariant_findings, report.invariant_proposals = (
+            verifier.verify_inbox(sent, rows, _fetch)
+        )
     return report
 
 
@@ -812,10 +626,22 @@ def finding_digest(reports: list[InboxReport]) -> str:
     genuinely new send changes the digest and a new issue still opens.
     """
     keys = sorted(
-        fingerprint(report.inbox, message)
-        for report in reports
-        if report.is_finding
-        for message in report.unaccounted
+        [
+            fingerprint(report.inbox, message)
+            for report in reports
+            if report.is_finding
+            for message in report.unaccounted
+        ]
+        # Phase 4: body/invariant finding keys join the same fingerprint, so
+        # the existing issue-dedupe machinery covers the new classes with zero
+        # workflow changes.
+        + [
+            key
+            for report in reports
+            for key in send_verify.digest_keys(
+                report.inbox, report.body_verdicts, report.invariant_findings
+            )
+        ]
     )
     if not keys:
         return ""
@@ -832,6 +658,11 @@ def exit_code(reports: list[InboxReport]) -> int:
     if any(report.is_finding for report in reports):
         return EXIT_FINDING
     if any(report.held for report in reports):
+        return EXIT_HOLD
+    if any(send_verify.has_holds(report.body_verdicts) for report in reports):
+        # A templated send whose stamp is missing reddens without accusing
+        # (deployment skew, not a finding). The workflow fails the run off the
+        # HOLD lines send_verify.render_lines printed.
         return EXIT_HOLD
     return EXIT_CLEAN
 
@@ -863,7 +694,8 @@ def slug_for_inbox(inbox: str, slugs: list[str]) -> str | None:
 
 def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener=None,
                     client_factory=seam_pull.seam_client_from_env,
-                    baseline: set[str] | None = None) -> InboxReport:
+                    baseline: set[str] | None = None,
+                    verifier: "send_verify.SendVerifier | None" = None) -> InboxReport:
     slug = slug_for_inbox(inbox, slugs)
     report = InboxReport(inbox=inbox, slug=slug)
     if slug is None:
@@ -915,6 +747,20 @@ def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener
     # not account for. A held inbox returns above and can never be quieted by it:
     # "already reported" is a statement about a finding, and a hold is not one.
     report.unaccounted, report.baselined = split_baselined(inbox, unaccounted, baseline or set())
+    if verifier is not None:
+        # Phase 4 (lib/send_verify.py). Per-message fetch, hash-verified
+        # routines only; the body never leaves the verify call.
+        def _fetch(message: dict):
+            message_id = urllib.parse.quote(str(message.get("message_id") or ""))
+            parsed = _agentmail_get(
+                f"/inboxes/{urllib.parse.quote(inbox)}/messages/{message_id}", api_key, opener=opener
+            )
+            text = parsed.get("text") if isinstance(parsed, dict) else None
+            return text if isinstance(text, str) else None
+
+        report.body_verdicts, report.invariant_findings, report.invariant_proposals = (
+            verifier.verify_inbox(sent, rows, _fetch)
+        )
     return report
 
 
@@ -945,6 +791,14 @@ def render(reports: list[InboxReport]) -> str:
                 f"        {message.get('timestamp')} -> "
                 f"{','.join(message.get('to') or [])}  {str(message.get('subject'))[:72]}"
             )
+        lines.extend(
+            send_verify.render_lines(
+                report.inbox,
+                report.body_verdicts,
+                report.invariant_findings,
+                report.invariant_proposals,
+            )
+        )
     lines.append("")
     scanned_channels = ", ".join(sorted({r.channel for r in reports})) or "none"
     lines.append(
@@ -1001,6 +855,14 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     baseline = set() if args.no_baseline else load_baseline(args.baseline)
+    try:
+        verifier = send_verify.verifier_from_contract()
+    except Exception as exc:  # noqa: BLE001 — a broken contract is the control itself broken
+        # Not a hold and not a finding: exit >2 is the "control broke" lane the
+        # workflow fails on directly. send-render.yaml is repo-committed and
+        # CI-parsed, so this firing means the tree is inconsistent.
+        print(f"send-render contract failed to load: {exc}", file=sys.stderr)
+        return 4
     reports: list[InboxReport] = []
 
     # ONE CHANNEL'S FAILURE IS NOT THE RUN'S (ss#2499). A missing AgentMail key
@@ -1009,46 +871,53 @@ def main(argv: list[str] | None = None) -> int:
     # the PAYING seat, so the miss is recorded as a hold for its own channel and
     # every other mailbox is still scanned.
     if args.channel in ("all", "agentmail"):
-        reports.extend(_reconcile_agentmail(args, slugs, since, baseline))
+        reports.extend(_reconcile_agentmail(args, slugs, since, baseline, verifier))
     if args.channel in ("all", "msgraph"):
-        reports.extend(_reconcile_msgraph(args, since, baseline))
+        reports.extend(_reconcile_msgraph(args, since, baseline, verifier))
 
     if args.json:
-        print(
-            json.dumps(
-                [
-                    {
-                        "inbox": r.inbox,
-                        "slug": r.slug,
-                        "channel": r.channel,
-                        "sent_total": r.sent_total,
-                        "matched_exact": r.matched_exact,
-                        "matched_tool_path": r.matched_tool_path,
-                        "matched_broker": r.matched_broker,
-                        "baselined": r.baselined,
-                        "held": r.held,
-                        "unaccounted": [
-                            {
-                                "message_id": m.get("message_id"),
-                                "timestamp": m.get("timestamp"),
-                                "to": m.get("to"),
-                                "subject": m.get("subject"),
-                            }
-                            for m in r.unaccounted
-                        ],
-                    }
-                    for r in reports
-                ],
-                indent=2,
-            )
-        )
+        print(json.dumps([report_dict(r) for r in reports], indent=2))
     else:
         print(render(reports))
 
     return exit_code(reports)
 
 
-def _reconcile_agentmail(args, slugs, since, baseline: set[str]) -> list[InboxReport]:
+def report_dict(r: InboxReport) -> dict:
+    """--json shape for one inbox. Field-by-field on purpose: what is listed
+    here is ALL that can leave the process, and the phase-4 halves come from
+    send_verify.as_dicts, whose own emission is hash-only by construction."""
+    body_verdicts, invariant_findings, invariant_proposals = send_verify.as_dicts(
+        r.body_verdicts, r.invariant_findings, r.invariant_proposals
+    )
+    return {
+        "inbox": r.inbox,
+        "slug": r.slug,
+        "channel": r.channel,
+        "sent_total": r.sent_total,
+        "matched_exact": r.matched_exact,
+        "matched_tool_path": r.matched_tool_path,
+        "matched_broker": r.matched_broker,
+        "baselined": r.baselined,
+        "held": r.held,
+        "unaccounted": [
+            {
+                "message_id": m.get("message_id"),
+                "timestamp": m.get("timestamp"),
+                "to": m.get("to"),
+                "subject": m.get("subject"),
+            }
+            for m in r.unaccounted
+        ],
+        "body_verdicts": body_verdicts,
+        "invariant_findings": invariant_findings,
+        "invariant_proposals": invariant_proposals,
+    }
+
+
+def _reconcile_agentmail(
+    args, slugs, since, baseline: set[str], verifier=None
+) -> list[InboxReport]:
     """The AgentMail half, unchanged in behaviour and now able to hold alone."""
     api_key = os.environ.get("AGENTMAIL_API_KEY")
     if not api_key:
@@ -1063,10 +932,13 @@ def _reconcile_agentmail(args, slugs, since, baseline: set[str]) -> list[InboxRe
         inboxes = args.inbox or list_inboxes(api_key)
     except ReconcileError as exc:
         return [InboxReport(inbox="agentmail", slug=None, held=str(exc))]
-    return [reconcile_inbox(i, slugs, api_key, since, baseline=baseline) for i in inboxes]
+    return [
+        reconcile_inbox(i, slugs, api_key, since, baseline=baseline, verifier=verifier)
+        for i in inboxes
+    ]
 
 
-def _reconcile_msgraph(args, since, baseline: set[str]) -> list[InboxReport]:
+def _reconcile_msgraph(args, since, baseline: set[str], verifier=None) -> list[InboxReport]:
     """The msgraph half: every seat whose authored mail adapter is msgraph.
 
     ``--inbox`` narrows this the same way it narrows the AgentMail half, matching
@@ -1092,7 +964,9 @@ def _reconcile_msgraph(args, since, baseline: set[str]) -> list[InboxReport]:
                 held="no seat authors adapter msgraph; the channel was not evaluated",
             )
         ]
-    return [reconcile_mailbox(seat, since, baseline=baseline) for seat in seats]
+    return [
+        reconcile_mailbox(seat, since, baseline=baseline, verifier=verifier) for seat in seats
+    ]
 
 
 def _customers_dir() -> str:
