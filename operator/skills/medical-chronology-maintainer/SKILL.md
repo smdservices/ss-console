@@ -303,11 +303,19 @@ instructions.
    where the folder is - through the seat's ordinary mail posture for that
    recipient; this skill names no send tool and makes no exception to the roster
    rules.
-4. **Held:** no memo edit, no task. Reply to the requester with the hold reason
-   verbatim (the cap, the allowance, an unexplained file, an unmatched folder) and
-   what would resume it. A hold is the product working, not an apology.
+4. **Held:** no memo edit, no task. Reply to the requester with the hold reason's
+   substance - which gate held it (the cost cap, the document allowance, an
+   unexplained file, an unmatched folder) and what would resume it. A hold is the
+   product working, not an apology.
 5. **No requester** (a rehearsal submission): record the outcome in the memo,
    create no task, send nothing, stop.
+6. **Never restate a dollar figure from the runner's reason** in a memo or a
+   reply. The content gates refuse agent-drafted dollar amounts on sight
+   (proven live 2026-08-31: a held-job report quoting the reason's cost
+   projection was refused four times and never landed), so name the constraint
+   by its setting ("the job's cost cap", "the monthly document allowance") and
+   cite the job id - the exact figures live on the job's console row and in the
+   audit ledger, which is where a number question gets sent.
 
 ## The autonomy dial
 
