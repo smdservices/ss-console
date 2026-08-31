@@ -204,7 +204,14 @@ def test_rung_clearance_for_held_regardless_of_proximity():
 # ---------------------------------------------------------------------------
 
 
-def test_run_once_wakes_on_in_range_no_audit_written():
+def test_run_once_wakes_on_in_range_no_audit_written(tmp_path, monkeypatch):
+    # HERMES_HOME pinned so the dispatch-envelope write is DETERMINISTIC
+    # (WS-RENDER): unpinned, the default /opt/data is unwritable on a dev
+    # laptop and writable in the root CI container, and dispatch_expected
+    # flipped between the two. With no red-flag recipient authored the matter
+    # is unroutable, so the envelope carries only the memo duty.
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.delenv("SMD_CUSTOMER_YAML_PATH", raising=False)
     sources = [FakeSource([_dl(days_out=5, task_id="task-9")])]
     executor = FakeExecutor()
 
@@ -218,6 +225,7 @@ def test_run_once_wakes_on_in_range_no_audit_written():
     # with the connector down it sourced them from nowhere.
     payload = json.loads(out)
     digest = payload.pop("digest")  # ss #2405: asserted separately below
+    assert payload.pop("dispatch_expected") is True  # the envelope landed
     assert payload == {
         "wakeAgent": True,
         "decision_basis": "deadline_in_escalation_range",
@@ -255,7 +263,7 @@ def test_run_once_wakes_on_in_range_no_audit_written():
     assert metadata["plans_truncated"] is False
 
 
-def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
+def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails(tmp_path, monkeypatch):
     """The inverted contract: a failed audit write must not touch the wake.
 
     On the suppress path an audit failure escalates to a wake, because a silent
@@ -263,6 +271,8 @@ def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
     the decision, so the row is observability and never a gate — the stdout must
     be byte-identical to the succeeding case above.
     """
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))  # see the succeeding case
+    monkeypatch.delenv("SMD_CUSTOMER_YAML_PATH", raising=False)
     sources = [FakeSource([_dl(days_out=5, task_id="task-9")])]
     executor = FakeExecutor(fail=True)
 
@@ -275,6 +285,7 @@ def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
     assert code == 0
     payload = json.loads(out)
     payload.pop("digest")  # ss #2405: same digest as the succeeding case
+    assert payload.pop("dispatch_expected") is True
     assert payload == {
         "wakeAgent": True,
         "decision_basis": "deadline_in_escalation_range",
@@ -1101,14 +1112,23 @@ def test_a_temp_file_left_by_a_crashed_run_does_not_wedge_the_writer(
 
 def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypatch) -> None:
     """HERMES_HOME is a FILE, so the write fails for any uid. A read-only
-    directory would still be writable by root, and CI containers run as root."""
+    directory would still be writable by root, and CI containers run as root.
+
+    ``dispatch_expected`` is the ONE legitimate difference (WS-RENDER): it
+    reflects whether the dispatch envelope actually landed on disk, and on the
+    blocked volume it must clear — that flag going absent is exactly what
+    routes the woken turn to the failure-note branch. Everything else stays
+    byte-identical."""
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    good = _wake_stdout()
+    good = json.loads(_wake_stdout())
     assert _handoff_path(tmp_path).exists()
     blocked = tmp_path / "not-a-directory"
     blocked.write_text("x", encoding="utf-8")
     monkeypatch.setenv("HERMES_HOME", str(blocked))
-    assert _wake_stdout() == good
+    degraded = json.loads(_wake_stdout())
+    assert degraded.pop("dispatch_expected", None) is None
+    good.pop("dispatch_expected", None)
+    assert degraded == good
 
 
 # ---------------------------------------------------------------------------

@@ -798,6 +798,9 @@ def test_run_once_wakes_on_chase_due():
     assert parsed["plans"] == [
         {
             "matter_id": "m-1",
+            "matter_number": None,
+            "matter_number_absent": None,
+            "next_chase_due": item.next_chase_due.isoformat(),
             "task_id": "task-1",
             "item_key": key,
             "action": "chase",
@@ -850,6 +853,9 @@ def test_run_once_wake_is_unchanged_when_the_emitted_wake_write_fails():
     assert parsed["plans"] == [
         {
             "matter_id": "m-1",
+            "matter_number": None,
+            "matter_number_absent": None,
+            "next_chase_due": item.next_chase_due.isoformat(),
             "task_id": "task-1",
             "item_key": key,
             "action": "chase",
@@ -1211,14 +1217,13 @@ def test_load_chase_config_rejects_nonpositive(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Pre-run handoff (ss#2547)
 # ---------------------------------------------------------------------------
-# The same block every bespoke pre_run carries. This skill emits NO authored
-# date today (identity is the stable task_id, so `authored_date` is None in
-# production), and the projection is asserted to be empty for exactly that
-# reason: an empty `dates` list here is the honest reading of what the wake
-# line said, and the day this gate starts emitting a date the assertion below
-# starts failing rather than silently seeding nothing.
+# The same block every bespoke pre_run carries, delegated to the sibling
+# handoff_writer.py (WS-RENDER). Identity still emits no authored_date, but
+# the wake plans now carry next_chase_due (the tracking task's read due date)
+# and the code-projected matter_number, so the projection seeds the (number,
+# date) association the rendered alert's matter numbers verify against.
 
-_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids"}
+_HANDOFF_KEYS = {"skill", "started_at", "dates", "matter_ids", "records"}
 
 
 def _authored_dates_in(node, found=None) -> list:
@@ -1266,7 +1271,11 @@ def test_the_wake_writes_a_handoff_projecting_what_it_emitted(tmp_path, monkeypa
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     payload = json.loads(_wake_stdout())
     record = json.loads(_handoff_path(tmp_path).read_text(encoding="utf-8"))
-    assert record["dates"] == _authored_dates_in(payload) == []
+    assert _authored_dates_in(payload) == []  # identity still emits no authored_date
+    # The projection now carries the tracking task's read due date (WS-RENDER):
+    # the rendered alert names matter numbers, and numbers seed only as
+    # (number, date) associations.
+    assert record["dates"] == [p["next_chase_due"] for p in payload["plans"]]
     assert record["skill"] == "client-verification-tracker"
     assert record["matter_ids"] == [p["matter_id"] for p in payload["plans"]]
 

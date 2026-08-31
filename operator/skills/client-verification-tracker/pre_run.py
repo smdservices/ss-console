@@ -88,7 +88,7 @@ import json
 import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -168,6 +168,11 @@ class VerificationItem:
     next_chase_due: date
     authored_date: date | None = None
     label: str = "client-verification"
+    # The firm's human-readable matter number + typed absence, projected in
+    # code by the connector's matter.id -> matter.number join during the pull
+    # (ss #2390; WS-RENDER — the rendered alert names numbers, never GUIDs).
+    matter_number: str | None = None
+    matter_number_absent: str | None = None
 
 
 class VerificationSource(Protocol):
@@ -357,6 +362,13 @@ class ItemPlan:
     reason: str = ""
     current_role_snapshot_sha256: str | None = None
     determination: dict | None = None
+    # Code-projected matter number + typed absence (ss #2390) and the tracking
+    # task's due date, carried so the rendered alert can name the matter and
+    # the provenance handoff can seed the (number, date) association
+    # (WS-RENDER). Never composed here; copied off the pulled item.
+    matter_number: str | None = None
+    matter_number_absent: str | None = None
+    next_chase_due: str | None = None
 
 
 @dataclass(frozen=True)
@@ -583,7 +595,24 @@ def decide(
                     determination=det_stamp,
                 )
             )
-    actionable = tuple(p for p in plans if p.action != ACTION_SUPPRESS)
+    # Stamp each plan with its matter's code-projected number + the tracking
+    # task's due date (WS-RENDER): the renderer names the matter and the
+    # provenance handoff seeds the (number, date) association. One site, so a
+    # new plan kind cannot forget the stamp.
+    by_matter = {i.matter_id: i for i in items}
+
+    def _stamp(p: ItemPlan) -> ItemPlan:
+        it = by_matter.get(p.matter_id)
+        if it is None:
+            return p
+        return replace(
+            p,
+            matter_number=it.matter_number,
+            matter_number_absent=it.matter_number_absent,
+            next_chase_due=it.next_chase_due.isoformat(),
+        )
+
+    actionable = tuple(_stamp(p) for p in plans if p.action != ACTION_SUPPRESS)
     if actionable:
         chases = sum(1 for p in actionable if p.action == ACTION_CHASE)
         handoffs = sum(1 for p in actionable if p.action == ACTION_HANDOFF)
@@ -653,59 +682,18 @@ _HANDOFF_SKILL = "client-verification-tracker"
 _HANDOFF_STARTED_AT = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _handoff_values(node, key: str, out: list) -> list:
-    """Every ``key`` string in a nested payload, deduped, first-seen order."""
-    if isinstance(node, dict):
-        value = node.get(key)
-        if isinstance(value, str) and value and value not in out:
-            out.append(value)
-        for child in node.values():
-            _handoff_values(child, key, out)
-    elif isinstance(node, list):
-        for child in node:
-            _handoff_values(child, key, out)
-    return out
-
-
-def _is_iso_day(value: str) -> bool:
-    """YYYY-MM-DD and nothing else. The register must never learn a non-date."""
-    return (
-        len(value) == 10
-        and value[4] == "-"
-        and value[7] == "-"
-        and value.replace("-", "").isdigit()
-    )
-
-
 def _write_pre_run_handoff(payload: dict) -> None:
-    """Project the emitted payload down to dates + matter ids and hand it off."""
-    try:
-        record = {
-            "skill": _HANDOFF_SKILL,
-            "started_at": _HANDOFF_STARTED_AT,
-            "dates": [
-                d for d in _handoff_values(payload, "authored_date", []) if _is_iso_day(d)
-            ],
-            "matter_ids": _handoff_values(payload, "matter_id", []),
-        }
-        directory = Path(os.environ.get("HERMES_HOME") or "/opt/data") / ".smd" / "pre_run"
-        # Modes are set AT CREATION, never by a follow-up chmod: umask can only
-        # remove bits, so the result is at most 0700/0600 and there is no window
-        # in which the file is readable by anyone else. It names the matters the
-        # firm is working on. An already-existing directory keeps whatever mode
-        # it has; the file's own 0600 is the load-bearing half.
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        tmp = directory / ("." + _HANDOFF_SKILL + ".json.tmp")
-        # O_EXCL so the open cannot follow a pre-planted symlink, preceded by an
-        # unlink so a temp file left by a crashed run cannot wedge the writer
-        # for good. missing_ok: there is usually nothing to remove.
-        tmp.unlink(missing_ok=True)
-        handle = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(handle, "w", encoding="utf-8") as fh:
-            json.dump(record, fh)
-        os.replace(tmp, directory / (_HANDOFF_SKILL + ".json"))
-    except Exception as exc:  # noqa: BLE001 -- never change stdout or the wake
-        sys.stderr.write("[pre_run] handoff write failed (" + str(exc) + ")\n")
+    """Project the emitted payload down to dates + matter ids + per-matter
+    (number, dates) records and hand it off — delegated to the sibling
+    ``handoff_writer.py`` (module-size ratchet; the records block landed with
+    WS-RENDER because the rendered alert names matter numbers). A missing
+    sibling costs the seeding, never the wake: the identifier gate then
+    refuses the full body and the skeleton fallback ships."""
+    writer = _load_sibling_module("handoff_writer.py", "cvt_handoff_writer")
+    if writer is None:
+        sys.stderr.write("[pre_run] handoff writer sibling unavailable\n")
+        return
+    writer.write_pre_run_handoff(payload, skill=_HANDOFF_SKILL, started_at=_HANDOFF_STARTED_AT)
 
 
 def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
@@ -733,6 +721,9 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         for p in decision.plans:
             entry: dict = {
                 "matter_id": p.matter_id,
+                "matter_number": p.matter_number,
+                "matter_number_absent": p.matter_number_absent,
+                "next_chase_due": p.next_chase_due,
                 "task_id": p.task_id,
                 "item_key": p.item_key,
                 "action": p.action,
@@ -752,6 +743,10 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
                 entry["determination"] = p.determination
             serialized.append(entry)
         payload["plans"] = serialized
+    if decision is not None and decision.extra_metadata.get("dispatch_expected"):
+        # WS-RENDER: a deterministic out-of-turn dispatch is coming; if no
+        # dispatch note is injected, the SKILL.md failure-note applies.
+        payload["dispatch_expected"] = True
     _write_pre_run_handoff(payload)
     print(json.dumps(payload))
     return 0
@@ -915,6 +910,28 @@ async def run_once(
         role_snapshot_hashes=role_snapshot_hashes,
     )
     if decision.wake:
+        if decision.plans:
+            # WS-RENDER: render the internal escalations into the out-of-turn
+            # dispatch envelope. {} on any failure; the wake proceeds
+            # undecorated — SKILL.md's plans-without-dispatch_expected branch
+            # has the turn send the failure note, and the terminal-state
+            # reconcile + the ledger's re-fire property observe the miss.
+            envelope_mod = _load_sibling_module("dispatch_envelope.py", "cvt_dispatch_envelope")
+            if envelope_mod is not None:
+                envelope_meta = envelope_mod.build_and_write(
+                    plans=decision.plans,
+                    items=items,
+                    ledger=ledger,
+                    ledger_events=ledger_events,
+                    today=today,
+                    refire_days=refire_days,
+                    ceiling=config.escalate_after_attempts,
+                )
+                if envelope_meta:
+                    decision = replace(
+                        decision,
+                        extra_metadata={**decision.extra_metadata, **envelope_meta},
+                    )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
         await _try_write_emitted_wake(
             audit_writer_factory, decision, skill_name=SKILL_NAME, now=now
@@ -959,8 +976,10 @@ _VERIFICATION_SUBJECT_MARKER = "verification"
 # partial view must wake, never suppress.
 _PULL_SNIPPET = """\
 import json
+import os
 
 from smokeball_connector.client import build_client_from_env
+from smokeball_connector.matter_ref import attach_matter_numbers
 
 client = build_client_from_env()
 out = {}
@@ -968,6 +987,17 @@ try:
     out["tasks"] = client.get("/tasks", IsCompleted=False, Limit=500)
 except Exception as exc:
     out["tasksError"] = str(exc)[:300]
+try:
+    budget = int(os.environ.get("SMD_MATTER_LOOKUP_BUDGET", "100"))
+    envelope = out.get("tasks")
+    items = []
+    if isinstance(envelope, dict) and isinstance(envelope.get("value"), list):
+        items = envelope["value"]
+    elif isinstance(envelope, list):
+        items = envelope
+    out["matterNumberCounts"] = attach_matter_numbers(client, items, budget=budget)
+except Exception as exc:
+    out["matterRefError"] = str(exc)[:300]
 print(json.dumps(out, default=str))
 """
 
@@ -1060,6 +1090,21 @@ def _is_verification_task(subject: str) -> bool:
     return _VERIFICATION_SUBJECT_MARKER in subject.lower()
 
 
+def _matter_number_of(item: dict) -> tuple[str | None, str | None]:
+    """``(matter_number, absent_reason)`` — exactly one is non-None. The
+    number is the connector's code-projected ``matterNumber`` (ss #2390);
+    never derived here. Same reading as the escalator's."""
+    number = item.get("matterNumber")
+    if isinstance(number, str) and number:
+        return number, None
+    absent = item.get("matterNumberAbsent")
+    if isinstance(absent, str) and absent:
+        return None, absent
+    if _matter_id_of(item) == "unknown-matter":
+        return None, "no_matter_link"
+    return None, "lookup_failed"
+
+
 def parse_pull(raw: dict, *, today: date) -> tuple[list[VerificationItem], str | None]:
     """Pure parse of the connector pull. Returns (items, problem).
 
@@ -1081,6 +1126,7 @@ def parse_pull(raw: dict, *, today: date) -> tuple[list[VerificationItem], str |
         if not _is_verification_task(subject):
             continue
         due = _first_date(task, _TASK_DATE_KEYS) or today
+        number, number_absent = _matter_number_of(task)
         items.append(
             VerificationItem(
                 matter_id=_matter_id_of(task),
@@ -1090,6 +1136,8 @@ def parse_pull(raw: dict, *, today: date) -> tuple[list[VerificationItem], str |
                 # the moving tracking-task due date (see VerificationItem).
                 authored_date=None,
                 label="client-verification",
+                matter_number=number,
+                matter_number_absent=number_absent,
             )
         )
     return items, None
