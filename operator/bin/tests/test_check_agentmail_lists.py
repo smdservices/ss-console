@@ -299,13 +299,115 @@ def test_org_scope_non_403_failure_still_holds(monkeypatch, capsys):
     assert lists.ORG_SCOPE_SKIP_NOTE not in out
 
 
-def test_inbox_scope_403_holds_honestly(monkeypatch, capsys):
-    # The scoped key SHOULD read its own inboxes' lists; a 403 here is the
-    # vendor question appended to the vendor-ask runbook, and until it is
-    # answered the control holds rather than shrinking its claim again.
-    _wire_main(monkeypatch, inbox_exc=lists.ListsForbidden("agentmail GET /inboxes/... failed: HTTP 403"))
+# ---------------------------------------------------------------------------
+# per-seat key selection (second live-fire calibration, 2026-08-31): keys are
+# inbox-scoped, so the shared CI key read scott@ clean and 403'd on
+# pilot-smokeball's own inbox. Three 403 forks, each pinned:
+#   per-seat key set + works        -> the per-seat key is the one USED
+#   per-seat key set + 403          -> honest HOLD naming the per-seat var
+#   shared key only + 403           -> noted skip NAMING the missing env var
+# ---------------------------------------------------------------------------
+
+
+def test_seat_key_env_follows_the_provisioner_convention():
+    assert lists.seat_key_env("pilot-smokeball") == "AGENTMAIL_API_KEY__PILOT_SMOKEBALL"
+    assert lists.seat_key_env("scott") == "AGENTMAIL_API_KEY__SCOTT"
+
+
+def _record_fetch(monkeypatch, *, forbid_inbox=False):
+    """Stub fetch_list, recording which key each inbox-scope read used."""
+    used: dict[str, str] = {}
+
+    def _fake_fetch(api_key, direction, kind, *, inbox=None, opener=None):
+        if inbox is not None:
+            used[inbox] = api_key
+            if forbid_inbox:
+                raise lists.ListsForbidden(
+                    f"agentmail GET /inboxes/{inbox}/lists/{direction}/{kind} failed: HTTP 403"
+                )
+        return []
+
+    monkeypatch.setattr(lists, "fetch_list", _fake_fetch)
+    monkeypatch.setattr(lists, "load_config", lambda slug: dict(_MINIMAL_CONFIG))
+    return used
+
+
+def test_a_vaulted_per_seat_key_is_preferred_over_the_shared_key(monkeypatch):
+    monkeypatch.setenv("AGENTMAIL_API_KEY__PILOT_SMOKEBALL", "pilot-scoped-key")
+    used = _record_fetch(monkeypatch)
+    report = lists.check_seat("pilot-smokeball", "shared-key", ([], []))
+    assert report.held is None and report.skipped is None
+    assert used["pilot-smokeball@agentmail.to"] == "pilot-scoped-key"
+
+
+def test_an_empty_per_seat_env_var_falls_back_to_the_shared_key(monkeypatch):
+    # GitHub passes an unset secret as the EMPTY string; empty must read as
+    # absent, not as a per-seat key that mysteriously 401s.
+    monkeypatch.setenv("AGENTMAIL_API_KEY__PILOT_SMOKEBALL", "")
+    used = _record_fetch(monkeypatch)
+    lists.check_seat("pilot-smokeball", "shared-key", ([], []))
+    assert used["pilot-smokeball@agentmail.to"] == "shared-key"
+
+
+def test_inbox_403_under_the_per_seat_key_holds_honestly(monkeypatch, capsys):
+    # A seat's OWN scoped key that cannot read its own inbox lists is the
+    # vendor question (vendor-ask runbook, question 4) -- the control holds
+    # rather than shrinking its claim again.
+    monkeypatch.setenv("AGENTMAIL_API_KEY__PILOT_SMOKEBALL", "pilot-scoped-key")
+    _record_fetch(monkeypatch, forbid_inbox=True)
+    report = lists.check_seat("pilot-smokeball", "shared-key", ([], []))
+    assert report.held is not None
+    assert "HTTP 403" in report.held
+    assert "AGENTMAIL_API_KEY__PILOT_SMOKEBALL" in report.held
+    assert "HOLD  pilot-smokeball@agentmail.to" in lists.render([report])
+
+
+def test_inbox_403_under_only_the_shared_key_is_a_noted_skip_naming_the_var(
+    monkeypatch, capsys
+):
+    monkeypatch.delenv("AGENTMAIL_API_KEY__PILOT_SMOKEBALL", raising=False)
+    _record_fetch(monkeypatch, forbid_inbox=True)
+    report = lists.check_seat("pilot-smokeball", "shared-key", ([], []))
+    assert report.held is None
+    assert report.skipped is not None
+    assert "set AGENTMAIL_API_KEY__PILOT_SMOKEBALL to close" in report.skipped
+    rendered = lists.render([report])
+    assert "n/a   pilot-smokeball@agentmail.to" in rendered
+    assert "HOLD" not in rendered
+
+
+def test_a_skipped_seat_does_not_redden_a_run_that_measured_others(monkeypatch, capsys):
+    # scott@ reads clean under the shared key while pilot skips: the run is
+    # CLEAN, with the remediation named in the report -- not red forever.
+    monkeypatch.setenv("AGENTMAIL_API_KEY", "shared-key")
+    monkeypatch.delenv("AGENTMAIL_API_KEY__PILOT_SMOKEBALL", raising=False)
+    monkeypatch.delenv("AGENTMAIL_API_KEY__SCOTT", raising=False)
+
+    def _fake_fetch(api_key, direction, kind, *, inbox=None, opener=None):
+        if inbox is not None and inbox.startswith("pilot-smokeball@"):
+            raise lists.ListsForbidden(f"agentmail GET /inboxes/{inbox}/... failed: HTTP 403")
+        return []
+
+    monkeypatch.setattr(lists, "fetch_list", _fake_fetch)
+    monkeypatch.setattr(lists, "agentmail_seats", lambda: ["pilot-smokeball", "scott"])
+    monkeypatch.setattr(lists, "load_config", lambda slug: dict(_MINIMAL_CONFIG))
+    code = lists.main([])
+    out = capsys.readouterr().out
+    assert code == lists.EXIT_CLEAN
+    assert "n/a   pilot-smokeball@agentmail.to" in out
+    assert "ok    scott@agentmail.to" in out
+    assert "1 skipped" in out
+
+
+def test_every_seat_skipped_is_still_the_loud_hold(monkeypatch, capsys):
+    # All-skipped means nothing was measured; clean and unmeasured must not
+    # print the same exit code (the sibling reconcilers' rule).
+    monkeypatch.delenv("AGENTMAIL_API_KEY__PILOT", raising=False)  # _wire_main's seat is "pilot"
+    _wire_main(
+        monkeypatch,
+        inbox_exc=lists.ListsForbidden("agentmail GET /inboxes/... failed: HTTP 403"),
+    )
     code = lists.main([])
     out = capsys.readouterr().out
     assert code == lists.EXIT_HOLD
-    assert "HOLD  pilot@agentmail.to" in out
-    assert "HTTP 403" in out
+    assert "n/a   pilot@agentmail.to" in out

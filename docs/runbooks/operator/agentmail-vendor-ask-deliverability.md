@@ -26,9 +26,19 @@ Live-run calibration (2026-08-31, workflow run 33430061160): org-scope list
 reads return HTTP 403 under our scoped per-inbox key. That is our own
 credential posture (the ss#2258 fence; no org-wide key exists anywhere), so
 the daily check now records it as a noted skip and measures the inbox scope
-only, which overrides org per the vendor's precedence rules. Question 4 below
-covers the case where inbox-scope reads also 403 under a scoped key; if they
-do, the check holds until the vendor answers.
+only, which overrides org per the vendor's precedence rules.
+
+Second calibration (2026-08-31, re-dispatch after #2659): under the shared CI
+key, scott@'s inbox lists read CLEAN while pilot-smokeball's own inbox 403'd.
+That is exactly the shape of inbox-scoped keys reading only the inboxes they
+were minted for, so the working hypothesis is now: per-inbox scoped keys DO
+read their own inbox's lists, and the pilot 403 is a key-to-inbox mismatch on
+our side, not a vendor entitlement gap. The checker prefers a vaulted
+per-seat key (AGENTMAIL_API_KEY__<CID>) per inbox; the hypothesis is
+confirmed or broken the day AGENTMAIL_API_KEY__PILOT_SMOKEBALL lands in the
+workflow secrets. Question 4 below is narrowed accordingly: it now asks which
+key classes may read inbox-scope lists, and only becomes a SEND if the
+per-seat key test fails (a seat's own key 403ing on its own inbox lists).
 
 ## Draft email (Captain to send)
 
@@ -58,11 +68,12 @@ Three questions:
 4. Scoped API keys and list reads: our keys are deliberately scoped per
    inbox (no org-wide key exists in our posture), and org-scope list reads
    (GET /v0/lists/...) return 403 under them, which we expect and have
-   designed around. Can a per-inbox scoped key always READ its own inbox's
-   lists (GET /v0/inboxes/{inbox_id}/lists/{direction}/{type})? If inbox-scope
-   list reads also 403 under a scoped key, our daily suppression check cannot
-   see any list state at all, and we need to know which scope, if any, a
-   scoped key is entitled to read.
+   designed around. We have observed a scoped key reading one inbox's lists
+   cleanly (GET /v0/inboxes/{inbox_id}/lists/{direction}/{type}) while 403ing
+   on another inbox's, which matches per-inbox scoping. Please confirm: is a
+   per-inbox scoped key always entitled to read ITS OWN inbox's lists? Are
+   there key classes or settings under which even that read is denied? Our
+   daily suppression check depends on that read.
 
 Thank you.
 Scott Durgan

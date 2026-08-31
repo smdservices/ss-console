@@ -190,6 +190,14 @@ jobs:
         timeout-minutes: 4
         env:
           AGENTMAIL_API_KEY: ${{ secrets.AGENTMAIL_API_KEY }}
+          # AgentMail keys are inbox-scoped (the ss#2258 fence), so the shared
+          # key above reads only the inboxes it was minted for: the second
+          # live-fire run (2026-08-31) read scott@ clean and 403'd on
+          # pilot-smokeball's own inbox. The checker prefers a per-seat
+          # AGENTMAIL_API_KEY__<CID> env var when set; until the Captain vaults
+          # this GH secret it is harmlessly empty and the checker reports the
+          # seat as a noted skip naming exactly this variable.
+          AGENTMAIL_API_KEY__PILOT_SMOKEBALL: ${{ secrets.AGENTMAIL_API_KEY__PILOT_SMOKEBALL }}
         run: |
           set -u
           # Same `|| STATUS=$?` discipline as the reconcile step (ss#2309):
