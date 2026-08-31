@@ -303,7 +303,18 @@ an assumption: only when a turn has **confirmation from a person or from the
 matter record** (the roles now resolve to one signer, or the responsible
 attorney named the signer) does it append `resolved` on the hold sentinel —
 same derive-then-handle — after which the chase plans again on the normal
-cadence. An `acked` hold stays blocking (ack means "seen", not "fixed"); it
+cadence. **Releasing a hold always records the determination that justifies
+it** — the append carries `resolution_note` (what was determined and how it
+was verified; when confirmed by a person, name who and when),
+`role_snapshot_sha256` (COPIED verbatim from the wake-line plan's
+`current_role_snapshot_sha256`; never computed, never recalled — a plan whose
+value is null means the snapshot pull failed this run, and the release waits
+for a run where it succeeds), and `confirmed_via` (`matter_record` or
+`person`). The `escalation_append` tool refuses a bare hold release. A fresh
+`fired` on the hold sentinel later **re-activates** the hold (the release is
+terminal only until the alarm rings again); the recorded determination
+survives and remains consultable while its snapshot hash matches the live
+roles. An `acked` hold stays blocking (ack means "seen", not "fixed"); it
 only snoozes the re-surface.
 
 The **internal escalation-to-a-person** (both the ceiling hand-off and the
@@ -328,10 +339,18 @@ surface), never a silent default.
 1. **Resolve** — read the matter (`get_matter` → `personResponsibleStaffId`,
    `clientIds[]`) and the roles/relationships (`get_roles_on_matter`,
    `get_relationships_on_matter`) to determine, for each plaintiff, the correct
-   **signer** (party / GAL / successor). Do not proceed on a matter whose signer is
-   ambiguous — **write the hold** (a `fired` on the item's hold sentinel; see "The
-   hold" above), surface, and ask. A surfaced blocker with no hold event is the
-   ss #2402 defect: the next wake will not know it exists.
+   **signer** (party / GAL / successor). Re-derive fresh every turn. If the
+   fresh derivation is unambiguous, proceed — the recorded determination is
+   not consulted. If it is ambiguous, consult the wake line's `determination`
+   stamp (or `escalation_state`): `status: "current"` → adopt the recorded
+   determination as the signer conclusion and cite it in the memo (its note
+   plus the `resolved` event's date); `stale` / `unknown` / absent → do not
+   proceed on either reading — **write the hold** (a `fired` on the matter's
+   hold sentinel; see "The hold" above) and surface the discrepancy as a
+   decision with both readings on the table (the recorded determination, and
+   what the live roles now show); never silently prefer either. A surfaced
+   blocker with no hold event is the ss #2402 defect: the next wake will not
+   know it exists.
 2. **Prepare** — for each plaintiff/response-set the attorney has flagged for
    verification, draft the plain-language verification request in the firm's voice
    from the pack template (`verification-request.md`). Connective artifact, not work
@@ -365,16 +384,31 @@ surface), never a silent default.
    These are metadata reads only; the turn reads no message body, so a chase
    send stays un-fenced (see the taint-safe rule above):
    - matched with confidence (only once the firm's convention is confirmed) → close
-     (`update_task`), log (`create_memo`), append a `resolved` ledger event, let it
-     fall into the daily digest.
+     (`update_task`), log (`create_memo`), and append a `resolved` ledger event —
+     but **only when the ledger holds a raise for the item**: a never-raised item
+     needs no ledger row (closing the task is the state change; the broker refuses
+     a release with no prior raise — write nothing and move on). Let it fall into
+     the daily digest.
    - plan action `surface_hold` → the matter is held (signer unresolved or another
      surfaced blocker). Before re-surfacing, re-check the blocking fact live
      (`get_roles_on_matter`): if it now resolves cleanly, append `resolved` on the
-     hold sentinel instead — the chase resumes on the next wake. Still blocked →
+     hold sentinel instead, **with the determination** (`resolution_note`,
+     `confirmed_via`, and the plan's `current_role_snapshot_sha256` copied
+     verbatim) — the chase resumes on the next wake. Live roles still ambiguous
+     but the plan's `determination` stamp is `status: "current"` → the hold may be
+     resolved on its strength, recording a fresh determination that cites it.
+     Still ambiguous with no current determination →
      re-surface the blocker to a person, referencing the prior surface, AND append
      a fresh `fired` on the hold sentinel in the same turn (the raise starts the
-     next quiet window; without it the hold fires on every wake). Send **no chase
-     and no hand-off**. Never re-verify the signer from memory of an earlier turn.
+     next quiet window; without it the hold fires on every wake). A plan carrying
+     `reason: "determination_stale"` is this same branch with the stakes named:
+     the roles moved since the hold was released — surface both readings and never
+     chase on either. Send **no chase
+     and no hand-off**. Never re-verify the signer from memory **without a ledger
+     determination**: the only memory a turn may rely on is a `determination`
+     recorded on the hold ledger whose `role_snapshot_sha256` matches the current
+     roles (the plan's `status: "current"`) — anything else (an earlier turn's
+     prose, an email, this turn's recollection) is not a source.
    - not found / ambiguous / convention-unconfirmed, and **no open hold on the
      item**, and the attempt count (the
      `chased` raises in the ledger) is **below `escalate_after_attempts`**, and
@@ -434,7 +468,8 @@ not an immutable invariant.
 - **Never chase a held item, and never hold an item in prose only** — a blocker a
   turn surfaces (unresolved signer above all) is written to the ledger as the
   item's hold (`fired` on the hold sentinel) in the same turn, and only an
-  observed resolution writes the `resolved` that releases it (ss #2402).
+  observed resolution writes the `resolved` that releases it (ss #2402) — always
+  with its determination (a bare hold release is refused by the tool).
 - **Never nag indefinitely** — once unanswered attempts reach `escalate_after_attempts`,
   stop chasing the client and red-flag the responsible attorney (once — the ledger
   `handed_off` event makes the hand-off terminal, so it does not repeat on later wakes).

@@ -53,7 +53,7 @@ authored_date)`. The task id is the anti-collision half: two same-day tasks on
 
 ```
 never raised            -> fire (attempt 1)
-resolved / handed_off   -> never (terminal; a person owns it)
+resolved / handed_off   -> never (terminal until a later raise re-opens it)
 acked, still open       -> re-surface only after ack_snooze_days (ack = snooze)
 raised, not acked       -> re-fire only after refire_days (fire once, not daily)
 ```

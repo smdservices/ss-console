@@ -240,6 +240,9 @@ def test_refire_after_ack_clears_the_ack() -> None:
 
 
 def test_resolved_and_handed_off_are_terminal() -> None:
+    """Terminal only ABSENT a later raise — a fresh fired/chased after either
+    one re-opens the item (see the reopen tests below). With no later raise,
+    both stay silent forever."""
     resolved = el.derive_state(
         [_ev("fired", ts="2026-07-10T07:00:00.000Z"), _ev("resolved", ts="2026-07-11T07:00:00.000Z")]
     )["k1"]
@@ -248,6 +251,73 @@ def test_resolved_and_handed_off_are_terminal() -> None:
         [_ev("fired", ts="2026-07-10T07:00:00.000Z"), _ev("handed_off", ts="2026-07-11T07:00:00.000Z")]
     )["k1"]
     assert el.should_fire(handed, date(2026, 8, 1), refire_days=3, ack_snooze_days=7) is False
+
+
+# ---------------------------------------------------------------------------
+# Symmetric reset on a raise — a fresh raise re-opens the item (the live
+# 2026-08-24..31 hold-loop defect: resolved was sticky forever, so the hold
+# sentinel's fired -> resolved -> fired sequence folded to a released hold and
+# the chase planned straight past the unresolved signer).
+# ---------------------------------------------------------------------------
+
+
+def test_a_raise_after_resolved_reopens_the_item() -> None:
+    """Replay of the LIVE sequence off the pilot ledger: fired 08-24, resolved
+    08-27, fired 08-31. The 08-31 raise must clear the resolution and govern
+    the re-fire window."""
+    events = [
+        _ev("fired", ts="2026-08-24T14:00:00.000Z", attempt=1),
+        _ev("resolved", ts="2026-08-27T14:00:00.000Z"),
+        _ev("fired", ts="2026-08-31T14:00:00.000Z", attempt=2),
+    ]
+    state = el.derive_state(events)["k1"]
+    assert state.resolved is False
+    assert state.attempts == 2
+    # The refire window runs from the 08-31 raise, not from anything older.
+    assert el.should_fire(state, date(2026, 9, 1), refire_days=3, ack_snooze_days=7) is False
+    assert el.should_fire(state, date(2026, 9, 3), refire_days=3, ack_snooze_days=7) is True
+
+
+def test_a_raise_after_handed_off_reopens_the_item() -> None:
+    """The asymmetric alternative (resetting only ``resolved``) would make a
+    re-raised handed-off hold a silent black hole: the hold blocks chases while
+    decide()'s handed_off guard suppresses every re-surface. A new alarm after
+    a hand-off deserves a fresh hand-off."""
+    events = [
+        _ev("fired", ts="2026-07-10T07:00:00.000Z", attempt=1),
+        _ev("handed_off", ts="2026-07-11T07:00:00.000Z"),
+        _ev("fired", ts="2026-07-20T07:00:00.000Z", attempt=2),
+    ]
+    state = el.derive_state(events)["k1"]
+    assert state.handed_off is False
+    assert state.resolved is False
+    assert el.should_fire(state, date(2026, 7, 24), refire_days=3, ack_snooze_days=7) is True
+
+
+def test_resolve_raise_resolve_ends_resolved() -> None:
+    """Ordering: the latest signal wins. A resolution recorded AFTER the
+    re-raise closes the item again."""
+    events = [
+        _ev("fired", ts="2026-07-10T07:00:00.000Z", attempt=1),
+        _ev("resolved", ts="2026-07-11T07:00:00.000Z"),
+        _ev("fired", ts="2026-07-20T07:00:00.000Z", attempt=2),
+        _ev("resolved", ts="2026-07-21T07:00:00.000Z"),
+    ]
+    state = el.derive_state(events)["k1"]
+    assert state.resolved is True
+    assert el.should_fire(state, date(2026, 8, 1), refire_days=3, ack_snooze_days=7) is False
+
+
+def test_same_ts_ties_break_by_file_order() -> None:
+    """The fold's sort is STABLE, so two events stamped the same millisecond
+    keep the append-only file's own order. Pinned because the symmetric reset
+    makes the raise/release order load-bearing: raise-then-release ends
+    released, release-then-raise ends open."""
+    ts = "2026-07-10T07:00:00.000Z"
+    released = el.derive_state([_ev("fired", ts=ts), _ev("resolved", ts=ts)])["k1"]
+    assert released.resolved is True
+    reopened = el.derive_state([_ev("resolved", ts=ts), _ev("fired", ts=ts)])["k1"]
+    assert reopened.resolved is False
 
 
 def test_derive_state_orders_by_ts_regardless_of_input_order() -> None:
@@ -453,3 +523,149 @@ def test_schema_version_is_at_the_identity_epoch() -> None:
     """New events must be written at (or above) the epoch, or every ack they
     later receive would be refused as superseded."""
     assert el.SCHEMA_VERSION >= el.IDENTITY_EPOCH
+
+
+# ---------------------------------------------------------------------------
+# Release events (resolved / handed_off) need a prior raise — the third door
+# into silence. A mis-keyed release lands on a phantom key today and on a REAL
+# key the day the caller's derivation drifts, silencing a different item.
+# ---------------------------------------------------------------------------
+
+
+def test_validate_append_rejects_resolved_without_raise() -> None:
+    with pytest.raises(ValueError, match="no prior fired/chased raise"):
+        el.validate_append(
+            [], _ev("resolved", ts="2026-08-27T14:00:00.000Z"), send_witness=_witnessed
+        )
+
+
+def test_validate_append_rejects_handed_off_without_raise() -> None:
+    with pytest.raises(ValueError, match="no prior fired/chased raise"):
+        el.validate_append(
+            [], _ev("handed_off", ts="2026-08-27T14:00:00.000Z"), send_witness=_witnessed
+        )
+
+
+def test_validate_append_accepts_release_with_prior_raise_by_item_key() -> None:
+    existing = [_ev("fired", ts="2026-08-24T14:00:00.000Z", key="k9", token=None)]
+    el.validate_append(
+        existing, _ev("resolved", ts="2026-08-27T14:00:00.000Z", key="k9", token=None),
+        send_witness=_witnessed,
+    )
+    el.validate_append(
+        existing, _ev("handed_off", ts="2026-08-27T14:00:00.000Z", key="k9", token=None),
+        send_witness=_witnessed,
+    )
+
+
+def test_release_against_pre_epoch_raise_only_is_refused() -> None:
+    """A pre-epoch raise keyed the item under the superseded derivation, so it
+    names nothing live: releasing against it would report a released alarm
+    while the current-epoch item keeps firing."""
+    stale = _ev("fired", ts="2026-08-01T14:00:00.000Z", key="k-old")
+    stale["v"] = 1
+    with pytest.raises(ValueError, match="ss #2151"):
+        el.validate_append(
+            [stale], _ev("resolved", ts="2026-08-27T14:00:00.000Z", key="k-old"),
+            send_witness=_witnessed,
+        )
+
+
+def test_release_refusal_is_corrective_and_terminal() -> None:
+    """The refusal must say what to do (nothing) and that retrying is futile —
+    and it must NOT name the one event kind that would slip past this branch
+    (an evasive recompose that swaps the refused kind for an ``acked`` is the
+    exact loop the corrective-and-terminal wording exists to prevent)."""
+    with pytest.raises(ValueError) as excinfo:
+        el.validate_append(
+            [], _ev("resolved", ts="2026-08-27T14:00:00.000Z"), send_witness=_witnessed
+        )
+    message = str(excinfo.value)
+    assert "Write nothing" in message
+    assert "fail identically" in message
+    assert "acked" not in message  # never name an alternate event kind
+
+
+# ---------------------------------------------------------------------------
+# The determination payload (hold releases, ss #2402 Part 3)
+# ---------------------------------------------------------------------------
+
+
+_DET = {
+    "note": "plaintiff is a single adult; Minor/Deceased tags are layout artifacts",
+    "role_snapshot_sha256": "ab" * 32,
+    "confirmed_via": "matter_record",
+}
+
+
+def _resolved_with_determination(*, ts, key="k1", determination=_DET):
+    row = _ev("resolved", ts=ts, key=key, token=None)
+    row["determination"] = determination
+    return row
+
+
+def test_resolved_may_carry_determination_and_state_exposes_it() -> None:
+    existing = [_ev("fired", ts="2026-08-24T14:00:00.000Z", token=None)]
+    row = _resolved_with_determination(ts="2026-08-27T14:00:00.000Z")
+    el.validate_append(existing, row, send_witness=_witnessed)
+    state = el.derive_state(existing + [row])["k1"]
+    assert state.resolved is True
+    assert state.determination == _DET
+
+
+def test_determination_survives_a_later_raise() -> None:
+    """A raise re-opens the item but never erases the determination: consult
+    validity is governed by the snapshot hash against the current roles, not by
+    hold state."""
+    events = [
+        _ev("fired", ts="2026-08-24T14:00:00.000Z", token=None),
+        _resolved_with_determination(ts="2026-08-27T14:00:00.000Z"),
+        _ev("fired", ts="2026-08-31T14:00:00.000Z", attempt=2, token=None),
+    ]
+    state = el.derive_state(events)["k1"]
+    assert state.resolved is False  # re-opened
+    assert state.determination == _DET  # sticky
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "not an object",
+        {},
+        {"note": "", "role_snapshot_sha256": "ab" * 32, "confirmed_via": "person"},
+        {"note": "x" * 501, "role_snapshot_sha256": "ab" * 32, "confirmed_via": "person"},
+        {"note": "ok", "role_snapshot_sha256": "XYZ", "confirmed_via": "person"},
+        {"note": "ok", "role_snapshot_sha256": "AB" * 32, "confirmed_via": "person"},  # uppercase
+        {"note": "ok", "role_snapshot_sha256": "ab" * 32, "confirmed_via": "vibes"},
+        {"note": "ok", "role_snapshot_sha256": "ab" * 32, "confirmed_via": "person", "x": 1},
+    ],
+)
+def test_malformed_determination_is_rejected(bad) -> None:
+    existing = [_ev("fired", ts="2026-08-24T14:00:00.000Z", token=None)]
+    with pytest.raises(ValueError):
+        el.validate_append(
+            existing,
+            _resolved_with_determination(ts="2026-08-27T14:00:00.000Z", determination=bad),
+            send_witness=_witnessed,
+        )
+
+
+def test_determination_on_non_resolved_is_rejected() -> None:
+    existing = [_ev("fired", ts="2026-08-24T14:00:00.000Z", token=None)]
+    for kind in ("fired", "chased", "acked", "handed_off"):
+        row = _ev(kind, ts="2026-08-27T14:00:00.000Z")
+        row["determination"] = _DET
+        with pytest.raises(ValueError, match="resolved event"):
+            el.validate_append(existing, row, send_witness=_witnessed)
+
+
+def test_make_event_carries_determination_only_when_given() -> None:
+    bare = el.make_event(
+        skill="s", matter_id="m", item_key="k", event="resolved", attempt=0
+    )
+    assert "determination" not in bare
+    carried = el.make_event(
+        skill="s", matter_id="m", item_key="k", event="resolved", attempt=0,
+        determination=_DET,
+    )
+    assert carried["determination"] == _DET
