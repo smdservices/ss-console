@@ -1021,19 +1021,58 @@ def update_task(
     due_date: str | None = None,
     is_completed: bool | None = None,
     assignee_ids: list[str] | None = None,
+    staff_id: str | None = None,
 ) -> Any:
-    """Update a task — reschedule a deadline, mark it complete, or reassign it. Only
-    the supplied fields change; ``due_date`` maps to ``dueDateOnly``. Classified
-    INTERNAL_WRITE."""
-    return _get_client().request(
+    """Update a task — reschedule a deadline, mark it complete, or reassign it.
+    ``due_date`` maps to ``dueDateOnly``. Classified INTERNAL_WRITE.
+
+    Proven live 2026-08-31 (vfy_01M1CWACT2NSB1WFSZXD3KQK5F): Smokeball's
+    ``PUT /tasks/{id}`` is a FULL REPLACE, not a patch — ``StaffId`` is required
+    on every update, ``isCompleted=true`` additionally requires
+    ``CompletedByStaffId``, and any omitted field is CLEARED on the tenant (a
+    bare completion PUT nulled the subject, due date, and matter link). So this
+    tool reads the task first and re-sends its current subject/note/due
+    date/matter/assignees merged with the requested changes. ``staff_id`` names
+    the owning staff member: the task read never echoes ``staffId``, so pass it
+    (a deliver-mode caller already holds the matter's
+    ``personResponsibleStaffId``)."""
+    client = _get_client()
+    current = client.get(f"/tasks/{task_id}")
+    if not isinstance(current, dict):
+        current = {}
+    owner = staff_id or current.get("staffId")
+    if not owner:
+        raise ValueError(
+            "update_task needs staff_id: Smokeball requires StaffId on every task "
+            "PUT and the task read does not echo it. Pass the owning staff member "
+            "(e.g. the matter's personResponsibleStaffId)."
+        )
+    cur_matter = current.get("matter")
+    matter_id = cur_matter.get("id") if isinstance(cur_matter, dict) else None
+    if subject is not None or note is not None:
+        _verify_matter_reference(client, matter_id or "", subject, note)
+    completed = is_completed if is_completed is not None else current.get("isCompleted")
+    cur_due = current.get("dueDateOnly")
+    if isinstance(cur_due, str) and "T" in cur_due:
+        cur_due = cur_due.split("T", 1)[0]  # the read echoes a datetime; PUT wants date-only
+    cur_assignees: list[str] = []
+    for a in current.get("assignees") or []:
+        if isinstance(a, dict) and a.get("id"):
+            cur_assignees.append(a["id"])
+        elif isinstance(a, str):
+            cur_assignees.append(a)
+    return client.request(
         "PUT",
         f"/tasks/{task_id}",
         json=_body(
-            subject=subject,
-            note=note,
-            dueDateOnly=due_date,
-            isCompleted=is_completed,
-            assigneeIds=assignee_ids,
+            staffId=owner,
+            subject=_stamp(subject) if subject is not None else current.get("subject"),
+            note=note if note is not None else current.get("note"),
+            dueDateOnly=due_date if due_date is not None else cur_due,
+            matterId=matter_id,
+            isCompleted=completed,
+            completedByStaffId=owner if completed else None,
+            assigneeIds=assignee_ids if assignee_ids is not None else (cur_assignees or None),
         ),
     )
 
