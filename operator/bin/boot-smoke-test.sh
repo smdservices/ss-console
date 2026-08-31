@@ -104,9 +104,28 @@ CUSTOMER_YAML="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/operator/cust
 if [ -f "${CUSTOMER_YAML}" ]; then
   # shellcheck source=lib/machine-size.sh
   source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/machine-size.sh"
-  AUTHORED_SIZE="$(python3 -c "import sys, yaml; c = yaml.safe_load(open('${CUSTOMER_YAML}')); print(c['machine']['size'])" 2>/dev/null || echo "")"
-  AUTHORED_MEM="$(python3 -c "import sys, yaml; c = yaml.safe_load(open('${CUSTOMER_YAML}')); print(c['machine']['memory_mb'])" 2>/dev/null || echo "")"
-  AUTHORED_CPUS="$(machine_cpus "${AUTHORED_SIZE}" 2>/dev/null || echo "")"
+  # Parse with the same interpreter shape provisioning and step 7b use (uv +
+  # pyyaml): the workstation python3 has no yaml module (step 7b's comment,
+  # re-proven here 2026-08-31), and the first cut's bare
+  # `python3 -c "import yaml" ... 2>/dev/null || echo ""` swallowed that
+  # ImportError into EMPTY authored values, so a successful pilot reprovision
+  # FATALed with the nonsense "authored /MB, Fly reports shared-1-1024" —
+  # the instrument failed, not the seat (live 2026-08-31). A check that cannot
+  # fail as itself measured nothing: the dependency is probed loudly first,
+  # and a genuine parse error now fails the step naming itself instead of
+  # feeding an empty value into the comparison.
+  command -v uv >/dev/null 2>&1 \
+    || fail "guest-matches-authored-size — uv not on PATH ($(command -v python3 || echo python3) has no pyyaml; this script parses customer.yaml via 'uv run --with pyyaml' — install uv or run from a shell where it resolves)"
+  AUTHORED_SIZE="$(uv run --quiet --with pyyaml python3 -c 'import sys, yaml; print((yaml.safe_load(open(sys.argv[1])) or {})["machine"]["size"])' "${CUSTOMER_YAML}")" \
+    || fail "guest-matches-authored-size — could not parse machine.size from ${CUSTOMER_YAML}"
+  AUTHORED_MEM="$(uv run --quiet --with pyyaml python3 -c 'import sys, yaml; print((yaml.safe_load(open(sys.argv[1])) or {})["machine"]["memory_mb"])' "${CUSTOMER_YAML}")" \
+    || fail "guest-matches-authored-size — could not parse machine.memory_mb from ${CUSTOMER_YAML}"
+  # Same silent-empty pattern, same comparison: machine_cpus already refuses
+  # an unrecognised size loudly on stderr — let that surface instead of
+  # muting it into the empty string the [ -n ... ] guard below turns into
+  # the same misleading FATAL.
+  AUTHORED_CPUS="$(machine_cpus "${AUTHORED_SIZE}")" \
+    || fail "guest-matches-authored-size — machine_cpus has no cpu count for authored machine.size '${AUTHORED_SIZE}'"
   GUEST="$(fly status -a "${APP_NAME}" --json 2>/dev/null \
     | python3 -c "import sys, json
 try:
@@ -420,9 +439,29 @@ ssh_exec "medchron-daemon-idle" "! test -f /run/smd-medchron/child.pid"
 ssh_exec "medchron-memory-cap-present" "grep -q memory_cap.:..cgroup /run/smd-medchron/heartbeat.json"
 ssh_exec "medchron-queue-root-owned" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/queue)\" = root:workspace-broker:770 ]"
 ssh_exec "medchron-jobs-dir-root-owned-child-traversable" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/jobs)\" = root:medchron:710 ]"
-ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
-ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
-ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+
+# The firm config is authored per-seat in the PRIVATE engagements repo, and
+# provision-customer.sh step 2b reads the SAME path and continues without it
+# ("the chronology runner will refuse jobs" — the authored state for a seat
+# that runs no chronology routine). Whether the config is EXPECTED here is
+# decided by that same source of expectation, never by whether the boot
+# happened to materialize it: this check landed unconditional in the
+# 2026-08-31 medchron slices, and that same evening pilot-smokeball (no
+# medchron authored) ran 39 PASS then FATALed on it, skipping every check
+# after — the instrument failed, not the seat. Law 2's fail-closed rule
+# applies to the expectation source itself: a missing engagements checkout is
+# "cannot evaluate", which must never read as "not expected".
+ENGAGEMENTS_DIR="${SS_ENGAGEMENTS_DIR:-${HOME}/dev/engagements}"
+[ -d "${ENGAGEMENTS_DIR}" ] \
+  || fail "medchron-firm-config-expected — engagements checkout missing at ${ENGAGEMENTS_DIR} (clone venturecrane/engagements or set SS_ENGAGEMENTS_DIR); cannot evaluate whether ${SLUG} authors a medchron firm config, and cannot-evaluate must not read as not-expected"
+MEDCHRON_FIRM_YAML_AUTHORED="${ENGAGEMENTS_DIR}/operator/customers/${SLUG}/medchron/firm.yaml"
+if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
+  ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
+  ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
+  ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+else
+  pass "medchron-firm-config-absent (not authored for this seat at ${MEDCHRON_FIRM_YAML_AUTHORED}; runner refuses jobs by design — skipping config-perm, token, and gate-refusal checks)"
+fi
 
 # ---------- Step 14b: the four registered runner gates refuse their planted violations (ss#2614, ADR 0087) ----------
 # `medchron probe <gate>` builds a throwaway synthetic matter, plants exactly
@@ -432,9 +471,14 @@ ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/
 # (probe_surface: prod-boot): the status is re-earned on every provision, not
 # asserted once. What makes these able to FAIL: neuter a gate module (return 0,
 # drop the planted check) and its probe prints UNEXPECTED_PASS, non-zero.
-ssh_exec "medchron-gate-claim-audit-refuses" "/opt/medchron/.venv/bin/medchron probe claim_audit | grep -q REFUSED"
-ssh_exec "medchron-gate-extractive-refuses" "/opt/medchron/.venv/bin/medchron probe extractive | grep -q REFUSED"
-ssh_exec "medchron-gate-cross-client-refuses" "/opt/medchron/.venv/bin/medchron probe cross_client | grep -q REFUSED"
-ssh_exec "medchron-gate-provenance-refuses" "/opt/medchron/.venv/bin/medchron probe provenance | grep -q REFUSED"
+# Gated on the same authored expectation as the firm-config checks above:
+# on a seat with no medchron authored the runner refuses every job, and the
+# pass-annotated skip is emitted by the firm-config branch.
+if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
+  ssh_exec "medchron-gate-claim-audit-refuses" "/opt/medchron/.venv/bin/medchron probe claim_audit | grep -q REFUSED"
+  ssh_exec "medchron-gate-extractive-refuses" "/opt/medchron/.venv/bin/medchron probe extractive | grep -q REFUSED"
+  ssh_exec "medchron-gate-cross-client-refuses" "/opt/medchron/.venv/bin/medchron probe cross_client | grep -q REFUSED"
+  ssh_exec "medchron-gate-provenance-refuses" "/opt/medchron/.venv/bin/medchron probe provenance | grep -q REFUSED"
+fi
 
 log "All boot smoke checks passed for ${APP_NAME}"
