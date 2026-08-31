@@ -50,6 +50,10 @@ DEFAULT_MEMORY_MAX = 2560 * 1024 * 1024
 WIPE_HOURS_ENV = "SMD_MEDCHRON_WIPE_HOURS"
 DEFAULT_WIPE_HOURS = 72
 RUNNER_BIN = "/opt/medchron/.venv/bin/medchron"
+GATE_URL_ENV = "SMD_MEDCHRON_GATE_URL"
+DEFAULT_GATE_URL = "http://127.0.0.1:8643"
+WAKE_SECRET_ENV = "WEBHOOK_SECRET_MCP"
+WAKE_MAX_ATTEMPTS = 5
 CHILD_UID_NAME = "medchron"
 CGROUP_ROOT = Path("/sys/fs/cgroup")
 CHILD_ENV_PASS = ("ANTHROPIC_API_KEY", "SMOKEBALL_REGION", "SMOKEBALL_ENVIRONMENT", "SMOKEBALL_CLIENT_ID",
@@ -154,6 +158,9 @@ class Daemon:
     child_env: dict[str, str] = field(default_factory=dict)
     started_at: float = field(default_factory=time.time)
     jobs_run: int = 0
+    wakes_failed: int = 0
+    gate_url: str = field(default_factory=lambda: os.environ.get(GATE_URL_ENV) or DEFAULT_GATE_URL)
+    wake_secret: str = field(default_factory=lambda: os.environ.get(WAKE_SECRET_ENV, ""))
 
     # -- paths -------------------------------------------------------------
     @property
@@ -172,7 +179,8 @@ class Daemon:
         cap = memory_cap_mode(self.cgroup_root)
         payload = {"pid": os.getpid(), "started_at": self.started_at, "last_poll_at": self.clock(),
                    "jobs_run": self.jobs_run, "running": running, "memory_cap": cap,
-                   "queued": len(self._queued())}
+                   "queued": len(self._queued()), "wakes_pending": len(self._wakes_pending()),
+                   "wakes_failed": self.wakes_failed}
         tmp = self.run_dir / ".heartbeat.tmp"
         try:
             tmp.write_text(json.dumps(payload), encoding="utf-8")
@@ -365,7 +373,104 @@ class Daemon:
             logger.error("could not record %s for %s: %s (the state file keeps it)", state, job_id, exc)
         finished = self.clock() if state in TERMINAL or state == "held" else None
         self._write_state(job_id, state=state, finished_at=finished, reason=fields.get("reason"))
+        if finished is not None:
+            self._write_state(job_id, wake={"pending": True, "attempts": 0,
+                                            "task": self._compose_wake(job_id, state, fields)})
         return state
+
+    # -- the deliver wake (ss#2616) --------------------------------------------
+    def _compose_wake(self, job_id: str, state: str, fields: dict[str, Any]) -> str:
+        """The handoff task text. Only broker/envelope-authored fields ride it
+        (requester, ref, matter number, counts, folder id) — never a file name,
+        a client name, or a DOB: the deliver turn reads the folder itself, so
+        no tenant-authored string reaches the unfenced wake prompt."""
+        env: dict[str, Any] = {}
+        try:
+            env = json.loads((self.job_dir(job_id) / "envelope.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+        matter_no = (env.get("matter") or {}).get("number", "")
+        lines = [
+            f"Run the medical-chronology-maintainer skill's DELIVER mode for chronology job {job_id}.",
+            f"Outcome: {state}. Matter number: {matter_no}.",
+            f"Documents: {fields.get('documents', 0)}; pages: {fields.get('pages', 0)}; "
+            f"spend cents: {fields.get('cents', 0)}.",
+        ]
+        if fields.get("folder_id"):
+            lines.append(f"Delivered folder id: {fields['folder_id']}.")
+        if fields.get("reason"):
+            lines.append(f"Reason: {fields['reason']}")
+        requester = env.get("requested_by") or ""
+        ref = env.get("request_ref") or ""
+        none_note = "(none - a rehearsal submission; report in the memo, create no task, send nothing)"
+        lines.append(f"Requester: {requester or none_note}.")
+        if ref:
+            lines.append(f"Request ref: {ref}.")
+        return "\n".join(lines)
+
+    def _wakes_pending(self) -> list[str]:
+        if not self.jobs.is_dir():
+            return []
+        return [d.name for d in sorted(self.jobs.iterdir())
+                if (self._daemon_state(d.name).get("wake") or {}).get("pending")]
+
+    def dispatch_wakes(self) -> None:
+        """At-most-once with a loud loss: consumed on a 2xx answer AND on a
+        timeout after the request was sent (a duplicate deliver turn is worse
+        than a lost one; the loss escalates). A paused seat's 503 retries
+        without consuming an attempt; five real failures write a same-state
+        ledger note (an audit row) and stop."""
+        import http.client
+        from urllib.parse import urlparse
+
+        for job_id in self._wakes_pending():
+            wake = dict(self._daemon_state(job_id).get("wake") or {})
+            if not self.wake_secret:
+                logger.warning("no %s in the daemon env; wake for %s stays pending", WAKE_SECRET_ENV, job_id)
+                return
+            body = json.dumps({"handoff_id": f"medchron-{job_id}", "task": wake["task"]})
+            url = urlparse(self.gate_url)
+            sent = False
+            outcome = "error"
+            try:
+                conn = http.client.HTTPConnection(url.hostname or "127.0.0.1", url.port or 8643, timeout=15)
+                try:
+                    conn.connect()
+                    sent = True
+                    conn.request("POST", "/webhooks/handoff", body=body,
+                                 headers={"Content-Type": "application/json",
+                                          "Authorization": f"Bearer {self.wake_secret}"})
+                    resp = conn.getresponse()
+                    raw = resp.read()
+                    if 200 <= resp.status < 300:
+                        outcome = "delivered"
+                    elif resp.status == 503 and b"paused" in raw:
+                        outcome = "paused"
+                    else:
+                        outcome = f"status {resp.status}"
+                finally:
+                    conn.close()
+            except Exception as exc:  # noqa: BLE001 - each shape maps to a wake decision
+                outcome = "timeout after send" if sent else f"unreachable ({type(exc).__name__})"
+            if outcome == "delivered" or (sent and outcome.startswith("timeout")):
+                wake.update(pending=False, sent_at=self.clock(), outcome=outcome)
+                self._write_state(job_id, wake=wake)
+                continue
+            if outcome == "paused":
+                logger.info("seat paused; wake for %s stays pending without consuming an attempt", job_id)
+                continue
+            wake["attempts"] = int(wake.get("attempts", 0)) + 1
+            logger.warning("wake for %s failed (%s), attempt %d/%d", job_id, outcome, wake["attempts"],
+                           WAKE_MAX_ATTEMPTS)
+            if wake["attempts"] >= WAKE_MAX_ATTEMPTS:
+                wake.update(pending=False, outcome=f"failed: {outcome}")
+                self.wakes_failed += 1
+                try:
+                    state = self._daemon_state(job_id).get("state") or "failed"
+                    self.broker.record(job_id, state, {"wake": {"wake_failed": True, "outcome": outcome}})
+                except BrokerError as exc:
+                    logger.error("could not record the lost wake for %s: %s", job_id, exc)
+            self._write_state(job_id, wake=wake)
 
     # -- the loop ------------------------------------------------------------------
     def _paused(self, job_id: str) -> bool:
@@ -393,8 +498,9 @@ class Daemon:
         return wiped
 
     def tick(self) -> str | None:
-        """One iteration: heartbeat, wipe, then run at most one job."""
+        """One iteration: heartbeat, wipe, pending wakes, then at most one job."""
         self.wipe_expired()
+        self.dispatch_wakes()
         current = self._in_progress()
         job_id = current[0] if current else self.claim_next()
         self.heartbeat(running=job_id)

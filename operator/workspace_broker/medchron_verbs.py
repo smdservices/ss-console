@@ -141,12 +141,15 @@ class MedchronVerbs:
     def _record(self, request: dict[str, Any]) -> dict[str, Any]:
         job_id = str(request.get("job_id") or "")
         state = str(request.get("state") or "")
-        fields = request.get("fields") or {}
+        fields = dict(request.get("fields") or {})
         if not job_id or state not in STATES or not isinstance(fields, dict):
             raise ValueError("medchron_job_record requires job_id, a known state, and a fields object")
+        wake = fields.pop("wake", None)  # audit-only metadata (a lost deliver wake), never a column
         row = self.ledger.record(job_id, state, fields)
         meta = {"job_id": job_id, "state": state, "documents": row["documents"], "pages": row["pages"],
                 "cents": row["cents"], "reason": row["reason"], "folder_id": row["folder_id"]}
+        if isinstance(wake, dict):
+            meta["wake"] = {k: wake.get(k) for k in ("wake_failed", "outcome")}
         if state == "delivered" and isinstance(fields.get("delivery"), dict):
             d = fields["delivery"]
             meta["files"] = [{"name": f.get("name"), "sha256": f.get("sha256"), "bytes": f.get("bytes")}

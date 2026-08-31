@@ -311,3 +311,107 @@ def test_cli_json_stdout_is_only_the_verdict(job_dir, firm_config_path, pricing_
     captured = capsys.readouterr()
     outcomes = json.loads(captured.out)
     assert code == 0 and isinstance(outcomes, list) and outcomes[0]["outcome"] == "dry_run"
+
+
+# ---- the deliver wake (ss#2616) -----------------------------------------------
+
+class _FakeGate:
+    """A local HTTP gate the daemon POSTs its wake to."""
+
+    def __init__(self, status=202, body=b'{"accepted": true}'):
+        import http.server
+        import threading
+
+        self.requests: list[dict] = []
+        self.status, self.body = status, body
+        outer = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                outer.requests.append({"path": self.path, "auth": self.headers.get("Authorization"),
+                                       "body": json.loads(raw)})
+                self.send_response(outer.status)
+                self.send_header("Content-Length", str(len(outer.body)))
+                self.end_headers()
+                self.wfile.write(outer.body)
+
+            def log_message(self, *a):
+                pass
+
+        self._srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        self.url = f"http://127.0.0.1:{self._srv.server_address[1]}"
+        threading.Thread(target=self._srv.serve_forever, daemon=True).start()
+
+    def close(self):
+        self._srv.shutdown()
+
+
+def _wake_daemon(tmp_path, gate_url, script=OK_RUNNER):
+    d, broker = _daemon(tmp_path, script)
+    d.wake_secret = "shh-wake"
+    d.gate_url = gate_url
+    return d, broker
+
+
+def test_a_delivered_job_wakes_the_agent_with_authored_fields_only(tmp_path):
+    gate = _FakeGate()
+    d, broker = _wake_daemon(tmp_path, gate.url)
+    _submit(d, broker, "01A")
+    assert d.tick() == "delivered"
+    d.tick()                                                     # the wake dispatches on the next tick
+    gate.close()
+    assert len(gate.requests) == 1
+    req = gate.requests[0]
+    assert req["path"] == "/webhooks/handoff" and req["auth"] == "Bearer shh-wake"
+    task = req["body"]["task"]
+    assert req["body"]["handoff_id"] == "medchron-01A"
+    assert "DELIVER" in task and "2026-PI-102" in task and "folder-9" in task
+    assert "A.docx" not in task and "Alpha" not in task and "01/02/1980" not in task
+    assert (d._daemon_state("01A").get("wake") or {}).get("pending") is False
+    hb = json.loads((d.run_dir / "heartbeat.json").read_text())
+    assert hb["wakes_pending"] == 0 and hb["wakes_failed"] == 0
+
+
+def test_wake_failures_retry_then_write_the_loud_loss(tmp_path):
+    gate = _FakeGate(status=404, body=b'{"error": "unknown route"}')
+    d, broker = _wake_daemon(tmp_path, gate.url)
+    _submit(d, broker, "01A")
+    d.tick()
+    for _ in range(6):
+        d.tick()
+    gate.close()
+    wake = d._daemon_state("01A")["wake"]
+    assert wake["pending"] is False and wake["outcome"].startswith("failed")
+    assert d.wakes_failed == 1
+    # The loss is an audit artifact: a same-state record carrying wake metadata.
+    assert broker.records[-1][1] == "delivered" and broker.records[-1][2]["wake"]["wake_failed"] is True
+
+
+def test_a_paused_seat_never_consumes_wake_attempts(tmp_path):
+    gate = _FakeGate(status=503, body=b'{"error": "operator paused"}')
+    d, broker = _wake_daemon(tmp_path, gate.url)
+    _submit(d, broker, "01A")
+    d.tick()
+    for _ in range(8):
+        d.tick()
+    gate.close()
+    wake = d._daemon_state("01A")["wake"]
+    assert wake["pending"] is True and int(wake.get("attempts", 0)) == 0
+
+
+HELD_RUNNER = """
+import json, sys
+print(json.dumps([{"unit": "alpha", "outcome": "refused", "reason": "cap", "dollars": 0.0, "pages": 5,
+                   "documents": 3}]))
+"""
+
+
+def test_a_held_job_wakes_too_and_an_unreachable_gate_counts_attempts(tmp_path):
+    d, broker = _wake_daemon(tmp_path, "http://127.0.0.1:1", script=HELD_RUNNER)   # nothing listens
+    _submit(d, broker, "01B")
+    assert d.tick() == "held"
+    wake = d._daemon_state("01B")["wake"]
+    assert wake["pending"] is True and "cap" in wake["task"] and "rehearsal" in wake["task"]
+    d.tick()
+    assert int(d._daemon_state("01B")["wake"]["attempts"]) == 1

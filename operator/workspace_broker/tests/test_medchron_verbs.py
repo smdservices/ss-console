@@ -233,3 +233,36 @@ def test_audit_rows_carry_counts_and_ids_never_the_envelope(verbs):
         conn.close()
     assert "private" not in meta and "Example" not in meta and json.loads(meta)["job_id"] == j
     assert matter_ref == "m-1" and actor == "workspace-broker"
+
+
+def test_a_same_state_record_is_a_note_with_an_audit_row(verbs):
+    v, ledger, _ = verbs
+    j = call(v, "medchron_job_submit", envelope=envelope())["job_id"]
+    call(v, "medchron_job_record", peer_uid=ROOT, job_id=j, state="running", fields={})
+    call(v, "medchron_job_record", peer_uid=ROOT, job_id=j, state="delivered",
+         fields={"documents": 3, "pages": 30, "cents": 100})
+    # ss#2616: a lost deliver wake re-records the same state as a note.
+    row = call(v, "medchron_job_record", peer_uid=ROOT, job_id=j, state="delivered",
+               fields={"wake": {"wake_failed": True, "outcome": "status 404"}})["job"]
+    assert row["state"] == "delivered" and row["documents"] == 3
+    assert audit_types(ledger._db_path)[-2:] == ["MEDCHRON_JOB_DELIVERED", "MEDCHRON_JOB_DELIVERED"]
+    import sqlite3
+
+    conn = sqlite3.connect(ledger._db_path)
+    try:
+        meta = conn.execute("SELECT metadata FROM audit_log ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+    finally:
+        conn.close()
+    assert json.loads(meta)["wake"] == {"wake_failed": True, "outcome": "status 404"}
+    # Real transitions stay monotonic.
+    with pytest.raises(ValueError):
+        call(v, "medchron_job_record", peer_uid=ROOT, job_id=j, state="running", fields={})
+
+
+def test_submit_sanitizes_selection_to_known_keys(verbs):
+    v, _, queue = verbs
+    r = call(v, "medchron_job_submit",
+             envelope=envelope(selection={"include_file_ids": ["f-1", "f-2"], "sneaky": ["x"]}))
+    assert r["accepted"]
+    q = json.loads(next(queue.glob("*.json")).read_text())
+    assert q["selection"] == {"include_file_ids": ["f-1", "f-2"]}
