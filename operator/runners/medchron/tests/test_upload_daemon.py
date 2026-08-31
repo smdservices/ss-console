@@ -291,3 +291,17 @@ def test_daemon_heartbeat_is_world_readable(tmp_path):
     d, _ = _daemon(tmp_path)
     d.heartbeat(running=None)
     assert stat.S_IMODE((d.run_dir / "heartbeat.json").stat().st_mode) == 0o644
+
+
+def test_cli_json_stdout_is_only_the_verdict(job_dir, firm_config_path, pricing_path, capsys, monkeypatch):
+    # Live-caught 2026-08-31: the driver's default log=print interleaved [run]
+    # lines with the --json report and the daemon recorded a real refusal as
+    # "exited 4 without a verdict". With --json, stdout must parse whole.
+    from medchron.__main__ import main
+
+    monkeypatch.delenv("MEDCHRON_PIPELINE_DIR", raising=False)
+    code = main(["run", str(job_dir), "--dry-run", "--json",
+                 "--firm-config", str(firm_config_path), "--pricing", str(pricing_path)])
+    captured = capsys.readouterr()
+    outcomes = json.loads(captured.out)
+    assert code == 0 and isinstance(outcomes, list) and outcomes[0]["outcome"] == "dry_run"

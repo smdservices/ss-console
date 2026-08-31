@@ -685,20 +685,17 @@ controls:
     control: medchron_claim_audit
     class: dispatch-guard
     substrate_module: runners/medchron/medchron/gates/claim_audit.py
-    wired_via: ''
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    wired_via: 'runner / runners/medchron/medchron/gates/claim_audit.py'
+    live_probe: runner_claim_audit_refuses_unsupported_claim
+    probe_surface: prod-boot
+    status: enforced
     owner: SMDurgan
     tracking: '#2611'
-    candidate_probe: runner_claim_audit_refuses_unsupported_claim
     risk_review: >-
-      2026-08-29 (ADR 0087, ss#2611): live on every delivered package (sixteen
-      in August 2026), unregistered until now, driven from a laptop by a
-      Claude session reading a runbook. No automated driver exists; the probe
-      HOLDs. Exposure while unprobed: a regression in the audit would ship a
-      chronology claim its cited page does not support, and nothing outside
-      the run itself would notice.
+      2026-08-31 (ss#2614 slice 5): the planted violation was refused by the
+      installed package on the live seat (hermes-ashton-price, image at main
+      6b6d9b8a): vfy_01M1CAMC273NV2F07PCKX3B2KB. The same probe now runs in boot smoke step 14b on
+      every provision, so the row's status is re-earned per deploy.
     note: >-
       Every dated claim in the chronology document is checked against a
       rendering of the page it cites (audit_citations.py, image mode, full
@@ -714,19 +711,17 @@ controls:
     control: medchron_extractive_gate
     class: dispatch-guard
     substrate_module: runners/medchron/medchron/gates/extractive.py
-    wired_via: ''
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    wired_via: 'runner / runners/medchron/medchron/gates/extractive.py'
+    live_probe: runner_extractive_gate_refuses_characterization
+    probe_surface: prod-boot
+    status: enforced
     owner: SMDurgan
     tracking: '#2611'
-    candidate_probe: runner_extractive_gate_refuses_characterization
     risk_review: >-
-      2026-08-29 (ADR 0087, ss#2611): the agreement's section 2.3(c) internal
-      record cap (transcribes, never characterizes causation, severity, or
-      value) is held by the composition prompts' extractive floor and the
-      non-record strip, with no registered probe. A regression would ship a
-      valuation sentence inside an internal record.
+      2026-08-31 (ss#2614 slice 5): the planted violation was refused by the
+      installed package on the live seat (hermes-ashton-price, image at main
+      6b6d9b8a): vfy_01M1CAME158FRJF0EXK3Q1RGQ4. The same probe now runs in boot smoke step 14b on
+      every provision, so the row's status is re-earned per deploy.
     note: >-
       The package carries no causation, severity, or valuation language as the
       runner's own finding and no totals; charges appear exactly as the source
@@ -740,19 +735,17 @@ controls:
     control: medchron_cross_client_gate
     class: dispatch-guard
     substrate_module: runners/medchron/medchron/gates/cross_client.py
-    wired_via: ''
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    wired_via: 'runner / runners/medchron/medchron/gates/cross_client.py'
+    live_probe: runner_cross_client_gate_refuses_foreign_page
+    probe_surface: prod-boot
+    status: enforced
     owner: SMDurgan
     tracking: '#2611'
-    candidate_probe: runner_cross_client_gate_refuses_foreign_page
     risk_review: >-
-      2026-08-29 (ADR 0087, ss#2611): a third client's letter surfaced inside
-      a delivered exhibit once (Modellas, 2026-08-25, disclosed and removed),
-      which is why the gate exists; joint matters (five units on one matter)
-      are the ordinary case. A regression would put one plaintiff's page or
-      money in another plaintiff's exhibit or chart.
+      2026-08-31 (ss#2614 slice 5): the planted violation was refused by the
+      installed package on the live seat (hermes-ashton-price, image at main
+      6b6d9b8a): vfy_01M1CAMGPWRPFYVM429NTFP2XE. The same probe now runs in boot smoke step 14b on
+      every provision, so the row's status is re-earned per deploy.
     note: >-
       Per-unit identity check (the text says whose record it is: surname and
       DOB counts against every unit on the matter) and per-unit billing
@@ -766,19 +759,17 @@ controls:
     control: medchron_provenance_gate
     class: dispatch-guard
     substrate_module: runners/medchron/medchron/gates/provenance.py
-    wired_via: ''
-    live_probe: ''
-    probe_surface: ''
-    status: unprobed
+    wired_via: 'runner / runners/medchron/medchron/gates/provenance.py'
+    live_probe: runner_provenance_gate_halts_unexplained_file
+    probe_surface: prod-boot
+    status: enforced
     owner: SMDurgan
     tracking: '#2611'
-    candidate_probe: runner_provenance_gate_halts_unexplained_file
     risk_review: >-
-      2026-08-29 (ADR 0087, ss#2611): the gate's denominator was wrong on
-      joint matters until engagements #86 and one delivery shipped 42 of 50
-      files composed before the pulled-set denominator existed. A regression
-      would deliver a chronology silently missing records the firm can see in
-      the matter.
+      2026-08-31 (ss#2614 slice 5): the planted violation was refused by the
+      installed package on the live seat (hermes-ashton-price, image at main
+      6b6d9b8a): vfy_01M1CAMM8X83SEE6HF016WD43X. The same probe now runs in boot smoke step 14b on
+      every provision, so the row's status is re-earned per deploy.
     note: >-
       Every file the package pulled is owned by a unit, byte-duplicate,
       name-excluded, or an explained orphan; an unexplained residue halts
