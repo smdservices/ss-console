@@ -104,15 +104,21 @@ class SendRenderError(RuntimeError):
 def canonical_body_sha256(text: str) -> str:
     """THE hash function -- identical at all three stamp sites.
 
-    sha256 over utf-8 of (CRLF -> LF, per-line trailing whitespace stripped,
-    trailing newlines stripped). The arbiter is the shared vector fixture
+    sha256 over utf-8 of (CRLF -> LF, per-line trailing SPACE/TAB stripped,
+    trailing newlines stripped). Space and tab ONLY -- ``rstrip(" \\t")``,
+    never a bare ``rstrip()``: bare rstrip eats every Unicode whitespace
+    (nbsp, form feed, vertical tab), and a mail client converting a body's
+    trailing nbsp would then hash differently here than at the render-side
+    stamp sites, false-HOLDing the channel check (render-pair review of
+    ss#2664; the ``nbsp_tail_survives`` vector pins it). The arbiter is the
+    shared vector fixture
     (``operator/contracts/fixtures/body-canon-vectors.json``), loaded verbatim
     by this repo's tests and the overlay's; an implementation change that
     drifts from the vectors fails both suites, which is the whole point of one
     fixture instead of two prose descriptions.
     """
     normalized = text.replace("\r\n", "\n")
-    lines = [line.rstrip() for line in normalized.split("\n")]
+    lines = [line.rstrip(" \t") for line in normalized.split("\n")]
     return hashlib.sha256("\n".join(lines).rstrip("\n").encode("utf-8")).hexdigest()
 
 
