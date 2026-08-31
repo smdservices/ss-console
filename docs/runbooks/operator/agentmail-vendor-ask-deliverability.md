@@ -22,6 +22,14 @@ Probe date for the documented surface: 2026-08-31 (docs.agentmail.to; the
 Lists REST paths are `GET /v0/lists/{direction}/{type}` and
 `GET /v0/inboxes/{inbox_id}/lists/{direction}/{type}`).
 
+Live-run calibration (2026-08-31, workflow run 33430061160): org-scope list
+reads return HTTP 403 under our scoped per-inbox key. That is our own
+credential posture (the ss#2258 fence; no org-wide key exists anywhere), so
+the daily check now records it as a noted skip and measures the inbox scope
+only, which overrides org per the vendor's precedence rules. Question 4 below
+covers the case where inbox-scope reads also 403 under a scoped key; if they
+do, the check holds until the vendor answers.
+
 ## Draft email (Captain to send)
 
 Subject: List-Unsubscribe headers and suppression visibility for transactional inboxes
@@ -46,6 +54,15 @@ Three questions:
 3. If neither control exists today, is either on the roadmap? Header
    suppression for transactional classes and API-readable suppression state
    are the two we need.
+
+4. Scoped API keys and list reads: our keys are deliberately scoped per
+   inbox (no org-wide key exists in our posture), and org-scope list reads
+   (GET /v0/lists/...) return 403 under them, which we expect and have
+   designed around. Can a per-inbox scoped key always READ its own inbox's
+   lists (GET /v0/inboxes/{inbox_id}/lists/{direction}/{type})? If inbox-scope
+   list reads also 403 under a scoped key, our daily suppression check cannot
+   see any list state at all, and we need to know which scope, if any, a
+   scoped key is entitled to read.
 
 Thank you.
 Scott Durgan
