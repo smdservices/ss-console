@@ -621,6 +621,9 @@ function mergePersona(current: Persona, update: EditablePersona): Persona {
     channel_bindings: update.channel_bindings,
     skills: mergedSkills,
     signature_html: current.signature_html,
+    // The chase-mail signature block is authored, not portal-editable;
+    // preserved verbatim like the other authored-only fields here.
+    signature: current.signature,
     avatar_url: current.avatar_url,
     voice_overrides: current.voice_overrides,
     escalation_overrides: current.escalation_overrides,

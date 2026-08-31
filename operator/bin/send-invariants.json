@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "Cross-run invariant expectations for compositional routines (the skills",
+    "send-render.yaml declares `compositional`). Consumed by",
+    "operator/bin/lib/send_verify.py inside the daily send reconcile.",
+    "",
+    "HASHED ON PURPOSE. Both repos are public and the reconcile baseline",
+    "already exposes recipient addresses; this file must not widen that",
+    "surface. `recipients.<routine>` holds sha256('<routine>|<recipient",
+    "lowercased>') hex digests; `ack_codes` maps sha256('<routine>|<item_key>')",
+    "to the committed ack_code string (the code itself is a short opaque token",
+    "the recipient already sees in mail, not PII).",
+    "",
+    "COMMITTED AND PR-UPDATED -- the reconcile-sends-baseline.json pattern.",
+    "This repo takes no pushes to main, so committing an expectation is a",
+    "reviewed act. A missing or corrupt file loads as the EMPTY expectation",
+    "set, whose failure mode is over-reporting (every observed value proposed",
+    "as new), never silence.",
+    "",
+    "EMPTY AT BIRTH, deliberately: dispatch rows do not yet carry recipient",
+    "stamps and wake rows do not yet carry items[] (the render cluster,",
+    "WS-RENDER, adds both). The first live runs after that deploys will print",
+    "proposed entries to commit here, exactly as the reconciler prints",
+    "proposed baseline rows."
+  ],
+  "recipients": {},
+  "ack_codes": {}
+}
