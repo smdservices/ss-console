@@ -1158,7 +1158,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // is real (translate materializes it on the MCP bearer; the gate retries any
     // non-2xx forward) and medchron submit gains the append file-id selection.
     // Vocabulary identical (71); no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="45cc19e7184223a344fbe303f1539a81c64d9122"')
+    // 45cc19e7 -> 727f3f5b (2026-08-31d, overlay#337, ss#2664 WS-RENDER pair):
+    // pre-rendered out-of-turn dispatch (consume-once envelope, full ->
+    // skeleton -> failure-note ladder, post-dispatch ledger appends under the
+    // witness session), the in-turn rendered-body slot check, CONFIRM-row
+    // body-conformance stamps (rendered_body_sha256 / body_variant /
+    // routing_leg, pre-mutation canonical hash), the text/plain down-render,
+    // and the outbound scans wired on the out-of-turn path. Vocabulary
+    // identical (71); no tracked pair moves.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="727f3f5b21c6fb5542ffd6ccf8e38df27fbc4bfc"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
