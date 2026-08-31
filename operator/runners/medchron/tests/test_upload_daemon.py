@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from medchron import config as config_mod, job as job_mod
-from medchron.daemon import BrokerError, Daemon, memory_cap_available, sticky_level
+from medchron.daemon import BrokerError, Daemon, memory_cap_mode, sticky_level
 from medchron.stages import upload
 from medchron.stages.base import StageRun
 from medchron_testkit import FakeSeat
@@ -266,10 +266,25 @@ print(json.dumps([{"unit": "alpha", "outcome": "refused", "reason": "cap", "doll
     assert broker.records[-1][1] == "held" and broker.records[-1][2]["reason"] == "refused: cap"
 
 
-def test_memory_cap_reads_the_controller_list(tmp_path):
-    assert memory_cap_available(tmp_path) is False
+def test_memory_cap_mode_detects_v2_v1_and_none(tmp_path):
+    assert memory_cap_mode(tmp_path) == "none"
+    # The Fly hybrid layout: no root cgroup.controllers, memory on the v1 mount.
+    (tmp_path / "memory").mkdir()
+    (tmp_path / "memory" / "cgroup.procs").write_text("")
+    assert memory_cap_mode(tmp_path) == "cgroup1"
     (tmp_path / "cgroup.controllers").write_text("cpuset cpu io memory pids\n")
-    assert memory_cap_available(tmp_path) is True
+    assert memory_cap_mode(tmp_path) == "cgroup2"
+
+
+def test_cgroup1_preexec_writes_the_v1_limit(tmp_path):
+    d, broker = _daemon(tmp_path)
+    (d.cgroup_root / "memory").mkdir(parents=True)
+    (d.cgroup_root / "memory" / "cgroup.procs").write_text("")
+    assert d._cgroup_preexec() is not None
+    assert (d.cgroup_root / "memory" / "medchron" / "memory.limit_in_bytes").read_text() == str(d.memory_max)
+    _submit(d, broker, "01A")
+    d.tick()
+    assert json.loads((d.run_dir / "heartbeat.json").read_text())["memory_cap"] == "cgroup1"
 
 
 def test_daemon_heartbeat_is_world_readable(tmp_path):
