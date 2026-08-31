@@ -264,6 +264,12 @@ class SeatListsReport:
     rostered: int = 0
     findings: list[ListsFinding] = field(default_factory=list)
     held: Optional[str] = None
+    #: Unmeasured WITH a named remediation (a scoped shared key that cannot
+    #: read this inbox and no per-seat key vaulted): rendered as an `n/a` line
+    #: telling the operator exactly which env var closes it, never a hold --
+    #: a hold that reddens forever with no action attached is muted, and muted
+    #: is worse than narrowed.
+    skipped: Optional[str] = None
 
     @property
     def is_finding(self) -> bool:
@@ -340,6 +346,11 @@ def render(reports: list[SeatListsReport], *, org_note: Optional[str] = None) ->
         if report.held:
             lines.append(f"HOLD  {report.inbox}: {report.held}")
             continue
+        if report.skipped:
+            # Unmeasured with the remediation NAMED: the operator reads the
+            # exact env var to vault, not a red run to investigate.
+            lines.append(f"n/a   {report.inbox}: {report.skipped}")
+            continue
         verdict = "FIND" if report.is_finding else "ok  "
         lines.append(
             f"{verdict}  {report.inbox} [{report.slug}] rostered={report.rostered} "
@@ -360,11 +371,12 @@ def render(reports: list[SeatListsReport], *, org_note: Optional[str] = None) ->
                 )
     findings = sum(len(r.findings) for r in reports if r.held is None)
     held = [r for r in reports if r.held]
+    skipped = [r for r in reports if r.skipped]
     lines.append("")
     scope_claim = "per-inbox send scope only" if org_note else "org + per-inbox send scope"
     lines.append(
-        f"{findings} suppression finding(s), {len(held)} held, {len(reports)} seat(s) checked "
-        f"(AgentMail Lists: {scope_claim})"
+        f"{findings} suppression finding(s), {len(held)} held, {len(skipped)} skipped, "
+        f"{len(reports)} seat(s) checked (AgentMail Lists: {scope_claim})"
     )
     # Column 0, render() only: the workflow locates its ONE rolling issue by
     # the constant marker and reads the digest to decide whether to comment.
@@ -376,7 +388,30 @@ def render(reports: list[SeatListsReport], *, org_note: Optional[str] = None) ->
     return "\n".join(lines)
 
 
-def check_seat(slug: str, api_key: str, org_lists, *, opener=None) -> SeatListsReport:
+def seat_key_env(slug: str) -> str:
+    """The per-seat scoped key's env var name -- the provision-customer.sh
+    convention (``AGENTMAIL_API_KEY__<CID>``, dashes to underscores, upper)."""
+    return "AGENTMAIL_API_KEY__" + slug.upper().replace("-", "_")
+
+
+def check_seat(slug: str, shared_key: str, org_lists, *, opener=None) -> SeatListsReport:
+    """One seat's inbox-scope lists, under the most capable key available.
+
+    Second live-fire calibration (2026-08-31): AgentMail keys are inbox-scoped
+    (the ss#2258 fence), so the SHARED CI key reads only the inboxes it was
+    minted for -- scott@ read clean under it while pilot-smokeball's own inbox
+    403'd. So the key is chosen per seat: the vaulted per-seat key
+    (``AGENTMAIL_API_KEY__<CID>``) when its env var is set, else the shared
+    key. Three 403 outcomes, deliberately distinct:
+
+    * per-seat key present and 403 -> honest HOLD (a seat's own scoped key
+      that cannot read its own inbox lists is the vendor question in the
+      vendor-ask runbook, not a configuration we can close ourselves);
+    * only the shared key and 403 -> NOTED SKIP naming the missing env var,
+      so the report carries the exact remediation instead of reddening
+      forever;
+    * any non-403 failure -> HOLD, as ever.
+    """
     inbox = f"{slug}@agentmail.to"
     config = load_config(slug)
     if config is None:
@@ -384,9 +419,21 @@ def check_seat(slug: str, api_key: str, org_lists, *, opener=None) -> SeatListsR
         report.held = f"customer.yaml unreadable for {slug}"
         return report
     rostered = rostered_recipients(config)
+    seat_env = seat_key_env(slug)
+    seat_key = os.environ.get(seat_env)
+    api_key = seat_key or shared_key
     try:
         inbox_block = fetch_list(api_key, "send", "block", inbox=inbox, opener=opener)
         inbox_allow = fetch_list(api_key, "send", "allow", inbox=inbox, opener=opener)
+    except ListsForbidden as exc:
+        report = SeatListsReport(slug=slug, inbox=inbox, rostered=len(rostered))
+        if seat_key:
+            report.held = f"{exc} (under the per-seat key {seat_env})"
+        else:
+            report.skipped = (
+                f"inbox lists unreadable with the shared key; set {seat_env} to close"
+            )
+        return report
     except ListsError as exc:
         report = SeatListsReport(slug=slug, inbox=inbox, rostered=len(rostered))
         report.held = str(exc)
@@ -427,6 +474,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     if any(r.is_finding for r in reports):
         return EXIT_FINDING
     if any(r.held for r in reports):
+        return EXIT_HOLD
+    if reports and all(r.skipped for r in reports):
+        # Every seat skipped means nothing was measured at all. Clean and
+        # unmeasured must not print the same exit code (the sibling
+        # reconcilers' rule); the skip lines still carry the remediation.
         return EXIT_HOLD
     return EXIT_CLEAN
 
