@@ -156,7 +156,15 @@ def validate_envelope(req: dict[str, Any]) -> dict[str, Any]:
     if req.get("injuries"):
         env["injuries"] = str(req["injuries"])[:2000]
     if isinstance(req.get("selection"), dict):
-        env["selection"] = req["selection"]
+        # Known keys only, string lists only (ss#2616: include_file_ids is the
+        # append grain; the folder-grain overrides remain for SMD-side use).
+        sel = {}
+        for key in ("include_prefixes", "exclude_substrings", "include_file_ids"):
+            value = req["selection"].get(key)
+            if isinstance(value, list) and value:
+                sel[key] = [str(v)[:200] for v in value[:500]]
+        if sel:
+            env["selection"] = sel
     cap = req.get("cap_usd")
     if cap is not None:
         if not isinstance(cap, (int, float)) or isinstance(cap, bool) or cap <= 0:
@@ -297,7 +305,10 @@ class MedchronLedger:
             cur = conn.execute("SELECT state FROM medchron_jobs WHERE id=?", (job_id,)).fetchone()
             if cur is None:
                 raise ValueError(f"no such job {job_id}")
-            if state not in _ALLOWED_NEXT[cur["state"]]:
+            # ss#2616: a same-state re-record is a NOTE (a lost deliver wake,
+            # for instance) — legal, merges fields, writes one audit row with
+            # the current state's type. Transitions stay monotonic otherwise.
+            if state != cur["state"] and state not in _ALLOWED_NEXT[cur["state"]]:
                 raise ValueError(f"illegal transition {cur['state']} -> {state}")
             sets = ["state=?", "updated_at=?"]
             vals: list[Any] = [state, _iso_utc()]

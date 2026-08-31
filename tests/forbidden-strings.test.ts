@@ -1203,3 +1203,50 @@ describe('skill prose carries no matter-number-shaped example (ss#2168)', () => 
     })
   }
 })
+
+// The establishment skills must warn that an ordered-list marker is a digit
+// (ss#2212).
+//
+// The digit invariant refuses any digit in a spec body outside a `{{profile.*}}`
+// token, and it counts `1.` and `2.` at the head of a line. Found on
+// pilot-smokeball 2026-08-02: a specification written as a numbered list of rules
+// was refused with `REFUSED: 5 digit(s) in spec.md outside a profile token`, one
+// per list item; the identical content in bullets installed cleanly
+// (vfy_01KZ288YZAPW5GNY180DRNX2Q1).
+//
+// A numbered list is the natural way to write "rules", so the constraint reads as
+// a bug the first time a firm hits it. The fix is prose in the skills rather than
+// a wider gate: nothing about the invariant changes, and no line position gains
+// the ability to carry an asserted measurement. Prose with no guard is a
+// suggestion, though, so this pins it the same way ss#2168's example ban is
+// pinned.
+describe('establishment skills warn that a numbered list is refused (ss#2212)', () => {
+  // Both skills write a spec body through the same invariant. `document-library-
+  // establishment` does not, so it is deliberately absent.
+  const SPEC_WRITING_SKILLS = ['voice-establishment', 'shape-establishment']
+
+  for (const skill of SPEC_WRITING_SKILLS) {
+    it(`${skill} tells the model to use bullets, not numbers`, () => {
+      // Whitespace-tolerant on purpose: these files are hard-wrapped, so the
+      // phrase routinely straddles a newline plus indent. A regex with a literal
+      // space passes or fails on where prettier happened to break the line,
+      // which is a check that answers a question about formatting rather than
+      // about content. (It failed exactly that way on first run.)
+      const body = readFileSync(resolve('operator/skills', skill, 'SKILL.md'), 'utf-8')
+      expect(
+        /bullets,\s+never\s+(as\s+)?a\s+numbered\s+list/i.test(body),
+        `operator/skills/${skill}/SKILL.md no longer warns that an ordered-list marker counts ` +
+          'as a digit. Without it the first firm to write its rules as "1. ... 2. ..." gets ' +
+          'the whole specification refused and reads the control as a defect.'
+      ).toBe(true)
+      // The warning is worth nothing if it does not say what breaks, so pin the
+      // mechanism too: a reader who sees only "use bullets" will delete it as
+      // style advice.
+      expect(
+        /digit\s+invariant\s+counts\s+an\s+ordered-list\s+marker/i.test(body),
+        `operator/skills/${skill}/SKILL.md states the rule without its reason. Keep the ` +
+          'mechanism next to it or the next editor removes it as a style preference.'
+      ).toBe(true)
+    })
+  }
+})

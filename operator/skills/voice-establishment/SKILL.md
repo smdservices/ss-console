@@ -381,7 +381,11 @@ demotion, a warning, or a rejection; send anything to anyone.
    Staging before the blessing is this violation, not a shortcut. So is changing a document by
    any amount, for any reason, to clear a refusal: drop it and say so instead.
 3. **No leak, no invented number.** Characterization only; verbatim only from
-   `approved_strings`; every figure a `{{profile.*}}` token.
+   `approved_strings`; every figure a `{{profile.*}}` token. **Write the rules as bullets,
+   never as a numbered list.** The digit invariant counts an ordered-list marker as a digit,
+   so `1.` and `2.` on their own lines refuse the whole specification
+   (`REFUSED: 5 digit(s) in spec.md outside a profile token`, pilot-smokeball 2026-08-02).
+   Spell out any quantity that is not a `{{profile.*}}` token: "three sentences", not "3".
 4. **Honest reply.** Every demotion with its documents, every warning, every rejection with
    its gate. Installed is claimed only on `installed`.
 5. **No send.** This skill addresses only the admin who instructed it, in their own turn.

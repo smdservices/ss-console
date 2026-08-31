@@ -110,6 +110,8 @@ M365 is the calendar source.
 
 **Conflict detect-and-halt** (in `new-matter-intake`) is read-only: `get_contacts(query)` + `list_matters` name cross-check surfaces a hit with no write.
 
+**`medical-chronology-maintainer` (ss#2616, the chronology-package request path):** reads `list_matters` + `get_contacts`/`get_contact` (the dual-probe matter resolution: number scan ∩ client-name probe, exactly one match or surface the candidates as prose), `get_matter` (incident fields, `personResponsibleStaffId`), `get_files_on_matter`, `list_folders`, `get_memos_on_matter`, `search_staff`/`get_staff`; writes `create_memo` (the running chronology, confirmed by read) and — deliver mode only — `create_task` for the responsible attorney (read back by `list_tasks`). The package itself is built and filed by the on-seat runner; the skill reaches it through the seat-local broker tools `medchron_job_submit` / `medchron_job_status` / `medchron_allowance` (not Smokeball tools; classified INTERNAL_WRITE / READ / READ in the overlay).
+
 ## Write posture (unchanged from the wedge — fail-closed)
 
 Every client-/tribunal-bound message follows the firm's authored `external_send` ceiling (ADR 0035; fail-closed when unauthored). Every Smokeball _write_ (`create_matter`, `create_task`, `create_contact`, file/document writes) is **gated / draft-and-surface** until the connect step proves the call succeeds against staging AND the engagement authors it on (ADR 0035, no imposed defaults). Trust-account writes (`protect_funds`/`unprotect_funds`/`create_transaction`) are **never** authored on — a `fails` invariant, not a default. `create_memo` (internal log) is the one write the wedge uses this phase, analogous to Clio's `create_note`.

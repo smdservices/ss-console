@@ -104,6 +104,12 @@ def selection(job: Job, cfg: FirmConfig, slug_dir: Path, *, dry_run: bool) -> De
         "root_pdfs": bool(cfg.get("selection", "root_pdfs")),
         "_decided": {"excluded_top_level": excluded, "by": "medchron.decisions.selection"},
     }
+    # ss#2616 append runs: the requesting skill names exactly the new document
+    # ids; the pull is restricted to them (download HOLDs on an id the matter
+    # does not carry, never silently skips it).
+    if overrides.get("include_file_ids"):
+        payload["include_file_ids"] = [str(f) for f in overrides["include_file_ids"]]
+        notes.append(f"append run: pull restricted to {len(payload['include_file_ids'])} named document id(s)")
     if not payload["include_prefixes"]:
         holds.append("no folder survived selection; nothing to pull")
     d = Decision("selection", slug_dir / "include.json", payload, holds, notes)
