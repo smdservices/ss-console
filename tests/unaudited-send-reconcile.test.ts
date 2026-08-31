@@ -476,3 +476,144 @@ describe('workflow steps never interpolate body content (phase 4 leak safety)', 
     expect(readFileSync(outputs, 'utf-8')).toContain('status=1')
   })
 })
+
+/**
+ * PR #2651 review finding 1. The lists check keeps ONE rolling issue (the
+ * ss#2582 discipline): a findings-derived dedupe key re-files the whole report
+ * as a "new" dated issue the day one address joins the set. The step must find
+ * its issue by the CONSTANT series marker, rewrite the body in place, and
+ * comment only when the content digest moved. Real step body, stubbed gh.
+ */
+describe('the lists check keeps one rolling issue (ss#2582 discipline)', () => {
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  const SERIES = 'agentmail-lists'
+  const DIGEST = 'feedc0de12345678'
+
+  const listsStepBody = (): string => {
+    const source = readFileSync(WORKFLOW, 'utf8')
+    const start = source.indexOf(
+      '      - name: Report suppressed rostered recipients on ONE issue, updated in place'
+    )
+    expect(start).toBeGreaterThan(-1)
+    const body = source.slice(source.indexOf('run: |', start) + 'run: |\n'.length)
+    const lines: string[] = []
+    for (const line of body.split('\n')) {
+      if (line.trim() !== '' && !line.startsWith('          ')) break
+      lines.push(line.slice(10))
+    }
+    return lines.join('\n')
+  }
+
+  const report = (digest: string = DIGEST): string =>
+    `FIND  pilot-smokeball@agentmail.to [pilot-smokeball] rostered=4 list-findings=1\n\n` +
+    `reconcile-series: ${SERIES}\nreconcile-findings: ${digest}\n`
+
+  const runListsStep = (
+    body: string,
+    {
+      openIssues,
+      seed,
+      existingBody,
+    }: { openIssues: unknown[]; seed?: string; existingBody?: string }
+  ) => {
+    dir = mkdtempSync(join(tmpdir(), 'step-lists-'))
+    const bin = join(dir, 'bin')
+    mkdirSync(bin, { recursive: true })
+    writeFileSync(join(dir, 'issues.json'), JSON.stringify(openIssues))
+    writeFileSync(join(dir, 'existing-body.txt'), existingBody ?? '')
+    writeFileSync(
+      join(bin, 'gh'),
+      '#!/usr/bin/env bash\n' +
+        'echo "$@" >> "$GH_LOG"\n' +
+        'if [ "$1" = "issue" ] && [ "$2" = "list" ]; then cat "$GH_ISSUES"; fi\n' +
+        'if [ "$1" = "issue" ] && [ "$2" = "view" ]; then cat "$GH_EXISTING_BODY"; fi\n' +
+        'exit 0\n'
+    )
+    chmodSync(join(bin, 'gh'), 0o755)
+    writeFileSync(join(dir, 'lists.txt'), seed ?? report())
+    const log = join(dir, 'gh.log')
+    writeFileSync(log, '')
+    writeFileSync(join(dir, 'step.sh'), body)
+    let failed = false
+    try {
+      execFileSync('bash', ['-e', join(dir, 'step.sh')], {
+        cwd: dir,
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH ?? ''}`,
+          GH_LOG: log,
+          GH_ISSUES: join(dir, 'issues.json'),
+          GH_EXISTING_BODY: join(dir, 'existing-body.txt'),
+          GH_TOKEN: 'stub',
+          REPO: 'venturecrane/ss-console',
+          RUN_URL: 'https://example.invalid/run/1',
+        },
+      })
+    } catch {
+      failed = true
+    }
+    const read = (name: string) => {
+      try {
+        return readFileSync(join(dir as string, name), 'utf-8')
+      } catch {
+        return ''
+      }
+    }
+    return {
+      failed,
+      gh: read('gh.log'),
+      body: read('body-lists.md'),
+      comment: read('comment-lists.md'),
+    }
+  }
+
+  it('creates the rolling issue when none carries the series marker', () => {
+    const run = runListsStep(listsStepBody(), {
+      openIssues: [{ number: 2100, body: 'an unrelated P1' }],
+    })
+    expect(run.failed).toBe(false)
+    expect(run.gh).toContain('issue create')
+    expect(run.body).toContain(`reconcile-series: ${SERIES}`)
+  })
+
+  it('a GROWN finding set updates the SAME issue instead of filing a copy', () => {
+    // The exact regression the review named: yesterday's issue is open with
+    // yesterday's digest, today one new suppressed address changed the digest.
+    // A findings-derived key would miss the open issue and create a duplicate.
+    const run = runListsStep(listsStepBody(), {
+      openIssues: [{ number: 2700, body: `rolling\nreconcile-series: ${SERIES}\n` }],
+      existingBody: `rolling\nreconcile-series: ${SERIES}\nreconcile-findings: 1111111111111111\n`,
+    })
+    expect(run.failed).toBe(false)
+    expect(run.gh).not.toContain('issue create')
+    expect(run.gh).toContain('issue edit 2700')
+    // The set moved, so the history lands as a comment on the same issue.
+    expect(run.gh).toContain('issue comment 2700')
+    expect(run.comment).toContain(DIGEST)
+  })
+
+  it('an unchanged finding set refreshes the body with no comment', () => {
+    const run = runListsStep(listsStepBody(), {
+      openIssues: [{ number: 2700, body: `rolling\nreconcile-series: ${SERIES}\n` }],
+      existingBody: `rolling\nreconcile-series: ${SERIES}\nreconcile-findings: ${DIGEST}\n`,
+    })
+    expect(run.gh).toContain('issue edit 2700')
+    expect(run.gh).not.toContain('issue comment')
+  })
+
+  it('fails loudly when a findings report carries no series marker', () => {
+    const run = runListsStep(listsStepBody(), {
+      openIssues: [],
+      seed: 'FIND  pilot-smokeball@agentmail.to list-findings=1\n',
+    })
+    expect(run.failed).toBe(true)
+    expect(run.gh).not.toContain('issue create')
+  })
+})

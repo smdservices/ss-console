@@ -63,6 +63,14 @@ EXIT_CLEAN = 0
 EXIT_FINDING = 1
 EXIT_HOLD = 2
 
+#: Constant for this control, deliberately NOT derived from the findings (the
+#: ss#2582 lesson, PR #2651 review finding 1): one newly suppressed address
+#: would change a findings-derived key, fail to match yesterday's issue, and
+#: file the whole report again as a "new" finding. The workflow finds its ONE
+#: rolling issue by this marker, rewrites the body in place, and comments only
+#: when the content digest below moves.
+SERIES_MARKER = "reconcile-series: agentmail-lists"
+
 
 class ListsError(RuntimeError):
     """Transport, auth, or shape failure. Holds; never a finding."""
@@ -173,7 +181,10 @@ def rostered_recipients(config: dict) -> list[str]:
         out += _addresses(scope.get("inbound_allow_from"))
     seen: list[str] = []
     for address in out:
-        lowered = address.lower()
+        # strip + lower, matching what _matches does to vendor entries (and the
+        # TS normalizeEmail trim+lower, #2284): the two sides of the compare
+        # must normalize identically or a padded authoring reads as unlisted.
+        lowered = address.strip().lower()
         if lowered not in seen:
             seen.append(lowered)
     return seen
@@ -269,7 +280,11 @@ def grade_seat(
     return report
 
 
-def finding_fingerprint(reports: list[SeatListsReport]) -> str:
+def finding_digest(reports: list[SeatListsReport]) -> str:
+    """Fingerprint of the whole finding set -- for "did the set MOVE", never
+    for "is this issue already filed" (the series marker owns that). Keyed on
+    stable fields only (inbox, scope, kind, entry, recipient); no timestamps,
+    counts, or run ids, so an unchanged set produces an unchanged digest."""
     keys = sorted(
         f"{report.inbox}|{finding.scope}|{finding.kind}|{finding.entry}|{finding.recipient}"
         for report in reports
@@ -311,9 +326,13 @@ def render(reports: list[SeatListsReport]) -> str:
         f"{findings} suppression finding(s), {len(held)} held, {len(reports)} seat(s) checked "
         "(AgentMail Lists: org + per-inbox send scope)"
     )
-    fingerprint = finding_fingerprint(reports)
-    if fingerprint:
-        lines.append(f"lists-fingerprint: {fingerprint}")
+    # Column 0, render() only: the workflow locates its ONE rolling issue by
+    # the constant marker and reads the digest to decide whether to comment.
+    lines.append("")
+    lines.append(SERIES_MARKER)
+    digest = finding_digest(reports)
+    if digest:
+        lines.append(f"reconcile-findings: {digest}")
     return "\n".join(lines)
 
 

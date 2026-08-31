@@ -27,6 +27,7 @@ import { parse as parseYaml } from 'yaml'
 import { validate } from '../src/lib/operator/customer-yaml'
 import {
   armingViolations,
+  customerNameFloorViolations,
   parseOutboundBindings,
   parseSendRender,
 } from '../src/lib/operator/send-render'
@@ -146,6 +147,19 @@ if (cronRows.length > 0) {
     renders,
     templateExists: (path) => existsSync(join(REPO_ROOT, path)),
   })
+  // The floor half (PR #2651 review finding 3): a chase-arming seat whose
+  // display name carries a content-floor trigger would have every autonomous
+  // chase held as a draft; refused here too so provisioning cannot land it.
+  violations.push(
+    ...customerNameFloorViolations({
+      seat: seatSlug,
+      customerName: result.value.customer_name,
+      cron: cronRows,
+      firmLineAuthored: result.value.personas.some(
+        (persona) => typeof persona.signature?.firm_line === 'string'
+      ),
+    })
+  )
   if (violations.length > 0) {
     process.stderr.write(
       `customer.yaml arms ${violations.length} routine(s) to send with no authored ` +

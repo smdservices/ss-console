@@ -130,39 +130,56 @@ def test_matching_is_case_insensitive_and_ignores_blank_entries():
 # ---------------------------------------------------------------------------
 
 
-def test_findings_render_with_a_fingerprint_and_holds_without_one():
+def test_findings_render_the_series_marker_and_digest():
+    """The rolling-issue contract (ss#2582 discipline): the CONSTANT series
+    marker is what locates the one open issue; the digest only says whether
+    the set moved. A findings-derived issue key would re-file the whole report
+    as a duplicate the day one new address lands."""
     finding = lists.SeatListsReport(
         slug="pilot", inbox="pilot@agentmail.to", rostered=1,
         findings=[lists.ListsFinding(scope="org", kind="send_block_match",
                                      entry="x@y.z", recipient="x@y.z")],
     )
     rendered = lists.render([finding])
-    assert "lists-fingerprint:" in rendered
+    assert "reconcile-series: agentmail-lists" in rendered
+    assert "reconcile-findings:" in rendered
     assert "silently dropped" in rendered
     held = lists.SeatListsReport(slug="pilot", inbox="pilot@agentmail.to")
     held.held = "agentmail GET /lists/send/block failed: HTTP 500"
     rendered_hold = lists.render([held])
     assert rendered_hold.startswith("HOLD")
-    assert "lists-fingerprint:" not in rendered_hold
+    # The marker still prints (constant), but no digest: nothing was found.
+    assert "reconcile-series: agentmail-lists" in rendered_hold
+    assert "reconcile-findings:" not in rendered_hold
 
 
-def test_fingerprint_is_stable_and_moves_with_the_set():
+def test_digest_is_stable_content_only_and_moves_with_the_set():
     def _report(entries):
         return lists.SeatListsReport(
             slug="pilot", inbox="pilot@agentmail.to",
             findings=[
                 lists.ListsFinding(scope="org", kind="send_block_match", entry=e, recipient=e)
-                for e in entries
+            for e in entries
             ],
         )
 
-    assert lists.finding_fingerprint([_report(["a@b.c"])]) == lists.finding_fingerprint(
+    # Stable across runs (no volatile fields in the key)...
+    assert lists.finding_digest([_report(["a@b.c"])]) == lists.finding_digest(
         [_report(["a@b.c"])]
     )
-    assert lists.finding_fingerprint([_report(["a@b.c"])]) != lists.finding_fingerprint(
+    # ...and it MOVES when the set grows, which is what triggers the comment
+    # on the SAME rolling issue rather than a second issue.
+    assert lists.finding_digest([_report(["a@b.c"])]) != lists.finding_digest(
         [_report(["a@b.c", "d@e.f"])]
     )
-    assert lists.finding_fingerprint([_report([])]) == ""
+    assert lists.finding_digest([_report([])]) == ""
+
+
+def test_rostered_addresses_are_stripped_like_vendor_entries():
+    """#2284 family: _matches strips+lowers vendor entries; the rostered side
+    must normalize identically or a padded authoring reads as unlisted."""
+    config = {"users": [{"email": "  Scott@SMD.services  "}]}
+    assert lists.rostered_recipients(config) == ["scott@smd.services"]
 
 
 def test_missing_key_holds(monkeypatch, capsys):

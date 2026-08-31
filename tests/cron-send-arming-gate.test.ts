@@ -28,7 +28,9 @@ import { parse as parseYaml } from 'yaml'
 
 import { validate } from '../src/lib/operator/customer-yaml'
 import {
+  CHASE_SIGNATURE_SKILLS,
   armingViolations,
+  customerNameFloorViolations,
   parseOutboundBindings,
   parseSendRender,
   templateHygieneViolations,
@@ -47,6 +49,8 @@ const outbound = parseOutboundBindings(readFileSync(OUTPUT_CLASSES, 'utf8'))
 
 interface Seat {
   slug: string
+  customerName: string
+  firmLineAuthored: boolean
   cron: { skill: string }[]
 }
 
@@ -68,6 +72,10 @@ function authoredSeats(): Seat[] {
     if (!result.ok) continue
     seats.push({
       slug: entry,
+      customerName: result.value.customer_name,
+      firmLineAuthored: result.value.personas.some(
+        (persona) => typeof persona.signature?.firm_line === 'string'
+      ),
       cron: result.value.personas.flatMap((persona) =>
         persona.cron.map((row) => ({ skill: row.skill }))
       ),
@@ -103,6 +111,31 @@ describe('cron-send arming gate', () => {
 
   it('every hash-verified declaration names a template that exists', () => {
     expect(templateHygieneViolations(renders, templateExists).map((v) => v.message)).toEqual([])
+  })
+
+  it('no chase-arming seat authors a floor-trigger customer_name', () => {
+    // The signature block renders the name into every chase body; a trigger
+    // word in it would have the ADR 0031 floor hold every autonomous chase as
+    // a draft (PR #2651 review, finding 3).
+    for (const seat of seats) {
+      const violations = customerNameFloorViolations({
+        seat: seat.slug,
+        customerName: seat.customerName,
+        cron: seat.cron,
+        firmLineAuthored: seat.firmLineAuthored,
+      })
+      expect(violations.map((v) => v.message)).toEqual([])
+    }
+  })
+
+  it('the chase-signature consuming set matches the shared voice derivation set', () => {
+    // _shared-chase-voice.md's own header names the skills that derive from it.
+    expect([...CHASE_SIGNATURE_SKILLS].sort()).toEqual([
+      'client-verification-tracker',
+      'discovery-response-tracker',
+      'lien-ledger-tracker',
+      'medical-records-chaser',
+    ])
   })
 
   it('every declared skill is a real skill directory', () => {
@@ -208,5 +241,61 @@ describe('falsifier: the gate can fire on the real fleet', () => {
     })
     expect(violations.map((v) => v.code)).toEqual(['undeclared-render'])
     expect(violations[0].skill).toBe('deadline-miss-escalator')
+  })
+})
+
+describe('the customer_name floor gate (synthetic seats)', () => {
+  const armedChase = [{ skill: 'medical-records-chaser' }]
+
+  it('refuses a trigger word in the name of a chase-arming seat, naming the word', () => {
+    const violations = customerNameFloorViolations({
+      seat: 'x',
+      customerName: 'Example, Attorneys at Law',
+      cron: armedChase,
+    })
+    expect(violations.map((v) => v.code)).toEqual(['floor-trigger-name'])
+    // Corrective: the message names the offending word and the way out.
+    expect(violations[0].message).toContain('"attorney"')
+    expect(violations[0].message).toContain('signature.firm_line')
+  })
+
+  it('a seat arming no chase-signature skill is untouched', () => {
+    const violations = customerNameFloorViolations({
+      seat: 'x',
+      customerName: 'Example, Attorneys at Law',
+      cron: [{ skill: 'deadline-miss-escalator' }],
+    })
+    expect(violations).toEqual([])
+  })
+
+  it('a floor-clean authored firm_line override suppresses the name gate', () => {
+    // The override is what renders; the display name never reaches a chase
+    // body. The override itself is floor-checked by the schema validator.
+    const violations = customerNameFloorViolations({
+      seat: 'x',
+      customerName: 'Example, Attorneys at Law',
+      cron: armedChase,
+      firmLineAuthored: true,
+    })
+    expect(violations).toEqual([])
+  })
+
+  it('word boundaries hold: substrings and clean names pass', () => {
+    for (const name of ['Signal Hill LLP', 'Coffee & Co', 'Ashton & Price LLP', 'Pilot Law']) {
+      expect(
+        customerNameFloorViolations({ seat: 'x', customerName: name, cron: armedChase })
+      ).toEqual([])
+    }
+  })
+
+  it('the plural form is refused too', () => {
+    // The overlay's \battorney\b would miss "Attorneys", but an authoring gate
+    // that lets the plural through teaches authors the word is fine.
+    const violations = customerNameFloorViolations({
+      seat: 'x',
+      customerName: 'Example Attorneys',
+      cron: armedChase,
+    })
+    expect(violations.map((v) => v.code)).toEqual(['floor-trigger-name'])
   })
 })

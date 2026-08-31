@@ -15,6 +15,7 @@ import {
   type ValidationError,
 } from './types'
 import { isPlainObject, optionalEnum, optionalString } from './helpers'
+import { findFloorTrigger } from '../floor-triggers'
 import { checkSendAs } from './sections-personas-send-as'
 import { checkBundles, checkCron } from './sections-bundles-cron'
 import { checkPersonaEntitlements, checkPersonaSkills } from './sections-persona-skills'
@@ -166,6 +167,30 @@ function checkPersonaSignature(
   }
   const firmLine = optionalString(value, 'firm_line', `${path}.firm_line`, errors)
   const closing = optionalString(value, 'closing', `${path}.closing`, errors)
+  // The block renders VERBATIM into every chase body, which the ADR 0031
+  // content floor re-scans before delivery (overlay shared/content_floor.py).
+  // A trigger word authored here would silently downgrade every autonomous
+  // chase to a held draft, so it is refused at authoring time with the word
+  // named (PR #2651 review, finding 3). Shared vocabulary + drift guard:
+  // src/lib/operator/floor-triggers.ts.
+  for (const [key, text] of [
+    ['firm_line', firmLine],
+    ['closing', closing],
+  ] as const) {
+    const trigger = text === null ? null : findFloorTrigger(text)
+    if (trigger !== null) {
+      errors.push({
+        code: 'TypeMismatch',
+        path: `${path}.${key}`,
+        message:
+          `${path}.${key} contains "${trigger}", a content-floor trigger word (ADR 0031): ` +
+          'the signature renders into every outbound chase body, and the floor would hold ' +
+          'each one as a draft. Use the floor-clean substitution from ' +
+          '_shared-chase-voice.md instead of this word.',
+      })
+      return null
+    }
+  }
   return { firm_line: firmLine, closing }
 }
 

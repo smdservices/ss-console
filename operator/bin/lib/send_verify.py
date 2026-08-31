@@ -42,11 +42,9 @@ the stamp's absence is a deployment-skew fact, not an accusation.
 
 CROSS-RUN INVARIANTS cover the ``compositional`` skills the hash join cannot:
 the same routine must not flap recipients across runs, and the same item_key
-must keep its ACK code. The committed expectation file
-(``operator/bin/send-invariants.json``) stores sha256(routine|value) pairs --
-hashed on purpose; the public baseline already exposes addresses and this file
-must not widen that surface. Missing/corrupt file => empty expectations =>
-first-seen values are REPORTED as proposals, never silently trusted.
+must keep its ACK code. The two-tier grading (first-seen values PROPOSE rows
+for a reviewed send-invariants.json PR; only a conflict with a COMMITTED value
+is a finding) lives in ``lib/send_invariants.py``, re-exported here.
 """
 
 from __future__ import annotations
@@ -58,10 +56,20 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
+from send_invariants import (  # noqa: F401 -- re-exports; callers and tests read unchanged
+    DEFAULT_INVARIANTS_PATH,
+    InvariantFinding,
+    InvariantProposal,
+    _item_hash,
+    _recipient_hash,
+    ack_invariant,
+    load_invariants,
+    recipient_invariant,
+)
+
 _OPERATOR_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SEND_RENDER_PATH = os.path.join(_OPERATOR_DIR, "contracts", "send-render.yaml")
 CANON_VECTORS_PATH = os.path.join(_OPERATOR_DIR, "contracts", "fixtures", "body-canon-vectors.json")
-DEFAULT_INVARIANTS_PATH = os.path.join(_OPERATOR_DIR, "bin", "send-invariants.json")
 
 #: How long after a wake a dispatch may land and still be that wake's send.
 #: The terminal-state contract's ``scheduled_outbound`` window
@@ -305,19 +313,6 @@ class BodyVerdict:
         return self.verdict in _HOLD_VERDICTS
 
 
-@dataclass
-class InvariantFinding:
-    """One cross-run invariant violation. Hashed keys only -- the committed
-    expectation file is public, and so is anything this renders."""
-
-    rule: str  # recipient_set | ack_stability
-    skill_name: str
-    hashed_key: str
-    expected: Optional[str] = None
-    actual: Optional[str] = None
-    detail: Optional[str] = None
-
-
 def verify_hash_join(
     wakes: list[WakeStamp],
     dispatches: list[DispatchStamp],
@@ -476,127 +471,6 @@ def _grade_channel_body(wake, message, fetch_body) -> BodyVerdict:
 
 
 # ---------------------------------------------------------------------------
-# cross-run invariants (compositional skills)
-# ---------------------------------------------------------------------------
-
-
-def load_invariants(path: str = DEFAULT_INVARIANTS_PATH) -> dict:
-    """Committed expectations. Missing/corrupt => EMPTY, on purpose: this
-    file's only failure mode must be over-reporting (proposals for everything),
-    never a silently satisfied invariant -- the load_baseline discipline."""
-    try:
-        with open(path, encoding="utf-8") as handle:
-            parsed = json.load(handle)
-    except (OSError, ValueError):
-        return {"recipients": {}, "ack_codes": {}}
-    if not isinstance(parsed, dict):
-        return {"recipients": {}, "ack_codes": {}}
-    recipients = parsed.get("recipients")
-    ack_codes = parsed.get("ack_codes")
-    return {
-        "recipients": recipients if isinstance(recipients, dict) else {},
-        "ack_codes": ack_codes if isinstance(ack_codes, dict) else {},
-    }
-
-
-def _recipient_hash(routine: str, recipient: str) -> str:
-    return hashlib.sha256(f"{routine}|{recipient.lower()}".encode("utf-8")).hexdigest()
-
-
-def _item_hash(routine: str, item_key: str) -> str:
-    return hashlib.sha256(f"{routine}|{item_key}".encode("utf-8")).hexdigest()
-
-
-#: Metadata keys a dispatch row may carry its recipient(s) under. Probed
-#: against the render cluster's transmit-metadata additions as they land; a
-#: row carrying none of these is SKIPPED (counted, not graded) rather than
-#: guessed at -- vendor/emitter shapes are probed, never assumed.
-_RECIPIENT_KEYS = ("recipient", "recipients", "to", "routing_leg_recipient")
-
-
-def _row_recipients(meta: dict) -> list[str]:
-    for key in _RECIPIENT_KEYS:
-        value = meta.get(key)
-        if isinstance(value, str) and value:
-            return [value]
-        if isinstance(value, list):
-            found = [v for v in value if isinstance(v, str) and v]
-            if found:
-                return found
-    return []
-
-
-def recipient_invariant(
-    rows: list[dict], declares: dict[str, RenderDecl], expectations: dict
-) -> list[InvariantFinding]:
-    """A compositional routine sending to an address outside its committed
-    recipient set is the recipient-flapping defect. Hashes compare; addresses
-    never leave the process."""
-    committed = expectations.get("recipients") or {}
-    findings: list[InvariantFinding] = []
-    seen: set[str] = set()
-    for row in rows:
-        if row.get("action_type") != "CONFIRM_SEND_DISPATCHED":
-            continue
-        skill = str(row.get("skill_name") or "")
-        decl = declares.get(skill)
-        if decl is None or decl.hash_verified:
-            continue
-        meta = _metadata(row)
-        if meta.get("outcome") != "sent":
-            continue
-        allowed = {str(v) for v in (committed.get(skill) or [])}
-        for recipient in _row_recipients(meta):
-            hashed = _recipient_hash(skill, recipient)
-            if hashed in allowed or hashed in seen:
-                continue
-            seen.add(hashed)
-            findings.append(
-                InvariantFinding(
-                    rule="recipient_set",
-                    skill_name=skill,
-                    hashed_key=hashed,
-                    detail="dispatch recipient hash not in committed set "
-                    "(operator/bin/send-invariants.json)",
-                )
-            )
-    return findings
-
-
-def ack_invariant(
-    wakes: list[WakeStamp], declares: dict[str, RenderDecl], expectations: dict
-) -> list[InvariantFinding]:
-    """The same item_key must map to the same ack_code -- across the runs in
-    this window AND against the committed history. An ACK code that moves under
-    a reader is the unstable-ACK defect from the review week."""
-    committed = expectations.get("ack_codes") or {}
-    findings: list[InvariantFinding] = []
-    observed: dict[str, str] = {}
-    for wake in wakes:
-        if declares.get(wake.skill_name) is None:
-            continue
-        for item in wake.items:
-            key = _item_hash(wake.skill_name, str(item["item_key"]))
-            code = str(item["ack_code"])
-            expected = committed.get(key) or observed.get(key)
-            if expected is None:
-                observed[key] = code
-                continue
-            if expected != code:
-                findings.append(
-                    InvariantFinding(
-                        rule="ack_stability",
-                        skill_name=wake.skill_name,
-                        hashed_key=key,
-                        expected=expected,
-                        actual=code,
-                        detail="item_key maps to a different ack_code than committed/prior",
-                    )
-                )
-    return findings
-
-
-# ---------------------------------------------------------------------------
 # the verifier the reconciler calls (one object, so the caller stays small)
 # ---------------------------------------------------------------------------
 
@@ -613,15 +487,18 @@ class SendVerifier:
         sent: list[dict],
         rows: list[dict],
         fetch_body: Optional[Callable[[dict], Optional[str]]] = None,
-    ) -> tuple[list[BodyVerdict], list[InvariantFinding]]:
+    ) -> tuple[list[BodyVerdict], list[InvariantFinding], list[InvariantProposal]]:
         wakes = index_wakes(rows)
         dispatches = index_dispatches(rows)
         verdicts = verify_hash_join(wakes, dispatches, self._declares)
         if fetch_body is not None:
             verdicts += verify_channel_bodies(sent, wakes, self._declares, fetch_body)
-        invariants = recipient_invariant(rows, self._declares, self._invariants)
-        invariants += ack_invariant(wakes, self._declares, self._invariants)
-        return verdicts, invariants
+        # Two tiers (send_invariants.py): conflicts with COMMITTED expectations
+        # are findings; first-seen values are proposals for a reviewed
+        # send-invariants.json PR, never findings.
+        findings, proposals = recipient_invariant(rows, self._declares, self._invariants)
+        ack_findings, ack_proposals = ack_invariant(wakes, self._declares, self._invariants)
+        return verdicts, findings + ack_findings, proposals + ack_proposals
 
 
 def verifier_from_contract(
@@ -644,11 +521,16 @@ def has_holds(verdicts: list[BodyVerdict]) -> bool:
 
 
 def render_lines(
-    inbox: str, verdicts: list[BodyVerdict], invariants: list[InvariantFinding]
+    inbox: str,
+    verdicts: list[BodyVerdict],
+    invariants: list[InvariantFinding],
+    proposals: Optional[list[InvariantProposal]] = None,
 ) -> list[str]:
     """Report lines for one inbox. HOLD lines start in column 0 with `HOLD`
     (the workflow greps ``^HOLD`` and reddens the run on them); finding lines
-    are indented under the inbox like the reconciler's own."""
+    are indented under the inbox like the reconciler's own; PROPOSAL lines are
+    the human's paste-ready rows for a send-invariants.json PR and never
+    redden anything."""
     lines: list[str] = []
     for verdict in verdicts:
         if verdict.is_finding:
@@ -667,6 +549,19 @@ def render_lines(
             f"        INVARIANT {finding.rule} {finding.skill_name} key={finding.hashed_key} "
             f"expected={finding.expected or '-'} actual={finding.actual or '-'}"
         )
+    for proposal in proposals or []:
+        if proposal.rule == "recipient_set":
+            lines.append(
+                f"        PROPOSAL recipient_set {proposal.skill_name}: add "
+                f'"{proposal.hashed_key}" to recipients["{proposal.skill_name}"] '
+                "in operator/bin/send-invariants.json (reviewed PR)"
+            )
+        else:
+            lines.append(
+                f"        PROPOSAL ack_stability {proposal.skill_name}: add "
+                f'ack_codes["{proposal.hashed_key}"] = "{proposal.value}" '
+                "in operator/bin/send-invariants.json (reviewed PR)"
+            )
     holds: dict[str, int] = {}
     for verdict in verdicts:
         if verdict.is_hold:
@@ -707,15 +602,19 @@ _VERDICT_EMIT_KEYS = (
     "detail",
 )
 _INVARIANT_EMIT_KEYS = ("rule", "skill_name", "hashed_key", "expected", "actual", "detail")
+_PROPOSAL_EMIT_KEYS = ("rule", "skill_name", "hashed_key", "value")
 
 
 def as_dicts(
-    verdicts: list[BodyVerdict], invariants: list[InvariantFinding]
-) -> tuple[list[dict], list[dict]]:
+    verdicts: list[BodyVerdict],
+    invariants: list[InvariantFinding],
+    proposals: Optional[list[InvariantProposal]] = None,
+) -> tuple[list[dict], list[dict], list[dict]]:
     """--json emission through the fixed allowlists above."""
     return (
         [{key: getattr(v, key) for key in _VERDICT_EMIT_KEYS} for v in verdicts],
         [{key: getattr(f, key) for key in _INVARIANT_EMIT_KEYS} for f in invariants],
+        [{key: getattr(p, key) for key in _PROPOSAL_EMIT_KEYS} for p in proposals or []],
     )
 
 
@@ -723,6 +622,7 @@ __all__ = [
     "BodyVerdict",
     "DispatchStamp",
     "InvariantFinding",
+    "InvariantProposal",
     "RenderDecl",
     "SendRenderError",
     "SendVerifier",

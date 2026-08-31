@@ -29,6 +29,8 @@
 
 import { parse as parseYaml } from 'yaml'
 
+import { findFloorTrigger } from './floor-triggers'
+
 export type RenderMode = 'templated' | 'slot-templated' | 'compositional'
 
 const RENDER_MODES: readonly RenderMode[] = ['templated', 'slot-templated', 'compositional']
@@ -106,8 +108,64 @@ export function parseOutboundBindings(yamlText: string): Map<string, string> {
 export interface ArmingViolation {
   seat: string
   skill: string
-  code: 'undeclared-render' | 'missing-template' | 'unknown-outbound'
+  code: 'undeclared-render' | 'missing-template' | 'unknown-outbound' | 'floor-trigger-name'
   message: string
+}
+
+/**
+ * The skills whose outbound bodies close with the rendered signature block --
+ * the shared-chase-voice derivation set (_shared-chase-voice.md "Salutation
+ * and signature"). A seat arming any of these renders `customer_name` (or the
+ * persona `signature:` override) verbatim into outbound mail, so the name
+ * itself must clear the ADR 0031 content floor (see floor-triggers.ts).
+ */
+export const CHASE_SIGNATURE_SKILLS: readonly string[] = [
+  'client-verification-tracker',
+  'medical-records-chaser',
+  'lien-ledger-tracker',
+  'discovery-response-tracker',
+]
+
+/**
+ * A `customer_name` carrying a floor-trigger word, on a seat whose cron arms a
+ * chase-signature skill: every autonomous chase from that seat would render
+ * the name into its sign-off and be silently held as a draft by the runtime
+ * floor (PR #2651 review, finding 3). Refused where authored, with the word
+ * named. Seats arming no chase-signature skill are untouched -- their name
+ * reaches no chase body.
+ */
+export function customerNameFloorViolations(input: {
+  seat: string
+  customerName: string
+  cron: readonly { skill: string }[]
+  /**
+   * True when an authored `personas[].signature.firm_line` exists (itself
+   * floor-checked by the schema validator): the override is what renders, so
+   * the display name never reaches a chase body and is not gated.
+   */
+  firmLineAuthored?: boolean
+}): ArmingViolation[] {
+  if (input.firmLineAuthored === true) return []
+  const armedChase = input.cron
+    .map((row) => row.skill)
+    .filter((skill) => CHASE_SIGNATURE_SKILLS.includes(skill))
+  if (armedChase.length === 0) return []
+  const trigger = findFloorTrigger(input.customerName)
+  if (trigger === null) return []
+  return [
+    {
+      seat: input.seat,
+      skill: armedChase[0],
+      code: 'floor-trigger-name',
+      message:
+        `${input.seat}: customer_name "${input.customerName}" contains "${trigger}", a ` +
+        'content-floor trigger word (ADR 0031), and this seat arms chase skills ' +
+        `(${armedChase.join(', ')}) whose signature block renders the name into every ` +
+        'outbound chase body -- the floor would hold each one as a draft. Author a ' +
+        'floor-clean display name, or author personas[].signature.firm_line without ' +
+        'the word (see _shared-chase-voice.md).',
+    },
+  ]
 }
 
 export interface ArmingInput {

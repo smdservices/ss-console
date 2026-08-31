@@ -292,29 +292,45 @@ def test_a_failed_body_fetch_holds():
 # ---------------------------------------------------------------------------
 
 
-def test_ack_invariant_fires_when_an_item_key_changes_code():
+_EMPTY_COMMITTED = {"recipients": {}, "ack_codes": {}}
+
+
+def test_ack_codes_first_seen_against_empty_committed_are_proposals_not_findings():
+    """The cold-start rule (PR #2651 review, finding 2): the day the render
+    cluster's stamps land, every legitimate ACK code appears at once, and a
+    control that pages on the fleet's first honest day is muted by its second.
+    Two DIFFERENT codes for one uncommitted key surface as two proposals the
+    invariants-PR reviewer sees side by side -- visible, not paged."""
     wakes = sv.index_wakes(
         [
             _wake_row(minute=0, items=[{"item_key": "matter-1|SOL", "ack_code": "AK7Q"}]),
             _wake_row(minute=30, items=[{"item_key": "matter-1|SOL", "ack_code": "ZZ99"}]),
         ]
     )
-    findings = sv.ack_invariant(wakes, _declares(), {"recipients": {}, "ack_codes": {}})
-    assert [f.rule for f in findings] == ["ack_stability"]
+    findings, proposals = sv.ack_invariant(wakes, _declares(), _EMPTY_COMMITTED)
+    assert findings == []
+    assert [(p.rule, p.value) for p in proposals] == [
+        ("ack_stability", "AK7Q"),
+        ("ack_stability", "ZZ99"),
+    ]
     # The raw item_key never appears; only its hash does.
-    assert "matter-1" not in json.dumps(sv.as_dicts([], findings)[1])
+    assert "matter-1" not in json.dumps(sv.as_dicts([], [], proposals)[2])
 
 
-def test_ack_invariant_honors_the_committed_history(tmp_path):
+def test_a_committed_ack_code_that_conflicts_is_the_finding():
     key = sv._item_hash("deadline-miss-escalator", "matter-1|SOL")
     committed = {"recipients": {}, "ack_codes": {key: "AK7Q"}}
     wakes = sv.index_wakes([_wake_row(items=[{"item_key": "matter-1|SOL", "ack_code": "AK7Q"}])])
-    assert sv.ack_invariant(wakes, _declares(), committed) == []
+    assert sv.ack_invariant(wakes, _declares(), committed) == ([], [])
     drifted = sv.index_wakes([_wake_row(items=[{"item_key": "matter-1|SOL", "ack_code": "XX00"}])])
-    assert len(sv.ack_invariant(drifted, _declares(), committed)) == 1
+    findings, proposals = sv.ack_invariant(drifted, _declares(), committed)
+    assert [(f.rule, f.expected, f.actual) for f in findings] == [
+        ("ack_stability", "AK7Q", "XX00")
+    ]
+    assert proposals == []
 
 
-def test_recipient_invariant_flags_an_uncommitted_recipient_by_hash_only():
+def test_recipients_first_seen_against_empty_committed_are_proposals_not_findings():
     rows = [
         _dispatch_row(
             skill="medical-records-chaser",
@@ -322,10 +338,30 @@ def test_recipient_invariant_flags_an_uncommitted_recipient_by_hash_only():
             extra={"recipient": "records@vendor.invalid"},
         )
     ]
-    findings = sv.recipient_invariant(rows, _declares(), {"recipients": {}, "ack_codes": {}})
-    assert [f.rule for f in findings] == ["recipient_set"]
-    emitted = json.dumps(sv.as_dicts([], findings)[1])
-    assert "records@vendor.invalid" not in emitted
+    findings, proposals = sv.recipient_invariant(rows, _declares(), _EMPTY_COMMITTED)
+    assert findings == []
+    assert [p.rule for p in proposals] == ["recipient_set"]
+    emitted = json.dumps(sv.as_dicts([], [], proposals)[2])
+    assert "records@vendor.invalid" not in emitted  # hashes only, ever
+    # Committing the proposed hash quiets the proposal entirely.
+    committed = {
+        "recipients": {"medical-records-chaser": [proposals[0].hashed_key]},
+        "ack_codes": {},
+    }
+    assert sv.recipient_invariant(rows, _declares(), committed) == ([], [])
+
+
+def test_a_recipient_outside_a_nonempty_committed_set_is_the_flapping_finding():
+    """Once a routine HAS a reviewed recipient set, a dispatch outside it is
+    the recipient-flapping defect from the review week -- a conflict with a
+    committed expectation, not a cold-start artifact."""
+    rows = [
+        _dispatch_row(
+            skill="medical-records-chaser",
+            sha="",
+            extra={"recipient": "stranger@elsewhere.invalid"},
+        )
+    ]
     committed = {
         "recipients": {
             "medical-records-chaser": [
@@ -334,12 +370,15 @@ def test_recipient_invariant_flags_an_uncommitted_recipient_by_hash_only():
         },
         "ack_codes": {},
     }
-    assert sv.recipient_invariant(rows, _declares(), committed) == []
+    findings, proposals = sv.recipient_invariant(rows, _declares(), committed)
+    assert [f.rule for f in findings] == ["recipient_set"]
+    assert proposals == []
+    assert "stranger@elsewhere.invalid" not in json.dumps(sv.as_dicts([], findings)[1])
 
 
 def test_a_dispatch_row_with_no_recipient_stamp_is_skipped_not_guessed():
     rows = [_dispatch_row(skill="medical-records-chaser", sha="")]
-    assert sv.recipient_invariant(rows, _declares(), {"recipients": {}, "ack_codes": {}}) == []
+    assert sv.recipient_invariant(rows, _declares(), _EMPTY_COMMITTED) == ([], [])
 
 
 def test_missing_or_corrupt_invariants_file_loads_as_empty(tmp_path):
@@ -404,12 +443,13 @@ def _sentinel_report():
         _dispatch_row(sha=sv.canonical_body_sha256(body)),
     ]
     verifier = sv.SendVerifier(_declares(), {"recipients": {}, "ack_codes": {}})
-    verdicts, invariants = verifier.verify_inbox([_sent_message()], rows, lambda m: body)
+    verdicts, invariants, proposals = verifier.verify_inbox([_sent_message()], rows, lambda m: body)
     assert verdicts, "the sentinel run must actually grade something"
     report = rec.InboxReport(inbox="pilot-smokeball@agentmail.to", slug="pilot-smokeball")
     report.sent_total = 1
     report.body_verdicts = verdicts
     report.invariant_findings = invariants
+    report.invariant_proposals = proposals
     return report
 
 
@@ -449,7 +489,10 @@ def test_the_walker_itself_can_fail():
 
 def test_render_lines_and_digest_keys_carry_hashes_only():
     report = _sentinel_report()
-    for line in sv.render_lines(report.inbox, report.body_verdicts, report.invariant_findings):
+    lines = sv.render_lines(
+        report.inbox, report.body_verdicts, report.invariant_findings, report.invariant_proposals
+    )
+    for line in lines:
         assert SENTINEL not in line
     for key in sv.digest_keys(report.inbox, report.body_verdicts, report.invariant_findings):
         assert SENTINEL not in key
@@ -468,9 +511,10 @@ def test_a_body_finding_reddens_exit_and_joins_the_fingerprint():
         _dispatch_row(sha=sha_sent),
     ]
     verifier = sv.SendVerifier(_declares(), {"recipients": {}, "ack_codes": {}})
-    verdicts, invariants = verifier.verify_inbox([], rows, None)
+    verdicts, invariants, proposals = verifier.verify_inbox([], rows, None)
     report = rec.InboxReport(inbox="i@agentmail.to", slug="pilot-smokeball")
     report.body_verdicts, report.invariant_findings = verdicts, invariants
+    report.invariant_proposals = proposals
     assert report.is_finding
     assert rec.exit_code([report]) == rec.EXIT_FINDING
     assert rec.finding_digest([report]) != ""
@@ -480,7 +524,7 @@ def test_a_body_hold_reddens_without_filing():
     sha = sv.canonical_body_sha256("authored")
     rows = [_dispatch_row(sha=sha)]  # no wake -> hold
     verifier = sv.SendVerifier(_declares(), {"recipients": {}, "ack_codes": {}})
-    verdicts, _ = verifier.verify_inbox([], rows, None)
+    verdicts, _findings, _proposals = verifier.verify_inbox([], rows, None)
     report = rec.InboxReport(inbox="i@agentmail.to", slug="pilot-smokeball")
     report.body_verdicts = verdicts
     assert not report.is_finding
@@ -488,6 +532,29 @@ def test_a_body_hold_reddens_without_filing():
     rendered = rec.render([report])
     assert "HOLD" in rendered and "no_wake_hash" in rendered
     assert rec.finding_digest([report]) == ""  # holds file nothing
+
+
+def test_proposals_alone_neither_find_nor_redden():
+    """The whole point of the tier: a cold-start fleet prints paste-ready
+    proposal rows and exits CLEAN. No finding, no digest, no hold."""
+    rows = [
+        _wake_row(items=[{"item_key": "matter-1|SOL", "ack_code": "AK7Q"}]),
+        _dispatch_row(
+            skill="medical-records-chaser", sha="", extra={"recipient": "records@vendor.invalid"}
+        ),
+    ]
+    verifier = sv.SendVerifier(_declares(), {"recipients": {}, "ack_codes": {}})
+    verdicts, findings, proposals = verifier.verify_inbox([], rows, None)
+    assert findings == [] and len(proposals) == 2
+    report = rec.InboxReport(inbox="i@agentmail.to", slug="pilot-smokeball")
+    report.body_verdicts, report.invariant_findings = verdicts, findings
+    report.invariant_proposals = proposals
+    assert not report.is_finding
+    assert rec.exit_code([report]) == rec.EXIT_CLEAN
+    assert rec.finding_digest([report]) == ""
+    rendered = rec.render([report])
+    assert "PROPOSAL" in rendered and "send-invariants.json" in rendered
+    assert "records@vendor.invalid" not in rendered  # hashes only, always
 
 
 def test_a_clean_report_stays_clean_with_the_verifier_attached():

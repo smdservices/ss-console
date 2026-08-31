@@ -255,10 +255,13 @@ class InboxReport:
     held: str | None = None  # set when we could not evaluate
     non_seat_reason: str | None = None  # authored as seat-less on purpose
     #: Fourth phase (lib/send_verify.py): body-hash verdicts + cross-run
-    #: invariant findings for THIS inbox's accounted sends. Hashes only, by
-    #: construction -- the dataclasses carry no body field.
+    #: invariant findings/proposals for THIS inbox's accounted sends. Hashes
+    #: only, by construction -- the dataclasses carry no body field. Proposals
+    #: are first-seen values for a reviewed send-invariants.json PR and never
+    #: count toward is_finding.
     body_verdicts: list = field(default_factory=list)
     invariant_findings: list = field(default_factory=list)
+    invariant_proposals: list = field(default_factory=list)
 
     @property
     def is_finding(self) -> bool:
@@ -380,8 +383,8 @@ def reconcile_mailbox(
         def _fetch(message: dict):
             return fetch_graph_body(seat, token, str(message.get("graph_id") or ""), opener=opener)
 
-        report.body_verdicts, report.invariant_findings = verifier.verify_inbox(
-            sent, rows, _fetch
+        report.body_verdicts, report.invariant_findings, report.invariant_proposals = (
+            verifier.verify_inbox(sent, rows, _fetch)
         )
     return report
 
@@ -755,8 +758,8 @@ def reconcile_inbox(inbox: str, slugs: list[str], api_key: str, since, *, opener
             text = parsed.get("text") if isinstance(parsed, dict) else None
             return text if isinstance(text, str) else None
 
-        report.body_verdicts, report.invariant_findings = verifier.verify_inbox(
-            sent, rows, _fetch
+        report.body_verdicts, report.invariant_findings, report.invariant_proposals = (
+            verifier.verify_inbox(sent, rows, _fetch)
         )
     return report
 
@@ -789,7 +792,12 @@ def render(reports: list[InboxReport]) -> str:
                 f"{','.join(message.get('to') or [])}  {str(message.get('subject'))[:72]}"
             )
         lines.extend(
-            send_verify.render_lines(report.inbox, report.body_verdicts, report.invariant_findings)
+            send_verify.render_lines(
+                report.inbox,
+                report.body_verdicts,
+                report.invariant_findings,
+                report.invariant_proposals,
+            )
         )
     lines.append("")
     scanned_channels = ", ".join(sorted({r.channel for r in reports})) or "none"
@@ -879,8 +887,8 @@ def report_dict(r: InboxReport) -> dict:
     """--json shape for one inbox. Field-by-field on purpose: what is listed
     here is ALL that can leave the process, and the phase-4 halves come from
     send_verify.as_dicts, whose own emission is hash-only by construction."""
-    body_verdicts, invariant_findings = send_verify.as_dicts(
-        r.body_verdicts, r.invariant_findings
+    body_verdicts, invariant_findings, invariant_proposals = send_verify.as_dicts(
+        r.body_verdicts, r.invariant_findings, r.invariant_proposals
     )
     return {
         "inbox": r.inbox,
@@ -903,6 +911,7 @@ def report_dict(r: InboxReport) -> dict:
         ],
         "body_verdicts": body_verdicts,
         "invariant_findings": invariant_findings,
+        "invariant_proposals": invariant_proposals,
     }
 
 
