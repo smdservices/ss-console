@@ -85,7 +85,18 @@ summarize() {
     for c in "${FAILED_CHECKS[@]}"; do log "  FAILED: ${c}"; done
   fi
   # A precondition abort already carries its own non-zero code; do not mask it.
-  if [ "${code}" -ne 0 ]; then exit "${code}"; fi
+  # A non-zero code with NOTHING recorded is the third case and the confusing
+  # one: an unguarded command between checks died under `set -e`, so the run
+  # stopped without a FAIL or a FATAL. On the fail-fast script that was a silent
+  # death; printing "checks failed: 0" beside a non-zero exit would be worse
+  # than silence, so name it.
+  if [ "${code}" -ne 0 ]; then
+    if [ "${n}" -eq 0 ]; then
+      log "Run ENDED EARLY at an unguarded error (exit ${code}) after ${PASS_COUNT} check(s)."
+      log "No check failed. The checks after that point did not run and their state is UNKNOWN."
+    fi
+    exit "${code}"
+  fi
   if [ "${n}" -gt 0 ]; then
     log "Boot smoke FAILED for ${APP_NAME}: ${n} check(s) red"
     exit 1

@@ -29,6 +29,19 @@ import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const SCRIPT = resolve('operator/bin/boot-smoke-test.sh')
+
+/**
+ * The stub dir plus a bare system PATH, and nothing else.
+ *
+ * Inheriting `process.env.PATH` would leave the developer's real `uv` reachable
+ * behind the stub, so a local pass would say nothing about a runner that has no
+ * `uv` at all. That is precisely the gap that let the first version of this file
+ * pass here and fail all three cases in CI. Pinning the PATH makes the local run
+ * the same run.
+ */
+function hermeticPath(stub: string): string {
+  return [stub, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(':')
+}
 const scratch: string[] = []
 afterEach(() => {
   while (scratch.length) rmSync(scratch.pop() as string, { recursive: true, force: true })
@@ -65,6 +78,39 @@ exit 0
 `
   writeFileSync(join(dir, 'fly'), fly)
   chmodSync(join(dir, 'fly'), 0o755)
+
+  // A `uv` stub, and the reason it has to exist is itself the point.
+  //
+  // Step 1b refuses to run without `uv` on PATH, deliberately: the workstation
+  // python3 has no pyyaml, and an earlier version swallowed that ImportError
+  // into empty authored values and FATALed a healthy seat with nonsense. That
+  // refusal is a PRECONDITION, so on a runner without `uv` the script aborts
+  // before a single ssh check - which is exactly what happened when this test
+  // passed locally and failed in CI on all three cases. A test that only runs
+  // where uv happens to be installed is a test that does not run.
+  //
+  // The stub answers the two questions step 1b asks, by grepping the authored
+  // file rather than parsing it. Narrow on purpose: it recognises only the two
+  // programs the script sends, and exits non-zero on anything else, so a future
+  // third parse cannot be silently answered with a wrong value.
+  const uv = `#!/usr/bin/env bash
+prog=""; file=""
+for a in "$@"; do
+  case "$a" in
+    *machine*|*hermes_ref*) prog="$a" ;;
+    */customer.yaml) file="$a" ;;
+  esac
+done
+[ -n "$file" ] || exit 1
+case "$prog" in
+  *hermes_ref*) awk -F@ '/^hermes_ref:/{gsub(/[[:space:]]/,"",$2); print $2; exit}' "$file" ;;
+  *memory_mb*)  awk '/^machine:/{m=1;next} m&&/memory_mb:/{print $2;exit} m&&/^[^ ]/{exit}' "$file" ;;
+  *size*)       awk '/^machine:/{m=1;next} m&&/size:/{print $2;exit} m&&/^[^ ]/{exit}' "$file" ;;
+  *)            exit 1 ;;
+esac
+`
+  writeFileSync(join(dir, 'uv'), uv)
+  chmodSync(join(dir, 'uv'), 0o755)
   return dir
 }
 
@@ -73,7 +119,7 @@ function run(failOn: string[]): { out: string; code: number } {
   try {
     const out = execFileSync('bash', [SCRIPT, 'pilot-smokeball'], {
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${dir}:${process.env.PATH ?? ''}` },
+      env: { ...process.env, PATH: hermeticPath(dir) },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { out, code: 0 }
@@ -137,7 +183,7 @@ exit 0
     try {
       out = execFileSync('bash', [SCRIPT, 'pilot-smokeball'], {
         encoding: 'utf8',
-        env: { ...process.env, PATH: `${dir}:${process.env.PATH ?? ''}` },
+        env: { ...process.env, PATH: hermeticPath(dir) },
         stdio: ['ignore', 'pipe', 'pipe'],
       })
     } catch (err) {
