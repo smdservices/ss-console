@@ -1166,7 +1166,22 @@ describe('Operator customer Machine Dockerfile', () => {
     // routing_leg, pre-mutation canonical hash), the text/plain down-render,
     // and the outbound scans wired on the out-of-turn path. Vocabulary
     // identical (71); no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="727f3f5b21c6fb5542ffd6ccf8e38df27fbc4bfc"')
+    // 727f3f5b -> 799647d1 (2026-09-01, TWO merges: overlay#338 then overlay#339;
+    // console halves ss#2674 and ss#2677, both already on main).
+    // #338: the CONFIRM row gains a SECOND canonical hash, plain_body_sha256, over
+    // the exact text/plain handed to the channel, because _attach_html_body
+    // down-renders `text` before dispatch and the channel therefore never stores
+    // the bytes rendered_body_sha256 names -- which graded every conformant
+    // templated send channel_mismatch_hold. Omitted, never duplicated, when no
+    // down-render happened.
+    // #339: SUPERVISOR_STATES widens 5 -> 7 (`starting`, `never-healthy`). The set
+    // is a closed vocabulary that drops unrecognised words to NULL, and the console
+    // holds on NULL rather than paging -- so until this pin, both words entrypoint.sh
+    // already writes were discarded in transit as silence.
+    // Vocabulary identical (71, AST at both refs); no tracked pair moves;
+    // shared/heartbeat.py byte-identical (a field VALUE vocabulary changed, not the
+    // field set).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="799647d14bed5786cdf8f7919ea52273507fc59c"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
