@@ -475,6 +475,17 @@ prompt_and_set() {
 # (Infisical /ss via `infisical run`), warn-and-skip when unset. Defined here so
 # both Step 6 (R2 skill-bodies) and Step 6b (observability / connector) can use
 # it — bash needs the definition before the first call.
+# Names and values already staged this run, kept in lockstep for the reuse check
+# below. Never logged, never exported; lives only for the length of the process.
+#
+# TWO INDEXED ARRAYS, NOT AN ASSOCIATIVE ONE. `declare -A` is bash 4+, and macOS
+# ships bash 3.2.57 -- which is the shell that runs this script, on the laptop
+# that provisions seats. The first cut used `declare -A` and died with
+# "declare: -A: invalid option" the moment it was exercised. Indexed arrays are
+# bash 3.2 and portable.
+_STAGED_NAMES=()
+_STAGED_VALS=()
+
 stage_secret_from_env() {
   local secret_name="$1"
   local env_value="$2"
@@ -483,8 +494,44 @@ stage_secret_from_env() {
     log "WARN: ${secret_name} not set in operator env (${description}) — skipping stage"
     return 0
   fi
+
+  # SHAPE GATE (ss#2423). Every other custody check in this tree reads secret
+  # NAMES: secret_custody.py classifies ownership by name, and seat-readiness
+  # reports presence, which is all it CAN do since Fly returns names without
+  # values. The blind spot cost a paying client: an OAuth client secret sat in
+  # SMOKEBALL_PROD_API_KEY and 403'd A&P's connector twice, staging secret then
+  # prod secret, with every presence check green throughout.
+  #
+  # This is the only place the value exists. The check refuses values that
+  # CANNOT be right (wrong length and character class for the key family, or
+  # byte-identical to another secret staged this run) and stays silent on
+  # everything else, because a false refusal here blocks a seat from being
+  # built. It is not a validity check: a well-shaped key can still be revoked or
+  # for the wrong tenant.
+  #
+  # The value is piped in on stdin, never passed as an argv element, so it
+  # cannot surface in a process listing (ss#2218's lesson applied here).
+  # stdin is NUL-delimited name/value pairs: the candidate first, then every
+  # secret already staged this run. NUL because a secret may contain anything a
+  # line-based format would treat as a delimiter.
+  local _shape_err _i
+  if _shape_err="$(
+    {
+      printf '%s\0%s\0' "${secret_name}" "${env_value}"
+      for ((_i = 0; _i < ${#_STAGED_NAMES[@]}; _i++)); do
+        printf '%s\0%s\0' "${_STAGED_NAMES[_i]}" "${_STAGED_VALS[_i]}"
+      done
+    } | python3 "${BIN_DIR}/lib/stage_shape_gate.py"
+  )"; [ -n "${_shape_err}" ]; then
+    log "FATAL: refusing to stage a malformed credential"
+    log "  ${_shape_err}"
+    exit 1
+  fi
+
   printf '%s=%s\n' "${secret_name}" "${env_value}" \
     | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+  _STAGED_NAMES+=("${secret_name}")
+  _STAGED_VALS+=("${env_value}")
   log "Staged ${secret_name} (value never logged)"
 }
 
