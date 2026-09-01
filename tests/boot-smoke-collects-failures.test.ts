@@ -42,6 +42,20 @@ const SCRIPT = resolve('operator/bin/boot-smoke-test.sh')
 function hermeticPath(stub: string): string {
   return [stub, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(':')
 }
+
+// `SS_ENGAGEMENTS_DIR` is pointed at the stub dir on every run below.
+//
+// Step 14 reads the engagements checkout to decide whether the seat authors a
+// medchron firm config, and a MISSING checkout is a precondition abort by
+// design: Law 2's fail-closed rule applied to the expectation source, so that
+// "cannot evaluate" never reads as "not expected". CI has no clone of a private
+// repo, so without this the run FATALs at step 14 and never reaches the end --
+// which is what it did on the second CI attempt.
+//
+// The stub dir exists and contains no medchron config, so the check evaluates
+// honestly to "this seat does not author one" and the four gate probes are
+// skipped. That is a real answer, not a bypass: the same branch a seat with no
+// medchron authored would take.
 const scratch: string[] = []
 afterEach(() => {
   while (scratch.length) rmSync(scratch.pop() as string, { recursive: true, force: true })
@@ -119,7 +133,7 @@ function run(failOn: string[]): { out: string; code: number } {
   try {
     const out = execFileSync('bash', [SCRIPT, 'pilot-smokeball'], {
       encoding: 'utf8',
-      env: { ...process.env, PATH: hermeticPath(dir) },
+      env: { ...process.env, PATH: hermeticPath(dir), SS_ENGAGEMENTS_DIR: dir },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { out, code: 0 }
@@ -183,7 +197,7 @@ exit 0
     try {
       out = execFileSync('bash', [SCRIPT, 'pilot-smokeball'], {
         encoding: 'utf8',
-        env: { ...process.env, PATH: hermeticPath(dir) },
+        env: { ...process.env, PATH: hermeticPath(dir), SS_ENGAGEMENTS_DIR: dir },
         stdio: ['ignore', 'pipe', 'pipe'],
       })
     } catch (err) {
