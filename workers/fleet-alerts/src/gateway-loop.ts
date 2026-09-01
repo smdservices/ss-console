@@ -34,11 +34,16 @@
  *   gateway_supervisor_refusing  the supervisor has spent its 3/hour budget and
  *                                stopped. The loudest state the seat has, and
  *                                before this it reached no inbox at all.
- *   gateway_supervisor_inert     the supervisor is running but cannot act: it
- *                                could not resolve the profile from argv, or this
- *                                Hermes pin has no loop heartbeat to watch. A
- *                                seat in this state is indistinguishable from a
- *                                healthy one by every other signal.
+ *   gateway_supervisor_inert     the supervisor is running and nothing will
+ *                                recover this seat: it could not resolve the
+ *                                profile from argv, or this Hermes pin has no
+ *                                loop heartbeat to watch, or the gateway wedged
+ *                                DURING startup and never produced a first beat
+ *                                (`never-healthy`, added after the 2026-09-01
+ *                                pilot-smokeball crash loop). A seat in any of
+ *                                the three is indistinguishable from a healthy
+ *                                one by every other signal. `supervisorConditions`
+ *                                below says why they share one condition.
  *   gateway_loop_unprovable      the seat's own check could not look. OUR
  *                                blindness, paged on its own, never reported as a
  *                                wedge -- spec_control's split, for its reason.
@@ -148,12 +153,66 @@ function restartConditions(row: FleetStatusRow): ConditionState[] {
   ]
 }
 
-/** gateway_supervisor_refusing + gateway_supervisor_inert, from the state word. */
+/** The three inert-class states, told apart where the on-call reads them. */
+function inertDetail(state: string): string {
+  if (state === 'not-watching') {
+    return (
+      'The seat supervisor is NOT watching: this Hermes pin has no loop heartbeat ' +
+      'to read. A wedged gateway on this seat will not self-recover. Promote the pin ' +
+      'or accept the gap explicitly.'
+    )
+  }
+  if (state === 'never-healthy') {
+    return (
+      'The gateway NEVER CAME UP on this boot: its loop heartbeat has not gone fresh ' +
+      'once since the seat started, past the startup grace. It is wedged during ' +
+      'startup, not after it. The supervisor will NOT restart it — killing a ' +
+      'slow-starting gateway is what sustained the 2026-09-01 crash loop — so nothing ' +
+      'automatic will happen and this needs a human now. Check memory headroom first ' +
+      '(1GB is below the floor for a full connector set) and then the gateway startup ' +
+      'log for where it stopped.'
+    )
+  }
+  return (
+    'The seat supervisor is INERT: it cannot resolve the gateway profile from the ' +
+    'container argv, so it will never act. A wedged gateway on this seat will not ' +
+    'self-recover. Check /proc/<container-main>/cmdline on the Machine.'
+  )
+}
+
+/**
+ * gateway_supervisor_refusing + gateway_supervisor_inert, from the state word.
+ *
+ * Three words map onto gateway_supervisor_inert, because the condition's meaning
+ * is "the supervisor is up and nothing will recover this seat", not "the argv
+ * parse failed":
+ *
+ *   inert          argv never resolved to a profile, past the seat's startup
+ *                  grace. The original meaning.
+ *   not-watching   this Hermes pin writes no loop heartbeat to watch.
+ *   never-healthy  the gateway wedged DURING startup and has never produced a
+ *                  first beat (ss#2488 follow-up, 2026-09-01 crash loop). The
+ *                  supervisor deliberately does not kill it — see the entrypoint
+ *                  — so a person is the only recovery path, which is exactly
+ *                  what this condition exists to produce.
+ *
+ * Sharing the condition rather than adding a fourth is deliberate. `condition`
+ * carries a CHECK constraint (migrations 0107, 0109), so a new name needs a
+ * migration on both sides or the row is REJECTED and the page silently never
+ * lands. The three states are distinguished in `detail`, which is what the
+ * on-call actually reads. Split it out later if the triage differs enough to
+ * earn a migration.
+ *
+ * `starting` is the fourth new word and is NOT here on purpose: it is the normal
+ * first minutes of every boot, when entrypoint has exec'd bootstrap.sh and
+ * bootstrap has not yet exec'd the gateway. Before this change that window
+ * reported `inert` and paged on every healthy boot.
+ */
 function supervisorConditions(row: FleetStatusRow): ConditionState[] {
   const state = row.gateway_supervisor_state
   if (state == null) return []
   const slug = row.customer_slug
-  const inert = state === 'inert' || state === 'not-watching'
+  const inert = state === 'inert' || state === 'not-watching' || state === 'never-healthy'
   return [
     {
       customer_slug: slug,
@@ -170,15 +229,7 @@ function supervisorConditions(row: FleetStatusRow): ConditionState[] {
       customer_slug: slug,
       condition: 'gateway_supervisor_inert',
       active: inert,
-      detail: inert
-        ? state === 'not-watching'
-          ? 'The seat supervisor is NOT watching: this Hermes pin has no loop heartbeat ' +
-            'to read. A wedged gateway on this seat will not self-recover. Promote the pin ' +
-            'or accept the gap explicitly.'
-          : 'The seat supervisor is INERT: it cannot resolve the gateway profile from the ' +
-            'container argv, so it will never act. A wedged gateway on this seat will not ' +
-            'self-recover. Check /proc/<container-main>/cmdline on the Machine.'
-        : `Supervisor state is "${state}".`,
+      detail: inert ? inertDetail(state) : `Supervisor state is "${state}".`,
     },
   ]
 }

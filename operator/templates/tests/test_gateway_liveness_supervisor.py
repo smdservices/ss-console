@@ -152,6 +152,11 @@ SMD_GATEWAY_LIVENESS_STALE_SECONDS=3
 SMD_GATEWAY_LIVENESS_DUMP_GRACE_SECONDS=1
 SMD_GATEWAY_LIVENESS_TERM_GRACE_SECONDS=1
 SMD_GATEWAY_LIVENESS_BOOT_DEADLINE_SECONDS=3
+# The PRODUCTION default, not a shrunk one: most tests here need the startup
+# grace to be effectively infinite so they exercise the branch they name rather
+# than tripping into `starting` / `never-healthy` partway through. The tests that
+# are ABOUT the grace pass their own value, which lands after this line and wins.
+SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS=900
 SMD_GATEWAY_LIVENESS_MAX_KILLS=2
 SMD_GATEWAY_LIVENESS_KILL_WINDOW_SECONDS=3600
 SMD_GATEWAY_LIVENESS_KILL_VERIFY_SECONDS=1
@@ -324,13 +329,151 @@ def test_profile_comes_from_argv_not_from_mtime(harness):
 
 
 def test_is_inert_and_loud_when_argv_does_not_name_hermes(harness):
-    """"Cannot evaluate" must never read as "healthy"."""
+    """"Cannot evaluate" must never read as "healthy".
+
+    Only AFTER the startup grace, now. Inside it the same argv means "bootstrap
+    has not exec'd the gateway yet", which is every boot's first minutes — see
+    the pair of tests below.
+    """
     harness.set_argv("/bin/sh", "-c", "something-else")
     harness.write_heartbeat("crane", age_seconds=7200)
-    harness.start()
+    harness.start("SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS=0")
     harness.wait_for_log(r"supervisor is INERT")
     assert harness.kill_text() == ""
     harness.wait_for_state("inert")
+
+
+# ---------------------------------------------------------------------------
+# The 2026-09-01 pilot-smokeball crash loop. Two defects, both in what the
+# supervisor SAID about a boot rather than in what it did to one.
+# ---------------------------------------------------------------------------
+
+
+def test_the_real_live_cmdline_bytes_resolve_the_profile(harness):
+    """The exact NUL-separated argv captured from the wedged Machine.
+
+    Written as a literal byte string, not via the harness helper, because the
+    shape is the claim: the kernel puts the shebang INTERPRETER at argv[0], so
+    the token that names hermes and the token that carries `-p` are different
+    tokens, and any parse that reads only argv[0] or only argv[1] resolves
+    nothing. Captured 2026-09-01 from /proc/<container-main>/cmdline on
+    pilot-smokeball.
+    """
+    pid_dir = harness.proc_dir / GATEWAY_PID
+    pid_dir.mkdir(parents=True, exist_ok=True)
+    (pid_dir / "cmdline").write_bytes(
+        b"/opt/hermes/.venv/bin/python\0/opt/hermes/.venv/bin/hermes\0"
+        b"-p\0operator\0gateway\0run\0"
+    )
+    harness.write_heartbeat("operator", age_seconds=0)
+    harness.start()
+    text = harness.wait_for_log(r"ARMED")
+    assert "profiles/operator/state/gateway.heartbeat" in text
+    assert "INERT" not in harness.log_text()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ("python", "/opt/hermes/.venv/bin/hermes", "-p", "operator", "gateway", "run"),
+        ("python", "/opt/hermes/.venv/bin/hermes", "-p=operator", "gateway", "run"),
+        ("python", "/opt/hermes/.venv/bin/hermes", "--profile", "operator", "gateway", "run"),
+        ("python", "/opt/hermes/.venv/bin/hermes", "--profile=operator", "gateway", "run"),
+    ],
+    ids=["short-separated", "short-attached", "long-separated", "long-attached"],
+)
+def test_every_spelling_of_the_profile_flag_resolves(harness, argv):
+    """bootstrap.sh writes one spelling today; this reads argv forever.
+
+    A future invocation change must fail loudly at review, not silently un-watch
+    the seat at runtime.
+    """
+    harness.set_argv(*argv)
+    harness.write_heartbeat("operator", age_seconds=0)
+    harness.start()
+    text = harness.wait_for_log(r"ARMED")
+    assert "profiles/operator/state/gateway.heartbeat" in text
+
+
+def test_pre_exec_argv_is_starting_not_inert(harness):
+    """The false page. Every healthy boot used to emit it.
+
+    The supervisor is forked while still root, minutes before the gateway
+    process exists: entrypoint execs bootstrap.sh, which stages skills and runs
+    the appliers before its own exec at bootstrap.sh:916. For that whole window
+    /proc/<container-main>/cmdline reads `bash /app/bootstrap.sh` — no hermes, no
+    profile — and the old code called that INERT, a state fleet-alerts pages on
+    with "it will never act".
+
+    Observed live at 2026-09-01T02:30:37Z on /proc/652, two seconds after the
+    bootstrap log line for seeding the skill catalog and five seconds before the
+    next one. Asserting the calm line is not enough on its own, so this also
+    asserts the paging word is ABSENT.
+    """
+    harness.set_argv("/bin/bash", "/app/bootstrap.sh")
+    harness.write_heartbeat("crane", age_seconds=7200)
+    harness.start()
+    harness.wait_for_state("starting")
+    harness.wait_for_log(r"does not name hermes yet")
+    # The phrase, not the bare word: the calm line legitimately says "this
+    # becomes an INERT page" when the grace runs out, and that forward reference
+    # is the useful half of it.
+    assert "supervisor is INERT" not in harness.log_text()
+    assert harness.state() != "inert"
+    assert harness.kill_text() == ""
+
+
+def test_pre_exec_argv_becomes_inert_once_the_grace_expires(harness):
+    """The other half: `starting` must not become a way to never page.
+
+    Same argv as the test above, a grace it has already outlived. Without this
+    pair, "do not page during startup" and "page when startup never ends" are
+    indistinguishable.
+    """
+    harness.set_argv("/bin/bash", "/app/bootstrap.sh")
+    harness.write_heartbeat("crane", age_seconds=7200)
+    harness.start("SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS=3")
+    harness.wait_for_state("starting")
+    harness.wait_for_state("inert")
+    harness.wait_for_log(r"supervisor is INERT")
+    assert harness.kill_text() == "", "an expired startup grace must never signal"
+
+
+def test_a_boot_that_never_goes_fresh_pages_and_does_not_kill(harness):
+    """The blind spot: a gateway that wedges DURING startup.
+
+    It never writes a first beat, so it lands in the not-arming branch, which had
+    no deadline of its own — the supervisor nagged into `fly logs` forever and
+    the state stayed `not-armed`, which fleet-alerts does not page on. That is
+    the shape pilot-smokeball was in at 02:21:54, 02:27:01 and 02:35:44 on
+    2026-09-01 while restarting every ~15 minutes.
+
+    The assertion that matters most is the negative one. Killing a slow-starting
+    gateway is what sustained the loop, so this must page WITHOUT signalling.
+    """
+    harness.write_heartbeat("crane", age_seconds=7200)
+    harness.start("SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS=2")
+    harness.wait_for_state("never-healthy")
+    harness.wait_for_log(r"GATEWAY NEVER CAME UP")
+    assert harness.kill_text() == "", "never-healthy must page, never kill"
+    assert "GATEWAY WEDGE" not in harness.log_text()
+
+
+def test_the_never_healthy_page_states_what_happens_and_when(harness):
+    """A page that does not say what will happen next sends someone to read code.
+
+    The line has to carry both halves: that nothing automatic follows, and that
+    it clears itself. This asserts the text, and then proves the second half by
+    producing a fresh beat and watching the state recover to `armed` — a claim in
+    a log line that the code does not honour is worse than no line.
+    """
+    harness.write_heartbeat("crane", age_seconds=7200)
+    harness.start("SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS=2")
+    text = harness.wait_for_log(r"GATEWAY NEVER CAME UP")
+    assert "NOTHING AUTOMATIC WILL HAPPEN" in text
+    assert "startup grace 2s" in text
+    harness.write_heartbeat("crane", age_seconds=0)
+    harness.wait_for_state("armed")
 
 
 def test_refuses_to_watch_a_pin_that_has_no_loop_heartbeat(harness):
