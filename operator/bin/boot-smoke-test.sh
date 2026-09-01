@@ -16,8 +16,11 @@
 # at higher fidelity, the boot-time end-to-end test described in §6 of the
 # build plan.
 #
-# Each check logs PASS/FAIL with the slug + step name. Exit code: 0 if every
-# check passes, non-zero on the first failure (fail-fast).
+# Each check logs PASS/FAIL with the slug + step name. EVERY check runs: a red
+# one is recorded and the run continues, and the summary at the end lists all of
+# them. Exit code: 0 only if every check passed. A failed PRECONDITION (Machine
+# never started, this checkout cannot parse the pin) still aborts, because every
+# check after one of those is noise rather than evidence. See ss#2487.
 
 set -euo pipefail
 
@@ -27,8 +30,79 @@ SLUG="${1:-}"
 APP_NAME="hermes-${SLUG}"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [smoke/${SLUG}] $*"; }
-pass() { log "PASS: $*"; }
-fail() { log "FAIL: $*"; exit 1; }
+
+# CHECK RESULTS ARE COLLECTED, NOT FATAL (ss#2487).
+#
+# This script used to exit on the first red. On hermes-ashton-price -- the
+# paying client's seat -- check 6 sampled `! test -w /var/lib/smd-config` while
+# the provisioner was still materializing `specs/` into that directory. A race,
+# not a permission bug: a manual re-run four minutes later passed every check.
+# But the abort meant checks 7 through 42 never ran, and those include
+# `matter-mixing-fence`, the three credential-stripping assertions, and the four
+# medchron gate-refusal probes. The operator saw "FATAL: dependency chain is
+# unhealthy", which reads exactly the same whether the seat is fine or genuinely
+# compromised, and the only way to tell was to re-run the script by hand.
+#
+# It recurred: a later run logged 39 PASS then FATALed and skipped the rest.
+#
+# A gate that stops at the first red hides the state of everything after it, and
+# the entire value of 42 checks is seeing WHICH ones failed together. So a failed
+# check is recorded and the run continues; the summary at the end prints every
+# failure and the exit code is non-zero if there was any.
+PASS_COUNT=0
+FAILED_CHECKS=()
+
+pass() {
+  PASS_COUNT=$((PASS_COUNT + 1))
+  log "PASS: $*"
+}
+
+# A CHECK failed. Record it, keep going, and return 0 so `set -e` and the
+# `|| check_fail ...` callers below do not abort the run.
+check_fail() {
+  FAILED_CHECKS+=("$*")
+  log "FAIL: $*"
+  return 0
+}
+
+# A PRECONDITION failed, and every check after it would be noise rather than
+# evidence: the Machine never started, or this checkout cannot parse the pin it
+# is supposed to compare against. Distinct from check_fail on purpose. Softening
+# these would produce 40 cascading failures whose real cause is one line, which
+# is a different way of hiding the answer.
+fail() { log "FATAL: $*"; exit 1; }
+
+# Print every result and exit non-zero if any check failed. Registered as an EXIT
+# trap so a precondition abort still gets a summary of what had run.
+summarize() {
+  local code=$?
+  local n=${#FAILED_CHECKS[@]}
+  log "----- boot smoke summary for ${APP_NAME} -----"
+  log "checks passed: ${PASS_COUNT}"
+  log "checks failed: ${n}"
+  if [ "${n}" -gt 0 ]; then
+    local c
+    for c in "${FAILED_CHECKS[@]}"; do log "  FAILED: ${c}"; done
+  fi
+  # A precondition abort already carries its own non-zero code; do not mask it.
+  # A non-zero code with NOTHING recorded is the third case and the confusing
+  # one: an unguarded command between checks died under `set -e`, so the run
+  # stopped without a FAIL or a FATAL. On the fail-fast script that was a silent
+  # death; printing "checks failed: 0" beside a non-zero exit would be worse
+  # than silence, so name it.
+  if [ "${code}" -ne 0 ]; then
+    if [ "${n}" -eq 0 ]; then
+      log "Run ENDED EARLY at an unguarded error (exit ${code}) after ${PASS_COUNT} check(s)."
+      log "No check failed. The checks after that point did not run and their state is UNKNOWN."
+    fi
+    exit "${code}"
+  fi
+  if [ "${n}" -gt 0 ]; then
+    log "Boot smoke FAILED for ${APP_NAME}: ${n} check(s) red"
+    exit 1
+  fi
+}
+trap summarize EXIT
 
 # ssh_exec <step-name> <command>
 # Run a command inside the Machine via `fly ssh console`. The command is
@@ -44,7 +118,7 @@ ssh_exec() {
   if fly ssh console -a "${APP_NAME}" --command "sh -c '${cmd}'" >/dev/null 2>&1; then
     pass "${step}"
   else
-    fail "${step} — command failed: ${cmd}"
+    check_fail "${step} — command failed: ${cmd}"
   fi
 }
 
@@ -70,7 +144,7 @@ ssh_exec_script() {
     --command "sh -c 'echo ${encoded} | base64 -d | sh'" >/dev/null 2>&1; then
     pass "${step}"
   else
-    fail "${step} — command failed: ${cmd}"
+    check_fail "${step} — command failed: ${cmd}"
   fi
 }
 
@@ -137,7 +211,7 @@ except Exception:
   if [ -n "${AUTHORED_CPUS}" ] && [ "${GUEST}" = "$(machine_cpu_kind "${AUTHORED_SIZE}")-${AUTHORED_CPUS}-${AUTHORED_MEM}" ]; then
     pass "guest-matches-authored-size (${AUTHORED_SIZE}, ${AUTHORED_MEM} MB, ${AUTHORED_CPUS} vCPU)"
   else
-    fail "guest-matches-authored-size — authored ${AUTHORED_SIZE}/${AUTHORED_MEM}MB, Fly reports ${GUEST}"
+    check_fail "guest-matches-authored-size — authored ${AUTHORED_SIZE}/${AUTHORED_MEM}MB, Fly reports ${GUEST}"
   fi
 fi
 
@@ -481,4 +555,8 @@ if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
   ssh_exec "medchron-gate-provenance-refuses" "/opt/medchron/.venv/bin/medchron probe provenance | grep -q REFUSED"
 fi
 
-log "All boot smoke checks passed for ${APP_NAME}"
+# The summarize EXIT trap prints the tally and owns the exit code. Nothing is
+# claimed here: on the old fail-fast script this line was only ever reached on a
+# clean run, so it doubled as the verdict. Now the run reaches the end whether
+# checks were red or green, and a "passed" line here would be a lie on a red run.
+log "All checks executed for ${APP_NAME}"
