@@ -588,11 +588,19 @@ def test_transmit_is_disabled_without_an_audit_ledger(tmp_path: Path) -> None:
 
 def test_caller_audit_extra_rides_the_row_through_a_closed_allowlist(tmp_path: Path) -> None:
     """WS-RENDER: the overlay's body-conformance stamps (routing_leg,
-    rendered_body_sha256, body_variant) travel on the request beside the
-    ss#2497 joins and land in the row BY NAME — an unlisted or non-string
-    key is dropped, so a caller cannot widen the ledger."""
+    rendered_body_sha256, plain_body_sha256, body_variant) travel on the request
+    beside the ss#2497 joins and land in the row BY NAME — an unlisted or
+    non-string key is dropped, so a caller cannot widen the ledger.
+
+    Both halves matter and they pull against each other, so both are asserted
+    here: the allowlist stays CLOSED (the unlisted key is still dropped) and the
+    newly listed `plain_body_sha256` SURVIVES. The filter is silent — an
+    unlisted key vanishes with no error and no log — so a stamp the overlay
+    sends without an entry here would simply never reach the verifier, and
+    nothing would say so."""
     broker = _broker(tmp_path, FakeHTTP())
     sha = "a" * 64
+    plain_sha = "b" * 64
     broker.handle(
         {
             "action": "agentmail_send",
@@ -600,6 +608,7 @@ def test_caller_audit_extra_rides_the_row_through_a_closed_allowlist(tmp_path: P
             "audit_extra": {
                 "routing_leg": "central",
                 "rendered_body_sha256": sha,
+                "plain_body_sha256": plain_sha,
                 "body_variant": "full",
                 "not_allowlisted": "dropped",
                 "recipients": ["forged@x.example"],
@@ -611,10 +620,37 @@ def test_caller_audit_extra_rides_the_row_through_a_closed_allowlist(tmp_path: P
     meta = _meta(broker)
     assert meta["routing_leg"] == "central"
     assert meta["rendered_body_sha256"] == sha
+    # hermes-smd-overlay#338's second stamp. Distinct from the rendered hash on
+    # purpose: they answer different questions and the verifier reads both.
+    assert meta["plain_body_sha256"] == plain_sha
     assert meta["body_variant"] == "full"
     assert "not_allowlisted" not in meta
     # The forged non-string entry cannot displace the broker's own field.
     assert meta["recipients"] == ["scott@smd.services"]
+
+
+def test_the_audit_extra_allowlist_is_exactly_the_documented_set(tmp_path: Path) -> None:
+    """The falsifier for the test above: prove the allowlist is a CLOSED set and
+    not merely 'the keys that test happened to name'. A key one character off a
+    listed one, and a plausible next stamp nobody has agreed to, both drop."""
+    broker = _broker(tmp_path, FakeHTTP())
+    broker.handle(
+        {
+            "action": "agentmail_send",
+            "payload": {"to": ["scott@smd.services"], "text": "hi"},
+            "audit_extra": {
+                "plain_body_sha25": "c" * 64,  # typo'd
+                "plain_body_sha2566": "d" * 64,  # over-long
+                "html_body_sha256": "e" * 64,  # plausible, unagreed
+                "body_text": "the client's actual body",  # the leak this blocks
+            },
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    meta = _meta(broker)
+    for key in ("plain_body_sha25", "plain_body_sha2566", "html_body_sha256", "body_text"):
+        assert key not in meta, f"{key} widened the ledger"
 
 
 def test_audit_extra_rides_the_refusal_row_too(tmp_path: Path) -> None:
@@ -647,5 +683,5 @@ def test_absent_audit_extra_writes_exactly_todays_row(tmp_path: Path) -> None:
         peer_uid=AGENT_UID,
     )
     meta = _meta(broker)
-    for key in ("routing_leg", "rendered_body_sha256", "body_variant"):
+    for key in ("routing_leg", "rendered_body_sha256", "plain_body_sha256", "body_variant"):
         assert key not in meta
