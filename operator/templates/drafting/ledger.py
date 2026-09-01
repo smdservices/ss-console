@@ -73,6 +73,7 @@ _CARD_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 KNOWN_STAGES = frozenset({
     "assemble",     # pulling the matter record; usually no model call at all
     "extract",      # mechanical text extraction (free; recorded for the count)
+    "digest",       # collapsing the record into a cited fact digest
     "compose",      # the draft itself -- work-product model, never delegated
     "audit",        # citation / quotation verification
     "coverage",     # propounded-vs-response diffing
@@ -81,6 +82,16 @@ KNOWN_STAGES = frozenset({
     "repair",       # correction passes over a composed draft
     "revise",       # an attorney-requested revision round
 })
+
+#: A stage's ceiling must budget for THINKING, which is billed against the same
+#: allowance as the text. On the first instrumented run every stage was sized
+#: from expected output length: compose stopped at section V of eleven, and the
+#: audit spent 31,999 of 32,000 tokens thinking and returned no text at all.
+#: A caller that sets max_tokens from "how long should the answer be" is wrong by
+#: however much the model decides to think, and must read ``stop_reason`` to find
+#: out. Where the task is verification rather than composition, disabling
+#: thinking outright is better than raising the ceiling: the reasoning has no
+#: natural stopping point and a bigger budget only buys more silence.
 
 
 def _load_card():

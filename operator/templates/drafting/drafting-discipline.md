@@ -215,17 +215,18 @@ off-limits. The consequence worth carrying into any cost projection: **a seat
 run and a harness run of the same demand have different economics**, and only
 the harness one can be attributed by stage.
 
-| Stage      | Model                   | Why                                                                                       |
-| ---------- | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `assemble` | none                    | Connector reads; no model call.                                                           |
-| `extract`  | none                    | Mechanical extraction only. Vision transcription is a separate, explicit act — see below. |
-| `compose`  | **work-product (Opus)** | Derivation, judgment, refusals. Never delegated down.                                     |
-| `audit`    | Sonnet                  | Quote contiguity, question-pairing, citation resolution (gate 2).                         |
-| `coverage` | Sonnet                  | Propounded-vs-response diffing (gate 7). Enumeration, not judgment.                       |
-| `gates`    | Sonnet                  | The mechanical gates' model-assisted portions.                                            |
-| `lint`     | Sonnet                  | SPROG / subpart lint (gate 8).                                                            |
-| `repair`   | **work-product (Opus)** | A repair rewrites work product, so it inherits composition's model.                       |
-| `revise`   | **work-product (Opus)** | An attorney-requested revision round is composition.                                      |
+| Stage      | Model                   | Why                                                                                                                          |
+| ---------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `assemble` | none                    | Connector reads; no model call.                                                                                              |
+| `extract`  | none                    | Mechanical extraction only. Vision transcription is a separate, explicit act — see below.                                    |
+| `digest`   | Sonnet                  | Collapsing the record into a cited fact digest. Transcription, which is Sonnet's strength, and where most of the money goes. |
+| `compose`  | **work-product (Opus)** | Derivation, judgment, refusals. Never delegated down.                                                                        |
+| `audit`    | Sonnet                  | Quote contiguity, question-pairing, citation resolution (gate 2).                                                            |
+| `coverage` | Sonnet                  | Propounded-vs-response diffing (gate 7). Enumeration, not judgment.                                                          |
+| `gates`    | Sonnet                  | The mechanical gates' model-assisted portions.                                                                               |
+| `lint`     | Sonnet                  | SPROG / subpart lint (gate 8).                                                                                               |
+| `repair`   | **work-product (Opus)** | A repair rewrites work product, so it inherits composition's model.                                                          |
+| `revise`   | **work-product (Opus)** | An attorney-requested revision round is composition.                                                                         |
 
 Two rules that keep the table honest:
 
