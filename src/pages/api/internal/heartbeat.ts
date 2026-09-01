@@ -106,11 +106,31 @@ const STICKY_STOP_LEVELS = new Set(['OK', 'WARN', 'SOFT_STOP', 'HARD_STOP', 'unk
 // gateway_liveness_state). Closed vocabulary for the same reason as the breaker
 // ladder: a word we do not know is a writer we do not understand, and it must
 // not become a state the alerter acts on. Stored as NULL (hold), never guessed.
+//
+// THIS SET IS THE THIRD LINK IN A FOUR-LINK CHAIN, and it is the one that was
+// missed. entrypoint.sh writes the word, the overlay's
+// shared/gateway_loop_check.py SUPERVISOR_STATES forwards it, THIS parser
+// stores it, and workers/fleet-alerts/src/gateway-loop.ts grades it. Every one
+// of those four drops an unrecognised word silently, so the chain is only as
+// wide as its narrowest link and a gap anywhere reads as a healthy NULL rather
+// than a failure. ss#2677 widened links 1 and 4 and overlay#339 widened link 2;
+// this link kept the original five words, which would have nulled both new
+// states in transit and reproduced the exact silence those changes exist to
+// end. When SUPERVISOR_STATES moves in the overlay, it moves here in the same
+// change — tests/heartbeat-field-parity.test.ts asserts the two agree word for
+// word wherever the overlay is checked out.
 const GATEWAY_SUPERVISOR_STATES = new Set([
   'armed',
   'not-armed',
+  // Bootstrap has not yet exec'd the gateway: a normal, minutes-long window on
+  // every boot. Previously reported as `inert`, which pages.
+  'starting',
   'inert',
   'not-watching',
+  // No fresh loop beat in the whole startup grace — wedged DURING startup.
+  // Previously reported as `not-armed`, which never pages and must not, since
+  // `not-armed` is also every healthy seat's first thirty seconds.
+  'never-healthy',
   'refusing',
 ])
 

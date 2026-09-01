@@ -755,6 +755,24 @@ SMD_GATEWAY_LIVENESS_STALE_SECONDS="${SMD_GATEWAY_LIVENESS_STALE_SECONDS:-240}"
 SMD_GATEWAY_LIVENESS_DUMP_GRACE_SECONDS="${SMD_GATEWAY_LIVENESS_DUMP_GRACE_SECONDS:-20}"
 SMD_GATEWAY_LIVENESS_TERM_GRACE_SECONDS="${SMD_GATEWAY_LIVENESS_TERM_GRACE_SECONDS:-15}"
 SMD_GATEWAY_LIVENESS_BOOT_DEADLINE_SECONDS="${SMD_GATEWAY_LIVENESS_BOOT_DEADLINE_SECONDS:-900}"
+# How long a boot is ALLOWED to take before the supervisor says so out loud.
+# Two conditions read it, both about a boot that has not finished yet:
+#
+#   1. argv does not name hermes. Expected for the first minutes of every boot —
+#      entrypoint EXECS bootstrap.sh, which does its own several-minute setup
+#      before its own `exec` of the gateway at bootstrap.sh:916, so
+#      /proc/<SMD_GATEWAY_PID>/cmdline reads `bash /app/bootstrap.sh` until then.
+#   2. the heartbeat is on disk but has never been seen FRESH this boot. The
+#      volume persists, so a stale beat from the previous boot is always there.
+#
+# Before the grace both are normal and neither pages. After it, a boot that
+# still has not produced a beat is a wedge at startup, which is exactly what no
+# instrument on this seat could see during the 2026-09-01 crash loop.
+#
+# 900s is sized off the incident: the observed cold-start crawl was ~4 minutes
+# at 1GB, so the grace is ~3.5x the worst startup actually measured. Raise it on
+# a seat with a heavier connector set rather than lowering it anywhere.
+SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS="${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS:-900}"
 SMD_GATEWAY_LIVENESS_MAX_KILLS="${SMD_GATEWAY_LIVENESS_MAX_KILLS:-3}"
 SMD_GATEWAY_LIVENESS_KILL_WINDOW_SECONDS="${SMD_GATEWAY_LIVENESS_KILL_WINDOW_SECONDS:-3600}"
 SMD_GATEWAY_LIVENESS_KILL_VERIFY_SECONDS="${SMD_GATEWAY_LIVENESS_KILL_VERIFY_SECONDS:-10}"
@@ -800,6 +818,16 @@ chmod 0644 "${GATEWAY_LIVENESS_LEDGER_DIR}/kills" 2>/dev/null || true
 # not-watching this pin, or refusing further restarts. Same loud-not-silent
 # discipline as the log lines; this is the copy that leaves the Machine.
 gateway_liveness_state() {
+  # A TRANSITION must be spoken at once. gateway_liveness_nag has a 300s floor so
+  # a standing condition does not drown `fly logs`, but that floor also silences
+  # the FIRST line of a new condition for up to five minutes if an unrelated nag
+  # happened to fire just before it — which is exactly when a human most needs
+  # the log to say what changed. Zeroing last_nag on a change of word makes the
+  # next nag in this iteration speak, then the floor resumes for the repeats.
+  # Callers therefore set the state BEFORE they nag.
+  if [ "$1" != "$(cat "${GATEWAY_LIVENESS_RUN_DIR}/state" 2>/dev/null)" ]; then
+    last_nag=0
+  fi
   printf '%s\n' "$1" > "${GATEWAY_LIVENESS_RUN_DIR}/state.tmp" \
     && chmod 0644 "${GATEWAY_LIVENESS_RUN_DIR}/state.tmp" \
     && mv -f "${GATEWAY_LIVENESS_RUN_DIR}/state.tmp" "${GATEWAY_LIVENESS_RUN_DIR}/state"
@@ -823,9 +851,28 @@ gateway_heartbeat_path() {
   # function, so it has to run on a developer's macOS too, where /bin/bash is
   # still 3.2. The redirect (not a pipe) keeps the loop in this shell, so the
   # assignments below survive it.
+  #
+  # All four spellings of the profile flag, because argv is written by
+  # bootstrap.sh today but read here forever. bootstrap.sh:916 uses the separated
+  # short form (`-p operator`) and the live cmdline confirms it, NUL-separated
+  # behind the shebang interpreter:
+  #   /opt/hermes/.venv/bin/python\0/opt/hermes/.venv/bin/hermes\0-p\0operator\0gateway\0run
+  # The attached and long forms cost two `case` arms and remove a class where a
+  # future invocation change would silently un-watch the seat rather than fail.
+  # FIRST occurrence wins in every form: `hermes -p a -p b` is the caller's bug,
+  # and picking one deterministically beats picking whichever came last.
   while IFS= read -r -d '' tok; do
     case "${tok}" in *hermes*) seen_hermes=1 ;; esac
-    if [ "${prev}" = "-p" ] && [ -z "${profile}" ]; then profile="${tok}"; fi
+    case "${tok}" in
+      -p=*|--profile=*)
+        if [ -z "${profile}" ]; then profile="${tok#*=}"; fi
+        ;;
+    esac
+    if [ -z "${profile}" ]; then
+      case "${prev}" in
+        -p|--profile) profile="${tok}" ;;
+      esac
+    fi
     prev="${tok}"
   done < "${cmdline}"
   [ "${seen_hermes}" -eq 1 ] || return 1
@@ -981,8 +1028,37 @@ gateway_liveness_escalate() {
 
     hb="$(gateway_heartbeat_path)"
     if [ -z "${hb}" ]; then
-      gateway_liveness_nag "cannot resolve the gateway profile from ${GATEWAY_LIVENESS_PROC_DIR}/${SMD_GATEWAY_PID}/cmdline; supervisor is INERT and this seat has no automatic recovery"
-      gateway_liveness_state inert
+      # UNRESOLVED ARGV IS NOT THE SAME CONDITION BEFORE AND AFTER THE EXEC.
+      #
+      # This branch used to report `inert` unconditionally, and `inert` is a
+      # paging state: gateway_loop_check.py forwards the word and fleet-alerts'
+      # gateway_supervisor_inert fires on it, saying "it will never act". But the
+      # supervisor is forked while still root, MINUTES before the gateway exists.
+      # entrypoint execs bootstrap.sh, which stages skills, syncs the voice
+      # vault, runs the appliers and enables plugins before its own exec at
+      # bootstrap.sh:916 — so for that whole window /proc/<SMD_GATEWAY_PID>/cmdline
+      # legitimately reads `bash /app/bootstrap.sh`, names no hermes, and carries
+      # no profile.
+      #
+      # Observed live on pilot-smokeball 2026-09-01T02:30:37Z: this exact line
+      # fired for /proc/652 while the bootstrap log two seconds earlier and five
+      # seconds later showed it seeding the skill catalog. The same boot resolved
+      # the profile normally once the exec landed. So the historical reading of
+      # this signal is inverted — a healthy boot produced the alarm, which is the
+      # cheapest way to teach everyone to ignore it.
+      #
+      # The parse is not the defect and was not changed to fix this: it walks
+      # NUL-split argv and resolves the real live cmdline correctly. WHAT IT
+      # CANNOT DO IS TELL TIME. The clock is the only thing that separates "the
+      # gateway has not started yet" from "the gateway will never be found", so
+      # the clock is what decides which of the two we say.
+      if [ $(( now - boot_epoch )) -lt "${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS}" ]; then
+        gateway_liveness_state starting
+        gateway_liveness_nag "argv at ${GATEWAY_LIVENESS_PROC_DIR}/${SMD_GATEWAY_PID}/cmdline does not name hermes yet — bootstrap has not reached its gateway exec ($(( now - boot_epoch ))s into a ${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS}s startup grace). NOT inert: re-checking every ${SMD_GATEWAY_LIVENESS_POLL_SECONDS}s, and if argv still does not resolve at the end of the grace this becomes an INERT page."
+      else
+        gateway_liveness_state inert
+        gateway_liveness_nag "cannot resolve the gateway profile from ${GATEWAY_LIVENESS_PROC_DIR}/${SMD_GATEWAY_PID}/cmdline after $(( now - boot_epoch ))s (startup grace ${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS}s); supervisor is INERT and this seat has no automatic recovery"
+      fi
       continue
     fi
 
@@ -1018,7 +1094,37 @@ gateway_liveness_escalate() {
       # The volume PERSISTS, so a heartbeat from a PREVIOUS boot is on disk at
       # every cold start. Arming on it would kill every boot, forever. Say so
       # out loud — a silent skip here reads identically to a healthy seat.
-      gateway_liveness_nag "loop heartbeat ${hb} is ${age}s stale but has never been seen fresh this boot; NOT arming (stale beat from a previous boot)"
+      #
+      # BUT: not arming has no deadline of its own, and that was the blind spot.
+      # A gateway that wedges DURING startup never writes a first beat, so this
+      # branch is where it lands — and before this grace it stayed here forever,
+      # nagging on a 5-minute floor into `fly logs` and reaching no inbox at all.
+      # The state stayed `not-armed`, which fleet-alerts does not page on (nor
+      # should it: `not-armed` is also every healthy seat's first 30 seconds).
+      # The 2026-09-01 crash loop is the proof — pilot-smokeball emitted this
+      # exact line at 02:21:54, 02:27:01 and 02:35:44 across three separate boots
+      # while restarting every ~15 minutes, and no instrument on the seat treated
+      # it as a fault.
+      #
+      # We PAGE and we do NOT kill. Killing is what sustained the loop: hermes'
+      # own in-process watchdog already hard-exits 75 on its own budget
+      # (gateway/shutdown_watchdog.py:196), and a slow-starting gateway that gets
+      # signalled here just boots colder and slower next time. There is no
+      # recovery action a supervisor can take against "startup is too slow" — the
+      # fixes are memory, a lighter connector set, or a lazier import, and all
+      # three need a human. So the correct output is a person, not a signal.
+      #
+      # The page rides the state word, the same channel as every other supervisor
+      # condition: gateway_loop_check.py forwards it on the heartbeat and
+      # fleet-alerts' gateway_never_healthy fires on it. The entrypoint has no
+      # other outbound path — it cannot reach the network and holds no credential
+      # — which is by design (see the environ note at the top of this subshell).
+      if [ $(( now - boot_epoch )) -ge "${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS}" ]; then
+        gateway_liveness_state never-healthy
+        gateway_liveness_nag "GATEWAY NEVER CAME UP: loop heartbeat ${hb} is ${age}s stale and no fresh beat has appeared in the $(( now - boot_epoch ))s since this supervisor started (startup grace ${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS}s). The gateway is wedged DURING startup. NOTHING AUTOMATIC WILL HAPPEN: this supervisor will not kill a slow-starting gateway, and it will keep re-checking every ${SMD_GATEWAY_LIVENESS_POLL_SECONDS}s and clear itself the moment a fresh beat appears. A human must look — check memory headroom and the gateway's startup log."
+        continue
+      fi
+      gateway_liveness_nag "loop heartbeat ${hb} is ${age}s stale but has never been seen fresh this boot; NOT arming (stale beat from a previous boot). $(( now - boot_epoch ))s into a ${SMD_GATEWAY_LIVENESS_STARTUP_GRACE_SECONDS}s startup grace; if no fresh beat arrives by then this becomes a never-healthy page."
       continue
     fi
 

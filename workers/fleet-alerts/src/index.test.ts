@@ -1391,6 +1391,36 @@ describe('gateway loop + supervisor (ss#2488 part 2)', () => {
     expect(b.detail).toContain('no loop heartbeat')
   })
 
+  it('never-healthy opens inert, and says a human is the only recovery path', () => {
+    // The 2026-09-01 pilot-smokeball crash loop. A gateway that wedges DURING
+    // startup never writes a first beat, so the seat supervisor never arms and
+    // its state stayed `not-armed` -- which does not page, and must not, since
+    // `not-armed` is also every healthy seat's first thirty seconds. The seat
+    // restarted every ~15 minutes for two and a half hours and reached nobody.
+    //
+    // It shares gateway_supervisor_inert rather than adding a fourth condition
+    // because `condition` carries a CHECK constraint (migrations 0107, 0109) --
+    // a new name without a migration is a REJECTED row, i.e. a page that
+    // silently never lands. The detail is where the three are told apart.
+    const c = one(row({ gateway_supervisor_state: 'never-healthy' }), 'gateway_supervisor_inert')[0]
+    expect(c.active).toBe(true)
+    expect(c.detail).toContain('NEVER CAME UP')
+    // The two halves an on-call needs: that nothing automatic follows, and that
+    // it is not the supervisor's job to kill it.
+    expect(c.detail).toMatch(/will NOT restart it/)
+    expect(c.detail).toMatch(/needs a human/)
+  })
+
+  it('starting resolves both supervisor conditions — it is every healthy boot', () => {
+    // Before the fix this window reported `inert` and paged on every boot: the
+    // entrypoint forks the supervisor while still root, and bootstrap.sh runs
+    // for minutes before its own gateway exec, so /proc/<main>/cmdline
+    // legitimately names no hermes for that whole time.
+    const out = loopStates(row({ gateway_supervisor_state: 'starting' }))
+    expect(out.find((c) => c.condition === 'gateway_supervisor_inert')!.active).toBe(false)
+    expect(out.find((c) => c.condition === 'gateway_supervisor_refusing')!.active).toBe(false)
+  })
+
   it('armed and not-armed resolve both supervisor conditions; NULL holds both', () => {
     for (const s of ['armed', 'not-armed']) {
       const out = loopStates(row({ gateway_supervisor_state: s }))

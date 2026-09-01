@@ -38,11 +38,20 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import time
 import urllib.parse
 from typing import Any
 
 import httpx
+
+# /matters/{id} paths take the matter's UUID, never its human matter number.
+# Guarded in request() - see the docstring there for the 2026-09-01 incident.
+# Deliberately narrow (#2673 doctrine): refuse only a segment that CANNOT be an
+# id - all digits, or the register-anchored matter-number formats - and stay
+# silent on everything else.
+_MATTER_ID_SEG = re.compile(r"^/matters/([^/?]+)")
+_MATTER_NUMBERISH = re.compile(r"\d+|\d{4}-[A-Z]{2}-\d{3,4}|[A-Z]{2}-\d{4}-\d{4}")
 
 # region -> environment -> (auth_host, api_host). Confirmed from the base-URLs doc.
 _HOSTS: dict[tuple[str, str], tuple[str, str]] = {
@@ -330,7 +339,24 @@ class SmokeballClient:
         json: Any | None = None,
     ) -> Any:
         """Issue an authenticated request. Returns parsed JSON (or None for an
-        empty body). Retries 429 with backoff and refreshes once on a 401."""
+        empty body). Retries 429 with backoff and refreshes once on a 401.
+
+        Refuses a ``/matters/{id}`` path whose id segment is not a UUID before
+        any HTTP is sent. 2026-09-01: the agent passed matter NUMBERS (10006,
+        202248) where the API wants ids; the resulting 404 burst manufactured
+        Hermes' derivative "MCP server unreachable" circuit (three business
+        errors open it - overlay test_connector_signatures.py pins this), every
+        later Smokeball call failed instantly, and the sticky ladder HARD_STOPped
+        the seat. One instructive refusal here lets the agent self-correct on
+        the next call instead of feeding the circuit."""
+        seg = _MATTER_ID_SEG.match(path)
+        if seg and _MATTER_NUMBERISH.fullmatch(seg.group(1)):
+            raise ValueError(
+                f"'{seg.group(1)}' is not a matter id (Smokeball matter ids are "
+                "UUIDs). It looks like a matter number - resolve the id first "
+                "(list_matters / get_matter return both), then call again with "
+                "the id."
+            )
         prefix = f"/{self._account_id}" if self._account_id else ""
         url = f"{self.api_host}{prefix}{path}"
         refreshed = False

@@ -764,7 +764,50 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # rendered_body_gate,report_render}.py and eight test files -- NOT tracked
 # pairs; every overlaySha256 unchanged, only overlayRef. Vocabulary identical
 # (71, AST re-read at both refs); shared/heartbeat.py byte-identical.
-ARG OVERLAY_REF="727f3f5b21c6fb5542ffd6ccf8e38df27fbc4bfc"
+#
+# 727f3f5b -> 799647d1 (TWO merges: overlay#338 then overlay#339; both console
+# halves already on main, ss#2674 and ss#2677 respectively).
+#
+# overlay#338 closes the hash the previous pin opened. _attach_html_body
+# replaces `text` with report_render.render_plain(text) before the payload
+# leaves the process, so the channel never stores the bytes
+# rendered_body_sha256 names, and every conformant templated send graded
+# channel_mismatch_hold -- a loud hold on a correct send, the worst kind,
+# because it teaches the reader to ignore the instrument. From this ref
+# _dispatch_internal_message stamps a SECOND canonical hash on the CONFIRM row,
+# plain_body_sha256, over the exact text/plain handed to the channel, and
+# _attach_html_body returns whether it actually attached so the stamp is
+# OMITTED (never duplicated from the rendered one) on every path where no
+# down-render happened. Two hashes, two joins: rendered answers wake<->confirm
+# (did the authored body reach dispatch), plain answers confirm<->channel (did
+# the dispatched body reach the reader).
+#
+# overlay#339 widens shared/gateway_loop_check.py's SUPERVISOR_STATES from five
+# words to seven, adding `starting` and `never-healthy`. That frozenset is a
+# CLOSED vocabulary and the closure is load-bearing: _read_supervisor_state
+# forwards nothing it does not recognise, so a word entrypoint.sh writes and
+# the set omits is dropped to None -- a NULL, which the console holds on rather
+# than pages on. Silence, not a failure. entrypoint.sh (authored HERE) already
+# emits both words, so this pin is what stops them being discarded in transit.
+# `never-healthy` pages (gateway wedged during startup; the supervisor
+# deliberately does not kill a slow starter, so a human is the only recovery
+# path); `starting` deliberately does not (bootstrap has not yet exec'd the
+# gateway -- a normal, minutes-long window every boot, previously mislabelled
+# `inert`, which paged). fleet-alerts grades both at
+# workers/fleet-alerts/src/gateway-loop.ts.
+#
+# Merge-range files (the union, read at the merge commit -- NOT a two-dot diff
+# off either PR head; #339 was branched from 727f3f5b, before #338 landed, so
+# such a diff hides #338's three files): plugins/hermes-smd-trust/__init__.py,
+# shared/gateway_loop_check.py, tests/contract/send-render.yaml,
+# tests/test_dispatch_body_stamp.py, tests/test_gateway_loop_check.py -- NONE a
+# tracked pair. All nine overlaySha256 re-hashed from the runtime files at
+# 799647d1 and byte-identical to the recorded values, so only overlayRef moves.
+# Vocabulary identical (71, AST re-read at both refs, set-diff empty both ways;
+# schemas.py absent from the range). shared/heartbeat.py byte-identical
+# (cc8c23d8...) -- #339 changes a heartbeat field's VALUE vocabulary, not the
+# field set, so the manifest's field list is unaffected.
+ARG OVERLAY_REF="799647d14bed5786cdf8f7919ea52273507fc59c"
 
 ARG CUSTOMER_SLUG=customer-zero
 

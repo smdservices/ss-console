@@ -23,12 +23,38 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const SCRIPT = resolve('operator/bin/boot-smoke-test.sh')
+const SEAT_YAML = resolve('operator/customers/pilot-smokeball/customer.yaml')
+
+/**
+ * The `machine.memory_mb` pilot-smokeball authors, for the `fly status` stub.
+ *
+ * Deliberately the same shape the smoke script itself uses (the first
+ * `memory_mb:` inside the `machine:` block) rather than a YAML parse, so the two
+ * readers cannot disagree about which key they mean. Throws rather than
+ * defaulting: a silent fallback would make the stub agree with the script by
+ * accident and this file would stop testing the comparison at all.
+ */
+function authoredSeatMemoryMb(): number {
+  const lines = readFileSync(SEAT_YAML, 'utf8').split('\n')
+  let inMachine = false
+  for (const line of lines) {
+    if (/^machine:/.test(line)) {
+      inMachine = true
+      continue
+    }
+    if (!inMachine) continue
+    if (/^[^ \t#]/.test(line)) break
+    const m = /^\s+memory_mb:\s*(\d+)/.exec(line)
+    if (m) return Number(m[1])
+  }
+  throw new Error(`no machine.memory_mb found in ${SEAT_YAML}`)
+}
 
 /**
  * The stub dir plus a bare system PATH, and nothing else.
@@ -78,11 +104,22 @@ function stubDir(failOn: string[]): string {
   // `fly status --json` answers two questions here: is the Machine started, and
   // what guest is it running. The stub satisfies both, or
   // `guest-matches-authored-size` fails for a reason unrelated to what is under
-  // test. pilot-smokeball authors shared-cpu-1x / 1024MB.
+  // test.
+  //
+  // The size is READ from pilot-smokeball's customer.yaml rather than written
+  // here. It used to be the literal 1024, and raising the seat's authored floor
+  // to 2048 (the 2026-09-01 crash-loop fix) turned all three cases in this file
+  // red for a reason that had nothing to do with what they assert. A fixture
+  // that has to be edited whenever an unrelated authored value moves is a
+  // tripwire on the wrong thing; deriving it means this file only ever fails for
+  // its own reason. Reading it also proves the check is REAL: if
+  // `guest-matches-authored-size` compared nothing, this stub could report any
+  // number and the suite would not notice.
+  const authoredMemoryMb = authoredSeatMemoryMb()
   const fly = `#!/usr/bin/env bash
 for a in "$@"; do
   [ "$a" = "status" ] && {
-    echo '{"Machines":[{"state":"started","config":{"guest":{"cpu_kind":"shared","cpus":1,"memory_mb":1024}}}]}'
+    echo '{"Machines":[{"state":"started","config":{"guest":{"cpu_kind":"shared","cpus":1,"memory_mb":${authoredMemoryMb}}}}]}'
     exit 0
   }
 done

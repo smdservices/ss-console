@@ -143,9 +143,27 @@ _AUDIT_ONLY_KEYS = frozenset({"sender_key", "audit_row_token"})
 #:                          hash join (send_verify.py) compares it against the
 #:                          EMITTED_WAKE stamps; arbiter fixture:
 #:                          operator/contracts/fixtures/body-canon-vectors.json.
+#: ``plain_body_sha256``    canonical_body_sha256 of the exact text/plain the
+#:                          overlay handed the channel, computed POST-attach —
+#:                          the console's confirm<->channel check compares it
+#:                          against the body fetched back from the mailbox,
+#:                          which stores the down-render, not the authored
+#:                          markdown. OMITTED by the overlay when no down-render
+#:                          happened, and that absence is MEANINGFUL to the
+#:                          verifier ("text is still the authored bytes"), so it
+#:                          must never be synthesized here.
 #: ``body_variant``         full | skeleton — a skeleton match grades
 #:                          ``degraded`` in the verifier, never BODY_DIVERGED.
-_CALLER_AUDIT_KEYS: tuple[str, ...] = ("routing_leg", "rendered_body_sha256", "body_variant")
+#:
+#: CLOSED ALLOWLIST, AND SILENTLY SO. The filter below drops any key not named
+#: here with no error and no log, which is the right posture for an untrusted
+#: caller-supplied dict but means a stamp the overlay adds WITHOUT a matching
+#: entry here vanishes between the two repos and the verifier simply never sees
+#: it. Adding a stamp is therefore a two-repo change; ``plain_body_sha256``
+#: pairs with hermes-smd-overlay#338.
+#: (One physical line on purpose: tests/operator-module-size.test.ts ratchets
+#: this module's logical-line count and only ever tightens. Comments are free.)
+_CALLER_AUDIT_KEYS: tuple[str, ...] = ("routing_leg", "rendered_body_sha256", "plain_body_sha256", "body_variant")
 
 
 class Broker:
