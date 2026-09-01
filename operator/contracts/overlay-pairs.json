@@ -55,8 +55,8 @@
     {
       "adapterPath": "operator/adapter/recipient_classifier.py",
       "overlayPath": "shared/recipient_classifier.py",
-      "syncNote": "2026-07-27 (overlay#190, ss Phase 3): the docstring illustrated a whole-domain roster grant with the pilot firm's REAL email domain, and this twin is baked into every customer Machine, so that string shipped to other clients' seats. Both sides moved to @firm.example (RFC 2606) together; docstring only, behavior unchanged. Enforced going forward by tests/client-identity-gate.test.ts. 2026-08-13 (ss#2263, overlay#265): the OVERLAY side split \"may reply to\" from \"is firm staff\" into separate authored facts. One-sided \u2014 the ss-console copy is unchanged, so only overlaySha256 moves (-> 3dcaa8db).",
-      "sha256": "045caf2de4b61297d9d2e66c687580bf7cad4856591b7248373d2cd2697abdaf",
+      "syncNote": "2026-07-27 (overlay#190, ss Phase 3): the docstring illustrated a whole-domain roster grant with the pilot firm's REAL email domain, and this twin is baked into every customer Machine, so that string shipped to other clients' seats. Both sides moved to @firm.example (RFC 2606) together; docstring only, behavior unchanged. Enforced going forward by tests/client-identity-gate.test.ts. 2026-08-13 (ss#2263, overlay#265): the OVERLAY side split \"may reply to\" from \"is firm staff\" into separate authored facts. One-sided — the ss-console copy is unchanged, so only overlaySha256 moves (-> 3dcaa8db). 2026-09-01 (ss#2284, overlay#340): the ss-console copy gains _DISQUALIFYING_RE, the enumerated character class that makes this module's notion of \"the same address\" equal the console validator's (canonRosterAddress). One-sided for now -- only sha256 moves; overlaySha256 and overlayRef follow when overlay#340 is pinned, and until then the twins ARE divergent and this note is the record of it. Arbiter fixture: operator/contracts/fixtures/roster-canon-cases.json, mirrored verbatim into the overlay's tests/fixtures/.",
+      "sha256": "572d3a27e83bb887271045d884c7db090dffad1aa878d5c04aa44695b1741122",
       "overlaySha256": "3dcaa8db97e316f7617b64c0ce3224cae17f2c8d64fad1f1f8ebf4fd7e9b04a1"
     },
     {
