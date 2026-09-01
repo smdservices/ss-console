@@ -48,8 +48,16 @@ export interface FleetStatusRow {
   process_uptime_seconds: number | null
   version: string | null
   heartbeat_status: 'green' | 'yellow' | 'red' | 'unknown'
-  /** Cost-breaker ladder level from the Machine (ADR 0062); NULL = not reported. */
+  /** Sticky-stop ladder level from the Machine (ADR 0062); NULL = not reported. */
   sticky_stop_level: string | null
+  /**
+   * WHY the ladder tripped (migration 0112, overlay#341). Four meters drive it
+   * and each needs a different response, so the Captain deciding whether to
+   * clear a stop needs the cause, not just the level. NULL on a seat still
+   * running a pre-cause overlay, which is a legitimate state, not a fault.
+   */
+  sticky_stop_reason: string | null
+  sticky_stop_condition: string | null
   /** Scheduler self-check verdict (WP-2): 1 healthy / 0 broken / NULL unreported. */
   scheduler_ok: number | null
   /** Enabled scheduled-job count the gate could read this beat; NULL unreported. */
@@ -101,6 +109,7 @@ export async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]>
     .prepare(
       `SELECT entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
               process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
+              sticky_stop_reason, sticky_stop_condition,
               scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
               connectors_json, connector_check_ok, cron_containment,
               audit_write_failures,

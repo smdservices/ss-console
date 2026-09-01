@@ -248,6 +248,13 @@ export interface SchedulerSignal {
   gatewayLoopOk?: number | null
   /** ss#2488 part 2: the part-1 supervisor's state word, or NULL. */
   gatewaySupervisorState?: string | null
+  /**
+   * Migration 0112: which of the ladder's four meters tripped the stop. Lives
+   * on the signal bag rather than beside `stickyStopLevel` because a sixth
+   * positional parameter trips the arity ceiling -- and this IS a signal read
+   * off the same fleet_status row as everything else here.
+   */
+  stickyStopCondition?: string | null
 }
 
 /**
@@ -295,6 +302,7 @@ export function seatSignals(
     gateway_loop_ok?: number | null
     gateway_loop_age_seconds?: number | null
     gateway_supervisor_state?: string | null
+    sticky_stop_condition?: string | null
   } | null
 ): SchedulerSignal {
   // One null-row branch up front, then plain reads: every `?? null` below
@@ -311,6 +319,7 @@ export function seatSignals(
     gatewayLoopOk: fleet.gateway_loop_ok ?? null,
     gatewayLoopAgeSeconds: fleet.gateway_loop_age_seconds ?? null,
     gatewaySupervisorState: fleet.gateway_supervisor_state ?? null,
+    stickyStopCondition: fleet.sticky_stop_condition ?? null,
   }
 }
 
@@ -331,6 +340,14 @@ export function failingConnectorNames(connectorsJson: string | null | undefined)
 
 interface RosterNoteInputs {
   stickyStopLevel: string | null
+  /**
+   * Which meter tripped the ladder (migration 0112). Four drive it, so the
+   * note must not assert one: "cost breaker hard stop" is what the roster said
+   * on 2026-09-01 while ashton-price was stopped by a bad credential. Null on
+   * a seat still running a pre-cause overlay, where the note says the level
+   * and stops rather than guessing.
+   */
+  stickyStopCondition: string | null
   schedulerOk: number | null
   overdue: boolean
   summaryStatus: SummaryStatus | null
@@ -407,10 +424,19 @@ function gatewayNote(inputs: RosterNoteInputs, tier: 'urgent' | 'attention'): st
   return null
 }
 
+/**
+ * The roster's stop note. Names the METER when the seat reported one and the
+ * level alone when it did not -- never a meter the ladder did not report.
+ */
+function stopNote(level: string, condition: string | null): string {
+  return condition ? `${level}: ${condition.replace(/_/g, ' ')}` : level
+}
+
 function rosterHealthNote(inputs: RosterNoteInputs): string | null {
   const urgent = gatewayNote(inputs, 'urgent')
   if (urgent) return urgent
-  if (inputs.stickyStopLevel === 'HARD_STOP') return 'cost breaker hard stop'
+  if (inputs.stickyStopLevel === 'HARD_STOP')
+    return stopNote('hard stop', inputs.stickyStopCondition)
   if (inputs.schedulerOk === 0) return 'cron scheduler broken'
   if (inputs.failingConnectors.length > 0) {
     return `connector failing: ${inputs.failingConnectors.join(', ')}`
@@ -418,7 +444,8 @@ function rosterHealthNote(inputs: RosterNoteInputs): string | null {
   if (inputs.connectorCheckOk === 0) return 'connector health check broken'
   const attention = gatewayNote(inputs, 'attention')
   if (attention) return attention
-  if (inputs.stickyStopLevel === 'SOFT_STOP') return 'cost breaker soft stop'
+  if (inputs.stickyStopLevel === 'SOFT_STOP')
+    return stopNote('soft stop', inputs.stickyStopCondition)
   // ss#2276: a deliberate state, not a fault - but it must be SAID, because it
   // also explains a zero job count and suppressed routines. Sits above
   // 'overdue' so containment is named instead of read as lateness.
@@ -513,6 +540,7 @@ export function rosterHealth(
   // dot and never overrides an existing worse color.
   const inputs: RosterNoteInputs = {
     stickyStopLevel,
+    stickyStopCondition: scheduler?.stickyStopCondition ?? null,
     schedulerOk: scheduler?.ok ?? null,
     overdue:
       scheduler?.maxOverdueSeconds != null &&

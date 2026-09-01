@@ -72,6 +72,8 @@ function row(overrides: Partial<FleetStatusRow> = {}): FleetStatusRow {
     customer_slug: 'pilot-smokeball',
     last_heartbeat_ts: '2026-08-22T11:59:30.000Z',
     sticky_stop_level: 'OK',
+    sticky_stop_reason: null,
+    sticky_stop_condition: null,
     scheduler_ok: null,
     scheduler_max_overdue_seconds: null,
     connectors_json: null,

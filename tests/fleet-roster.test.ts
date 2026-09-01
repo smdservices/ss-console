@@ -243,6 +243,31 @@ describe('rosterHealth', () => {
     expect(rosterHealth('green', '5s ago', 'yellow', 'HARD_STOP').note).toMatch(/hard stop/)
   })
 
+  it('the stop note names the meter that tripped, and no meter when none was reported', () => {
+    // Four meters drive this ladder. On 2026-09-01 ashton-price stopped on a
+    // bad credential and this note read "cost breaker hard stop" -- naming a
+    // meter the roster had never measured.
+    const withCause = rosterHealth('green', '5s ago', null, 'HARD_STOP', {
+      ok: null,
+      maxOverdueSeconds: null,
+      stickyStopCondition: 'consecutive_tool_failures',
+    })
+    expect(withCause.note).toBe('hard stop: consecutive tool failures')
+
+    const soft = rosterHealth('green', '5s ago', null, 'SOFT_STOP', {
+      ok: null,
+      maxOverdueSeconds: null,
+      stickyStopCondition: 'cost_threshold',
+    })
+    expect(soft.note).toBe('soft stop: cost threshold')
+
+    // A seat still running a pre-cause overlay reports no condition. The note
+    // must degrade to the level and assert nothing about why.
+    const noCause = rosterHealth('green', '5s ago', null, 'HARD_STOP')
+    expect(noCause.note).toBe('hard stop')
+    expect(noCause.note).not.toMatch(/cost|refusal|runtime|tool/)
+  })
+
   it('the scheduler self-check escalates: ok=0 → red, overdue past threshold → yellow (WP-2)', () => {
     // scheduler_ok === 0 is a broken cron store: red, on an otherwise-live seat.
     const broken = rosterHealth('green', '5s ago', null, null, { ok: 0, maxOverdueSeconds: null })

@@ -253,6 +253,67 @@ describe('heartbeat field parity — every emitted field has a reader (ss#2287)'
     expect(junk?.value ?? null, 'the vocabulary must stay closed').toBeNull()
   })
 
+  it('the ingest stores every stop condition the ladder can write, and NULLs one it cannot', async () => {
+    // Same failure shape as gateway_supervisor_state above, one field over.
+    // These are the overlay's StickyStopCondition members; the companion test
+    // in the overlay-checkout block asserts this list still equals the pinned
+    // enum, because a hand-copied vocabulary is exactly the thing that goes
+    // stale silently (overlay#339).
+    const words = [
+      'consecutive_tool_failures',
+      'refusal_cascade',
+      'time_budget_exceeded',
+      'cost_threshold',
+      'captain_clear',
+    ]
+    const dropped: string[] = []
+    for (const word of words) {
+      await POST(
+        heartbeatRequest({
+          heartbeat_ts: '2026-08-11T00:00:00.000Z',
+          sticky_stop_condition: word,
+        })
+      )
+      const row = await db
+        .prepare(`SELECT sticky_stop_condition AS value FROM fleet_status WHERE customer_slug = ?`)
+        .bind(SLUG)
+        .first<{ value: unknown }>()
+      if (row?.value !== word) dropped.push(`${word} -> ${String(row?.value ?? null)}`)
+    }
+    expect(
+      dropped,
+      'the seat records these on the stop transition and the page renders them; a dropped word costs the reader the cause and sends them to the seat to find it'
+    ).toEqual([])
+
+    // NEGATIVE CONTROL, same test so it cannot rot separately: still CLOSED.
+    await POST(
+      heartbeatRequest({
+        heartbeat_ts: '2026-08-11T00:00:00.000Z',
+        sticky_stop_condition: 'a-meter-the-ladder-does-not-have',
+      })
+    )
+    const junkCondition = await db
+      .prepare(`SELECT sticky_stop_condition AS value FROM fleet_status WHERE customer_slug = ?`)
+      .bind(SLUG)
+      .first<{ value: unknown }>()
+    expect(junkCondition?.value ?? null, 'the vocabulary must stay closed').toBeNull()
+  })
+
+  it('the ingest bounds the stop reason instead of trusting the seat', async () => {
+    // The seat caps at 300, but "the writer promised" is not a bound.
+    await POST(
+      heartbeatRequest({
+        heartbeat_ts: '2026-08-11T00:00:00.000Z',
+        sticky_stop_reason: 'x'.repeat(5000),
+      })
+    )
+    const row = await db
+      .prepare(`SELECT sticky_stop_reason AS value FROM fleet_status WHERE customer_slug = ?`)
+      .bind(SLUG)
+      .first<{ value: string | null }>()
+    expect(row?.value).toHaveLength(300)
+  })
+
   it('the manifest is stamped against the OVERLAY_REF the seats actually run', () => {
     // The pin is the only path a new overlay field takes to a seat, so a bump
     // is the one moment this list can go stale. Re-read build_payload at the new
@@ -342,6 +403,43 @@ describe.skipIf(!overlayAvailable)('heartbeat field parity vs the overlay checko
     expect(
       droppedInTransit,
       'the pinned overlay forwards these and the ingest stores them as NULL, which the console holds on instead of paging'
+    ).toEqual([])
+  })
+
+  it('the stop-condition vocabulary agrees with the pinned StickyStopCondition', () => {
+    // Third closed set in two repos (after the audit vocabulary and the
+    // supervisor states), same guard for the same reason. A meter added to the
+    // ladder that this ingest has not heard of stores NULL, and the page loses
+    // the cause silently -- which is the whole defect this field exists to fix.
+    const cleanEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))
+    )
+    const overlaySource = execFileSync(
+      'git',
+      ['show', `${manifest.overlay_ref}:shared/sticky_stop.py`],
+      { cwd: overlayDir, encoding: 'utf8', env: cleanEnv }
+    )
+    const block = /class StickyStopCondition\(str, enum\.Enum\):([\s\S]*?)\n\n\n/.exec(
+      overlaySource
+    )
+    expect(block, 'no StickyStopCondition enum in the pinned sticky_stop.py').not.toBeNull()
+    const overlayWords = [...block![1].matchAll(/^\s+[A-Z_]+ = "(\w+)"$/gm)].map((m) => m[1]).sort()
+    // A parse that silently found nothing would pass while measuring nothing.
+    expect(overlayWords.length).toBeGreaterThanOrEqual(4)
+
+    const ingestSource = readFileSync(
+      path.join(repoRoot, 'src/pages/api/internal/heartbeat.ts'),
+      'utf8'
+    )
+    const ingestBlock = /const STICKY_STOP_CONDITIONS = new Set\(\[([\s\S]*?)\]\)/.exec(
+      ingestSource
+    )
+    expect(ingestBlock, 'no STICKY_STOP_CONDITIONS in the heartbeat ingest').not.toBeNull()
+    const ingestWords = [...ingestBlock![1].matchAll(/'(\w+)'/g)].map((m) => m[1]).sort()
+
+    expect(
+      overlayWords.filter((w) => !ingestWords.includes(w)),
+      'the pinned ladder can write these conditions and the ingest stores them as NULL, costing the page its cause'
     ).toEqual([])
   })
 })
