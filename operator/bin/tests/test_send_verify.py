@@ -64,11 +64,15 @@ def _wake_row(skill="deadline-miss-escalator", minute=0, hashes=None, items=None
 
 
 def _dispatch_row(skill="deadline-miss-escalator", minute=1, sha="", variant="full",
-                  outcome="sent", extra=None):
+                  outcome="sent", extra=None, plain=""):
     meta = {"outcome": outcome}
     if sha:
         meta["rendered_body_sha256"] = sha
         meta["body_variant"] = variant
+    if plain:
+        # The overlay's second stamp. Omitted entirely when unset, which is
+        # exactly how a seat on an older OVERLAY_REF writes the row.
+        meta["plain_body_sha256"] = plain
     if extra:
         meta.update(extra)
     return {
@@ -284,14 +288,245 @@ def test_channel_body_matching_the_wake_hash_grades_match():
     assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
 
 
-def test_a_channel_mismatch_is_a_hold_until_rehearsal_calibrates():
-    sha = sv.canonical_body_sha256("authored")
+def test_a_pre_deploy_inbox_with_no_plain_stamp_anywhere_still_holds():
+    """MERGE-ORDER SAFETY, and the reason the promotion is conditional rather
+    than a flag day. A seat whose pinned OVERLAY_REF predates
+    `plain_body_sha256` emits dispatch rows without it, yet STILL down-renders
+    templated sends -- so the mailbox holds the plain text while the only stamp
+    hashes raw markdown. Grading against that stamp would file a false
+    BODY_DIVERGED on every conformant run. No plain stamp anywhere on the inbox
+    means the overlay cannot be read at all, so absence carries no information
+    and the check keeps yesterday's hold."""
+    sha = sv.canonical_body_sha256("**authored**")
     wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sha}])])
+    dispatches = sv.index_dispatches([_dispatch_row(sha=sha)])  # no plain stamp
+    assert dispatches[0].plain_body_sha256 == ""
     verdicts = sv.verify_channel_bodies(
-        [_sent_message()], wakes, _declares(), lambda m: "<html>wrapped</html>"
+        [_sent_message()],
+        wakes,
+        _declares(),
+        lambda m: "authored",  # the down-render the old overlay left unrecorded
+        dispatches=dispatches,
     )
     assert [v.verdict for v in verdicts] == [sv.VERDICT_CHANNEL_MISMATCH]
     assert verdicts[0].is_hold and not verdicts[0].is_finding
+
+
+def test_absence_on_a_stamping_inbox_grades_against_the_rendered_hash():
+    """ABSENCE IS A FACT, NOT A GAP (hermes-smd-overlay#338). The overlay omits
+    `plain_body_sha256` rather than duplicating the raw hash whenever no
+    down-render ran -- a prose reply, a composer-supplied html body. On an inbox
+    where the overlay demonstrably DOES stamp, that omission means "the channel
+    text is still the bytes the gate allowed", so `rendered_body_sha256` is the
+    right counterpart and the send grades MATCH. Holding it instead would leave
+    every prose reply permanently red."""
+    prose = "No markdown here, just a reply.\n"
+    prose_sha = sv.canonical_body_sha256(prose)
+    report_raw = "**Report** body\n"
+    # The wake authored the REPORT body, so the prose reply that lands in the
+    # same window matches neither wake hash -- which is what forces the grading
+    # down to the dispatch row instead of short-circuiting on the wake stamp.
+    wakes = sv.index_wakes(
+        [_wake_row(minute=0, hashes=[{"body_sha256_full": sv.canonical_body_sha256(report_raw)}])]
+    )
+    dispatches = sv.index_dispatches(
+        [
+            # The prose send: rendered only, because no down-render happened.
+            _dispatch_row(minute=1, sha=prose_sha),
+            # A sibling report send on the same inbox proves the overlay stamps,
+            # which is what makes the omission above readable as deliberate.
+            _dispatch_row(
+                minute=11,
+                sha=sv.canonical_body_sha256(report_raw),
+                plain=sv.canonical_body_sha256("Report body\n"),
+            ),
+        ]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=1)], wakes, _declares(), lambda m: prose, dispatches=dispatches
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+    assert not verdicts[0].is_hold and not verdicts[0].is_finding
+    # Proven to have gone through the ABSENCE path, not the wake-stamp
+    # short-circuit: the expectation names the rendered hash of the claimed row.
+    assert verdicts[0].expected_sha256 == prose_sha
+    assert verdicts[0].dispatch_ts is not None
+
+
+def test_absence_on_a_stamping_inbox_still_finds_a_real_divergence():
+    """The other half of the same rule: absence routes the comparison to
+    `rendered_body_sha256`, it does not excuse it. A body matching neither hash
+    is still a finding."""
+    prose_sha = sv.canonical_body_sha256("No markdown here.\n")
+    report_raw = "**Report** body\n"
+    wakes = sv.index_wakes(
+        [
+            _wake_row(minute=0, hashes=[{"body_sha256_full": prose_sha}]),
+            _wake_row(minute=10, hashes=[{"body_sha256_full": sv.canonical_body_sha256(report_raw)}]),
+        ]
+    )
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(minute=1, sha=prose_sha),
+            _dispatch_row(
+                minute=11,
+                sha=sv.canonical_body_sha256(report_raw),
+                plain=sv.canonical_body_sha256("Report body\n"),
+            ),
+        ]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=1)],
+        wakes,
+        _declares(),
+        lambda m: "something the routine never wrote",
+        dispatches=dispatches,
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_DIVERGED]
+    assert verdicts[0].is_finding
+
+
+def test_a_channel_body_matching_the_plain_stamp_grades_match():
+    """The calibration itself: AgentMail stores the post-render_plain text, so
+    the channel body matches the PLAIN stamp while mismatching the raw-markdown
+    wake stamp. That is a correct send, not a divergence."""
+    raw = "**Deadline** alert body\n"
+    plain = "Deadline alert body\n"  # what render_plain attached to the channel
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [_dispatch_row(sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(plain))]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message()], wakes, _declares(), lambda m: plain, dispatches=dispatches
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+    assert not verdicts[0].is_finding and not verdicts[0].is_hold
+
+
+def test_a_channel_body_matching_neither_stamp_is_a_finding():
+    """Calibration is done, so a real divergence is now a FINDING, not a hold:
+    the plain stamp gives the channel body a same-representation counterpart, so
+    a mismatch against it can no longer be explained by a channel transform."""
+    raw = "**Deadline** alert body\n"
+    plain = "Deadline alert body\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [_dispatch_row(sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(plain))]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message()],
+        wakes,
+        _declares(),
+        lambda m: "something else entirely",
+        dispatches=dispatches,
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_DIVERGED]
+    assert verdicts[0].is_finding and not verdicts[0].is_hold
+    # The report must name what was actually expected -- the plain stamp, not
+    # the raw wake hash it could never have equalled.
+    assert verdicts[0].expected_sha256 == sv.canonical_body_sha256(plain)
+    assert verdicts[0].dispatch_ts is not None
+
+
+def test_one_plain_stamp_cannot_vouch_for_two_channel_bodies():
+    """Consumption discipline, the same one-to-one rule `_claim_wake` enforces
+    on the primary check. Two mailbox messages, ONE stamped dispatch: the first
+    is graded against the stamp, the second finds no unconsumed stamp and falls
+    back to the hold. Without this, one correct send would launder every later
+    body in the window."""
+    plain = "Deadline alert body\n"
+    raw = "**Deadline** alert body\n"
+    wakes = sv.index_wakes(
+        [_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}] * 2)]
+    )
+    dispatches = sv.index_dispatches(
+        [_dispatch_row(sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(plain))]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=1, mid="<m1>"), _sent_message(minute=2, mid="<m2>")],
+        wakes,
+        _declares(),
+        lambda m: plain,
+        dispatches=dispatches,
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH, sv.VERDICT_CHANNEL_MISMATCH]
+
+
+def test_a_plain_stamp_outside_the_window_does_not_vouch():
+    """The window is the same one the primary check uses. A stamp from a
+    different run must not rescue this run's body."""
+    plain = "Deadline alert body\n"
+    raw = "**Deadline** alert body\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(
+                minute=1, sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(plain)
+            )
+        ]
+    )
+    # 30s window: the message (wake minute 0) is inside it, the dispatch
+    # (minute 1, 60s later) is not.
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=0)],
+        wakes,
+        _declares(),
+        lambda m: plain,
+        dispatches=dispatches,
+        window_s=30,
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_CHANNEL_MISMATCH]
+    assert dispatches[0].plain_consumed is False
+
+
+def test_body_unavailable_stays_a_hold_even_with_a_plain_stamp():
+    """A body we could not fetch is a transport fact. The promotion must not
+    turn a 503 into an accusation."""
+    raw = "**Deadline** alert body\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [_dispatch_row(sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256("x"))]
+    )
+
+    def _explode(_message):
+        raise RuntimeError("HTTP 503")
+
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message()], wakes, _declares(), _explode, dispatches=dispatches
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_BODY_UNAVAILABLE]
+    assert verdicts[0].is_hold and not verdicts[0].is_finding
+    # And an unfetchable body must not burn the stamp for a later message.
+    assert dispatches[0].plain_consumed is False
+
+
+def test_the_dispatch_stamp_stays_structurally_body_free():
+    """The plain stamp is a HASH. DispatchStamp is body-free for the same reason
+    the verdicts are: both repos are public. A regression that parks the plain
+    TEXT here for convenience must fail before it ships.
+
+    This searches the WHOLE field name rather than `name.split("_")[0]`, which
+    is what `_BODY_FIELD_PATTERN`'s negative lookahead was written for: splitting
+    on "_" throws away the "_sha256" / "_variant" the lookahead needs to see, so
+    the split form both false-flags `body_variant` and misses `body_text`.
+    """
+    for name in sv.DispatchStamp.__dataclass_fields__:
+        assert name not in ("body", "text", "content", "html", "raw", "snippet"), (
+            f"DispatchStamp.{name} is a body-content field; the leak safety is structural"
+        )
+        assert not _BODY_FIELD_PATTERN.search(name), (
+            f"DispatchStamp.{name} could hold body content"
+        )
+
+
+def test_the_dispatch_stamp_leak_check_can_fail():
+    """The falsifier for the test above -- a check that cannot fail measured
+    nothing. The pattern must accept today's hash fields and reject the field
+    names a convenience regression would actually reach for."""
+    for allowed in ("rendered_body_sha256", "plain_body_sha256", "body_variant", "ts"):
+        assert not _BODY_FIELD_PATTERN.search(allowed), allowed
+    for regressed in ("body", "body_text", "plain_body", "html_body", "rendered_text"):
+        assert _BODY_FIELD_PATTERN.search(regressed), regressed
 
 
 def test_a_failed_body_fetch_holds():
