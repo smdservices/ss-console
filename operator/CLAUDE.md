@@ -43,6 +43,36 @@ Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (ven
 
 The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. Author-built connectors we must write ourselves (no vendor/community MCP exists) are MCP servers living in `operator/connectors/` in this tree, per ADR 0053 — Smokeball is the first. The overlay repo (`venturecrane/hermes-smd-overlay`) stays substrate-only.
 
+## Never run a second hermes runtime beside a live gateway (the one-shot rule)
+
+**Do not run `hermes -p <profile> ...` one-shots, `hermes chat`, or any other
+full hermes runtime on a seat whose gateway is up.** A seat is 1 vCPU / 1GB
+(`machine:` in its `customer.yaml`); a second runtime loads the same plugin set
+and competes for the same single core with the process that is answering clients.
+
+Use instead:
+
+- **broker-socket calls** for anything the workspace broker already exposes, or
+- **a scheduled in-gateway turn** (Hermes' own cron) for anything that needs the
+  agent, so the work runs on the runtime that is already loaded.
+
+**Why this is a rule and not a preference.** On 2026-09-01 rehearsal one-shots on
+`pilot-smokeball` tipped the gateway into a crash loop that then **sustained
+itself for two and a half hours with no external load at all**. The gateway's
+startup resolves every platform plugin with synchronous imports on the event
+loop — about four minutes at 1GB — while hermes' own in-process watchdog
+hard-exits 75 after roughly two minutes of missed probes. Once startup crosses
+that budget the loop is: exit 75, container replaced, colder caches, slower
+startup, repeat. `oom_killed` was false throughout; the extra load only had to
+push startup past the line once. Full write-up, including the captured thread
+dump and the upstream ask:
+`docs/runbooks/operator/incidents/2026-09-01-gateway-startup-watchdog-collision.md`.
+
+The seat cannot defend itself here. The entrypoint supervisor deliberately will
+not restart a slow-starting gateway (killing one is what sustained the loop), and
+the watchdog budget is not configurable at the pin we run. The only control is
+not starting the second runtime.
+
 ## Probe artifacts in a tenant (ss #2403 — the 28745d01 lesson)
 
 Any rehearsal, self-test, or kill-test that writes an artifact into a customer

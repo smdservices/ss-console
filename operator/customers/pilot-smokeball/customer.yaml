@@ -108,7 +108,27 @@ hermes_ref: v2026.8.18@e624e9fde561e1add9388384012b295fde669ade
 
 machine:
   size: shared-cpu-1x
-  memory_mb: 1024
+  # 2048 is this seat's FLOOR, not a preference. The 2026-09-01 crash loop
+  # (00:12-02:45 UTC) ran here: at 1024 the gateway's startup crawl -- the
+  # synchronous platform-plugin imports inside gateway/channel_directory.py's
+  # build_channel_directory, which runs as the event loop's first task -- took
+  # roughly four minutes, while hermes' own in-process loop watchdog
+  # (gateway/shutdown_watchdog.py start_loop_liveness_watchdog, armed at
+  # gateway/run.py:12186 BEFORE that crawl) hard-exits 75 after three missed
+  # probes, a budget of about two minutes. The loop wedged on its own startup:
+  # exit 75, container restart, colder caches, slower startup, repeat every
+  # ~15 minutes. oom_killed was false throughout, so memory pressure is not the
+  # proximate cause -- the extra GB buys page cache and import headroom that
+  # pulls startup back under the watchdog budget. `fly scale memory 2048` broke
+  # the loop instantly (beat age 3s, stable since).
+  #
+  # The live Machine was scaled to 2048 by hand during the incident. This line
+  # is what a reprovision reads, so leaving it at 1024 would silently shrink the
+  # seat back into the loop. Do not lower it without either raising hermes'
+  # watchdog budget (not configurable at this pin -- see
+  # docs/runbooks/operator/incidents/2026-09-01-gateway-startup-watchdog-collision.md) or
+  # making the platform-plugin import lazy.
+  memory_mb: 2048
 
 # ---- HUMANS WITH PORTAL ACCESS ----
 users:
