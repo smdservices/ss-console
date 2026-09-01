@@ -57,7 +57,13 @@ export function conditionPayload(condition: string, prefix: string): string | nu
  */
 const CONDITION_LABEL: Record<string, string> = {
   heartbeat_red: 'Machine not heartbeating',
-  hard_stop: 'Cost breaker HARD_STOP',
+  // NOT "Cost breaker": this condition fires on the sticky-stop ladder, which
+  // four meters drive (consecutive tool failures, refusal cascade, runtime
+  // budget, cost threshold). Naming one of them in the subject asserts a cause
+  // the condition never measured -- on 2026-09-01 ashton-price stopped on a
+  // bad credential and the SEV1 subject said "Cost breaker". The actual cause
+  // now travels on the beat and is rendered in the detail line instead.
+  hard_stop: 'Seat stopped itself (HARD_STOP)',
   scheduler_error: 'Cron scheduler broken/unreadable',
   work_overdue: 'Scheduled work not firing',
   connector_check_error: 'Connector health check broken (outages not counted)',
@@ -70,6 +76,31 @@ const CONDITION_LABEL: Record<string, string> = {
   gateway_supervisor_inert: 'Seat supervisor cannot act (wedge would not self-recover)',
   send_refused:
     "a routine's outbound send was refused by a gate, or a wake with needs-you items sent nothing",
+}
+
+/**
+ * The hard_stop detail line, which is the only place the reader learns WHY.
+ *
+ * The subject deliberately names no meter (see CONDITION_LABEL.hard_stop), so
+ * if the cause is on the row it has to appear here. A seat not yet
+ * reprovisioned onto the cause-carrying overlay (hermes-smd-overlay#341)
+ * reports the level alone, and this degrades to exactly what it always said
+ * rather than claiming a cause it does not have.
+ *
+ * Takes the three fields rather than a FleetStatusRow so this file stays free
+ * of an import from index.ts, which imports the labels from here.
+ */
+export function hardStopDetail(stop: {
+  sticky_stop_level: string | null
+  sticky_stop_reason: string | null
+  sticky_stop_condition: string | null
+}): string {
+  const parts = [`sticky_stop_level=${stop.sticky_stop_level ?? 'null'}`]
+  if (stop.sticky_stop_condition) parts.push(`condition=${stop.sticky_stop_condition}`)
+  if (stop.sticky_stop_reason) parts.push(stop.sticky_stop_reason)
+  // Joined with a pipe, not an em dash: this string is rendered into the alert
+  // email, and em dashes are banned in shipped copy (tests/forbidden-strings).
+  return parts.join(' | ')
 }
 
 /** Label lookup with the per-connector prefix form (ADR 0080). */

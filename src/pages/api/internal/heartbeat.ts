@@ -19,6 +19,8 @@
  *     "process_uptime_seconds":  <integer>,        // optional
  *     "version":                 <string>,         // optional
  *     "sticky_stop_level":       <string>,         // optional (ADR 0062)
+ *     "sticky_stop_reason":      <string>,         // optional, only with a level
+ *     "sticky_stop_condition":   <string>,         // optional, only with a level
  *     "scheduler_ok":            <boolean | 0/1>,  // optional (WP-2 work-liveness)
  *     "scheduler_job_count":     <integer>,        // optional
  *     "scheduler_max_overdue_seconds": <integer>,  // optional
@@ -75,6 +77,8 @@ interface HeartbeatBody {
   process_uptime_seconds?: number
   version?: string
   sticky_stop_level?: string
+  sticky_stop_reason?: unknown
+  sticky_stop_condition?: unknown
   scheduler_ok?: unknown
   scheduler_job_count?: unknown
   scheduler_max_overdue_seconds?: unknown
@@ -98,9 +102,25 @@ interface HeartbeatBody {
   send_refusals_json?: unknown
 }
 
-// The breaker ladder vocabulary (overlay shared/cost_breaker.read_level).
+// The breaker ladder vocabulary (overlay shared/cost_breaker.read_stop_state).
 // Anything else is stored as NULL — never guess a level from junk input.
 const STICKY_STOP_LEVELS = new Set(['OK', 'WARN', 'SOFT_STOP', 'HARD_STOP', 'unknown'])
+
+// The four meters that drive the ladder, plus the Captain's manual clear
+// (overlay shared/sticky_stop.StickyStopCondition). Closed for the same reason
+// as the level: a condition we do not know is a writer we do not understand,
+// and it must not become a word the alerter routes on. NULL, never guessed.
+const STICKY_STOP_CONDITIONS = new Set([
+  'consecutive_tool_failures',
+  'refusal_cascade',
+  'time_budget_exceeded',
+  'cost_threshold',
+  'captain_clear',
+])
+
+// The seat caps its reason at 300 chars; this is the receiver's own bound, so
+// a seat running unexpected code cannot write an unbounded column.
+const STICKY_STOP_REASON_MAX = 300
 
 // The part-1 supervisor's state machine (operator/templates/entrypoint.sh,
 // gateway_liveness_state). Closed vocabulary for the same reason as the breaker
@@ -461,6 +481,23 @@ export const POST: APIRoute = async ({ request }) => {
       ? body.sticky_stop_level
       : null
 
+  // The cause. Like the level, both overwrite every beat INCLUDING back to
+  // NULL, so a reason can never outlive the level it explained -- which is the
+  // stale pairing worth guarding against, and the upsert already guarantees
+  // it. Pairing is enforced at the SENDER (the seat reads level and cause from
+  // one row and emits a cause only with a level); the receiver validates shape
+  // and stores each field on its own, so no field's storage depends on another
+  // field being present in the same beat.
+  const stickyStopReason =
+    typeof body.sticky_stop_reason === 'string'
+      ? body.sticky_stop_reason.slice(0, STICKY_STOP_REASON_MAX)
+      : null
+  const stickyStopCondition =
+    typeof body.sticky_stop_condition === 'string' &&
+    STICKY_STOP_CONDITIONS.has(body.sticky_stop_condition)
+      ? body.sticky_stop_condition
+      : null
+
   const obs = parseObservability(body)
 
   // #2498: read the prior count BEFORE the upsert overwrites it. A rise means
@@ -480,6 +517,8 @@ export const POST: APIRoute = async ({ request }) => {
     body,
     heartbeatStatus,
     stickyStopLevel,
+    stickyStopReason,
+    stickyStopCondition,
     ...obs,
   })
 
@@ -551,6 +590,8 @@ interface FleetStatusUpsert {
   body: HeartbeatBody
   heartbeatStatus: string
   stickyStopLevel: string | null
+  stickyStopReason: string | null
+  stickyStopCondition: string | null
   schedulerOk: 0 | 1 | null
   schedulerJobCount: number | null
   schedulerMaxOverdueSeconds: number | null
@@ -591,6 +632,7 @@ interface FleetStatusUpsert {
 const FLEET_STATUS_UPSERT_SQL = `INSERT INTO fleet_status (
        entity_id, customer_slug, last_heartbeat_ts, last_audit_ts, last_skill_ts,
        process_uptime_seconds, version, heartbeat_status, sticky_stop_level,
+       sticky_stop_reason, sticky_stop_condition,
        scheduler_ok, scheduler_job_count, scheduler_max_overdue_seconds,
        connectors_json, connector_check_ok, connector_token_age_json,
        spec_control_json, spec_control_ok,
@@ -599,7 +641,7 @@ const FLEET_STATUS_UPSERT_SQL = `INSERT INTO fleet_status (
        gateway_loop_ok, gateway_loop_age_seconds, gateway_supervisor_state,
        gateway_restarts_last_hour,
        send_refusals, send_refusals_last_ts, send_refusals_json, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(customer_slug) DO UPDATE SET
        entity_id               = excluded.entity_id,
        last_heartbeat_ts       = excluded.last_heartbeat_ts,
@@ -609,6 +651,8 @@ const FLEET_STATUS_UPSERT_SQL = `INSERT INTO fleet_status (
        version                 = COALESCE(excluded.version, fleet_status.version),
        heartbeat_status        = excluded.heartbeat_status,
        sticky_stop_level       = excluded.sticky_stop_level,
+       sticky_stop_reason      = excluded.sticky_stop_reason,
+       sticky_stop_condition   = excluded.sticky_stop_condition,
        scheduler_ok                  = excluded.scheduler_ok,
        scheduler_job_count           = excluded.scheduler_job_count,
        scheduler_max_overdue_seconds = excluded.scheduler_max_overdue_seconds,
@@ -644,6 +688,8 @@ async function upsertFleetStatus(u: FleetStatusUpsert): Promise<void> {
       typeof u.body.version === 'string' ? u.body.version : null,
       u.heartbeatStatus,
       u.stickyStopLevel,
+      u.stickyStopReason,
+      u.stickyStopCondition,
       u.schedulerOk,
       u.schedulerJobCount,
       u.schedulerMaxOverdueSeconds,

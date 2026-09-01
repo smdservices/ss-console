@@ -69,8 +69,10 @@ import { getStaleHolds } from './stale-holds'
 import { tokenExpiryConditions } from './token-expiry'
 import { getOpenWebhookSurfaceKeys, webhookSurfaceConditions } from './webhook-surface'
 import { gatewayLoopConditions, gatewayLoopRedSeconds } from './gateway-loop'
-import { conditionLabel } from './conditions'
-export { conditionLabel } from './conditions'
+import { conditionLabel, hardStopDetail } from './conditions'
+import { listFleetStatus, type FleetStatusRow } from './fleet-status'
+export { listFleetStatus, type FleetStatusRow } from './fleet-status'
+export { conditionLabel, hardStopDetail } from './conditions'
 
 export type { SinkNotification, SendRefusedNotification }
 
@@ -145,34 +147,6 @@ export type FleetCondition =
   | `connector_token_expiring:${string}`
   | `spec_control_broken:${string}`
   | `webhook_surface_missing:${string}`
-
-export interface FleetStatusRow {
-  customer_slug: string
-  last_heartbeat_ts: string | null
-  sticky_stop_level: string | null
-  scheduler_ok: number | null
-  scheduler_max_overdue_seconds: number | null
-  connectors_json: string | null
-  connector_check_ok: number | null
-  connector_token_age_json: string | null
-  spec_control_json: string | null
-  spec_control_ok: number | null
-  webhook_surface_json: string | null
-  webhook_surface_ok: number | null
-  gateway_loop_ok: number | null
-  gateway_loop_age_seconds: number | null
-  gateway_supervisor_state: string | null
-  gateway_restarts_last_hour: number | null
-  /**
-   * ss#2547. Optional on the TYPE, not merely nullable: before migration 0109
-   * is applied these columns do not exist, and the SELECT returns rows without
-   * the property at all. `undefined` and `null` must both hold, so the pager
-   * checks the value rather than trusting the column to be there.
-   */
-  send_refusals?: number | null
-  send_refusals_last_ts?: string | null
-  send_refusals_json?: string | null
-}
 
 /** One per-server entry from the seat's connectors map (writer-side ages). */
 export interface ConnectorEntry {
@@ -398,7 +372,7 @@ export function evaluateConditions(
       customer_slug: row.customer_slug,
       condition: 'hard_stop',
       active: row.sticky_stop_level === 'HARD_STOP',
-      detail: `sticky_stop_level=${row.sticky_stop_level ?? 'null'}`,
+      detail: hardStopDetail(row),
     })
     // scheduler_error — per-field NULL-hold: only evaluate when scheduler_ok
     // was actually reported this beat.
@@ -494,23 +468,6 @@ function connectorConditions(row: FleetStatusRow, runAgeThreshold: number): Cond
     })
   }
   return out
-}
-
-async function listFleetStatus(db: D1Database): Promise<FleetStatusRow[]> {
-  const result = await db
-    .prepare(
-      `SELECT customer_slug, last_heartbeat_ts, sticky_stop_level,
-              scheduler_ok, scheduler_max_overdue_seconds,
-              connectors_json, connector_check_ok, connector_token_age_json,
-              spec_control_json, spec_control_ok,
-              webhook_surface_json, webhook_surface_ok,
-              gateway_loop_ok, gateway_loop_age_seconds,
-              gateway_supervisor_state, gateway_restarts_last_hour,
-              send_refusals, send_refusals_last_ts, send_refusals_json
-         FROM fleet_status`
-    )
-    .all<FleetStatusRow>()
-  return result.results ?? []
 }
 
 async function getAlertState(

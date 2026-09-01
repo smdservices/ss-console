@@ -1181,7 +1181,25 @@ describe('Operator customer Machine Dockerfile', () => {
     // Vocabulary identical (71, AST at both refs); no tracked pair moves;
     // shared/heartbeat.py byte-identical (a field VALUE vocabulary changed, not the
     // field set).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="799647d14bed5786cdf8f7919ea52273507fc59c"')
+    // 799647d1 -> b16e32f7 (2026-09-01b, overlay#341; console half is migration
+    // 0112 + the ingest + the alert label, same ss PR as this bump).
+    // The sticky-stop ladder has FOUR meters (consecutive tool failures, refusal
+    // cascade, runtime budget, cost threshold) and the beat carried only the
+    // LEVEL, so every page read "Cost breaker HARD_STOP" whatever tripped it --
+    // on 2026-09-01 ashton-price stopped on a bad credential and the SEV1 named
+    // the wrong meter. The cause was never missing, only dropped:
+    // sticky_stop_state has recorded `reason` and `condition` on the transition
+    // all along and read_level did `SELECT level`. read_stop_state now returns
+    // all three from the SAME row (worst level, latest stamp) and build_payload
+    // carries them. Also fixes three cause-pairing defects found in review:
+    // pin_hard_stops left a stale condition beside an operator-pause reason; an
+    // OK row could hand back a cause; rows with no recognised level returned a
+    // fabricated OK instead of unknown.
+    // Vocabulary identical; no tracked pair moves (cost_breaker.py and
+    // heartbeat.py have no ss-console twin). shared/heartbeat.py DID change --
+    // the field SET grew by two, so heartbeat-fields.json is re-stamped in the
+    // same change and its parity gate covers both new columns.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b16e32f7f280661d0d5589ac46647d2894606b43"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
