@@ -207,7 +207,7 @@ It does **not** describe the seat, and that is a design decision, not a gap.
 rejected a per-skill `model` field and a per-turn complexity classifier: skills
 stay tier-unaware, and the seat's only model movement is **escalate-up** — a
 `weight: heavy` skill hands work to a subagent on the seat's `escalation_model`.
-There is no seam that routes a sub-stage *down* to a cheaper model inside a
+There is no seam that routes a sub-stage _down_ to a cheaper model inside a
 skill run. So on the seat, a demand's verification calls run on whatever model
 the turn is running, and the saving below is not available there. Do not author
 a skill that names a model to chase it; that is the restructuring ADR 0049 puts
@@ -215,17 +215,17 @@ off-limits. The consequence worth carrying into any cost projection: **a seat
 run and a harness run of the same demand have different economics**, and only
 the harness one can be attributed by stage.
 
-| Stage       | Model                    | Why                                                                     |
-| ----------- | ------------------------ | ----------------------------------------------------------------------- |
-| `assemble`  | none                     | Connector reads; no model call.                                         |
-| `extract`   | none                     | Mechanical extraction only. Vision transcription is a separate, explicit act — see below. |
-| `compose`   | **work-product (Opus)**  | Derivation, judgment, refusals. Never delegated down.                   |
-| `audit`     | Sonnet                   | Quote contiguity, question-pairing, citation resolution (gate 2).       |
-| `coverage`  | Sonnet                   | Propounded-vs-response diffing (gate 7). Enumeration, not judgment.     |
-| `gates`     | Sonnet                   | The mechanical gates' model-assisted portions.                          |
-| `lint`      | Sonnet                   | SPROG / subpart lint (gate 8).                                          |
-| `repair`    | **work-product (Opus)**  | A repair rewrites work product, so it inherits composition's model.     |
-| `revise`    | **work-product (Opus)**  | An attorney-requested revision round is composition.                    |
+| Stage      | Model                   | Why                                                                                       |
+| ---------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| `assemble` | none                    | Connector reads; no model call.                                                           |
+| `extract`  | none                    | Mechanical extraction only. Vision transcription is a separate, explicit act — see below. |
+| `compose`  | **work-product (Opus)** | Derivation, judgment, refusals. Never delegated down.                                     |
+| `audit`    | Sonnet                  | Quote contiguity, question-pairing, citation resolution (gate 2).                         |
+| `coverage` | Sonnet                  | Propounded-vs-response diffing (gate 7). Enumeration, not judgment.                       |
+| `gates`    | Sonnet                  | The mechanical gates' model-assisted portions.                                            |
+| `lint`     | Sonnet                  | SPROG / subpart lint (gate 8).                                                            |
+| `repair`   | **work-product (Opus)** | A repair rewrites work product, so it inherits composition's model.                       |
+| `revise`   | **work-product (Opus)** | An attorney-requested revision round is composition.                                      |
 
 Two rules that keep the table honest:
 

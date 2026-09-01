@@ -154,9 +154,9 @@ class PriceTest(unittest.TestCase):
 
 class RecordTest(unittest.TestCase):
     def test_row_lands_under_slug_and_unit(self):
-        with _Env(slug="aguilar", unit="demand-r1") as root:
+        with _Env(slug="matter-alpha", unit="demand-r1") as root:
             ledger.record("compose", "claude-opus-5", _Usage(100, 200))
-            path = Path(root) / "aguilar" / "runs" / "demand-r1" / "usage-ledger.jsonl"
+            path = Path(root) / "matter-alpha" / "runs" / "demand-r1" / "usage-ledger.jsonl"
             self.assertTrue(path.exists())
             row = json.loads(path.read_text().strip())
             self.assertEqual(row["stage"], "compose")
@@ -164,9 +164,9 @@ class RecordTest(unittest.TestCase):
             self.assertEqual(row["out"], 200)
 
     def test_unit_defaults_to_slug(self):
-        with _Env(slug="bruins", unit=None) as root:
+        with _Env(slug="matter-beta", unit=None) as root:
             ledger.record("audit", "claude-sonnet-5", _Usage(10, 20))
-            self.assertTrue((Path(root) / "bruins" / "runs" / "bruins"
+            self.assertTrue((Path(root) / "matter-beta" / "runs" / "matter-beta"
                              / "usage-ledger.jsonl").exists())
 
     def test_a_stage_without_a_slug_still_writes_visibly(self):
