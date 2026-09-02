@@ -107,11 +107,15 @@ export interface Env {
    */
   CONNECTOR_DOWN_RUN_AGE_SECONDS?: string
   /**
-   * Vendor-confirmed refresh-token lifetime for the Smokeball connector, in
-   * days (ss#2148; Smokeball auth docs: 30). The connector_token_expiring
-   * condition opens when the seat-reported token-file age reaches
-   * (lifetime - TOKEN_EXPIRY_WARN_DAYS). Unset/invalid disables the condition
-   * for smokeball rather than guessing a lifetime.
+   * The CURRENT vendor refresh-token lifetime for the Smokeball connector, in
+   * days (ss#2148; Smokeball auth docs: 180 since their 2026-08-24 cutover,
+   * 30 before it). This is the lifetime for a token issued TODAY — tokens
+   * minted before the cutover still die at 30, and ./token-expiry.ts dates each
+   * token from its reported age to pick the right one. Do not fold that back
+   * into this single value; on 2026-09-02 both regimes were live at once.
+   * The connector_token_expiring condition opens when the seat-reported
+   * token-file age reaches (lifetime - TOKEN_EXPIRY_WARN_DAYS). Unset/invalid
+   * disables the condition for smokeball rather than guessing a lifetime.
    */
   SMOKEBALL_REFRESH_TOKEN_LIFETIME_DAYS?: string
   /** Days of warning before the recorded lifetime. Default 5. */
@@ -396,7 +400,7 @@ export function evaluateConditions(
       })
     }
     out.push(...connectorConditions(row, connectorRunAgeThresholdSeconds))
-    out.push(...tokenExpiryConditions(row, tokenLifetimesDays, tokenWarnDays))
+    out.push(...tokenExpiryConditions(row, tokenLifetimesDays, tokenWarnDays, nowMs))
     // Indexed straight in, no `?? []`: both helpers default an absent list to
     // empty, and the extra branches pushed this function over its complexity
     // ceiling once the ss#2287 condition joined.
