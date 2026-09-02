@@ -28,6 +28,15 @@ from typing import Callable, Optional, Sequence
 #: healthchecks writer, which uses ''.
 ALERT_DRIVER_PREFIX = "audit_chain:"
 
+#: The driver prefix a REHEARSAL writes under (ss#2500, ``--rehearse-mismatch``).
+#: Deliberately distinct from :data:`ALERT_DRIVER_PREFIX`, because the alert PK is
+#: (entity_id, alert_date, driver) and the insert is an upsert: a rehearsal
+#: sharing the real driver would OVERWRITE a genuine finding written for the same
+#: seat earlier the same day. Proving the alarm works must not be able to erase
+#: the alarm. It also makes the row self-identifying on the dashboard and
+#: deletable on its own.
+REHEARSAL_DRIVER_PREFIX = "audit_chain:rehearsal:"
+
 DEFAULT_DB = "ss-console-db"
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
@@ -137,18 +146,31 @@ class ConsoleD1:
         rows = self.execute(sql)
         return rows[0].get("entity_id") if rows else None
 
-    def write_alert(self, *, entity_id: str, slug: str, summary: str, details: dict) -> None:
+    def write_alert(
+        self,
+        *,
+        entity_id: str,
+        slug: str,
+        summary: str,
+        details: dict,
+        driver_prefix: str = ALERT_DRIVER_PREFIX,
+    ) -> None:
         """One ``audit_integrity`` row on the shared alert sink.
 
         Existing snooze / acknowledged columns are left alone: this control
         never undoes a Captain action on a row it wrote yesterday.
+
+        ``driver_prefix`` exists only so a rehearsal can write under
+        :data:`REHEARSAL_DRIVER_PREFIX` and therefore cannot upsert over a real
+        finding for the same seat on the same day. Callers reporting a genuine
+        finding leave it alone.
         """
         values = ", ".join(
             [
                 sql_text(entity_id),
                 sql_text(slug),
                 sql_text(utc_date()),
-                sql_text(f"{ALERT_DRIVER_PREFIX}{slug}"),
+                sql_text(f"{driver_prefix}{slug}"),
                 "'audit_integrity'",
                 sql_int(0),
                 sql_int(0),
@@ -175,6 +197,23 @@ class ConsoleD1:
             "summary = excluded.summary, details_json = excluded.details_json, "
             "detected_at = excluded.detected_at"
         )
+
+    def clear_rehearsal_alerts(self, *, slug: str) -> None:
+        """Remove every rehearsal row for one seat, whatever day it was written.
+
+        A rehearsal that leaves its own alarm standing has replaced one problem
+        with another: the next person to read the dashboard cannot tell the drill
+        from the fire. The WHERE clause is pinned to
+        :data:`REHEARSAL_DRIVER_PREFIX` so this can never delete a real finding,
+        and it is an equality match on the full driver string rather than a LIKE
+        so no pattern character in a slug can widen it.
+        """
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        self.execute(
+            "DELETE FROM cost_anomaly_alerts WHERE driver = "
+            f"{sql_text(f'{REHEARSAL_DRIVER_PREFIX}{slug}')}"
+        )
+
 
 
 def first_result_set(stdout: str) -> list[dict]:
@@ -209,6 +248,7 @@ def utc_date() -> str:
 
 __all__ = [
     "ALERT_DRIVER_PREFIX",
+    "REHEARSAL_DRIVER_PREFIX",
     "ConsoleD1",
     "DEFAULT_DB",
     "Runner",
