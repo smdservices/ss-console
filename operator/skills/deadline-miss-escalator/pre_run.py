@@ -42,7 +42,6 @@ import asyncio
 import hashlib
 import json
 import os
-import socket
 import subprocess
 import sys
 from dataclasses import dataclass, field, replace
@@ -99,6 +98,12 @@ class MatterDeadline:
     # "not raised". Carried into the wake payload so a woken turn states a last
     # raise it READ instead of inventing one (#2253).
     last_raised: str | None = None
+    # The authored task-priority marker (CRITICAL / URGENT / HIGH PRIORITY) read
+    # off the Smokeball task subject by ``parse_pull`` — the one code-detectable
+    # triage signal (output-format rule 1). None when the subject carries none;
+    # the renderer's consequence map renders NOTHING for None (never invented
+    # urgency). WS-RENDER.
+    priority_marker: str | None = None
 
 
 class DeadlineSource(Protocol):
@@ -236,18 +241,16 @@ def load_matter_lookup_budget(customer_yaml_path: str | None = None) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _load_ledger_module():
+def _load_sibling_module(filename: str, module_name: str):
     import importlib.util
 
     candidates = [Path(__file__).resolve().parent]
     for base in ("/opt/data/skills", "/app/skills"):
         candidates.append(Path(base) / "deadline-miss-escalator")
     for cand in candidates:
-        module_path = cand / "escalation_ledger.py"
+        module_path = cand / filename
         if module_path.is_file():
-            spec = importlib.util.spec_from_file_location(
-                "escalation_ledger_vendored", module_path
-            )
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
             if spec is None or spec.loader is None:
                 continue
             module = importlib.util.module_from_spec(spec)
@@ -259,6 +262,10 @@ def _load_ledger_module():
             spec.loader.exec_module(module)
             return module
     return None
+
+
+def _load_ledger_module():
+    return _load_sibling_module("escalation_ledger.py", "escalation_ledger_vendored")
 
 
 def enrich_with_ledger(
@@ -310,6 +317,7 @@ def enrich_with_ledger(
                 acked=False if state is None else bool(state.acked),
                 task_id=d.task_id,
                 last_raised=None if state is None else state.last_raised_ts,
+                priority_marker=d.priority_marker,
             )
         )
     return enriched
@@ -382,6 +390,7 @@ def _digest_item(d: MatterDeadline, today: date, ack_code: str | None) -> dict:
         "days_out": (d.authored_date - today).days,
         "ack_code": ack_code,
         "last_raised": d.last_raised,
+        "priority_marker": d.priority_marker,
     }
 
 
@@ -455,7 +464,17 @@ def project_digest(
 
     stable = [d for d in firing if ledger.has_stable_identity(d.task_id, d.matter_id)]
     blanket = [d for d in firing if not ledger.has_stable_identity(d.task_id, d.matter_id)]
-    stable.sort(key=lambda d: ((d.authored_date - today).days, d.matter_id, d.task_id or ""))
+    # Deterministic needs-you ordering (WS-RENDER): authored priority marker
+    # first, then most overdue, then stable tie-breaks — ordering moves from
+    # "the turn's prose" into the projection.
+    stable.sort(
+        key=lambda d: (
+            0 if d.priority_marker else 1,
+            (d.authored_date - today).days,
+            d.matter_id,
+            d.task_id or "",
+        )
+    )
     needs_you = stable[:_NEEDS_YOU_MAX]
     admin = stable[_NEEDS_YOU_MAX:]
 
@@ -767,6 +786,11 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         # deliberately NOT subject to the plan cap. The turn renders it
         # verbatim; its counts are list lengths by construction.
         payload["digest"] = decision.digest
+    if decision is not None and decision.extra_metadata.get("dispatch_expected"):
+        # WS-RENDER: a deterministic out-of-turn dispatch is coming. The woken
+        # turn composes nothing; if no dispatch note is injected into its
+        # context, the SKILL.md failure-note instruction applies.
+        payload["dispatch_expected"] = True
     _write_pre_run_handoff(payload)
     print(json.dumps(payload))
     return 0
@@ -1029,6 +1053,30 @@ async def run_once(
                     "matter_lookups_failed": failed,
                 },
             )
+        if decision.digest is not None and ledger is not None:
+            # WS-RENDER: render everything into the out-of-turn dispatch
+            # envelope (recipients, bodies, hashes, appends). The returned
+            # stamps ride the EMITTED_WAKE row + the wake line; {} on any
+            # failure, and the wake proceeds undecorated (the SKILL.md
+            # failure-note instruction + heartbeat pager carry the miss).
+            envelope_mod = _load_sibling_module(
+                "dispatch_envelope.py", "escalator_dispatch_envelope"
+            )
+            if envelope_mod is not None:
+                events = ledger_events if ledger_events is not None else ledger.read_ledger()
+                envelope_meta = envelope_mod.build_and_write(
+                    digest=decision.digest,
+                    deadlines=deadlines,
+                    states=ledger.derive_state(events),
+                    ledger=ledger,
+                    today=today,
+                    ack_snooze_days=fire_policy.ack_snooze_days,
+                )
+                if envelope_meta:
+                    decision = replace(
+                        decision,
+                        extra_metadata={**decision.extra_metadata, **envelope_meta},
+                    )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
         await _try_write_emitted_wake(
             audit_writer_factory, decision, skill_name=skill_name, now=now
@@ -1065,7 +1113,6 @@ async def run_once(
 
 _CONNECTOR_PYTHON_DEFAULT = "/opt/connectors/smokeball/.venv/bin/python"
 _PULL_TIMEOUT_SECONDS = 60
-_HEARTBEAT_TIMEOUT_SECONDS = 10
 
 # Runs inside the connector venv. Both pulls are attempted independently and
 # errors are REPORTED, not swallowed — a partial view must not suppress.
@@ -1139,7 +1186,34 @@ def _is_probe_item(item: dict) -> bool:
     if text.upper().startswith(_PROVENANCE_MARK.upper()):
         text = text[len(_PROVENANCE_MARK) :].lstrip()
     return text.upper().startswith(_PROBE_MARK.upper())
-_MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id", "id")
+
+
+#: The closed authored-priority-marker set (output-format rule 1). The render
+#: map (render.py) carries the client-facing phrase per marker; an unlisted
+#: subject word is NOT a signal and renders nothing.
+_PRIORITY_MARKERS = ("CRITICAL", "URGENT", "HIGH PRIORITY")
+
+
+def _priority_marker_of(item: dict) -> str | None:
+    """The authored task-priority marker in the subject's own words, or None."""
+    for key in _SUBJECT_KEYS:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            upper = value.upper()
+            for marker in _PRIORITY_MARKERS:
+                if marker in upper:
+                    return marker
+            return None
+    return None
+
+
+# WS-RENDER dropped the bare-"id" fallback (Q6): a task's own id is not its
+# matter, and the fallback keyed ACK identity on it for calendar shapes. An
+# affected item now resolves "unknown-matter" -> blanket-ack band; prior
+# fired/ack history under the legacy key orphans (one re-fire — the ledger's
+# documented loss-recovery property) and the digest carries a one-run authored
+# notice (dispatch_envelope.legacy_rekey_count).
+_MATTER_ID_KEYS = ("matterId", "MatterId", "matter_id")
 # The Smokeball task/event id, extracted INDEPENDENTLY of matter id (a task's
 # own ``id`` is not its matter) — the anti-collision half of item identity.
 _SOURCE_ID_KEYS = ("id", "Id", "taskId", "TaskId", "eventId", "EventId")
@@ -1319,6 +1393,7 @@ def parse_pull(
                     # source id makes that join collision-safe.
                     acknowledged=False,
                     task_id=_source_id_of(item),
+                    priority_marker=_priority_marker_of(item),
                 )
             )
     if total_items > 0 and not deadlines:
@@ -1382,116 +1457,20 @@ class SmokeballSubprocessSource:
         return deadlines
 
 
-class BrokerSuppressedWakeWriter:
-    """SuppressedWakeWriter over the broker's uid-gated heartbeat verbs.
-
-    Two verbs, one per action_type — `suppressed_wake_append` for the quiet
-    tick, `emitted_wake_append` for the firing one (#2253). The broker pins each
-    verb to exactly one action_type, so neither can forge the other's row.
-    """
-
-    def __init__(self, socket_path: str, customer_slug: str) -> None:
-        self._socket_path = socket_path
-        self._customer_slug = customer_slug
-
-    async def write_suppressed_wake(
-        self,
-        *,
-        skill_name: str,
-        pre_run_inputs: bytes,
-        decision_basis: str,
-        next_scheduled_at: str,
-        extra_metadata: dict | None = None,
-    ) -> str:
-        return self._append(
-            verb="suppressed_wake_append",
-            action_type="SUPPRESSED_WAKE",
-            skill_name=skill_name,
-            pre_run_inputs=pre_run_inputs,
-            decision_basis=decision_basis,
-            next_scheduled_at=next_scheduled_at,
-            extra_metadata=extra_metadata,
-        )
-
-    async def write_emitted_wake(
-        self,
-        *,
-        skill_name: str,
-        pre_run_inputs: bytes,
-        decision_basis: str,
-        next_scheduled_at: str,
-        extra_metadata: dict | None = None,
-    ) -> str:
-        """Same payload shape, the wake-path verb. Raises like its sibling; the
-        caller (`_try_write_emitted_wake`) is the one that swallows."""
-        return self._append(
-            verb="emitted_wake_append",
-            action_type="EMITTED_WAKE",
-            skill_name=skill_name,
-            pre_run_inputs=pre_run_inputs,
-            decision_basis=decision_basis,
-            next_scheduled_at=next_scheduled_at,
-            extra_metadata=extra_metadata,
-        )
-
-    def _append(
-        self,
-        *,
-        verb: str,
-        action_type: str,
-        skill_name: str,
-        pre_run_inputs: bytes,
-        decision_basis: str,
-        next_scheduled_at: str,
-        extra_metadata: dict | None,
-    ) -> str:
-        request = {
-            "action": verb,
-            "row": {
-                "action_type": action_type,
-                "actor": "agent",
-                "actor_role": "agent",
-                "skill_name": skill_name,
-                "input_digest": hashlib.sha256(pre_run_inputs).hexdigest(),
-                "metadata": json.dumps(
-                    {
-                        "decision_basis": decision_basis,
-                        "next_scheduled_at": next_scheduled_at,
-                        "platform": "cron-pre-run",
-                        "customer": self._customer_slug,
-                        **(extra_metadata or {}),
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    default=str,
-                ),
-            },
-        }
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.settimeout(_HEARTBEAT_TIMEOUT_SECONDS)
-            sock.connect(self._socket_path)
-            sock.sendall(json.dumps(request).encode("utf-8") + b"\n")
-            raw = b""
-            while not raw.endswith(b"\n"):
-                chunk = sock.recv(4096)
-                if not chunk:
-                    break
-                raw += chunk
-        response = json.loads(raw.decode("utf-8"))
-        if response.get("ok") is not True:
-            raise RuntimeError(f"heartbeat rejected: {response}")
-        return str(response.get("id", ""))
-
-
-def _writer_factory():
-    socket_path = os.environ.get("SMD_AUDIT_BROKER_SOCKET") or os.environ.get(
-        "SMD_WORKSPACE_BROKER_SOCKET"
-    )
-    if not socket_path:
+# The SUPPRESSED/EMITTED_WAKE heartbeat writer (BrokerSuppressedWakeWriter)
+# lives in the sibling ``broker_writer.py``, loaded like the vendored ledger —
+# this skill deliberately DROPPED the vendored `_writer_factory` /
+# `BrokerSuppressedWakeWriter` copies (the CVT precedent, ss#2652; the sibling
+# split is what keeps pre_run.py under the module-size ratchet). A missing
+# sibling degrades to None, which run_once already treats as "no writer
+# wired" — every tick wakes (no_audit_writer_fail_open) and the missing
+# heartbeat trail is what the watcher-health view alarms on. Loud, never
+# silent.
+def _sibling_writer_factory():
+    writer_mod = _load_sibling_module("broker_writer.py", "escalator_broker_writer")
+    if writer_mod is None:
         return None  # run_once treats None as "no writer wired" → wake
-    return BrokerSuppressedWakeWriter(
-        socket_path, os.environ.get("CUSTOMER_SLUG", "")
-    )
+    return writer_mod.writer_factory()
 
 
 def main() -> int:
@@ -1507,7 +1486,11 @@ def main() -> int:
     try:
         return asyncio.run(
             run_once(
-                [source], windows, _writer_factory, today=today, fire_policy=fire_policy
+                [source],
+                windows,
+                _sibling_writer_factory,
+                today=today,
+                fire_policy=fire_policy,
             )
         )
     except Exception as exc:  # noqa: BLE001 — any wiring failure → wake

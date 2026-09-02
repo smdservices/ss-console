@@ -33,9 +33,14 @@
  *
  *   - heartbeat + audit timestamps drive the idle/offline split (freshest
  *     wins — a quiet-but-healthy Machine heartbeats without acting);
- *   - `sticky_stop_level` drives the sticky_stop posture (reason text is
- *     not pushed on the heartbeat, so the chip shows the posture without
- *     the substrate's reason string);
+ *   - `sticky_stop_level` drives the sticky_stop posture. The reason text IS
+ *     pushed on the heartbeat as of migration 0112 / overlay#341 and IS
+ *     stored, but it stays deliberately OFF this surface: the seat writes
+ *     operational jargon naming internal skills and MCP tools
+ *     ("consecutive_tool_failures=8 (window=600s, skill=mcp_x)"), which is
+ *     admin diagnostics, not client-facing copy. The chip shows the posture
+ *     without it BY CHOICE, not for want of data — do not read the null
+ *     below as a gap to close;
  *   - no in-flight marker is pushed today, so 'running' never renders
  *     from this source — we do not infer it from timestamps.
  *
@@ -456,6 +461,9 @@ async function fetchAlivenessFromFleetStatus(
     lastHeartbeatTs: row.last_heartbeat_ts,
     inFlightSkill: null,
     stickyStopLevel,
+    // Deliberately null even though fleet_status now HAS the reason: it is
+    // admin diagnostics naming internal skills and tools, and this object
+    // renders to a client. See the note at the top of this file.
     stickyStopReason: null,
   }
 }

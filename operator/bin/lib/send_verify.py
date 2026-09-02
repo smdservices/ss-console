@@ -18,11 +18,47 @@ TWO CHECKS, DIFFERENT STRENGTHS (cross-workstream contract, item 1):
   designed.
 
 * SECONDARY -- the transient channel fetch. The message body is pulled from the
-  mailbox (AgentMail ``text`` / msgraph ``body``), canon-hashed, and compared to
-  the wake stamp. Channel transforms (HTML wrapping, quoting) are uncalibrated
-  until the first live rehearsal, so a mismatch HERE is a HOLD, not a finding
-  -- it reddens the run without accusing anyone. Promotion to a finding is a
-  one-line change once rehearsal calibrates the transforms.
+  mailbox (AgentMail ``text`` / msgraph ``body``), canon-hashed, and compared
+  FIRST to the wake stamp, then to the dispatch row's ``plain_body_sha256``.
+  The second comparison is the calibration this check was waiting on. The wake
+  stamps hash the RAW markdown a renderer authored; AgentMail stores the
+  POST-``render_plain`` text, so every templated send mismatched the wake stamp
+  and HELD -- the designed pre-calibration state, and loud on every run (live
+  evidence: workflow run 33524166727, vfy_01M1ERB6DD7G8Q2XSQ2MAVQ68Z and
+  vfy_01M1ERF2TSW86GSAZT2YY16X7S -- the sent text/plain equals the overlay's
+  ``render_plain(markdown)`` byte-for-byte after canonicalization). The overlay
+  now stamps that exact attached text as ``plain_body_sha256`` on
+  CONFIRM_SEND_DISPATCHED, so the channel body has a same-representation
+  counterpart to be graded against, and a real divergence is a FINDING.
+
+  ABSENCE IS A FACT, NOT A GAP. The overlay OMITS ``plain_body_sha256`` rather
+  than duplicating the raw hash under a second name whenever no down-render
+  ran -- a prose reply, a composer-supplied html body, a non-send tool
+  (hermes-smd-overlay#338 stamps it iff ``_attach_html_body`` actually attached
+  the pair). So on a seat that stamps, absence MEANS "the channel text is still
+  the bytes the gate allowed", and the right counterpart is
+  ``rendered_body_sha256``. Grading it any other way would leave every
+  prose-reply send permanently held.
+
+  MERGE-ORDER SAFETY, AND THE ONE THING THE TWO CASES SHARE. Absence carries
+  that meaning only where the stamp COULD have appeared. On a seat whose pinned
+  ``OVERLAY_REF`` predates #338 the key never appears at all, a templated send
+  is still down-rendered with nothing recording it, and grading its channel body
+  against the raw markdown would file a false ``BODY_DIVERGED`` on every run.
+  The discriminator is therefore whether ANY dispatch row on the inbox carries a
+  plain stamp: never seen => pre-deploy => keep ``channel_mismatch_hold``; seen
+  => absence is deliberate => grade against ``rendered_body_sha256``. It is
+  probed per INBOX, not per window, because the overlay version is a property of
+  the seat and a day of rows observes it far more reliably than one hour does.
+  The invariant both halves serve: no false findings before the pin lands, no
+  permanent holds after it. ``body_unavailable`` stays a HOLD throughout -- a
+  body we could not fetch is a transport fact, not a divergence.
+
+  NOT EVERY SEND IS STAMPED, BY DESIGN. The overlay stamps at exactly one site
+  (``_dispatch_internal_message``); ``_dispatch_approved_send`` -- the
+  model-composed approved sends -- stamps neither hash, because those bodies are
+  covered by the cross-run invariants below rather than by body-hash
+  verification. This phase must not expect stamps on that path.
 
 LEAK SAFETY IS STRUCTURAL, NOT DISCIPLINARY. Both repos are PUBLIC. A client
 email body must never appear in CI logs, artifacts, committed files, or issue
@@ -104,15 +140,21 @@ class SendRenderError(RuntimeError):
 def canonical_body_sha256(text: str) -> str:
     """THE hash function -- identical at all three stamp sites.
 
-    sha256 over utf-8 of (CRLF -> LF, per-line trailing whitespace stripped,
-    trailing newlines stripped). The arbiter is the shared vector fixture
+    sha256 over utf-8 of (CRLF -> LF, per-line trailing SPACE/TAB stripped,
+    trailing newlines stripped). Space and tab ONLY -- ``rstrip(" \\t")``,
+    never a bare ``rstrip()``: bare rstrip eats every Unicode whitespace
+    (nbsp, form feed, vertical tab), and a mail client converting a body's
+    trailing nbsp would then hash differently here than at the render-side
+    stamp sites, false-HOLDing the channel check (render-pair review of
+    ss#2664; the ``nbsp_tail_survives`` vector pins it). The arbiter is the
+    shared vector fixture
     (``operator/contracts/fixtures/body-canon-vectors.json``), loaded verbatim
     by this repo's tests and the overlay's; an implementation change that
     drifts from the vectors fails both suites, which is the whole point of one
     fixture instead of two prose descriptions.
     """
     normalized = text.replace("\r\n", "\n")
-    lines = [line.rstrip() for line in normalized.split("\n")]
+    lines = [line.rstrip(" \t") for line in normalized.split("\n")]
     return hashlib.sha256("\n".join(lines).rstrip("\n").encode("utf-8")).hexdigest()
 
 
@@ -184,13 +226,24 @@ class WakeStamp:
 
 @dataclass
 class DispatchStamp:
-    """One CONFIRM_SEND_DISPATCHED row's render stamp."""
+    """One CONFIRM_SEND_DISPATCHED row's render stamps. Hashes only, ever --
+    this dataclass is as body-free as the verdicts, and for the same reason.
+
+    ``rendered_body_sha256`` hashes the RAW markdown the renderer authored (the
+    primary check's half of the join). ``plain_body_sha256`` hashes the exact
+    ``render_plain`` text the overlay attached to the channel, which is what a
+    mailbox fetch can actually be compared against; ``""`` means the seat's
+    pinned overlay does not stamp it yet, and the channel check holds instead of
+    grading.
+    """
 
     ts: datetime
     skill_name: str
     rendered_body_sha256: str
     body_variant: str  # full | skeleton | "" when unstamped
     row_id: Optional[str] = None
+    plain_body_sha256: str = ""  # "" == overlay predates the stamp; hold, never find
+    plain_consumed: bool = False  # one stamp vouches for exactly one channel body
 
 
 def _parse_ts(value) -> datetime:
@@ -273,6 +326,7 @@ def index_dispatches(rows: list[dict]) -> list[DispatchStamp]:
         if meta.get("outcome") != "sent":
             continue
         rendered = meta.get("rendered_body_sha256")
+        plain = meta.get("plain_body_sha256")
         out.append(
             DispatchStamp(
                 ts=_parse_ts(row["ts"]),
@@ -280,6 +334,10 @@ def index_dispatches(rows: list[dict]) -> list[DispatchStamp]:
                 rendered_body_sha256=rendered if isinstance(rendered, str) else "",
                 body_variant=str(meta.get("body_variant") or ""),
                 row_id=row.get("id"),
+                # Absent on any seat whose pinned overlay predates the plain
+                # stamp. Parsed, never defaulted to something truthy: "" is the
+                # signal the channel check reads to keep holding.
+                plain_body_sha256=plain if isinstance(plain, str) else "",
             )
         )
     return sorted(out, key=lambda stamp: stamp.ts)
@@ -399,20 +457,32 @@ def verify_channel_bodies(
     declares: dict[str, RenderDecl],
     fetch_body: Callable[[dict], Optional[str]],
     *,
+    dispatches: Optional[list[DispatchStamp]] = None,
     window_s: int = VERIFY_WINDOW_S,
 ) -> list[BodyVerdict]:
     """The SECONDARY check: what the mailbox actually holds, canon-hashed.
 
     For each wake stamp of a hash-verified skill, mailbox messages inside the
     window are claimed one-to-one (oldest first) and their fetched bodies
-    canon-compared to the wake's full/skeleton hashes. A mismatch is a HOLD,
-    not a finding, until the first live rehearsal calibrates channel
-    transforms (msgraph HTML-wraps; AgentMail's ``text`` may differ from
-    submitted bytes) -- promoting it is a one-line change here. The body
-    itself exists only inside this function.
+    canon-compared to the wake's full/skeleton hashes. A body that matches
+    neither is then compared to the dispatch row's ``plain_body_sha256`` -- the
+    hash of the exact ``render_plain`` text the overlay attached -- because the
+    wake stamps hash raw markdown and the mailbox stores the plain rendering, so
+    the wake stamp alone can never match a templated send's channel body.
+
+    ``dispatches`` is optional: without it (and on any seat whose overlay does
+    not stamp the plain hash yet) the check keeps its pre-calibration
+    ``channel_mismatch_hold``. The body itself exists only inside this function.
     """
     verdicts: list[BodyVerdict] = []
     claimed: set[int] = set()
+    stamps = dispatches or []
+    # THE DISCRIMINATOR for what an absent plain stamp means, probed once per
+    # inbox rather than per window. The overlay version is a property of the
+    # SEAT, not of the hour, so a day of rows gets many more chances to observe
+    # the stamp than one wake's window does -- fewer false holds, and the
+    # fail-safe direction is unchanged (never observed => never a finding).
+    overlay_stamps_plain = any(stamp.plain_body_sha256 for stamp in stamps)
     ordered = sorted(sent, key=lambda m: str(m.get("timestamp") or ""))
     for wake in wakes:
         decl = declares.get(wake.skill_name)
@@ -422,7 +492,11 @@ def verify_channel_bodies(
             if capacity_used >= wake.dispatch_capacity:
                 break
             claimed.add(index)
-            verdicts.append(_grade_channel_body(wake, message, fetch_body))
+            verdicts.append(
+                _grade_channel_body(
+                    wake, message, fetch_body, stamps, window_s, overlay_stamps_plain
+                )
+            )
     return verdicts
 
 
@@ -435,7 +509,35 @@ def _messages_in_window(ordered, wake, window_s, claimed):
             yield index, message
 
 
-def _grade_channel_body(wake, message, fetch_body) -> BodyVerdict:
+def _claim_dispatch_stamp(
+    dispatches: list[DispatchStamp], wake: WakeStamp, window_s: int
+) -> Optional[DispatchStamp]:
+    """The oldest unconsumed same-skill dispatch stamp inside the wake's window.
+
+    Consumed one-to-one exactly like ``_claim_wake``: one stamp vouches for one
+    channel body, so a single conformant dispatch cannot launder a run of
+    mailbox messages. ``index_dispatches`` returns ts-sorted, which is what
+    makes the first hit the oldest.
+
+    A row carrying NEITHER hash is skipped rather than claimed -- there is
+    nothing to compare against, and the primary check already reports that row
+    as ``no_dispatch_stamp``.
+    """
+    for dispatch in dispatches:
+        if dispatch.skill_name != wake.skill_name or dispatch.plain_consumed:
+            continue
+        if not (dispatch.plain_body_sha256 or dispatch.rendered_body_sha256):
+            continue
+        if not (wake.ts <= dispatch.ts <= wake.ts + timedelta(seconds=window_s)):
+            continue
+        dispatch.plain_consumed = True
+        return dispatch
+    return None
+
+
+def _grade_channel_body(
+    wake, message, fetch_body, dispatches, window_s, overlay_stamps_plain
+) -> BodyVerdict:
     common = {
         "skill_name": wake.skill_name,
         "wake_ts": wake.ts.isoformat(),
@@ -462,10 +564,73 @@ def _grade_channel_body(wake, message, fetch_body) -> BodyVerdict:
             detail="channel body matches the skeleton fallback",
             **common,
         )
+    # Raw-markdown wake stamps cannot match a down-rendered channel body, so the
+    # dispatch row is the only counterpart that can settle this. Which of its
+    # two hashes to use is decided by the overlay's own semantics, below.
+    stamp = _claim_dispatch_stamp(dispatches, wake, window_s)
+    if stamp is None:
+        return BodyVerdict(
+            verdict=VERDICT_CHANNEL_MISMATCH,
+            actual_sha256=digest,
+            detail=(
+                "channel body hash differs from wake stamp and no stamped dispatch row "
+                "in window is left to compare against (hold, not finding)"
+            ),
+            **common,
+        )
+    common["dispatch_ts"] = stamp.ts.isoformat()
+    if stamp.plain_body_sha256:
+        # A down-render happened and the overlay hashed exactly what it handed
+        # the channel. This is the comparison the check was always trying to
+        # make; the plain stamp, not the raw wake hash, is what it expected.
+        common["expected_sha256"] = stamp.plain_body_sha256
+        return _graded(
+            digest == stamp.plain_body_sha256, digest, "the dispatch plain_body_sha256", common
+        )
+    if not overlay_stamps_plain:
+        # PRE-DEPLOY WINDOW. On a seat whose pinned overlay predates
+        # hermes-smd-overlay#338, absence carries no information: the send may
+        # well have been down-rendered with nothing recording it, and grading a
+        # conformant templated send against the raw markdown would file a false
+        # BODY_DIVERGED on every run. Hold, exactly as before.
+        return BodyVerdict(
+            verdict=VERDICT_CHANNEL_MISMATCH,
+            actual_sha256=digest,
+            detail=(
+                "channel body hash differs from wake stamp and no dispatch row on this "
+                "inbox carries plain_body_sha256 (overlay predates the plain stamp; "
+                "hold, not finding)"
+            ),
+            **common,
+        )
+    # POST-DEPLOY. The overlay stamps plain hashes on this inbox, so it omitted
+    # this one deliberately: no down-render ran (prose reply, composer-supplied
+    # html), which means the channel text IS the bytes the gate allowed. Absence
+    # is a fact, not a gap, and `rendered_body_sha256` is the right counterpart.
+    common["expected_sha256"] = stamp.rendered_body_sha256
+    return _graded(
+        digest == stamp.rendered_body_sha256,
+        digest,
+        "the dispatch rendered_body_sha256 (no down-render on this send)",
+        common,
+    )
+
+
+def _graded(matched: bool, digest: str, against: str, common: dict) -> BodyVerdict:
+    """MATCH or the finding, said once. Calibration is done: with a
+    same-representation counterpart in hand, a mismatch can no longer be
+    explained away by an uncalibrated channel transform, so it is a FINDING."""
+    if matched:
+        return BodyVerdict(
+            verdict=VERDICT_MATCH,
+            actual_sha256=digest,
+            detail=f"channel body matches {against}",
+            **common,
+        )
     return BodyVerdict(
-        verdict=VERDICT_CHANNEL_MISMATCH,
+        verdict=VERDICT_DIVERGED,
         actual_sha256=digest,
-        detail="channel body hash differs from wake stamp (channel transforms uncalibrated; hold, not finding)",
+        detail=f"channel body hash differs from {against}",
         **common,
     )
 
@@ -492,7 +657,9 @@ class SendVerifier:
         dispatches = index_dispatches(rows)
         verdicts = verify_hash_join(wakes, dispatches, self._declares)
         if fetch_body is not None:
-            verdicts += verify_channel_bodies(sent, wakes, self._declares, fetch_body)
+            verdicts += verify_channel_bodies(
+                sent, wakes, self._declares, fetch_body, dispatches=dispatches
+            )
         # Two tiers (send_invariants.py): conflicts with COMMITTED expectations
         # are findings; first-seen values are proposals for a reviewed
         # send-invariants.json PR, never findings.

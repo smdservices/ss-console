@@ -1250,3 +1250,60 @@ describe('establishment skills warn that a numbered list is refused (ss#2212)', 
     })
   }
 })
+
+// Seat-reaching scripts must not print a process's command line (ss#2218).
+//
+// `seat-probe.sh` re-execs the probe as `runuser -- env ${ENVV} ...`, which puts
+// the gateway's entire environment on the wrapper's own argv. That is deliberate
+// and load-bearing: it is how the probe reaches the seat with the credentials it
+// needs. The consequence is that any flag which prints a command line is an
+// exfiltration primitive in these files, not a debugging convenience.
+//
+// On 2026-08-10 a probe ran `pgrep -af establish_intake`, matched its own
+// wrapper, and printed ANTHROPIC_API_KEY, the Smokeball client id and secret and
+// more into a session transcript (P1). The prose warning landed with the fix;
+// this is what stops the next edit removing it by accident.
+describe('seat-reaching scripts never print a process command line (ss#2218)', () => {
+  const SEAT_SCRIPTS = ['operator/bin/seat-probe.sh']
+
+  // `pgrep -a`, `pgrep -af`, `ps e`, `ps auxe`. Matches the flag cluster, not a
+  // fixed string, so `-fa` and `-af` are both caught.
+  const ARGV_PRINTERS = /\b(pgrep\s+-[a-z]*a[a-z]*|ps\s+(e\b|aux?e\b))/
+
+  for (const rel of SEAT_SCRIPTS) {
+    const body = readFileSync(resolve(rel), 'utf-8')
+
+    it(`${rel} contains no argv-printing invocation`, () => {
+      // Comments are where the ban is explained, so they must not trip it.
+      const code = body
+        .split('\n')
+        .filter((l) => !/^\s*#/.test(l))
+        .join('\n')
+      const hit = ARGV_PRINTERS.exec(code)
+      expect(
+        hit?.[0] ?? null,
+        `${rel} invokes ${hit?.[0]} — on a seat this prints the gateway environment, ` +
+          'secret values included (ss#2218). Match a pattern that cannot match the ' +
+          'wrapper and print pids only.'
+      ).toBeNull()
+    })
+
+    it(`${rel} still carries the ban in prose`, () => {
+      // A guard with no explanation gets deleted by whoever hits it next.
+      expect(
+        /NEVER run `pgrep -a`/.test(body),
+        `${rel} lost the ss#2218 warning. The rule is not obvious from the code: ` +
+          'the env is on the wrapper argv by design, and the comment is what says why.'
+      ).toBe(true)
+    })
+  }
+
+  it('the pattern catches the exact invocation from the incident', () => {
+    // The inverse control. Without this the regex could match nothing at all and
+    // every assertion above would pass on an empty check.
+    expect(ARGV_PRINTERS.test('pgrep -af establish_intake')).toBe(true)
+    expect(ARGV_PRINTERS.test('ps auxe')).toBe(true)
+    // ...and leaves the safe form alone.
+    expect(ARGV_PRINTERS.test('pgrep -f "hermes.*gateway run"')).toBe(false)
+  })
+})

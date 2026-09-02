@@ -1158,7 +1158,48 @@ describe('Operator customer Machine Dockerfile', () => {
     // is real (translate materializes it on the MCP bearer; the gate retries any
     // non-2xx forward) and medchron submit gains the append file-id selection.
     // Vocabulary identical (71); no tracked pair moves.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="45cc19e7184223a344fbe303f1539a81c64d9122"')
+    // 45cc19e7 -> 727f3f5b (2026-08-31d, overlay#337, ss#2664 WS-RENDER pair):
+    // pre-rendered out-of-turn dispatch (consume-once envelope, full ->
+    // skeleton -> failure-note ladder, post-dispatch ledger appends under the
+    // witness session), the in-turn rendered-body slot check, CONFIRM-row
+    // body-conformance stamps (rendered_body_sha256 / body_variant /
+    // routing_leg, pre-mutation canonical hash), the text/plain down-render,
+    // and the outbound scans wired on the out-of-turn path. Vocabulary
+    // identical (71); no tracked pair moves.
+    // 727f3f5b -> 799647d1 (2026-09-01, TWO merges: overlay#338 then overlay#339;
+    // console halves ss#2674 and ss#2677, both already on main).
+    // #338: the CONFIRM row gains a SECOND canonical hash, plain_body_sha256, over
+    // the exact text/plain handed to the channel, because _attach_html_body
+    // down-renders `text` before dispatch and the channel therefore never stores
+    // the bytes rendered_body_sha256 names -- which graded every conformant
+    // templated send channel_mismatch_hold. Omitted, never duplicated, when no
+    // down-render happened.
+    // #339: SUPERVISOR_STATES widens 5 -> 7 (`starting`, `never-healthy`). The set
+    // is a closed vocabulary that drops unrecognised words to NULL, and the console
+    // holds on NULL rather than paging -- so until this pin, both words entrypoint.sh
+    // already writes were discarded in transit as silence.
+    // Vocabulary identical (71, AST at both refs); no tracked pair moves;
+    // shared/heartbeat.py byte-identical (a field VALUE vocabulary changed, not the
+    // field set).
+    // 799647d1 -> b16e32f7 (2026-09-01b, overlay#341; console half is migration
+    // 0112 + the ingest + the alert label, same ss PR as this bump).
+    // The sticky-stop ladder has FOUR meters (consecutive tool failures, refusal
+    // cascade, runtime budget, cost threshold) and the beat carried only the
+    // LEVEL, so every page read "Cost breaker HARD_STOP" whatever tripped it --
+    // on 2026-09-01 ashton-price stopped on a bad credential and the SEV1 named
+    // the wrong meter. The cause was never missing, only dropped:
+    // sticky_stop_state has recorded `reason` and `condition` on the transition
+    // all along and read_level did `SELECT level`. read_stop_state now returns
+    // all three from the SAME row (worst level, latest stamp) and build_payload
+    // carries them. Also fixes three cause-pairing defects found in review:
+    // pin_hard_stops left a stale condition beside an operator-pause reason; an
+    // OK row could hand back a cause; rows with no recognised level returned a
+    // fabricated OK instead of unknown.
+    // Vocabulary identical; no tracked pair moves (cost_breaker.py and
+    // heartbeat.py have no ss-console twin). shared/heartbeat.py DID change --
+    // the field SET grew by two, so heartbeat-fields.json is re-stamped in the
+    // same change and its parity gate covers both new columns.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b16e32f7f280661d0d5589ac46647d2894606b43"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

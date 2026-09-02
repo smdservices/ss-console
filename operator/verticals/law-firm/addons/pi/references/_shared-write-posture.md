@@ -12,8 +12,11 @@ posture here; every skill inherits it.
 `create_memo` body field — as **UNVERIFIED against a live tenant** ("re-confirm ALL
 writes at the A&P prod connect"). Since then `create_folder` and `add_file` have
 delivered sixteen chronology packages into the A&P production tenant (August 2026,
-runner-side through the connector), so the earlier staging 403 is history, not a
-live constraint; the rule below still governs every agent-side write.
+runner-side through the connector), and the task DTO was verified on prod
+2026-08-31 (`POST /tasks` is 202-async - an immediate read 404s, so a confirming
+read must retry; `update_task` needs `staff_id` because the vendor PUT is a full
+replace). The earlier staging 403 is history, not a live constraint; the rule
+below still governs every agent-side write.
 
 So the rule is uniform, not scoped to one write:
 

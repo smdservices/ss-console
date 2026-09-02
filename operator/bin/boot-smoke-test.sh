@@ -16,8 +16,11 @@
 # at higher fidelity, the boot-time end-to-end test described in §6 of the
 # build plan.
 #
-# Each check logs PASS/FAIL with the slug + step name. Exit code: 0 if every
-# check passes, non-zero on the first failure (fail-fast).
+# Each check logs PASS/FAIL with the slug + step name. EVERY check runs: a red
+# one is recorded and the run continues, and the summary at the end lists all of
+# them. Exit code: 0 only if every check passed. A failed PRECONDITION (Machine
+# never started, this checkout cannot parse the pin) still aborts, because every
+# check after one of those is noise rather than evidence. See ss#2487.
 
 set -euo pipefail
 
@@ -27,8 +30,79 @@ SLUG="${1:-}"
 APP_NAME="hermes-${SLUG}"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [smoke/${SLUG}] $*"; }
-pass() { log "PASS: $*"; }
-fail() { log "FAIL: $*"; exit 1; }
+
+# CHECK RESULTS ARE COLLECTED, NOT FATAL (ss#2487).
+#
+# This script used to exit on the first red. On hermes-ashton-price -- the
+# paying client's seat -- check 6 sampled `! test -w /var/lib/smd-config` while
+# the provisioner was still materializing `specs/` into that directory. A race,
+# not a permission bug: a manual re-run four minutes later passed every check.
+# But the abort meant checks 7 through 42 never ran, and those include
+# `matter-mixing-fence`, the three credential-stripping assertions, and the four
+# medchron gate-refusal probes. The operator saw "FATAL: dependency chain is
+# unhealthy", which reads exactly the same whether the seat is fine or genuinely
+# compromised, and the only way to tell was to re-run the script by hand.
+#
+# It recurred: a later run logged 39 PASS then FATALed and skipped the rest.
+#
+# A gate that stops at the first red hides the state of everything after it, and
+# the entire value of 42 checks is seeing WHICH ones failed together. So a failed
+# check is recorded and the run continues; the summary at the end prints every
+# failure and the exit code is non-zero if there was any.
+PASS_COUNT=0
+FAILED_CHECKS=()
+
+pass() {
+  PASS_COUNT=$((PASS_COUNT + 1))
+  log "PASS: $*"
+}
+
+# A CHECK failed. Record it, keep going, and return 0 so `set -e` and the
+# `|| check_fail ...` callers below do not abort the run.
+check_fail() {
+  FAILED_CHECKS+=("$*")
+  log "FAIL: $*"
+  return 0
+}
+
+# A PRECONDITION failed, and every check after it would be noise rather than
+# evidence: the Machine never started, or this checkout cannot parse the pin it
+# is supposed to compare against. Distinct from check_fail on purpose. Softening
+# these would produce 40 cascading failures whose real cause is one line, which
+# is a different way of hiding the answer.
+fail() { log "FATAL: $*"; exit 1; }
+
+# Print every result and exit non-zero if any check failed. Registered as an EXIT
+# trap so a precondition abort still gets a summary of what had run.
+summarize() {
+  local code=$?
+  local n=${#FAILED_CHECKS[@]}
+  log "----- boot smoke summary for ${APP_NAME} -----"
+  log "checks passed: ${PASS_COUNT}"
+  log "checks failed: ${n}"
+  if [ "${n}" -gt 0 ]; then
+    local c
+    for c in "${FAILED_CHECKS[@]}"; do log "  FAILED: ${c}"; done
+  fi
+  # A precondition abort already carries its own non-zero code; do not mask it.
+  # A non-zero code with NOTHING recorded is the third case and the confusing
+  # one: an unguarded command between checks died under `set -e`, so the run
+  # stopped without a FAIL or a FATAL. On the fail-fast script that was a silent
+  # death; printing "checks failed: 0" beside a non-zero exit would be worse
+  # than silence, so name it.
+  if [ "${code}" -ne 0 ]; then
+    if [ "${n}" -eq 0 ]; then
+      log "Run ENDED EARLY at an unguarded error (exit ${code}) after ${PASS_COUNT} check(s)."
+      log "No check failed. The checks after that point did not run and their state is UNKNOWN."
+    fi
+    exit "${code}"
+  fi
+  if [ "${n}" -gt 0 ]; then
+    log "Boot smoke FAILED for ${APP_NAME}: ${n} check(s) red"
+    exit 1
+  fi
+}
+trap summarize EXIT
 
 # ssh_exec <step-name> <command>
 # Run a command inside the Machine via `fly ssh console`. The command is
@@ -44,7 +118,7 @@ ssh_exec() {
   if fly ssh console -a "${APP_NAME}" --command "sh -c '${cmd}'" >/dev/null 2>&1; then
     pass "${step}"
   else
-    fail "${step} — command failed: ${cmd}"
+    check_fail "${step} — command failed: ${cmd}"
   fi
 }
 
@@ -70,7 +144,7 @@ ssh_exec_script() {
     --command "sh -c 'echo ${encoded} | base64 -d | sh'" >/dev/null 2>&1; then
     pass "${step}"
   else
-    fail "${step} — command failed: ${cmd}"
+    check_fail "${step} — command failed: ${cmd}"
   fi
 }
 
@@ -104,9 +178,28 @@ CUSTOMER_YAML="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/operator/cust
 if [ -f "${CUSTOMER_YAML}" ]; then
   # shellcheck source=lib/machine-size.sh
   source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/machine-size.sh"
-  AUTHORED_SIZE="$(python3 -c "import sys, yaml; c = yaml.safe_load(open('${CUSTOMER_YAML}')); print(c['machine']['size'])" 2>/dev/null || echo "")"
-  AUTHORED_MEM="$(python3 -c "import sys, yaml; c = yaml.safe_load(open('${CUSTOMER_YAML}')); print(c['machine']['memory_mb'])" 2>/dev/null || echo "")"
-  AUTHORED_CPUS="$(machine_cpus "${AUTHORED_SIZE}" 2>/dev/null || echo "")"
+  # Parse with the same interpreter shape provisioning and step 7b use (uv +
+  # pyyaml): the workstation python3 has no yaml module (step 7b's comment,
+  # re-proven here 2026-08-31), and the first cut's bare
+  # `python3 -c "import yaml" ... 2>/dev/null || echo ""` swallowed that
+  # ImportError into EMPTY authored values, so a successful pilot reprovision
+  # FATALed with the nonsense "authored /MB, Fly reports shared-1-1024" —
+  # the instrument failed, not the seat (live 2026-08-31). A check that cannot
+  # fail as itself measured nothing: the dependency is probed loudly first,
+  # and a genuine parse error now fails the step naming itself instead of
+  # feeding an empty value into the comparison.
+  command -v uv >/dev/null 2>&1 \
+    || fail "guest-matches-authored-size — uv not on PATH ($(command -v python3 || echo python3) has no pyyaml; this script parses customer.yaml via 'uv run --with pyyaml' — install uv or run from a shell where it resolves)"
+  AUTHORED_SIZE="$(uv run --quiet --with pyyaml python3 -c 'import sys, yaml; print((yaml.safe_load(open(sys.argv[1])) or {})["machine"]["size"])' "${CUSTOMER_YAML}")" \
+    || fail "guest-matches-authored-size — could not parse machine.size from ${CUSTOMER_YAML}"
+  AUTHORED_MEM="$(uv run --quiet --with pyyaml python3 -c 'import sys, yaml; print((yaml.safe_load(open(sys.argv[1])) or {})["machine"]["memory_mb"])' "${CUSTOMER_YAML}")" \
+    || fail "guest-matches-authored-size — could not parse machine.memory_mb from ${CUSTOMER_YAML}"
+  # Same silent-empty pattern, same comparison: machine_cpus already refuses
+  # an unrecognised size loudly on stderr — let that surface instead of
+  # muting it into the empty string the [ -n ... ] guard below turns into
+  # the same misleading FATAL.
+  AUTHORED_CPUS="$(machine_cpus "${AUTHORED_SIZE}")" \
+    || fail "guest-matches-authored-size — machine_cpus has no cpu count for authored machine.size '${AUTHORED_SIZE}'"
   GUEST="$(fly status -a "${APP_NAME}" --json 2>/dev/null \
     | python3 -c "import sys, json
 try:
@@ -118,7 +211,7 @@ except Exception:
   if [ -n "${AUTHORED_CPUS}" ] && [ "${GUEST}" = "$(machine_cpu_kind "${AUTHORED_SIZE}")-${AUTHORED_CPUS}-${AUTHORED_MEM}" ]; then
     pass "guest-matches-authored-size (${AUTHORED_SIZE}, ${AUTHORED_MEM} MB, ${AUTHORED_CPUS} vCPU)"
   else
-    fail "guest-matches-authored-size — authored ${AUTHORED_SIZE}/${AUTHORED_MEM}MB, Fly reports ${GUEST}"
+    check_fail "guest-matches-authored-size — authored ${AUTHORED_SIZE}/${AUTHORED_MEM}MB, Fly reports ${GUEST}"
   fi
 fi
 
@@ -420,9 +513,29 @@ ssh_exec "medchron-daemon-idle" "! test -f /run/smd-medchron/child.pid"
 ssh_exec "medchron-memory-cap-present" "grep -q memory_cap.:..cgroup /run/smd-medchron/heartbeat.json"
 ssh_exec "medchron-queue-root-owned" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/queue)\" = root:workspace-broker:770 ]"
 ssh_exec "medchron-jobs-dir-root-owned-child-traversable" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/jobs)\" = root:medchron:710 ]"
-ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
-ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
-ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+
+# The firm config is authored per-seat in the PRIVATE engagements repo, and
+# provision-customer.sh step 2b reads the SAME path and continues without it
+# ("the chronology runner will refuse jobs" — the authored state for a seat
+# that runs no chronology routine). Whether the config is EXPECTED here is
+# decided by that same source of expectation, never by whether the boot
+# happened to materialize it: this check landed unconditional in the
+# 2026-08-31 medchron slices, and that same evening pilot-smokeball (no
+# medchron authored) ran 39 PASS then FATALed on it, skipping every check
+# after — the instrument failed, not the seat. Law 2's fail-closed rule
+# applies to the expectation source itself: a missing engagements checkout is
+# "cannot evaluate", which must never read as "not expected".
+ENGAGEMENTS_DIR="${SS_ENGAGEMENTS_DIR:-${HOME}/dev/engagements}"
+[ -d "${ENGAGEMENTS_DIR}" ] \
+  || fail "medchron-firm-config-expected — engagements checkout missing at ${ENGAGEMENTS_DIR} (clone venturecrane/engagements or set SS_ENGAGEMENTS_DIR); cannot evaluate whether ${SLUG} authors a medchron firm config, and cannot-evaluate must not read as not-expected"
+MEDCHRON_FIRM_YAML_AUTHORED="${ENGAGEMENTS_DIR}/operator/customers/${SLUG}/medchron/firm.yaml"
+if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
+  ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
+  ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
+  ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+else
+  pass "medchron-firm-config-absent (not authored for this seat at ${MEDCHRON_FIRM_YAML_AUTHORED}; runner refuses jobs by design — skipping config-perm, token, and gate-refusal checks)"
+fi
 
 # ---------- Step 14b: the four registered runner gates refuse their planted violations (ss#2614, ADR 0087) ----------
 # `medchron probe <gate>` builds a throwaway synthetic matter, plants exactly
@@ -432,9 +545,18 @@ ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/
 # (probe_surface: prod-boot): the status is re-earned on every provision, not
 # asserted once. What makes these able to FAIL: neuter a gate module (return 0,
 # drop the planted check) and its probe prints UNEXPECTED_PASS, non-zero.
-ssh_exec "medchron-gate-claim-audit-refuses" "/opt/medchron/.venv/bin/medchron probe claim_audit | grep -q REFUSED"
-ssh_exec "medchron-gate-extractive-refuses" "/opt/medchron/.venv/bin/medchron probe extractive | grep -q REFUSED"
-ssh_exec "medchron-gate-cross-client-refuses" "/opt/medchron/.venv/bin/medchron probe cross_client | grep -q REFUSED"
-ssh_exec "medchron-gate-provenance-refuses" "/opt/medchron/.venv/bin/medchron probe provenance | grep -q REFUSED"
+# Gated on the same authored expectation as the firm-config checks above:
+# on a seat with no medchron authored the runner refuses every job, and the
+# pass-annotated skip is emitted by the firm-config branch.
+if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
+  ssh_exec "medchron-gate-claim-audit-refuses" "/opt/medchron/.venv/bin/medchron probe claim_audit | grep -q REFUSED"
+  ssh_exec "medchron-gate-extractive-refuses" "/opt/medchron/.venv/bin/medchron probe extractive | grep -q REFUSED"
+  ssh_exec "medchron-gate-cross-client-refuses" "/opt/medchron/.venv/bin/medchron probe cross_client | grep -q REFUSED"
+  ssh_exec "medchron-gate-provenance-refuses" "/opt/medchron/.venv/bin/medchron probe provenance | grep -q REFUSED"
+fi
 
-log "All boot smoke checks passed for ${APP_NAME}"
+# The summarize EXIT trap prints the tally and owns the exit code. Nothing is
+# claimed here: on the old fail-fast script this line was only ever reached on a
+# clean run, so it doubled as the verdict. Now the run reaches the end whether
+# checks were red or green, and a "passed" line here would be a lie on a red run.
+log "All checks executed for ${APP_NAME}"

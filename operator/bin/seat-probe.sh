@@ -46,6 +46,20 @@ done
 
 # Resolve the gateway pid INLINE on the seat (never pre-resolved — stale pid =
 # empty env = refused turn), export its env, drop to hermes, run the command.
+#
+# NEVER run `pgrep -a`, `pgrep -af`, `ps e`, or `ps auxe` THROUGH this wrapper.
+# ss#2218 (P1, 2026-08-10): a probe used `pgrep -af establish_intake`; because
+# the line below re-execs the command as `runuser -- env ${ENVV} ...`, the
+# wrapper's OWN process matched the pattern, and `-a` printed its full argv —
+# which is the gateway environment, secret VALUES included — into a session
+# transcript. The exposure was ANTHROPIC_API_KEY, the Smokeball client id and
+# secret, and more.
+#
+# The env is on this process's command line BY DESIGN; that is how the probe
+# reaches the seat with the gateway's credentials. So any flag that prints a
+# command line is an exfiltration primitive here, not a debugging convenience.
+# Match on a pattern that cannot match this wrapper (as the gateway resolve
+# below does), and print pids only — never `-a`, never `-f` with output.
 exec fly ssh console -a "${APP_NAME}" -C "sh -c '
 GPID=\$(pgrep -f \"hermes.*gateway run\" | head -1)
 if [ -z \"\${GPID}\" ]; then

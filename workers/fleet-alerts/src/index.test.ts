@@ -28,6 +28,8 @@ function row(overrides: Partial<FleetStatusRow>): FleetStatusRow {
     customer_slug: 'smd',
     last_heartbeat_ts: '2026-07-04T11:59:00.000Z', // 60s ago = green
     sticky_stop_level: 'OK',
+    sticky_stop_reason: null,
+    sticky_stop_condition: null,
     scheduler_ok: null,
     scheduler_max_overdue_seconds: null,
     connectors_json: null,
@@ -88,6 +90,48 @@ describe('evaluateConditions', () => {
       })
       expect(out.find((c) => c.condition === 'hard_stop')?.active).toBe(want)
     }
+  })
+
+  it('the hard_stop detail carries the cause the seat recorded', () => {
+    const out = evaluateConditions(
+      [
+        row({
+          sticky_stop_level: 'HARD_STOP',
+          sticky_stop_condition: 'consecutive_tool_failures',
+          sticky_stop_reason:
+            'consecutive_tool_failures=8 (window=600s, skill=mcp_smokeball_list_matters)',
+        }),
+      ],
+      NOW,
+      RED,
+      { overdueThresholdSeconds: OVERDUE }
+    )
+    const detail = out.find((c) => c.condition === 'hard_stop')?.detail ?? ''
+    expect(detail).toContain('sticky_stop_level=HARD_STOP')
+    expect(detail).toContain('condition=consecutive_tool_failures')
+    // The operative half: the page must name the failing skill, or the reader
+    // goes to the seat to find it (which is what happened on 2026-09-01).
+    expect(detail).toContain('skill=mcp_smokeball_list_matters')
+  })
+
+  it('the hard_stop detail degrades to the level alone on a pre-cause seat', () => {
+    // A seat not yet reprovisioned onto the cause-carrying overlay. The line
+    // must not claim a cause it does not have.
+    const out = evaluateConditions([row({ sticky_stop_level: 'HARD_STOP' })], NOW, RED, {
+      overdueThresholdSeconds: OVERDUE,
+    })
+    expect(out.find((c) => c.condition === 'hard_stop')?.detail).toBe('sticky_stop_level=HARD_STOP')
+  })
+
+  it('the hard_stop label names no meter', () => {
+    // Four meters drive this ladder; naming one in the subject asserts a cause
+    // the condition never measured. Regression guard for the 2026-09-01
+    // "Cost breaker HARD_STOP" page on a credential failure.
+    const label = conditionLabel('hard_stop')
+    for (const meter of ['Cost', 'cost', 'refusal', 'tool failure', 'runtime']) {
+      expect(label).not.toContain(meter)
+    }
+    expect(label).toContain('HARD_STOP')
   })
 
   // --- scheduler conditions + per-field NULL-hold ---------------------------
@@ -1389,6 +1433,36 @@ describe('gateway loop + supervisor (ss#2488 part 2)', () => {
     expect(b.active).toBe(true)
     expect(a.detail).toContain('argv')
     expect(b.detail).toContain('no loop heartbeat')
+  })
+
+  it('never-healthy opens inert, and says a human is the only recovery path', () => {
+    // The 2026-09-01 pilot-smokeball crash loop. A gateway that wedges DURING
+    // startup never writes a first beat, so the seat supervisor never arms and
+    // its state stayed `not-armed` -- which does not page, and must not, since
+    // `not-armed` is also every healthy seat's first thirty seconds. The seat
+    // restarted every ~15 minutes for two and a half hours and reached nobody.
+    //
+    // It shares gateway_supervisor_inert rather than adding a fourth condition
+    // because `condition` carries a CHECK constraint (migrations 0107, 0109) --
+    // a new name without a migration is a REJECTED row, i.e. a page that
+    // silently never lands. The detail is where the three are told apart.
+    const c = one(row({ gateway_supervisor_state: 'never-healthy' }), 'gateway_supervisor_inert')[0]
+    expect(c.active).toBe(true)
+    expect(c.detail).toContain('NEVER CAME UP')
+    // The two halves an on-call needs: that nothing automatic follows, and that
+    // it is not the supervisor's job to kill it.
+    expect(c.detail).toMatch(/will NOT restart it/)
+    expect(c.detail).toMatch(/needs a human/)
+  })
+
+  it('starting resolves both supervisor conditions — it is every healthy boot', () => {
+    // Before the fix this window reported `inert` and paged on every boot: the
+    // entrypoint forks the supervisor while still root, and bootstrap.sh runs
+    // for minutes before its own gateway exec, so /proc/<main>/cmdline
+    // legitimately names no hermes for that whole time.
+    const out = loopStates(row({ gateway_supervisor_state: 'starting' }))
+    expect(out.find((c) => c.condition === 'gateway_supervisor_inert')!.active).toBe(false)
+    expect(out.find((c) => c.condition === 'gateway_supervisor_refusing')!.active).toBe(false)
   })
 
   it('armed and not-armed resolve both supervisor conditions; NULL holds both', () => {

@@ -128,6 +128,43 @@ _OPS_AUDIT_KEYS: tuple[str, ...] = (
 #: Of those, the ones that stay in the ledger and never travel back to the agent.
 _AUDIT_ONLY_KEYS = frozenset({"sender_key", "audit_row_token"})
 
+#: What a CALLER may contribute to a transmit's audit row, by name (WS-RENDER).
+#: Same posture as ``session_id``/``matter_ref`` (ss#2497): attribution the
+#: agent asserts about its own send, never authorization — the broker still
+#: decides recipients from the seat's own config. Closed list so a caller
+#: cannot widen the ledger.
+#:
+#: ``routing_leg``          which case-alert-routing leg picked the recipients
+#:                          (central | matter_staff_responsible |
+#:                          matter_staff_assisting | fallback).
+#: ``rendered_body_sha256`` canonical_body_sha256 of the text the gate allowed,
+#:                          computed by the overlay PRE-mutation (before the
+#:                          html/plain attach) — the console's wake<->confirm
+#:                          hash join (send_verify.py) compares it against the
+#:                          EMITTED_WAKE stamps; arbiter fixture:
+#:                          operator/contracts/fixtures/body-canon-vectors.json.
+#: ``plain_body_sha256``    canonical_body_sha256 of the exact text/plain the
+#:                          overlay handed the channel, computed POST-attach —
+#:                          the console's confirm<->channel check compares it
+#:                          against the body fetched back from the mailbox,
+#:                          which stores the down-render, not the authored
+#:                          markdown. OMITTED by the overlay when no down-render
+#:                          happened, and that absence is MEANINGFUL to the
+#:                          verifier ("text is still the authored bytes"), so it
+#:                          must never be synthesized here.
+#: ``body_variant``         full | skeleton — a skeleton match grades
+#:                          ``degraded`` in the verifier, never BODY_DIVERGED.
+#:
+#: CLOSED ALLOWLIST, AND SILENTLY SO. The filter below drops any key not named
+#: here with no error and no log, which is the right posture for an untrusted
+#: caller-supplied dict but means a stamp the overlay adds WITHOUT a matching
+#: entry here vanishes between the two repos and the verifier simply never sees
+#: it. Adding a stamp is therefore a two-repo change; ``plain_body_sha256``
+#: pairs with hermes-smd-overlay#338.
+#: (One physical line on purpose: tests/operator-module-size.test.ts ratchets
+#: this module's logical-line count and only ever tightens. Comments are free.)
+_CALLER_AUDIT_KEYS: tuple[str, ...] = ("routing_leg", "rendered_body_sha256", "plain_body_sha256", "body_variant")
+
 
 class Broker:
     """Authorize and execute reviewed Workspace operations."""
@@ -776,6 +813,17 @@ class Broker:
         session_id = session_id.strip() if isinstance(session_id, str) else ""
         matter_ref = request.get("matter_ref")
         matter_ref = matter_ref.strip() if isinstance(matter_ref, str) else ""
+        # WS-RENDER: the caller's body-conformance stamps, read from the
+        # REQUEST like the two joins above, filtered through a closed
+        # allowlist (string values only). Optional at both ends, so the
+        # overlay and this process deploy in either order.
+        raw_extra = request.get("audit_extra")
+        raw_extra = raw_extra if isinstance(raw_extra, dict) else {}
+        audit_extra = {
+            key: raw_extra[key].strip()
+            for key in _CALLER_AUDIT_KEYS
+            if isinstance(raw_extra.get(key), str) and raw_extra[key].strip()
+        }
         # Digest what the caller asked to send, computed here, so the row proves
         # which content went out without the ledger ever holding the content.
         digest = hashlib.sha256(_canonical(payload)).hexdigest()
@@ -794,6 +842,7 @@ class Broker:
                     "reason": str(exc),
                     "recipients": attempted,
                     "input_digest": digest,
+                    **audit_extra,
                 },
                 session_id=session_id,
                 matter_ref=matter_ref,
@@ -812,6 +861,7 @@ class Broker:
                     "reason": str(exc),
                     "recipients": attempted,
                     "input_digest": digest,
+                    **audit_extra,
                 },
                 session_id=session_id,
                 matter_ref=matter_ref,
@@ -826,6 +876,7 @@ class Broker:
                 "message_id": result.get("message_id") or "",
                 identity_key: result.get(identity_key) or "",
                 "input_digest": digest,
+                **audit_extra,
                 # The ops verb's own contributions to the row, written through by
                 # NAME rather than by wholesale copy, so a transmit result can
                 # never quietly widen what the ledger records.
