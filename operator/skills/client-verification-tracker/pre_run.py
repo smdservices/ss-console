@@ -652,9 +652,6 @@ def decide(
 # ---------------------------------------------------------------------------
 
 
-def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
-    return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-
 
 # ---------------------------------------------------------------------------
 # Pre-run handoff (ss#2547)
@@ -696,7 +693,31 @@ def _write_pre_run_handoff(payload: dict) -> None:
     writer.write_pre_run_handoff(payload, skill=_HANDOFF_SKILL, started_at=_HANDOFF_STARTED_AT)
 
 
-def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
+def _emit_suppress() -> int:
+    print(json.dumps({"wakeAgent": False}))
+    return 0
+
+
+def _next_scheduled_at(now: datetime, schedule_hours: int = 24) -> str:
+    return (now + timedelta(hours=schedule_hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _parse():
+    """The pure date/string coercions, in the sibling ``parsing.py`` (module-size
+    ratchet). A missing sibling is a deployment fault, not a runtime state, so
+    this raises rather than degrading a parse into a silent None."""
+    mod = _load_sibling_module("parsing.py", "cvt_parsing")
+    if mod is None:
+        raise RuntimeError("parsing.py sibling missing")
+    return mod
+
+
+def _emit_wake(
+    decision: "WakeDecision | None" = None,
+    *,
+    basis: str | None = None,
+    extra: dict | None = None,
+) -> int:
     """Print the wake gate line — WITH the decision's plans (ss #2226).
 
     Hermes reads only ``wakeAgent`` from the last stdout line and then injects
@@ -747,74 +768,16 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         # WS-RENDER: a deterministic out-of-turn dispatch is coming; if no
         # dispatch note is injected, the SKILL.md failure-note applies.
         payload["dispatch_expected"] = True
+    if extra:
+        # Already filtered to blind_wake.WAKE_PAYLOAD_KEYS. Carrying
+        # dispatch_expected is what puts the turn on SKILL.md's "a dispatch is
+        # coming, compose nothing" branch instead of the one it ignored on
+        # 2026-09-02.
+        payload.update(extra)
     _write_pre_run_handoff(payload)
     print(json.dumps(payload))
     return 0
 
-
-def _plan_counts(decision: "WakeDecision") -> dict:
-    """How many per-item plans the gate handed over.
-
-    Only ``plans_total`` here: this gate serializes the whole plan list (no
-    ``_MAX_SERIALIZED_PLANS`` cap, unlike its three siblings), so emitted and
-    total are the same number and a ``plans_truncated`` field would be a
-    constant dressed as a measurement.
-    """
-    if not decision.plans:
-        return {}
-    return {"plans_total": len(decision.plans)}
-
-
-async def _try_write_emitted_wake(
-    audit_writer_factory,
-    decision: "WakeDecision",
-    *,
-    skill_name: str,
-    now: datetime,
-) -> None:
-    """Best-effort EMITTED_WAKE row for a real-decision wake (#2253).
-
-    The suppress path logged its reasoning and the wake path logged nothing, so
-    the ledger held a record of every tick the gate stayed quiet and no record
-    of the ticks it fired. On 2026-08-10 the sibling escalator woke with its
-    connector down and sent an alert stating a date it could not read; the only
-    way anyone found it was reading the mailbox.
-
-    BEST-EFFORT IS THE CONTRACT, and it inverts the suppress path's on purpose.
-    Below, an audit failure escalates to a wake, because a silent suppress is
-    indistinguishable from a broken gate. Here the wake is already the decision,
-    so every failure — no writer wired, socket down, broker refusal, a writer
-    object too old to have the method — is swallowed. A wake that a failed audit
-    write could suppress or delay would be a gate made of observability.
-
-    It is not free, and the cost is stated rather than assumed away: the
-    broker-socket writer blocks for up to its heartbeat timeout against a
-    hung broker — the same bound the suppress path already accepts. Bounded, and
-    never a change of decision.
-
-    Not called on the fail-open paths: `ledger_unavailable_fail_open` returns
-    before there is a decision to record, `no_audit_writer_fail_open` fires
-    because there is no writer to call, and `suppress_heartbeat_failed_fail_open`
-    fires because a write to that writer just failed.
-    """
-    try:
-        writer = audit_writer_factory()
-        if writer is None:
-            return
-        await writer.write_emitted_wake(
-            skill_name=skill_name,
-            pre_run_inputs=decision.pre_run_inputs_digest,
-            decision_basis=decision.decision_basis,
-            next_scheduled_at=_next_scheduled_at(now),
-            extra_metadata={**decision.extra_metadata, **_plan_counts(decision)},
-        )
-    except Exception:  # noqa: BLE001 — observability never gates the wake
-        pass
-
-
-def _emit_suppress() -> int:
-    print(json.dumps({"wakeAgent": False}))
-    return 0
 
 
 def _item_to_dict(item: VerificationItem) -> dict:
@@ -884,7 +847,7 @@ async def run_once(
     if ledger is None:
         # Fire-open: a chase watcher that goes silent is the dangerous failure.
         sys.stderr.write("[pre_run] escalation ledger unavailable; waking\n")
-        return _emit_wake(basis="ledger_unavailable_fail_open")
+        return _blind_wake("ledger_unavailable_fail_open")
     if ledger_events is None:
         ledger_events = ledger.read_ledger()
 
@@ -933,15 +896,20 @@ async def run_once(
                         extra_metadata={**decision.extra_metadata, **envelope_meta},
                     )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
-        await _try_write_emitted_wake(
-            audit_writer_factory, decision, skill_name=SKILL_NAME, now=now
-        )
+        _wake = _load_sibling_module("blind_wake.py", "cvt_blind_wake")
+        if _wake is not None:
+            await _wake.try_write_emitted_wake(
+                audit_writer_factory,
+                decision,
+                skill_name=SKILL_NAME,
+                next_scheduled_at=_next_scheduled_at(now),
+            )
         return _emit_wake(decision)
 
     writer = audit_writer_factory()
     if writer is None:
         # Mirror-don't-gate: no writer = no heartbeat trail = always wake.
-        return _emit_wake(basis="no_audit_writer_fail_open")
+        return _blind_wake("no_audit_writer_fail_open")
     try:
         await writer.write_suppressed_wake(
             skill_name=SKILL_NAME,
@@ -951,7 +919,7 @@ async def run_once(
             extra_metadata=decision.extra_metadata,
         )
     except Exception:  # noqa: BLE001 — any audit failure → wake (dead-man's-switch)
-        return _emit_wake(basis="suppress_heartbeat_failed_fail_open")
+        return _blind_wake("suppress_heartbeat_failed_fail_open")
     return _emit_suppress()
 
 
@@ -1018,29 +986,7 @@ def _extract_items(payload) -> list | None:
     return None
 
 
-def _parse_iso_date(value) -> date | None:
-    if not isinstance(value, str) or len(value) < 10:
-        return None
-    try:
-        return date.fromisoformat(value[:10])
-    except ValueError:
-        return None
 
-
-def _first_date(item: dict, keys: Sequence[str]) -> date | None:
-    for key in keys:
-        parsed = _parse_iso_date(item.get(key))
-        if parsed is not None:
-            return parsed
-    return None
-
-
-def _first_str(item: dict, keys: Sequence[str]) -> str:
-    for key in keys:
-        value = item.get(key)
-        if isinstance(value, str) and value.strip():
-            return value
-    return ""
 
 
 def _matter_id_of(item: dict) -> str:
@@ -1122,10 +1068,10 @@ def parse_pull(raw: dict, *, today: date) -> tuple[list[VerificationItem], str |
     for task in tasks:
         if not isinstance(task, dict):
             continue
-        subject = _first_str(task, _TASK_SUBJECT_KEYS)
+        subject = _parse().first_str(task, _TASK_SUBJECT_KEYS)
         if not _is_verification_task(subject):
             continue
-        due = _first_date(task, _TASK_DATE_KEYS) or today
+        due = _parse().first_date(task, _TASK_DATE_KEYS) or today
         number, number_absent = _matter_number_of(task)
         items.append(
             VerificationItem(
@@ -1188,11 +1134,34 @@ def _sibling_writer_factory():
     return writer_mod.writer_factory()
 
 
+def _blind_wake(basis: str) -> int:
+    """Wake with no decision, but never without a trace and never bare.
+
+    The two guarantees, and the 2026-09-02 tick that forced them, live in the
+    sibling ``blind_wake.py``. A missing sibling degrades to the pre-fix
+    behaviour, which is why that failure is loud rather than swallowed.
+    """
+    mod = _load_sibling_module("blind_wake.py", "cvt_blind_wake")
+    if mod is None:
+        sys.stderr.write("[pre_run] blind_wake sibling missing; waking bare\n")
+        return _emit_wake(basis=basis)
+    return _emit_wake(
+        basis=basis,
+        extra=mod.wake_blind(
+            basis,
+            load_sibling=_load_sibling_module,
+            writer_factory=_sibling_writer_factory,
+            skill_name=SKILL_NAME,
+            next_scheduled_at=_next_scheduled_at(datetime.now(timezone.utc)),
+        ),
+    )
+
+
 def main() -> int:
     customer_slug = os.environ.get("CUSTOMER_SLUG")
     if not customer_slug:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
-        return _emit_wake(basis="customer_slug_unset_fail_open")
+        return _blind_wake("customer_slug_unset_fail_open")
     config, refire_days = load_chase_config()
     today = datetime.now(timezone.utc).date()
     source = SmokeballSubprocessSource(today)
@@ -1208,7 +1177,7 @@ def main() -> int:
         )
     except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
         sys.stderr.write(f"[pre_run] chase pre_run failed ({exc}); waking\n")
-        return _emit_wake(basis="pre_run_crashed_fail_open")
+        return _blind_wake("pre_run_crashed_fail_open")
 
 
 if __name__ == "__main__":
