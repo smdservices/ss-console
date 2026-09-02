@@ -190,6 +190,15 @@ jobs:
       # run that could not evaluate a seat is the defect this job exists to make
       # impossible -- and until the heartbeat field reaches a seat, EVERY run
       # holds, which is the honest state and looks like one.
+      #
+      # 3 is the ONE exception: an alarm drill that fired and cleared its own row
+      # (ss#2500). It is a pass, and the first live drill went red here until this
+      # said so -- the step above had already printed "REHEARSAL PASSED" and
+      # exited 0, and this gate reddened the run anyway on the raw status. A
+      # failed drill is 4, still caught by `!= '0'`.
       - name: Fail the run when the check was not clean
-        if: github.event_name != 'pull_request' && steps.watch.outputs.status != '0'
+        if: >-
+          github.event_name != 'pull_request'
+          && steps.watch.outputs.status != '0'
+          && steps.watch.outputs.status != '3'
         run: exit 1
