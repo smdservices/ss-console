@@ -1199,7 +1199,26 @@ describe('Operator customer Machine Dockerfile', () => {
     // heartbeat.py have no ss-console twin). shared/heartbeat.py DID change --
     // the field SET grew by two, so heartbeat-fields.json is re-stamped in the
     // same change and its parity gate covers both new columns.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b16e32f7f280661d0d5589ac46647d2894606b43"')
+    // b16e32f7 -> c557f8c0 (2026-09-02b, overlay#343; Captain decision).
+    // The sticky-stop ladder collapses to TWO states, OK and HARD_STOP. WARN
+    // and SOFT_STOP are removed because they did nothing: SOFT_STOP was
+    // specified to pin every skill's trust_ceiling to draft_for_review and no
+    // caller ever did it, no reader compared against anything but HARD_STOP,
+    // and the alerter never paged on it -- while the CLIENT portal told the
+    // customer "the safety substrate has pinned the agent". pilot-smokeball
+    // sat latched at SOFT_STOP for five days restricting nothing.
+    // THE HARD_STOP THRESHOLDS DID NOT MOVE (8 tool failures / 600s, 20
+    // refusals / 1800s, 200% of the cost cap), pinned by a test in both repos:
+    // deleting two dead states must not be confusable with changing when a
+    // client's Operator halts. The one meter with no hard threshold
+    // (record_runtime_seconds) now stops nothing and records an observation
+    // row -- exactly its prior effect, since SOFT_STOP restricted nothing.
+    // Legacy WARN/SOFT_STOP rows read as OK, which also releases a seat
+    // latched at SOFT_STOP with no Captain clear.
+    // Vocabulary identical; the canonical twin
+    // operator/safety-substrate/sticky_stop.py moves in the SAME change (this
+    // repo is where it lands first per the vendoring header).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c557f8c02b4e42c0f8b002d8dcb492c8bb6920f4"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
