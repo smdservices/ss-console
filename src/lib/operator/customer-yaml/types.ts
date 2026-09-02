@@ -786,6 +786,16 @@ export interface WebhookTrigger {
    * integrity control); `cooldown_minutes: 0` disables for this trigger.
    */
   throttle: WebhookTriggerThrottle | null
+  /**
+   * Whether the VENDOR emits this event_type (unauthored ⇒ true). `false`
+   * marks a SYNTHETIC trigger the gate routes but the vendor never sends, so
+   * the egress reconciler must keep it OUT of the vendor subscription's
+   * eventTypes. A vendor validates eventTypes as a set, so one synthetic
+   * sibling fails the whole POST and takes every real event type on that
+   * adapter down with it — see operator/bin/webhook_reconcile.py
+   * build_intents for the 2026-08-28 → 09-02 pilot-smokeball outage.
+   */
+  vendor_emitted: boolean | null
 }
 
 export interface WebhookTriggerExclude {
@@ -795,10 +805,8 @@ export interface WebhookTriggerExclude {
   actors: string[]
 }
 
-export interface WebhookTriggerThrottle {
-  /** Non-negative integer minutes; 0 disables; null = block authored empty (gate default). */
-  cooldown_minutes: number | null
-}
+/** Non-negative integer minutes; 0 disables; null = block authored empty (gate default). */
+export type WebhookTriggerThrottle = { cooldown_minutes: number | null }
 
 export interface Scope {
   email_folders_visible: string[]
