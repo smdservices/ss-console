@@ -51,6 +51,12 @@ on:
       no_archive:
         description: 'Verify only; write no off-box copy (any value = on)'
         required: false
+      rehearse_mismatch:
+        description: >-
+          ALARM DRILL (ss#2500): one customer slug. Forces a head mismatch with a
+          synthetic pin, proves the alert reaches the sink, clears its own row.
+          Writes no archive; never touches audit_head_history. Prefer smd-staging.
+        required: false
   pull_request:
     paths:
       - 'operator/bin/audit-chain-watch.py'
@@ -105,11 +111,20 @@ jobs:
           # input is user-supplied and would otherwise be a shell-injection seam.
           WATCH_SEAT: ${{ github.event.inputs.seat }}
           WATCH_NO_ARCHIVE: ${{ github.event.inputs.no_archive }}
+          WATCH_REHEARSE: ${{ github.event.inputs.rehearse_mismatch }}
         run: |
           set -u
           ARGS=""
-          if [ -n "${WATCH_SEAT:-}" ]; then ARGS="${ARGS} --seat ${WATCH_SEAT}"; fi
-          if [ -n "${WATCH_NO_ARCHIVE:-}" ]; then ARGS="${ARGS} --no-archive"; fi
+          if [ -n "${WATCH_REHEARSE:-}" ]; then
+            # The drill is its own run and takes no other flags: it evaluates one
+            # named seat with a synthetic pin and writes nothing to the archive.
+            # Mixing it with --seat / --no-archive would make the report ambiguous
+            # about which rows were real.
+            ARGS="--rehearse-mismatch ${WATCH_REHEARSE}"
+          else
+            if [ -n "${WATCH_SEAT:-}" ]; then ARGS="${ARGS} --seat ${WATCH_SEAT}"; fi
+            if [ -n "${WATCH_NO_ARCHIVE:-}" ]; then ARGS="${ARGS} --no-archive"; fi
+          fi
           # `|| STATUS=$?` is load-bearing, not style (ss#2307/ss#2309). This
           # body runs under `bash -e`, so an unguarded non-zero exit would abort
           # HERE, before the report prints and before `status` reaches
@@ -121,8 +136,18 @@ jobs:
           cat watch.txt
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
           # Contract (operator/bin/audit-chain-watch.py): 0 clean, 1 finding,
-          # 2 hold. Anything else is the control itself breaking and must fail
-          # the run immediately.
+          # 2 hold; 3 = the alarm drill FIRED (a pass), 4 = the drill failed.
+          # Anything else is the control itself breaking.
+          #
+          # 3 is green and 4 is red, and neither is ever 1, so a drill cannot
+          # open the "a seat's audit record does not hold up" issue below. That
+          # separation is the whole reason the drill has its own codes: a
+          # rehearsal that could be read as a real finding would train the reader
+          # to discount the real one.
+          if [ "${STATUS}" = "3" ]; then
+            echo "REHEARSAL PASSED: the head-mismatch alarm fired and its row was cleared."
+            exit 0
+          fi
           if [ "${STATUS}" -gt 2 ]; then exit "${STATUS}"; fi
 
       # A FINDING opens an issue. A HOLD does not: an instrument failure is not

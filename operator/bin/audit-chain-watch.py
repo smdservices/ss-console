@@ -87,11 +87,13 @@ from bin.lib.chain_pin import (  # noqa: E402
     PIN_NOT_SUPPLIED,
     check_pinned_head,
 )
+
 #: The wrangler-backed D1 client moved verbatim to bin/lib/console_d1.py when
 #: the cron-slot watchdog became its second consumer (same behavior, one
 #: client). Re-exported here so tests and callers read unchanged.
 from bin.lib.console_d1 import (  # noqa: E402
     ALERT_DRIVER_PREFIX,  # noqa: F401 — re-export
+    REHEARSAL_DRIVER_PREFIX,
     DEFAULT_DB,
     ConsoleD1,
     Runner,  # noqa: F401 — re-export
@@ -116,6 +118,18 @@ HOLD = "hold"
 #: visible (#2366: a skipped seat must never be silent), and not a hold, because
 #: a seat that does not exist has no audit record to be wrong about.
 SKIP = "skip"
+
+#: A rehearsal is neither clean nor a finding about a client's records. Its own
+#: exit code keeps it from ever being read as either — a drill that can be
+#: mistaken for the real alarm is worse than no drill.
+EXIT_REHEARSAL_OK = 3
+EXIT_REHEARSAL_FAILED = 4
+
+#: The head a rehearsal pins. Not random and not a real digest: a value that is
+#: the right SHAPE (64 hex) so it passes the malformed-pin guard and reaches the
+#: real absent-head branch, while being one no chain can ever produce, so the
+#: rehearsal cannot accidentally match a genuine head and report clean.
+REHEARSAL_HEAD = "de" * 32
 
 DEFAULT_BUCKET = "smd-audit-archive"
 
@@ -283,8 +297,6 @@ def partition_seats(authored: Sequence[str], provisioned: Sequence[str]) -> Seat
     )
 
 
-
-
 # ---------------------------------------------------------------------------
 # R2 archive
 # ---------------------------------------------------------------------------
@@ -339,8 +351,14 @@ def _aws_upload(local: Path, destination: str) -> None:
     key_id, secret, endpoint = r2_credentials()
     proc = subprocess.run(
         [
-            "aws", "s3", "cp", str(local), destination,
-            "--endpoint-url", endpoint, "--only-show-errors",
+            "aws",
+            "s3",
+            "cp",
+            str(local),
+            destination,
+            "--endpoint-url",
+            endpoint,
+            "--only-show-errors",
         ],
         capture_output=True,
         text=True,
@@ -440,9 +458,7 @@ def _cf_get_lock(url: str) -> dict:
     token = os.environ.get("CLOUDFLARE_API_TOKEN")
     if not token:
         raise RuntimeError("CLOUDFLARE_API_TOKEN is unset, so the bucket lock cannot be read")
-    req = urllib.request.Request(
-        url, headers={"Authorization": f"Bearer {token}"}, method="GET"
-    )
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"}, method="GET")
     # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — bucket_lock_url is the only builder and it gates both interpolated segments on a fixed charset.
     with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310 — https, charset-gated
         return json.loads(resp.read().decode("utf-8"))
@@ -524,7 +540,10 @@ def _rule_covers_archive(rule: Any) -> tuple[bool, str]:
 
     prefix = rule.get("prefix") or ""
     if not isinstance(prefix, str) or not ARCHIVE_PREFIX.startswith(prefix):
-        return False, f"rule {rule_id!r} covers {prefix!r}, which does not cover {ARCHIVE_PREFIX!r}"
+        return (
+            False,
+            f"rule {rule_id!r} covers {prefix!r}, which does not cover {ARCHIVE_PREFIX!r}",
+        )
 
     condition = rule.get("condition")
     if not isinstance(condition, dict):
@@ -634,6 +653,104 @@ def process_seat(slug: str, console: ConsoleD1, *, bucket: str, archive: bool) -
     return outcome
 
 
+def rehearse_mismatch(slug: str, console: ConsoleD1) -> tuple[int, list[str]]:
+    """Prove the head-mismatch ALARM fires, not just that the detector detects.
+
+    ss#2500's last criterion. Everything under it was proven months ago -- chains
+    verified daily, heads pinned, copies locked for seven years -- and the one
+    thing nobody had watched was a finding travelling from this script to the
+    console's alert sink. An alarm nobody has heard is exactly the class of
+    defect this control exists to end (Law 12), so it gets a repeatable drill
+    rather than a one-time poke somebody remembers doing.
+
+    WHAT IS REAL AND WHAT IS SYNTHETIC. The seat, the export, the seam pull, the
+    pin check, the alert write and the sink are all real. The only fabricated
+    input is the pinned head: :data:`REHEARSAL_HEAD` replaces whatever D1 holds,
+    in memory, for this call only. ``audit_head_history`` is never written.
+
+    THREE THINGS IT MUST NOT DO, each enforced here rather than remembered:
+
+    * **Never overwrite a real alert.** The row goes in under
+      :data:`REHEARSAL_DRIVER_PREFIX`, so the (entity_id, alert_date, driver)
+      upsert cannot land on a genuine finding for the same seat the same day.
+    * **Never write to the archive.** The ``audit/`` prefix is object-locked for
+      seven years; a drill has no business writing there. This path does not
+      archive at all.
+    * **Never leave its own alarm standing.** The row is cleared before the
+      function returns, and the clear is reported. A drill that leaves a fake
+      fire on the dashboard has replaced one problem with another.
+
+    Returns (exit code, report lines). A rehearsal that does NOT produce a
+    finding is a FAILURE: it means the detector no longer detects.
+    """
+    lines: list[str] = [f"REHEARSAL  {slug}: synthetic head mismatch (ss#2500)"]
+
+    client = seam_client_from_env(slug)
+    if client is None:
+        lines.append(f"  FAILED  the runtime-read seam is not configured for {slug}.")
+        return EXIT_REHEARSAL_FAILED, lines
+    try:
+        rows = client.read_all("audit_export")
+    except Exception as exc:  # noqa: BLE001
+        lines.append(f"  FAILED  the audit export could not be pulled ({exc}).")
+        return EXIT_REHEARSAL_FAILED, lines
+
+    real_pin = None
+    try:
+        real_pin = console.newest_pin(slug)
+    except Exception:  # noqa: BLE001 -- the real pin is context, not the input
+        pass
+
+    synthetic = {
+        "audit_head": REHEARSAL_HEAD,
+        "first_seen_heartbeat_ts": None,
+        "last_seen_heartbeat_ts": None,
+    }
+    outcome = evaluate_export(slug, rows, synthetic)
+    lines.append(
+        f"  export  {len(rows)} rows, real head {(outcome.details.get('head') or '')[:12]}"
+    )
+    lines.append(f"  real pin {(real_pin or {}).get('audit_head', '(none)')[:12]} (untouched)")
+    lines.append(f"  verdict {outcome.state}: {outcome.headline}")
+
+    if not outcome.is_finding:
+        # The drill's own falsifier. A pinned head that is not in the export MUST
+        # be a finding; anything else means the detector stopped detecting and
+        # the daily clean runs have been meaningless.
+        lines.append(
+            "  FAILED  a head that is not in the export did not produce a finding. "
+            "The detector is broken, and every clean run since is unproven."
+        )
+        return EXIT_REHEARSAL_FAILED, lines
+
+    outcome.details["rehearsal"] = True
+    outcome.details["rehearsal_note"] = (
+        "SYNTHETIC. ss#2500 alarm drill: the pinned head was replaced in memory to "
+        "force a finding. This seat's real ledger was not touched and its real pin "
+        "was not changed."
+    )
+    outcome.headline = f"[REHEARSAL — not a real finding] {outcome.headline}"
+
+    problem = emit_alert(console, outcome, driver_prefix=REHEARSAL_DRIVER_PREFIX)
+    if problem:
+        lines.append(f"  FAILED  the alert row could not be written: {problem}")
+        return EXIT_REHEARSAL_FAILED, lines
+    lines.append(
+        f"  alert   written under driver {REHEARSAL_DRIVER_PREFIX}{slug} — the alarm fired"
+    )
+
+    try:
+        console.clear_rehearsal_alerts(slug=slug)
+    except Exception as exc:  # noqa: BLE001
+        lines.append(
+            f"  FAILED  the rehearsal alert was written but could NOT be cleared ({exc}). "
+            f"Delete it by hand: driver = '{REHEARSAL_DRIVER_PREFIX}{slug}'."
+        )
+        return EXIT_REHEARSAL_FAILED, lines
+    lines.append("  cleared the rehearsal row; the dashboard is back to real findings only")
+    return EXIT_REHEARSAL_OK, lines
+
+
 def roster_notices(roster: SeatRoster) -> list[SeatOutcome]:
     """One reported line per seat the probe did NOT pull, in either direction."""
     notices = [
@@ -658,8 +775,17 @@ def roster_notices(roster: SeatRoster) -> list[SeatOutcome]:
     return notices
 
 
-def emit_alert(console: ConsoleD1, outcome: SeatOutcome) -> Optional[str]:
-    """Write the finding to the shared sink. Returns a hold message on failure."""
+def emit_alert(
+    console: ConsoleD1,
+    outcome: SeatOutcome,
+    *,
+    driver_prefix: str = ALERT_DRIVER_PREFIX,
+) -> Optional[str]:
+    """Write the finding to the shared sink. Returns a hold message on failure.
+
+    ``driver_prefix`` is only ever moved by :func:`rehearse_mismatch`; the daily
+    run uses the default so its rows land where the dashboard looks for them.
+    """
     try:
         entity = console.entity_id(outcome.slug)
         if not entity:
@@ -669,6 +795,7 @@ def emit_alert(console: ConsoleD1, outcome: SeatOutcome) -> Optional[str]:
             slug=outcome.slug,
             summary=outcome.headline,
             details=outcome.details,
+            driver_prefix=driver_prefix,
         )
     except Exception as exc:  # noqa: BLE001
         return f"{outcome.slug}: the alert row could not be written ({exc})."
@@ -714,9 +841,7 @@ def write_step_summary(outcomes: Sequence[SeatOutcome], lock_note: str) -> None:
         fp.write("\n".join(lines) + "\n")
 
 
-def resolve_exit(
-    outcomes: Sequence[SeatOutcome], alert_holds: Sequence[str], lock_ok: bool
-) -> int:
+def resolve_exit(outcomes: Sequence[SeatOutcome], alert_holds: Sequence[str], lock_ok: bool) -> int:
     """A finding outranks a hold; either outranks clean.
 
     A finding outranks because it is the louder fact and it is already written
@@ -740,9 +865,28 @@ def main(argv: Optional[list[str]] = None) -> int:
         action="store_true",
         help="Verify only; do not write the off-box copy. For a manual re-check.",
     )
+    ap.add_argument(
+        "--rehearse-mismatch",
+        metavar="SLUG",
+        help=(
+            "Alarm drill (ss#2500): force a head mismatch on one seat with a synthetic "
+            "pin, prove the alert reaches the sink, then clear the row. Writes no "
+            "archive and never touches audit_head_history. Exit 3 = the alarm fired, "
+            "4 = it did not."
+        ),
+    )
     args = ap.parse_args(argv)
 
     console = ConsoleD1(db=args.db)
+
+    if args.rehearse_mismatch:
+        # A drill is its own run. It never mixes with a verdict about real
+        # ledgers, so there is no path on which a rehearsal row and a genuine
+        # finding are written by the same invocation.
+        code, lines = rehearse_mismatch(args.rehearse_mismatch, console)
+        for line in lines:
+            print(line)
+        return code
 
     if args.seat:
         # An explicit --seat is a person naming what to look at; honour it
@@ -768,7 +912,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     if archive:
         lock_ok, lock_note = probe_bucket_lock(args.bucket)
     else:
-        lock_ok, lock_note = True, "Off-box copy skipped (--no-archive); no lock probe was run."
+        lock_ok, lock_note = (
+            True,
+            "Off-box copy skipped (--no-archive); no lock probe was run.",
+        )
 
     outcomes = [
         process_seat(s, console, bucket=args.bucket, archive=archive) for s in roster.probed
