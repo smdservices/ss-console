@@ -112,15 +112,25 @@ describe('evaluateConditions', () => {
     // The operative half: the page must name the failing skill, or the reader
     // goes to the seat to find it (which is what happened on 2026-09-01).
     expect(detail).toContain('skill=mcp_smokeball_list_matters')
+    // And hand them the way back: the same incident's responder cleared the
+    // stop by raw sqlite because nothing in their path named the built surface.
+    expect(detail).toContain('clear: admin.smd.services/admin/operator/smd')
+    expect(detail).toContain('runbook docs/runbooks/operator/sticky-stop-clear.md')
   })
 
   it('the hard_stop detail degrades to the level alone on a pre-cause seat', () => {
     // A seat not yet reprovisioned onto the cause-carrying overlay. The line
-    // must not claim a cause it does not have.
+    // must not claim a cause it does not have - but it still points at the
+    // clear surface, which is true of every seat.
     const out = evaluateConditions([row({ sticky_stop_level: 'HARD_STOP' })], NOW, RED, {
       overdueThresholdSeconds: OVERDUE,
     })
-    expect(out.find((c) => c.condition === 'hard_stop')?.detail).toBe('sticky_stop_level=HARD_STOP')
+    const detail = out.find((c) => c.condition === 'hard_stop')?.detail ?? ''
+    expect(detail).toBe(
+      'sticky_stop_level=HARD_STOP | clear: admin.smd.services/admin/operator/smd ' +
+        '(runbook docs/runbooks/operator/sticky-stop-clear.md)'
+    )
+    expect(detail).not.toContain('condition=')
   })
 
   it('the hard_stop label names no meter', () => {

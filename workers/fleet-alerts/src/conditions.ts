@@ -87,10 +87,18 @@ const CONDITION_LABEL: Record<string, string> = {
  * reports the level alone, and this degrades to exactly what it always said
  * rather than claiming a cause it does not have.
  *
- * Takes the three fields rather than a FleetStatusRow so this file stays free
- * of an import from index.ts, which imports the labels from here.
+ * Takes the structural fields rather than a FleetStatusRow so this file stays
+ * free of an import from index.ts, which imports the labels from here.
+ *
+ * The line always ends with the clear surface and its runbook: on 2026-09-01
+ * a responder who never saw either cleared a HARD_STOP by raw sqlite on the
+ * seat while the admin form sat built and unused
+ * (docs/runbooks/operator/incidents/2026-09-01-sticky-stop-raw-sqlite-bypass.md).
+ * The page is where a responder actually looks, so the page hands them the
+ * path.
  */
 export function hardStopDetail(stop: {
+  customer_slug: string
   sticky_stop_level: string | null
   sticky_stop_reason: string | null
   sticky_stop_condition: string | null
@@ -98,6 +106,10 @@ export function hardStopDetail(stop: {
   const parts = [`sticky_stop_level=${stop.sticky_stop_level ?? 'null'}`]
   if (stop.sticky_stop_condition) parts.push(`condition=${stop.sticky_stop_condition}`)
   if (stop.sticky_stop_reason) parts.push(stop.sticky_stop_reason)
+  parts.push(
+    `clear: admin.smd.services/admin/operator/${stop.customer_slug} ` +
+      '(runbook docs/runbooks/operator/sticky-stop-clear.md)'
+  )
   // Joined with a pipe, not an em dash: this string is rendered into the alert
   // email, and em dashes are banned in shipped copy (tests/forbidden-strings).
   return parts.join(' | ')
