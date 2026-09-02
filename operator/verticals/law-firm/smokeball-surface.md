@@ -30,7 +30,9 @@ Do **not** mix region/environment hosts (AU = `.com.au`, UK = `.co.uk`). The `mc
 - **Authorization Code Grant** — user-delegated; the firm authorizes our app and we act as a Smokeball user. This is the pilot path (the firm/trial tenant grants consent).
 - **Client Credentials Grant** — server-to-server, outside a user context.
 
-App registration is **self-service** at `https://console.smokeball.com` (create a private app → receive `client_id`/`client_secret`). The public partner-program "registration of interest" form is only for marketplace-distributed apps — not required for a firm-specific pilot. ⚠️ Exact **scope strings**, token endpoint path, and token/refresh lifetimes are ASSUMED-standard and must be confirmed at connect against the authentication pages.
+App registration is **self-service** at `https://console.smokeball.com` (create a private app → receive `client_id`/`client_secret`). The public partner-program "registration of interest" form is only for marketplace-distributed apps — not required for a firm-specific pilot. ⚠️ Exact **scope strings** and token endpoint path are ASSUMED-standard and must be confirmed at connect against the authentication pages.
+
+**Token lifetimes — CONFIRMED 2026-09-02** (`vfy_01M1HBKA7DMVT108T6621WRG6P`, fetched from [the authorization-code-grant page](https://docs.smokeball.com/docs/api-docs/2t26gcuuqf1wk-authorization-code-grant)). Access token 60 minutes. Refresh token **180 days** — but keyed to the ISSUE date: _"The 180-day expiry took effect on 24 August 2026 and applies to refresh tokens issued on or after that date. Refresh tokens issued before then remain valid for 30 days."_ Smokeball's documented refresh response carries no `refresh_token` field, so nothing rotates between consents and the expiry cannot be extended by use. `client_credentials` issues no refresh token at all. This value was carried as ASSUMED from 2026-06-13 until a token died on it (pilot-smokeball, 2026-09-01); it is now vendor-read, not inferred.
 
 ## `mcp:smokeball` tool surface (Smokeball-native names → REST endpoints)
 
@@ -118,7 +120,7 @@ Every client-/tribunal-bound message follows the firm's authored `external_send`
 
 ## ASSUMED — unverified vs. a live Smokeball tenant (scope the connect-step diff)
 
-- **OAuth scope strings, token endpoint, refresh lifetime** — ASSUMED standard; confirm against the authentication-overview / grant pages and the created app's console config.
+- **OAuth scope strings, token endpoint** — ASSUMED standard; confirm against the authentication-overview / grant pages and the created app's console config. (Refresh lifetime is no longer on this list: CONFIRMED 2026-09-02, see the auth section above.)
 - **`get_tasks` exact shape** — `due_date`/`dueDate` key, status enum values, and whether tasks carry a matter link vs. require `matterId` filter — confirm at connect.
 - **`updatedSince` .NET-ticks conversion** — confirm the exact tick epoch/format the API expects; the MCP server converts ISO ↔ ticks.
 - **Stage model** — matter "stage" is via `matterTypeId` → stage sets → stage-to-matter mappings (separate endpoints), not a flat field. `matter-status-digest`'s "group by stage" needs the stage-mapping read; confirm the join shape before relying on a stage label.
