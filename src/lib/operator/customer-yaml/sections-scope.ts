@@ -324,14 +324,40 @@ function adminEntry(
 }
 
 /**
+ * Characters that disqualify a roster entry outright.
+ *
+ * THIS SET IS A CROSS-LANGUAGE CONTRACT with the runtime classifier's
+ * `_DISQUALIFYING_RE` (`operator/adapter/recipient_classifier.py`). It is spelled
+ * out rather than written `\s` because the two languages' whitespace classes are
+ * not the same set: `\uFEFF` is whitespace to JavaScript and not to Python;
+ * `\x1C`-`\x1F` and `\x85` are the reverse. Arbiter fixture:
+ * `operator/contracts/fixtures/roster-canon-cases.json`, loaded by both suites.
+ *
+ * The control-character ranges are the point, not an oversight: a C0 or C1
+ * control inside a local part used to survive canonicalization intact on both
+ * sides, and an address is never the place for one. Hence the rule disable.
+ */
+const DISQUALIFYING =
+  // eslint-disable-next-line no-control-regex -- rejecting control characters IS the rule
+  /[<>",;\x00-\x20\x7F-\xA0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/
+
+/**
  * Canonicalize an outbound-roster address to `@domain` or `local@domain`, or
  * `null` when malformed. Mirrors the runtime classifier's `_canonicalize_roster_entry`
- * (strict: lowercased, no display-name/list/whitespace, exact-domain, no plus-tag
- * widening) so the validator's notion of "same address" matches the classifier's.
+ * (strict: NFC-normalized then lowercased, no display-name/list/whitespace,
+ * exact-domain, no plus-tag widening) so the validator's notion of "same address"
+ * matches the classifier's.
+ *
+ * ss#2284: the NFC normalization is not cosmetic. Without it the validator read
+ * NFD-`josé@firm.example` and NFC-`josé@firm.example` as two distinct addresses,
+ * so its collision rules — no address under two classes, no address in both the
+ * outbound roster and `inbound_allow_from` — passed a config the runtime resolves
+ * to ONE address holding two exposure classes. The divergence was measured on both
+ * real implementations before it was fixed (`vfy_01KZSJWNV9CV6ENHG574A9TZK3`).
  */
-function canonRosterAddress(raw: string): string | null {
-  const s = raw.trim().toLowerCase()
-  if (!s || /[<>"\s,;]/.test(s)) return null
+export function canonRosterAddress(raw: string): string | null {
+  const s = raw.normalize('NFC').trim().toLowerCase()
+  if (!s || DISQUALIFYING.test(s)) return null
   if (s.startsWith('@')) {
     const domain = s.slice(1)
     const labels = domain.split('.')
