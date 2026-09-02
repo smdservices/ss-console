@@ -17,9 +17,6 @@
       "copies": 3
     },
     "_first_date": {
-      "copies": 3
-    },
-    "_first_str": {
       "copies": 2
     },
     "_handoff_values": {
@@ -41,7 +38,7 @@
       "copies": 2
     },
     "_parse_iso_date": {
-      "copies": 3
+      "copies": 2
     },
     "_pos_int": {
       "copies": 4
@@ -56,7 +53,7 @@
       "copies": 3
     },
     "_try_write_emitted_wake": {
-      "copies": 6
+      "copies": 4
     },
     "_writer_factory": {
       "copies": 2

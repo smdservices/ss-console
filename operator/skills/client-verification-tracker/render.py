@@ -204,3 +204,9 @@ FAILURE_NOTE = (
     "The verification tracker run failed and needs attention; no alert was "
     "delivered this run. The items are in Smokeball and the tracker view."
 )
+
+#: Subject for the failure note when the GATE dispatches it out of turn rather
+#: than instructing the turn to send it (2026-09-02). No date and no counts:
+#: the run that sends this could read nothing, so every number in it would be
+#: invented.
+FAILURE_NOTE_SUBJECT = "[Verifications] run failed, no alert delivered"

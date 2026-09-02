@@ -409,7 +409,19 @@ surface), never a silent default.
    through a global pull; the escalation ledger only knows items that have
    already been raised — so a plan naming a matter with no ledger history is
    the expected shape for a NEW item, not an anomaly to discard.
-   When the wake line carries **no plans** (a fail-open `decision_basis`), the
+   **A blind wake now normally carries `dispatch_expected: true` with
+   `dispatch_variant: failure_note` (2026-09-02).** The gate renders the failure
+   note itself and dispatches it out of turn, so you compose and send NOTHING.
+   This changed because on 2026-09-02 the Smokeball credential expired, this
+   skill woke blind, and the enumeration instruction below could not run either
+   (every `list_matters` call failed) — the sibling escalator, given the same
+   gap, composed an alert out of nothing and sent it. An instruction to you is
+   not a control; a rendered envelope is. When `dispatch_variant: failure_note`
+   shows, the note has already gone: do not also enumerate, and do not send.
+
+   When the wake line carries **no plans** and no `dispatch_expected` (the
+   narrow floor where the gate could not render the note either — no authored
+   red-flag or fallback recipient, or `render.py` unavailable), the
    gate woke blind: enumerate ALL matters (`list_matters`, then
    `list_tasks(matter_id, is_completed=false)` on each) and subset the
    verification-marked tasks yourself. Never scan only the matters the ledger
