@@ -321,3 +321,10 @@ FAILURE_NOTE = (
     "The deadline digest run failed and needs attention; no digest was "
     "delivered this run. The items are in Smokeball and the tracker view."
 )
+
+#: Subject for the failure note when the GATE dispatches it out of turn rather
+#: than instructing the turn to send it (2026-09-02). Deliberately carries no
+#: date and no counts: the run that sends this could read nothing, so every
+#: number in it would be invented, and a date in a deadline subject line is the
+#: one thing a reader is most likely to mistake for a deadline.
+FAILURE_NOTE_SUBJECT = "[Deadlines] run failed, no digest delivered"

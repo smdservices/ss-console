@@ -732,7 +732,12 @@ def _write_pre_run_handoff(payload: dict) -> None:
         sys.stderr.write("[pre_run] handoff write failed (" + str(exc) + ")\n")
 
 
-def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = None) -> int:
+def _emit_wake(
+    decision: "WakeDecision | None" = None,
+    *,
+    basis: str | None = None,
+    extra: dict | None = None,
+) -> int:
     """Print the wake gate line — WITH the facts the gate already computed (#2253).
 
     Hermes reads only ``wakeAgent`` from the last stdout line and then injects
@@ -791,84 +796,18 @@ def _emit_wake(decision: "WakeDecision | None" = None, *, basis: str | None = No
         # turn composes nothing; if no dispatch note is injected into its
         # context, the SKILL.md failure-note instruction applies.
         payload["dispatch_expected"] = True
+    if extra:
+        # A blind wake that still managed to render the failure note. Carrying
+        # dispatch_expected here is what puts the turn on SKILL.md's "a
+        # dispatch is coming, compose nothing" branch instead of the
+        # no-plans-no-dispatch branch it ignored on 2026-09-02.
+        if extra.get("dispatch_expected"):
+            payload["dispatch_expected"] = True
+        if extra.get("dispatch_variant"):
+            payload["dispatch_variant"] = extra["dispatch_variant"]
     _write_pre_run_handoff(payload)
     print(json.dumps(payload))
     return 0
-
-
-def _plan_counts(decision: "WakeDecision") -> dict:
-    """The cap's own accounting, computed the one way ``_emit_wake`` computes it.
-
-    Duplicating the slice in the audit path would let the row and the wake line
-    disagree about how much was handed over — a discrepancy nobody would look
-    for, in the one record kept to catch discrepancies.
-    """
-    counts: dict = {}
-    if decision.plans:
-        emitted = len(decision.plans[:_MAX_SERIALIZED_PLANS])
-        counts = {
-            "plans_total": len(decision.plans),
-            "plans_emitted": emitted,
-            "plans_truncated": emitted < len(decision.plans),
-        }
-    if decision.digest is not None:
-        # ss #2405: the projection's fingerprint + headline counts go on the
-        # EMITTED_WAKE row, so a post-hoc audit pass can diff the SENT digest
-        # against what the gate projected — the copy-verbatim contract's
-        # enforcement seam (a SKILL.md sentence alone is the mechanism that
-        # already failed).
-        canonical = json.dumps(decision.digest, sort_keys=True, separators=(",", ":"))
-        counts["digest_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        counts["digest_needs_you"] = len(decision.digest.get("needs_you") or [])
-        admin = decision.digest.get("admin_confirms") or {}
-        counts["digest_admin_total"] = int(admin.get("total") or 0)
-    return counts
-
-
-async def _try_write_emitted_wake(
-    audit_writer_factory,
-    decision: "WakeDecision",
-    *,
-    skill_name: str,
-    now: datetime,
-) -> None:
-    """Best-effort EMITTED_WAKE row for a real-decision wake (#2253).
-
-    The suppress path logged its reasoning and the wake path logged nothing, so
-    the ledger held a record of every tick the gate stayed quiet and no record
-    of the ticks it fired. On 2026-08-10 the escalator woke with the Smokeball
-    connector down and sent an alert stating a date it could not read; the only
-    way anyone found it was reading the mailbox.
-
-    BEST-EFFORT IS THE CONTRACT, and it inverts the suppress path's on purpose.
-    Below, an audit failure escalates to a wake, because a silent suppress is
-    indistinguishable from a broken gate. Here the wake is already the decision,
-    so every failure — no writer wired, socket down, broker refusal, a writer
-    object too old to have the method — is swallowed. A wake that a failed audit
-    write could suppress or delay would be a gate made of observability.
-
-    It is not free, and the cost is stated rather than assumed away: the
-    broker-socket writer blocks for up to `_HEARTBEAT_TIMEOUT_SECONDS` against a
-    hung broker — the same bound the suppress path already accepts. Bounded, and
-    never a change of decision.
-
-    Not called on the fail-open paths: `no_audit_writer_fail_open` fires because
-    there is no writer to call, and `suppress_heartbeat_failed_fail_open` fires
-    because a write to that writer just failed.
-    """
-    try:
-        writer = audit_writer_factory()
-        if writer is None:
-            return
-        await writer.write_emitted_wake(
-            skill_name=skill_name,
-            pre_run_inputs=decision.pre_run_inputs_digest,
-            decision_basis=decision.decision_basis,
-            next_scheduled_at=_next_scheduled_at(now),
-            extra_metadata={**decision.extra_metadata, **_plan_counts(decision)},
-        )
-    except Exception:  # noqa: BLE001 — observability never gates the wake
-        pass
 
 
 def _emit_suppress() -> int:
@@ -1078,9 +1017,14 @@ async def run_once(
                         extra_metadata={**decision.extra_metadata, **envelope_meta},
                     )
         # The row goes in BEFORE the wake line, and cannot stop it (#2253).
-        await _try_write_emitted_wake(
-            audit_writer_factory, decision, skill_name=skill_name, now=now
-        )
+        mod = _load_sibling_module("blind_wake.py", "escalator_blind_wake")
+        if mod is not None:
+            await mod.try_write_emitted_wake(
+                audit_writer_factory,
+                decision,
+                skill_name=skill_name,
+                next_scheduled_at=_next_scheduled_at(now),
+            )
         return _emit_wake(decision)
 
     writer = audit_writer_factory()
@@ -1473,11 +1417,35 @@ def _sibling_writer_factory():
     return writer_mod.writer_factory()
 
 
+def _blind_wake(basis: str) -> int:
+    """Wake with no decision, but never without a trace and never bare.
+
+    The two guarantees and the 2026-09-02 incident that forced them live in
+    the sibling ``blind_wake.py``; a missing sibling degrades to today's
+    pre-fix behaviour (bare wake), which is why the failure is loud on stderr
+    rather than swallowed here.
+    """
+    extra: dict = {}
+    mod = _load_sibling_module("blind_wake.py", "escalator_blind_wake")
+    if mod is None:
+        sys.stderr.write("[pre_run] blind_wake sibling missing; waking bare\n")
+        return _emit_wake(basis=basis)
+    extra = mod.render_failure_note(basis, _load_sibling_module)
+    mod.write_row(
+        basis,
+        writer_factory=_sibling_writer_factory,
+        skill_name=_HANDOFF_SKILL,
+        next_scheduled_at=_next_scheduled_at(datetime.now(timezone.utc)),
+        extra=extra,
+    )
+    return _emit_wake(basis=basis, extra=extra)
+
+
 def main() -> int:
     customer_slug = os.environ.get("CUSTOMER_SLUG")
     if not customer_slug:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
-        return _emit_wake(basis="customer_slug_unset_fail_open")
+        return _blind_wake("customer_slug_unset_fail_open")
     windows, fire_policy = load_escalation_config()
     today = datetime.now(timezone.utc).date()
     source = SmokeballSubprocessSource(
@@ -1495,7 +1463,7 @@ def main() -> int:
         )
     except Exception as exc:  # noqa: BLE001 — any wiring failure → wake
         sys.stderr.write(f"[pre_run] escalator pre_run failed ({exc}); waking\n")
-        return _emit_wake(basis="pre_run_crashed_fail_open")
+        return _blind_wake("pre_run_crashed_fail_open")
 
 
 if __name__ == "__main__":
