@@ -111,13 +111,21 @@ function effectiveLifetimeDays(
 /**
  * Tri-state per server:
  *   age reported, >= (lifetime - warn) → active (dies in <= warn days unless
- *     rotated/re-consented).
- *   age reported, below threshold      → inactive (resolves — rotation or a
- *     fresh consent reset the file's mtime; a real recovery signal).
+ *     the token file is rewritten).
+ *   age reported, below threshold      → inactive (resolves — something reset
+ *     the file's mtime; a real recovery signal).
  *   age absent (no field, no file, corrupt map) → push NOTHING (hold): a seat
  *     that stops reporting must not read as recovered.
  * Servers with no recorded lifetime are never evaluated — a guessed lifetime
  * would manufacture pages.
+ *
+ * "The file was rewritten" is the ONLY resolution, and what can cause it is
+ * vendor-dependent. On a vendor that rotates refresh tokens, an ordinary
+ * refresh rewrites it. On one that does NOT — Smokeball — nothing but a fresh
+ * consent ever does, so no amount of traffic will clear this condition. The
+ * detail text below must not imply otherwise: it is interpolated verbatim into
+ * the ops email, and telling a responder to "rotate" a credential that cannot
+ * be rotated sends them after a fix that does not exist.
  */
 export function tokenExpiryConditions(
   row: FleetStatusRow,
@@ -143,7 +151,9 @@ export function tokenExpiryConditions(
       detail:
         `${server} durable credential is ${ageDays}d old ` +
         `(recorded lifetime ${lifetimeDays}d, warning at ${lifetimeDays - warnDays}d${provenance}). ` +
-        'Rotate or re-consent before it expires; auto-resolves when the token file is rewritten.',
+        'Re-consent before it expires. Resolves only when the token file is ' +
+        'rewritten, which for a vendor that does not rotate refresh tokens ' +
+        '(Smokeball) means a fresh consent — ordinary traffic will not clear this.',
     })
   }
   return out
