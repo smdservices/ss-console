@@ -467,7 +467,11 @@ controls:
       c85b0ddb (ss#1719) and booted healthy through the probe twice (deploy +
       restart, VERSION 128, 1/1 checks). Also manually trip-proven end to end on
       prod smd 2026-07-04 (#1701): meter -> WARN -> SOFT_STOP -> HARD_STOP ->
-      gate 503 -> fleet dot red -> Captain clear -> recovery.
+      gate 503 -> fleet dot red -> Captain clear -> recovery. (That trip record
+      is left as it was witnessed. Anyone reproducing it today sees two rungs,
+      not four: 2026-09-02 collapsed the ladder to OK and HARD_STOP, because
+      WARN and SOFT_STOP restricted nothing and only named a cause. The
+      meter -> stop -> 503 -> red dot -> clear -> recovery path is unchanged.)
 
   sticky_stop_tool_failure:
     control: sticky_stop_tool_failure
@@ -497,7 +501,9 @@ controls:
       f16d4920 and hermes-smd on 0f84a625, each verified absent with a positive
       control. Owner SMDurgan, tracked at ADR-0050:B3.
     note: >-
-      record_tool_failure() consecutive-failure ladder (WARN/SOFT_STOP/HARD_STOP).
+      record_tool_failure() consecutive-failure meter: 8 consecutive failures ->
+      HARD_STOP (two states since 2026-09-02; the WARN and SOFT_STOP rungs it
+      used to pass through restricted nothing and were removed).
       Built + tested; no dispatch caller. Wired by B3 (StickyStopError integration
       covers all sticky_stop arms).
 
@@ -541,8 +547,15 @@ controls:
       which is a different question asked slowly. Owner SMDurgan, tracked at
       ADR-0050:B3.
     note: >-
-      record_runtime_seconds() 3600s wall-clock single-run cap → SOFT_STOP. Built
-      + tested; no dispatch caller. Wired by B3.
+      record_runtime_seconds() 3600s wall-clock single-run cap. Built + tested;
+      no dispatch caller. Wired by B3. Since the 2026-09-02 two-state collapse
+      this arm RECORDS the overrun and changes no level: SOFT_STOP was its only
+      outcome and SOFT_STOP restricted nothing, so promoting it to HARD_STOP
+      would be a new brake that can halt a client mid-run — a deliberate call,
+      not a side effect of deleting two unused words. The audit row still lands
+      (observation=True), and it is the evidence any decision to enforce the
+      budget would rest on. The risk_review above is unchanged by this: a single
+      run still has no wall-clock brake.
 
   operator_pause:
     control: operator_pause

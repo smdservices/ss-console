@@ -9,9 +9,9 @@ it. This runbook is that pointer.
 ## What the sticky stop is
 
 The seat's automated circuit breaker (ADR 0062; `operator/safety-substrate/sticky_stop.py`,
-vendored into the overlay). A ladder `OK -> WARN -> SOFT_STOP -> HARD_STOP`
-driven by recorded conditions - cost spend, consecutive tool failures, refusal
-cascades, time budget (`operator/contracts/runtime-controls.yaml`, the
+vendored into the overlay). Two states, `OK -> HARD_STOP`, driven by recorded
+conditions - cost spend, consecutive tool failures, refusal cascades, time
+budget (`operator/contracts/runtime-controls.yaml`, the
 `sticky_stop_*` rows). State is one row per `(customer, persona)` in
 `/opt/data/smd/sticky_stop.db` on the seat's volume; it survives reprovision by
 design. At HARD_STOP the trust plugin blocks every tool call, the gate 503s
@@ -19,20 +19,30 @@ inbound routes, and the medchron daemon pause-holds its jobs. **Transitions are
 forward-only: nothing auto-resumes a system stop.** The only path back to OK is
 a human clear.
 
+The ladder had four rungs until 2026-09-02. `WARN` and `SOFT_STOP` were removed
+because neither ever restricted anything, so a seat sitting at one of them was
+working normally while the console said a brake was engaged. Two things follow
+for you at 2am: **a seat is either running or stopped, nothing in between**, and
+**the stop counts did not move** - whatever tripped a HARD_STOP before trips it
+at the same count now. A seat still running a pre-collapse overlay can report
+`WARN` or `SOFT_STOP` until it is reprovisioned; read either as running.
+
 ## How you see it
 
 - **The page.** The alert for `hard_stop` (fleet-alerts) names the clear
   surface directly. Follow it.
 - **Admin console.** `https://admin.smd.services/admin/operator/<slug>` shows
-  the level (from the heartbeat's `sticky_stop_level`) and, at HARD/SOFT_STOP,
-  renders the **"Clear cost stop"** form.
+  the level (from the heartbeat's `sticky_stop_level`) and, at HARD_STOP,
+  renders the **"Clear cost stop"** form. It still renders at a legacy
+  SOFT_STOP too, so a pre-collapse seat is clearable from the same place.
 - **On the seat** (when the heartbeat is in doubt): the medchron daemon's
   heartbeat json carries the level's consequences, and the state row itself is
   readable via a read-only query of `sticky_stop_state` (the shape
   `operator/runners/medchron/medchron/daemon.py` `sticky_level()` uses).
 - **Why it tripped:** the row's `reason`/`condition` columns, and the Machine
-  audit ledger around the trip (`AGENT_STOPPED` for HARD_STOP,
-  `INVARIANT_VIOLATION` for WARN/SOFT_STOP, plus the `error_type` strings on
+  audit ledger around the trip (`AGENT_STOPPED` for HARD_STOP;
+  `INVARIANT_VIOLATION` now marks an observation that changed no level, and on
+  a pre-collapse seat also the old WARN/SOFT_STOP steps, plus the `error_type` strings on
   the surrounding `TOOL_CALL_COMPLETED` rows - the 09-01 investigation method).
 
 ## Investigate BEFORE you clear
@@ -65,8 +75,9 @@ lands in D1 `operator_stop_clears` (who, when, why, what cleared - migration
 runtime event on the Machine ledger, the resume is a governance action audited
 control-plane-side where you were authenticated (the 0085 header states this).
 
-Clears any level, including a WARN/SOFT pin. (The form renders only at
-HARD/SOFT_STOP; for a WARN-only pin use the break-glass path below.)
+Clears any level, including a legacy WARN/SOFT pin on a pre-collapse seat. (The
+form renders at HARD_STOP and at a legacy SOFT_STOP; for a WARN-only pin use the
+break-glass path below.)
 
 ## Break-glass (console or heartbeat degraded)
 
