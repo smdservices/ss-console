@@ -1218,7 +1218,19 @@ describe('Operator customer Machine Dockerfile', () => {
     // Vocabulary identical; the canonical twin
     // operator/safety-substrate/sticky_stop.py moves in the SAME change (this
     // repo is where it lands first per the vendoring header).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c557f8c02b4e42c0f8b002d8dcb492c8bb6920f4"')
+    // c557f8c0 -> 9951fbf8 (2026-09-02c, overlay#344; canonical half ss#2690).
+    // Every fabrication marker now carries a `remedy` appended to the refusal
+    // text the model reads. Measured cause: scoped to client-write tools, 132
+    // of 150 refused (session, tool) pairs RECOVER in the same session -- the
+    // gate refuses, the model corrects, the memo lands. The ones that STRAND
+    // cluster on markers whose refusal names a rule instead of an action; the
+    // em-dash marker lost a daily-needs-you-digest memo on 2026-08-19 and again
+    // on 2026-09-02, each on ONE attempt with no retry. Remedies are narrow and
+    // never restate the rule (the 2026-08-24 refusal that named its rule taught
+    // the model to strip 38 matter numbers), enforced by a test in the overlay.
+    // Vocabulary identical; fabrication_markers.json moves in BOTH repos with a
+    // re-pinned sha256 on the overlay side.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9951fbf833ff9c9280ae0188fea37bd2bafdd883"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
