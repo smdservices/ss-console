@@ -642,3 +642,157 @@ def test_absent_seats_are_named_in_the_report_not_filtered_away():
     assert "pilot-law" in out
     assert "SKIP" in out
     assert not any(ln.startswith("HOLD") for ln in out.split("\n"))
+
+
+# ---------------------------------------------------------------------------
+# ss#2581 -- WHO a silent reply-lane run is about
+#
+# On 2026-09-02 two silent inbounds on the paying client's seat were reported
+# as client silence and took an hour of a person's time to attribute to the
+# SMD operator's own test emails. The row had carried `sender_key` since
+# ss#2497; the report never said so. These pin that it does, in both
+# directions: the firm's people are named as such, and nothing else is ever
+# mistaken for them.
+# ---------------------------------------------------------------------------
+
+from recipient_policy import sender_key as _sk  # noqa: E402
+
+_FIRM = "christa@example-firm.test"
+_SMD = "operator@smd.services"
+_PROBE = "ss-probe-admin@agentmail.test"
+_ROSTER = {
+    _sk(_FIRM): rec.SENDER_FIRM,
+    _sk(_SMD): rec.SENDER_SMD,
+    _sk(_PROBE): rec.SENDER_PROBE,
+}
+_T0 = "2026-08-19T06:08:31.865Z"  # a real silent-inbound timestamp from #2593
+# Every window here has elapsed by this moment; AFTER (08-17) predates the rows.
+_NOW = datetime(2026, 8, 21, 0, 0, tzinfo=timezone.utc)
+
+
+def _silent_inbound(sender=None, *, ts=_T0, action="INBOUND_RECEIVED"):
+    meta = {"sender_key": _sk(sender)} if sender else {}
+    return _row(ts, action, **meta)
+
+
+def _only_finding(rows, roster=_ROSTER, slug="ashton-price"):
+    found = _findings(rec.analyze(CONTRACT, slug, rows, now=_NOW, roster=roster))
+    assert len(found) == 1, found
+    return found[0]
+
+
+def test_a_firm_rostered_sender_is_named_as_the_firm():
+    f = _only_finding([_silent_inbound(_FIRM)])
+    assert f.sender_class == rec.SENDER_FIRM
+    assert f.sender_key_via == "row"
+
+
+def test_the_smd_operators_own_email_is_never_reported_as_the_firm():
+    """The falsifier for the whole feature: the case that cost an hour."""
+    f = _only_finding([_silent_inbound(_SMD)])
+    assert f.sender_class == rec.SENDER_SMD
+    assert f.sender_class != rec.SENDER_FIRM
+
+
+def test_a_probe_sender_is_a_probe_even_though_it_is_rostered():
+    f = _only_finding([_silent_inbound(_PROBE)])
+    assert f.sender_class == rec.SENDER_PROBE
+
+
+def test_a_keyed_sender_on_nobodys_roster_is_unknown_not_firm():
+    """Somebody wrote in and we cannot say who. That is a different sentence
+    from 'the firm wrote in', and the report must not merge them."""
+    f = _only_finding([_silent_inbound("stranger@elsewhere.test")])
+    assert f.sender_class == rec.SENDER_UNKNOWN
+
+
+def test_a_row_from_before_ss2497_is_unrecorded_not_unknown():
+    f = _only_finding([_silent_inbound(None)])
+    assert f.sender_class == rec.SENDER_UNRECORDED
+    assert f.sender_key is None
+
+
+def test_a_cron_wake_and_a_bare_hold_have_no_sender_class():
+    """Not `unknown`: inventing a sender for a scheduled run would make a cron
+    silence read as an unidentified person."""
+    hold = _findings(_analyze(SS2367["rows"]))[0]
+    assert hold.trigger_kind == "hold"
+    assert hold.sender_class is None
+    wake = _row("2026-08-13T09:00:00Z", "EMITTED_WAKE", skill="deadline-miss-escalator")
+    found = _findings(rec.analyze(CONTRACT, "pilot-smokeball", [wake], now=_NOW, roster=_ROSTER))
+    assert found and found[0].sender_class is None
+
+
+def test_webhook_routed_adopts_the_key_of_the_inbound_it_routed_and_says_so():
+    """The captured shape: WEBHOOK_ROUTED at .865, INBOUND_RECEIVED at .867,
+    two obligations for one message. Both must name the same person."""
+    routed = _silent_inbound(None, ts="2026-08-19T06:08:31.865Z", action="WEBHOOK_ROUTED")
+    routed["skill_name"] = "matter-inbox-router"
+    received = _silent_inbound(_SMD, ts="2026-08-19T06:08:31.867Z")
+    found = _findings(rec.analyze(CONTRACT, "ashton-price", [routed, received], now=_NOW, roster=_ROSTER))
+    by_type = {f.opened_by: f for f in found}
+    assert by_type["INBOUND_RECEIVED"].sender_key_via == "row"
+    assert by_type["WEBHOOK_ROUTED"].sender_key_via == "sibling"
+    assert by_type["WEBHOOK_ROUTED"].sender_class == rec.SENDER_SMD
+
+
+def test_a_sibling_key_is_not_adopted_across_a_different_message():
+    """The falsifier for adoption: an unkeyed inbound minutes before a keyed one
+    is a different message, and must stay unrecorded rather than borrow."""
+    earlier = _silent_inbound(None, ts="2026-08-19T06:00:00Z", action="WEBHOOK_ROUTED")
+    later = _silent_inbound(_FIRM, ts="2026-08-19T06:08:31.867Z")
+    found = _findings(rec.analyze(CONTRACT, "ashton-price", [earlier, later], now=_NOW, roster=_ROSTER))
+    by_type = {f.opened_by: f for f in found}
+    assert by_type["WEBHOOK_ROUTED"].sender_class == rec.SENDER_UNRECORDED
+
+
+def test_the_report_line_and_header_carry_the_class_and_never_an_address():
+    report = rec.SeatReport(slug="ashton-price")
+    report.obligations = rec.analyze(
+        CONTRACT, "ashton-price",
+        [_silent_inbound(_FIRM), _silent_inbound(_SMD, ts="2026-08-19T07:00:00Z")],
+        now=_NOW, roster=_ROSTER,
+    )
+    out = rec.render([report])
+    assert "silent=2 (firm-rostered=1 smd-operator=1)" in out
+    assert "sender=firm-rostered" in out and "sender=smd-operator" in out
+    for addr in (_FIRM, _SMD, _PROBE):
+        assert addr not in out, "a raw address must never enter the report"
+    assert _sk(_FIRM) not in out, "nor the hash -- the class is the whole point"
+
+
+def test_sender_class_does_not_change_a_findings_identity():
+    """A roster edit must never make yesterday's finding look new."""
+    f = _only_finding([_silent_inbound(_FIRM)])
+    key_as_firm = rec.finding_key("ashton-price", f)
+    f.sender_class = rec.SENDER_UNKNOWN
+    assert rec.finding_key("ashton-price", f) == key_as_firm
+
+
+def test_load_roster_reads_the_authored_seat_and_classes_by_domain(tmp_path):
+    seat = tmp_path / "some-seat"
+    seat.mkdir()
+    (seat / "customer.yaml").write_text(
+        "users:\n"
+        f"  - email: {_FIRM}\n    role: staff\n"
+        f"  - email: {_SMD}\n    role: principal\n"
+        f"  - email: {_PROBE}\n    role: staff\n",
+        encoding="utf-8",
+    )
+    roster = rec.load_roster("some-seat", customers_dir=tmp_path)
+    assert roster == _ROSTER
+    assert not any("@" in k for k in roster), "keys are hashes, never addresses"
+
+
+def test_an_unauthored_seat_has_an_empty_roster_and_classes_unknown(tmp_path):
+    assert rec.load_roster("never-provisioned", customers_dir=tmp_path) == {}
+    f = _only_finding([_silent_inbound(_FIRM)], roster={})
+    assert f.sender_class == rec.SENDER_UNKNOWN
+
+
+def test_the_live_ashton_price_roster_classes_the_operator_as_smd():
+    """Against the real authored file, so the classing rule cannot drift from
+    the seat it is for. The address itself stays out of this test."""
+    roster = rec.load_roster("ashton-price")
+    assert rec.SENDER_SMD in roster.values()
+    assert rec.SENDER_FIRM in roster.values()

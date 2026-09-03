@@ -73,6 +73,19 @@ import yaml
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
 import seam_pull  # noqa: E402 -- path injected above
+from sender_class import (  # noqa: E402 -- ss#2581, split out for the module-size ceiling
+    CUSTOMERS_DIR,
+    SENDER_FIRM,
+    SENDER_PROBE,
+    SENDER_SMD,
+    SENDER_UNKNOWN,
+    SENDER_UNRECORDED,
+    SIBLING_KEY_WINDOW_SECONDS,
+    classify_senders,
+    load_roster,
+    sender_breakdown as _sender_breakdown,
+    sender_label as _sender_label,
+)
 
 _CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
 TERMINAL_STATES_PATH = _CONTRACTS / "terminal-states.yaml"
@@ -194,6 +207,14 @@ class Obligation:
     #: The latest hold inside this run. A hold RESTARTS the obligation: a reply
     #: delivered before the hold cannot answer for the output the hold stopped.
     last_hold_at: Optional[datetime] = None
+    #: sha256 of the canonical address that triggered an inbound run (ss#2497),
+    #: and where it came from: "row" (this trigger carried it) or "sibling"
+    #: (adopted from the INBOUND_RECEIVED this WEBHOOK_ROUTED preceded).
+    sender_key: Optional[str] = None
+    sender_key_via: Optional[str] = None
+    #: One of the SENDER_* classes for inbound runs; None for every other
+    #: trigger kind, because a cron wake or a bare hold has no sender.
+    sender_class: Optional[str] = None
 
     @property
     def effective_open(self) -> datetime:
@@ -243,6 +264,7 @@ def _terminal_state_of(contract: Contract, row: dict) -> Optional[str]:
 
 def _obligation_from_row(contract: Contract, slug: str, row: dict, kind: str) -> Obligation:
     skill = row.get("skill_name")
+    key = metadata_of(row).get("sender_key") if kind == "inbound" else None
     return Obligation(
         slug=slug,
         opened_at=parse_ts(row["ts"]),
@@ -252,6 +274,8 @@ def _obligation_from_row(contract: Contract, slug: str, row: dict, kind: str) ->
         skill_name=skill,
         matter_ref=row.get("matter_ref"),
         row_id=row.get("id"),
+        sender_key=key if isinstance(key, str) and key else None,
+        sender_key_via="row" if isinstance(key, str) and key else None,
     )
 
 
@@ -389,9 +413,11 @@ def analyze(
     *,
     now: datetime,
     claims: Optional[list[dict]] = None,
+    roster: Optional[dict[str, str]] = None,
 ) -> list[Obligation]:
     obligations = _open_obligations(contract, slug, rows)
     obligations += _claimed_obligations(contract, claims or [])
+    classify_senders(obligations, load_roster(slug) if roster is None else roster)
     return resolve(contract, obligations, rows, now=now)
 
 
@@ -519,6 +545,9 @@ def finding_key(slug: str, obligation: Obligation) -> str:
     `routine_class` (mutated in place at line 287 when a hold folds into an
     enclosing run). Any of them turns a stable identity into a daily-changing
     one, which is how an escalation ledger ends up disjoint from reality.
+    `sender_class` is absent for the same reason: it depends on which roster
+    the run loaded, and a roster edit must never make yesterday's finding look
+    new.
     """
     if obligation.row_id:
         return f"{slug}|row:{obligation.row_id}"
@@ -563,7 +592,7 @@ def render(reports: list[SeatReport]) -> str:
             f"{sum(1 for o in report.obligations if o.closed_by)} "
             f"pending={len(report.pending)} "
             f"unclassified={len(report.unclassified)} "
-            f"silent={len(report.findings)}"
+            f"silent={len(report.findings)}{_sender_breakdown(report.findings)}"
         )
         for obligation in sorted(report.findings, key=lambda o: o.opened_at):
             lines.append(
@@ -571,6 +600,7 @@ def render(reports: list[SeatReport]) -> str:
                 f"[{obligation.routine_class}] {obligation.shape} "
                 f"skill={obligation.skill_name or '-'} "
                 f"matter={obligation.matter_ref or '-'} "
+                f"sender={_sender_label(obligation)} "
                 f"rows_in_window={obligation.rows_in_window}"
             )
         for obligation in sorted(report.unclassified, key=lambda o: o.opened_at):
@@ -621,6 +651,8 @@ def as_json(reports: list[SeatReport]) -> str:
                         "shape": o.shape,
                         "pending": o.pending,
                         "rows_in_window": o.rows_in_window,
+                        "sender_class": o.sender_class,
+                        "sender_key_via": o.sender_key_via,
                     }
                     for o in r.obligations
                 ],
