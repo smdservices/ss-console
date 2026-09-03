@@ -555,8 +555,6 @@ class StickyStopMachine:
                 "consecutive_tool_failures": new_count,
                 "window_seconds": self._thresholds.tool_failure_window_seconds,
                 "thresholds": {
-                    "warn": self._thresholds.tool_failure_warn,
-                    "soft_stop": self._thresholds.tool_failure_soft_stop,
                     "hard_stop": self._thresholds.tool_failure_hard_stop,
                 },
             },
@@ -630,8 +628,6 @@ class StickyStopMachine:
                 "refusal_count": new_count,
                 "window_seconds": self._thresholds.refusal_window_seconds,
                 "thresholds": {
-                    "warn": self._thresholds.refusal_warn,
-                    "soft_stop": self._thresholds.refusal_soft_stop,
                     "hard_stop": self._thresholds.refusal_hard_stop,
                 },
             },
@@ -733,8 +729,6 @@ class StickyStopMachine:
             extra_metadata={
                 "cost_cents_today": new_total,
                 "cost_daily_cents_cap": self._thresholds.cost_daily_cents,
-                "warn_pct": self._thresholds.cost_warn_pct,
-                "soft_stop_pct": self._thresholds.cost_soft_stop_pct,
                 "hard_stop_pct": self._thresholds.cost_hard_stop_pct,
             },
         )
