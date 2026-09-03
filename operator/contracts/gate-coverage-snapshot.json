@@ -31,10 +31,6 @@
       "voice_library_nonempty": true,
       "output_classes": {}
     },
-    "smd": {
-      "voice_library_nonempty": true,
-      "output_classes": {}
-    },
     "smd-staging": {
       "voice_library_nonempty": true,
       "output_classes": {
