@@ -33,7 +33,7 @@ Business hours are Monday through Friday, Arizona time. Incident notification wi
 ## Detection surfaces
 
 1. **Heartbeats** - every Machine reports every 60 seconds into `fleet_status`; staleness renders on the admin fleet dashboard and the client-portal aliveness chip.
-2. **Cost breaker** - WARN, SOFT_STOP, HARD_STOP ride the heartbeat; HARD_STOP parks inbound at the gate.
+2. **Cost breaker** - the level rides the heartbeat, along with the reason and condition that drove it; HARD_STOP parks inbound at the gate. Two states since 2026-09-02, OK and HARD_STOP: the old WARN and SOFT_STOP rungs restricted nothing and only named a cause, which read as a brake that was holding.
 3. **Automated alerts** - retainer payment failures email team@smd.services; Sentry errors sync to the fleet view.
 4. **Client reports** - the portal change-request path and direct channels.
 

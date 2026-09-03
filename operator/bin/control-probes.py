@@ -272,6 +272,18 @@ def probe_sticky_stop_arm_unwired(spec: dict, ctx: ProbeContext) -> tuple[bool, 
 
 
 def _drive_ladder_or_raise(mod, machine, arm: str) -> None:
+    """Precondition: the arm's own metering still works, before we ask whether
+    anything CALLS it. A broken substrate would otherwise read as a wiring
+    finding.
+
+    ``record_runtime_seconds`` is checked differently, and deliberately. The
+    two-state collapse (2026-09-02) left it the one arm with no HARD_STOP
+    threshold: SOFT_STOP had been its only outcome, SOFT_STOP restricted
+    nothing, so it now records the overrun and changes no level. Asserting a
+    stop here would demand behaviour the substrate is documented NOT to have;
+    asserting nothing would let a genuinely dead arm pass. So it must return a
+    state AND leave the level alone.
+    """
     calls = 20 if arm == "record_refusal" else (8 if arm == "record_tool_failure" else 1)
     state = None
     for _ in range(calls):
@@ -281,8 +293,15 @@ def _drive_ladder_or_raise(mod, machine, arm: str) -> None:
             )
         else:
             state = _await(getattr(machine, arm)(customer="probe", persona="probe"))
-    stopped = {mod.StickyStopLevel.SOFT_STOP, mod.StickyStopLevel.HARD_STOP}
-    if state is None or state.level not in stopped:
+    if arm == "record_runtime_seconds":
+        if state is None or state.level is not mod.StickyStopLevel.OK:
+            raise ProbeHold(
+                "record_runtime_seconds changed the level "
+                f"(level={getattr(state, 'level', None)}); it is documented to record an "
+                "overrun and stop nothing, so the substrate and its contract disagree"
+            )
+        return
+    if state is None or state.level is not mod.StickyStopLevel.HARD_STOP:
         raise ProbeHold(
             f"{arm} ladder did not stop after {calls} call(s) "
             f"(level={getattr(state, 'level', None)}); the substrate itself is broken"

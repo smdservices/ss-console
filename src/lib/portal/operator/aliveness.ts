@@ -11,13 +11,13 @@
  *   running     — there is an in-flight skill invocation. The signal
  *                 carries the skill name so the header reads "Running
  *                 inbox-triage" instead of a generic "Working".
- *   sticky_stop — the safety substrate has pinned the agent. WARN /
- *                 SOFT_STOP / HARD_STOP from `sticky_stop_state` all
- *                 collapse to this signal here; the dashboard surfaces
- *                 the reason text the substrate stored. Captain
- *                 escalation is required to clear (see ADR for
- *                 sticky-stop recovery contract in
- *                 `operator/safety-substrate/sticky_stop.py`).
+ *   sticky_stop — the safety substrate has pinned the agent: HARD_STOP in
+ *                 `sticky_stop_state`. Captain escalation is required to
+ *                 clear (recovery contract in
+ *                 `operator/safety-substrate/sticky_stop.py`). WARN and
+ *                 SOFT_STOP used to reach this signal too, which showed a
+ *                 CLIENT a constrained agent on a seat nothing was
+ *                 constraining; both were removed 2026-09-02.
  *   offline     — no audit_log activity within OFFLINE_THRESHOLD_MINUTES.
  *                 This is a derived posture: the audit writer is
  *                 synchronous on every action (issue #891), so absence
@@ -179,7 +179,7 @@ export interface AlivenessBridgeReading {
    * sticky_stop — under-reporting is preferable to false-positive
    * "agent is stopped" copy.
    */
-  stickyStopLevel: 'OK' | 'WARN' | 'SOFT_STOP' | 'HARD_STOP'
+  stickyStopLevel: 'OK' | 'HARD_STOP'
   /**
    * Human-readable reason text the substrate stored when it pinned the
    * stop. null when `stickyStopLevel === 'OK'`.
@@ -212,7 +212,15 @@ export function deriveAlivenessFromBridge(
   reading: AlivenessBridgeReading,
   nowMs: number = Date.now()
 ): AlivenessSignal {
-  if (reading.stickyStopLevel !== 'OK') {
+  // Positive match on HARD_STOP, not `!== 'OK'`. The negative form made ANY
+  // unrecognised word mean "the agent is stopped" to a client -- the exact
+  // opposite of this type's own promise a few lines up ("Unknown values
+  // surface as 'OK' ... under-reporting is preferable to false-positive
+  // 'agent is stopped' copy"). It was safe only because a boundary two
+  // hundred lines away happened to filter first; after the 2026-09-02 two-
+  // state collapse a legacy WARN / SOFT_STOP would have walked straight
+  // through it and told a client a healthy seat was pinned.
+  if (reading.stickyStopLevel === 'HARD_STOP') {
     return {
       level: 'sticky_stop',
       lastActionAt: reading.lastAuditTs,
@@ -401,9 +409,17 @@ export async function resolveAlivenessSignal(
   return deriveAlivenessFromBridge(reading, nowMs)
 }
 
-/** Non-OK sticky-stop ladder values the Machine can report (mirrors
- * `operator/safety-substrate/sticky_stop.py::StickyStopLevel`). */
-const NON_OK_STICKY_LEVELS: ReadonlySet<string> = new Set(['WARN', 'SOFT_STOP', 'HARD_STOP'])
+/**
+ * Non-OK sticky-stop ladder values the Machine can report (mirrors
+ * `operator/safety-substrate/sticky_stop.py::StickyStopLevel`).
+ *
+ * HARD_STOP only since the 2026-09-02 two-state collapse. WARN and SOFT_STOP
+ * used to be in this set, which meant a CLIENT was shown a "constrained" chip
+ * on a seat that was not constrained by anything -- those rungs restricted no
+ * call and refused no send. A legacy seat still reporting them now reads OK,
+ * which is what they always meant.
+ */
+const NON_OK_STICKY_LEVELS: ReadonlySet<string> = new Set(['HARD_STOP'])
 
 interface FleetStatusAlivenessRow {
   last_heartbeat_ts: string | null
@@ -453,7 +469,7 @@ async function fetchAlivenessFromFleetStatus(
 
   const stickyStopLevel =
     typeof row.sticky_stop_level === 'string' && NON_OK_STICKY_LEVELS.has(row.sticky_stop_level)
-      ? (row.sticky_stop_level as 'WARN' | 'SOFT_STOP' | 'HARD_STOP')
+      ? (row.sticky_stop_level as 'HARD_STOP')
       : 'OK'
 
   return {
