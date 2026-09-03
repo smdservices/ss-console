@@ -89,7 +89,7 @@ const RUNTIME = (() => {
 })()
 
 /**
- * Candidates. The first five are the slugs that exist in
+ * Candidates. The first four are the slugs that exist in
  * `operator/customers/` today — a fix that rejects a live seat is worse than
  * the bug it fixes, so they lead the table. The rest are the edge cases that
  * split the four patterns apart in the #2285 audit.
@@ -99,7 +99,6 @@ const CANDIDATES: readonly string[] = [
   'ashton-price',
   'pilot-smokeball',
   'scott',
-  'smd',
   'smd-staging',
   // shape edges that MUST be accepted (2..40 chars). 39 and 40 both exceed the
   // provisioner's old 32-char ceiling — the divergence in the other direction.
@@ -133,14 +132,8 @@ const MUST_REJECT: readonly string[] = [
   'a/b',
 ]
 
-/** The five live seats, asserted separately so a regression names them. */
-const LIVE_SLUGS: readonly string[] = [
-  'ashton-price',
-  'pilot-smokeball',
-  'scott',
-  'smd',
-  'smd-staging',
-]
+/** The four live seats, asserted separately so a regression names them. */
+const LIVE_SLUGS: readonly string[] = ['ashton-price', 'pilot-smokeball', 'scott', 'smd-staging']
 
 /**
  * Evaluate a bash ERE the way bash evaluates it — via bash, not via a
@@ -274,6 +267,21 @@ describe('customer slug pattern: one shape, every guard (#2285)', () => {
 describe('retired seats', () => {
   it('pilot-law has no seat directory', () => {
     expect(existsSync(resolve(REPO_ROOT, 'operator/customers/pilot-law'))).toBe(false)
+  })
+
+  /**
+   * `smd` -- customer-zero, the June 2026 bring-up seat -- was retired
+   * 2026-09-03 by Captain directive. Unlike pilot-law it HAD been provisioned:
+   * a started Machine billing for nothing since its last activity on 07-13,
+   * and once stopped, a daily HOLD on the audit-chain run (a stopped Machine
+   * still resolves in DNS, so it is held rather than skipped). Fly app and
+   * volume destroyed, `customer_configs` row deleted, R2 vault removed,
+   * healthchecks ping deleted, each with a negative probe on the PR. Its
+   * customer.yaml is in git history for when it is stood up again -- and when
+   * it is, this assertion is updated in the same PR, as a visible decision.
+   */
+  it('smd has no seat directory', () => {
+    expect(existsSync(resolve(REPO_ROOT, 'operator/customers/smd'))).toBe(false)
   })
 
   it('the live-seat list matches the directories on disk', () => {

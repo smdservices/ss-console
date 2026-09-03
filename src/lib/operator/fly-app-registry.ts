@@ -6,7 +6,8 @@
  * is a cross-tenant action (setting a secret on the wrong Machine, or reading
  * the wrong Machine's runtime), so an unlisted customer is **rejected** rather
  * than guessed (ADR 0036). Graduates to a customer.yaml/D1 lookup as customers
- * are added (ADR 0012). customer-zero ("smd") → `hermes-smd`.
+ * are added (ADR 0012). The first entry was customer-zero ("smd") →
+ * `hermes-smd`, retired 2026-09-03.
  *
  * Both the OAuth token relay (`src/lib/oauth/store.ts`, ADR 0036) and the
  * console→Machine runtime read transport (`runtime-read-transport.ts`, ADR
@@ -38,7 +39,12 @@
  */
 
 const CUSTOMER_FLY_APPS: Readonly<Record<string, string>> = Object.freeze({
-  smd: 'hermes-smd',
+  // `smd` (customer-zero, `hermes-smd`) was retired 2026-09-03 by Captain
+  // directive: a June bring-up test with nothing running on it since 07-13,
+  // still billing as a started Machine and still holding the morning
+  // audit-chain run once stopped. Fly app, volume, D1 projection, R2 vault and
+  // the healthchecks ping are all gone; its customer.yaml stays in git history
+  // for when it is stood up again. See tests/customer-slug-pattern.test.ts.
   // Smokeball Operator seats (ADR 0053). pilot-smokeball = our own staging
   // rehearsal rig; ashton-price = the production pilot firm.
   'pilot-smokeball': 'hermes-pilot-smokeball',

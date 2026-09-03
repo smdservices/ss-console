@@ -97,7 +97,11 @@ describe('loadHomeFeeds: fail-closed contracts', () => {
   it('returns honest empty feeds (and never touches D1 or fetch) when unconfigured', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    const feeds = await loadHomeFeeds({ db: NOOP_DB, env: {}, actorUserId: 'u-1' }, 'smd', ACTOR)
+    const feeds = await loadHomeFeeds(
+      { db: NOOP_DB, env: {}, actorUserId: 'u-1' },
+      'smd-staging',
+      ACTOR
+    )
     expect(feeds.runtimeConfigured).toBe(false)
     expect(feeds.recentActivity).toEqual([])
     expect(feeds.escalations).toEqual([])
@@ -108,7 +112,11 @@ describe('loadHomeFeeds: fail-closed contracts', () => {
   it('fails closed to empty feeds when the Machine read fails (still audited)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('machine down')))
     const { db, auditInserts } = makeDb({ summaryRowExists: false })
-    const feeds = await loadHomeFeeds({ db, env: CONFIGURED_ENV, actorUserId: 'u-1' }, 'smd', ACTOR)
+    const feeds = await loadHomeFeeds(
+      { db, env: CONFIGURED_ENV, actorUserId: 'u-1' },
+      'smd-staging',
+      ACTOR
+    )
     expect(feeds.runtimeConfigured).toBe(true)
     expect(feeds.recentActivity).toEqual([])
     expect(feeds.escalations).toEqual([])
@@ -141,10 +149,14 @@ describe('loadHomeFeeds: live feeds through the audit_log seam', () => {
       auditRow({ id: 'a2', ts: '2026-07-01T09:00:00.000Z', action: 'REPLY_SENT' }),
     ])
     const { db } = makeDb({ summaryRowExists: false })
-    const feeds = await loadHomeFeeds({ db, env: CONFIGURED_ENV, actorUserId: 'u-1' }, 'smd', ACTOR)
+    const feeds = await loadHomeFeeds(
+      { db, env: CONFIGURED_ENV, actorUserId: 'u-1' },
+      'smd-staging',
+      ACTOR
+    )
 
     const calledUrl = String(fetchMock.mock.calls[0][0])
-    expect(calledUrl).toContain('https://hermes-smd.example.test/runtime/audit_log')
+    expect(calledUrl).toContain('https://hermes-smd-staging.example.test/runtime/audit_log')
     expect(calledUrl).toContain('limit=20')
 
     expect(feeds.runtimeConfigured).toBe(true)
@@ -165,7 +177,11 @@ describe('loadHomeFeeds: live feeds through the audit_log seam', () => {
     )
     stubFetchWith(rows)
     const { db } = makeDb({ summaryRowExists: false })
-    const feeds = await loadHomeFeeds({ db, env: CONFIGURED_ENV, actorUserId: 'u-1' }, 'smd', ACTOR)
+    const feeds = await loadHomeFeeds(
+      { db, env: CONFIGURED_ENV, actorUserId: 'u-1' },
+      'smd-staging',
+      ACTOR
+    )
     expect(feeds.recentActivity).toHaveLength(6)
     expect(feeds.recentActivity[0].id).toBe('a8')
     expect(feeds.recentActivity[5].id).toBe('a3')
@@ -182,7 +198,11 @@ describe('loadHomeFeeds: live feeds through the audit_log seam', () => {
       auditRow({ id: 'a1', action: 'DRAFT_CREATED' }),
     ])
     const { db } = makeDb({ summaryRowExists: false })
-    const feeds = await loadHomeFeeds({ db, env: CONFIGURED_ENV, actorUserId: 'u-1' }, 'smd', ACTOR)
+    const feeds = await loadHomeFeeds(
+      { db, env: CONFIGURED_ENV, actorUserId: 'u-1' },
+      'smd-staging',
+      ACTOR
+    )
     expect(feeds.escalations).toEqual([
       {
         id: 'e1',
@@ -198,7 +218,11 @@ describe('loadHomeFeeds: needsAttentionCount from the summary mirror (ADR 0035)'
   it('surfaces a Machine-reported positive depth', async () => {
     stubFetchWith([])
     const { db } = makeDb({ draftQueueDepth: 3 })
-    const feeds = await loadHomeFeeds({ db, env: CONFIGURED_ENV, actorUserId: 'u-1' }, 'smd', ACTOR)
+    const feeds = await loadHomeFeeds(
+      { db, env: CONFIGURED_ENV, actorUserId: 'u-1' },
+      'smd-staging',
+      ACTOR
+    )
     expect(feeds.needsAttentionCount).toBe(3)
   })
 
@@ -213,7 +237,7 @@ describe('loadHomeFeeds: needsAttentionCount from the summary mirror (ADR 0035)'
       const { db } = makeDb(opts)
       const feeds = await loadHomeFeeds(
         { db, env: CONFIGURED_ENV, actorUserId: 'u-1' },
-        'smd',
+        'smd-staging',
         ACTOR
       )
       expect(feeds.needsAttentionCount).toBe(0)
