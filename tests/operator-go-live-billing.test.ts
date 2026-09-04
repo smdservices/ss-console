@@ -12,7 +12,7 @@
  *   3. The checkout-completed handler binds, promotes, and is idempotent.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   createTestD1,
   runMigrations,
@@ -20,11 +20,25 @@ import {
 } from '@venturecrane/crane-test-harness'
 import { resolve } from 'path'
 import type { D1Database } from '@cloudflare/workers-types'
+
+// The failed-first-payment path cancels the subscription at Stripe and
+// alerts team@. Both leave the process; both are observed here as calls.
+const cancelOperatorSubscription = vi.fn()
+const sendEmail = vi.fn()
+vi.mock('../src/lib/stripe/subscriptions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/lib/stripe/subscriptions')>()),
+  cancelOperatorSubscription: (...args: unknown[]) => cancelOperatorSubscription(...args),
+}))
+vi.mock('../src/lib/email/resend', () => ({
+  sendEmail: (...args: unknown[]) => sendEmail(...args),
+}))
+
 import {
   activateOperatorSubscriptionForBilling,
   getSubscriptionForBilling,
   setSubscriptionBillingStatus,
 } from '../src/lib/db/subscriptions'
+import { handleRetainerInvoicePaid } from '../src/lib/webhooks/stripe-subscription-handler'
 import {
   CARD_FEE_LINE_DESCRIPTION,
   cardProcessingFeeCents,
@@ -36,6 +50,7 @@ import {
   updateInvoiceStatus,
 } from '../src/lib/db/invoices'
 import {
+  handleOperatorCheckoutAsyncPaymentFailed,
   handleOperatorCheckoutCompleted,
   type OperatorCheckoutSessionPayload,
 } from '../src/lib/webhooks/operator-checkout-handler'
@@ -180,6 +195,77 @@ describe('card processing fee (agreement §3.8)', () => {
   })
 })
 
+interface SubState {
+  status: string
+  stripe_subscription_id: string | null
+  settings_json: string | null
+  started_at: string | null
+}
+
+async function subState(db: D1Database, id = 'sub-op'): Promise<SubState> {
+  const row = await db
+    .prepare(
+      'SELECT status, stripe_subscription_id, settings_json, started_at FROM subscriptions WHERE id = ?'
+    )
+    .bind(id)
+    .first<SubState>()
+  if (!row) throw new Error(`no subscription row ${id}`)
+  return row
+}
+
+async function orderStatus(db: D1Database, sessionId = 'cs_test_1'): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT status FROM stripe_checkout_orders WHERE session_id = ?')
+    .bind(sessionId)
+    .first<{ status: string }>()
+  return row?.status ?? null
+}
+
+/** The start gates (portal `canStart`, server start-subscription route) both
+ * require exactly this: provisioning and no Stripe subscription attached. */
+function startable(row: SubState): boolean {
+  return row.status === 'provisioning' && row.stripe_subscription_id === null
+}
+
+const payload = (
+  over: Partial<OperatorCheckoutSessionPayload> = {}
+): OperatorCheckoutSessionPayload => ({
+  id: 'cs_test_1',
+  client_reference_id: 'user-1',
+  customer: 'cus_1',
+  subscription: 'sub_stripe_1',
+  amount_total: 500000,
+  customer_details: { email: 'admin@firm.com', name: 'Admin' },
+  metadata: { product_slug: 'operator', smd_entity_id: ENTITY, smd_subscription_id: 'sub-op' },
+  payment_status: 'paid',
+  ...over,
+})
+
+/** A first cycle invoice in the live (post-basil) shape: the subscription
+ * metadata the checkout stamped rides at parent.subscription_details. */
+function firstInvoice(stripeSubscriptionId = 'sub_stripe_1', rowId = 'sub-op') {
+  return {
+    id: 'in_first_1',
+    amount_due: 500000,
+    amount_paid: 500000,
+    hosted_invoice_url: 'https://invoice.stripe.com/i/first',
+    due_date: null,
+    status_transitions: { paid_at: 1785100000 },
+    customer: 'cus_1',
+    parent: {
+      type: 'subscription_details',
+      subscription_details: {
+        subscription: stripeSubscriptionId,
+        metadata: {
+          product_slug: 'operator',
+          smd_entity_id: ENTITY,
+          smd_subscription_id: rowId,
+        },
+      },
+    },
+  }
+}
+
 describe("operator checkout.session.completed: the client's payment is the go-live act", () => {
   let db: D1Database
 
@@ -188,19 +274,6 @@ describe("operator checkout.session.completed: the client's payment is the go-li
     await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
     await seed(db)
     await insertSubscription(db, 'sub-op', 'operator', 'provisioning')
-  })
-
-  const payload = (
-    over: Partial<OperatorCheckoutSessionPayload> = {}
-  ): OperatorCheckoutSessionPayload => ({
-    id: 'cs_test_1',
-    client_reference_id: 'user-1',
-    customer: 'cus_1',
-    subscription: 'sub_stripe_1',
-    amount_total: 500000,
-    customer_details: { email: 'admin@firm.com', name: 'Admin' },
-    metadata: { product_slug: 'operator', smd_entity_id: ENTITY, smd_subscription_id: 'sub-op' },
-    ...over,
   })
 
   it('binds the Stripe subscription + customer and promotes the row to active', async () => {
@@ -262,5 +335,244 @@ describe("operator checkout.session.completed: the client's payment is the go-li
       .bind('sub-op')
       .first<{ status: string }>()
     expect(row?.status).toBe('provisioning')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A1: invoice.paid can land BEFORE checkout.session.completed
+//
+// Stripe does not order the two. Before the fallback, the first paid invoice
+// found no row carrying the Stripe subscription id, logged "no local
+// subscription", and returned 200: money in, portal still provisioning,
+// nothing anywhere saying so.
+// ---------------------------------------------------------------------------
+
+describe('go-live ordering: invoice.paid before checkout.session.completed (A1)', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+    await insertSubscription(db, 'sub-op', 'operator', 'provisioning')
+    sendEmail.mockReset()
+    cancelOperatorSubscription.mockReset()
+  })
+
+  it('binds + promotes from the invoice metadata, mirrors the invoice, and the later checkout is a no-op', async () => {
+    const res = await handleRetainerInvoicePaid(db, undefined, 'sub_stripe_1', firstInvoice())
+    expect(res.status).toBe(200)
+
+    const afterInvoice = await subState(db)
+    expect(afterInvoice.status).toBe('active')
+    expect(afterInvoice.stripe_subscription_id).toBe('sub_stripe_1')
+    expect(JSON.parse(afterInvoice.settings_json!)).toEqual({ stripe_customer_id: 'cus_1' })
+    expect(afterInvoice.started_at).not.toBeNull()
+
+    const invoice = await db
+      .prepare('SELECT type, status, amount, entity_id FROM invoices WHERE stripe_invoice_id = ?')
+      .bind('in_first_1')
+      .first<{ type: string; status: string; amount: number; entity_id: string }>()
+    expect(invoice).toEqual({ type: 'retainer', status: 'paid', amount: 5000, entity_id: ENTITY })
+
+    // The checkout event arrives late: same binding, nothing changes.
+    const later = await handleOperatorCheckoutCompleted(db, payload())
+    expect(later.status).toBe(200)
+    const afterCheckout = await subState(db)
+    expect(afterCheckout).toEqual(afterInvoice)
+    expect(await orderStatus(db)).toBe('processed')
+  })
+
+  it('an unattached row is bound from a late-arriving paid invoice exactly once (replay is idempotent)', async () => {
+    await handleRetainerInvoicePaid(db, undefined, 'sub_stripe_1', firstInvoice())
+    const first = await subState(db)
+    await handleRetainerInvoicePaid(db, undefined, 'sub_stripe_1', firstInvoice())
+    expect(await subState(db)).toEqual(first)
+    const count = await db
+      .prepare('SELECT COUNT(*) AS n FROM invoices WHERE stripe_invoice_id = ?')
+      .bind('in_first_1')
+      .first<{ n: number }>()
+    expect(count?.n).toBe(1)
+  })
+
+  it('an invoice whose metadata names nothing this console holds is still an honest skip', async () => {
+    const stray = firstInvoice('sub_stripe_smoke', 'sub-nope')
+    const res = await handleRetainerInvoicePaid(db, undefined, 'sub_stripe_smoke', stray)
+    expect(res.status).toBe(200)
+    expect(startable(await subState(db))).toBe(true)
+    const count = await db.prepare('SELECT COUNT(*) AS n FROM invoices').first<{ n: number }>()
+    expect(count?.n).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A2: payment_status gates go-live; the async events finish or unwind it
+//
+// The checkout offers ACH. An ACH session completes with payment_status
+// `unpaid` and settles (or bounces) days later. Promoting on `completed`
+// alone would reveal the full portal to a client whose first payment then
+// bounced, with a live Stripe subscription the console had forgotten.
+// ---------------------------------------------------------------------------
+
+describe('A2: delayed first payment (ACH) — bind on completed, go live on settlement', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+    await insertSubscription(db, 'sub-op', 'operator', 'provisioning')
+    sendEmail.mockReset()
+    cancelOperatorSubscription.mockReset()
+    cancelOperatorSubscription.mockResolvedValue({ id: 'sub_stripe_1', status: 'canceled' })
+  })
+
+  it('completed with payment_status=unpaid attaches but does NOT promote; the order stays received', async () => {
+    const res = await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    expect(res.status).toBe(200)
+    const row = await subState(db)
+    expect(row.status).toBe('provisioning')
+    expect(row.stripe_subscription_id).toBe('sub_stripe_1')
+    expect(JSON.parse(row.settings_json!)).toEqual({ stripe_customer_id: 'cus_1' })
+    expect(await orderStatus(db)).toBe('received')
+  })
+
+  it('no_payment_required promotes (Stripe: nothing is owed at this time)', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'no_payment_required' }))
+    expect((await subState(db)).status).toBe('active')
+    expect(await orderStatus(db)).toBe('processed')
+  })
+
+  it('async_payment_succeeded after an unpaid completion promotes the row and closes the order', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    // Stripe re-sends the session object, now paid.
+    const res = await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'paid' }))
+    expect(res.status).toBe(200)
+    const row = await subState(db)
+    expect(row.status).toBe('active')
+    expect(row.stripe_subscription_id).toBe('sub_stripe_1')
+    expect(await orderStatus(db)).toBe('processed')
+  })
+
+  it('invoice.paid on the attached-but-provisioning row goes live too; the later async_payment_succeeded is a no-op', async () => {
+    // The two settlement signals converge: whichever Stripe delivers first
+    // promotes, the other finds nothing left to do.
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    await handleRetainerInvoicePaid(db, undefined, 'sub_stripe_1', firstInvoice())
+    const afterInvoice = await subState(db)
+    expect(afterInvoice.status).toBe('active')
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'paid' }))
+    expect(await subState(db)).toEqual(afterInvoice)
+    expect(await orderStatus(db)).toBe('processed')
+  })
+
+  it('async_payment_failed cancels at Stripe, detaches, fails the order, alerts team@ — and the row is startable again', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    expect(startable(await subState(db))).toBe(false)
+
+    const res = await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk_test_x',
+      'resend_x',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(res.status).toBe(200)
+
+    const row = await subState(db)
+    expect(row.status).toBe('provisioning')
+    expect(row.stripe_subscription_id).toBeNull()
+    // The Stripe customer is real and the retry reuses it.
+    expect(JSON.parse(row.settings_json!)).toEqual({ stripe_customer_id: 'cus_1' })
+    expect(startable(row)).toBe(true)
+    expect(await orderStatus(db)).toBe('failed')
+
+    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(1)
+    expect(cancelOperatorSubscription).toHaveBeenCalledWith('sk_test_x', 'sub_stripe_1')
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    const [, mail] = sendEmail.mock.calls[0] as [
+      unknown,
+      { to: string; subject: string; html: string },
+    ]
+    expect(mail.to).toBe('team@smd.services')
+    expect(mail.subject).toContain('FAILED')
+    expect(mail.html).toContain('sub_stripe_1')
+    expect(mail.html).toContain('detached')
+  })
+
+  it('after a failed payment, a re-delivered completed event does not re-attach the dead subscription', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      undefined,
+      payload({ payment_status: 'unpaid' })
+    )
+    const res = await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    expect(res.status).toBe(200)
+    expect(startable(await subState(db))).toBe(true)
+  })
+
+  it('a Stripe cancel failure is a 500 (retry) and the alert names it; the detach still holds', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    cancelOperatorSubscription.mockRejectedValueOnce(
+      new Error('Stripe cancel failed 502: upstream')
+    )
+    const res = await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      'resend',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(res.status).toBe(500)
+    expect(startable(await subState(db))).toBe(true)
+    const [, mail] = sendEmail.mock.calls[0] as [unknown, { html: string }]
+    expect(mail.html).toContain('Stripe cancel failed 502')
+    // The retry reaches the cancel again: `failed` is not terminal here.
+    const retry = await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      'resend',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(retry.status).toBe(200)
+    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(2)
+  })
+
+  it('the detach is guarded: a late failed event for an OLD subscription leaves a NEW attachment alone', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      undefined,
+      payload({ payment_status: 'unpaid' })
+    )
+    // The client started again and paid by card.
+    await handleOperatorCheckoutCompleted(
+      db,
+      payload({ id: 'cs_test_2', subscription: 'sub_stripe_2' })
+    )
+    expect((await subState(db)).stripe_subscription_id).toBe('sub_stripe_2')
+    // Stripe re-delivers the first session's failure.
+    await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      undefined,
+      payload({ payment_status: 'unpaid' })
+    )
+    const row = await subState(db)
+    expect(row.stripe_subscription_id).toBe('sub_stripe_2')
+    expect(row.status).toBe('active')
+  })
+
+  it('acks a failed event for another product without touching anything', async () => {
+    const res = await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      undefined,
+      payload({ metadata: { product_slug: 'hosted-agent' } })
+    )
+    expect(res.status).toBe(200)
+    expect(cancelOperatorSubscription).not.toHaveBeenCalled()
+    expect(await orderStatus(db)).toBeNull()
   })
 })

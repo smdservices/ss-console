@@ -13,9 +13,20 @@
  *      refused even for its own firm's paper.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import type { D1Database } from '@cloudflare/workers-types'
-import { isExecutedOnValid } from '../src/lib/db/operator-agreements'
+import {
+  createTestD1,
+  runMigrations,
+  discoverNumericMigrations,
+} from '@venturecrane/crane-test-harness'
+import { resolve } from 'path'
+import {
+  createOperatorAgreementDocument,
+  isExecutedOnValid,
+  listOperatorAgreementDocuments,
+} from '../src/lib/db/operator-agreements'
+import { getOperatorAgreementKey } from '../src/lib/storage/r2'
 import {
   getOperatorAgreementForKey,
   listAgreementsForInstance,
@@ -31,7 +42,7 @@ const ROW = {
   instance_slug: 'ashton-price',
   title: 'Operator Service Agreement',
   executed_on: '2026-09-08',
-  storage_key: 'org-1/operator/ashton-price/agreements/ab12cd34/agreement.pdf',
+  storage_key: 'org-1/operator/ashton-price/agreements/doc-1/agreement.pdf',
   file_name: 'agreement.pdf',
   uploaded_by: 'user-admin',
   created_at: '2026-09-08T00:00:00Z',
@@ -129,6 +140,95 @@ describe('getOperatorAgreementForKey', () => {
       key: 'org-1/engagements/eng-1/docs/aa11bb22/sow.pdf',
     })
     expect(decision.kind).toBe('not_agreement')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A3 (claims-2026-09-04): keyed by the row, so two documents can share a name
+//
+// The name-hash key convention makes "the same filename replaces". For a
+// deliverable that is a feature; for executed paper it destroyed the
+// original: an amendment uploaded as `agreement.pdf` overwrote the
+// agreement's bytes in R2 and, through the UNIQUE storage_key upsert, took
+// over its row. Both documents are signed; both must stay.
+// ---------------------------------------------------------------------------
+
+describe('getOperatorAgreementKey', () => {
+  it('puts the document id, not a name hash, between the prefix and the filename', () => {
+    const key = getOperatorAgreementKey(
+      'org-1',
+      'ashton-price',
+      'doc-9',
+      'Amendment 1 (signed).pdf'
+    )
+    expect(key).toBe('org-1/operator/ashton-price/agreements/doc-9/Amendment_1__signed_.pdf')
+  })
+
+  it('two documents with the same filename get two keys', () => {
+    const a = getOperatorAgreementKey('org-1', 'ashton-price', 'doc-a', 'agreement.pdf')
+    const b = getOperatorAgreementKey('org-1', 'ashton-price', 'doc-b', 'agreement.pdf')
+    expect(a).not.toBe(b)
+    // The download endpoint's two checks: org prefix, and no traversal.
+    for (const key of [a, b]) {
+      expect(key.startsWith('org-1/')).toBe(true)
+      expect(key).not.toContain('..')
+      expect(key).not.toContain('//')
+      expect(key.split('/').pop()).toBe('agreement.pdf')
+    }
+  })
+})
+
+describe('createOperatorAgreementDocument (real D1)', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, {
+      files: discoverNumericMigrations(resolve(process.cwd(), 'migrations')),
+    })
+  })
+
+  function doc(id: string, over: Partial<{ title: string; executed_on: string }> = {}) {
+    return {
+      id,
+      org_id: 'org-1',
+      entity_id: 'ent-1',
+      instance_slug: 'ashton-price',
+      title: 'Operator Service Agreement',
+      executed_on: '2026-08-01',
+      storage_key: getOperatorAgreementKey('org-1', 'ashton-price', id, 'agreement.pdf'),
+      file_name: 'agreement.pdf',
+      uploaded_by: 'user-admin',
+      ...over,
+    }
+  }
+
+  it('two uploads with the same filename are two rows with two keys, both listed', async () => {
+    const first = await createOperatorAgreementDocument(db, doc('doc-a'))
+    const second = await createOperatorAgreementDocument(
+      db,
+      doc('doc-b', { title: 'Amendment 1', executed_on: '2026-08-20' })
+    )
+    expect(first.id).toBe('doc-a')
+    expect(second.id).toBe('doc-b')
+    expect(first.storage_key).not.toBe(second.storage_key)
+
+    const listed = await listOperatorAgreementDocuments(db, 'ent-1', 'ashton-price')
+    expect(listed.map((d) => d.id)).toEqual(['doc-b', 'doc-a']) // newest executed first
+    expect(listed.map((d) => d.title)).toEqual(['Amendment 1', 'Operator Service Agreement'])
+  })
+
+  it('is a plain INSERT: re-using a storage key is refused, never silently merged', async () => {
+    await createOperatorAgreementDocument(db, doc('doc-a'))
+    await expect(
+      createOperatorAgreementDocument(db, {
+        ...doc('doc-c', { title: 'Something else' }),
+        storage_key: getOperatorAgreementKey('org-1', 'ashton-price', 'doc-a', 'agreement.pdf'),
+      })
+    ).rejects.toThrow()
+    const listed = await listOperatorAgreementDocuments(db, 'ent-1', 'ashton-price')
+    expect(listed).toHaveLength(1)
+    expect(listed[0].title).toBe('Operator Service Agreement')
   })
 })
 

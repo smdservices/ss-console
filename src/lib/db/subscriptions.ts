@@ -53,6 +53,20 @@ export async function getSubscriptionByStripeId(
   return row ?? null
 }
 
+/** The local row by its own id. The webhook fallback path reads this when a
+ * cycle invoice's subscription metadata names a row that Stripe attached
+ * before the checkout event that would have bound it arrived (A1). */
+export async function getSubscriptionById(
+  db: D1Database,
+  subscriptionRowId: string
+): Promise<SubscriptionBillingRow | null> {
+  const row = await db
+    .prepare(`SELECT ${BILLING_COLUMNS} FROM subscriptions WHERE id = ?`)
+    .bind(subscriptionRowId)
+    .first<SubscriptionBillingRow>()
+  return row ?? null
+}
+
 /**
  * Attach a Stripe subscription (and its customer) to the local row. The
  * customer id lands in settings_json.stripe_customer_id, the single key the
@@ -76,6 +90,32 @@ export async function attachStripeSubscription(
     )
     .bind(stripeSubscriptionId, stripeCustomerId, stripeCustomerId, subscriptionRowId)
     .run()
+}
+
+/**
+ * Detach a Stripe subscription whose first payment failed, so the client can
+ * start again. Both start gates (the portal's `canStart` and the server-side
+ * start-subscription route) require `stripe_subscription_id IS NULL`, so
+ * clearing it is what re-opens the door. `settings_json.stripe_customer_id`
+ * is kept: the Stripe customer is real and the retry reuses it.
+ *
+ * Guarded on the id being detached: a webhook retry that lands after the
+ * client has already attached a NEW subscription must not clear that one.
+ * Returns true when the row was detached.
+ */
+export async function detachStripeSubscription(
+  db: D1Database,
+  subscriptionRowId: string,
+  stripeSubscriptionId: string
+): Promise<boolean> {
+  const res = await db
+    .prepare(
+      `UPDATE subscriptions SET stripe_subscription_id = NULL, updated_at = datetime('now')
+       WHERE id = ? AND stripe_subscription_id = ?`
+    )
+    .bind(subscriptionRowId, stripeSubscriptionId)
+    .run()
+  return (res.meta.changes ?? 0) > 0
 }
 
 /**
@@ -172,9 +212,11 @@ export async function setSubscriptionBillingStatus(
  * `provisioning` keeps a client in the review-and-configure window (Home
  * hidden, Billing hidden, landing on the operator page); `active` reveals
  * the full portal (src/lib/portal/offerings.ts, hasBillingRelationship).
- * Only the operator checkout.session.completed handler calls it, for the
- * operator product, from `provisioning`: the client's own payment is the
- * act. The generic subscription-status mirror keeps its provisioning guard
+ * Called for the operator product, from `provisioning`, by the two webhook
+ * paths that observe the client's own payment: the operator checkout
+ * handler (completed / async_payment_succeeded, gated on payment_status)
+ * and the retainer invoice.paid handler (ordering fallback, and the ACH
+ * settlement on an attached row). The generic subscription-status mirror keeps its provisioning guard
  * (the Hosted Agent's checkout-before-standup flow must not be promoted by
  * billing events). Returns true when a row was promoted.
  */
