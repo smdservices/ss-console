@@ -154,16 +154,28 @@ _AUDIT_ONLY_KEYS = frozenset({"sender_key", "audit_row_token"})
 #:                          must never be synthesized here.
 #: ``body_variant``         full | skeleton — a skeleton match grades
 #:                          ``degraded`` in the verifier, never BODY_DIVERGED.
+#: ``skill_name``           the routine that authored the body, resolved by the
+#:                          overlay from the CRON SESSION ID at emission
+#:                          (cron_attribution.resolve_routine) — a scheduler
+#:                          fact, not an agent assertion. Goes to its COLUMN,
+#:                          not into metadata (``_append_send_row`` moves it),
+#:                          because the console's wake<->confirm join
+#:                          (send_verify.py) claims a wake BY SKILL and the
+#:                          EMITTED_WAKE half already lives in that column.
+#:                          Before this key, every CONFIRM row wrote NULL there
+#:                          and the join fell through to hash-only attribution
+#:                          (claims review 2026-09-04, B3).
 #:
 #: CLOSED ALLOWLIST, AND SILENTLY SO. The filter below drops any key not named
 #: here with no error and no log, which is the right posture for an untrusted
 #: caller-supplied dict but means a stamp the overlay adds WITHOUT a matching
 #: entry here vanishes between the two repos and the verifier simply never sees
 #: it. Adding a stamp is therefore a two-repo change; ``plain_body_sha256``
-#: pairs with hermes-smd-overlay#338.
+#: pairs with hermes-smd-overlay#338, ``skill_name`` with the overlay's
+#: fix/prerendered-dispatch-skill-name pair PR.
 #: (One physical line on purpose: tests/operator-module-size.test.ts ratchets
 #: this module's logical-line count and only ever tightens. Comments are free.)
-_CALLER_AUDIT_KEYS: tuple[str, ...] = ("routing_leg", "rendered_body_sha256", "plain_body_sha256", "body_variant")
+_CALLER_AUDIT_KEYS: tuple[str, ...] = ("routing_leg", "rendered_body_sha256", "plain_body_sha256", "body_variant", "skill_name")
 
 
 class Broker:
@@ -757,13 +769,25 @@ class Broker:
         rather than written as ``""``, which the hash chain canonicalizes
         distinctly from NULL and which reads as a reference that is present and
         blank.
+
+        ``skill_name`` (B3, claims review 2026-09-04) arrives inside
+        ``metadata`` -- it rides ``audit_extra`` through the closed allowlist
+        with the body stamps -- and is MOVED to its column here, for the same
+        reason ``matter_ref`` has one: the console's wake<->confirm join reads
+        ``skill_name`` off the column on both halves, and a value parked in
+        metadata would be a fourth place to look. Popped, so it never appears
+        twice; omitted when empty, like ``matter_ref``. The dict the caller
+        passed is mutated on purpose -- every caller hands over a literal.
         """
         if self.ledger is None:
             return
+        skill_name = metadata.pop("skill_name", "")
         row: dict[str, Any] = {
             "action_type": action_type,
             "actor": "operator",
             "actor_role": "agent",
+            **({"skill_name": skill_name} if skill_name else {}),
+            **({"matter_ref": matter_ref} if matter_ref else {}),
             "metadata": json.dumps(
                 {
                     "customer": self.customer_slug,
@@ -775,8 +799,6 @@ class Broker:
                 separators=(",", ":"),
             ),
         }
-        if matter_ref:
-            row["matter_ref"] = matter_ref
         self.ledger.append(row)
 
     def _dispatch_transmit(
@@ -817,8 +839,7 @@ class Broker:
         # REQUEST like the two joins above, filtered through a closed
         # allowlist (string values only). Optional at both ends, so the
         # overlay and this process deploy in either order.
-        raw_extra = request.get("audit_extra")
-        raw_extra = raw_extra if isinstance(raw_extra, dict) else {}
+        raw_extra = request.get("audit_extra") if isinstance(request.get("audit_extra"), dict) else {}
         audit_extra = {
             key: raw_extra[key].strip()
             for key in _CALLER_AUDIT_KEYS

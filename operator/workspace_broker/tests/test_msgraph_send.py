@@ -1044,6 +1044,72 @@ def test_a_caller_that_sends_no_joins_writes_the_row_it_writes_today(tmp_path: P
     )
     assert "matter_ref" not in broker.ledger.rows[0]
     assert "session_id" not in _meta(broker)
+    assert "skill_name" not in broker.ledger.rows[0]
+
+
+def test_audit_extra_rides_the_msgraph_row_through_the_same_allowlist(tmp_path: Path) -> None:
+    """The Graph channel shares ``_dispatch_transmit`` with AgentMail ON PURPOSE
+    (one audit writer, no forked copy to drift), but until this test nothing
+    on the paying seat's channel proved the caller stamps arrive here at all.
+    Same closed allowlist, same column placement: the body stamps land in
+    metadata, ``skill_name`` (B3, claims review 2026-09-04) on its column, an
+    unlisted key drops, and none of it reaches the wire.
+
+    FALSIFIER: route msgraph_send through a private audit writer that forgets
+    ``audit_extra`` and every metadata assertion fails while the AgentMail twin
+    stays green -- which is exactly the drift the shared writer forbids.
+    """
+    http = FakeGraph()
+    broker = _broker(tmp_path, http)
+    sha = "a" * 64
+    broker.handle(
+        {
+            "action": "msgraph_send",
+            "payload": {"to": ["scott@smd.services"], "body_text": "hi"},
+            "session_id": "sess-5",
+            "audit_extra": {
+                "routing_leg": "central",
+                "rendered_body_sha256": sha,
+                "body_variant": "full",
+                "skill_name": "deadline-miss-escalator",
+                "not_allowlisted": "dropped",
+            },
+        },
+        peer_pid=GATEWAY_PID,
+        peer_uid=AGENT_UID,
+    )
+    row = broker.ledger.rows[0]
+    meta = _meta(broker)
+    assert meta["routing_leg"] == "central"
+    assert meta["rendered_body_sha256"] == sha
+    assert meta["body_variant"] == "full"
+    assert "not_allowlisted" not in meta
+    assert row["skill_name"] == "deadline-miss-escalator"
+    assert "skill_name" not in meta
+    wire = json.dumps(http.graph_posts()[0][2])
+    assert "deadline-miss-escalator" not in wire
+    assert sha not in wire
+
+
+def test_a_refused_msgraph_send_still_names_its_routine(tmp_path: Path) -> None:
+    """The refusal row is the one an investigator most wants attributed: a
+    refused full body precedes the skeleton fallback, and the column is what
+    ties both rows to the wake that authored them."""
+    broker = _broker(tmp_path, FakeGraph())
+    with pytest.raises(MsGraphRefused):
+        broker.handle(
+            {
+                "action": "msgraph_send",
+                "payload": {"to": [UNAUTHORED], "body_text": "x"},
+                "audit_extra": {"skill_name": "deadline-miss-escalator", "body_variant": "full"},
+            },
+            peer_pid=GATEWAY_PID,
+            peer_uid=AGENT_UID,
+        )
+    row = broker.ledger.rows[0]
+    assert row["action_type"] == "CONFIRM_SEND_FAILED"
+    assert row["skill_name"] == "deadline-miss-escalator"
+    assert _meta(broker)["body_variant"] == "full"
 
 
 def test_the_joins_never_reach_the_vendor(tmp_path: Path) -> None:

@@ -19,7 +19,15 @@
 #
 # Examples:
 #   operator/bin/seat-probe.sh pilot-smokeball hermes -p operator cron list
-#   operator/bin/seat-probe.sh pilot-smokeball hermes -p operator cron run 15adf403c024
+#   operator/bin/seat-probe.sh pilot-smokeball hermes -p operator cron create "2m" "<prompt>" --repeat 1 --name <name>
+#
+# The second example is the sanctioned way to get a turn out of a seat: it
+# schedules the turn on the gateway that is already running. Never `hermes
+# -p <profile> -z ...`, `hermes chat`, or `hermes cron run <id>` through
+# here: each starts a SECOND hermes runtime beside the live gateway on a
+# 1 vCPU / 1GB Machine (operator/CLAUDE.md, the one-shot rule; the
+# 2026-09-01 crash-loop incident). `-p operator` is load-bearing on cron
+# commands: without it the job lands in a store the gateway never reads.
 #
 # The command runs as the hermes user with the live gateway env. Read-only
 # inspection needs no env and also works fine through here — there is no

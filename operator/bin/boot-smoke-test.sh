@@ -533,8 +533,23 @@ if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
   ssh_exec "medchron-firm-config-present" "[ \"\$(stat -c %U:%G:%a /var/lib/smd-config/medchron-firm.yaml)\" = root:medchron:640 ]"
   ssh_exec "medchron-uid-cannot-write-config" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"! test -w /var/lib/smd-config/medchron-firm.yaml\""
   ssh_exec "medchron-token-shared" "[ \"\$(stat -c %G:%a /run/smd-smokeball-token/refresh_token)\" = smokeball-token:660 ]"
+  # 2026-09-04: a seat that authors a firm config must also carry the
+  # install-level tree the entrypoint seeds from vaults/<slug>/medchron-controls/
+  # — the scanned-page classifier's falsifier (controls.json + its PDFs) and
+  # the ICD tables, both staged into that vault by provision-customer.sh step
+  # 2c (the tables vendored on the console: this tree is read-only to the
+  # child, so a seat can never fetch its own). Without it every job refuses
+  # at classify_scanned or fails at icd_tables, the seat path the 2026-09-04
+  # review found nobody had walked. The child can READ the controls (it runs
+  # the classifier) and never write them (a classifier that can edit its own
+  # controls measures nothing). What makes these able to FAIL: empty the vault
+  # prefix and reboot; drop the chown/chmod in entrypoint.sh and the stat or
+  # the write test reads it.
+  ssh_exec "medchron-controls-present" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/controls)\" = root:medchron:750 ] && test -f /run/smd-medchron/controls/controls.json"
+  ssh_exec "medchron-icd-tables-present" "test -f /run/smd-medchron/controls/icd/VERSION.json"
+  ssh_exec "medchron-uid-reads-controls-cannot-write" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"test -r /run/smd-medchron/controls/controls.json && ! test -w /run/smd-medchron/controls/controls.json && ! test -w /run/smd-medchron/controls\""
 else
-  pass "medchron-firm-config-absent (not authored for this seat at ${MEDCHRON_FIRM_YAML_AUTHORED}; runner refuses jobs by design — skipping config-perm, token, and gate-refusal checks)"
+  pass "medchron-firm-config-absent (not authored for this seat at ${MEDCHRON_FIRM_YAML_AUTHORED}; runner refuses jobs by design — skipping config-perm, token, controls, and gate-refusal checks)"
 fi
 
 # ---------- Step 14b: the four registered runner gates refuse their planted violations (ss#2614, ADR 0087) ----------

@@ -267,3 +267,62 @@ export async function getOperatorSubscription(
     paused: data.pause_collection !== null && data.pause_collection !== undefined,
   }
 }
+
+/** The three values Stripe documents for Checkout Session `payment_status`. */
+export type CheckoutPaymentStatus = 'paid' | 'unpaid' | 'no_payment_required'
+
+export interface OperatorCheckoutSessionView {
+  id: string
+  payment_status: CheckoutPaymentStatus
+  /**
+   * The console row `createOperatorCheckoutSession` stamped on the session
+   * (`metadata[smd_subscription_id]`); null when the session carries none.
+   * The caller resolves it against rows the signed-in client owns.
+   */
+  smd_subscription_id: string | null
+}
+
+function isCheckoutPaymentStatus(value: unknown): value is CheckoutPaymentStatus {
+  return value === 'paid' || value === 'unpaid' || value === 'no_payment_required'
+}
+
+/**
+ * Read the Checkout Session the success URL names, for the Billing surface
+ * (the `?start=done&session_id=…` return). Parsed, not cast: an unknown
+ * `payment_status` is an error, never a display state. Never returns
+ * payment details.
+ */
+export async function getOperatorCheckoutSession(
+  apiKey: string | undefined,
+  sessionId: string
+): Promise<OperatorCheckoutSessionView> {
+  if (!apiKey) {
+    console.log(`[DEV] Stripe: would get checkout session ${sessionId}`)
+    return { id: sessionId, payment_status: 'paid', smd_subscription_id: null }
+  }
+  const res = await fetch(`${STRIPE_API_BASE}/checkout/sessions/${sessionId}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (!res.ok) {
+    throw new Error(`Stripe checkout session get failed ${res.status}: ${await res.text()}`)
+  }
+  const data: unknown = await res.json()
+  if (!data || typeof data !== 'object') {
+    throw new Error('Stripe checkout session get: response is not an object')
+  }
+  const obj = data as Record<string, unknown>
+  if (typeof obj.id !== 'string' || !isCheckoutPaymentStatus(obj.payment_status)) {
+    throw new Error('Stripe checkout session get: unexpected shape')
+  }
+  const metadata =
+    obj.metadata && typeof obj.metadata === 'object'
+      ? (obj.metadata as Record<string, unknown>)
+      : null
+  const rowId = metadata?.smd_subscription_id
+  return {
+    id: obj.id,
+    payment_status: obj.payment_status,
+    smd_subscription_id: typeof rowId === 'string' && rowId.length > 0 ? rowId : null,
+  }
+}

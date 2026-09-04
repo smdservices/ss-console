@@ -610,6 +610,7 @@ def test_caller_audit_extra_rides_the_row_through_a_closed_allowlist(tmp_path: P
                 "rendered_body_sha256": sha,
                 "plain_body_sha256": plain_sha,
                 "body_variant": "full",
+                "skill_name": "deadline-miss-escalator",
                 "not_allowlisted": "dropped",
                 "recipients": ["forged@x.example"],
             },
@@ -627,6 +628,12 @@ def test_caller_audit_extra_rides_the_row_through_a_closed_allowlist(tmp_path: P
     assert "not_allowlisted" not in meta
     # The forged non-string entry cannot displace the broker's own field.
     assert meta["recipients"] == ["scott@smd.services"]
+    # B3 (claims review 2026-09-04): the routine name lands on the COLUMN the
+    # console's wake<->confirm join reads, and nowhere else. FALSIFIER: drop
+    # "skill_name" from _CALLER_AUDIT_KEYS and the column assertion fails; leave
+    # the pop out of _append_send_row and the metadata assertion fails.
+    assert broker.ledger.rows[0]["skill_name"] == "deadline-miss-escalator"
+    assert "skill_name" not in meta
 
 
 def test_the_audit_extra_allowlist_is_exactly_the_documented_set(tmp_path: Path) -> None:
@@ -662,7 +669,11 @@ def test_audit_extra_rides_the_refusal_row_too(tmp_path: Path) -> None:
             {
                 "action": "agentmail_send",
                 "payload": {"to": [UNAUTHORED], "text": "x"},
-                "audit_extra": {"body_variant": "full", "routing_leg": "fallback"},
+                "audit_extra": {
+                    "body_variant": "full",
+                    "routing_leg": "fallback",
+                    "skill_name": "deadline-miss-escalator",
+                },
             },
             peer_pid=GATEWAY_PID,
             peer_uid=AGENT_UID,
@@ -671,6 +682,10 @@ def test_audit_extra_rides_the_refusal_row_too(tmp_path: Path) -> None:
     assert meta["outcome"] == "refused"
     assert meta["body_variant"] == "full"
     assert meta["routing_leg"] == "fallback"
+    # A refused templated send is still that routine's send: the column rides
+    # every row _dispatch_transmit writes, not only the dispatched one.
+    assert broker.ledger.rows[0]["skill_name"] == "deadline-miss-escalator"
+    assert "skill_name" not in meta
 
 
 def test_absent_audit_extra_writes_exactly_todays_row(tmp_path: Path) -> None:
@@ -685,3 +700,8 @@ def test_absent_audit_extra_writes_exactly_todays_row(tmp_path: Path) -> None:
     meta = _meta(broker)
     for key in ("routing_leg", "rendered_body_sha256", "plain_body_sha256", "body_variant"):
         assert key not in meta
+    # Omitted, never written as "": the hash chain canonicalizes "" and NULL
+    # distinctly, and an in-turn send (no cron routine) must read as NULL in the
+    # column, which is what the console's tri-state attribution keys on.
+    assert "skill_name" not in broker.ledger.rows[0]
+    assert "skill_name" not in meta

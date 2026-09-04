@@ -343,14 +343,14 @@
       "reason": "one row per live customer.yaml apply; digests carry old/new config provenance, never content."
     },
     "CONFIRM_SEND_DISPATCHED": {
-      "side": "overlay",
-      "overlayProducer": "plugins/hermes-smd-trust (confirm-send seam)",
-      "reason": "emitted when a confirmed external send dispatches."
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/server.py",
+      "note": "written by the broker's own _dispatch_transmit (overlay#256 moved it off the plugin; claims review 2026-09-04 B3 corrected this entry, which still named the overlay). The overlay contributes stamps on audit_extra; the row itself is the broker's."
     },
     "CONFIRM_SEND_FAILED": {
-      "side": "overlay",
-      "overlayProducer": "plugins/hermes-smd-trust (confirm-send seam)",
-      "reason": "emitted when a confirmed external send errors."
+      "side": "ss-console",
+      "producerFile": "operator/workspace_broker/server.py",
+      "note": "the refusal / transport-error sibling of CONFIRM_SEND_DISPATCHED, written by the same _dispatch_transmit; same producer, same correction."
     },
     "SPEC_GATE_TRIGGERED": {
       "side": "overlay",

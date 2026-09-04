@@ -295,7 +295,49 @@ const USER_FACING_COPY_GUARDS: Array<{ label: string; pattern: RegExp }> = [
     label: 'no "off the shelf" framing in shipped user-facing surfaces',
     pattern: /\boff the shelf\b/i,
   },
+  // The compliance page asserted which agreements are in force from a
+  // template sentence (claims review 2026-09-04, A4). Whether documents are
+  // in force is a reading of the paper, never a sentence the code supplies.
+  {
+    label: 'no "in force together" contractual-status assertion in shipped user-facing surfaces',
+    pattern: /\bin force together\b/i,
+  },
 ]
+
+// ============================================================================
+// Checkout-return guard (claims review 2026-09-04, A5). The Billing surface
+// told the client "Your subscription is active" from `?start=done` alone,
+// and the Hosted Agent thanks page carried the lowercase form. Both surfaces
+// now render from the Checkout Session and the client's own row, so the
+// sentence must not return to either file. Scoped to the two files where it
+// lived: the hosted-agent product page derives its own wording from a
+// loaded row plus roles and is not this guard's subject.
+// ============================================================================
+
+const CHECKOUT_RETURN_FILES = [
+  resolve('src/pages/portal/billing/index.astro'),
+  resolve('src/pages/agent/thanks.astro'),
+]
+const CHECKOUT_RETURN_PATTERN = /\byour subscription is active\b/i
+
+describe('checkout-return copy guard (no "your subscription is active" from the query string)', () => {
+  it('finds both checkout-return surfaces (sanity)', () => {
+    for (const file of CHECKOUT_RETURN_FILES) {
+      expect(existsSync(file), file).toBe(true)
+    }
+  })
+
+  it('neither surface states the subscription is active', () => {
+    const violations: string[] = []
+    for (const file of CHECKOUT_RETURN_FILES) {
+      const content = stripComments(readFileSync(file, 'utf-8'))
+      if (CHECKOUT_RETURN_PATTERN.test(content)) {
+        violations.push(file.replace(SRC_ROOT, 'src'))
+      }
+    }
+    expect(violations).toEqual([])
+  })
+})
 
 describe('forbidden-strings: Pattern A/B violations must not appear in shipped source', () => {
   for (const { label, pattern } of FORBIDDEN_PATTERNS) {
@@ -1305,5 +1347,120 @@ describe('seat-reaching scripts never print a process command line (ss#2218)', (
     expect(ARGV_PRINTERS.test('ps auxe')).toBe(true)
     // ...and leaves the safe form alone.
     expect(ARGV_PRINTERS.test('pgrep -f "hermes.*gateway run"')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tree walker for the two guards below (same shape as the retired-persona
+// scan above): every file with one of `exts` under `dir`, node_modules and the
+// caller's exclusions skipped, unreadable entries ignored.
+// ---------------------------------------------------------------------------
+function walkTree(dir: string, exts: string[], excluded: string[]): string[] {
+  const out: string[] = []
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return out
+  }
+  for (const entry of entries) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- dir is a hardcoded repo root; entry is readdirSync output, not user input.
+    const full = join(dir, entry)
+    if (excluded.some((e) => isWithinDir(full, e))) continue
+    let st
+    try {
+      st = statSync(full)
+    } catch {
+      continue
+    }
+    if (st.isDirectory()) {
+      if (entry === 'node_modules') continue
+      out.push(...walkTree(full, exts, excluded))
+    } else if (exts.includes(extname(entry))) {
+      out.push(full)
+    }
+  }
+  return out
+}
+
+/** Python source with comment lines dropped, so an explanation cannot trip a gate. */
+function stripPythonComments(content: string): string {
+  return content
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// Delivered documents promise no future behaviour (claims review 2026-09-04,
+// B6). The medchron chronology's limitations section told the reader "tell us
+// and we will extend the chronology" in the firm's voice: a first-person
+// commitment nobody contracted, shipped inside a delivered work product. The
+// same Pattern A rule that governs the portal governs every Python module that
+// renders text a client reads.
+// ---------------------------------------------------------------------------
+describe('operator Python renders no first-person future-behaviour promise (ss claims 2026-09-04 B6)', () => {
+  const PROMISE = /\bwe will extend the\b/i
+  const files = walkTree(resolve('operator'), ['.py'], [])
+
+  it('finds operator Python to scan (sanity)', () => {
+    expect(files.length).toBeGreaterThan(0)
+  })
+
+  it('no operator Python module carries "we will extend the"', () => {
+    const offenders: string[] = []
+    for (const file of files) {
+      if (PROMISE.test(stripPythonComments(readFileSync(file, 'utf-8')))) {
+        offenders.push(file.replace(resolve('.') + '/', ''))
+      }
+    }
+    expect(
+      offenders,
+      'a delivered document may state what was reviewed; it may not promise what will be done next:\n' +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The other venture's mail domain stays out of SMD code (CLAUDE.md, "Contact
+// Addresses"; claims review 2026-09-04, I15). Seventeen occurrences had
+// accumulated, most in a skill reference COPYed into every seat image, and
+// `tests/client-identity-gate.test.ts` allowlists the domain as "ours", so it
+// could not catch them. Example addresses use `@example.com`. This scans the
+// same four roots the review probed, comments included: the domain has no
+// business in a comment either.
+// ---------------------------------------------------------------------------
+describe('the venturecrane mail domain appears nowhere in SMD code (CLAUDE.md contact addresses)', () => {
+  const DOMAIN = /@venturecrane\.com/i
+  const ROOTS = ['src', 'operator', 'scripts', 'workers']
+  const EXTS = [
+    '.ts',
+    '.tsx',
+    '.astro',
+    '.md',
+    '.yaml',
+    '.yml',
+    '.json',
+    '.py',
+    '.sh',
+    '.toml',
+    '.txt',
+  ]
+
+  it('the venturecrane address is in no file under src, operator, scripts, workers', () => {
+    const offenders: string[] = []
+    for (const root of ROOTS) {
+      for (const file of walkTree(resolve(root), EXTS, [])) {
+        if (DOMAIN.test(readFileSync(file, 'utf-8'))) {
+          offenders.push(file.replace(resolve('.') + '/', ''))
+        }
+      }
+    }
+    expect(
+      offenders,
+      'SMD addresses are team@smd.services and scott@smd.services; examples use @example.com:\n' +
+        offenders.join('\n')
+    ).toEqual([])
   })
 })
