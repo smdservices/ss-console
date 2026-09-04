@@ -51,11 +51,13 @@ class Job:
     # Where the install-level artifacts live: the scanned-page classifier's
     # authored control pages (`controls/controls.json` + PDFs) and the vendored
     # ICD tables (`controls/icd/`). On a laptop it IS data_root (one tree per
-    # firm, controls beside the matters). On a seat every job gets a fresh
-    # data_root under jobs/<id>/, so the controls would never be there: the
-    # daemon points this at the run dir, which the entrypoint seeds from the
-    # firm's vault on every boot. A run never writes here except the one-time
-    # ICD fetch, and never a matter's bytes.
+    # firm, controls beside the matters) and the icd_tables stage fetches the
+    # tables into it once. On a seat every job gets a fresh data_root under
+    # jobs/<id>/, so the controls would never be there: the daemon points this
+    # at the run dir, which the entrypoint pre-seeds from the firm's vault on
+    # every boot as a root-owned, read-only tree (provision-customer.sh stages
+    # the controls AND the console-vendored ICD tables into that vault). A run
+    # never writes here on a seat, and never a matter's bytes anywhere.
     install_root: Path
     allowance_remaining_documents: int | None = None
     selection_overrides: dict[str, Any] = field(default_factory=dict)

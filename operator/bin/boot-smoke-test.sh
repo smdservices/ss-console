@@ -536,13 +536,15 @@ if [ -f "${MEDCHRON_FIRM_YAML_AUTHORED}" ]; then
   # 2026-09-04: a seat that authors a firm config must also carry the
   # install-level tree the entrypoint seeds from vaults/<slug>/medchron-controls/
   # — the scanned-page classifier's falsifier (controls.json + its PDFs) and
-  # the vendored ICD tables. Without it every job refuses at classify_scanned
-  # (or fails at icd_tables: the child cannot write a root-owned tree), which
-  # is the seat path the 2026-09-04 review found nobody had walked. The child
-  # can READ the controls (it runs the classifier) and never write them (a
-  # classifier that can edit its own controls measures nothing). What makes
-  # these able to FAIL: empty the vault prefix and reboot; drop the chown/chmod
-  # in entrypoint.sh and the stat or the write test reads it.
+  # the ICD tables, both staged into that vault by provision-customer.sh step
+  # 2c (the tables vendored on the console: this tree is read-only to the
+  # child, so a seat can never fetch its own). Without it every job refuses
+  # at classify_scanned or fails at icd_tables, the seat path the 2026-09-04
+  # review found nobody had walked. The child can READ the controls (it runs
+  # the classifier) and never write them (a classifier that can edit its own
+  # controls measures nothing). What makes these able to FAIL: empty the vault
+  # prefix and reboot; drop the chown/chmod in entrypoint.sh and the stat or
+  # the write test reads it.
   ssh_exec "medchron-controls-present" "[ \"\$(stat -c %U:%G:%a /run/smd-medchron/controls)\" = root:medchron:750 ] && test -f /run/smd-medchron/controls/controls.json"
   ssh_exec "medchron-icd-tables-present" "test -f /run/smd-medchron/controls/icd/VERSION.json"
   ssh_exec "medchron-uid-reads-controls-cannot-write" "setpriv --reuid=medchron --regid=medchron --init-groups sh -c \"test -r /run/smd-medchron/controls/controls.json && ! test -w /run/smd-medchron/controls/controls.json && ! test -w /run/smd-medchron/controls\""

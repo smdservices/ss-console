@@ -1,6 +1,14 @@
-"""`icd_tables`: vendor the CMS ICD code tables once per machine into
+"""`icd_tables`: vendor the CMS ICD code tables once per LAPTOP install into
 `<install_root>/controls/icd/`, with a VERSION.json of source URLs and sha256s.
 $0 (a download). The driver skips this stage when VERSION.json exists.
+
+On a seat this stage never fetches: install_root is the entrypoint's
+root-owned, read-only controls tree, pre-seeded from the firm's vault, and
+the tables arrive there because provision-customer.sh runs `vendor()` below
+on the console (`operator/bin/lib/medchron-vendor-icd.sh`) and stages the
+result under `medchron-controls/icd/`. A seat whose tree lacks VERSION.json
+fails this stage loudly (PermissionError on the fetch), which boot smoke
+catches first (`medchron-icd-tables-present`).
 
 The zip names carry the fiscal year; a new year means editing the two URLs
 here and rerunning. The fetch is injectable so the unzip and version record

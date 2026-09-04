@@ -260,12 +260,14 @@ class Daemon:
             "units": env["units"],
             "incident": env["incident"],
             "data_root": str(data_root),
-            # The install-level tree the entrypoint seeds from the vault every
-            # boot (`controls/controls.json` + PDFs, `controls/icd/`): the run
-            # dir itself, shared by every job, root-owned, read by the child.
-            # A fresh per-job data_root can never carry the classifier's
-            # falsifier, so a job that resolved controls there refused
-            # forever (2026-09-04 finding).
+            # The install-level tree the entrypoint pre-seeds from the vault
+            # every boot (`controls/controls.json` + PDFs, `controls/icd/`,
+            # both staged there by provision-customer.sh): the run dir itself,
+            # shared by every job, root-owned and read-only to the child. The
+            # child never fetches into it (only a laptop install, where
+            # install_root == data_root, fetches its own ICD tables). A fresh
+            # per-job data_root can never carry the classifier's falsifier, so
+            # a job that resolved controls there refused forever (2026-09-04).
             "install_root": str(self.run_dir),
         }
         for key in ("injuries", "cap_usd", "allowance_remaining_documents", "selection", "requested_by",
