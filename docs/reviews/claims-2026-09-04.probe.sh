@@ -73,50 +73,55 @@ check F1  OPEN at-most 1 "$(grep -rn 'record_tool_failure\|record_refusal\|recor
 check F9  OPEN at-most 7 "$(grep -rn 'sys.path.insert' operator/safety-substrate/ operator/bin/lib/ --include='*.py' | grep -v test | n)" "library modules mutate sys.path at import (+sender_class.py)"
 
 # ====================================================== DIFF PASS A (src/)
+# 2026-09-04 wave 1 (PRs #2695 #2696 #2697 #2698 #2699): A1-A5, B1-B6, I1a, I1b,
+# I14, I15 flipped OPEN -> FIXED with the value measured on main at 66c89f61.
+# The expectations below now read as REGRESSED if the defect returns.
 # A1: first retainer invoice.paid dropped with a 200 when it beats
 # checkout.session.completed; the handler never falls back to the
 # smd_subscription_id the checkout stamps on the subscription's metadata.
 check PCA1 FIXED at-least 1 "$(grep -c smd_subscription_id src/lib/stripe/subscriptions.ts | tr -d ' ')" "instrument live: checkout stamps smd_subscription_id"
-check A1  OPEN exact 0 "$(grep -c smd_subscription_id src/lib/webhooks/stripe-subscription-handler.ts | tr -d ' ')" "invoice handler has no fallback lookup by smd_subscription_id"
+check A1  FIXED at-least 1 "$(grep -c smd_subscription_id src/lib/webhooks/stripe-subscription-handler.ts | tr -d ' ')" "invoice handler has no fallback lookup by smd_subscription_id"
 # A2: go-live promotion ignores checkout payment_status (ACH micro-deposit
 # path goes active unpaid; async_payment_* not subscribed).
-check A2  OPEN exact 0 "$(grep -rn 'payment_status\|async_payment' src/pages/api/webhooks/stripe.ts src/lib/webhooks/ | n)" "checkout completion never reads payment_status"
+check A2  FIXED at-least 1 "$(grep -rn 'payment_status\|async_payment' src/pages/api/webhooks/stripe.ts src/lib/webhooks/ | n)" "checkout completion never reads payment_status"
 # A3: same-filename amendment overwrites the earlier executed document (key
 # hashes the NAME only; the upsert is DO UPDATE).
-check A3  OPEN exact 1 "$(grep -c 'ON CONFLICT(storage_key) DO UPDATE' src/lib/db/operator-agreements.ts | tr -d ' ')" "agreement upsert overwrites an executed document on key collision"
+check A3  FIXED exact 0 "$(grep -c 'ON CONFLICT(storage_key) DO UPDATE' src/lib/db/operator-agreements.ts | tr -d ' ')" "agreement upsert overwrites an executed document on key collision"
 # A4/A5: client-facing sentences not authored per engagement (Pattern A/B).
-check A4  OPEN exact 1 "$(grep -c 'in force together' 'src/pages/portal/products/operator/[instance]/compliance/index.astro' | tr -d ' ')" "compliance page asserts contractual status in a template sentence"
-check A5  OPEN exact 1 "$(grep -c 'Your subscription is active' src/pages/portal/billing/index.astro | tr -d ' ')" "billing banner states 'active' from ?start=done alone"
+check A4  FIXED exact 0 "$(grep -c 'in force together' 'src/pages/portal/products/operator/[instance]/compliance/index.astro' | tr -d ' ')" "compliance page asserts contractual status in a template sentence"
+check A5  FIXED exact 0 "$(grep -c 'Your subscription is active' src/pages/portal/billing/index.astro | tr -d ' ')" "billing banner states 'active' from ?start=done alone"
 
 # ================================================ DIFF PASS B (operator/)
 # B1: billing_docs rows carry id/name/pages (pages is never written by
 # download.py) and billing.py reads t["path"]. Any matter with a billing-named
 # document fails at billing_extract after the paid stages.
-check B1  OPEN exact 1 "$(grep -c 'picked.append({"id": r.get("id"), "name": name, "pages": r.get("pages")})' operator/runners/medchron/medchron/decisions.py | tr -d ' ')" "billing_docs rows lack the path billing.py renders"
+check B1  FIXED exact 0 "$(grep -c 'picked.append({"id": r.get("id"), "name": name, "pages": r.get("pages")})' operator/runners/medchron/medchron/decisions.py | tr -d ' ')" "billing_docs rows lack the path billing.py renders"
 # B2: classify_scanned refuses without <data_root>/controls/controls.json and
 # nothing on the seat seeds it into the daemon's per-job data_root.
 check PCB2 FIXED at-least 1 "$(grep -c 'controls.json' operator/runners/medchron/medchron/stages/classify.py | tr -d ' ')" "instrument live: classify.py names controls.json"
-check B2  OPEN exact 0 "$(grep -l 'controls' operator/runners/medchron/medchron/daemon.py operator/runners/medchron/medchron/seat.py operator/runners/medchron/medchron/job.py operator/workspace_broker/medchron_verbs.py operator/templates/entrypoint.sh operator/templates/Dockerfile operator/bin/provision-customer.sh 2>/dev/null | n)" "no seat-side path seeds medchron controls"
+check B2  FIXED at-least 1 "$(grep -l 'controls' operator/runners/medchron/medchron/daemon.py operator/runners/medchron/medchron/seat.py operator/runners/medchron/medchron/job.py operator/workspace_broker/medchron_verbs.py operator/templates/entrypoint.sh operator/templates/Dockerfile operator/bin/provision-customer.sh 2>/dev/null | n)" "no seat-side path seeds medchron controls"
 # B3: send_verify joins dispatch to wake on skill_name; the broker's
 # CONFIRM_SEND_DISPATCHED row never carries it, so every templated send holds.
 check PCB3 FIXED at-least 1 "$(grep -c skill_name operator/workspace_broker/audit_ledger.py | tr -d ' ')" "instrument live: the ledger schema has skill_name"
-check B3  OPEN exact 0 "$(grep -c skill_name operator/workspace_broker/server.py | tr -d ' ')" "broker dispatch rows never carry skill_name"
+check B3  FIXED at-least 1 "$(grep -c skill_name operator/workspace_broker/server.py | tr -d ' ')" "broker dispatch rows never carry skill_name"
 # B4: return_link_unauthored is a seat-level absence but render.py treats only
 # surface_config_missing as seat-level, so the line reads "matter number
 # unavailable" (a resolution failure that did not happen).
-check B4  OPEN exact 0 "$(grep -c 'return_link_unauthored' operator/skills/client-verification-tracker/render.py | tr -d ' ')" "CVT render does not classify return_link_unauthored as seat-level"
-# B5: held-job reason (file names, stage-log tail) reaches the wake prompt,
-# the audit chain and D1 with only a length cap.
-check B5  OPEN exact 1 "$(grep -c 'fields\["reason"\] = str(reason)\[:500\]' operator/runners/medchron/medchron/daemon.py | tr -d ' ')" "medchron wake reason is truncated, not fenced"
+check B4  FIXED at-least 1 "$(grep -c 'return_link_unauthored' operator/skills/client-verification-tracker/render.py | tr -d ' ')" "CVT render does not classify return_link_unauthored as seat-level"
+# B5: held-job reason (file names, stage-log tail) reached the wake prompt
+# with only a length cap. Fixed #2696: the wake names the stage; the ledger
+# and console keep the full reason (a human reading their own tenant).
+check B5  FIXED exact 0 "$(grep -c 'Reason: {fields' operator/runners/medchron/medchron/daemon.py | tr -d ' ')" "medchron wake carries no free-text reason"
+check B5w FIXED at-least 1 "$(grep -c 'Held at:' operator/runners/medchron/medchron/daemon.py | tr -d ' ')" "medchron wake names the held stage only"
 # B6: delivered chronology carries a first-person future-behaviour sentence.
-check B6  OPEN exact 1 "$(grep -c 'we will extend' operator/runners/medchron/medchron/stages/limitations.py | tr -d ' ')" "chronology limitations section promises future behaviour"
+check B6  FIXED exact 0 "$(grep -c 'we will extend' operator/runners/medchron/medchron/stages/limitations.py | tr -d ' ')" "chronology limitations section promises future behaviour"
 
 # ============================================== INVARIANT PASS (whole tree)
 # I1: the smd seat retired 2026-09-03 (#2692). Directory + registry are gated
 # by tests/customer-slug-pattern.test.ts; these two are not.
 check PCI1 FIXED at-least 1 "$(git grep -nE 'vaults/pilot-smokeball' | n)" "instrument live: a live seat's vault path is found"
-check I1a OPEN exact 1 "$(git grep -nE 'default="smd"' -- operator src scripts | n)" "no CLI defaults to the retired smd slug (voice-ingest-corpus.py --slug)"
-check I1b OPEN exact 3 "$(git grep -cE '^[[:space:]]+customer: smd$' -- operator/skills | n)" "no shipped skill frontmatter names the retired seat"
+check I1a FIXED exact 0 "$(git grep -nE 'default="smd"' -- operator src scripts | n)" "no CLI defaults to the retired smd slug (voice-ingest-corpus.py --slug)"
+check I1b FIXED exact 0 "$(git grep -cE '^[[:space:]]+customer: smd$' -- operator/skills | n)" "no shipped skill frontmatter names the retired seat"
 # I3: every portal API route scopes to a tenant; no test enumerates the tree
 # the way tests/admin-routes-require-session.test.ts does for admin.
 check I3  OPEN at-least 19 "$(grep -lE 'getPortalClient\(|resolveOperatorAccess\(|resolveHostedAgentAccess\(|authorizeAdvancedSettings\(|resolveProductAccess\(' $(find src/pages/api/portal -name '*.ts') | n)" "portal routes calling a tenant-scoping helper (20 routes; trust-ceiling.ts is a 410 stub)"
@@ -133,11 +138,11 @@ check I12b OPEN exact 2 "$(grep -c 'createNoOpTokenStore()' src/lib/oauth/store.
 check I13 FIXED exact 0 "$(for f in operator/customers/[a-z]*/customer.yaml; do npx --quiet tsx scripts/validate-customer-yaml.ts "$f" >/dev/null 2>&1 || echo x; done | n)" "every live seat customer.yaml validates"
 # I14: an executable starts a second hermes runtime on a seat (one-shot rule,
 # operator/CLAUDE.md 2026-09-01).
-check I14 OPEN exact 1 "$(git grep -nE '(hermes|HERMES\}?"?) +(-p +[^ ]+ +)?(-z|chat)( |$)' -- operator/bin operator/rehearsal scripts docs/skills .claude | grep -vE ':[0-9]+:[[:space:]]*#' | n)" "no executable runs hermes one-shot on a seat (mission-smoke-managed-gmail.sh)"
+check I14 FIXED exact 0 "$(git grep -nE '(hermes|HERMES\}?"?) +(-p +[^ ]+ +)?(-z|chat)( |$)' -- operator/bin operator/rehearsal scripts docs/skills .claude | grep -vE ':[0-9]+:[[:space:]]*#' | n)" "no executable runs hermes one-shot on a seat (mission-smoke-managed-gmail.sh)"
 # I15: CLAUDE.md says the venturecrane address never appears in SMD code,
 # config or skills; 15 of 17 are in a skill tree COPYed into every image.
 check PCI15 FIXED at-least 1 "$(git grep -nE '[a-z]+@smd\.services' -- src operator | n)" "instrument live: smd.services addresses found"
-check I15 OPEN at-most 17 "$(git grep -nE '[a-z0-9._-]+@venturecrane\.com' -- src operator scripts workers public | n)" "venturecrane address in SMD code/config/skills"
+check I15 FIXED exact 0 "$(git grep -nE '[a-z0-9._-]+@venturecrane\.com' -- src operator scripts workers public | n)" "venturecrane address in SMD code/config/skills"
 
 echo
 echo "  $pass closed · $still_open still open · $regressed regressed · $drift changed"
