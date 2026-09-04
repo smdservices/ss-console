@@ -148,8 +148,9 @@ import send_verify  # noqa: E402 — path injected above
 #: ``_usable_ids`` -- every exact join key a row's metadata offers -- moved to
 #: lib/send_attribution.py (claims review 2026-09-04, B7) so the verifier's
 #: identity join and this script's exact pass read the SAME keys off a row. The
-#: three constants it reads (``_ID_KEY_SUBSTRING``, ``_AUDIT_TOKEN_KEY``,
-#: ``_UNRESOLVED_ID_PREFIX``) are documented below and mirrored there.
+#: constants it reads (``ID_KEY_SUBSTRING``, ``AUDIT_TOKEN_KEY``,
+#: ``UNRESOLVED_ID_PREFIX``) live there too, documented beside it; this script
+#: keeps only ``_AUDIT_TOKEN_KEY`` (from msgraph_channel) for its own exact pass.
 from send_attribution import _usable_ids  # noqa: E402 — path injected above
 
 #: ss#2499 -- the msgraph half, factored verbatim into lib/msgraph_channel.py
