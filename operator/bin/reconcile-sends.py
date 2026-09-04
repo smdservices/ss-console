@@ -145,6 +145,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib
 import seam_pull  # noqa: E402 — path injected above
 import send_verify  # noqa: E402 — path injected above
 
+#: ``_usable_ids`` -- every exact join key a row's metadata offers -- moved to
+#: lib/send_attribution.py (claims review 2026-09-04, B7) so the verifier's
+#: identity join and this script's exact pass read the SAME keys off a row. The
+#: three constants it reads (``_ID_KEY_SUBSTRING``, ``_AUDIT_TOKEN_KEY``,
+#: ``_UNRESOLVED_ID_PREFIX``) are documented below and mirrored there.
+from send_attribution import _usable_ids  # noqa: E402 — path injected above
+
 #: ss#2499 -- the msgraph half, factored verbatim into lib/msgraph_channel.py
 #: (module-size ratchet). Re-exported here so tests and callers read unchanged.
 from msgraph_channel import (  # noqa: E402 — path injected above
@@ -170,8 +177,10 @@ _PAGE_LIMIT = 100
 #: neighbouring message, so it is asserted in tests rather than left to taste.
 TOOL_PATH_WINDOW_S = 5.0
 
-#: Metadata keys that carry an AgentMail message id on an audited send.
-_ID_KEY_SUBSTRING = "message_id"
+#: Which metadata keys carry a usable exact id (``*message_id*`` and the audit
+#: token) and which recorded value is NOT an id (the overlay's "(no id
+#: available)" note) are declared beside ``_usable_ids`` in
+#: lib/send_attribution.py, the one place both consumers read them.
 
 #: Audit action types the BROKER writes when it has dispatched a message itself
 #: (ss#2499). CONFIRM_SEND_DISPATCHED is written for both sends and replies and
@@ -184,15 +193,6 @@ _BROKER_DISPATCH_TYPES = ("CONFIRM_SEND_DISPATCHED", "REPLY_SENT")
 #: exist precisely because the send did NOT go, and a refusal must never be
 #: readable as a send.
 _DISPATCH_OUTCOME_SENT = "sent"
-
-#: A recorded id that is not an id. The overlay writes this literal on a msgraph
-#: REPLY_SENT row when Graph's 202 returned nothing to record (8 of 8 rows on the
-#: live seat before the header landed), and it is honest there -- inventing an id
-#: would name a message the mailbox does not contain. It must not be treated as
-#: an exact key, and a row carrying only this is a row with no usable id. Matched
-#: on the leading parenthesis rather than the exact sentence: no RFC2822 id and
-#: no Graph id begins with one, so any future note in that field is caught too.
-_UNRESOLVED_ID_PREFIX = "("
 
 #: Inboxes that deliberately have no Operator seat behind them, and why. These
 #: are OUR OWN rigs on the shared account -- test harnesses, an opposing-counsel
@@ -397,26 +397,6 @@ def _metadata(row: dict) -> dict:
         except ValueError:
             return {}
     return raw if isinstance(raw, dict) else {}
-
-
-def _usable_ids(meta: dict) -> set[str]:
-    """Every value in one row's metadata that can serve as an EXACT join key.
-
-    A key is usable when it is a non-empty string under a ``*message_id*`` key or
-    under ``audit_row_token``, and is not the overlay's "no id available" note
-    (see ``_UNRESOLVED_ID_PREFIX``). The note is excluded on purpose: left in, it
-    would be a string a mailbox could theoretically carry as an id, and it would
-    also make a row with no id at all look like a row that has one.
-    """
-    ids: set[str] = set()
-    for key, value in meta.items():
-        if not isinstance(value, str) or not value:
-            continue
-        if value.startswith(_UNRESOLVED_ID_PREFIX):
-            continue
-        if _ID_KEY_SUBSTRING in key or key == _AUDIT_TOKEN_KEY:
-            ids.add(value)
-    return ids
 
 
 def _is_broker_dispatch(row: dict, meta: dict) -> bool:
@@ -912,6 +892,11 @@ def report_dict(r: InboxReport) -> dict:
         "body_verdicts": body_verdicts,
         "invariant_findings": invariant_findings,
         "invariant_proposals": invariant_proposals,
+        # Two counted metrics (claims review 2026-09-04, B3): before the overlay
+        # pin that writes the skill_name column, attributed_by_hash > 0; after
+        # it, attributed_by_skill > 0 and attributed_by_hash == 0. A column
+        # regression is a number moving here, not a detail string going quiet.
+        **send_verify.attribution_counts(r.body_verdicts),
     }
 
 
