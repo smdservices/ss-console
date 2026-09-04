@@ -18,8 +18,8 @@ transport). A leak aborts the whole run non-zero before anything is written.
 Usage::
 
     cd operator
-    python bin/voice-ingest-corpus.py --corpus /tmp/scott-corpus.jsonl --out-dir /tmp/vault   # dry-run
-    python bin/voice-ingest-corpus.py --corpus /tmp/scott-corpus.jsonl --r2                    # upload
+    python bin/voice-ingest-corpus.py --corpus /tmp/scott-corpus.jsonl --slug <slug> --out-dir /tmp/vault   # dry-run
+    python bin/voice-ingest-corpus.py --corpus /tmp/scott-corpus.jsonl --slug <slug> --r2                    # upload
 """
 
 from __future__ import annotations
@@ -98,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     # reads. Same posture as the fetch script: refuse before anything is
     # written. Fail-closed: no --customer-yaml means no vocabulary, which is a
     # refusal, not a pass. --unvalidated-cohort is the loud, explicit bypass
-    # for the local tracer (slug smd) where no seat vocabulary exists.
+    # for a local tracer run against a slug that has no seat vocabulary yet
+    # (--slug is always explicit; the script has no default slug).
     if args.unvalidated_cohort:
         print(
             f"WARNING: cohort '{args.cohort}' NOT validated against any seat vocabulary "
