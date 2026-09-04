@@ -138,18 +138,32 @@ def units(job: Job, cfg: FirmConfig, slug_dir: Path, *, dry_run: bool) -> Decisi
 def billing_docs(job: Job, cfg: FirmConfig, slug_dir: Path, *, dry_run: bool) -> Decision:
     """`billing_docs.json`: the pulled files whose names match the firm's
     billing patterns. Recomputed whenever the unit set changes (an authored
-    artifact that does not regenerate describes the old matter)."""
+    artifact that does not regenerate describes the old matter).
+
+    Each row is `{id, name, path}` straight off the pull's manifest row:
+    `billing_extract` opens `path` (the pulled bytes under raw/) and counts the
+    pages itself when it renders. The manifest carries no page count, so none
+    is invented here; a row without a real path would KeyError the paid stage
+    on its first document (the 2026-09-04 finding)."""
     patterns = _compile(cfg.get("billing", "name_patterns") or [])
     rows = _read_jsonl(slug_dir / "raw_manifest.jsonl")
     picked = []
+    pathless: list[str] = []
     for r in rows:
         if not r.get("ok") or r.get("duplicate_of"):
             continue
         name = str(r.get("name") or "")
-        if any(rx.search(name) for rx in patterns):
-            picked.append({"id": r.get("id"), "name": name, "pages": r.get("pages")})
+        if not any(rx.search(name) for rx in patterns):
+            continue
+        if not r.get("path"):
+            pathless.append(name)
+            continue
+        picked.append({"id": r.get("id"), "name": name, "path": str(r["path"])})
     payload = {"docs": picked, "_decided": {"by": "medchron.decisions.billing_docs", "patterns": len(patterns)}}
     d = Decision("billing_docs", slug_dir / "billing_docs.json", payload)
+    if pathless:
+        d.holds.append(f"{len(pathless)} billing document(s) matched by name but the pull recorded no local path: {pathless[:12]}")
+        return d
     if not picked:
         d.notes.append("no billing documents matched by name; the worksheet will state that no ledger is on file")
     _write(d.artifact, payload, dry_run=dry_run)

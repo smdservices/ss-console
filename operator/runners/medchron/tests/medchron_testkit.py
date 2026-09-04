@@ -33,7 +33,8 @@ PRICING = {
 }
 
 
-def job_yaml(data_root: Path, *, joint: bool = False, cap: float | None = None) -> str:
+def job_yaml(data_root: Path, *, joint: bool = False, cap: float | None = None,
+             install_root: Path | None = None) -> str:
     units = [
         {"unit": "alpha", "client_name": "Alpha Example", "name_token": "Alpha", "surname": "Example",
          "dob": "01/01/1970", **({"folder_prefix": "/Alpha_Example"} if joint else {})}
@@ -51,6 +52,10 @@ def job_yaml(data_root: Path, *, joint: bool = False, cap: float | None = None) 
     }
     if cap is not None:
         body["cap_usd"] = cap
+    if install_root is not None:
+        # The seat shape: controls and ICD tables live in an install-level tree
+        # the daemon names, never under the per-job data_root.
+        body["install_root"] = str(install_root)
     import yaml
 
     return yaml.safe_dump(body, sort_keys=False)

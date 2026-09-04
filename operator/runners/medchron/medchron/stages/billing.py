@@ -223,10 +223,12 @@ def run(sr: StageRun) -> int:
             sr.log(f"[{i}/{len(todo)}] skip (done) {t['name'][:56]}")
             continue
         pending.append((i, t))
+    # The page count is what the render measured, never a field off the spec:
+    # billing_docs.json carries {id, name, path} and nothing else.
     if "billing" not in sr.doorway.batch_stages:
         for i, t in pending:
-            sr.log(f"[{i}/{len(todo)}] {t.get('pages', '?'):>3}pp  {t['name'][:56]}")
             imgs, n = render_doc(t["path"])
+            sr.log(f"[{i}/{len(todo)}] {n:>3}pp  {t['name'][:56]}")
             finish(i, t, reader.read_doc(t["name"], imgs, n))
     else:
         groups: list[list] = []
@@ -246,7 +248,7 @@ def run(sr: StageRun) -> int:
             sr.log(f"batch: {len(group)} document(s), {sum(len(first_ranges(n)) for _, _, _, n in group)} first-level range(s)")
             first = reader.batch_group(group, d / "batch")
             for i, t, imgs, n in group:
-                sr.log(f"[{i}/{len(todo)}] {t.get('pages', '?'):>3}pp  {t['name'][:56]}")
+                sr.log(f"[{i}/{len(todo)}] {n:>3}pp  {t['name'][:56]}")
                 finish(i, t, reader.read_doc(t["name"], imgs, n, first=first[i]))
     sr.log(f"{tin:,} input / {tout:,} output tokens")
     if hard:

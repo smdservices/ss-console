@@ -63,6 +63,17 @@ def test_job_loads(job_dir: Path) -> None:
     assert j.incident_date == "2026-01-15"
     assert not j.joint
     assert j.cap_usd is None
+    # The laptop identity: controls and ICD tables beside the matters.
+    assert j.install_root == j.data_root
+
+
+def test_job_install_root_is_honoured_when_the_daemon_names_one(tmp_path: Path, data_root: Path) -> None:
+    body = yaml.safe_load(job_yaml(data_root, install_root=tmp_path / "run"))
+    j = job_mod.parse(body, path=tmp_path / "job.yaml")
+    assert j.install_root == tmp_path / "run" and j.data_root == data_root
+    body["install_root"] = 7
+    with pytest.raises(job_mod.JobError, match="install_root"):
+        job_mod.parse(body, path=tmp_path / "job.yaml")
 
 
 def test_job_joint_requires_folder_prefix(tmp_path: Path, data_root: Path) -> None:

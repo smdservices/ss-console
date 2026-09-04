@@ -340,6 +340,67 @@ else
   log "No medchron firm config for ${SLUG} (${MEDCHRON_FIRM_YAML}); the chronology runner will refuse jobs"
 fi
 
+# ---------- Step 2c: stage the chronology runner's install-level tree (2026-09-04) ----------
+# The scanned-page classifier's authored control pages (controls.json + the
+# PDFs it names) are client-derived and live beside firm.yaml in the PRIVATE
+# engagements repo: operator/customers/<slug>/medchron/controls/. The ICD
+# tables are public CMS data, vendored HERE on the console by the runner's own
+# icd_fetch.vendor() and staged alongside. Both land under
+# vaults/<slug>/medchron-controls/, which the entrypoint pulls into a
+# root-owned 0750 tree on every boot. That tree is read-only to the medchron
+# uid by design (a classifier that can edit its own controls measures
+# nothing), so a seat can never fetch the tables for itself; only a laptop
+# install (install_root == data_root) does. A seat that authors a firm config
+# but no controls would refuse every job at classify_scanned: that is a
+# FATAL here, not a WARN on the seat. The block is sentinel-delimited so
+# tests/provisioner-medchron-controls.test.ts drives it verbatim.
+# >>> medchron-controls-stage
+MEDCHRON_CONTROLS_DIR="$(dirname "${MEDCHRON_FIRM_YAML}")/controls"
+MEDCHRON_CONTROLS_PREFIX="s3://${R2_BUCKET_CONFIG}/vaults/${SLUG}/medchron-controls"
+r2_cp() {
+  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 cp "$@" --endpoint-url "${R2_ENDPOINT_URL}" --only-show-errors
+}
+r2_has() {
+  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 ls "$1" --endpoint-url "${R2_ENDPOINT_URL}" 2>/dev/null | grep -q .
+}
+if [ -f "${MEDCHRON_FIRM_YAML}" ]; then
+  [ -f "${MEDCHRON_CONTROLS_DIR}/controls.json" ] \
+    || die "medchron firm config is authored for ${SLUG} but ${MEDCHRON_CONTROLS_DIR}/controls.json is not; the scanned-page classifier has no falsifier and every job would refuse at classify_scanned"
+  # Every page controls.json names must be in the authored set: paths are
+  # relative to the install root (controls/<file>), exactly as the seat reads.
+  python3 - "${MEDCHRON_CONTROLS_DIR}" <<'PY' \
+    || die "medchron controls.json names a page that is not in ${MEDCHRON_CONTROLS_DIR}"
+import json, os, sys
+d = sys.argv[1]
+rows = json.load(open(os.path.join(d, "controls.json")))
+bad = [r for r in rows if not (isinstance(r, dict) and r.get("label") and r.get("page")
+                               and os.path.isfile(os.path.join(os.path.dirname(d), str(r.get("pdf")))))]
+for r in bad:
+    print(f"medchron controls: unresolvable entry {r!r}", file=sys.stderr)
+sys.exit(1 if bad or not rows else 0)
+PY
+  log "Uploading medchron controls to R2: ${MEDCHRON_CONTROLS_PREFIX}/"
+  r2_cp "${MEDCHRON_CONTROLS_DIR}" "${MEDCHRON_CONTROLS_PREFIX}/" --recursive \
+    || die "R2 upload of medchron controls failed"
+  if r2_has "${MEDCHRON_CONTROLS_PREFIX}/icd/VERSION.json"; then
+    log "R2 upload OK (medchron controls); ICD tables already staged at ${MEDCHRON_CONTROLS_PREFIX}/icd/"
+  else
+    MEDCHRON_ICD_SCRATCH="$(mktemp -d)/icd"
+    log "Vendoring the CMS ICD tables on the console for ${SLUG} (the seat's controls tree is read-only; it cannot fetch its own)"
+    "${BIN_DIR}/lib/medchron-vendor-icd.sh" "${MEDCHRON_ICD_SCRATCH}" \
+      || die "ICD table vendoring failed; the chronology runner would fail every job at icd_tables"
+    r2_cp "${MEDCHRON_ICD_SCRATCH}" "${MEDCHRON_CONTROLS_PREFIX}/icd/" --recursive \
+      || die "R2 upload of the ICD tables failed"
+    rm -rf "$(dirname "${MEDCHRON_ICD_SCRATCH}")"
+    log "R2 upload OK (medchron controls + ICD tables)"
+  fi
+else
+  log "No medchron controls staged for ${SLUG} (no firm config authored)"
+fi
+# <<< medchron-controls-stage
+
 # ---------- Step 3: render fly.toml ----------
 log "Rendering fly.toml..."
 mkdir -p "${RENDERED_DIR}"
