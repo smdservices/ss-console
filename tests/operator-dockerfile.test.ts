@@ -1230,7 +1230,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // the model to strip 38 matter numbers), enforced by a test in the overlay.
     // Vocabulary identical; fabrication_markers.json moves in BOTH repos with a
     // re-pinned sha256 on the overlay side.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9951fbf833ff9c9280ae0188fea37bd2bafdd883"')
+    // 9951fbf8 -> e0288582 (2026-09-04, overlay#345 + #346; console half
+    // ss#2697, B3 of claims-2026-09-04). Every out-of-turn prerendered send now
+    // stamps `skill_name` (cron-resolved routine, not the envelope) into
+    // audit_extra; the broker (#2697) writes it to the COLUMN, and the console's
+    // verifier joins dispatch to wake by that column, hash second, never by
+    // window proximity. Before this every templated send on a live seat held
+    // at channel_mismatch_hold because the column was NULL. #345 only drops the
+    // retired smd seat from the overlay's contract snapshot. No paired twin
+    // moves (neither commit touches a tracked pair); vocabulary and heartbeat
+    // fields re-read as identical (empty range diff on schemas.py/heartbeat.py).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e0288582c6fea9d0053d396caab0fda9a171cf18"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
