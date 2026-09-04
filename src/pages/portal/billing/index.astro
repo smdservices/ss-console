@@ -14,8 +14,13 @@ import {
   type SubscriptionStatus,
 } from '../../../lib/portal/operator/account-read'
 import { resolvePortalOfferings } from '../../../lib/portal/offerings'
-import { parseStripeCustomerId, productDisplayName } from '../../../lib/portal/billing'
+import {
+  parseStripeCustomerId,
+  productDisplayName,
+  resolveStartDoneMessage,
+} from '../../../lib/portal/billing'
 import { parseCancelAt } from '../../../lib/db/subscriptions'
+import { getOperatorCheckoutSession } from '../../../lib/stripe/subscriptions'
 import { getOperatorServiceForEntity } from '../../../lib/db/services'
 import { env } from 'cloudflare:workers'
 
@@ -87,8 +92,36 @@ function asSubscriptionStatus(status: string): SubscriptionStatus {
 
 const csStatus = Astro.url.searchParams.get('cs')
 const startStatus = Astro.url.searchParams.get('start')
+
+// The checkout return (`?start=done&session_id=…`, start-subscription.ts)
+// carries no fact about the subscription; the query string is the client's
+// own navigation. What is shown comes from the Checkout Session Stripe
+// substituted into the URL plus the row that session names, and only when
+// that row is one this client owns (`offerings.subscriptions` is already
+// scoped to the signed-in client). Any lookup failure shows nothing.
+const sessionId = Astro.url.searchParams.get('session_id')
+let startDoneMessage: string | null = null
+if (startStatus === 'done' && sessionId && /^[A-Za-z0-9_]+$/.test(sessionId)) {
+  try {
+    const session = await getOperatorCheckoutSession(env.STRIPE_API_KEY, sessionId)
+    const row = session.smd_subscription_id
+      ? (subscriptions.find(
+          (s) => s.id === session.smd_subscription_id && s.product_slug === 'operator'
+        ) ?? null)
+      : null
+    if (row) {
+      startDoneMessage = resolveStartDoneMessage(
+        session.payment_status,
+        row,
+        formatShortDate(row.started_at)
+      )
+    }
+  } catch (err) {
+    console.error('[portal/billing] checkout session lookup failed:', err)
+  }
+}
+
 const START_MESSAGES: Record<string, string> = {
-  done: 'Thank you. Your subscription is active and renews automatically each month.',
   cancelled: 'Checkout was not completed. Your subscription has not started.',
   already_started: 'This subscription has already been started.',
   unpriced:
@@ -100,9 +133,11 @@ const csMessage =
     ? 'Billing management is not available for that subscription yet. Write to team@smd.services and we sort it out.'
     : csStatus === 'billing_error'
       ? 'Could not open billing management. Try again, or write to team@smd.services.'
-      : startStatus
-        ? (START_MESSAGES[startStatus] ?? null)
-        : null
+      : startStatus === 'done'
+        ? startDoneMessage
+        : startStatus
+          ? (START_MESSAGES[startStatus] ?? null)
+          : null
 const csTone = startStatus === 'done' ? 'success' : 'error'
 ---
 
