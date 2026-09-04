@@ -51,6 +51,8 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:  # pragma: no cover -- type names only; send_verify imports us
+    from datetime import datetime
+
     from send_verify import DispatchStamp, RenderDecl, WakeStamp
 
 #: Metadata keys that carry a vendor message id on an audited send (any key
@@ -276,6 +278,43 @@ def claim_dispatch_stamp(
     return None
 
 
+def plain_stamp_edge(dispatches: list["DispatchStamp"]) -> Optional["datetime"]:
+    """THE DEPLOY EDGE: the timestamp of the earliest dispatch row on the inbox
+    that carries ``plain_body_sha256``, or None when no row does.
+
+    What an ABSENT plain stamp means depends on when the row was written. On
+    a seat whose pinned overlay predates hermes-smd-overlay#338, every row
+    lacks the stamp and the send may well have been down-rendered with nothing
+    recording it -- absence carries no information and the channel check must
+    hold. Once the pin lands the overlay stamps every down-render and OMITS
+    the key only when none ran, so absence is deliberate and the rendered hash
+    is the right counterpart.
+
+    The first version of this discriminator was a per-INBOX boolean ("any row
+    on this inbox carries the stamp") on the reasoning that the overlay version
+    is a property of the seat. It is -- but the seat's version CHANGES, and a
+    window that spans the reprovision holds rows from both sides. Live
+    2026-09-04, pilot-smokeball, ``--days 7``: the 09-01 escalator send
+    (pre-reprovision, no plain stamp) shared the window with 09-03/09-04 rows
+    that carried it, the boolean read the whole inbox as post-deploy, and a
+    conformant send graded BODY_DIVERGED as "no down-render on this send". So
+    the boundary is per ROW: rows before the edge are pre-deploy and hold,
+    rows at or after it grade. The edge is the earliest stamped row because
+    the overlay stamps every down-render from the moment it can; the first
+    stamped row is the first row written by the new pin, and nothing before
+    it could have been.
+    """
+    stamped = [stamp.ts for stamp in dispatches if stamp.plain_body_sha256]
+    return min(stamped) if stamped else None
+
+
+def stamps_plain_at(edge: Optional["datetime"], stamp: "DispatchStamp") -> bool:
+    """Was the overlay that wrote THIS row one that stamps plain hashes? True
+    iff an edge exists and the row is not before it. Fail-safe direction:
+    no edge => never a finding on the absence path."""
+    return edge is not None and stamp.ts >= edge
+
+
 def attribution_counts(verdicts: list) -> dict[str, int]:
     """The two counted metrics: how many graded pairs were attributed by the
     ``skill_name`` column and how many fell through to the hash. Read off the
@@ -306,5 +345,7 @@ __all__ = [
     "dispatch_index",
     "message_attributor",
     "message_keys",
+    "plain_stamp_edge",
+    "stamps_plain_at",
     "wake_for_hash",
 ]

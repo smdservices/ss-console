@@ -466,6 +466,55 @@ def test_a_pre_deploy_inbox_with_no_plain_stamp_anywhere_still_holds():
     assert verdicts[0].is_hold and not verdicts[0].is_finding
 
 
+def test_a_window_spanning_the_plain_stamp_deploy_grades_each_row_by_its_side_of_the_edge():
+    """THE 2026-09-04 LIVE MISGRADE (pilot-smokeball, --days 7). The 09-01
+    escalator send predated the seat's #338 reprovision: no plain stamp, and
+    the mailbox holds its down-render. The 09-03/09-04 rows on the same inbox
+    carried the stamp. A per-INBOX discriminator read the whole inbox as
+    post-deploy and filed BODY_DIVERGED on the 09-01 row as "no down-render on
+    this send". The edge is per ROW: the earliest stamped row on the inbox is
+    the deploy boundary; before it, absence is a hold; at or after it, absence
+    is deliberate and grades.
+
+    Two identified templated sends on one inbox, a day apart. The first row
+    carries no plain stamp and its channel body is the down-render (a conformant
+    pre-deploy send); the second carries the stamp and matches. Expected:
+    hold + match. FALSIFIER: replace the edge with the old per-inbox boolean
+    (`plain_edge = min ts` -> `any(stamps)`) and the first grades BODY_DIVERGED.
+    """
+    raw = "**Deadline** alert body\n"
+    plain = "Deadline alert body\n"
+    raw_sha, plain_sha = sv.canonical_body_sha256(raw), sv.canonical_body_sha256(plain)
+    day_later = datetime(2026, 8, 31, 9, 0, tzinfo=UTC)
+    pre = _dispatch_row(minute=1, sha=raw_sha, message_id="<m-pre>")  # 08-30, no plain stamp
+    post = _dispatch_row(minute=1, sha=raw_sha, plain=plain_sha, message_id="<m-post>")
+    post["ts"] = (day_later.replace(minute=1)).isoformat()
+    post["id"] = "disp-post"
+    wake_post = _wake_row(hashes=[{"body_sha256_full": raw_sha}])
+    wake_post["ts"] = day_later.isoformat()
+    wake_post["id"] = "wake-post"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": raw_sha}]), wake_post])
+    dispatches = sv.index_dispatches([pre, post])
+    assert [d.plain_body_sha256 for d in dispatches] == ["", plain_sha]
+    sent = [
+        _sent_message(minute=1, mid="<m-pre>"),
+        {**_sent_message(minute=1, mid="<m-post>"), "timestamp": post["ts"]},
+    ]
+    verdicts = sv.verify_channel_bodies(
+        sent, wakes, _declares(), lambda m: plain, dispatches=dispatches
+    )
+    graded = {v.message_id: v.verdict for v in verdicts}
+    assert graded == {"<m-pre>": sv.VERDICT_CHANNEL_MISMATCH, "<m-post>": sv.VERDICT_MATCH}
+    pre_verdict = next(v for v in verdicts if v.message_id == "<m-pre>")
+    assert pre_verdict.is_hold and not pre_verdict.is_finding
+    assert "predates the inbox's first plain_body_sha256 stamp" in pre_verdict.detail
+    # The edge itself, stated: the post row's timestamp, and rows AT the edge grade.
+    assert sv.plain_stamp_edge(dispatches) == dispatches[1].ts
+    assert sv.stamps_plain_at(sv.plain_stamp_edge(dispatches), dispatches[1])
+    assert not sv.stamps_plain_at(sv.plain_stamp_edge(dispatches), dispatches[0])
+    assert sv.plain_stamp_edge([dispatches[0]]) is None
+
+
 def test_absence_on_a_stamping_inbox_grades_against_the_rendered_hash():
     """ABSENCE IS A FACT, NOT A GAP (hermes-smd-overlay#338). The overlay omits
     `plain_body_sha256` rather than duplicating the raw hash whenever no
@@ -485,19 +534,21 @@ def test_absence_on_a_stamping_inbox_grades_against_the_rendered_hash():
     )
     dispatches = sv.index_dispatches(
         [
-            # The prose send: rendered only, because no down-render happened.
-            _dispatch_row(minute=1, sha=prose_sha),
-            # A sibling report send on the same inbox proves the overlay stamps,
-            # which is what makes the omission above readable as deliberate.
+            # A sibling report send on the same inbox, EARLIER, proves the
+            # overlay stamps from that row on -- the deploy edge -- which is
+            # what makes the omission on the later row readable as deliberate.
             _dispatch_row(
-                minute=11,
+                minute=1,
                 sha=sv.canonical_body_sha256(report_raw),
                 plain=sv.canonical_body_sha256("Report body\n"),
             ),
+            # The prose send, after the edge: rendered only, because no
+            # down-render happened. Identified so its own row is the counterpart.
+            _dispatch_row(minute=2, sha=prose_sha, message_id="<m1>"),
         ]
     )
     verdicts = sv.verify_channel_bodies(
-        [_sent_message(minute=1)], wakes, _declares(), lambda m: prose, dispatches=dispatches
+        [_sent_message(minute=2)], wakes, _declares(), lambda m: prose, dispatches=dispatches
     )
     assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
     assert not verdicts[0].is_hold and not verdicts[0].is_finding
@@ -515,24 +566,26 @@ def test_absence_on_a_stamping_inbox_still_finds_a_real_divergence():
     report_raw = "**Report** body\n"
     wakes = sv.index_wakes(
         [
-            _wake_row(minute=0, hashes=[{"body_sha256_full": prose_sha}]),
-            _wake_row(minute=10, hashes=[{"body_sha256_full": sv.canonical_body_sha256(report_raw)}]),
+            _wake_row(minute=0, hashes=[{"body_sha256_full": sv.canonical_body_sha256(report_raw)}]),
+            _wake_row(minute=10, hashes=[{"body_sha256_full": prose_sha}]),
         ]
     )
     dispatches = sv.index_dispatches(
         [
-            # Joined to the message by id (B7): an identified divergence is the
-            # finding; the unidentified twin is pinned as a hold further down.
-            _dispatch_row(minute=1, sha=prose_sha, message_id="<m1>"),
+            # The stamped report row first: the deploy edge, so the prose row
+            # after it is post-deploy and its absence is deliberate.
             _dispatch_row(
-                minute=11,
+                minute=1,
                 sha=sv.canonical_body_sha256(report_raw),
                 plain=sv.canonical_body_sha256("Report body\n"),
             ),
+            # Joined to the message by id (B7): an identified divergence is the
+            # finding; the unidentified twin is pinned as a hold further down.
+            _dispatch_row(minute=11, sha=prose_sha, message_id="<m1>"),
         ]
     )
     verdicts = sv.verify_channel_bodies(
-        [_sent_message(minute=1)],
+        [_sent_message(minute=11)],
         wakes,
         _declares(),
         lambda m: "something the routine never wrote",

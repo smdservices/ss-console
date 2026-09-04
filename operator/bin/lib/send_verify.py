@@ -45,14 +45,21 @@ TWO CHECKS, DIFFERENT STRENGTHS (cross-workstream contract, item 1):
   ``OVERLAY_REF`` predates #338 the key never appears at all, a templated send
   is still down-rendered with nothing recording it, and grading its channel body
   against the raw markdown would file a false ``BODY_DIVERGED`` on every run.
-  The discriminator is therefore whether ANY dispatch row on the inbox carries a
-  plain stamp: never seen => pre-deploy => keep ``channel_mismatch_hold``; seen
-  => absence is deliberate => grade against ``rendered_body_sha256``. It is
-  probed per INBOX, not per window, because the overlay version is a property of
-  the seat and a day of rows observes it far more reliably than one hour does.
-  The invariant both halves serve: no false findings before the pin lands, no
-  permanent holds after it. ``body_unavailable`` stays a HOLD throughout -- a
-  body we could not fetch is a transport fact, not a divergence.
+  The discriminator is therefore the DEPLOY EDGE: the earliest dispatch row on
+  the inbox that carries a plain stamp (``send_attribution.plain_stamp_edge``).
+  A row before the edge, or any row on an inbox with no edge, is pre-deploy =>
+  keep ``channel_mismatch_hold``; a row at or after it was written by an overlay
+  that stamps => absence is deliberate => grade against
+  ``rendered_body_sha256``. Per ROW, not per inbox: the overlay version is a
+  property of the seat, but the seat's version CHANGES, and a window that spans
+  the reprovision holds rows from both sides of it. The first version of this
+  discriminator was a per-inbox "any row carries the stamp" probe, and on
+  2026-09-04 (pilot-smokeball, ``--days 7``) it read the 09-01 escalator send --
+  pre-reprovision, unstamped, conformant -- as a deliberate omission and filed
+  BODY_DIVERGED against it. The invariant both halves serve: no false findings
+  before the pin lands, no permanent holds after it. ``body_unavailable`` stays
+  a HOLD throughout -- a body we could not fetch is a transport fact, not a
+  divergence.
 
   NOT EVERY SEND IS STAMPED, BY DESIGN. The overlay stamps at exactly one site
   (``_dispatch_internal_message``); ``_dispatch_approved_send`` -- the
@@ -105,7 +112,7 @@ from typing import Callable, Optional
 
 # One physical line on purpose: this module sits at the size ratchet's ceiling
 # (tests/operator-module-size.test.ts counts physical non-comment lines).
-from send_attribution import ATTRIBUTED_BY_HASH, _usable_ids, attribution_counts, claim_dispatch_stamp, claim_wake, message_attributor  # noqa: F401 -- attribution_counts re-exported
+from send_attribution import ATTRIBUTED_BY_HASH, _usable_ids, attribution_counts, claim_dispatch_stamp, claim_wake, message_attributor, plain_stamp_edge, stamps_plain_at  # noqa: F401 -- attribution_counts re-exported
 from send_invariants import (  # noqa: F401 -- re-exports; callers and tests read unchanged
     DEFAULT_INVARIANTS_PATH,
     InvariantFinding,
@@ -502,12 +509,13 @@ def verify_channel_bodies(
     claimed: set[int] = set()
     stamps = dispatches or []
     attribute = attribute or message_attributor(stamps, wakes, declares, window_s)
-    # THE DISCRIMINATOR for what an absent plain stamp means, probed once per
-    # inbox rather than per window. The overlay version is a property of the
-    # SEAT, not of the hour, so a day of rows gets many more chances to observe
-    # the stamp than one wake's window does -- fewer false holds, and the
-    # fail-safe direction is unchanged (never observed => never a finding).
-    overlay_stamps_plain = any(stamp.plain_body_sha256 for stamp in stamps)
+    # THE DISCRIMINATOR for what an absent plain stamp means: the DEPLOY EDGE,
+    # the earliest row on the inbox that carries the stamp. Per ROW, not per
+    # inbox -- a window that spans the seat's reprovision holds rows from both
+    # sides of it, and a per-inbox boolean misgraded every pre-edge row as a
+    # deliberate omission (send_attribution.plain_stamp_edge has the incident).
+    # Fail-safe direction unchanged: no edge => never a finding on this path.
+    plain_edge = plain_stamp_edge(stamps)
     ordered = sorted(sent, key=lambda m: str(m.get("timestamp") or ""))
     for wake in wakes:
         decl = declares.get(wake.skill_name)
@@ -521,7 +529,7 @@ def verify_channel_bodies(
             claimed.add(index)
             verdicts.append(
                 _grade_channel_body(
-                    wake, message, fetch_body, stamps, window_s, overlay_stamps_plain, identified
+                    wake, message, fetch_body, stamps, window_s, plain_edge, identified
                 )
             )
     return verdicts
@@ -543,7 +551,7 @@ def _messages_in_window(ordered, wake, window_s, claimed, attribute):
 
 
 def _grade_channel_body(
-    wake, message, fetch_body, dispatches, window_s, overlay_stamps_plain, identified
+    wake, message, fetch_body, dispatches, window_s, plain_edge, identified
 ) -> BodyVerdict:
     common = {
         "skill_name": wake.skill_name,
@@ -594,26 +602,27 @@ def _grade_channel_body(
         return _graded(
             digest == stamp.plain_body_sha256, digest, "the dispatch plain_body_sha256", common, identified
         )
-    if not overlay_stamps_plain:
-        # PRE-DEPLOY WINDOW. On a seat whose pinned overlay predates
-        # hermes-smd-overlay#338, absence carries no information: the send may
-        # well have been down-rendered with nothing recording it, and grading a
-        # conformant templated send against the raw markdown would file a false
-        # BODY_DIVERGED on every run. Hold, exactly as before.
+    if not stamps_plain_at(plain_edge, stamp):
+        # PRE-DEPLOY ROW. Written by an overlay that predates
+        # hermes-smd-overlay#338 (before the inbox's first stamped row, or no
+        # stamped row exists at all): absence carries no information, the send
+        # may well have been down-rendered with nothing recording it, and grading
+        # a conformant templated send against the raw markdown would file a false
+        # BODY_DIVERGED. Hold, exactly as before.
         return BodyVerdict(
             verdict=VERDICT_CHANNEL_MISMATCH,
             actual_sha256=digest,
             detail=(
-                "channel body hash differs from wake stamp and no dispatch row on this "
-                "inbox carries plain_body_sha256 (overlay predates the plain stamp; "
-                "hold, not finding)"
+                "channel body hash differs from wake stamp and this dispatch row predates "
+                "the inbox's first plain_body_sha256 stamp (overlay predates the plain "
+                "stamp; hold, not finding)"
             ),
             **common,
         )
-    # POST-DEPLOY. The overlay stamps plain hashes on this inbox, so it omitted
-    # this one deliberately: no down-render ran (prose reply, composer-supplied
-    # html), which means the channel text IS the bytes the gate allowed. Absence
-    # is a fact, not a gap, and `rendered_body_sha256` is the right counterpart.
+    # POST-DEPLOY ROW. The overlay that wrote this row stamps plain hashes, so it
+    # omitted this one deliberately: no down-render ran (prose reply,
+    # composer-supplied html), which means the channel text IS the bytes the gate
+    # allowed. Absence is a fact, not a gap; `rendered_body_sha256` is the counterpart.
     common["expected_sha256"] = stamp.rendered_body_sha256
     return _graded(
         digest == stamp.rendered_body_sha256,
