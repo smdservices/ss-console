@@ -73,7 +73,7 @@ def _upload_r2(key: str, body: bytes) -> None:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Ingest a curated voice corpus into the R2 vault.")
     p.add_argument("--corpus", required=True, help="Reviewed corpus JSONL.")
-    p.add_argument("--slug", default="smd")
+    p.add_argument("--slug", required=True, help="Seat customer slug the vault keys are written under.")
     p.add_argument("--cohort", default="unassigned")
     p.add_argument(
         "--customer-yaml",
