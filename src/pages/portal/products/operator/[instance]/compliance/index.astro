@@ -348,8 +348,7 @@ const agreements = await listAgreementsForInstance(env.DB, client.id, instance)
         <div class="px-5 md:px-7 py-6">
           <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
             The signed paper governing this engagement, with the date each document was executed.
-            Where more than one is listed, all of them are in force together and the most recent
-            sits at the top.
+            The most recent sits at the top.
           </p>
           <div class="mt-5 border-[3px] border-[color:var(--ss-color-text-primary)]">
             {agreements.map((doc) => (

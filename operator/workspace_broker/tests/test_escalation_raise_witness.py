@@ -65,17 +65,24 @@ def _dispatch(
     session_id: str | None = SESSION,
     action_type: str = "CONFIRM_SEND_DISPATCHED",
     outcome: str = "sent",
+    skill_name: str | None = "deadline-miss-escalator",
 ) -> None:
-    """Write an audit row of the shape the broker's own _append_send_row writes."""
+    """Write an audit row of the shape the broker's own _append_send_row writes.
+
+    ``skill_name`` sits on its COLUMN, never in metadata -- that is where the
+    broker moves it (B3, claims review 2026-09-04) and where the console's
+    wake<->confirm join reads it. The witness itself reads only ``metadata``,
+    so the column is here for shape fidelity, not because the witness needs it.
+    """
     meta: dict = {"outcome": outcome, "recipients": recipients}
     if session_id is not None:
         meta["session_id"] = session_id
     conn = sqlite3.connect(broker.audit_db_path)
     try:
         conn.execute(
-            "INSERT INTO audit_log (ts, action_type, actor, actor_role, metadata)"
-            " VALUES (?, ?, 'operator', 'agent', ?)",
-            (ts, action_type, json.dumps(meta)),
+            "INSERT INTO audit_log (ts, action_type, actor, actor_role, skill_name, metadata)"
+            " VALUES (?, ?, 'operator', 'agent', ?, ?)",
+            (ts, action_type, skill_name, json.dumps(meta)),
         )
         conn.commit()
     finally:
