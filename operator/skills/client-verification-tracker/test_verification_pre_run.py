@@ -1451,6 +1451,41 @@ def test_blind_wake_keeps_the_two_unwritable_exemptions(tmp_path, monkeypatch):
         assert payload["dispatch_expected"] is True, basis
 
 
+def test_blind_wake_inside_run_once_still_leaves_a_row(tmp_path, monkeypatch):
+    """The live path. ``main`` drives ``run_once`` under ``asyncio.run``, and
+    ``ledger_unavailable_fail_open`` fires from inside that coroutine, so the
+    row writer runs with a loop already on the thread. Before this test, the
+    writer's own ``asyncio.run`` raised there, the failure was swallowed as
+    "observability never gates the wake", and the EMITTED_WAKE row this
+    module exists to write was never written. The tests above call
+    ``_blind_wake`` from a bare thread and could not see it."""
+    _authored_seat(tmp_path, monkeypatch)
+    monkeypatch.setattr(_pre_run, "_load_ledger_module", lambda: None)
+    writer = _FakeWakeWriter()
+    monkeypatch.setattr(_pre_run, "_sibling_writer_factory", lambda: writer)
+    executor = FakeExecutor()
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([_item()])],
+            _factory(executor),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=None,  # forces the (patched) loader
+            ledger_events=None,
+        )
+    )
+    assert code == 0
+    payload = json.loads(out.splitlines()[-1])
+    assert payload["decision_basis"] == "ledger_unavailable_fail_open"
+    assert payload["dispatch_expected"] is True
+    assert len(writer.calls) == 1
+    assert writer.calls[0]["decision_basis"] == "ledger_unavailable_fail_open"
+    assert writer.calls[0]["extra_metadata"]["blind_wake"] is True
+    assert executor.calls == []  # the decision path's writer was never reached
+
+
 def test_blind_wake_row_failure_never_changes_the_wake(tmp_path, monkeypatch):
     """Observability may not gate the wake. A broker that refuses the row must
     leave stdout byte-identical to the succeeding case."""

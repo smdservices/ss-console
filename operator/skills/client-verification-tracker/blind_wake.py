@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import threading
 
 #: The only two fail-open bases where an ``EMITTED_WAKE`` row is genuinely
 #: unwritable: the first fires BECAUSE no writer resolved, the second BECAUSE a
@@ -105,8 +106,8 @@ def write_row(
         writer = writer_factory()
         if writer is None:
             return
-        asyncio.run(
-            writer.write_emitted_wake(
+        _run_to_completion(
+            lambda: writer.write_emitted_wake(
                 skill_name=skill_name,
                 # No decision means no inputs digest to stamp. Empty is the
                 # honest value; a fabricated digest would make a blind tick
@@ -119,6 +120,38 @@ def write_row(
         )
     except Exception as exc:  # noqa: BLE001 — observability never gates the wake
         sys.stderr.write("[pre_run] blind-wake row failed (" + str(exc) + ")\n")
+
+
+def _run_to_completion(coro_factory) -> None:
+    """Drive the writer's coroutine whether or not an event loop is running.
+
+    ``ledger_unavailable_fail_open`` fires INSIDE ``run_once``, which
+    ``main`` drives under ``asyncio.run``; a bare ``asyncio.run`` there
+    raises ``RuntimeError`` (cannot be called from a running event loop),
+    the ``except`` above swallows it, and the one row this module exists to
+    write is never written. With a loop running, the coroutine is driven on
+    a worker thread with its own loop and joined; the join blocks the
+    calling loop for as long as the writer does, which is the same bound
+    the decision path already accepts (the broker heartbeat timeout).
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(coro_factory())
+        return
+    outcome: dict = {}
+
+    def _worker() -> None:
+        try:
+            asyncio.run(coro_factory())
+        except BaseException as exc:  # noqa: BLE001 — re-raised on the caller's thread
+            outcome["error"] = exc
+
+    thread = threading.Thread(target=_worker, name="cvt-blind-wake-row", daemon=True)
+    thread.start()
+    thread.join()
+    if "error" in outcome:
+        raise outcome["error"]
 
 
 # ---------------------------------------------------------------------------
