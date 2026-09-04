@@ -50,3 +50,25 @@ const PRODUCT_DISPLAY_NAMES: Record<string, string> = {
 export function productDisplayName(sub: SubscriptionRow): string {
   return PRODUCT_DISPLAY_NAMES[sub.product_slug] ?? sub.product_slug
 }
+
+/**
+ * The sentence the Billing surface shows on the `?start=done` return from
+ * checkout, built from the Checkout Session's `payment_status` and the
+ * client's own subscription row; never from the query string alone. The
+ * date is the row's `started_at`, already formatted by the caller. Returns
+ * null for every combination the two facts do not settle (render nothing,
+ * per docs/style/empty-state-pattern.md).
+ */
+export function resolveStartDoneMessage(
+  paymentStatus: 'paid' | 'unpaid' | 'no_payment_required',
+  row: Pick<SubscriptionRow, 'status'>,
+  startedOn: string
+): string | null {
+  if (paymentStatus === 'paid' && row.status === 'active') {
+    return startedOn ? `Your subscription started on ${startedOn}.` : null
+  }
+  if (paymentStatus === 'unpaid' || row.status === 'provisioning') {
+    return 'Checkout is complete. This page shows your subscription as active once the payment settles.'
+  }
+  return null
+}
