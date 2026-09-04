@@ -193,6 +193,45 @@ describe('entrypoint.sh: the chronology runner daemon (ss#2614)', () => {
     expect(ENTRYPOINT_CODE).toMatch(/the chronology runner will refuse jobs/)
   })
 
+  // 2026-09-04: the classifier's controls and the ICD tables are INSTALL-level
+  // (a job's data_root is fresh per job and can never carry them), so the
+  // entrypoint seeds them from the vault on every boot, fail-static like the
+  // firm config, into a root-owned tree the medchron uid can read and not
+  // write. Boot smoke asserts the result on the seat; this pins the shape.
+  it('seeds the medchron controls tree from the vault on every boot, root-owned and medchron-readable, without a FATAL arm', () => {
+    expect(ENTRYPOINT_CODE).toMatch(/MEDCHRON_CONTROLS_DIR="\$\{MEDCHRON_DATA_DIR\}\/controls"/)
+    expect(ENTRYPOINT_CODE).toMatch(
+      /aws s3 cp[\s\S]*?--recursive[\s\S]*?"s3:\/\/\$\{R2_BUCKET_CONFIG\}\/vaults\/\$\{CUSTOMER_SLUG\}\/medchron-controls\/"/
+    )
+    // The swap is gated on the authored index arriving: an empty prefix or a
+    // partial copy never replaces a good tree.
+    expect(ENTRYPOINT_CODE).toMatch(
+      /&& \[ -f "\$\{MEDCHRON_CONTROLS_DIR\}\.r2\.tmp\/controls\.json" \]; then/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(/chown -R root:medchron "\$\{MEDCHRON_CONTROLS_DIR\}"/)
+    expect(ENTRYPOINT_CODE).toMatch(
+      /find "\$\{MEDCHRON_CONTROLS_DIR\}" -type d -exec chmod 0750 \{\} \+/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(
+      /find "\$\{MEDCHRON_CONTROLS_DIR\}" -type f -exec chmod 0640 \{\} \+/
+    )
+    expect(ENTRYPOINT_CODE).toMatch(
+      /the chronology runner will refuse the classify stage of every job/
+    )
+    // Seeded AFTER the data dir is established and BEFORE the daemon forks.
+    const seedIdx = ENTRYPOINT_CODE.indexOf('medchron-controls/')
+    expect(seedIdx).toBeGreaterThan(
+      ENTRYPOINT_CODE.indexOf('install -d -o root -g root -m 0755 "${MEDCHRON_DATA_DIR}"')
+    )
+    expect(seedIdx).toBeLessThan(ENTRYPOINT_CODE.indexOf('-m medchron.daemon'))
+    // No FATAL arm anywhere in the block.
+    const block = ENTRYPOINT_CODE.slice(
+      seedIdx,
+      ENTRYPOINT_CODE.indexOf('SMOKEBALL_TOKEN_DIR="/opt/data/.smokeball-mcp"')
+    )
+    expect(block).not.toMatch(/FATAL/)
+  })
+
   it('launches the daemon from its own venv under an import-gated respawn loop, before the exec-drop', () => {
     expect(ENTRYPOINT_CODE).toMatch(
       /\/opt\/medchron\/\.venv\/bin\/python -c "import medchron\.daemon"/

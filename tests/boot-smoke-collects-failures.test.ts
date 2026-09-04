@@ -23,7 +23,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -165,8 +165,19 @@ esac
   return dir
 }
 
-function run(failOn: string[]): { out: string; code: number } {
+function run(
+  failOn: string[],
+  opts: { medchronAuthored?: boolean } = {}
+): { out: string; code: number } {
   const dir = stubDir(failOn)
+  if (opts.medchronAuthored) {
+    // The other branch of step 14: the seat authors a medchron firm config, so
+    // the config-perm, token, controls, and gate-refusal checks are EXPECTED
+    // to run. An empty file is enough; the script only tests for presence.
+    const firm = join(dir, 'operator', 'customers', 'pilot-smokeball', 'medchron')
+    mkdirSync(firm, { recursive: true })
+    writeFileSync(join(firm, 'firm.yaml'), '')
+  }
   try {
     const out = execFileSync('bash', [SCRIPT, 'pilot-smokeball'], {
       encoding: 'utf8',
@@ -205,6 +216,31 @@ describe('boot smoke reports every check, not just the first red (ss#2487)', () 
     expect(out).toContain('FAILED: customer-yaml-dir-not-agent-writable')
     expect(out).toContain('FAILED: curator-disabled')
   })
+
+  // 2026-09-04: a seat that authors a medchron firm config must carry the
+  // install-level controls tree the entrypoint seeds from the vault (the
+  // classifier's falsifier and the ICD tables); without it every job refuses
+  // at classify_scanned. The check is gated on the SAME authored expectation
+  // as the firm-config checks, so it is invisible in the runs above (no
+  // medchron authored). This case authors one, proves the three controls
+  // checks run, and that the presence check can go red.
+  it('a seat that authors medchron must carry the seeded controls tree, and the check can fail', () => {
+    const { out, code } = run(['/run/smd-medchron/controls/controls.json'], {
+      medchronAuthored: true,
+    })
+    expect(out).toContain('FAIL: medchron-controls-present')
+    expect(out).toContain('FAIL: medchron-uid-reads-controls-cannot-write')
+    expect(out).toMatch(/(PASS|FAIL): medchron-icd-tables-present/)
+    expect(out).toMatch(/(PASS|FAIL): medchron-gate-claim-audit-refuses/)
+    expect(out).not.toContain('medchron-firm-config-absent')
+    expect(code).not.toBe(0)
+    expect(out).toContain('checks failed: 2')
+    // The control: authored, seeded, green.
+    const clean = run([], { medchronAuthored: true })
+    expect(clean.code).toBe(0)
+    expect(clean.out).toContain('PASS: medchron-controls-present')
+    expect(clean.out).toContain('PASS: medchron-icd-tables-present')
+  }, 90_000)
 
   it('a clean run still exits zero', () => {
     // The control. Without it, every assertion above would pass on a script that

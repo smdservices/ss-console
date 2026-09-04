@@ -260,6 +260,13 @@ class Daemon:
             "units": env["units"],
             "incident": env["incident"],
             "data_root": str(data_root),
+            # The install-level tree the entrypoint seeds from the vault every
+            # boot (`controls/controls.json` + PDFs, `controls/icd/`): the run
+            # dir itself, shared by every job, root-owned, read by the child.
+            # A fresh per-job data_root can never carry the classifier's
+            # falsifier, so a job that resolved controls there refused
+            # forever (2026-09-04 finding).
+            "install_root": str(self.run_dir),
         }
         for key in ("injuries", "cap_usd", "allowance_remaining_documents", "selection", "requested_by",
                     "request_ref"):
@@ -343,6 +350,7 @@ class Daemon:
             outcomes = json.loads(out) if out.strip() else []
         except ValueError:
             outcomes = []
+        stage: str | None = None
         if not isinstance(outcomes, list) or not outcomes:
             state, fields = "failed", {"reason": f"the runner exited {code} without a verdict"[:500]}
         else:
@@ -353,6 +361,7 @@ class Daemon:
             pages = int(sum(int(o.get("pages") or 0) for o in outcomes))
             documents = int(max(int(o.get("documents") or 0) for o in outcomes))
             reason = worst.get("reason")
+            stage = str(worst.get("stage") or "") or None
             if outcome == "refused":
                 state, reason = "held", f"refused: {reason}"
             elif outcome in ("delivered", "dry_run"):
@@ -375,15 +384,21 @@ class Daemon:
         self._write_state(job_id, state=state, finished_at=finished, reason=fields.get("reason"))
         if finished is not None:
             self._write_state(job_id, wake={"pending": True, "attempts": 0,
-                                            "task": self._compose_wake(job_id, state, fields)})
+                                            "task": self._compose_wake(job_id, state, fields, stage=stage)})
         return state
 
     # -- the deliver wake (ss#2616) --------------------------------------------
-    def _compose_wake(self, job_id: str, state: str, fields: dict[str, Any]) -> str:
+    def _compose_wake(self, job_id: str, state: str, fields: dict[str, Any], *, stage: str | None = None) -> str:
         """The handoff task text. Only broker/envelope-authored fields ride it
         (requester, ref, matter number, counts, folder id) — never a file name,
         a client name, or a DOB: the deliver turn reads the folder itself, so
-        no tenant-authored string reaches the unfenced wake prompt."""
+        no tenant-authored string reaches the unfenced wake prompt.
+
+        A hold or failure names WHERE it stopped, never why: `stage` is a DAG
+        stage name (code-authored vocabulary), whereas the runner's `reason` is
+        free text that quotes matter file names and folder names (a decision
+        hold lists the files it could not place). The ledger row and the
+        console keep the full reason for a person reading their own tenant."""
         env: dict[str, Any] = {}
         try:
             env = json.loads((self.job_dir(job_id) / "envelope.json").read_text(encoding="utf-8"))
@@ -398,8 +413,8 @@ class Daemon:
         ]
         if fields.get("folder_id"):
             lines.append(f"Delivered folder id: {fields['folder_id']}.")
-        if fields.get("reason"):
-            lines.append(f"Reason: {fields['reason']}")
+        if state != "delivered":
+            lines.append(f"Held at: {stage or 'runner (no verdict)'}.")
         requester = env.get("requested_by") or ""
         ref = env.get("request_ref") or ""
         none_note = "(none - a rehearsal submission; report in the memo, create no task, send nothing)"

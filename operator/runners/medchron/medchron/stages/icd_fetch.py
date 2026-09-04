@@ -1,5 +1,5 @@
 """`icd_tables`: vendor the CMS ICD code tables once per machine into
-`<data_root>/controls/icd/`, with a VERSION.json of source URLs and sha256s.
+`<install_root>/controls/icd/`, with a VERSION.json of source URLs and sha256s.
 $0 (a download). The driver skips this stage when VERSION.json exists.
 
 The zip names carry the fiscal year; a new year means editing the two URLs
@@ -62,7 +62,7 @@ def vendor(dest: Path, fetch: Fetch = _http_fetch) -> dict:
 
 
 def run(sr: StageRun) -> int:
-    dest = icd_dir(sr.job.data_root)
+    dest = icd_dir(sr.job.install_root)
     if (dest / VERSION_FILE).is_file():
         sr.log(f"ICD tables present in {dest}")
         return 0

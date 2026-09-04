@@ -13,7 +13,7 @@ treat every collision as a classification error until the page is looked at.
 Pages with no text layer cannot be classified by text. The scanned pass looks
 at the ones near the head of a source-file segment, where vendor paperwork
 sits, and a falsifier rides in every batch: authored control pages (one
-known ORDER, one known INDEX, from `<data_root>/controls/controls.json`) and
+known ORDER, one known INDEX, from `<install_root>/controls/controls.json`) and
 the run's own record control (`record_control[-unit].json`, written by
 `decisions.control`). If the model does not call those correctly, its other
 answers are not trusted: controls_ok is recorded and the strip refuses on it.
@@ -170,12 +170,16 @@ def run_scanned(sr: StageRun) -> int:
     paths = resolve_exhibit_files(outdir)
     heads = file_heads(read_json(outdir / "page_map.json", []))
     targets = [(ex, p) for ex in sorted(paths) for p in sorted(set(nr[str(ex)]["unknown"]) & heads.get(ex, set()))]
-    ctl_path = sr.job.data_root / "controls" / "controls.json"
+    # The authored controls are install-level (install_root: the laptop's data
+    # root, the seat's run dir seeded from the vault), never per job. This
+    # stat stays AHEAD of any zero-target shortcut on purpose: an install
+    # without its falsifier refuses on its first job whatever the matter holds.
+    ctl_path = sr.job.install_root / "controls" / "controls.json"
     rec_path = d / f"record_control{sfx}.json"
     if not (ctl_path.is_file() and rec_path.is_file()):
         sr.log(f"controls not authored: need {ctl_path} and {rec_path}; a classifier without its falsifier measures nothing")
         return 1
-    controls = [(sr.job.data_root / c["pdf"], int(c["page"]), str(c["label"])) for c in json.loads(ctl_path.read_text(encoding="utf-8"))]
+    controls = [(sr.job.install_root / c["pdf"], int(c["page"]), str(c["label"])) for c in json.loads(ctl_path.read_text(encoding="utf-8"))]
     rc = json.loads(rec_path.read_text(encoding="utf-8"))
     controls.append((paths[int(rc["exhibit"])], int(rc["page"]), "RECORD"))
     sr.log(f"{len(targets)} scanned page(s) to classify, +{len(controls)} control(s)")
