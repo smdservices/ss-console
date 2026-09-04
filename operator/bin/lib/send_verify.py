@@ -45,14 +45,21 @@ TWO CHECKS, DIFFERENT STRENGTHS (cross-workstream contract, item 1):
   ``OVERLAY_REF`` predates #338 the key never appears at all, a templated send
   is still down-rendered with nothing recording it, and grading its channel body
   against the raw markdown would file a false ``BODY_DIVERGED`` on every run.
-  The discriminator is therefore whether ANY dispatch row on the inbox carries a
-  plain stamp: never seen => pre-deploy => keep ``channel_mismatch_hold``; seen
-  => absence is deliberate => grade against ``rendered_body_sha256``. It is
-  probed per INBOX, not per window, because the overlay version is a property of
-  the seat and a day of rows observes it far more reliably than one hour does.
-  The invariant both halves serve: no false findings before the pin lands, no
-  permanent holds after it. ``body_unavailable`` stays a HOLD throughout -- a
-  body we could not fetch is a transport fact, not a divergence.
+  The discriminator is therefore the DEPLOY EDGE: the earliest dispatch row on
+  the inbox that carries a plain stamp (``send_attribution.plain_stamp_edge``).
+  A row before the edge, or any row on an inbox with no edge, is pre-deploy =>
+  keep ``channel_mismatch_hold``; a row at or after it was written by an overlay
+  that stamps => absence is deliberate => grade against
+  ``rendered_body_sha256``. Per ROW, not per inbox: the overlay version is a
+  property of the seat, but the seat's version CHANGES, and a window that spans
+  the reprovision holds rows from both sides of it. The first version of this
+  discriminator was a per-inbox "any row carries the stamp" probe, and on
+  2026-09-04 (pilot-smokeball, ``--days 7``) it read the 09-01 escalator send --
+  pre-reprovision, unstamped, conformant -- as a deliberate omission and filed
+  BODY_DIVERGED against it. The invariant both halves serve: no false findings
+  before the pin lands, no permanent holds after it. ``body_unavailable`` stays
+  a HOLD throughout -- a body we could not fetch is a transport fact, not a
+  divergence.
 
   NOT EVERY SEND IS STAMPED, BY DESIGN. The overlay stamps at exactly one site
   (``_dispatch_internal_message``); ``_dispatch_approved_send`` -- the
