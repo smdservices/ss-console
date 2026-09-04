@@ -11,7 +11,10 @@ import {
   handleSubscriptionLifecycle,
 } from '../../../lib/webhooks/stripe-subscription-handler'
 import { handleHostedAgentCheckoutCompleted } from '../../../lib/webhooks/hosted-agent-checkout-handler'
-import { handleOperatorCheckoutCompleted } from '../../../lib/webhooks/operator-checkout-handler'
+import {
+  handleOperatorCheckoutAsyncPaymentFailed,
+  handleOperatorCheckoutCompleted,
+} from '../../../lib/webhooks/operator-checkout-handler'
 import { OPERATOR_CHECKOUT_PRODUCT_SLUG } from '../../../lib/stripe/subscriptions'
 import { env } from 'cloudflare:workers'
 import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
@@ -38,6 +41,11 @@ const StripeWebhookEnvelopeSchema = z.looseObject({
   type: z.string(),
 })
 
+const InvoiceSubscriptionDetailsSchema = z
+  .looseObject({ metadata: z.record(z.string(), z.string()).nullable().optional() })
+  .nullable()
+  .optional()
+
 const StripeInvoiceSchema = z.looseObject({
   id: z.string().min(1),
   object: z.literal('invoice'),
@@ -59,6 +67,18 @@ const StripeInvoiceSchema = z.looseObject({
   metadata: z.record(z.string(), z.string()),
   created: z.number(),
   due_date: z.number().nullable(),
+  // The subscription-metadata snapshot Stripe stamps on subscription
+  // invoices: `subscription_details.metadata` pre-basil,
+  // `parent.subscription_details.metadata` from 2025-03-31.basil (the prod
+  // endpoint pins 2026-03-25.dahlia). Both declared so the ordering
+  // fallback in handleRetainerInvoicePaid can read whichever arrives;
+  // `parent.subscription_details.subscription` stays undeclared and is
+  // read by resolveStripeSubscriptionLinkage from the retained fields.
+  subscription_details: InvoiceSubscriptionDetailsSchema,
+  parent: z
+    .looseObject({ subscription_details: InvoiceSubscriptionDetailsSchema })
+    .nullable()
+    .optional(),
 })
 
 const StripeInvoiceWebhookEventSchema = z.looseObject({
@@ -118,6 +138,10 @@ const StripeCheckoutSessionSchema = z.looseObject({
     .optional()
     .default(null),
   metadata: z.record(z.string(), z.string()).optional().default({}),
+  // docs.stripe.com/api/checkout/sessions/object: "one of paid, unpaid, or
+  // no_payment_required". An ACH session completes `unpaid`; the operator
+  // handler gates go-live on it.
+  payment_status: z.enum(['paid', 'unpaid', 'no_payment_required']),
   total_details: z
     .looseObject({ amount_discount: z.number().optional() })
     .nullable()
@@ -191,21 +215,49 @@ async function dispatchInvoiceEvent(eventType: string, parsed: unknown): Promise
   return jsonResponse(200, { ok: true, event: eventType })
 }
 
-/** Route checkout.session.completed by the session's `product_slug`
- * metadata: the Operator retainer start (operator-checkout-handler.ts) or
- * the Hosted Agent concierge pipeline (ADR 0067). Each handler acks sessions
- * that are not its own. Returns null for other event types. */
+/** Route checkout.session.* by the session's `product_slug` metadata: the
+ * Operator retainer start (operator-checkout-handler.ts) or the Hosted Agent
+ * concierge pipeline (ADR 0067). Each handler acks sessions that are not
+ * its own.
+ *
+ * The two `async_payment_*` events exist for delayed payment methods (ACH
+ * on the operator checkout): `completed` fires while the funds are still
+ * pending and the async event says whether they landed. Only the operator
+ * flow offers ACH, so those two route to it alone; a Hosted Agent session
+ * never produces them and is acked. Returns null for other event types. */
 async function dispatchCheckoutEvent(eventType: string, parsed: unknown): Promise<Response | null> {
-  if (eventType !== 'checkout.session.completed') return null
+  if (
+    eventType !== 'checkout.session.completed' &&
+    eventType !== 'checkout.session.async_payment_succeeded' &&
+    eventType !== 'checkout.session.async_payment_failed'
+  ) {
+    return null
+  }
   const eventResult = StripeCheckoutSessionWebhookEventSchema.safeParse(parsed)
   if (!eventResult.success) {
     return errorResponse(400, 'Malformed event payload')
   }
+  const session = eventResult.data.data.object
+  const isOperator = session.metadata['product_slug'] === OPERATOR_CHECKOUT_PRODUCT_SLUG
+  if (eventType === 'checkout.session.async_payment_failed') {
+    if (!isOperator) return jsonResponse(200, { ok: true, event: eventType })
+    return handleOperatorCheckoutAsyncPaymentFailed(
+      env.DB,
+      env.STRIPE_API_KEY,
+      env.RESEND_API_KEY,
+      session
+    )
+  }
+  if (isOperator) {
+    // completed and async_payment_succeeded share the handler; the
+    // session's payment_status decides whether the row goes live.
+    return handleOperatorCheckoutCompleted(env.DB, session)
+  }
+  if (eventType !== 'checkout.session.completed') {
+    return jsonResponse(200, { ok: true, event: eventType })
+  }
   // Non-throwing base-URL reads: a missing env var must degrade the email
   // links, never 500 the webhook (Stripe would retry-loop a config gap).
-  if (eventResult.data.data.object.metadata['product_slug'] === OPERATOR_CHECKOUT_PRODUCT_SLUG) {
-    return handleOperatorCheckoutCompleted(env.DB, eventResult.data.data.object)
-  }
   const portalBase = getPortalBaseUrl(env) ?? 'https://portal.smd.services'
   const adminBase = getAdminBaseUrl(env) ?? 'https://admin.smd.services'
   return handleHostedAgentCheckoutCompleted(

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import __version__, budget as budget_mod, config as config_mod, dag, decisions, job as job_mod, seat as seat_mod
+from . import __version__, budget as budget_mod, config as config_mod, dag, decisions, icd_tables, job as job_mod, seat as seat_mod
 from .stages.base import StageRefusal, StageRun
 from .state import RunState, state_path
 
@@ -234,7 +234,7 @@ class Driver:
         if self.dry_run:
             self.log(f"[dry-run] would run {stage.name}: {stage.script} {' '.join(stage.argv(ctx))}")
             return None
-        if stage.once_per_machine and (self.job.data_root / "controls" / "icd" / "VERSION.json").is_file():
+        if stage.once_per_machine and (icd_tables.icd_dir(self.job.install_root) / icd_tables.VERSION_FILE).is_file():
             st.finish(stage.name, status="skipped", exit_code=0, dollars=None, pages=None, note="present")
             return None
         if stage.paid:
