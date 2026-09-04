@@ -97,7 +97,10 @@ export async function attachStripeSubscription(
  * start again. Both start gates (the portal's `canStart` and the server-side
  * start-subscription route) require `stripe_subscription_id IS NULL`, so
  * clearing it is what re-opens the door. `settings_json.stripe_customer_id`
- * is kept: the Stripe customer is real and the retry reuses it.
+ * is left alone: the Stripe customer exists and the record of it is true.
+ * The next checkout does not reuse it (createOperatorCheckoutSession passes
+ * `customer_email`, so Stripe resolves or creates a customer on its own) and
+ * the attach that follows overwrites the key with whatever Stripe returns.
  *
  * Guarded on the id being detached: a webhook retry that lands after the
  * client has already attached a NEW subscription must not clear that one.

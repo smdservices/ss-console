@@ -203,9 +203,7 @@ export async function handleUnrecognizedInvoiceLinkage(
 /** The subscription-metadata snapshot Stripe stamps on every invoice a
  * subscription generates. Either position, by API version (see
  * {@link readInvoiceSubscriptionMetadata}). */
-interface InvoiceSubscriptionDetails {
-  metadata?: Record<string, string> | null
-}
+type InvoiceSubscriptionDetails = { metadata?: Record<string, string> | null } | null
 
 /** The invoice-payload fields the retainer mirror consumes. */
 export interface RetainerInvoicePayload {
@@ -218,9 +216,9 @@ export interface RetainerInvoicePayload {
   /** The Stripe customer id; recorded on the row by the ordering fallback. */
   customer?: string | null
   /** Pre-basil position of the subscription-metadata snapshot. */
-  subscription_details?: InvoiceSubscriptionDetails | null
+  subscription_details?: InvoiceSubscriptionDetails
   /** 2025-03-31.basil+ position of the same snapshot. */
-  parent?: { subscription_details?: InvoiceSubscriptionDetails | null } | null
+  parent?: { subscription_details?: InvoiceSubscriptionDetails } | null
 }
 
 /**
@@ -333,10 +331,11 @@ export async function handleRetainerInvoiceFinalized(
  * "unknown subscription" — money landed and the client's portal never went
  * live. The subscription metadata the checkout stamped names the row, so
  * bind it here: attach the Stripe subscription + customer and promote the
- * row, exactly what the checkout handler would have done. Only a row whose
- * `stripe_subscription_id IS NULL` qualifies (the check is here, not in
- * `attachStripeSubscription`, which stays an unguarded UPDATE for the
- * checkout handler's own retry); anything else is still an honest skip.
+ * row, exactly what the checkout handler would have done. Only an operator
+ * row still in `provisioning` with `stripe_subscription_id IS NULL`
+ * qualifies (the checks are here, not in `attachStripeSubscription`, which
+ * stays an unguarded UPDATE for the checkout handler's own retry); anything
+ * else is still an honest skip.
  *
  * Runs from `invoice.paid` only: `finalized` precedes ACH collection and
  * `payment_failed` is not a go-live act.
@@ -349,13 +348,24 @@ async function bindSubscriptionFromInvoiceMetadata(
   const rowId = readInvoiceSubscriptionMetadata(invoice)?.['smd_subscription_id']
   if (!rowId) return null
   const row = await getSubscriptionById(db, rowId)
-  if (!row || row.product_slug !== 'operator' || row.stripe_subscription_id !== null) return null
+  if (
+    !row ||
+    row.product_slug !== 'operator' ||
+    row.status !== 'provisioning' ||
+    row.stripe_subscription_id !== null
+  ) {
+    return null
+  }
   await attachStripeSubscription(db, row.id, stripeSubscriptionId, invoice.customer ?? null)
-  await activateOperatorSubscriptionForBilling(db, row.id)
+  const promoted = await activateOperatorSubscriptionForBilling(db, row.id)
   console.log(
-    `[stripe-subscription] invoice.paid arrived before checkout completion; bound ${stripeSubscriptionId} to row ${row.id} from invoice metadata`
+    `[stripe-subscription] invoice.paid arrived before checkout completion; bound ${stripeSubscriptionId} to row ${row.id} from invoice metadata (promoted=${promoted})`
   )
-  return { ...row, status: 'active', stripe_subscription_id: stripeSubscriptionId }
+  return {
+    ...row,
+    status: promoted ? 'active' : row.status,
+    stripe_subscription_id: stripeSubscriptionId,
+  }
 }
 
 /** Phase-1 write for a paid cycle invoice: refresh the existing mirror row

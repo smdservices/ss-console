@@ -320,6 +320,21 @@ describe('handleRetainerInvoicePaid — ordering fallback via invoice metadata',
     expect(writes).toHaveLength(0)
   })
 
+  it('does NOT bind a row that is past provisioning (a cancelled row is not resurrected)', async () => {
+    const { db, writes } = makeDb({
+      subRow: null,
+      subRowById: { ...PROVISIONING_UNATTACHED, status: 'cancelled' },
+    })
+    const res = await handleRetainerInvoicePaid(
+      db,
+      undefined,
+      'sub_stripe_1',
+      invoicePayload(nestedMeta)
+    )
+    expect(res.status).toBe(200)
+    expect(writes).toHaveLength(0)
+  })
+
   it('does NOT bind a non-operator row', async () => {
     const { db, writes } = makeDb({
       subRow: null,

@@ -74,13 +74,14 @@ async function insertSubscription(
   db: D1Database,
   id: string,
   productSlug: string,
-  status: string
+  status: string,
+  instanceSlug = 'seat-a'
 ): Promise<void> {
   await db
     .prepare(
       'INSERT INTO subscriptions (id, org_id, entity_id, product_slug, instance_slug, status) VALUES (?, ?, ?, ?, ?, ?)'
     )
-    .bind(id, ORG, ENTITY, productSlug, productSlug === 'operator' ? 'seat-a' : null, status)
+    .bind(id, ORG, ENTITY, productSlug, productSlug === 'operator' ? instanceSlug : null, status)
     .run()
 }
 
@@ -336,6 +337,24 @@ describe("operator checkout.session.completed: the client's payment is the go-li
       .first<{ status: string }>()
     expect(row?.status).toBe('provisioning')
   })
+
+  it('an unbound failure is NOT terminal: after a human fixes the binding, a replay re-runs the pipeline (0087)', async () => {
+    // The session names a row that does not exist yet.
+    const unbound = payload({
+      metadata: { product_slug: 'operator', smd_subscription_id: 'sub-late' },
+    })
+    await handleOperatorCheckoutCompleted(db, unbound)
+    expect(await orderStatus(db)).toBe('failed')
+    // The human reconciles: the row the session named now exists.
+    await insertSubscription(db, 'sub-late', 'operator', 'provisioning', 'seat-b')
+    // Stripe re-delivers (or the human resends from the dashboard).
+    const res = await handleOperatorCheckoutCompleted(db, unbound)
+    expect(res.status).toBe(200)
+    const row = await subState(db, 'sub-late')
+    expect(row.status).toBe('active')
+    expect(row.stripe_subscription_id).toBe('sub_stripe_1')
+    expect(await orderStatus(db)).toBe('processed')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -512,7 +531,55 @@ describe('A2: delayed first payment (ACH) — bind on completed, go live on sett
     expect(startable(await subState(db))).toBe(true)
   })
 
-  it('a Stripe cancel failure is a 500 (retry) and the alert names it; the detach still holds', async () => {
+  it('is edge-triggered: a redelivery of async_payment_failed sends no second email and no second cancel', async () => {
+    await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
+    await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      'resend',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(1)
+
+    const again = await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      'resend',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(again.status).toBe(200)
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(1)
+    expect(await orderStatus(db)).toBe('failed')
+    expect(startable(await subState(db))).toBe(true)
+  })
+
+  it('a failed event that arrives with no prior completed still records, cancels and alerts once', async () => {
+    // Stripe delivered async_payment_failed but the completed never landed:
+    // nothing to detach, but the ledger transition is the edge.
+    const res = await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      'resend',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(res.status).toBe(200)
+    expect(await orderStatus(db)).toBe('failed')
+    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(1)
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    const [, mail] = sendEmail.mock.calls[0] as [unknown, { html: string }]
+    expect(mail.html).toContain('nothing to detach')
+    await handleOperatorCheckoutAsyncPaymentFailed(
+      db,
+      'sk',
+      'resend',
+      payload({ payment_status: 'unpaid' })
+    )
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it('a Stripe cancel failure is alerted ONCE, naming the error and the dashboard action, and acked; the detach still holds', async () => {
     await handleOperatorCheckoutCompleted(db, payload({ payment_status: 'unpaid' }))
     cancelOperatorSubscription.mockRejectedValueOnce(
       new Error('Stripe cancel failed 502: upstream')
@@ -523,19 +590,20 @@ describe('A2: delayed first payment (ACH) — bind on completed, go live on sett
       'resend',
       payload({ payment_status: 'unpaid' })
     )
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(200)
     expect(startable(await subState(db))).toBe(true)
     const [, mail] = sendEmail.mock.calls[0] as [unknown, { html: string }]
     expect(mail.html).toContain('Stripe cancel failed 502')
-    // The retry reaches the cancel again: `failed` is not terminal here.
-    const retry = await handleOperatorCheckoutAsyncPaymentFailed(
+    expect(mail.html).toContain('Stripe dashboard')
+    // A redelivery is silent: no retry of the cancel, no second email.
+    await handleOperatorCheckoutAsyncPaymentFailed(
       db,
       'sk',
       'resend',
       payload({ payment_status: 'unpaid' })
     )
-    expect(retry.status).toBe(200)
-    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(2)
+    expect(cancelOperatorSubscription).toHaveBeenCalledTimes(1)
+    expect(sendEmail).toHaveBeenCalledTimes(1)
   })
 
   it('the detach is guarded: a late failed event for an OLD subscription leaves a NEW attachment alone', async () => {
