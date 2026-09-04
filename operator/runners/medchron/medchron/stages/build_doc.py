@@ -143,7 +143,7 @@ def run(sr: StageRun) -> int:
     desc: dict[str, str] = {}
     if icd:
         try:
-            tables = icd_tables.load(sr.job.data_root)
+            tables = icd_tables.load(sr.job.install_root)
         except icd_tables.TablesMissing as exc:
             sr.log(str(exc))
             return 1

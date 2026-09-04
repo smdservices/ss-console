@@ -48,6 +48,17 @@ class Job:
     injuries: str            # the plain-words injury list the filter stage reads
     cap_usd: float | None    # None -> firm default
     data_root: Path
+    # Where the install-level artifacts live: the scanned-page classifier's
+    # authored control pages (`controls/controls.json` + PDFs) and the vendored
+    # ICD tables (`controls/icd/`). On a laptop it IS data_root (one tree per
+    # firm, controls beside the matters) and the icd_tables stage fetches the
+    # tables into it once. On a seat every job gets a fresh data_root under
+    # jobs/<id>/, so the controls would never be there: the daemon points this
+    # at the run dir, which the entrypoint pre-seeds from the firm's vault on
+    # every boot as a root-owned, read-only tree (provision-customer.sh stages
+    # the controls AND the console-vendored ICD tables into that vault). A run
+    # never writes here on a seat, and never a matter's bytes anywhere.
+    install_root: Path
     allowance_remaining_documents: int | None = None
     selection_overrides: dict[str, Any] = field(default_factory=dict)
     requested_by: str | None = None
@@ -119,6 +130,9 @@ def parse(data: Any, *, path: Path) -> Job:
     data_root = data.get("data_root")
     if not data_root:
         raise JobError("job.data_root: required (the durable data root outside any repo)")
+    install_root = data.get("install_root") or str(data_root)
+    if not isinstance(install_root, str):
+        raise JobError("job.install_root: must be a path when present")
     return Job(
         path=path,
         slug=str(_req(data, "slug", "job")),
@@ -131,6 +145,7 @@ def parse(data: Any, *, path: Path) -> Job:
         injuries=str(data.get("injuries") or ""),
         cap_usd=float(cap) if cap is not None else None,
         data_root=Path(str(data_root)).expanduser(),
+        install_root=Path(install_root).expanduser(),
         allowance_remaining_documents=allowance,
         selection_overrides=dict(data.get("selection") or {}),
         requested_by=data.get("requested_by"),

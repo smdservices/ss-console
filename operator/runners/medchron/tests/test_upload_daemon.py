@@ -173,6 +173,12 @@ def test_daemon_runs_the_oldest_job_reports_transitions_and_ticks(tmp_path):
     assert fields["delivery"]["files"][0]["name"] == "A.docx"
     job_yaml = (d.jobs / "01A" / "job.yaml").read_text()
     assert "slug: example" in job_yaml and "allowance_remaining_documents: 100" in job_yaml and "data_root:" in job_yaml
+    # The envelope the child parses: a fresh per-job data_root, and the
+    # install root pointed at the run dir the entrypoint seeds with the
+    # classifier's controls and the ICD tables (a job's own data_root can
+    # never carry them, 2026-09-04).
+    job = job_mod.load(d.jobs / "01A")
+    assert job.data_root == d.jobs / "01A" / "data" and job.install_root == d.run_dir
     hb = json.loads((d.run_dir / "heartbeat.json").read_text())
     assert hb["memory_cap"] == "none" and hb["queued"] == 1 and (d.run_dir / "tick").exists()
     assert not (d.run_dir / "child.pid").exists()
@@ -400,18 +406,35 @@ def test_a_paused_seat_never_consumes_wake_attempts(tmp_path):
     assert wake["pending"] is True and int(wake.get("attempts", 0)) == 0
 
 
+# A decision hold's reason quotes the matter: the files it could not place.
 HELD_RUNNER = """
 import json, sys
-print(json.dumps([{"unit": "alpha", "outcome": "refused", "reason": "cap", "dollars": 0.0, "pages": 5,
-                   "documents": 3}]))
+print(json.dumps([{"unit": "alpha", "outcome": "held", "stage": "decide_orphans",
+                   "reason": "1 pulled file(s) owned by no unit and matching no exclusion class: "
+                             "['Alpha Example - Example Clinic records 2026.pdf']",
+                   "dollars": 0.0, "pages": 5, "documents": 3}]))
 """
 
 
-def test_a_held_job_wakes_too_and_an_unreachable_gate_counts_attempts(tmp_path):
+def test_a_held_job_wakes_with_the_stage_and_never_the_reason(tmp_path):
     d, broker = _wake_daemon(tmp_path, "http://127.0.0.1:1", script=HELD_RUNNER)   # nothing listens
     _submit(d, broker, "01B")
     assert d.tick() == "held"
+    # The ledger keeps the full reason for a person reading their own tenant.
+    assert broker.records[-1][1] == "held" and "Example Clinic records 2026.pdf" in broker.records[-1][2]["reason"]
     wake = d._daemon_state("01B")["wake"]
-    assert wake["pending"] is True and "cap" in wake["task"] and "rehearsal" in wake["task"]
+    task = wake["task"]
+    # The wake names WHERE the run stopped in the DAG's own vocabulary and
+    # nothing the tenant authored: no file name, no client name, no reason.
+    assert wake["pending"] is True and "Held at: decide_orphans." in task and "rehearsal" in task
+    assert "Example Clinic" not in task and "Alpha" not in task and ".pdf" not in task and "Reason:" not in task
     d.tick()
     assert int(d._daemon_state("01B")["wake"]["attempts"]) == 1
+
+
+def test_a_runner_with_no_verdict_wakes_without_a_stage(tmp_path):
+    d, broker = _wake_daemon(tmp_path, "http://127.0.0.1:1", script="import sys\nsys.exit(3)\n")
+    _submit(d, broker, "01C")
+    assert d.tick() == "failed"
+    task = d._daemon_state("01C")["wake"]["task"]
+    assert "Outcome: failed." in task and "Held at: runner (no verdict)." in task and "exited 3" not in task

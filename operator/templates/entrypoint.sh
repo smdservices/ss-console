@@ -274,6 +274,46 @@ mountpoint -q "${MEDCHRON_RUN_DIR}" \
   || mount --bind "${MEDCHRON_DATA_DIR}" "${MEDCHRON_RUN_DIR}" \
   || { log "FATAL: could not bind-mount ${MEDCHRON_DATA_DIR} -> ${MEDCHRON_RUN_DIR}"; exit 1; }
 export SMD_MEDCHRON_QUEUE_DIR="${MEDCHRON_RUN_DIR}/queue"
+
+# 2026-09-04: the chronology runner's INSTALL-level artifacts — the scanned-page
+# classifier's authored control pages (`controls.json` + the PDFs it names) and
+# the vendored ICD tables (`icd/`) — ride the same vault prefix as the firm
+# config, under medchron-controls/. Every job gets a fresh data_root under
+# jobs/<id>/, so no job can carry them; the runner resolves them against this
+# tree (Job.install_root, which the daemon points at the run dir). Seeded from
+# the vault on EVERY boot, so a volume recreate converges on the authored set
+# instead of refusing every job until someone copies files in by hand. Same
+# fail-static shape as medchron-firm.yaml, no FATAL arm: a seat with nothing in
+# its vault boots fine and the runner refuses the classify stage of each job
+# with one loud line. Root-owned, group medchron read-only: the child reads
+# its falsifier and can never rewrite it (a classifier that can edit its own
+# controls measures nothing).
+MEDCHRON_CONTROLS_DIR="${MEDCHRON_DATA_DIR}/controls"
+rm -rf "${MEDCHRON_CONTROLS_DIR}.r2.tmp"
+if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
+     AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:?}" \
+       aws s3 cp \
+         --endpoint-url "${_seed_endpoint}" \
+         --only-show-errors \
+         --recursive \
+         "s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/medchron-controls/" \
+         "${MEDCHRON_CONTROLS_DIR}.r2.tmp/" 2>/dev/null \
+   && [ -f "${MEDCHRON_CONTROLS_DIR}.r2.tmp/controls.json" ]; then
+  rm -rf "${MEDCHRON_CONTROLS_DIR}"
+  mv "${MEDCHRON_CONTROLS_DIR}.r2.tmp" "${MEDCHRON_CONTROLS_DIR}"
+  log "medchron controls refreshed from R2 into ${MEDCHRON_CONTROLS_DIR}"
+elif [ -f "${MEDCHRON_CONTROLS_DIR}/controls.json" ]; then
+  rm -rf "${MEDCHRON_CONTROLS_DIR}.r2.tmp"
+  log "WARN: R2 fetch of medchron-controls/ failed; keeping the existing root-owned copy"
+else
+  rm -rf "${MEDCHRON_CONTROLS_DIR}.r2.tmp"
+  log "No medchron-controls/ in the vault for ${CUSTOMER_SLUG}; the chronology runner will refuse the classify stage of every job"
+fi
+if [ -d "${MEDCHRON_CONTROLS_DIR}" ]; then
+  chown -R root:medchron "${MEDCHRON_CONTROLS_DIR}"
+  find "${MEDCHRON_CONTROLS_DIR}" -type d -exec chmod 0750 {} +
+  find "${MEDCHRON_CONTROLS_DIR}" -type f -exec chmod 0640 {} +
+fi
 SMOKEBALL_TOKEN_DIR="/opt/data/.smokeball-mcp"
 SMOKEBALL_TOKEN_RUN_DIR="/run/smd-smokeball-token"
 if [ -d "${SMOKEBALL_TOKEN_DIR}" ]; then

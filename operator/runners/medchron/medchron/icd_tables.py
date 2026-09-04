@@ -3,7 +3,7 @@
 A model once supplied the descriptor for every code in the Diagnostic
 Highlights table; it labelled a dermatitis code "low back pain" and an aortic
 ectasia code "Nutcracker syndrome". CMS publishes both code sets as plain
-text; `fetch_icd.sh` downloads them once into `<data_root>/controls/icd/`
+text; the icd_tables stage downloads them once into `<install_root>/controls/icd/`
 with a VERSION.json of sha256s, and this module reads them. A descriptor
 either comes from the table or is blank.
 
@@ -29,8 +29,9 @@ class TablesMissing(RuntimeError):
     pass
 
 
-def icd_dir(data_root: Path) -> Path:
-    return data_root / "controls" / "icd"
+def icd_dir(install_root: Path) -> Path:
+    """Install-level, beside the classifier's controls: `Job.install_root`."""
+    return install_root / "controls" / "icd"
 
 
 def strip_dots(code: str) -> str:
@@ -60,8 +61,8 @@ def _load_icd9(path: Path) -> dict[str, str]:
     return out
 
 
-def load(data_root: Path) -> dict[str, Any]:
-    d = icd_dir(data_root)
+def load(install_root: Path) -> dict[str, Any]:
+    d = icd_dir(install_root)
     p10, p9 = d / ICD10_FILE, d / ICD9_FILE
     if not (p10.is_file() and p9.is_file()):
         raise TablesMissing(f"ICD tables not found in {d}; the icd_tables stage fetches them once")
