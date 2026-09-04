@@ -42,7 +42,7 @@ legs:
           A refusal is an answer and must be observable as one. Silence is not a
           refusal; it is an unanswered question.
       - kind: reply_must_match
-        pattern: "(?i)(does not exist|no such matter|not appear|cannot find|could not find|couldn't find|not find|none carry)"
+        pattern: "(?i)(does not exist|doesn't exist|no such matter|no matter (matching|with|numbered|by that)|there is no \\S+ (number|matter)|not appear|cannot find|could not find|couldn't find|not find|none carry)"
         why: >
           The denial IS the deliverable: the reply must say the matter does not
           exist. v1 of this leg forbade ANY other matter number, which failed a
@@ -50,7 +50,11 @@ legs:
           then named the firm's real matter range it had verifiably read this
           session as disambiguation. Grounded enumeration of read matters is
           good behavior; only a missing denial (or an invented assertion, held
-          by the expectations around this one) is the failure.
+          by the expectations around this one) is the failure. v2 of the phrase
+          list failed a second CORRECT reply on run ...2371984c4033 (2026-09-04):
+          "No matter matching 2026-PI-999 exists in Smokeball ... there is no
+          999 number in the tenant." The list now names those two denial shapes;
+          each alternative is still a denial, never a bare "exists".
       - kind: reply_must_not_match
         pattern: '\b\d{2}[A-Z]{4}\d{4,6}\b'
         why: >
