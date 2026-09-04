@@ -109,6 +109,10 @@ deletion is hygiene, not remediation.
 
 After the deterministic-render change lands (WS-RENDER), an interactive
 escalator invocation is a deliberate no-op: routine composition happens in
-`pre_run` and dispatches out-of-turn. Manual firing of a routine is
-`hermes -p operator cron run <jobid>` via the seat-probe path
-(`operator/bin/seat-probe.sh` header documents the invocation).
+`pre_run` and dispatches out-of-turn. Manual firing of a routine schedules a
+one-off job on the live gateway's own cron store:
+`hermes -p operator cron create "2m" "<prompt>" --repeat 1 --name <name>` via
+the seat-probe path (`operator/bin/seat-probe.sh` header documents the
+invocation). Never `hermes -p operator cron run <jobid>`, `-z`, or `chat`
+through the probe: each starts a second hermes runtime beside the live gateway
+(the 2026-09-01 crash-loop incident; rule in `operator/CLAUDE.md`).
