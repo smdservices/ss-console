@@ -21,10 +21,15 @@ import asyncio
 import importlib.util
 import io
 import json
+import os
+import re
+import subprocess
 import sys
 from contextlib import redirect_stdout
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+import pytest
 
 # operator/ on sys.path (for adapter.*). Load this skill's pre_run.py under a
 # unique module name — every Stream B skill names the file pre_run.py, so a bare
@@ -1300,3 +1305,306 @@ def test_a_handoff_write_failure_leaves_stdout_byte_identical(tmp_path, monkeypa
     blocked.write_text("x", encoding="utf-8")
     monkeypatch.setenv("HERMES_HOME", str(blocked))
     assert _wake_stdout() == good
+
+
+# ---------------------------------------------------------------------------
+# Blind wakes: a trace and a rendered body, never neither (2026-09-02)
+#
+# THE INCIDENT. pilot-smokeball's Smokeball credential expired. pre_run took a
+# fail-open path and the seat produced a scheduled tick with NEITHER a
+# SUPPRESSED_WAKE nor an EMITTED_WAKE row -- SKILL.md step 5's dead-man's
+# signal -- while the woken turn, handed no rendered dispatch, composed a
+# verification alert out of nothing and sent it. Both guarantees were documented and
+# neither was enforced. Every test below fails against the pre-fix code.
+# ---------------------------------------------------------------------------
+
+
+class _FakeLedger:
+    def derive_state(self, events):
+        return {}
+
+
+class _FakeWakeWriter:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls: list[dict] = []
+
+    async def write_emitted_wake(self, **kwargs) -> str:
+        self.calls.append(kwargs)
+        if self.fail:
+            raise RuntimeError("broker socket down")
+        return "row-1"
+
+
+def _authored_seat(tmp_path, monkeypatch, *, red_flag=("scott@smd.services",), fallback=()):
+    """A seat that can read its own customer.yaml but nothing else."""
+    cfg = tmp_path / "customer.yaml"
+    block = "escalation:\n"
+    if red_flag:
+        block += "  red_flag_recipients: [%s]\n" % ", ".join(red_flag)
+    if fallback:
+        block += "  case_alert_routing:\n    fallback_recipients: [%s]\n" % ", ".join(fallback)
+    if not red_flag and not fallback:
+        block += "  refire_days: 3\n"
+    cfg.write_text(block, encoding="utf-8")
+    monkeypatch.setenv("SMD_CUSTOMER_YAML_PATH", str(cfg))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    return tmp_path / ".smd" / "pre_run" / "client-verification-tracker.dispatch.json"
+
+
+def _blind(monkeypatch, basis, writer):
+    monkeypatch.setattr(_pre_run, "_sibling_writer_factory", lambda: writer)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = _pre_run._blind_wake(basis)
+    return rc, json.loads(buf.getvalue().strip().splitlines()[-1])
+
+
+def _sibling(name, mod_name):
+    spec = importlib.util.spec_from_file_location(mod_name, _PRE_RUN_PATH.parent / name)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_render = _sibling("render.py", "cvt_render_under_test")
+_envelope = _sibling("dispatch_envelope.py", "cvt_envelope_under_test")
+
+
+def test_blind_wake_leaves_an_emitted_wake_row(tmp_path, monkeypatch):
+    """The dead-man's signal. Before this, a decision-less wake wrote no row at
+    all, so the slot was indistinguishable from a tick that never ran."""
+    _authored_seat(tmp_path, monkeypatch)
+    writer = _FakeWakeWriter()
+    rc, payload = _blind(monkeypatch, "pre_run_crashed_fail_open", writer)
+    assert rc == 0
+    assert payload["wakeAgent"] is True
+    assert payload["decision_basis"] == "pre_run_crashed_fail_open"
+    assert len(writer.calls) == 1
+    call = writer.calls[0]
+    assert call["skill_name"] == "client-verification-tracker"
+    assert call["decision_basis"] == "pre_run_crashed_fail_open"
+    assert call["extra_metadata"]["blind_wake"] is True
+
+
+def test_blind_wake_dispatches_the_authored_failure_note(tmp_path, monkeypatch):
+    """The body half. The turn must be handed a rendered note to deliver, not
+    a gap plus a SKILL.md sentence asking it to behave."""
+    envelope_path = _authored_seat(tmp_path, monkeypatch)
+    rc, payload = _blind(monkeypatch, "pre_run_crashed_fail_open", _FakeWakeWriter())
+    assert rc == 0
+    # The wake line puts the turn on the compose-nothing branch.
+    assert payload["dispatch_expected"] is True
+    assert payload["dispatch_variant"] == "failure_note"
+    assert "plans" not in payload  # nothing was read, so nothing is claimed
+
+    envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
+    assert envelope["skill"] == "client-verification-tracker"
+    assert len(envelope["dispatches"]) == 1
+    d = envelope["dispatches"][0]
+    assert d["recipients"] == ["scott@smd.services"]
+    assert d["routing_leg"] == "central"
+    assert d["subject"] == _render.FAILURE_NOTE_SUBJECT
+    assert d["full_body"] == _render.FAILURE_NOTE
+    # No rung below a one-line note, so the overlay's full -> skeleton ladder
+    # cannot degrade it into something vaguer.
+    assert d["skeleton_body"] == _render.FAILURE_NOTE
+    assert d["body_sha256_full"] == d["body_sha256_skeleton"]
+    # Nothing was raised, so nothing may be appended: a `fired` event here
+    # would record an escalation that never happened.
+    assert d["appends"] == []
+
+
+def test_blind_wake_falls_back_to_authored_fallback_recipients(tmp_path, monkeypatch):
+    envelope_path = _authored_seat(
+        tmp_path, monkeypatch, red_flag=(), fallback=("ops@smd.services",)
+    )
+    _blind(monkeypatch, "pre_run_crashed_fail_open", _FakeWakeWriter())
+    d = json.loads(envelope_path.read_text(encoding="utf-8"))["dispatches"][0]
+    assert d["recipients"] == ["ops@smd.services"]
+    assert d["routing_leg"] == "fallback"
+
+
+def test_blind_wake_with_nobody_authored_still_leaves_a_row(tmp_path, monkeypatch):
+    """The fail-closed floor: no authored address means no delivery, and the
+    row is then the ONLY thing that makes the slot visible."""
+    envelope_path = _authored_seat(tmp_path, monkeypatch, red_flag=(), fallback=())
+    writer = _FakeWakeWriter()
+    _rc, payload = _blind(monkeypatch, "pre_run_crashed_fail_open", writer)
+    assert not envelope_path.exists()
+    assert "dispatch_expected" not in payload
+    assert len(writer.calls) == 1  # the trace survives the floor
+
+
+def test_blind_wake_keeps_the_two_unwritable_exemptions(tmp_path, monkeypatch):
+    """These two bases fire BECAUSE the writer is unusable -- calling it would
+    be asking a broken thing to record that it is broken. The exemption is
+    preserved deliberately; what the fix removed is its silent application to
+    every OTHER decision-less path."""
+    for basis in ("no_audit_writer_fail_open", "suppress_heartbeat_failed_fail_open"):
+        _authored_seat(tmp_path, monkeypatch)
+        writer = _FakeWakeWriter()
+        _rc, payload = _blind(monkeypatch, basis, writer)
+        assert writer.calls == [], basis
+        # ...but the failure note still goes out: an unusable audit writer says
+        # nothing about whether we can render and deliver.
+        assert payload["dispatch_expected"] is True, basis
+
+
+def test_blind_wake_inside_run_once_still_leaves_a_row(tmp_path, monkeypatch):
+    """The live path. ``main`` drives ``run_once`` under ``asyncio.run``, and
+    ``ledger_unavailable_fail_open`` fires from inside that coroutine, so the
+    row writer runs with a loop already on the thread. Before this test, the
+    writer's own ``asyncio.run`` raised there, the failure was swallowed as
+    "observability never gates the wake", and the EMITTED_WAKE row this
+    module exists to write was never written. The tests above call
+    ``_blind_wake`` from a bare thread and could not see it."""
+    _authored_seat(tmp_path, monkeypatch)
+    monkeypatch.setattr(_pre_run, "_load_ledger_module", lambda: None)
+    writer = _FakeWakeWriter()
+    monkeypatch.setattr(_pre_run, "_sibling_writer_factory", lambda: writer)
+    executor = FakeExecutor()
+    code, out = _capture_stdout(
+        run_once(
+            [FakeSource([_item()])],
+            _factory(executor),
+            today=TODAY,
+            now=NOW,
+            config=_CFG,
+            refire_days=_REFIRE,
+            ledger_module=None,  # forces the (patched) loader
+            ledger_events=None,
+        )
+    )
+    assert code == 0
+    payload = json.loads(out.splitlines()[-1])
+    assert payload["decision_basis"] == "ledger_unavailable_fail_open"
+    assert payload["dispatch_expected"] is True
+    assert len(writer.calls) == 1
+    assert writer.calls[0]["decision_basis"] == "ledger_unavailable_fail_open"
+    assert writer.calls[0]["extra_metadata"]["blind_wake"] is True
+    assert executor.calls == []  # the decision path's writer was never reached
+
+
+def test_blind_wake_row_failure_never_changes_the_wake(tmp_path, monkeypatch):
+    """Observability may not gate the wake. A broker that refuses the row must
+    leave stdout byte-identical to the succeeding case."""
+    _authored_seat(tmp_path, monkeypatch)
+    _rc_ok, ok = _blind(monkeypatch, "pre_run_crashed_fail_open", _FakeWakeWriter())
+    _authored_seat(tmp_path, monkeypatch)
+    rc_bad, bad = _blind(monkeypatch, "pre_run_crashed_fail_open", _FakeWakeWriter(fail=True))
+    assert rc_bad == 0
+    assert bad == ok
+
+
+def test_envelope_build_fault_writes_the_failure_note(tmp_path, monkeypatch):
+    """build_and_write's own fault path. Today it degraded to 'no envelope',
+    which is precisely the state that let the model compose."""
+    envelope_path = _authored_seat(tmp_path, monkeypatch)
+    out = _envelope.build_and_write(
+        plans=object(),  # not iterable the way the builder expects
+        items=[],
+        ledger=None,
+        ledger_events=[],
+        today=TODAY,
+        refire_days=3,
+        ceiling=None,
+    )
+    assert out.get("dispatch_variant") == "failure_note"
+    assert out["dispatch_expected"] is True
+    assert json.loads(envelope_path.read_text(encoding="utf-8"))["failure_note_reason"] == (
+        "envelope_build_failed"
+    )
+
+
+def test_a_clean_run_with_nothing_to_say_sends_no_failure_note(tmp_path, monkeypatch):
+    """The guard against the opposite defect: an empty digest that rendered
+    fine is a SUCCESS. Paging 'the run failed' here would be a false alarm on
+    every quiet day, which is how alerts get ignored."""
+    envelope_path = _authored_seat(tmp_path, monkeypatch)
+    out = _envelope.build_and_write(
+        plans=[],
+        items=[],
+        ledger=_FakeLedger(),
+        ledger_events=[],
+        today=TODAY,
+        refire_days=3,
+        ceiling=None,
+    )
+    assert out == {}
+    assert not envelope_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# Cross-repo wiring: the dispatcher must ACCEPT the failure-note envelope
+#
+# An envelope the overlay refuses is worse than no envelope: the turn wakes
+# with dispatch_expected true, no note arrives, and we are back to the model
+# filling the gap. The shape is validated in the OTHER repo, so asserting it
+# here from memory would be exactly the "documented, not enforced" mistake
+# this whole change is fixing. Read the pinned overlay's real validator and
+# run it. Skipped (never silently passed) when no overlay checkout exists --
+# CI has none, same honest limitation as tests/heartbeat-field-parity.test.ts.
+# ---------------------------------------------------------------------------
+
+_OVERLAY_DIR = Path(
+    os.environ.get("SS_OVERLAY_DIR") or (Path.home() / "dev" / "hermes-smd-overlay")
+)
+_OVERLAY_AVAILABLE = (_OVERLAY_DIR / ".git").exists()
+
+
+def _pinned_overlay_ref() -> str:
+    dockerfile = (_PRE_RUN_PATH.parents[2] / "templates" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    m = re.search(r'ARG OVERLAY_REF="([0-9a-f]{40})"', dockerfile)
+    assert m, "no ARG OVERLAY_REF in operator/templates/Dockerfile"
+    return m.group(1)
+
+
+@pytest.mark.skipif(not _OVERLAY_AVAILABLE, reason="no overlay checkout (expected in CI)")
+def test_failure_note_envelope_passes_the_pinned_dispatchers_validator(tmp_path, monkeypatch):
+    envelope_path = _authored_seat(tmp_path, monkeypatch)
+    _blind(monkeypatch, "pre_run_crashed_fail_open", _FakeWakeWriter())
+    envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
+
+    # `git show <ref>:path`, never the working tree: overlay checkouts sit on
+    # dirty feature branches far from the pin, and the pin is what seats run.
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    source = subprocess.run(
+        ["git", "show", "%s:shared/prerendered_dispatch.py" % _pinned_overlay_ref()],
+        cwd=str(_OVERLAY_DIR),
+        capture_output=True,
+        text=True,
+        env=clean_env,
+        check=True,
+    ).stdout
+
+    # Lift the validator + its bounds out of the pinned source and run them.
+    # Importing the module would drag the overlay's whole dependency set in.
+    # STRUCTURAL, not behavioural, and the difference is stated rather than
+    # glossed: running the pinned validator would mean exec'ing code from
+    # another repo inside a test, which the security scanner blocks and is
+    # right to. So this reads which keys the validator REQUIRES and asserts
+    # the envelope supplies each one. It catches the drift that actually
+    # bites -- the dispatcher starting to require a field we do not write --
+    # and it does NOT prove value-level acceptance.
+    func = re.search(
+        r"^def _valid_dispatch\(entry: object\) -> bool:\n(?:[ \t].*\n|\n)+", source, re.M
+    )
+    assert func, "could not lift _valid_dispatch out of the pinned dispatcher"
+    required = set(re.findall(r'entry\.get\("(\w+)"', func.group(0)))
+    # A regex that silently matched nothing would make every assertion below
+    # vacuous -- the exact hole this repo keeps finding in its own gates.
+    assert {"recipients", "subject", "full_body"} <= required, required
+
+    for entry in envelope["dispatches"]:
+        missing = [k for k in required if k not in entry]
+        assert missing == [], (
+            "the pinned dispatcher reads %s and the failure-note envelope omits %s; "
+            "it would be refused whole and the turn would compose the gap"
+            % (sorted(required), missing)
+        )
+        assert isinstance(entry["recipients"], list) and entry["recipients"]
+        assert isinstance(entry["subject"], str) and entry["subject"].strip()
+        assert isinstance(entry["full_body"], str) and entry["full_body"].strip()

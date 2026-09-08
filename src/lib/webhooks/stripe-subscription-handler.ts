@@ -28,6 +28,9 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { sendEmail } from '../email/resend'
 import { paymentConfirmationEmailHtml } from '../email/templates'
 import {
+  activateOperatorSubscriptionForBilling,
+  attachStripeSubscription,
+  getSubscriptionById,
   getSubscriptionByStripeId,
   parseCancelAt,
   setSubscriptionBillingStatus,
@@ -197,6 +200,11 @@ export async function handleUnrecognizedInvoiceLinkage(
   return serverError()
 }
 
+/** The subscription-metadata snapshot Stripe stamps on every invoice a
+ * subscription generates. Either position, by API version (see
+ * {@link readInvoiceSubscriptionMetadata}). */
+type InvoiceSubscriptionDetails = { metadata?: Record<string, string> | null } | null
+
 /** The invoice-payload fields the retainer mirror consumes. */
 export interface RetainerInvoicePayload {
   id: string
@@ -205,6 +213,34 @@ export interface RetainerInvoicePayload {
   hosted_invoice_url: string | null
   due_date: number | null
   status_transitions: { paid_at: number | null }
+  /** The Stripe customer id; recorded on the row by the ordering fallback. */
+  customer?: string | null
+  /** Pre-basil position of the subscription-metadata snapshot. */
+  subscription_details?: InvoiceSubscriptionDetails
+  /** 2025-03-31.basil+ position of the same snapshot. */
+  parent?: { subscription_details?: InvoiceSubscriptionDetails } | null
+}
+
+/**
+ * The `smd_subscription_id` the checkout stamped on the Stripe subscription
+ * (`subscription_data[metadata]`, src/lib/stripe/subscriptions.ts), as it
+ * rides on the invoice.
+ *
+ * Stripe snapshots subscription metadata onto each invoice the subscription
+ * generates. Pre-basil the snapshot is `invoice.subscription_details.metadata`;
+ * from 2025-03-31.basil it is `invoice.parent.subscription_details.metadata`
+ * (docs.stripe.com/api/invoices/object, "parent.subscription_details.metadata:
+ * Set of key-value pairs defined as subscription metadata when an invoice is
+ * created"). The prod endpoint pins 2026-03-25.dahlia, so the live payload
+ * carries the nested form; both are read because the client itself pins no
+ * version and the linkage resolver above already reads both positions.
+ */
+export function readInvoiceSubscriptionMetadata(
+  invoice: Pick<RetainerInvoicePayload, 'subscription_details' | 'parent'>
+): Record<string, string> | null {
+  return (
+    invoice.parent?.subscription_details?.metadata ?? invoice.subscription_details?.metadata ?? null
+  )
 }
 
 function unixToIso(unix: number | null): string | null {
@@ -287,6 +323,98 @@ export async function handleRetainerInvoiceFinalized(
 }
 
 /**
+ * Event-ordering fallback for the first paid invoice (A1, claims-2026-09-04).
+ *
+ * Stripe does not order `checkout.session.completed` ahead of the first
+ * `invoice.paid`; when the invoice arrives first, no local row carries the
+ * Stripe subscription id yet and the paid invoice would be skipped as
+ * "unknown subscription" — money landed and the client's portal never went
+ * live. The subscription metadata the checkout stamped names the row, so
+ * bind it here: attach the Stripe subscription + customer and promote the
+ * row, exactly what the checkout handler would have done. Only an operator
+ * row still in `provisioning` with `stripe_subscription_id IS NULL`
+ * qualifies (the checks are here, not in `attachStripeSubscription`, which
+ * stays an unguarded UPDATE for the checkout handler's own retry); anything
+ * else is still an honest skip.
+ *
+ * Runs from `invoice.paid` only: `finalized` precedes ACH collection and
+ * `payment_failed` is not a go-live act.
+ */
+async function bindSubscriptionFromInvoiceMetadata(
+  db: D1Database,
+  stripeSubscriptionId: string,
+  invoice: RetainerInvoicePayload
+): Promise<SubscriptionBillingRow | null> {
+  const rowId = readInvoiceSubscriptionMetadata(invoice)?.['smd_subscription_id']
+  if (!rowId) return null
+  const row = await getSubscriptionById(db, rowId)
+  if (
+    !row ||
+    row.product_slug !== 'operator' ||
+    row.status !== 'provisioning' ||
+    row.stripe_subscription_id !== null
+  ) {
+    return null
+  }
+  await attachStripeSubscription(db, row.id, stripeSubscriptionId, invoice.customer ?? null)
+  const promoted = await activateOperatorSubscriptionForBilling(db, row.id)
+  console.log(
+    `[stripe-subscription] invoice.paid arrived before checkout completion; bound ${stripeSubscriptionId} to row ${row.id} from invoice metadata (promoted=${promoted})`
+  )
+  return {
+    ...row,
+    status: promoted ? 'active' : row.status,
+    stripe_subscription_id: stripeSubscriptionId,
+  }
+}
+
+/** Phase-1 write for a paid cycle invoice: refresh the existing mirror row
+ * (`existingId`) or insert one already `paid`. */
+async function mirrorPaidInvoice(
+  db: D1Database,
+  sub: SubscriptionBillingRow,
+  invoice: RetainerInvoicePayload,
+  amount: number,
+  existingId: string | null
+): Promise<void> {
+  const paidAt = unixToIso(invoice.status_transitions.paid_at) ?? new Date().toISOString()
+  const now = new Date().toISOString()
+  if (existingId !== null) {
+    await db
+      .prepare(
+        `UPDATE invoices SET status = 'paid', amount = ?, paid_at = ?, payment_method = 'stripe',
+                             stripe_hosted_url = COALESCE(?, stripe_hosted_url), updated_at = ?
+         WHERE id = ?`
+      )
+      .bind(amount, paidAt, invoice.hosted_invoice_url, now, existingId)
+      .run()
+    return
+  }
+  await db
+    .prepare(
+      `INSERT INTO invoices (id, org_id, entity_id, type, amount, description, status,
+                             stripe_invoice_id, stripe_hosted_url, due_date, sent_at, paid_at, payment_method,
+                             created_at, updated_at)
+       VALUES (?, ?, ?, 'retainer', ?, ?, 'paid', ?, ?, ?, ?, ?, 'stripe', ?, ?)`
+    )
+    .bind(
+      crypto.randomUUID(),
+      sub.org_id,
+      sub.entity_id,
+      amount,
+      'Operator retainer — monthly',
+      invoice.id,
+      invoice.hosted_invoice_url,
+      unixToIso(invoice.due_date),
+      now,
+      paidAt,
+      now,
+      now
+    )
+    .run()
+}
+
+/**
  * Mark a cycle invoice paid. Upserts (a paid event may arrive without the
  * finalized mirror having landed), then sends the same confirmation email
  * the one-time flow sends. Idempotent on the paid state.
@@ -297,7 +425,15 @@ export async function handleRetainerInvoicePaid(
   stripeSubscriptionId: string,
   invoice: RetainerInvoicePayload
 ): Promise<Response> {
-  const sub = await getSubscriptionByStripeId(db, stripeSubscriptionId)
+  let sub = await getSubscriptionByStripeId(db, stripeSubscriptionId)
+  if (!sub) {
+    try {
+      sub = await bindSubscriptionFromInvoiceMetadata(db, stripeSubscriptionId, invoice)
+    } catch (err) {
+      console.error('[stripe-subscription] ordering-fallback bind failed:', err)
+      return serverError() // let Stripe retry
+    }
+  }
   if (!sub) {
     console.log(
       `[stripe-subscription] No local subscription for ${stripeSubscriptionId}; skipping paid invoice ${invoice.id}`
@@ -306,45 +442,18 @@ export async function handleRetainerInvoicePaid(
   }
 
   const amount = (invoice.amount_paid > 0 ? invoice.amount_paid : invoice.amount_due) / 100
-  const paidAt = unixToIso(invoice.status_transitions.paid_at) ?? new Date().toISOString()
-  const now = new Date().toISOString()
 
   try {
     const existing = await getLocalRetainerInvoice(db, invoice.id)
     if (existing?.status === 'paid') return ok() // idempotency guard
-
-    if (existing) {
-      await db
-        .prepare(
-          `UPDATE invoices SET status = 'paid', amount = ?, paid_at = ?, payment_method = 'stripe',
-                               stripe_hosted_url = COALESCE(?, stripe_hosted_url), updated_at = ?
-           WHERE id = ?`
-        )
-        .bind(amount, paidAt, invoice.hosted_invoice_url, now, existing.id)
-        .run()
-    } else {
-      await db
-        .prepare(
-          `INSERT INTO invoices (id, org_id, entity_id, type, amount, description, status,
-                                 stripe_invoice_id, stripe_hosted_url, due_date, sent_at, paid_at, payment_method,
-                                 created_at, updated_at)
-           VALUES (?, ?, ?, 'retainer', ?, ?, 'paid', ?, ?, ?, ?, ?, 'stripe', ?, ?)`
-        )
-        .bind(
-          crypto.randomUUID(),
-          sub.org_id,
-          sub.entity_id,
-          amount,
-          'Operator retainer — monthly',
-          invoice.id,
-          invoice.hosted_invoice_url,
-          unixToIso(invoice.due_date),
-          now,
-          paidAt,
-          now,
-          now
-        )
-        .run()
+    await mirrorPaidInvoice(db, sub, invoice, amount, existing?.id ?? null)
+    // A paid invoice on an operator row still in `provisioning` is the ACH
+    // first payment settling (the checkout completed `unpaid` and attached
+    // without promoting — see operator-checkout-handler.ts). The money is
+    // the act, so go live here as well as on async_payment_succeeded: the
+    // two signals converge, and neither has to arrive first.
+    if (sub.product_slug === 'operator' && sub.status === 'provisioning') {
+      await activateOperatorSubscriptionForBilling(db, sub.id)
     }
   } catch (err) {
     console.error('[stripe-subscription] paid mirror failed:', err)
@@ -607,8 +716,9 @@ async function entityName(db: D1Database, sub: SubscriptionBillingRow): Promise<
 }
 
 /** Operational alert to team@. Best-effort: never turns a mirrored billing
- * event into a webhook failure Stripe will retry. */
-async function alertTeam(
+ * event into a webhook failure Stripe will retry. Shared with the checkout
+ * handler (its failed-first-payment path). */
+export async function alertTeam(
   resendApiKey: string | undefined,
   subject: string,
   html: string

@@ -817,10 +817,22 @@ webhook_triggers:
   # REHEARSAL ONLY (read-volume gate, overlay#327): a synthetic signed event
   # drives the opposing-response review directly so the gate's webhook-route
   # marking can be exercised; the real vendor never emits this event_type.
+  #
+  # `vendor_emitted: false` is what keeps that last sentence true at the egress
+  # boundary, and it is NOT optional. Without it the reconciler unions this
+  # event_type into the smokeball subscription beside matter.updated; Smokeball
+  # validates eventTypes as a set and rejects the whole POST /webhooks with
+  # HTTP 400 "Invalid EventTypes". That is exactly what happened between
+  # 2026-08-28 (when this trigger landed, #2622) and 2026-09-02: the changed
+  # intent hash set force_recreate, so the reconciler deleted the working
+  # matter.updated subscription and then failed to recreate it, and the seat
+  # ran with ZERO webhook subscriptions — no event feed for the flagship
+  # matter-memo-on-update skill — until the flag was added.
   - source: smokeball
     event_type: responses.served
     skill: opposing-response-deficiency-review
     persona: operator
+    vendor_emitted: false
 
 # ---- SCOPE ----
 scope:

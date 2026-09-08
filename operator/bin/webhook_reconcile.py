@@ -53,8 +53,27 @@ def build_intents(customer: dict) -> list[dict]:
     triggers = customer.get("webhook_triggers") or []
     by_adapter: dict[str, list[str]] = {}
     for t in triggers:
-        if isinstance(t, dict) and t.get("source") and t.get("event_type"):
-            by_adapter.setdefault(str(t["source"]), []).append(str(t["event_type"]))
+        if not (isinstance(t, dict) and t.get("source") and t.get("event_type")):
+            continue
+        # SYNTHETIC triggers never reach the vendor. `vendor_emitted: false`
+        # marks an event the gate routes but the vendor does not emit (a signed
+        # rehearsal injection, or an internal domain signal). Absent → True,
+        # because a real event type belongs in the subscription and the safe
+        # default must not silently drop one.
+        #
+        # This is not defensive tidiness. The vendor validates eventTypes as a
+        # SET: one unrecognized member fails the whole POST /webhooks. On
+        # 2026-08-28 (#2622) pilot-smokeball gained a synthetic
+        # `responses.served` trigger on the smokeball adapter; the union put it
+        # beside `matter.updated`, Smokeball answered HTTP 400 "Invalid
+        # EventTypes", and because the changed intent hash also set
+        # force_recreate the reconciler DELETED the working subscription before
+        # the failing create. The seat then had no webhook feed at all until
+        # 2026-09-02 — the flagship matter-memo-on-update skill simply never
+        # woke. Blast radius is every real event type sharing the adapter.
+        if t.get("vendor_emitted") is False:
+            continue
+        by_adapter.setdefault(str(t["source"]), []).append(str(t["event_type"]))
 
     intents: list[dict] = []
     seen_adapters: set[str] = set()

@@ -93,12 +93,18 @@ async function recordDocument(
   const config = await getCustomerConfigBySlug(env.DB, fields.instanceSlug)
   if (!config || config.entity_id !== entityId) return back(entityId, 'no_instance')
 
-  const key = await getOperatorAgreementKey(orgId, fields.instanceSlug, fields.file.name)
+  // The row id is generated here, before the put, because the key is built
+  // from it: two documents with the same filename are two rows and two
+  // objects (A3). Put first, then insert — an orphan object is harmless, a
+  // row pointing at nothing is a 404 on the client's Compliance page.
+  const documentId = crypto.randomUUID()
+  const key = getOperatorAgreementKey(orgId, fields.instanceSlug, documentId, fields.file.name)
   await env.STORAGE.put(key, await fields.file.arrayBuffer(), {
     httpMetadata: { contentType: fields.file.type || 'application/octet-stream' },
     customMetadata: { originalName: fields.file.name, uploadedAt: new Date().toISOString() },
   })
   await createOperatorAgreementDocument(env.DB, {
+    id: documentId,
     org_id: orgId,
     entity_id: entityId,
     instance_slug: fields.instanceSlug,

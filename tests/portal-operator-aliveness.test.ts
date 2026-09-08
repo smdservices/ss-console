@@ -156,25 +156,31 @@ describe('deriveAlivenessFromBridge', () => {
   const NOW_MS = Date.parse('2026-05-24T12:05:00.000Z')
 
   describe('sticky-stop priority', () => {
-    it('returns sticky_stop when stickyStopLevel is WARN', () => {
+    it('returns sticky_stop when stickyStopLevel is HARD_STOP', () => {
       const reading = makeReading({
-        stickyStopLevel: 'WARN',
-        stickyStopReason: 'consecutive_tool_failures=3',
+        stickyStopLevel: 'HARD_STOP',
+        stickyStopReason: 'consecutive_tool_failures=8',
       })
       const signal = deriveAlivenessFromBridge(reading, NOW_MS)
       expect(signal.level).toBe('sticky_stop')
-      expect(signal.stickyStopReason).toBe('consecutive_tool_failures=3')
+      expect(signal.stickyStopReason).toBe('consecutive_tool_failures=8')
       expect(signal.currentSkill).toBeNull()
     })
 
-    it('returns sticky_stop when stickyStopLevel is SOFT_STOP', () => {
-      const reading = makeReading({ stickyStopLevel: 'SOFT_STOP', stickyStopReason: 'refusals' })
-      expect(deriveAlivenessFromBridge(reading, NOW_MS).level).toBe('sticky_stop')
-    })
-
-    it('returns sticky_stop when stickyStopLevel is HARD_STOP', () => {
-      const reading = makeReading({ stickyStopLevel: 'HARD_STOP', stickyStopReason: 'capped' })
-      expect(deriveAlivenessFromBridge(reading, NOW_MS).level).toBe('sticky_stop')
+    it('a legacy WARN / SOFT_STOP does NOT tell a client the agent is stopped', () => {
+      // Two tests used to assert the opposite, and they were asserting a lie
+      // to a client: neither rung restricted a single call, yet both painted
+      // the portal chip "the safety substrate has pinned the agent". Both were
+      // removed 2026-09-02; a seat still reporting them reads OK, which is
+      // what they always meant. Cast because the union no longer admits them,
+      // which is the point -- a seat can still SEND them until it reprovisions.
+      for (const legacy of ['WARN', 'SOFT_STOP']) {
+        const reading = makeReading({
+          stickyStopLevel: legacy as unknown as 'HARD_STOP',
+          stickyStopReason: 'refusals',
+        })
+        expect(deriveAlivenessFromBridge(reading, NOW_MS).level).not.toBe('sticky_stop')
+      }
     })
 
     it('sticky-stop wins over an in-flight skill', () => {

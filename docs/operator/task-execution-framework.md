@@ -383,7 +383,7 @@ Ordered by impact on the "unattended employee that delivers a retrievable result
 
 **Gap.** `sticky_stop.py` is implemented and tested but its integration into the live Hermes dispatch path is not confirmed on customer-zero. The $50/day cap and 3600s wall-clock cap that would bound a runaway may be inert live. An unbounded cost runaway with no live cap is a **safety** defect, not only a cost one.
 **Build.** Wire the `StickyStopError`-raising check into the dispatch path; add a test proving the dispatch path does NOT swallow `StickyStopError` (the docstring forbids swallowing). Verify on staging that exceeding `cost_daily_cents` and the 3600s wall-clock cap actually halts.
-**DoD.** A deliberately-looping fixture trips SOFT_STOP→HARD_STOP on the live Machine; `StickyStopError` propagates uncaught.
+**DoD.** A deliberately-looping fixture trips HARD_STOP on the live Machine; `StickyStopError` propagates uncaught. (Written when the ladder had four rungs; the 2026-09-02 collapse removed the SOFT_STOP step this DoD used to pass through. The stop count is unchanged, so the fixture is unchanged.)
 
 ### B5 — Encode the execution-strategy taxonomy in SKILL.md frontmatter _(P1 — the enforcement layer for 4.6/4.10/4.11)_
 

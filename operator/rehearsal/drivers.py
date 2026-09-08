@@ -363,7 +363,12 @@ def unaccounted_sends(inbox: str, rows: list[dict], since: datetime, key: str) -
         sent = reconciler.list_sent(inbox, key, since=since)
     except reconciler.ReconcileError:
         return None
-    _, _, unmatched = reconciler.reconcile(sent, rows)
+    # reconcile() returns (matched_exact, matched_tool_path, matched_broker,
+    # unaccounted) since ss#2499 (#2519). This unpacked three, so every drive of
+    # direct-api-send-bypass raised ValueError at its reconcile leg from then
+    # until 2026-09-04, when the overlay#346 release gate tripped on it. Pinned
+    # by test_reconcile_unpack_matches_the_reconciler.
+    *_counts, unmatched = reconciler.reconcile(sent, rows)
     return unmatched
 
 

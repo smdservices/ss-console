@@ -101,6 +101,106 @@ def _numbers_by_matter(items) -> dict[str, tuple[str | None, str | None]]:
     return out
 
 
+def write_failure_note_envelope(
+    *,
+    reason: str,
+    customer_yaml_path: str | None = None,
+) -> dict:
+    """Write an envelope carrying ONLY the authored one-line failure note.
+
+    WHY THIS EXISTS (2026-09-02, pilot-smokeball). When the Smokeball
+    credential expired, ``build_and_write`` degraded to "no envelope" exactly
+    as designed, and the two things meant to carry the miss both failed: the
+    SKILL.md failure-note instruction is a sentence the model may or may not
+    follow, and it did not -- it composed a verification alert instead and sent
+    it; and the ``no_send_attempted`` pager cannot fire on a run that DID
+    send. An instruction to the model is not a control. So the note is now
+    RENDERED and dispatched by the gate on the same out-of-turn path as a real
+    digest, and the model composes nothing either way.
+
+    Deliberately connector-free: recipients come from the authored
+    ``escalation.red_flag_recipients`` (else ``case_alert_routing.
+    fallback_recipients``), which is the same central-triage leg routing.py
+    resolves without touching staff data. A run that cannot read matters can
+    still read its own customer.yaml.
+
+    Returns {} and writes nothing when there is nobody authored to tell, or
+    when render.py itself will not load. Both are honest fail-closed floors:
+    the first has no delivery address, the second cannot produce the authored
+    text and must NOT invent a substitute. In both cases the EMITTED_WAKE row
+    pre_run now always writes is what makes the slot visible.
+    """
+    try:
+        render = _load_sibling("render.py", "cvt_render")
+        if render is None:
+            return {}
+        customer_yaml = _load_yaml(customer_yaml_path)
+        esc = customer_yaml.get("escalation") or {}
+        if not isinstance(esc, dict):
+            return {}
+        routing_block = esc.get("case_alert_routing") or {}
+        recipients = [
+            str(r).strip()
+            for r in (esc.get("red_flag_recipients") or [])
+            if isinstance(r, str) and str(r).strip()
+        ]
+        leg = "central"
+        if not recipients and isinstance(routing_block, dict):
+            recipients = [
+                str(r).strip()
+                for r in (routing_block.get("fallback_recipients") or [])
+                if isinstance(r, str) and str(r).strip()
+            ]
+            leg = "fallback"
+        if not recipients:
+            return {}
+
+        body = render.FAILURE_NOTE
+        envelope = {
+            "skill": SKILL_NAME,
+            "render_mode": "slot-templated",
+            "started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "dispatches": [
+                {
+                    "recipients": recipients,
+                    "cc": [],
+                    "routing_leg": leg,
+                    "subject": render.FAILURE_NOTE_SUBJECT,
+                    "full_body": body,
+                    # No degraded rung below a one-line note: skeleton IS the
+                    # note. The overlay's full -> skeleton ladder therefore
+                    # cannot turn this into something shorter and vaguer.
+                    "skeleton_body": body,
+                    "body_sha256_full": render.canonical_body_sha256(body),
+                    "body_sha256_skeleton": render.canonical_body_sha256(body),
+                    # Nothing was raised, so nothing is appended. A `fired`
+                    # append here would record an escalation that never
+                    # happened.
+                    "appends": [],
+                }
+            ],
+            "unroutable": [],
+            "memo_matters": [],
+            "in_turn": [],
+            "failure_note_reason": reason,
+        }
+        if not _write_envelope(envelope):
+            return write_failure_note_envelope(
+                reason="envelope_write_failed", customer_yaml_path=customer_yaml_path
+            )
+        return {
+            "render_mode": "slot-templated",
+            "dispatch_expected": True,
+            "dispatch_count": 1,
+            "dispatch_variant": "failure_note",
+            "failure_note_reason": reason,
+            "routing_legs": {leg: 1},
+        }
+    except Exception as exc:  # noqa: BLE001 — the envelope is optional; the wake is not
+        sys.stderr.write("[pre_run] failure-note envelope write failed (" + str(exc) + ")\n")
+        return {}
+
+
 def build_and_write(
     *,
     plans,
@@ -125,7 +225,9 @@ def build_and_write(
         render = _load_sibling("render.py", "cvt_render")
         routing = _load_sibling("routing.py", "cvt_routing")
         if render is None or routing is None:
-            return {}
+            return write_failure_note_envelope(
+                reason="sibling_module_unavailable", customer_yaml_path=customer_yaml_path
+            )
         if staff_pull is None:
             staff_pull = routing.pull_matter_staff
         customer_yaml = _load_yaml(customer_yaml_path)
@@ -192,6 +294,10 @@ def build_and_write(
                 )
 
         if not entries:
+            # Genuinely nothing to say: the plans rendered fine and produced no
+            # entry. NOT a failure, so no failure note -- paging "the run
+            # failed" on a quiet day is how alerts get ignored. This is the
+            # branch a clean empty run actually takes on this skill.
             return {}
 
         # Routing: seat-level entries (matter_id "") route like an unstaffed
@@ -294,6 +400,9 @@ def build_and_write(
             }
         )
         if not dispatches and not memo_matters:
+            # Entries existed but nothing routed and nothing needs a memo.
+            # Also not a failure -- the same no-alarm-on-success reasoning as
+            # the empty-entries branch above.
             return {}
         envelope = {
             "skill": SKILL_NAME,
@@ -324,7 +433,9 @@ def build_and_write(
             "in_turn_enforce": False,
         }
         if not _write_envelope(envelope):
-            return {}
+            return write_failure_note_envelope(
+                reason="envelope_write_failed", customer_yaml_path=customer_yaml_path
+            )
         return {
             "render_mode": "slot-templated",
             "body_sha256": wake_hashes,
@@ -336,4 +447,8 @@ def build_and_write(
         }
     except Exception as exc:  # noqa: BLE001 — the envelope is optional; the wake is not
         sys.stderr.write("[pre_run] dispatch envelope build failed (" + str(exc) + ")\n")
-        return {}
+        # The 2026-09-02 case: the turn wakes with work it cannot dispatch and,
+        # left undecorated, composes it. Give it a rendered note instead.
+        return write_failure_note_envelope(
+            reason="envelope_build_failed", customer_yaml_path=customer_yaml_path
+        )

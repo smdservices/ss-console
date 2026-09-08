@@ -87,6 +87,18 @@ def situation_line(plan: dict) -> str | None:
     return None
 
 
+def _is_seat_level(entry: dict) -> bool:
+    """A seat-level entry is about the seat's authored config, not a matter,
+    so its line carries no matter head. Two shapes today: the config-missing
+    surface, and the one throttled line every due chase collapses to when
+    ``return_link`` is unauthored (``dispatch_envelope`` emits it with
+    ``matter_id: ""``). Giving that line a matter head reads as a matter
+    whose number could not be resolved, a failure that did not happen."""
+    return entry.get("action") == "surface_config_missing" or (
+        entry.get("action") == "chase" and entry.get("reason") == "return_link_unauthored"
+    )
+
+
 def _matter_head(entry: dict) -> str:
     number = entry.get("matter_number")
     if isinstance(number, str) and number:
@@ -115,7 +127,7 @@ def render_alert(entries: list[dict], *, today_iso: str) -> tuple[str, str]:
         tail = ""
         if entry.get("action") in ("chase", "handoff") and attempt and ceiling:
             tail = f" (nudge {attempt} of {ceiling})"
-        if entry.get("action") == "surface_config_missing":
+        if _is_seat_level(entry):
             lines.append(f"{index}. {phrase}.")
         else:
             lines.append(f"{index}. {_matter_head(entry)}, verification: {phrase}{tail}.")
@@ -204,3 +216,9 @@ FAILURE_NOTE = (
     "The verification tracker run failed and needs attention; no alert was "
     "delivered this run. The items are in Smokeball and the tracker view."
 )
+
+#: Subject for the failure note when the GATE dispatches it out of turn rather
+#: than instructing the turn to send it (2026-09-02). No date and no counts:
+#: the run that sends this could read nothing, so every number in it would be
+#: invented.
+FAILURE_NOTE_SUBJECT = "[Verifications] run failed, no alert delivered"

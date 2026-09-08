@@ -64,7 +64,18 @@ def _wake_row(skill="deadline-miss-escalator", minute=0, hashes=None, items=None
 
 
 def _dispatch_row(skill="deadline-miss-escalator", minute=1, sha="", variant="full",
-                  outcome="sent", extra=None, plain=""):
+                  outcome="sent", extra=None, plain="", message_id=""):
+    """One CONFIRM_SEND_DISPATCHED row as the broker writes it.
+
+    ``skill=None`` is the row a seat writes while its pinned overlay predates
+    the ``skill_name`` stamp (B3): the column is NULL. The fixture PAIR --
+    the same diverged scene with the column set and with it NULL -- is what
+    states what the column buys (see the primary-check tests).
+
+    ``message_id`` puts the vendor id in metadata the way the broker records
+    it, which is the identity join the secondary check reads (B7). A row
+    without one can only ever be claimed by window, and is graded hold-only.
+    """
     meta = {"outcome": outcome}
     if sha:
         meta["rendered_body_sha256"] = sha
@@ -73,6 +84,8 @@ def _dispatch_row(skill="deadline-miss-escalator", minute=1, sha="", variant="fu
         # The overlay's second stamp. Omitted entirely when unset, which is
         # exactly how a seat on an older OVERLAY_REF writes the row.
         meta["plain_body_sha256"] = plain
+    if message_id:
+        meta["message_id"] = message_id
     if extra:
         meta.update(extra)
     return {
@@ -91,6 +104,11 @@ def _declares(mode="templated"):
             skill="deadline-miss-escalator",
             render=mode,
             template=template if mode != "compositional" else None,
+        ),
+        "client-verification-tracker": sv.RenderDecl(
+            skill="client-verification-tracker",
+            render="slot-templated",
+            template="operator/skills/client-verification-tracker/render.py",
         ),
         "medical-records-chaser": sv.RenderDecl(
             skill="medical-records-chaser", render="compositional"
@@ -270,12 +288,148 @@ def test_a_refused_dispatch_row_is_not_graded():
 
 
 # ---------------------------------------------------------------------------
+# primary check: attribution (claims review 2026-09-04, B3)
+#
+# The broker never wrote skill_name on its rows, so `declares.get("")` was None
+# and the primary check graded NOTHING on every live seat, silently. The column
+# is written now; these pin what it buys, and what the hash fallback covers on
+# a seat whose pinned overlay predates it.
+# ---------------------------------------------------------------------------
+
+
+def test_the_pair_a_diverged_dispatch_is_a_finding_with_the_column_and_silent_without():
+    """THE PIN. Same diverged scene twice: with the column set the verifier
+    files BODY_DIVERGED; with the column NULL (a seat whose overlay predates
+    the stamp) no wake's hashes recognise the dispatch and it gets no verdict
+    at all -- today's silent skip, kept on purpose so establishment ops notes
+    (unlabelled rows with hashes) do not redden every run. The difference
+    between the two halves IS what the skill_name column is for."""
+    wake_sha = sv.canonical_body_sha256("authored body")
+    sent_sha = sv.canonical_body_sha256("recomposed body")
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": wake_sha}])])
+    labelled = sv.index_dispatches([_dispatch_row(sha=sent_sha)])
+    assert [v.verdict for v in sv.verify_hash_join(wakes, labelled, _declares())] == [
+        sv.VERDICT_DIVERGED
+    ]
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": wake_sha}])])
+    unlabelled = sv.index_dispatches([_dispatch_row(sha=sent_sha, skill=None)])
+    assert unlabelled[0].skill_name == ""
+    assert sv.verify_hash_join(wakes, unlabelled, _declares()) == []
+
+
+def test_an_unlabelled_dispatch_is_attributed_by_hash():
+    """Pre-pin seat: the column is NULL but the overlay already stamps
+    rendered_body_sha256, and a sha256 over a rendered body with per-matter
+    identifiers does not collide by accident. The pair grades MATCH, the verdict
+    names the WAKE's skill, and the attribution is counted as hash."""
+    sha = sv.canonical_body_sha256("Deadline alert body\n")
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sha}])])
+    dispatches = sv.index_dispatches([_dispatch_row(sha=sha, skill=None)])
+    verdicts = sv.verify_hash_join(wakes, dispatches, _declares())
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+    assert verdicts[0].skill_name == "deadline-miss-escalator"
+    assert verdicts[0].attribution == "hash"
+    assert verdicts[0].detail == "attributed by hash"
+    assert sv.attribution_counts(verdicts) == {"attributed_by_skill": 0, "attributed_by_hash": 1}
+
+
+def test_a_labelled_dispatch_is_attributed_by_skill_and_counted_so():
+    sha = sv.canonical_body_sha256("Deadline alert body\n")
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sha}])])
+    dispatches = sv.index_dispatches([_dispatch_row(sha=sha)])
+    verdicts = sv.verify_hash_join(wakes, dispatches, _declares())
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+    assert verdicts[0].attribution == "skill"
+    assert verdicts[0].detail is None  # the column is the expected path; nothing to say
+    assert sv.attribution_counts(verdicts) == {"attributed_by_skill": 1, "attributed_by_hash": 0}
+
+
+def test_an_unlabelled_skeleton_dispatch_attributes_by_hash_and_grades_degraded():
+    full = sv.canonical_body_sha256("full body")
+    skeleton = sv.canonical_body_sha256("skeleton body")
+    wakes = sv.index_wakes(
+        [_wake_row(hashes=[{"body_sha256_full": full, "body_sha256_skeleton": skeleton}])]
+    )
+    dispatches = sv.index_dispatches([_dispatch_row(sha=skeleton, variant="skeleton", skill=None)])
+    verdicts = sv.verify_hash_join(wakes, dispatches, _declares())
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_DEGRADED]
+    assert verdicts[0].attribution == "hash"
+
+
+def test_hash_attribution_consumes_capacity_like_the_skill_claim():
+    """One wake, ONE stamped body, two unlabelled dispatches carrying it: the
+    second is not laundered into a second MATCH. (It gets no verdict rather
+    than a hold -- an unlabelled row nothing claims is the silent-skip shape.)"""
+    sha = sv.canonical_body_sha256("body")
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sha}])])
+    dispatches = sv.index_dispatches(
+        [_dispatch_row(minute=1, sha=sha, skill=None), _dispatch_row(minute=2, sha=sha, skill=None)]
+    )
+    verdicts = sv.verify_hash_join(wakes, dispatches, _declares())
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+
+
+def test_hash_attribution_respects_the_window_and_the_declaration():
+    sha = sv.canonical_body_sha256("body")
+    # Outside the window: the hash matches but the wake is an hour too old.
+    wakes = sv.index_wakes([_wake_row(minute=0, hashes=[{"body_sha256_full": sha}])])
+    late = _dispatch_row(sha=sha, skill=None)
+    late["ts"] = datetime(2026, 8, 30, 11, 1, tzinfo=UTC).isoformat()
+    assert sv.verify_hash_join(wakes, sv.index_dispatches([late]), _declares()) == []
+    # A compositional wake's hashes attribute nothing: only hash-verified
+    # declarations may claim by hash, same rule as the skill path.
+    wakes = sv.index_wakes(
+        [_wake_row(skill="medical-records-chaser", hashes=[{"body_sha256_full": sha}])]
+    )
+    dispatches = sv.index_dispatches([_dispatch_row(sha=sha, skill=None)])
+    assert sv.verify_hash_join(wakes, dispatches, _declares()) == []
+
+
+def test_an_unlabelled_dispatch_with_no_hash_gets_no_verdict():
+    """A bare NULL-column row with no rendered stamp is not evidence of
+    anything -- there is nothing to attribute by. Silent, not a hold."""
+    sha = sv.canonical_body_sha256("body")
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sha}])])
+    dispatches = sv.index_dispatches([_dispatch_row(sha="", skill=None)])
+    assert sv.verify_hash_join(wakes, dispatches, _declares()) == []
+
+
+def test_the_attribution_counts_reach_the_report_and_the_json():
+    """Counted metrics, not a detail string: the two numbers are what the
+    runtime proof reads before and after the overlay pin."""
+    sha = sv.canonical_body_sha256("body")
+    rows = [
+        _wake_row(minute=0, hashes=[{"body_sha256_full": sha}] * 2),
+        _dispatch_row(minute=1, sha=sha),
+        _dispatch_row(minute=2, sha=sha, skill=None),
+    ]
+    verifier = sv.SendVerifier(_declares(), {"recipients": {}, "ack_codes": {}})
+    verdicts, findings, proposals = verifier.verify_inbox([], rows, None)
+    report = rec.InboxReport(inbox="i@agentmail.to", slug="pilot-smokeball")
+    report.body_verdicts, report.invariant_findings = verdicts, findings
+    report.invariant_proposals = proposals
+    as_json = rec.report_dict(report)
+    assert as_json["attributed_by_skill"] == 1
+    assert as_json["attributed_by_hash"] == 1
+    assert [v["attribution"] for v in as_json["body_verdicts"]] == ["skill", "hash"]
+    assert "attributed_by_skill=1 attributed_by_hash=1" in rec.render([report])
+    # And the line is absent when nothing was paired: a hold-only inbox must
+    # not print zeros that read as "measured and clean".
+    empty = rec.InboxReport(inbox="i@agentmail.to", slug="pilot-smokeball")
+    assert "attributed_by" not in rec.render([empty])
+
+
+# ---------------------------------------------------------------------------
 # secondary check: the channel body fetch
 # ---------------------------------------------------------------------------
 
 
-def _sent_message(minute=1, mid="<m1>"):
-    return {"message_id": mid, "timestamp": _ts(minute), "to": ["x@example.invalid"], "subject": "s"}
+def _sent_message(minute=1, mid="<m1>", token=""):
+    message = {"message_id": mid, "timestamp": _ts(minute), "to": ["x@example.invalid"], "subject": "s"}
+    if token:
+        # What msgraph_channel.normalize_graph_message lifts off X-SMD-Audit-Row.
+        message["audit_row_token"] = token
+    return message
 
 
 def test_channel_body_matching_the_wake_hash_grades_match():
@@ -312,6 +466,55 @@ def test_a_pre_deploy_inbox_with_no_plain_stamp_anywhere_still_holds():
     assert verdicts[0].is_hold and not verdicts[0].is_finding
 
 
+def test_a_window_spanning_the_plain_stamp_deploy_grades_each_row_by_its_side_of_the_edge():
+    """THE 2026-09-04 LIVE MISGRADE (pilot-smokeball, --days 7). The 09-01
+    escalator send predated the seat's #338 reprovision: no plain stamp, and
+    the mailbox holds its down-render. The 09-03/09-04 rows on the same inbox
+    carried the stamp. A per-INBOX discriminator read the whole inbox as
+    post-deploy and filed BODY_DIVERGED on the 09-01 row as "no down-render on
+    this send". The edge is per ROW: the earliest stamped row on the inbox is
+    the deploy boundary; before it, absence is a hold; at or after it, absence
+    is deliberate and grades.
+
+    Two identified templated sends on one inbox, a day apart. The first row
+    carries no plain stamp and its channel body is the down-render (a conformant
+    pre-deploy send); the second carries the stamp and matches. Expected:
+    hold + match. FALSIFIER: replace the edge with the old per-inbox boolean
+    (`plain_edge = min ts` -> `any(stamps)`) and the first grades BODY_DIVERGED.
+    """
+    raw = "**Deadline** alert body\n"
+    plain = "Deadline alert body\n"
+    raw_sha, plain_sha = sv.canonical_body_sha256(raw), sv.canonical_body_sha256(plain)
+    day_later = datetime(2026, 8, 31, 9, 0, tzinfo=UTC)
+    pre = _dispatch_row(minute=1, sha=raw_sha, message_id="<m-pre>")  # 08-30, no plain stamp
+    post = _dispatch_row(minute=1, sha=raw_sha, plain=plain_sha, message_id="<m-post>")
+    post["ts"] = (day_later.replace(minute=1)).isoformat()
+    post["id"] = "disp-post"
+    wake_post = _wake_row(hashes=[{"body_sha256_full": raw_sha}])
+    wake_post["ts"] = day_later.isoformat()
+    wake_post["id"] = "wake-post"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": raw_sha}]), wake_post])
+    dispatches = sv.index_dispatches([pre, post])
+    assert [d.plain_body_sha256 for d in dispatches] == ["", plain_sha]
+    sent = [
+        _sent_message(minute=1, mid="<m-pre>"),
+        {**_sent_message(minute=1, mid="<m-post>"), "timestamp": post["ts"]},
+    ]
+    verdicts = sv.verify_channel_bodies(
+        sent, wakes, _declares(), lambda m: plain, dispatches=dispatches
+    )
+    graded = {v.message_id: v.verdict for v in verdicts}
+    assert graded == {"<m-pre>": sv.VERDICT_CHANNEL_MISMATCH, "<m-post>": sv.VERDICT_MATCH}
+    pre_verdict = next(v for v in verdicts if v.message_id == "<m-pre>")
+    assert pre_verdict.is_hold and not pre_verdict.is_finding
+    assert "predates the inbox's first plain_body_sha256 stamp" in pre_verdict.detail
+    # The edge itself, stated: the post row's timestamp, and rows AT the edge grade.
+    assert sv.plain_stamp_edge(dispatches) == dispatches[1].ts
+    assert sv.stamps_plain_at(sv.plain_stamp_edge(dispatches), dispatches[1])
+    assert not sv.stamps_plain_at(sv.plain_stamp_edge(dispatches), dispatches[0])
+    assert sv.plain_stamp_edge([dispatches[0]]) is None
+
+
 def test_absence_on_a_stamping_inbox_grades_against_the_rendered_hash():
     """ABSENCE IS A FACT, NOT A GAP (hermes-smd-overlay#338). The overlay omits
     `plain_body_sha256` rather than duplicating the raw hash whenever no
@@ -331,19 +534,21 @@ def test_absence_on_a_stamping_inbox_grades_against_the_rendered_hash():
     )
     dispatches = sv.index_dispatches(
         [
-            # The prose send: rendered only, because no down-render happened.
-            _dispatch_row(minute=1, sha=prose_sha),
-            # A sibling report send on the same inbox proves the overlay stamps,
-            # which is what makes the omission above readable as deliberate.
+            # A sibling report send on the same inbox, EARLIER, proves the
+            # overlay stamps from that row on -- the deploy edge -- which is
+            # what makes the omission on the later row readable as deliberate.
             _dispatch_row(
-                minute=11,
+                minute=1,
                 sha=sv.canonical_body_sha256(report_raw),
                 plain=sv.canonical_body_sha256("Report body\n"),
             ),
+            # The prose send, after the edge: rendered only, because no
+            # down-render happened. Identified so its own row is the counterpart.
+            _dispatch_row(minute=2, sha=prose_sha, message_id="<m1>"),
         ]
     )
     verdicts = sv.verify_channel_bodies(
-        [_sent_message(minute=1)], wakes, _declares(), lambda m: prose, dispatches=dispatches
+        [_sent_message(minute=2)], wakes, _declares(), lambda m: prose, dispatches=dispatches
     )
     assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
     assert not verdicts[0].is_hold and not verdicts[0].is_finding
@@ -361,22 +566,26 @@ def test_absence_on_a_stamping_inbox_still_finds_a_real_divergence():
     report_raw = "**Report** body\n"
     wakes = sv.index_wakes(
         [
-            _wake_row(minute=0, hashes=[{"body_sha256_full": prose_sha}]),
-            _wake_row(minute=10, hashes=[{"body_sha256_full": sv.canonical_body_sha256(report_raw)}]),
+            _wake_row(minute=0, hashes=[{"body_sha256_full": sv.canonical_body_sha256(report_raw)}]),
+            _wake_row(minute=10, hashes=[{"body_sha256_full": prose_sha}]),
         ]
     )
     dispatches = sv.index_dispatches(
         [
-            _dispatch_row(minute=1, sha=prose_sha),
+            # The stamped report row first: the deploy edge, so the prose row
+            # after it is post-deploy and its absence is deliberate.
             _dispatch_row(
-                minute=11,
+                minute=1,
                 sha=sv.canonical_body_sha256(report_raw),
                 plain=sv.canonical_body_sha256("Report body\n"),
             ),
+            # Joined to the message by id (B7): an identified divergence is the
+            # finding; the unidentified twin is pinned as a hold further down.
+            _dispatch_row(minute=11, sha=prose_sha, message_id="<m1>"),
         ]
     )
     verdicts = sv.verify_channel_bodies(
-        [_sent_message(minute=1)],
+        [_sent_message(minute=11)],
         wakes,
         _declares(),
         lambda m: "something the routine never wrote",
@@ -411,7 +620,13 @@ def test_a_channel_body_matching_neither_stamp_is_a_finding():
     plain = "Deadline alert body\n"
     wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
     dispatches = sv.index_dispatches(
-        [_dispatch_row(sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(plain))]
+        [
+            _dispatch_row(
+                sha=sv.canonical_body_sha256(raw),
+                plain=sv.canonical_body_sha256(plain),
+                message_id="<m1>",
+            )
+        ]
     )
     verdicts = sv.verify_channel_bodies(
         [_sent_message()],
@@ -426,6 +641,210 @@ def test_a_channel_body_matching_neither_stamp_is_a_finding():
     # the raw wake hash it could never have equalled.
     assert verdicts[0].expected_sha256 == sv.canonical_body_sha256(plain)
     assert verdicts[0].dispatch_ts is not None
+
+
+# ---------------------------------------------------------------------------
+# secondary check: identity, not proximity (claims review 2026-09-04, B7)
+#
+# The window claim graded whichever message landed first inside a wake's hour
+# against that wake's stamps. An in-turn send in a tracker's window was filed
+# BODY_DIVERGED for a body the tracker never authored. A message is attributed
+# by its id against the dispatch rows first; the window is the fallback, and a
+# fallback holds.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unidentified_divergence_is_a_hold_never_a_finding():
+    """The same scene as the finding above with ONE difference: no dispatch row
+    carries the message's id, so nothing ties the body to this routine. The
+    window still claims it (there is nothing else to do with it) but a
+    divergence found by proximity is a guess, and a guess holds."""
+    raw = "**Deadline** alert body\n"
+    plain = "Deadline alert body\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [_dispatch_row(sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(plain))]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message()],
+        wakes,
+        _declares(),
+        lambda m: "something else entirely",
+        dispatches=dispatches,
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_CHANNEL_MISMATCH]
+    assert verdicts[0].is_hold and not verdicts[0].is_finding
+    assert "no dispatch row identifies this message" in verdicts[0].detail
+
+
+def test_the_cross_skill_scene_grades_the_tracker_against_its_own_dispatch():
+    """THE MOTION-CALENDAR CASE. A tracker wake stamps its hash at :00. An
+    in-turn send (a NULL-column row, prose body, its own message id) goes out
+    at :01, inside the tracker's window; the tracker's own dispatch follows at
+    :02. Before B7 the window claimed the :01 message first -- it was the oldest
+    in the window -- and filed BODY_DIVERGED against the tracker for a body the
+    tracker never wrote. Now the in-turn message is identified as nobody's
+    (row joined, skill "") and is never claimable; the tracker wake grades its
+    OWN message, and grades it MATCH.
+
+    FALSIFIER: drop the identity gate from _messages_in_window and this scene
+    produces a DIVERGED verdict for <m-inturn> again.
+    """
+    tracker_raw = "**Verification** hold surface\n"
+    tracker_plain = "Verification hold surface\n"
+    prose = "Re: the motion calendar for next week.\n"
+    wakes = sv.index_wakes(
+        [
+            _wake_row(
+                skill="client-verification-tracker",
+                minute=0,
+                hashes=[{"body_sha256_full": sv.canonical_body_sha256(tracker_raw)}],
+            )
+        ]
+    )
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(skill=None, minute=1, sha=sv.canonical_body_sha256(prose), message_id="<m-inturn>"),
+            _dispatch_row(
+                skill="client-verification-tracker",
+                minute=2,
+                sha=sv.canonical_body_sha256(tracker_raw),
+                plain=sv.canonical_body_sha256(tracker_plain),
+                message_id="<m-tracker>",
+            ),
+        ]
+    )
+    bodies = {"<m-inturn>": prose, "<m-tracker>": tracker_plain}
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=1, mid="<m-inturn>"), _sent_message(minute=2, mid="<m-tracker>")],
+        wakes,
+        _declares(),
+        lambda m: bodies[m["message_id"]],
+        dispatches=dispatches,
+    )
+    assert [(v.message_id, v.verdict) for v in verdicts] == [("<m-tracker>", sv.VERDICT_MATCH)]
+    assert verdicts[0].skill_name == "client-verification-tracker"
+    # Graded against ITS row's plain stamp, not the in-turn row's.
+    assert verdicts[0].expected_sha256 == sv.canonical_body_sha256(tracker_plain)
+
+
+def test_a_message_identified_as_another_skills_is_not_claimed_by_this_wake():
+    """Two templated routines in one hour. The escalator's message must not be
+    graded against the tracker's stamps just because it landed first."""
+    esc_raw, esc_plain = "**Deadline** alert\n", "Deadline alert\n"
+    trk_raw, trk_plain = "**Verification** hold\n", "Verification hold\n"
+    wakes = sv.index_wakes(
+        [
+            _wake_row(skill="client-verification-tracker", minute=0, hashes=[{"body_sha256_full": sv.canonical_body_sha256(trk_raw)}]),
+            _wake_row(skill="deadline-miss-escalator", minute=0, hashes=[{"body_sha256_full": sv.canonical_body_sha256(esc_raw)}]),
+        ]
+    )
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(skill="deadline-miss-escalator", minute=1, sha=sv.canonical_body_sha256(esc_raw), plain=sv.canonical_body_sha256(esc_plain), message_id="<m-esc>"),
+            _dispatch_row(skill="client-verification-tracker", minute=2, sha=sv.canonical_body_sha256(trk_raw), plain=sv.canonical_body_sha256(trk_plain), message_id="<m-trk>"),
+        ]
+    )
+    bodies = {"<m-esc>": esc_plain, "<m-trk>": trk_plain}
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=1, mid="<m-esc>"), _sent_message(minute=2, mid="<m-trk>")],
+        wakes,
+        _declares(),
+        lambda m: bodies[m["message_id"]],
+        dispatches=dispatches,
+    )
+    graded = {v.message_id: (v.skill_name, v.verdict) for v in verdicts}
+    assert graded == {
+        "<m-esc>": ("deadline-miss-escalator", sv.VERDICT_MATCH),
+        "<m-trk>": ("client-verification-tracker", sv.VERDICT_MATCH),
+    }
+
+
+def test_an_unlabelled_row_identified_by_hash_still_finds_a_divergence():
+    """Pre-pin seat, secondary check: the joined row has a NULL column but its
+    rendered hash is the wake's, so the message IS this routine's (attributed
+    by hash, same rule as the primary check) -- and a channel body that
+    matches neither hash is then a finding, not a hold."""
+    raw, plain = "**Deadline** alert body\n", "Deadline alert body\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(
+                skill=None,
+                sha=sv.canonical_body_sha256(raw),
+                plain=sv.canonical_body_sha256(plain),
+                message_id="<m1>",
+            )
+        ]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message()], wakes, _declares(), lambda m: "something else entirely", dispatches=dispatches
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_DIVERGED]
+    # And the conformant twin of the same scene grades MATCH through the same
+    # identified row.
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(
+                skill=None,
+                sha=sv.canonical_body_sha256(raw),
+                plain=sv.canonical_body_sha256(plain),
+                message_id="<m1>",
+            )
+        ]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message()], wakes, _declares(), lambda m: plain, dispatches=dispatches
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+
+
+def test_msgraph_messages_join_on_the_audit_row_token():
+    """Graph's 202 returns no id, so the msgraph reader lifts the broker's own
+    ULID off the X-SMD-Audit-Row header; the dispatch row recorded the same
+    token. That is the identity join on the paying seat's channel."""
+    raw, plain = "**Deadline** alert body\n", "Deadline alert body\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}])])
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(
+                sha=sv.canonical_body_sha256(raw),
+                plain=sv.canonical_body_sha256(plain),
+                extra={"audit_row_token": "01ABC", "graph_message_id": "(no id available)"},
+            )
+        ]
+    )
+    assert dispatches[0].join_keys == frozenset({"01ABC"})
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(mid="", token="01ABC")],
+        wakes,
+        _declares(),
+        lambda m: "something else entirely",
+        dispatches=dispatches,
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_DIVERGED]  # identified => finding
+
+
+def test_identity_beats_proximity_when_choosing_the_stamp_to_grade_against():
+    """Two same-skill dispatches in one window; the message belongs to the
+    SECOND by id. The stamp the body is graded against must be its own row's,
+    not the oldest unconsumed one."""
+    raw = "**Deadline** alert body\n"
+    first_plain, second_plain = "Deadline alert body A\n", "Deadline alert body B\n"
+    wakes = sv.index_wakes([_wake_row(hashes=[{"body_sha256_full": sv.canonical_body_sha256(raw)}] * 2)])
+    dispatches = sv.index_dispatches(
+        [
+            _dispatch_row(minute=1, sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(first_plain), message_id="<m-a>"),
+            _dispatch_row(minute=2, sha=sv.canonical_body_sha256(raw), plain=sv.canonical_body_sha256(second_plain), message_id="<m-b>"),
+        ]
+    )
+    verdicts = sv.verify_channel_bodies(
+        [_sent_message(minute=2, mid="<m-b>")], wakes, _declares(), lambda m: second_plain, dispatches=dispatches
+    )
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_MATCH]
+    assert verdicts[0].expected_sha256 == sv.canonical_body_sha256(second_plain)
+    assert dispatches[1].plain_consumed and not dispatches[0].plain_consumed
 
 
 def test_one_plain_stamp_cannot_vouch_for_two_channel_bodies():
@@ -693,11 +1112,18 @@ def _sentinel_report():
     wake_sha = sv.canonical_body_sha256("the authored body")
     rows = [
         _wake_row(hashes=[{"body_sha256_full": wake_sha}]),
-        _dispatch_row(sha=sv.canonical_body_sha256(body)),
+        # Joined by id and plain-stamped so the run reaches the FINDING paths
+        # on both checks -- the surfaces with the most fields, and so the most
+        # places to leak.
+        _dispatch_row(
+            sha=sv.canonical_body_sha256(body),
+            plain=sv.canonical_body_sha256("the plain text the overlay attached"),
+            message_id="<m1>",
+        ),
     ]
     verifier = sv.SendVerifier(_declares(), {"recipients": {}, "ack_codes": {}})
     verdicts, invariants, proposals = verifier.verify_inbox([_sent_message()], rows, lambda m: body)
-    assert verdicts, "the sentinel run must actually grade something"
+    assert [v.verdict for v in verdicts] == [sv.VERDICT_DIVERGED, sv.VERDICT_DIVERGED]
     report = rec.InboxReport(inbox="pilot-smokeball@agentmail.to", slug="pilot-smokeball")
     report.sent_total = 1
     report.body_verdicts = verdicts

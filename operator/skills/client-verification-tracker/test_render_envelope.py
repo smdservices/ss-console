@@ -78,6 +78,40 @@ def test_render_alert_names_matters_and_counts_by_construction():
     assert "m-1" not in body  # never a GUID
 
 
+def test_render_alert_seat_level_lines_carry_no_matter_head():
+    """A seat-level absence is about the seat, not a matter. The degraded
+    chase-due line (return_link unauthored) has no matter behind it, so
+    "matter number unavailable" on it reports a resolution failure that never
+    happened. Same treatment as the config-missing surface."""
+    entries = [
+        {
+            "matter_id": "",
+            "action": "chase",
+            "reason": "return_link_unauthored",
+            "attempt": 1,
+            "ceiling": None,
+            "matter_number": None,
+            "matter_number_absent": None,
+        },
+        {
+            "matter_id": "",
+            "action": "surface_config_missing",
+            "matter_number": None,
+            "matter_number_absent": None,
+        },
+    ]
+    _subject, body = render.render_alert(entries, today_iso="2026-08-31")
+    assert "matter number unavailable" not in body
+    assert "1. a client reminder is due, and the reminder's return destination" in body
+    assert "2. chase cadence or escalation attempt-count is not authored" in body
+    # A real matter that genuinely could not be resolved still says so.
+    _subject, body = render.render_alert(
+        [{"matter_id": "m-9", "action": "surface_hold", "matter_number": None}],
+        today_iso="2026-08-31",
+    )
+    assert "1. matter number unavailable, verification:" in body
+
+
 def test_skeleton_is_identifier_free():
     body = render.render_skeleton(3)
     assert "3 items need a person" in body
@@ -199,6 +233,8 @@ def test_envelope_degraded_chase_collapses_to_one_throttled_line(tmp_path, monke
     [dispatch] = written["dispatches"]
     # ONE seat-level line, not one per chase; keyed on the sentinel.
     assert dispatch["full_body"].count("return destination") == 1
+    # Seat-level, so no matter head: nothing failed to resolve.
+    assert "matter number unavailable" not in dispatch["full_body"]
     [append] = dispatch["appends"]
     sentinel_key = ledger.item_key("", envelope.RETURN_LINK_SOURCE_ID, "chase-return-link-missing", "")
     assert append["item_key"] == sentinel_key

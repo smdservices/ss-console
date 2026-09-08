@@ -1199,7 +1199,48 @@ describe('Operator customer Machine Dockerfile', () => {
     // heartbeat.py have no ss-console twin). shared/heartbeat.py DID change --
     // the field SET grew by two, so heartbeat-fields.json is re-stamped in the
     // same change and its parity gate covers both new columns.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b16e32f7f280661d0d5589ac46647d2894606b43"')
+    // b16e32f7 -> c557f8c0 (2026-09-02b, overlay#343; Captain decision).
+    // The sticky-stop ladder collapses to TWO states, OK and HARD_STOP. WARN
+    // and SOFT_STOP are removed because they did nothing: SOFT_STOP was
+    // specified to pin every skill's trust_ceiling to draft_for_review and no
+    // caller ever did it, no reader compared against anything but HARD_STOP,
+    // and the alerter never paged on it -- while the CLIENT portal told the
+    // customer "the safety substrate has pinned the agent". pilot-smokeball
+    // sat latched at SOFT_STOP for five days restricting nothing.
+    // THE HARD_STOP THRESHOLDS DID NOT MOVE (8 tool failures / 600s, 20
+    // refusals / 1800s, 200% of the cost cap), pinned by a test in both repos:
+    // deleting two dead states must not be confusable with changing when a
+    // client's Operator halts. The one meter with no hard threshold
+    // (record_runtime_seconds) now stops nothing and records an observation
+    // row -- exactly its prior effect, since SOFT_STOP restricted nothing.
+    // Legacy WARN/SOFT_STOP rows read as OK, which also releases a seat
+    // latched at SOFT_STOP with no Captain clear.
+    // Vocabulary identical; the canonical twin
+    // operator/safety-substrate/sticky_stop.py moves in the SAME change (this
+    // repo is where it lands first per the vendoring header).
+    // c557f8c0 -> 9951fbf8 (2026-09-02c, overlay#344; canonical half ss#2690).
+    // Every fabrication marker now carries a `remedy` appended to the refusal
+    // text the model reads. Measured cause: scoped to client-write tools, 132
+    // of 150 refused (session, tool) pairs RECOVER in the same session -- the
+    // gate refuses, the model corrects, the memo lands. The ones that STRAND
+    // cluster on markers whose refusal names a rule instead of an action; the
+    // em-dash marker lost a daily-needs-you-digest memo on 2026-08-19 and again
+    // on 2026-09-02, each on ONE attempt with no retry. Remedies are narrow and
+    // never restate the rule (the 2026-08-24 refusal that named its rule taught
+    // the model to strip 38 matter numbers), enforced by a test in the overlay.
+    // Vocabulary identical; fabrication_markers.json moves in BOTH repos with a
+    // re-pinned sha256 on the overlay side.
+    // 9951fbf8 -> e0288582 (2026-09-04, overlay#345 + #346; console half
+    // ss#2697, B3 of claims-2026-09-04). Every out-of-turn prerendered send now
+    // stamps `skill_name` (cron-resolved routine, not the envelope) into
+    // audit_extra; the broker (#2697) writes it to the COLUMN, and the console's
+    // verifier joins dispatch to wake by that column, hash second, never by
+    // window proximity. Before this every templated send on a live seat held
+    // at channel_mismatch_hold because the column was NULL. #345 only drops the
+    // retired smd seat from the overlay's contract snapshot. No paired twin
+    // moves (neither commit touches a tracked pair); vocabulary and heartbeat
+    // fields re-read as identical (empty range diff on schemas.py/heartbeat.py).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e0288582c6fea9d0053d396caab0fda9a171cf18"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

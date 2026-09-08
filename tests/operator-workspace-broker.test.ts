@@ -9,7 +9,10 @@ const bootSmoke = readFileSync(resolve('operator/bin/boot-smoke-test.sh'), 'utf8
 const workspaceSkill = readFileSync(resolve('operator/skills/workspace/SKILL.md'), 'utf8')
 const inboxTriageSkill = readFileSync(resolve('operator/skills/inbox-triage/SKILL.md'), 'utf8')
 const emailReplySkill = readFileSync(resolve('operator/skills/email-reply/SKILL.md'), 'utf8')
-const smdCustomerConfig = readFileSync(resolve('operator/customers/smd/customer.yaml'), 'utf8')
+const smdCustomerConfig = readFileSync(
+  resolve('operator/customers/smd-staging/customer.yaml'),
+  'utf8'
+)
 
 describe('ADR 0045 Workspace capability broker', () => {
   it('runs broker and gateway under distinct non-root principals', () => {

@@ -132,7 +132,11 @@ def test_the_real_client_seats_in_this_repo_are_all_refused() -> None:
         except scope.ScopeViolation:
             refused.append(path.parent.name)
     assert "ashton-price" in refused, "the live client seat must never be drivable"
-    assert "smd" in refused, "SMD's own production seat must never be drivable"
+    # `smd` (customer-zero) was retired 2026-09-03 and has no seat directory, so
+    # it is neither refused nor allowed here -- it cannot be typed on the command
+    # line at all. If it is stood up again its directory returns and this guard
+    # must refuse it again; the assertion below is what makes that visible.
+    assert "smd" not in allowed, "SMD's own production seat must never be drivable"
     assert "pilot-smokeball" in allowed, "the proving rig must be drivable or the suite is inert"
 
 

@@ -41,6 +41,10 @@ on:
   pull_request:
     paths:
       - 'operator/bin/reconcile-outcomes.py'
+      # ss#2581: the sender-classing half of the reconciler, and the ONE
+      # sender_key derivation it must agree with (ss#2497).
+      - 'operator/bin/lib/sender_class.py'
+      - 'operator/workspace_broker/recipient_policy.py'
       - 'operator/bin/tests/test_reconcile_outcomes.py'
       - 'operator/bin/tests/fixtures/**'
       - 'operator/contracts/terminal-states.yaml'

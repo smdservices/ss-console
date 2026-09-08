@@ -45,20 +45,38 @@ TWO CHECKS, DIFFERENT STRENGTHS (cross-workstream contract, item 1):
   ``OVERLAY_REF`` predates #338 the key never appears at all, a templated send
   is still down-rendered with nothing recording it, and grading its channel body
   against the raw markdown would file a false ``BODY_DIVERGED`` on every run.
-  The discriminator is therefore whether ANY dispatch row on the inbox carries a
-  plain stamp: never seen => pre-deploy => keep ``channel_mismatch_hold``; seen
-  => absence is deliberate => grade against ``rendered_body_sha256``. It is
-  probed per INBOX, not per window, because the overlay version is a property of
-  the seat and a day of rows observes it far more reliably than one hour does.
-  The invariant both halves serve: no false findings before the pin lands, no
-  permanent holds after it. ``body_unavailable`` stays a HOLD throughout -- a
-  body we could not fetch is a transport fact, not a divergence.
+  The discriminator is therefore the DEPLOY EDGE: the earliest dispatch row on
+  the inbox that carries a plain stamp (``send_attribution.plain_stamp_edge``).
+  A row before the edge, or any row on an inbox with no edge, is pre-deploy =>
+  keep ``channel_mismatch_hold``; a row at or after it was written by an overlay
+  that stamps => absence is deliberate => grade against
+  ``rendered_body_sha256``. Per ROW, not per inbox: the overlay version is a
+  property of the seat, but the seat's version CHANGES, and a window that spans
+  the reprovision holds rows from both sides of it. The first version of this
+  discriminator was a per-inbox "any row carries the stamp" probe, and on
+  2026-09-04 (pilot-smokeball, ``--days 7``) it read the 09-01 escalator send --
+  pre-reprovision, unstamped, conformant -- as a deliberate omission and filed
+  BODY_DIVERGED against it. The invariant both halves serve: no false findings
+  before the pin lands, no permanent holds after it. ``body_unavailable`` stays
+  a HOLD throughout -- a body we could not fetch is a transport fact, not a
+  divergence.
 
   NOT EVERY SEND IS STAMPED, BY DESIGN. The overlay stamps at exactly one site
   (``_dispatch_internal_message``); ``_dispatch_approved_send`` -- the
   model-composed approved sends -- stamps neither hash, because those bodies are
   covered by the cross-run invariants below rather than by body-hash
   verification. This phase must not expect stamps on that path.
+
+ATTRIBUTION -- WHICH ROUTINE A SEND BELONGS TO -- lives in
+``lib/send_attribution.py`` (claims review 2026-09-04, B3 + B7). The primary
+check pairs a dispatch with its wake SKILL-FIRST (the broker now writes the
+``skill_name`` column off the overlay's cron-resolved routine) and HASH-SECOND
+(an unlabelled dispatch whose rendered hash a hash-verified wake stamped is
+that wake's send), and every graded pair records which (``attribution``),
+counted per inbox as ``attributed_by_skill`` / ``attributed_by_hash``. The
+secondary check attributes each mailbox message by IDENTITY (its id against the
+dispatch rows' join keys) before it claims by window, and a divergence on a
+message no row identifies is a HOLD, never a finding.
 
 LEAK SAFETY IS STRUCTURAL, NOT DISCIPLINARY. Both repos are PUBLIC. A client
 email body must never appear in CI logs, artifacts, committed files, or issue
@@ -92,6 +110,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
+# One physical line on purpose: this module sits at the size ratchet's ceiling
+# (tests/operator-module-size.test.ts counts physical non-comment lines).
+from send_attribution import ATTRIBUTED_BY_HASH, _usable_ids, attribution_counts, claim_dispatch_stamp, claim_wake, message_attributor, plain_stamp_edge, stamps_plain_at  # noqa: F401 -- attribution_counts re-exported
 from send_invariants import (  # noqa: F401 -- re-exports; callers and tests read unchanged
     DEFAULT_INVARIANTS_PATH,
     InvariantFinding,
@@ -131,6 +152,11 @@ _HOLD_VERDICTS = (
     VERDICT_BODY_UNAVAILABLE,
     VERDICT_CHANNEL_MISMATCH,
 )
+
+#: The MATCH detail names the attribution only when it was the fallback: a
+#: hash-attributed pair is a pair the column SHOULD have made (the seat's
+#: overlay predates it), and the line says so. Counted too (attribution_counts).
+_ATTRIBUTION_DETAIL = {ATTRIBUTED_BY_HASH: "attributed by hash"}
 
 
 class SendRenderError(RuntimeError):
@@ -238,12 +264,13 @@ class DispatchStamp:
     """
 
     ts: datetime
-    skill_name: str
+    skill_name: str  # the COLUMN; "" on a seat whose overlay predates it (B3)
     rendered_body_sha256: str
     body_variant: str  # full | skeleton | "" when unstamped
     row_id: Optional[str] = None
     plain_body_sha256: str = ""  # "" == overlay predates the stamp; hold, never find
     plain_consumed: bool = False  # one stamp vouches for exactly one channel body
+    join_keys: frozenset = frozenset()  # message ids / audit token: the identity join (B7)
 
 
 def _parse_ts(value) -> datetime:
@@ -338,6 +365,7 @@ def index_dispatches(rows: list[dict]) -> list[DispatchStamp]:
                 # stamp. Parsed, never defaulted to something truthy: "" is the
                 # signal the channel check reads to keep holding.
                 plain_body_sha256=plain if isinstance(plain, str) else "",
+                join_keys=frozenset(_usable_ids(meta)),
             )
         )
     return sorted(out, key=lambda stamp: stamp.ts)
@@ -361,6 +389,7 @@ class BodyVerdict:
     expected_sha256: Optional[str] = None
     actual_sha256: Optional[str] = None
     detail: Optional[str] = None
+    attribution: str = ""  # skill | hash | "" -- how the pair was made (send_attribution)
 
     @property
     def is_finding(self) -> bool:
@@ -384,13 +413,18 @@ def verify_hash_join(
     compositional skill has no authored hash to diverge from. A wake stamp is
     consumed per dispatch entry it carried (``dispatch_capacity``), so one wake
     cannot launder an unbounded run of dispatches.
+
+    The pairing itself is ``send_attribution.claim_wake``: skill-first off the
+    ``skill_name`` column, hash-second for an unlabelled dispatch whose rendered
+    hash a wake stamped (a seat whose pinned overlay predates the column). An
+    unlabelled dispatch no wake recognises gets no verdict -- establishment ops
+    notes are exactly that shape and must not redden every run.
     """
     verdicts: list[BodyVerdict] = []
     for dispatch in dispatches:
-        decl = declares.get(dispatch.skill_name)
-        if decl is None or not decl.hash_verified:
+        wake, attribution = claim_wake(wakes, dispatch, declares, window_s)
+        if wake is None and not attribution:
             continue
-        wake = _claim_wake(wakes, dispatch, window_s)
         if wake is None:
             verdicts.append(
                 BodyVerdict(
@@ -402,31 +436,18 @@ def verify_hash_join(
                 )
             )
             continue
-        verdicts.append(_grade_pair(wake, dispatch))
+        verdicts.append(_grade_pair(wake, dispatch, attribution))
     return verdicts
 
 
-def _claim_wake(
-    wakes: list[WakeStamp], dispatch: DispatchStamp, window_s: int
-) -> Optional[WakeStamp]:
-    for wake in wakes:
-        if wake.skill_name != dispatch.skill_name or not wake.hashes_full:
-            continue
-        if not (wake.ts <= dispatch.ts <= wake.ts + timedelta(seconds=window_s)):
-            continue
-        if wake.consumed >= wake.dispatch_capacity:
-            continue
-        wake.consumed += 1
-        return wake
-    return None
-
-
-def _grade_pair(wake: WakeStamp, dispatch: DispatchStamp) -> BodyVerdict:
+def _grade_pair(wake: WakeStamp, dispatch: DispatchStamp, attribution: str) -> BodyVerdict:
     common = {
-        "skill_name": dispatch.skill_name,
+        # The wake's name when the dispatch carried none (attributed by hash).
+        "skill_name": dispatch.skill_name or wake.skill_name,
         "wake_ts": wake.ts.isoformat(),
         "dispatch_ts": dispatch.ts.isoformat(),
         "actual_sha256": dispatch.rendered_body_sha256 or None,
+        "attribution": attribution,
     }
     if not dispatch.rendered_body_sha256:
         return BodyVerdict(
@@ -436,7 +457,7 @@ def _grade_pair(wake: WakeStamp, dispatch: DispatchStamp) -> BodyVerdict:
             **common,
         )
     if dispatch.rendered_body_sha256 in wake.hashes_full:
-        return BodyVerdict(verdict=VERDICT_MATCH, **common)
+        return BodyVerdict(verdict=VERDICT_MATCH, detail=_ATTRIBUTION_DETAIL.get(attribution), **common)
     if dispatch.rendered_body_sha256 in wake.hashes_skeleton:
         # The authored fallback ladder delivered the identifier-free skeleton.
         # Designed behavior under a render fault -- reported, never a finding.
@@ -459,6 +480,7 @@ def verify_channel_bodies(
     *,
     dispatches: Optional[list[DispatchStamp]] = None,
     window_s: int = VERIFY_WINDOW_S,
+    attribute: Optional[Callable[[dict], Optional[str]]] = None,
 ) -> list[BodyVerdict]:
     """The SECONDARY check: what the mailbox actually holds, canon-hashed.
 
@@ -470,6 +492,15 @@ def verify_channel_bodies(
     wake stamps hash raw markdown and the mailbox stores the plain rendering, so
     the wake stamp alone can never match a templated send's channel body.
 
+    IDENTITY, NOT PROXIMITY (B7). ``attribute`` is the tri-state callable from
+    ``send_attribution.message_attributor`` (built here from ``dispatches`` when
+    not supplied): a message whose dispatch row names THIS wake's skill is
+    claimable; one whose row names another skill, or no skill at all (an
+    in-turn send inside a tracker's hour -- the motion-calendar case), is never
+    claimed by this wake; one no row joins is claimed by window as before but
+    graded hold-only, because a finding accuses a routine and nothing ties that
+    message to one.
+
     ``dispatches`` is optional: without it (and on any seat whose overlay does
     not stamp the plain hash yet) the check keeps its pre-calibration
     ``channel_mismatch_hold``. The body itself exists only inside this function.
@@ -477,66 +508,50 @@ def verify_channel_bodies(
     verdicts: list[BodyVerdict] = []
     claimed: set[int] = set()
     stamps = dispatches or []
-    # THE DISCRIMINATOR for what an absent plain stamp means, probed once per
-    # inbox rather than per window. The overlay version is a property of the
-    # SEAT, not of the hour, so a day of rows gets many more chances to observe
-    # the stamp than one wake's window does -- fewer false holds, and the
-    # fail-safe direction is unchanged (never observed => never a finding).
-    overlay_stamps_plain = any(stamp.plain_body_sha256 for stamp in stamps)
+    attribute = attribute or message_attributor(stamps, wakes, declares, window_s)
+    # THE DISCRIMINATOR for what an absent plain stamp means: the DEPLOY EDGE,
+    # the earliest row on the inbox that carries the stamp. Per ROW, not per
+    # inbox -- a window that spans the seat's reprovision holds rows from both
+    # sides of it, and a per-inbox boolean misgraded every pre-edge row as a
+    # deliberate omission (send_attribution.plain_stamp_edge has the incident).
+    # Fail-safe direction unchanged: no edge => never a finding on this path.
+    plain_edge = plain_stamp_edge(stamps)
     ordered = sorted(sent, key=lambda m: str(m.get("timestamp") or ""))
     for wake in wakes:
         decl = declares.get(wake.skill_name)
         if decl is None or not decl.hash_verified or not wake.hashes_full:
             continue
-        for capacity_used, (index, message) in enumerate(_messages_in_window(ordered, wake, window_s, claimed)):
+        for capacity_used, (index, message, identified) in enumerate(
+            _messages_in_window(ordered, wake, window_s, claimed, attribute)
+        ):
             if capacity_used >= wake.dispatch_capacity:
                 break
             claimed.add(index)
             verdicts.append(
                 _grade_channel_body(
-                    wake, message, fetch_body, stamps, window_s, overlay_stamps_plain
+                    wake, message, fetch_body, stamps, window_s, plain_edge, identified
                 )
             )
     return verdicts
 
 
-def _messages_in_window(ordered, wake, window_s, claimed):
+def _messages_in_window(ordered, wake, window_s, claimed, attribute):
+    """Unclaimed messages in the wake's window this wake may claim, with whether
+    a dispatch row IDENTIFIED each one (tri-state: the wake's own skill -> yes;
+    another skill or "" -> not this wake's, skipped; None -> unidentified)."""
     for index, message in enumerate(ordered):
         if index in claimed or not message.get("timestamp"):
             continue
+        owner = attribute(message)
+        if owner is not None and owner != wake.skill_name:
+            continue
         stamp = _parse_ts(message["timestamp"])
         if wake.ts <= stamp <= wake.ts + timedelta(seconds=window_s):
-            yield index, message
-
-
-def _claim_dispatch_stamp(
-    dispatches: list[DispatchStamp], wake: WakeStamp, window_s: int
-) -> Optional[DispatchStamp]:
-    """The oldest unconsumed same-skill dispatch stamp inside the wake's window.
-
-    Consumed one-to-one exactly like ``_claim_wake``: one stamp vouches for one
-    channel body, so a single conformant dispatch cannot launder a run of
-    mailbox messages. ``index_dispatches`` returns ts-sorted, which is what
-    makes the first hit the oldest.
-
-    A row carrying NEITHER hash is skipped rather than claimed -- there is
-    nothing to compare against, and the primary check already reports that row
-    as ``no_dispatch_stamp``.
-    """
-    for dispatch in dispatches:
-        if dispatch.skill_name != wake.skill_name or dispatch.plain_consumed:
-            continue
-        if not (dispatch.plain_body_sha256 or dispatch.rendered_body_sha256):
-            continue
-        if not (wake.ts <= dispatch.ts <= wake.ts + timedelta(seconds=window_s)):
-            continue
-        dispatch.plain_consumed = True
-        return dispatch
-    return None
+            yield index, message, owner is not None
 
 
 def _grade_channel_body(
-    wake, message, fetch_body, dispatches, window_s, overlay_stamps_plain
+    wake, message, fetch_body, dispatches, window_s, plain_edge, identified
 ) -> BodyVerdict:
     common = {
         "skill_name": wake.skill_name,
@@ -567,7 +582,7 @@ def _grade_channel_body(
     # Raw-markdown wake stamps cannot match a down-rendered channel body, so the
     # dispatch row is the only counterpart that can settle this. Which of its
     # two hashes to use is decided by the overlay's own semantics, below.
-    stamp = _claim_dispatch_stamp(dispatches, wake, window_s)
+    stamp = claim_dispatch_stamp(dispatches, wake, window_s, message)
     if stamp is None:
         return BodyVerdict(
             verdict=VERDICT_CHANNEL_MISMATCH,
@@ -585,46 +600,58 @@ def _grade_channel_body(
         # make; the plain stamp, not the raw wake hash, is what it expected.
         common["expected_sha256"] = stamp.plain_body_sha256
         return _graded(
-            digest == stamp.plain_body_sha256, digest, "the dispatch plain_body_sha256", common
+            digest == stamp.plain_body_sha256, digest, "the dispatch plain_body_sha256", common, identified
         )
-    if not overlay_stamps_plain:
-        # PRE-DEPLOY WINDOW. On a seat whose pinned overlay predates
-        # hermes-smd-overlay#338, absence carries no information: the send may
-        # well have been down-rendered with nothing recording it, and grading a
-        # conformant templated send against the raw markdown would file a false
-        # BODY_DIVERGED on every run. Hold, exactly as before.
+    if not stamps_plain_at(plain_edge, stamp):
+        # PRE-DEPLOY ROW. Written by an overlay that predates
+        # hermes-smd-overlay#338 (before the inbox's first stamped row, or no
+        # stamped row exists at all): absence carries no information, the send
+        # may well have been down-rendered with nothing recording it, and grading
+        # a conformant templated send against the raw markdown would file a false
+        # BODY_DIVERGED. Hold, exactly as before.
         return BodyVerdict(
             verdict=VERDICT_CHANNEL_MISMATCH,
             actual_sha256=digest,
             detail=(
-                "channel body hash differs from wake stamp and no dispatch row on this "
-                "inbox carries plain_body_sha256 (overlay predates the plain stamp; "
-                "hold, not finding)"
+                "channel body hash differs from wake stamp and this dispatch row predates "
+                "the inbox's first plain_body_sha256 stamp (overlay predates the plain "
+                "stamp; hold, not finding)"
             ),
             **common,
         )
-    # POST-DEPLOY. The overlay stamps plain hashes on this inbox, so it omitted
-    # this one deliberately: no down-render ran (prose reply, composer-supplied
-    # html), which means the channel text IS the bytes the gate allowed. Absence
-    # is a fact, not a gap, and `rendered_body_sha256` is the right counterpart.
+    # POST-DEPLOY ROW. The overlay that wrote this row stamps plain hashes, so it
+    # omitted this one deliberately: no down-render ran (prose reply,
+    # composer-supplied html), which means the channel text IS the bytes the gate
+    # allowed. Absence is a fact, not a gap; `rendered_body_sha256` is the counterpart.
     common["expected_sha256"] = stamp.rendered_body_sha256
     return _graded(
         digest == stamp.rendered_body_sha256,
         digest,
         "the dispatch rendered_body_sha256 (no down-render on this send)",
         common,
+        identified,
     )
 
 
-def _graded(matched: bool, digest: str, against: str, common: dict) -> BodyVerdict:
+def _graded(matched: bool, digest: str, against: str, common: dict, identified: bool) -> BodyVerdict:
     """MATCH or the finding, said once. Calibration is done: with a
     same-representation counterpart in hand, a mismatch can no longer be
-    explained away by an uncalibrated channel transform, so it is a FINDING."""
+    explained away by an uncalibrated channel transform, so it is a FINDING --
+    PROVIDED a dispatch row identified the message (B7). A divergence on a
+    message no row ties to this routine is the old proximity guess, and a guess
+    holds; it never accuses."""
     if matched:
         return BodyVerdict(
             verdict=VERDICT_MATCH,
             actual_sha256=digest,
             detail=f"channel body matches {against}",
+            **common,
+        )
+    if not identified:
+        return BodyVerdict(
+            verdict=VERDICT_CHANNEL_MISMATCH,
+            actual_sha256=digest,
+            detail=f"channel body hash differs from {against}, but no dispatch row identifies this message (claimed by window; hold, not finding)",
             **common,
         )
     return BodyVerdict(
@@ -737,6 +764,12 @@ def render_lines(
             )
     for reason, count in sorted(holds.items()):
         lines.append(f"HOLD  {inbox}: body-verify {count} send(s) {reason}")
+    # The two attribution metrics, printed whenever anything was paired: a seat
+    # whose column stopped being written shows up as by_hash climbing and
+    # by_skill falling, which is a number moving rather than silence.
+    counts = attribution_counts(verdicts)
+    if any(counts.values()):
+        lines.append(f"        attributed_by_skill={counts['attributed_by_skill']} attributed_by_hash={counts['attributed_by_hash']}")
     return lines
 
 
@@ -767,6 +800,7 @@ _VERDICT_EMIT_KEYS = (
     "expected_sha256",
     "actual_sha256",
     "detail",
+    "attribution",
 )
 _INVARIANT_EMIT_KEYS = ("rule", "skill_name", "hashed_key", "expected", "actual", "detail")
 _PROPOSAL_EMIT_KEYS = ("rule", "skill_name", "hashed_key", "value")
@@ -796,6 +830,7 @@ __all__ = [
     "WakeStamp",
     "ack_invariant",
     "as_dicts",
+    "attribution_counts",
     "canonical_body_sha256",
     "digest_keys",
     "has_findings",

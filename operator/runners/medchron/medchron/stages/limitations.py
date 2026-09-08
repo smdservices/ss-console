@@ -53,9 +53,8 @@ def _scope_lines(d: Path, byid: dict, ok: list, folded: list) -> list[str]:
             fld[top] = fld.get(top, 0) + 1
         skipped = sorted((f, n) for f, n in fld.items() if not any(f.startswith(px) or px.startswith(f) for px in prefixes))
         if skipped:
-            o += ["", "Folders in the matter file that were outside the scope of this review, with the number of "
-                      "documents in each. If any of these should have been included, tell us and we will extend the "
-                      "chronology:\n"]
+            o += ["", "Folders in the matter file outside the scope of this review, with the number of "
+                      "documents in each:\n"]
             o += [f"* {f} ({_plural(n, 'document')})" for f, n in skipped]
     return o
 

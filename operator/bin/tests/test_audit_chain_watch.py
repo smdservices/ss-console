@@ -181,7 +181,7 @@ def test_sql_int_refuses_anything_that_is_not_an_integer():
 
 
 def test_first_result_set_raises_rather_than_returning_empty_on_a_strange_envelope():
-    """"Could not read" must never be indistinguishable from "no pin recorded"."""
+    """ "Could not read" must never be indistinguishable from "no pin recorded"."""
     assert watch.first_result_set(json.dumps([{"results": [{"a": 1}]}])) == [{"a": 1}]
     assert watch.first_result_set(json.dumps({"results": []})) == []
     with pytest.raises(RuntimeError):
@@ -281,11 +281,19 @@ def test_two_runs_in_one_utc_day_write_two_different_keys(tmp_path):
         uploaded.append(destination)
 
     morning = watch.archive_export(
-        "seat", rows, bucket="b", uploader=uploader, work_dir=tmp_path / "am",
+        "seat",
+        rows,
+        bucket="b",
+        uploader=uploader,
+        work_dir=tmp_path / "am",
         now=datetime(2026, 8, 21, 8, 0, 0, tzinfo=timezone.utc),
     )
     afternoon = watch.archive_export(
-        "seat", rows, bucket="b", uploader=uploader, work_dir=tmp_path / "pm",
+        "seat",
+        rows,
+        bucket="b",
+        uploader=uploader,
+        work_dir=tmp_path / "pm",
         now=datetime(2026, 8, 21, 13, 39, 7, tzinfo=timezone.utc),
     )
     assert morning.key != afternoon.key
@@ -336,7 +344,6 @@ class _Reader:
 
     def read_all(self, table):
         return list(self._rows)
-
 
 
 # The rule body the LIVE bucket answered with on 2026-08-21. Pinned to the
@@ -431,7 +438,10 @@ def test_an_age_shorter_than_the_retention_commitment_does_not_confirm_the_lock(
 
 
 def test_a_success_false_body_does_not_confirm_the_lock():
-    payload = {"success": False, "errors": [{"code": 10006, "message": "Bucket not found"}]}
+    payload = {
+        "success": False,
+        "errors": [{"code": 10006, "message": "Bucket not found"}],
+    }
     ok, note = watch.evaluate_lock_payload("smd-audit-archive", payload)
     assert ok is False
     assert "success=false" in note

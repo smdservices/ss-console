@@ -19,9 +19,18 @@ const CTX = {
   syncedAt: '2026-06-10T18:00:00.000Z',
 }
 
-/** Load + validate the live smd customer.yaml as a realistic base fixture. */
+/**
+ * Load + validate a FROZEN copy of customer-zero's customer.yaml, taken when
+ * the `smd` seat was retired (2026-09-03). These tests cover projection SHAPES
+ * -- an autonomous external_send, an enabled mcp_connector -- that no live
+ * seat authors today, and coverage must not shrink because a seat did. It is
+ * not a seat directory, so it re-arms neither the R2 publisher nor the
+ * reconcilers (tests/customer-slug-pattern.test.ts, 'retired seats').
+ */
 function smdYaml(): CustomerYaml {
-  const parsed = parseYaml(readFileSync(resolve('operator/customers/smd/customer.yaml'), 'utf-8'))
+  const parsed = parseYaml(
+    readFileSync(resolve('tests/fixtures/customer-yaml/retired-smd.customer.yaml'), 'utf-8')
+  )
   const result = validate(parsed)
   if (!result.ok) {
     throw new Error('smd customer.yaml failed validation: ' + JSON.stringify(result.errors))
